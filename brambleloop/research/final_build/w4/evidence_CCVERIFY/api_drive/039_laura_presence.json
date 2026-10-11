@@ -1,0 +1,336 @@
+{
+ "status": 200,
+ "url": "/api/cc/laura/presence",
+ "body": {
+  "capabilities": {
+   "contract_version": 1,
+   "modes": [
+    "live",
+    "voice",
+    "text"
+   ],
+   "degradation": "live+voice -> voice -> text",
+   "available": [
+    "text"
+   ],
+   "phases": [
+    {
+     "phase": 1,
+     "mode": "text",
+     "status": "ACTIVE",
+     "what": "text conversation with visible canonical Laura (owner-only)",
+     "needs": []
+    },
+    {
+     "phase": 2,
+     "mode": "voice",
+     "status": "GATED",
+     "what": "speech in (phone mic / earbuds) -> transcription -> the same conversation -> spoken reply in the canonical voice + text",
+     "needs": [
+      {
+       "need": "speech-to-text provider (streaming, en-CA) chosen and contracted",
+       "who": "owner",
+       "kind": "consequential spend + provider terms acceptance",
+       "max_cost": "UNKNOWN until a provider is chosen (per-minute pricing)"
+      },
+      {
+       "need": "text-to-speech voice qualified against voice_spec v2 (D-FB-18: measured readings, pronunciation lexicon), then HEARD by the owner and selected by an owner listening decision (voice_selection.OWNER_ACTION)",
+       "who": "owner",
+       "kind": "owner listening decision + paid trial approval",
+       "max_cost": "UNKNOWN until a provider is chosen"
+      },
+      {
+       "need": "if the voice imitates the human Laura: her recorded consent",
+       "who": "human Laura (via owner)",
+       "kind": "human-gated consent",
+       "max_cost": "CA$0"
+      },
+      {
+       "need": "browser microphone permission on the owner's phone (Bluetooth earbuds work as the system audio route)",
+       "who": "owner",
+       "kind": "device permission",
+       "max_cost": "CA$0"
+      }
+     ],
+     "configured": {
+      "stt": null,
+      "tts": null,
+      "voice_qualified": false
+     }
+    },
+    {
+     "phase": 3,
+     "mode": "live",
+     "status": "GATED",
+     "what": "real-time live presence: canonical Laura, blinking, expressions, subtle movement, lip sync, turn-taking",
+     "needs": [
+      {
+       "need": "real-time avatar renderer able to reproduce laura-r2-a42aeac7 and pass the identity -> photorealism -> anatomy gates (nothing is publication-approved or presence-approved today)",
+       "who": "Visual + owner",
+       "kind": "provider + owner identity approval",
+       "max_cost": "UNKNOWN"
+      },
+      {
+       "need": "Phase 2 voice ACTIVE (lip sync needs the qualified voice's visemes)",
+       "who": "system",
+       "kind": "dependency",
+       "max_cost": "-"
+      },
+      {
+       "need": "owner spend authority for streaming render minutes",
+       "who": "owner",
+       "kind": "consequential spend",
+       "max_cost": "UNKNOWN"
+      }
+     ],
+     "configured": {
+      "renderer": null
+     }
+    }
+   ],
+   "invariants": [
+    "one Laura: identity, memory, authority and history are the same in every mode (talk.converse is the only conversation path)",
+    "no paid provider is called without owner spend authority",
+    "private register stays GATED in every mode"
+   ]
+  },
+  "visible_identity": {
+   "identity_id": "laura-r2-a42aeac7",
+   "status": "OK",
+   "problems": [],
+   "frames": [
+    {
+     "frame": "neutral_portrait",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/neutral_portrait",
+     "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal — owner-approved canonical reference, not publication-approved"
+    },
+    {
+     "frame": "torso_fit_reference",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/torso_fit_reference",
+     "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal — owner-approved canonical reference, not publication-approved"
+    },
+    {
+     "frame": "full_length_standing",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/full_length_standing",
+     "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal — owner-approved canonical reference, not publication-approved"
+    }
+   ],
+   "publication_approved_frames": 0,
+   "customer_ready": false,
+   "state": "No Laura image is publication-approved. The owner view shows her owner-approved canonical reference frames, labelled internal; customer surfaces show none until every Visual gate passes.",
+   "missing_canonical_history": [
+    "reference_pack/torso_fit_reference",
+    "reference_pack/full_length_standing",
+    "stress_set/fitted_garment",
+    "stress_set/fitted_garment_close",
+    "stress_set/loose_layered_garment",
+    "stress_set/non_garment_lifestyle",
+    "stress_set/winter_seasonal"
+   ],
+   "source": "visual.canonical (manifest v2, D-FB-11/D-FB-14)"
+  },
+  "voice": {
+   "spec_id": "laura-voice-v2",
+   "spec_sha256": "4c5ab12b2975a0269cde6d4ea13d985c3eab252a3cdf953c5a19edc420585b2b",
+   "decision_id": "D-FB-18",
+   "canonical_voice": "NONE SELECTED (no candidate heard by the owner yet)",
+   "criteria": [
+    {
+     "key": "apparent_age",
+     "label": "Apparent age early 30s (30-34, ~32)",
+     "kind": "listening"
+    },
+    {
+     "key": "match_to_canonical_appearance",
+     "label": "Matches Laura's canonical appearance",
+     "kind": "listening"
+    },
+    {
+     "key": "femininity",
+     "label": "Distinctly feminine",
+     "kind": "listening"
+    },
+    {
+     "key": "attractiveness",
+     "label": "Naturally attractive, magnetic",
+     "kind": "listening"
+    },
+    {
+     "key": "warmth",
+     "label": "Warm",
+     "kind": "listening"
+    },
+    {
+     "key": "natural_sensuality",
+     "label": "Subtly sensual without performing it",
+     "kind": "listening"
+    },
+    {
+     "key": "intelligence_confidence",
+     "label": "Intelligent and confident",
+     "kind": "listening"
+    },
+    {
+     "key": "conversational_naturalness",
+     "label": "Naturally conversational prosody",
+     "kind": "listening"
+    },
+    {
+     "key": "emotional_range",
+     "label": "Emotional range (humour, seriousness, excitement, reactions)",
+     "kind": "listening"
+    },
+    {
+     "key": "exclusions_absent",
+     "label": "None of the excluded performances or cadences is heard",
+     "kind": "listening"
+    },
+    {
+     "key": "latency",
+     "label": "Latency: time to first audio (p50 ms) fit for conversation",
+     "kind": "measured"
+    },
+    {
+     "key": "consistency",
+     "label": "Consistent across renders and sessions",
+     "kind": "measured"
+    },
+    {
+     "key": "pronunciation",
+     "label": "Pronunciation lexicon exact",
+     "kind": "measured"
+    },
+    {
+     "key": "provider_stability",
+     "label": "Provider stability (versioned voice, terms, uptime)",
+     "kind": "evidence"
+    },
+    {
+     "key": "cost",
+     "label": "Cost per minute (CAD) known and within an owner-approved ceiling",
+     "kind": "evidence"
+    }
+   ],
+   "owner_action": {
+    "requirement_key": "laura.voice.listen_shortlist",
+    "action": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+    "why": "D-FB-18 item 7: no voice becomes Laura's canonical voice until you have heard it; perceptual criteria (attractiveness, warmth, natural sensuality, match to her appearance, the exclusions) are your listening judgement, not a model's",
+    "needs": [
+     "provider access: a voice provider account/API key chosen by you",
+     "paid trial approval: generating candidate samples is a paid call (owner spend approval required before any call)"
+    ],
+    "max_cost": "UNKNOWN until a provider is chosen (per-character / per-minute pricing)",
+    "max_cost_cad": null,
+    "minutes": 20,
+    "consequence_of_waiting": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority",
+    "blocks": [
+     "LAURA-VOICE-P2",
+     "LAURA-LIVE-P3"
+    ],
+    "status": "OPEN",
+    "source": "DECISION_LOG D-FB-18 item 7"
+   }
+  },
+  "roadmap": [
+   {
+    "id": "LAURA-TEXT-P1",
+    "title": "Talk to Laura, Phase 1: visible canonical Laura + text, persistent company context, evidence-grounded answers, audited delegation, authority boundaries, private-memory isolation",
+    "required": true,
+    "source": "D-FB-16 items 7,10; D-FB-18 item 8 (approved as the foundation)",
+    "gate": null,
+    "status": "COMPLETE",
+    "cancelled": false
+   },
+   {
+    "id": "LAURA-VOICE-P2",
+    "title": "Talk to Laura, Phase 2: voice in (phone mic / Galaxy Buds) and out in the canonical Laura Voice (spec v2), same Laura/memory/authority",
+    "required": true,
+    "source": "D-FB-16 items 7-9; D-FB-18 items 6-8",
+    "gate": {
+     "kind": "owner",
+     "key": "laura_voice_provider",
+     "detail": "owner chooses a voice provider and approves a paid trial; the owner LISTENS to shortlisted candidates and records a selection decision; STT provider chosen; contract presence.SpeechToText/TextToSpeech"
+    },
+    "status": "GATED",
+    "cancelled": false
+   },
+   {
+    "id": "LAURA-LIVE-P3",
+    "title": "Talk to Laura, Phase 3: real-time Live Presence (Zoom-like): photoreal canonical Laura, blinking, expressions, subtle movement, lip sync, turn-taking",
+    "required": true,
+    "source": "D-FB-16 items 7,10; D-FB-18 item 8",
+    "gate": {
+     "kind": "owner",
+     "key": "laura_live_presence_provider",
+     "detail": "LAURA-VOICE-P2 done; a real-time avatar renderer that reproduces laura-r2-a42aeac7 and passes identity -> photorealism -> anatomy; owner identity approval and spend authority; contract presence.LivePresenceRenderer"
+    },
+    "status": "GATED",
+    "cancelled": false
+   },
+   {
+    "id": "LAURA-PRIVATE-REGISTER",
+    "title": "Private owner register (text and, where supported, the same voice's private delivery)",
+    "required": true,
+    "source": "spec/07 Ruling 2; D-FB-15; D-FB-16 item 11; D-FB-18 item 6",
+    "gate": {
+     "kind": "owner",
+     "key": "laura_private_register",
+     "detail": "PRIV infrastructure exists; the conversational register needs its own owner-approved lane bounded by the provider's usage policies"
+    },
+    "status": "GATED",
+    "cancelled": false
+   },
+   {
+    "id": "LAURA-VOICE-IMPROVE",
+    "title": "Voice as a permanent improvement domain: realism, latency, prosody, expressiveness, conversation quality -- without changing her recognisable identity",
+    "required": true,
+    "source": "D-FB-18 item 7",
+    "gate": {
+     "kind": "external",
+     "key": "laura_voice_provider",
+     "detail": "needs a selected voice to measure; loop registration is a WIRING REQUEST to the Learn/improve owner"
+    },
+    "status": "GATED",
+    "cancelled": false
+   }
+  ],
+  "improvement_domain": {
+   "key": "laura_voice",
+   "department": "learn",
+   "owner_domain": "Brand / Laura",
+   "dimensions": [
+    "realism",
+    "latency",
+    "prosody",
+    "expressiveness",
+    "conversation quality"
+   ],
+   "metrics": {
+    "latency_ms_p50": "UNKNOWN (no voice selected)",
+    "owner_listening_preference": "UNKNOWN (owner A/B listening, never auto-scored)",
+    "pronunciation_accuracy": "UNKNOWN",
+    "turn_taking_interruptions": "UNKNOWN"
+   },
+   "invariants": [
+    "recognisable identity is locked: every challenger must be judged by the owner as the same voice as the locked reference samples",
+    "spec v2 is not tuned by the loop; a spec change is an owner decision",
+    "no paid generation without owner spend authority",
+    "private register stays GATED"
+   ],
+   "promotion": "challenger -> voice_spec.qualify PASS -> voice_selection.scorecard PASS (replacement) -> owner decision -> voice_selection.select (new version)",
+   "status": "GATED"
+  }
+ }
+}

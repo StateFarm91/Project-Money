@@ -1,0 +1,25 @@
+{
+ "title": "Money · Brambleloop",
+ "view_title": "Money",
+ "page_meta": null,
+ "error_state": true,
+ "error_text": "Could not loadperiod '7d': use month, last_month, 30d, ytd, all or YYYY-MMNothing on this screen is current. No data is shown rather than old or invented data.Try again",
+ "cards": [
+  {
+   "title": "Could not load",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Could not loadperiod '7d': use month, last_month, 30d, ytd, all or YYYY-MMNothing on this screen is current. No data is shown rather than old or invented data.Try again"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 168,
+ "body": "Could not loadperiod '7d': use month, last_month, 30d, ytd, all or YYYY-MMNothing on this screen is current. No data is shown rather than old or invented data.Try again",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

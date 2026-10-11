@@ -1,0 +1,205 @@
+{
+ "title": "Notifications · Brambleloop",
+ "view_title": "Notifications",
+ "page_meta": "as of just now",
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Alerts",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "AlertsDecisions, risk, deadlines and anomalies only. Routine machine chatter is suppressed.Re-check117 routine event(s) suppressed as noise."
+  },
+  {
+   "title": "37 refused owner-auth attempts in the last hour",
+   "pill": "CRITICAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: possible credential guessing or a misconfigured device",
+   "tiles": [],
+   "text": "Security · 37×37 refused owner-auth attempts in the last hourCRITICALsee Account > security eventsConsequence: possible credential guessing or a misconfigured deviceLast seen just nowEvidence: cc_security_events (outcome=refused)OpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [51] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itselfHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: requirements [51] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returnsHIGHRecommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on itConsequence: requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: a model provider that can actually serve a request",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.",
+   "tiles": [],
+   "text": "DecisionDecision needed: a model provider that can actually serve a requestHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.Last seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+   "tiles": [],
+   "text": "DecisionDecision needed: an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the ownerHIGHRecommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on itConsequence: free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search onlyLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade to",
+   "tiles": [],
+   "text": "DecisionDecision needed: a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs oneHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade toLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "pill": "HIGH",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [163, 165, 168, 315, 317] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardownHIGHRecommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on itConsequence: requirements [163, 165, 168, 315, 317] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "3 dead-lettered jobs",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: the work they carried is not happening",
+   "tiles": [],
+   "text": "Anomaly · 3×3 dead-lettered jobsNORMALjobs exhausted their retries; recovery may need a requeueConsequence: the work they carried is not happeningLast seen just nowEvidence: jobs (status=dead)OpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [189, 221, 222, 320] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320NORMALRecommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on itConsequence: requirements [189, 221, 222, 320] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [11, 12] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)NORMALRecommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on itConsequence: requirements [11, 12] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grantNORMALRecommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on itConsequence: requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: owner-recorded Marketplace Insights readings exist",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [1, 37, 54, 236, 237] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: owner-recorded Marketplace Insights readings existNORMALRecommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on itConsequence: requirements [1, 37, 54, 236, 237] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: requirements [195] stay parked",
+   "tiles": [],
+   "text": "DecisionDecision needed: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rowsNORMALRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: requirements [195] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+   "tiles": [],
+   "text": "DecisionDecision needed: one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow modeNORMALRecommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on itConsequence: no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live saleLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority",
+   "tiles": [],
+   "text": "DecisionDecision needed: Listen to the shortlisted Laura voice candidates and choose one (or none)NORMALRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authorityLast seen just nowEvidence: build2.executor.approval_inbox, owner_actions:1OpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: Create the Etsy draft for cloudline-baby-blanket v1.2.0",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: the release stays unpublished; nothing else waits",
+   "tiles": [],
+   "text": "DecisionDecision needed: Create the Etsy draft for cloudline-baby-blanket v1.2.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:3, listings:3, ops.publication_authority.evidenceOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: Create the Etsy draft for nordic-star-ornaments v1.4.0",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: the release stays unpublished; nothing else waits",
+   "tiles": [],
+   "text": "DecisionDecision needed: Create the Etsy draft for nordic-star-ornaments v1.4.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:2, listings:2, ops.publication_authority.evidenceOpenAcknowledge"
+  },
+  {
+   "title": "Decision needed: Create the Etsy draft for hexagon-coaster-set v1.2.0",
+   "pill": "NORMAL",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Consequence: the release stays unpublished; nothing else waits",
+   "tiles": [],
+   "text": "DecisionDecision needed: Create the Etsy draft for hexagon-coaster-set v1.2.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:1, listings:1, ops.publication_authority.evidenceOpenAcknowledge"
+  },
+  {
+   "title": "Digest",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Digestas of just nowNone."
+  },
+  {
+   "title": null,
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Notification policyCritical and security notifications always come through, even in quiet hours. Only in-app delivery exists today; email, SMS and push are gated pending owner authority and a CASL review.Quiet hours startQuiet hours endTime zoneMinimum severityCriticalHighNormalLowDigestMorningNoneSave policy"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 7047,
+ "body": "as of just nowAlertsDecisions, risk, deadlines and anomalies only. Routine machine chatter is suppressed.Re-check117 routine event(s) suppressed as noise.Security · 37×37 refused owner-auth attempts in the last hourCRITICALsee Account > security eventsConsequence: possible credential guessing or a misconfigured deviceLast seen just nowEvidence: cc_security_events (outcome=refused)OpenAcknowledgeDecisionDecision needed: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itselfHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: requirements [51] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returnsHIGHRecommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on itConsequence: requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: a model provider that can actually serve a requestHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.Last seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the ownerHIGHRecommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on itConsequence: free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search onlyLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs oneHIGHRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade toLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardownHIGHRecommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on itConsequence: requirements [163, 165, 168, 315, 317] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeAnomaly · 3×3 dead-lettered jobsNORMALjobs exhausted their retries; recovery may need a requeueConsequence: the work they carried is not happeningLast seen just nowEvidence: jobs (status=dead)OpenAcknowledgeDecisionDecision needed: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320NORMALRecommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on itConsequence: requirements [189, 221, 222, 320] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)NORMALRecommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on itConsequence: requirements [11, 12] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grantNORMALRecommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on itConsequence: requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: owner-recorded Marketplace Insights readings existNORMALRecommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on itConsequence: requirements [1, 37, 54, 236, 237] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rowsNORMALRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: requirements [195] stay parkedLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow modeNORMALRecommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on itConsequence: no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live saleLast seen just nowEvidence: build2.executor.approval_inboxOpenAcknowledgeDecisionDecision needed: Listen to the shortlisted Laura voice candidates and choose one (or none)NORMALRecommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on itConsequence: Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authorityLast seen just nowEvidence: build2.executor.approval_inbox, owner_actions:1OpenAcknowledgeDecisionDecision needed: Create the Etsy draft for cloudline-baby-blanket v1.2.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:3, listings:3, ops.publication_authority.evidenceOpenAcknowledgeDecisionDecision needed: Create the Etsy draft for nordic-star-ornaments v1.4.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:2, listings:2, ops.publication_authority.evidenceOpenAcknowledgeDecisionDecision needed: Create the Etsy draft for hexagon-coaster-set v1.2.0NORMALNot ready: parity, listing_set, policy, search, rollback not passingConsequence: the release stays unpublished; nothing else waitsLast seen just nowEvidence: pattern_versions:1, listings:1, ops.publication_authority.evidenceOpenAcknowledgeDigestas of just nowNone.Notification policyCritical and security notifications always come through, even in quiet hours. Only in-app delivery exists today; email, SMS and push are gated pending owner authority and a CASL review.Quiet hours startQuiet hours endTime zoneMinimum severityCriticalHighNormalLowDigestMorningNoneSave policy",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

@@ -1,0 +1,1081 @@
+{
+ "status": 200,
+ "url": "/api/cc/brief/morning?hours=12",
+ "body": {
+  "tab": "MORNING_BRIEF",
+  "generated_at": "2026-10-11T00:26:16+00:00",
+  "sections": {
+   "what_changed": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "id": 99,
+      "at": "2026-10-11T00:09:04.969983+00:00",
+      "actor": "orchestrator",
+      "action": "benchmarks.reconciled",
+      "artifact": null,
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:99"
+     },
+     {
+      "id": 98,
+      "at": "2026-10-11T00:09:04.897958+00:00",
+      "actor": "orchestrator",
+      "action": "runtime.started",
+      "artifact": null,
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:98"
+     },
+     {
+      "id": 97,
+      "at": "2026-10-11T00:09:04.889906+00:00",
+      "actor": "release_guard",
+      "action": "release.boot_verdict",
+      "artifact": "RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json",
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:97"
+     },
+     {
+      "id": 96,
+      "at": "2026-10-11T00:08:54.772554+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:96"
+     },
+     {
+      "id": 95,
+      "at": "2026-10-11T00:08:54.766241+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:95"
+     },
+     {
+      "id": 94,
+      "at": "2026-10-11T00:08:54.754180+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:94"
+     },
+     {
+      "id": 93,
+      "at": "2026-10-11T00:08:44.746474+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:93"
+     },
+     {
+      "id": 92,
+      "at": "2026-10-11T00:08:44.717576+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:92"
+     },
+     {
+      "id": 91,
+      "at": "2026-10-11T00:08:44.713474+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:91"
+     },
+     {
+      "id": 90,
+      "at": "2026-10-11T00:08:44.707681+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:90"
+     },
+     {
+      "id": 89,
+      "at": "2026-10-11T00:08:43.478475+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:89"
+     },
+     {
+      "id": 88,
+      "at": "2026-10-11T00:08:43.448116+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:88"
+     },
+     {
+      "id": 87,
+      "at": "2026-10-11T00:08:43.442962+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:87"
+     },
+     {
+      "id": 86,
+      "at": "2026-10-11T00:08:43.429974+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:86"
+     },
+     {
+      "id": 85,
+      "at": "2026-10-11T00:08:42.095351+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:85"
+     },
+     {
+      "id": 84,
+      "at": "2026-10-11T00:08:42.030534+00:00",
+      "actor": "growth",
+      "action": "job.completed:launch.plan",
+      "artifact": "launch.plan",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:84"
+     },
+     {
+      "id": 83,
+      "at": "2026-10-11T00:08:42.010471+00:00",
+      "actor": "orchestrator",
+      "action": "teardown.product_qa",
+      "artifact": "cloudline-baby-blanket",
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:83"
+     },
+     {
+      "id": 82,
+      "at": "2026-10-11T00:08:41.975843+00:00",
+      "actor": "growth",
+      "action": "growth.experiments_registered",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:82"
+     },
+     {
+      "id": 81,
+      "at": "2026-10-11T00:08:41.959267+00:00",
+      "actor": "growth",
+      "action": "launch.ranking_readiness",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:81"
+     },
+     {
+      "id": 80,
+      "at": "2026-10-11T00:08:41.929711+00:00",
+      "actor": "growth",
+      "action": "listing.mobile_qa",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:80"
+     },
+     {
+      "id": 79,
+      "at": "2026-10-11T00:08:40.840861+00:00",
+      "actor": "growth",
+      "action": "launch.planned",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:79"
+     },
+     {
+      "id": 78,
+      "at": "2026-10-11T00:08:40.822871+00:00",
+      "actor": "listing",
+      "action": "job.completed:listing.seo",
+      "artifact": "listing.seo",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:78"
+     },
+     {
+      "id": 77,
+      "at": "2026-10-11T00:08:40.801379+00:00",
+      "actor": "listing",
+      "action": "listing.query_portfolio",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "no reachable alternative phrase; the original tags stand",
+      "source": "audit_log:77"
+     },
+     {
+      "id": 76,
+      "at": "2026-10-11T00:08:40.797392+00:00",
+      "actor": "listing",
+      "action": "support.knowledge_built",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:76"
+     },
+     {
+      "id": 75,
+      "at": "2026-10-11T00:08:40.774393+00:00",
+      "actor": "listing",
+      "action": "listing.disclosure_checked",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:75"
+     },
+     {
+      "id": 74,
+      "at": "2026-10-11T00:08:40.736962+00:00",
+      "actor": "listing",
+      "action": "listing.search_hero_judged",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:74"
+     },
+     {
+      "id": 73,
+      "at": "2026-10-11T00:08:39.746437+00:00",
+      "actor": "listing",
+      "action": "listing.seo_drafted",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:73"
+     },
+     {
+      "id": 72,
+      "at": "2026-10-11T00:08:39.706434+00:00",
+      "actor": "listing",
+      "action": "listing.classified",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:72"
+     },
+     {
+      "id": 71,
+      "at": "2026-10-11T00:08:39.467142+00:00",
+      "actor": "growth",
+      "action": "job.completed:launch.plan",
+      "artifact": "launch.plan",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:71"
+     },
+     {
+      "id": 70,
+      "at": "2026-10-11T00:08:39.444312+00:00",
+      "actor": "orchestrator",
+      "action": "teardown.product_qa",
+      "artifact": "nordic-star-ornaments",
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:70"
+     }
+    ],
+    "sources": [
+     "audit_log"
+    ],
+    "provider": "audit_log"
+   },
+   "completed": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "agent": "growth",
+      "completed": 3
+     },
+     {
+      "agent": "listing",
+      "completed": 6
+     },
+     {
+      "agent": "pricing",
+      "completed": 3
+     },
+     {
+      "agent": "publishing",
+      "completed": 3
+     },
+     {
+      "agent": "quality_director",
+      "completed": 3
+     }
+    ],
+    "sources": [
+     "jobs"
+    ],
+    "provider": "jobs (last 12h)",
+    "completed": 18,
+    "failed": 3,
+    "created": 34,
+    "window_hours": 12,
+    "last_useful_action": {
+     "id": 26,
+     "agent": "growth",
+     "job_type": "launch.plan",
+     "finished_at": "2026-10-11T00:08:42.027090+00:00",
+     "source": "jobs:26"
+    }
+   },
+   "money_spent": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "modelled",
+    "items": [
+     {
+      "kind": "llm",
+      "amount_cad": 0.176,
+      "entries": 11,
+      "by_basis_cad": {
+       "modelled": 0.176
+      },
+      "basis": "modelled"
+     }
+    ],
+    "sources": [
+     "cost_entries"
+    ],
+    "provider": "cost_entries",
+    "total": {
+     "value_cad": 0.18,
+     "state": "RECORDED",
+     "basis": "modelled",
+     "by_basis_cad": {
+      "modelled": 0.176
+     },
+     "display": "CA$0.18 (recorded; CA$0.18 not measured)"
+    }
+   },
+   "incidents": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [],
+    "sources": [
+     "incidents"
+    ],
+    "provider": "incidents"
+   },
+   "discoveries": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [],
+    "sources": [
+     "lessons"
+    ],
+    "provider": "lessons"
+   },
+   "overnight_autonomy": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:26:16.216073+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "department": "executive",
+      "name": "Executive / COO",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:42.027090+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "intelligence",
+      "name": "Intelligence",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "benchmark_observation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "read-only Etsy API credentials that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_design",
+      "name": "Product & Design",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 1,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "model_provider",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model provider that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_truth",
+      "name": "Product Truth / QA",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:07:51.698181+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "visual",
+      "name": "Visual",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 4,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:34.740056+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "image_generation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "canonical_model",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "image_vision",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "store_commerce",
+      "name": "Store / Commerce",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 9,
+      "useful_24h": 9,
+      "dead_24h": 3,
+      "last_run": "2026-10-11T00:08:54.769928+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "support",
+      "name": "Customer Support",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "data_gate",
+        "gate": "customers",
+        "waiting_on": "data",
+        "closure_kind": "DATA-GATED",
+        "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "finance",
+      "name": "Finance / Accounting",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "transactions_r",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "growth",
+      "name": "Growth / Marketing",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "learn",
+      "name": "Learn / Improvement",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "platform",
+      "name": "Platform / Reliability",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 2,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "offsite_storage",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     }
+    ],
+    "orchestrator": {
+     "last_tick": null,
+     "stale": true,
+     "stale_after_minutes": 45,
+     "last_created": null
+    },
+    "overnight": {
+     "missions_12h": 0,
+     "by_outcome": {
+      "queued": 0,
+      "useful": 0,
+      "noop": 0,
+      "failed": 0
+     },
+     "latest_brief": null
+    },
+    "timeline": [
+     {
+      "at": "2026-10-11T00:09:04.914248+00:00",
+      "kind": "approval.open",
+      "department": "",
+      "severity": "decision",
+      "summary": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+      "refs": [
+       "owner_actions:1"
+      ],
+      "source": "owner_actions"
+     },
+     {
+      "at": "2026-10-11T00:08:54.769928+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:28"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:44.715882+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:25"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:43.445867+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:22"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.698181+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:3"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.487901+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:2"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.355475+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:1"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-10T23:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:1"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T22:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:2"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T21:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:3"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T20:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:4"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T19:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:5"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T18:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:6"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T17:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:7"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T16:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:8"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T15:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:9"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T14:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:10"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T13:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:11"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T12:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:12"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T11:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:13"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     }
+    ],
+    "sources": [
+     "jobs",
+     "company_memory",
+     "company_timeline",
+     "worker.CADENCES",
+     "build2.executor.gate_states"
+    ],
+    "provider": "brambleloop.autonomy.status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 11,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "reason": "provider gave no reason"
+   },
+   "queued_actions": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "job_type": "gate.lanes",
+      "pending": 3
+     },
+     {
+      "job_type": "marketing.schedule",
+      "pending": 3
+     },
+     {
+      "job_type": "visual.portrait_repair",
+      "pending": 1
+     },
+     {
+      "job_type": "collection.assemble",
+      "pending": 1
+     },
+     {
+      "job_type": "model.probe",
+      "pending": 1
+     },
+     {
+      "job_type": "ops.capability_probes",
+      "pending": 1
+     },
+     {
+      "job_type": "creative.photoreal_calibration",
+      "pending": 1
+     },
+     {
+      "job_type": "seasonal.cycle_proof",
+      "pending": 1
+     },
+     {
+      "job_type": "creative.model_freeze",
+      "pending": 1
+     }
+    ],
+    "sources": [
+     "jobs"
+    ],
+    "provider": "jobs",
+    "pending_total": 13
+   },
+   "decisions_needed": {
+    "status": "BLOCKED",
+    "as_of": "2026-10-11T00:26:16+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "card_id": "gate:acceptance_ruling",
+      "title": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320"
+     },
+     {
+      "card_id": "gate:transactions_r",
+      "title": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)"
+     },
+     {
+      "card_id": "gate:live_listings",
+      "title": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant"
+     },
+     {
+      "card_id": "gate:insights_access",
+      "title": "owner-recorded Marketplace Insights readings exist"
+     },
+     {
+      "card_id": "gate:production_window",
+      "title": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows"
+     },
+     {
+      "card_id": "gate:offsite_storage",
+      "title": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself"
+     },
+     {
+      "card_id": "gate:image_vision",
+      "title": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns"
+     },
+     {
+      "card_id": "gate:model_provider",
+      "title": "a model provider that can actually serve a request"
+     },
+     {
+      "card_id": "gate:owned_surfaces",
+      "title": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner"
+     },
+     {
+      "card_id": "gate:tester_roster",
+      "title": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode"
+     },
+     {
+      "card_id": "gate:physical_proof",
+      "title": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one"
+     },
+     {
+      "card_id": "gate:benchmark_purchases",
+      "title": "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown"
+     },
+     {
+      "card_id": "owner_action:1",
+      "title": "Listen to the shortlisted Laura voice candidates and choose one (or none)"
+     },
+     {
+      "card_id": "publication:cloudline-baby-blanket@1.2.0",
+      "title": "Create the Etsy draft for cloudline-baby-blanket v1.2.0"
+     },
+     {
+      "card_id": "publication:nordic-star-ornaments@1.4.0",
+      "title": "Create the Etsy draft for nordic-star-ornaments v1.4.0"
+     },
+     {
+      "card_id": "publication:hexagon-coaster-set@1.2.0",
+      "title": "Create the Etsy draft for hexagon-coaster-set v1.2.0"
+     }
+    ],
+    "sources": [
+     "build2.executor.approval_inbox",
+     "owner_actions",
+     "ops.publication_authority.evidence"
+    ],
+    "provider": "approvals.inbox",
+    "reason": "16 owner decisions open"
+   }
+  },
+  "window_hours": 12,
+  "since": "2026-10-10T12:26:07.806306+00:00"
+ }
+}

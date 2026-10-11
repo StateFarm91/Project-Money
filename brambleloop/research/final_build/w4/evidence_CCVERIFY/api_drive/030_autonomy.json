@@ -1,0 +1,4919 @@
+{
+ "status": 200,
+ "url": "/api/cc/autonomy",
+ "body": {
+  "tab": "AUTONOMY",
+  "generated_at": "2026-10-11T00:29:42+00:00",
+  "sections": {
+   "autonomy": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:29:40.347111+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "department": "executive",
+      "name": "Executive / COO",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:42.027090+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "intelligence",
+      "name": "Intelligence",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "benchmark_observation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "read-only Etsy API credentials that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_design",
+      "name": "Product & Design",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 1,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "model_provider",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model provider that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_truth",
+      "name": "Product Truth / QA",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:07:51.698181+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "visual",
+      "name": "Visual",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 4,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:34.740056+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "image_generation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "canonical_model",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "image_vision",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "store_commerce",
+      "name": "Store / Commerce",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 9,
+      "useful_24h": 9,
+      "dead_24h": 3,
+      "last_run": "2026-10-11T00:08:54.769928+00:00",
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "support",
+      "name": "Customer Support",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "data_gate",
+        "gate": "customers",
+        "waiting_on": "data",
+        "closure_kind": "DATA-GATED",
+        "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "finance",
+      "name": "Finance / Accounting",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "transactions_r",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "growth",
+      "name": "Growth / Marketing",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "learn",
+      "name": "Learn / Improvement",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "platform",
+      "name": "Platform / Reliability",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 2,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "offsite_storage",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     }
+    ],
+    "orchestrator": {
+     "last_tick": null,
+     "stale": true,
+     "stale_after_minutes": 45,
+     "last_created": null
+    },
+    "overnight": {
+     "missions_12h": 0,
+     "by_outcome": {
+      "queued": 0,
+      "useful": 0,
+      "noop": 0,
+      "failed": 0
+     },
+     "latest_brief": null
+    },
+    "timeline": [
+     {
+      "at": "2026-10-11T00:09:04.914248+00:00",
+      "kind": "approval.open",
+      "department": "",
+      "severity": "decision",
+      "summary": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+      "refs": [
+       "owner_actions:1"
+      ],
+      "source": "owner_actions"
+     },
+     {
+      "at": "2026-10-11T00:08:54.769928+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:28"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:44.715882+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:25"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:43.445867+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:22"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.698181+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:3"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.487901+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:2"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.355475+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:1"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-10T23:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:1"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T22:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:2"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T21:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:3"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T20:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:4"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T19:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:5"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T18:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:6"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T17:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:7"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T16:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:8"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T15:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:9"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T14:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:10"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T13:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:11"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T12:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:12"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T11:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:13"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     }
+    ],
+    "sources": [
+     "jobs",
+     "company_memory",
+     "company_timeline",
+     "worker.CADENCES",
+     "build2.executor.gate_states"
+    ],
+    "provider": "brambleloop.autonomy.status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 11,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "reason": "provider gave no reason"
+   },
+   "rule1": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:29:40.420561+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "department": "executive",
+      "name": "Executive / COO",
+      "window_hours": 24,
+      "done": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 2,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "autonomy.morning_handoff",
+        "reason": "no morning brief yet for 2026-10-10; summarise the unattended hours"
+       },
+       {
+        "job_type": "scale.trajectory",
+        "reason": "cadence trajectory_nightly overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "intelligence",
+      "name": "Intelligence",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 2,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "intel.pod_learning",
+        "reason": "cadence mjs_pod_learning overdue: never succeeded, period 24 h"
+       },
+       {
+        "job_type": "intel.benchmark_refresh",
+        "reason": "cadence benchmark_refresh overdue: never succeeded, period 168 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "product_design",
+      "name": "Product & Design",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 1,
+      "idle_now": false,
+      "eligible_untaken": 3,
+      "rule1_defect": false,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "seasonal.sentinel",
+        "reason": "3 PatternVersion row(s): new pattern versions need launch dates recomputed"
+       },
+       {
+        "job_type": "creative.outcome_learning",
+        "reason": "cadence outcome_learning overdue: never succeeded, period 24 h"
+       },
+       {
+        "job_type": "seasonal.sentinel",
+        "reason": "cadence seasonal_sentinel overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "OK",
+      "why": "working"
+     },
+     {
+      "department": "product_truth",
+      "name": "Product Truth / QA",
+      "window_hours": 24,
+      "done": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "open_now": 3,
+      "idle_now": false,
+      "eligible_untaken": 3,
+      "rule1_defect": false,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "ops.sentinel",
+        "reason": "3 PatternVersion row(s): new releases must be swept for stale or unproven artefacts"
+       },
+       {
+        "job_type": "physical.upgrade_impact",
+        "reason": "cadence physical_upgrade_impact overdue: never succeeded, period 24 h"
+       },
+       {
+        "job_type": "ops.sentinel",
+        "reason": "cadence stale_artefact_sentinel overdue: never succeeded, period 1 h"
+       }
+      ],
+      "status": "OK",
+      "why": "working"
+     },
+     {
+      "department": "visual",
+      "name": "Visual",
+      "window_hours": 24,
+      "done": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "open_now": 4,
+      "idle_now": false,
+      "eligible_untaken": 4,
+      "rule1_defect": false,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "visual.identity_drift",
+        "reason": "20 ListingAsset row(s): new listing assets must be read into the identity series"
+       },
+       {
+        "job_type": "visual.rnd.cycle",
+        "reason": "visual_rnd.next_work: baskets_storage: the incumbent pipeline has no judged production image"
+       },
+       {
+        "job_type": "visual.identity_drift",
+        "reason": "cadence identity_drift overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "OK",
+      "why": "working"
+     },
+     {
+      "department": "store_commerce",
+      "name": "Store / Commerce",
+      "window_hours": 24,
+      "done": 9,
+      "useful": 9,
+      "noop": 0,
+      "dead": 3,
+      "useful_rate": 1,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 4,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "seasonal.remerchandising",
+        "reason": "3 Listing row(s): new listing drafts are reviewed for seasonal merchandising"
+       },
+       {
+        "job_type": "seo.cycle",
+        "reason": "seo.next_work: 154 new evidence row(s) are available to ingest"
+       },
+       {
+        "job_type": "seasonal.remerchandising",
+        "reason": "cadence remerchandising_review overdue: never succeeded, period 168 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "support",
+      "name": "Customer Support",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 1,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "support.triage",
+        "reason": "cadence support_triage overdue: never succeeded, period 1 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "finance",
+      "name": "Finance / Accounting",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 8,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "finance.reconcile",
+        "reason": "25 CostEntry row(s): new cost entries since the last reconciliation"
+       },
+       {
+        "job_type": "finance.accounting.cycle",
+        "reason": "finance.next_work: Post 25 new or changed source row(s) to the ledger"
+       },
+       {
+        "job_type": "finance.reconcile",
+        "reason": "cadence finance_reconcile overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "growth",
+      "name": "Growth / Marketing",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 3,
+      "idle_now": false,
+      "eligible_untaken": 6,
+      "rule1_defect": false,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "growth.journey",
+        "reason": "3 Listing row(s): new listing drafts change the buyer journey"
+       },
+       {
+        "job_type": "marketing.ads_readiness",
+        "reason": "ads.next_work: re-evaluate persisted Etsy Ads eligibility evidence (F-686)"
+       },
+       {
+        "job_type": "growth.distribution",
+        "reason": "cadence growth_distribution overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "OK",
+      "why": "working"
+     },
+     {
+      "department": "learn",
+      "name": "Learn / Improvement",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 0,
+      "idle_now": true,
+      "eligible_untaken": 7,
+      "rule1_defect": true,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "improve.mine",
+        "reason": "3 Job row(s): dead letters since the last mining run"
+       },
+       {
+        "job_type": "learn.scan",
+        "reason": "cadence learn_gap_scan overdue: never succeeded, period 1 h"
+       },
+       {
+        "job_type": "improve.measure",
+        "reason": "cadence capability_measure overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "DEGRADED",
+      "why": "idle while its own generators offer safe, runnable work"
+     },
+     {
+      "department": "platform",
+      "name": "Platform / Reliability",
+      "window_hours": 24,
+      "done": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "open_now": 2,
+      "idle_now": false,
+      "eligible_untaken": 4,
+      "rule1_defect": false,
+      "as_of": "2026-10-11T00:29:40.420561+00:00",
+      "next_eligible": [
+       {
+        "job_type": "ops.queue_check",
+        "reason": "3 Job row(s): dead letters since the last queue check"
+       },
+       {
+        "job_type": "ops.queue_check",
+        "reason": "cadence queue_check overdue: never succeeded, period 1 h"
+       },
+       {
+        "job_type": "ops.maturity_disagreements",
+        "reason": "cadence maturity_disagreements overdue: never succeeded, period 24 h"
+       }
+      ],
+      "status": "OK",
+      "why": "working"
+     }
+    ],
+    "sources": [
+     "jobs",
+     "autonomy.generators",
+     "autonomy.charters"
+    ],
+    "provider": "brambleloop.autonomy.rule1.summary",
+    "counts": {
+     "departments": 11,
+     "evaluated": 11,
+     "unevaluated": 0,
+     "defects": 6
+    },
+    "window": {
+     "hours": 24,
+     "since": "2026-10-10T00:29:40.420561+00:00",
+     "jobs_read": 21,
+     "max_jobs": 5000,
+     "truncated": false
+    },
+    "judge": "runtime.pipeline.did_no_work; defect = idle and eligible untaken work",
+    "reason": "6 department(s) idle while eligible work waits (Rule #1 defect)",
+    "observation_window": {
+     "oldest": "2026-10-11T00:29:40.420561+00:00",
+     "newest": "2026-10-11T00:29:40.420561+00:00",
+     "mixed_snapshot": false,
+     "rows_with_time": 11,
+     "rows": 11
+    }
+   },
+   "agents": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:29:42.373103+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "agent": "coo",
+      "department": "executive",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "trigger": "cadence executive_orchestrator",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "laura",
+      "department": "executive",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:30:00+00:00",
+      "trigger": "cadence laura_executive",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "orchestrator",
+      "department": "executive",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [
+       {
+        "job_id": 31,
+        "job_type": "ops.capability_probes",
+        "run_after": "2026-10-11T00:10:35.040778+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 32,
+        "job_type": "model.probe",
+        "run_after": "2026-10-11T00:10:35.042903+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:10:35.040778+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "swarm_steward",
+      "department": "executive",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T01:00:00+00:00",
+      "trigger": "cadence growth_steer",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "cfo",
+      "department": "finance",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "transactions_r",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T01:00:00+00:00",
+      "trigger": "cadence finance_governor",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "ads",
+      "department": "growth",
+      "authority": "yellow",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence ads_review",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "experiment_steward",
+      "department": "growth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence growth_conclude",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "growth",
+      "department": "growth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": {
+       "job_id": 26,
+       "job_type": "launch.plan",
+       "at": "2026-10-11T00:08:42.027090+00:00",
+       "produced": {
+        "launch_on": "2026-10-18"
+       },
+       "rejected": {}
+      },
+      "last_run": {
+       "job_id": 26,
+       "job_type": "launch.plan",
+       "status": "done",
+       "useful": true,
+       "at": "2026-10-11T00:08:42.027090+00:00"
+      },
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner"
+       }
+      ],
+      "next_work": [
+       {
+        "job_id": 21,
+        "job_type": "marketing.schedule",
+        "run_after": "2026-10-11T00:08:37.214217+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 24,
+        "job_type": "marketing.schedule",
+        "run_after": "2026-10-11T00:08:39.447277+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 27,
+        "job_type": "marketing.schedule",
+        "run_after": "2026-10-11T00:08:42.013459+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:08:37.214217+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "noop_rate": 0,
+      "rates_basis": "measured",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "market_radar",
+      "department": "intelligence",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "benchmark_observation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "read-only Etsy API credentials that can actually serve a request"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T02:00:00+00:00",
+      "trigger": "cadence mjs_scan",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "cost_optimiser",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_cost_optimiser",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "creative_critic",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_creative_critic",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "evaluator",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_evaluator",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "experiment_designer",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_experiment_designer",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "failure_miner",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_failure_miner",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "learn",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T01:00:00+00:00",
+      "trigger": "cadence learn_gap_scan",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "lesson_router",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_lesson_router",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "prompt_tool_challenger",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_prompt_tool_challenger",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "reliability_engineer",
+      "department": "learn",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-12T00:00:00+00:00",
+      "trigger": "cadence role_reliability_engineer",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "creative_director",
+      "department": "product_design",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "model_provider",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model provider that can actually serve a request"
+       }
+      ],
+      "next_work": [
+       {
+        "job_id": 29,
+        "job_type": "creative.model_freeze",
+        "run_after": "2026-10-11T00:10:35.023816+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 34,
+        "job_type": "creative.photoreal_calibration",
+        "run_after": "2026-10-11T00:10:35.061550+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:10:35.023816+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "crochet_engineer",
+      "department": "product_design",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "model_provider",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model provider that can actually serve a request"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "asset_truth",
+      "department": "product_truth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "policy",
+      "department": "product_truth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "quality_director",
+      "department": "product_truth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": {
+       "job_id": 3,
+       "job_type": "gate.certify",
+       "at": "2026-10-11T00:07:51.698181+00:00",
+       "produced": {
+        "granted": true,
+        "reasons": "[]"
+       },
+       "rejected": {}
+      },
+      "last_run": {
+       "job_id": 3,
+       "job_type": "gate.certify",
+       "status": "done",
+       "useful": true,
+       "at": "2026-10-11T00:07:51.698181+00:00"
+      },
+      "blockers": [],
+      "next_work": [
+       {
+        "job_id": 4,
+        "job_type": "gate.lanes",
+        "run_after": "2026-10-11T00:07:50.096063+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 6,
+        "job_type": "gate.lanes",
+        "run_after": "2026-10-11T00:07:51.438444+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 9,
+        "job_type": "gate.lanes",
+        "run_after": "2026-10-11T00:07:51.646486+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:07:50.096063+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "noop_rate": 0,
+      "rates_basis": "measured",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "validator",
+      "department": "product_truth",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "listing",
+      "department": "store_commerce",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": {
+       "job_id": 19,
+       "job_type": "listing.seo",
+       "at": "2026-10-11T00:08:40.819106+00:00",
+       "produced": {
+        "listing": "{'title': 'Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms', 'tags': ['baby crochet pattern', 'written "
+       },
+       "rejected": {}
+      },
+      "last_run": {
+       "job_id": 19,
+       "job_type": "listing.seo",
+       "status": "done",
+       "useful": true,
+       "at": "2026-10-11T00:08:40.819106+00:00"
+      },
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant"
+       }
+      ],
+      "next_work": [
+       {
+        "job_id": 7,
+        "job_type": "collection.assemble",
+        "run_after": "2026-10-11T00:07:51.443276+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:07:51.443276+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 6,
+      "useful": 6,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "noop_rate": 0,
+      "rates_basis": "measured",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "pricing",
+      "department": "store_commerce",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": {
+       "job_id": 16,
+       "job_type": "pricing.position",
+       "at": "2026-10-11T00:08:34.885751+00:00",
+       "produced": {
+        "price_cad": 7.5
+       },
+       "rejected": {}
+      },
+      "last_run": {
+       "job_id": 16,
+       "job_type": "pricing.position",
+       "status": "done",
+       "useful": true,
+       "at": "2026-10-11T00:08:34.885751+00:00"
+      },
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "noop_rate": 0,
+      "rates_basis": "measured",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "store_operator",
+      "department": "store_commerce",
+      "authority": "yellow",
+      "state": "unhealthy",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": {
+       "job_id": 28,
+       "job_type": "store.publish",
+       "status": "dead",
+       "useful": false,
+       "at": "2026-10-11T00:08:54.769928+00:00"
+      },
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant"
+       },
+       {
+        "kind": "dead_letters",
+        "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": null,
+      "trigger": "orchestrator mission / follow-on only",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 3,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "support",
+      "department": "support",
+      "authority": "yellow",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": null,
+      "last_run": null,
+      "blockers": [
+       {
+        "kind": "data_gate",
+        "gate": "customers",
+        "waiting_on": "data",
+        "closure_kind": "DATA-GATED",
+        "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner ca"
+       }
+      ],
+      "next_work": [],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T01:00:00+00:00",
+      "trigger": "cadence support_triage",
+      "window_hours": 24,
+      "completed": 0,
+      "useful": 0,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": null,
+      "noop_rate": null,
+      "rates_basis": "unknown",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     },
+     {
+      "agent": "publishing",
+      "department": "visual",
+      "authority": "green",
+      "state": "sleeping",
+      "doing_now": null,
+      "started_at": null,
+      "current_job": null,
+      "last_useful_result": {
+       "job_id": 13,
+       "job_type": "assets.build",
+       "at": "2026-10-11T00:08:34.740056+00:00",
+       "produced": {
+        "pdf_sha256": "498b9190d902fde9208d509801238bf42f79f553f8ac94c13a4746fb0ac8aafe"
+       },
+       "rejected": {}
+      },
+      "last_run": {
+       "job_id": 13,
+       "job_type": "assets.build",
+       "status": "done",
+       "useful": true,
+       "at": "2026-10-11T00:08:34.740056+00:00"
+      },
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "image_generation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "canonical_model",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "image_vision",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns"
+       }
+      ],
+      "next_work": [
+       {
+        "job_id": 30,
+        "job_type": "seasonal.cycle_proof",
+        "run_after": "2026-10-11T00:10:35.036189+00:00",
+        "why": ""
+       },
+       {
+        "job_id": 33,
+        "job_type": "visual.portrait_repair",
+        "run_after": "2026-10-11T00:10:35.051544+00:00",
+        "why": ""
+       }
+      ],
+      "orchestrator_state": null,
+      "next_wake": "2026-10-11T00:10:35.036189+00:00",
+      "trigger": "pending job",
+      "window_hours": 24,
+      "completed": 3,
+      "useful": 3,
+      "noop": 0,
+      "dead": 0,
+      "useful_rate": 1,
+      "noop_rate": 0,
+      "rates_basis": "measured",
+      "cost_cad_24h": {
+       "value_cad": 0,
+       "state": "RECORDED",
+       "display": "CA$0.00 (recorded)"
+      },
+      "as_of": "2026-10-11T00:29:42.373103+00:00"
+     }
+    ],
+    "counts": {
+     "active": 0,
+     "sleeping": 28,
+     "blocked": 0,
+     "unhealthy": 1
+    },
+    "judge": "runtime.pipeline.did_no_work (per-job-type WORK_KEYS)",
+    "provider": "brambleloop.autonomy.status.agents",
+    "sources": [
+     "jobs",
+     "cost_entries",
+     "company_memory",
+     "worker.CADENCES",
+     "agents.registry.DEFAULT_AGENTS",
+     "build2.executor.gate_states"
+    ],
+    "observation_window": {
+     "oldest": "2026-10-11T00:29:42.373103+00:00",
+     "newest": "2026-10-11T00:29:42.373103+00:00",
+     "mixed_snapshot": false,
+     "rows_with_time": 29,
+     "rows": 29
+    },
+    "reason": "provider gave no reason"
+   },
+   "improvement": {
+    "status": "DEGRADED",
+    "reason": "5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+    "as_of": null,
+    "basis": "unknown",
+    "items": [
+     {
+      "loop": "seo_lesson_match",
+      "title": "Listing / SEO lesson tag slots",
+      "cell": "seo_search",
+      "family": "replay",
+      "param": "min_shared",
+      "active": {
+       "loop": "seo_lesson_match",
+       "param": "min_shared",
+       "value": 2,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: listing_outcomes (impressions, visits, orders) per product_slug",
+      "decisions_logged": 3,
+      "decisions_with_outcome": 0,
+      "metric": "listing click-through (visits / impressions) after the decision",
+      "guardrail": "conversion (orders / visits) where orders are observed",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.consume.matching(cell='seo_search'), called by runtime.release listing.seo to give lesson-matched queries a tag slot",
+      "consumer_status": "live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject=slug)",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "support_lesson_match",
+      "title": "Support lessons attached to cases",
+      "cell": "customer_experience",
+      "family": "replay",
+      "param": "min_shared",
+      "active": {
+       "loop": "support_lesson_match",
+       "param": "min_shared",
+       "value": 1,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: support_cases (resolved, escalated)",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "share of cases resolved without escalation",
+      "guardrail": "share of decided cases resolved at all",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.consume.matching(cell='customer_experience'), called by runtime.release support.mine to attach lessons to open cases",
+      "consumer_status": "live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject='support_case:<id>')",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "pattern_defect_watch",
+      "title": "Pattern quality defect watch",
+      "cell": "quality",
+      "family": "predictor",
+      "param": "min_topic_defect_rate",
+      "active": {
+       "loop": "pattern_defect_watch",
+       "param": "min_topic_defect_rate",
+       "value": 0.5,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: pattern_versions x incidents / troubleshooter support_cases per product",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of extra-review flags against releases that later had a defect",
+      "guardrail": "review load: flagged share of releases (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.defect_watchlist / requires_extra_review; learn.improvement_status.next_work emits quality.extra_review items",
+      "consumer_status": "live via next_work (lane A enqueues); release-gate read needs WIRING REQUEST W-B3",
+      "proposer": "failure_miner",
+      "challenger": "pattern_engineering"
+     },
+     {
+      "loop": "visual_gate_precheck",
+      "title": "Visual gate pre-check",
+      "cell": "creative_assets",
+      "family": "predictor",
+      "param": "precheck_flag_rate",
+      "active": {
+       "loop": "visual_gate_precheck",
+       "param": "precheck_flag_rate",
+       "value": 0.5,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: listing_assets (approved, blocked_reasons) by asset_class/role",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of pre-check flags against assets the visual gate later blocked",
+      "guardrail": "review load: flagged share of assets (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.visual_precheck; next_work emits visual.precheck items",
+      "consumer_status": "live via next_work (lane A enqueues); render-path read needs WIRING REQUEST W-B4",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "release_cost_watch",
+      "title": "Cost per release watch",
+      "cell": "finance",
+      "family": "predictor",
+      "param": "early_cost_flag_cad",
+      "active": {
+       "loop": "release_cost_watch",
+       "param": "early_cost_flag_cad",
+       "value": 1,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: cost_entries (amount_cad, actual only) per product_slug",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of early cost-review flags against releases whose actual cost ended above twice the median of earlier releases",
+      "guardrail": "review load: flagged share of releases (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.cost_watch; next_work emits finance.cost_review items",
+      "consumer_status": "live via next_work (lane A enqueues). Flags only: never raises or lowers a spend ceiling (spend controls are a protected invariant)",
+      "proposer": "cost_optimiser",
+      "challenger": "reliability_engineer"
+     }
+    ],
+    "pipeline": {
+     "improvements_by_trial_and_state": {
+      "untrialled": {
+       "proposed": 3
+      }
+     },
+     "rollback_pending": [],
+     "closed_loops": [
+      "league_replay (job priority -> swarm.orchestrate.priority_for)",
+      "self_audit (standard floor -> release gate)",
+      "policy_loop (five launch loops -> consumers above)"
+     ]
+    },
+    "lessons": [],
+    "guardrail": {
+     "protected_invariants": [
+      "product_truth",
+      "brand_canonical_assets",
+      "customer_safety",
+      "accounting_truth",
+      "authorization",
+      "security",
+      "spend_controls",
+      "evidence_requirements",
+      "protected_gates"
+     ],
+     "refusals_total": 0
+    },
+    "sources": [
+     "learn_decisions",
+     "learn_proposals",
+     "learn_policy_lessons",
+     "improvements",
+     "config_versions",
+     "learn_gaps",
+     "core.models.ListingOutcome",
+     "core.models.SupportCase",
+     "core.models.ListingAsset",
+     "core.models.CostEntry",
+     "core.models.Incident",
+     "src/brambleloop/improve/policy_loops.py",
+     "src/brambleloop/improve/invariants.py"
+    ],
+    "department": {
+     "metrics": {
+      "gaps_total": 0,
+      "gaps_queued": 0,
+      "gaps_covered": 0,
+      "coverage": null,
+      "oldest_queued_age_hours": null,
+      "queued_undated": 0,
+      "lessons_by_state": {},
+      "lessons_approved": 0,
+      "graph": {
+       "nodes": 0,
+       "edges": 0
+      },
+      "decision": "WATCH"
+     },
+     "calendar": {
+      "basis": "planned",
+      "capacity_per_week": 2,
+      "slots": [],
+      "unscheduled": 0,
+      "lesson_moves": [],
+      "note": "a plan for the editor; nothing is generated or published by it"
+     },
+     "experiments": {
+      "cell": "learn",
+      "by_state": {},
+      "items": []
+     },
+     "sources": [
+      "learn_gaps",
+      "learn_lessons",
+      "learn_nodes",
+      "learn_edges",
+      "pattern_versions",
+      "support_cases",
+      "improvements"
+     ],
+     "as_of": "2026-10-11T00:29:42.457083+00:00",
+     "items": [],
+     "status": "UNKNOWN",
+     "basis": "unknown",
+     "reason": "no LearnGap row yet: learn.scan has found no pattern or support source, so coverage is unknowable rather than zero"
+    },
+    "cells": {
+     "cells": 13,
+     "measured": 0,
+     "unmeasured": [
+      "product_creativity",
+      "pattern_engineering",
+      "quality",
+      "market_radar",
+      "pricing",
+      "creative_assets",
+      "seo_search",
+      "growth",
+      "customer_experience",
+      "portfolio",
+      "finance",
+      "runtime",
+      "learn"
+     ],
+     "post_launch_only": [
+      "pricing",
+      "growth",
+      "customer_experience",
+      "portfolio",
+      "finance"
+     ],
+     "lessons_routed": 0,
+     "lessons_acted_on": 0
+    },
+    "presale": {
+     "kind": "internal pre-sale outcome",
+     "customer_outcome": false,
+     "measured": 7,
+     "of": 9,
+     "readings": {
+      "gate_first_pass_rate": {
+       "metric": "gate_first_pass_rate",
+       "value": 1,
+       "sample": 3,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": true,
+       "reads": "first gate.certified/gate.blocked audit per slug@version",
+       "detail": {
+        "passed": 3,
+        "artifacts": 3
+       }
+      },
+      "product_truth_refusal_rate": {
+       "metric": "product_truth_refusal_rate",
+       "value": 0,
+       "sample": 3,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": false,
+       "reads": "gate.listing_copy_refused audits per certified-or-blocked slug@version",
+       "detail": {
+        "refused": []
+       }
+      },
+      "creative_survival_rate": {
+       "metric": "creative_survival_rate",
+       "value": null,
+       "sample": 0,
+       "reading": "UNMEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": true,
+       "reads": "creative.tournament audits: survivors / generated",
+       "why": "no creative.tournament audit has generated a field yet"
+      },
+      "catalogue_creative_survival_rate": {
+       "metric": "catalogue_creative_survival_rate",
+       "value": 1,
+       "sample": 11,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": true,
+       "reads": "creative.audit.audit_catalogue: legacy builder catalogue concepts the deterministic jury passes (cohort-labelled, F-188)",
+       "detail": {
+        "survivors": 11,
+        "cohort": "legacy_builder_catalogue",
+        "generator_version": "builder@1e85f1ae44b4+briefs@5501a0b00aa1",
+        "dominant_failure": null
+       }
+      },
+      "render_qa_block_rate": {
+       "metric": "render_qa_block_rate",
+       "value": 0,
+       "sample": 20,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": false,
+       "reads": "decided ListingAsset rows blocked by the visual gate",
+       "detail": {
+        "blocked": 0,
+        "blocked_by_group": {}
+       }
+      },
+      "seo_certificate_pass_rate": {
+       "metric": "seo_certificate_pass_rate",
+       "value": 0,
+       "sample": 3,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": true,
+       "reads": "ListingSearchProfile verdict PASS, newest per slug",
+       "detail": {
+        "passed": [],
+        "category_status": {
+         "UNKNOWN": 3
+        }
+       }
+      },
+      "release_gate_pass_rate": {
+       "metric": "release_gate_pass_rate",
+       "value": 0,
+       "sample": 3,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": true,
+       "reads": "newest store.release_gates audit per slug not blocking",
+       "detail": {
+        "release_ready": [],
+        "blocking_reasons": {
+         "FIRST_CUSTOMER_BLOCKING": 12,
+         "mobile QA (#66)": 3,
+         "listing-set certificate (#70)": 3,
+         "search certificate (F-005)": 3,
+         "search certificate (F-004) attributes": 3
+        }
+       }
+      },
+      "time_to_publish_request_hours": {
+       "metric": "time_to_publish_request_hours",
+       "value": 0.014,
+       "sample": 3,
+       "reading": "MEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": false,
+       "reads": "first compile/certify job for a slug to its first store.publish job (median)",
+       "detail": {
+        "max_hours": 0.0147
+       }
+      },
+      "cost_per_release_ready_cad": {
+       "metric": "cost_per_release_ready_cad",
+       "value": null,
+       "sample": 0,
+       "reading": "UNMEASURED",
+       "kind": "internal pre-sale outcome",
+       "customer_outcome": false,
+       "higher_is_better": false,
+       "reads": "actual CostEntry amount_cad per release-ready slug",
+       "why": "no release-ready product yet (every newest store.release_gates audit blocks release)"
+      }
+     },
+     "movement": {},
+     "note": "internal outcomes before any sale; none is a customer, demand or revenue measurement and none is a proxy for one"
+    },
+    "provider": "brambleloop.learn.improvement_status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 5,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "jobs_24h": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:29:40+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "agent": "growth",
+      "completed": 3
+     },
+     {
+      "agent": "listing",
+      "completed": 6
+     },
+     {
+      "agent": "pricing",
+      "completed": 3
+     },
+     {
+      "agent": "publishing",
+      "completed": 3
+     },
+     {
+      "agent": "quality_director",
+      "completed": 3
+     }
+    ],
+    "sources": [
+     "jobs"
+    ],
+    "provider": "jobs (last 24h)",
+    "completed": 18,
+    "failed": 3,
+    "created": 34,
+    "window_hours": 24,
+    "last_useful_action": {
+     "id": 26,
+     "agent": "growth",
+     "job_type": "launch.plan",
+     "finished_at": "2026-10-11T00:08:42.027090+00:00",
+     "source": "jobs:26"
+    }
+   },
+   "hours_since_owner_action": {
+    "status": "UNKNOWN",
+    "as_of": null,
+    "basis": "unknown",
+    "items": [],
+    "sources": [],
+    "reason": "no owner action is recorded",
+    "provider": "audit_log (actor owner*)"
+   },
+   "improvements": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:29:42+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "id": 3,
+      "at": "2026-10-11T00:07:51.672884+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:3"
+     },
+     {
+      "id": 2,
+      "at": "2026-10-11T00:07:51.469499+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:2"
+     },
+     {
+      "id": 1,
+      "at": "2026-10-11T00:07:51.305667+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on hexagon-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:1"
+     }
+    ],
+    "sources": [
+     "improvements"
+    ],
+    "provider": "improvements",
+    "total": 3
+   },
+   "lessons": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:29:42+00:00",
+    "basis": "unknown",
+    "items": [],
+    "sources": [
+     "lessons"
+    ],
+    "provider": "lessons",
+    "reason": "no lessons recorded"
+   },
+   "experiments": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:29:42+00:00",
+    "basis": "unknown",
+    "items": [],
+    "sources": [
+     "experiments"
+    ],
+    "provider": "experiments",
+    "reason": "no experiments recorded"
+   },
+   "visual_rnd": {
+    "status": "UNKNOWN",
+    "reason": "no image has been judged and no experiment run yet",
+    "as_of": null,
+    "basis": "unknown",
+    "items": [
+     {
+      "title": "Seasonal creative",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Loose garments",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Fitted garments",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Accessories",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Coasters / tabletop",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Baskets / storage",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Blankets / home textiles",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     },
+     {
+      "title": "Laura-on-model imagery",
+      "status": "UNKNOWN",
+      "why": "no measured Visual R&D reading for this class yet",
+      "pipeline": "UNKNOWN -- no incumbent pipeline version",
+      "experiments": "0",
+      "paid_challengers_waiting_on_owner": "0",
+      "source": "brambleloop.visual.rnd.status",
+      "Accepted-image yield": "UNKNOWN -- no production frame judged",
+      "Structural rejection trend": "UNKNOWN -- no frame judged yet",
+      "Photorealism": "UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority",
+      "Laura identity consistency": "UNKNOWN -- no Laura-bearing frame judged",
+      "Cost per accepted image": "UNKNOWN -- no production image with a measured cost",
+      "Median latency (s)": "UNKNOWN -- no production latency measured",
+      "Gallery task score": "UNKNOWN -- no production gallery judged",
+      "Benchmark gap": "UNKNOWN -- blind benchmark needs observed competitor galleries and a blind vision review (data + image_vision gated)",
+      "Hero CTR": "UNKNOWN -- no marketplace CTR reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Listing conversion": "UNKNOWN -- no marketplace conversion reading for the incumbent version yet (slow loop waiting for real listings)",
+      "Refund rate": "UNKNOWN -- no marketplace refund reading for the incumbent version yet (slow loop waiting for real listings)"
+     }
+    ],
+    "totals": {
+     "pipeline_versions": 0,
+     "promotions": 0,
+     "experiments": 0,
+     "experiments_by_state": {},
+     "judged_images": 0,
+     "marketplace_readings": 0,
+     "lessons": 0,
+     "paid_challengers_gated": 0
+    },
+    "loop": [
+     "GENERATE",
+     "PRODUCT TRUTH",
+     "STRUCTURAL/IDENTITY VALIDATION",
+     "PHOTOREALISM",
+     "COMMERCIAL/BLIND BENCHMARK",
+     "FAILURE DIAGNOSIS",
+     "CHALLENGER",
+     "CONTROLLED TEST",
+     "PROMOTE/REJECT",
+     "MONITOR",
+     "ROLLBACK IF WORSE",
+     "PERSIST LESSON",
+     "AFFECT FUTURE GENERATION"
+    ],
+    "gates": [
+     "product_truth",
+     "structure",
+     "laura_identity",
+     "anatomy",
+     "photorealism",
+     "composition",
+     "mobile_thumbnail",
+     "disclosure",
+     "gallery_contract",
+     "blind_benchmark"
+    ],
+    "advisory_gates": [
+     "blind_benchmark"
+    ],
+    "tunables": [
+     {
+      "name": "hero_gap_ratio",
+      "stage": "renderer_layout",
+      "execution": "deterministic_local",
+      "classes": [
+       "coasters_tabletop"
+      ],
+      "default": 0.18,
+      "lo": 0,
+      "hi": 0.5,
+      "integer": false,
+      "choices": [],
+      "trials": [
+       0.06,
+       0,
+       0.12,
+       0.24
+      ],
+      "why": "spacing of a multi-piece hero; tighter pieces are larger in the thumbnail, touching pieces merge and fail the verifier's piece count"
+     },
+     {
+      "name": "post_grain_sigma",
+      "stage": "post_processing",
+      "execution": "deterministic_local",
+      "classes": [
+       "baskets_storage",
+       "coasters_tabletop",
+       "blankets_home_textiles"
+      ],
+      "default": 0,
+      "lo": 0,
+      "hi": 6,
+      "integer": false,
+      "choices": [],
+      "trials": [
+       1.5,
+       3
+      ],
+      "why": "film grain after rendering; structure-preserving in `presentation`, but the disclosed-render contract refuses off-palette pixels"
+     },
+     {
+      "name": "encode_png_level",
+      "stage": "encode",
+      "execution": "deterministic_local",
+      "classes": [
+       "baskets_storage",
+       "coasters_tabletop",
+       "blankets_home_textiles"
+      ],
+      "default": 9,
+      "lo": 0,
+      "hi": 9,
+      "integer": true,
+      "choices": [],
+      "trials": [
+       6
+      ],
+      "why": "lossless PNG compression level: bytes and encode time, never pixels"
+     },
+     {
+      "name": "provider_model",
+      "stage": "provider_model",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": "registry_incumbent",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "registry_incumbent",
+       "flux-2-pro",
+       "gpt-image-2",
+       "nano-banana-2",
+       "seedream-v5-lite"
+      ],
+      "trials": [],
+      "why": "which image model presents the protected product / Laura"
+     },
+     {
+      "name": "lighting_preset",
+      "stage": "lighting",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": "north_window_soft",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "north_window_soft",
+       "overcast_daylight",
+       "warm_lamp_evening",
+       "studio_softbox"
+      ],
+      "trials": [],
+      "why": ""
+     },
+     {
+      "name": "camera_elevation_deg",
+      "stage": "camera",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": 30,
+      "lo": 0,
+      "hi": 75,
+      "integer": false,
+      "choices": [],
+      "trials": [
+       15,
+       45
+      ],
+      "why": ""
+     },
+     {
+      "name": "composition_preset",
+      "stage": "composition",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": "centered_hero",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "centered_hero",
+       "rule_of_thirds",
+       "flatlay_overhead",
+       "in_use_lifestyle"
+      ],
+      "trials": [],
+      "why": ""
+     },
+     {
+      "name": "thumbnail_crop",
+      "stage": "crop_thumbnail",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": "center_square",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "center_square",
+       "product_bbox_square"
+      ],
+      "trials": [],
+      "why": ""
+     },
+     {
+      "name": "control_method",
+      "stage": "control",
+      "execution": "paid_provider",
+      "classes": [
+       "seasonal",
+       "loose_garments",
+       "fitted_garments",
+       "accessories",
+       "coasters_tabletop",
+       "baskets_storage",
+       "blankets_home_textiles",
+       "laura_on_model"
+      ],
+      "default": "protected_composite",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "protected_composite",
+       "depth_from_twin",
+       "edge_from_twin"
+      ],
+      "trials": [],
+      "why": ""
+     },
+     {
+      "name": "laura_reproduction",
+      "stage": "laura_reproduction",
+      "execution": "paid_provider",
+      "classes": [
+       "laura_on_model",
+       "fitted_garments",
+       "loose_garments",
+       "accessories"
+      ],
+      "default": "canonical_reference_pack",
+      "lo": null,
+      "hi": null,
+      "integer": false,
+      "choices": [
+       "canonical_reference_pack",
+       "canonical_pack_plus_stress_set"
+      ],
+      "trials": [],
+      "why": "how the SAME canonical Laura (visual.canonical.IDENTITY_ID, currently laura-r2-a42aeac7 per D-FB-14) is reproduced; every choice conditions on her canonical references -- none selects another woman"
+     }
+    ],
+    "lessons": [],
+    "spend": {
+     "paid_execution": {
+      "allowed": false,
+      "phase": "shadow",
+      "why": "paid image generation needs a recorded owner spend authority for Visual R&D (amount, provider, ceiling); none exists, and CA$ spend is forbidden without owner approval. The experiment stays queued as GATED_SPEND"
+     },
+     "paid_plans_incomplete": []
+    },
+    "identity_review": {
+     "reading": "MEASURED",
+     "open_listed": 0,
+     "limit": 20,
+     "items": [],
+     "publication_approved_by_review": false
+    },
+    "commercial": {
+     "objective": {
+      "version": "visual-objective/1",
+      "hard_gates": [
+       "product_truth",
+       "structure",
+       "laura_identity",
+       "anatomy",
+       "photorealism",
+       "composition",
+       "mobile_thumbnail",
+       "disclosure",
+       "gallery_contract"
+      ],
+      "non_tradeable": [
+       "product_truth",
+       "structure",
+       "laura_identity",
+       "anatomy",
+       "photorealism"
+      ],
+      "weights": {
+       "desirability": 0.4,
+       "brand_consistency": 0.3,
+       "photographic_quality": 0.3,
+       "commercial": 0
+      },
+      "proxy_components": [
+       "desirability",
+       "brand_consistency"
+      ],
+      "measured_commercial_share": 0.7,
+      "canonical_brand_roles": [
+       "hero_logo",
+       "storefront_banner"
+      ],
+      "rule": "intersection: every hard gate first (UNKNOWN blocks); desirability, brand and commercial only rank candidates that already passed"
+     },
+     "sequence_policy": {
+      "version": "listing-sequence/1",
+      "max_frames": 10,
+      "slots": [
+       "hero_aspiration",
+       "clarity",
+       "dimensions",
+       "yarn",
+       "charts",
+       "construction",
+       "skill",
+       "colours",
+       "verification",
+       "contents"
+      ],
+      "slot_means": {
+       "hero_aspiration": "the finished dream at thumbnail scale: 'I want to make that'",
+       "clarity": "what the finished piece and its stitches really look like up close",
+       "dimensions": "how big it is / which sizes exist, against something a person knows",
+       "yarn": "what yarn, hook and notions to buy",
+       "charts": "what the chart / written pattern looks like to work from",
+       "construction": "how it is built: pieces, joins, construction diagram",
+       "skill": "whether this buyer can make it (skill level, techniques used)",
+       "colours": "colourways and how the design reads in other colours",
+       "verification": "why it can be trusted: every count checked, tested, honest renders",
+       "contents": "what arrives in the download"
+      },
+      "eligibility_job": {
+       "hero_aspiration": "DESIRE",
+       "clarity": "DETAIL",
+       "dimensions": "SCALE",
+       "yarn": "MATERIALS",
+       "charts": "PATTERN_PREVIEW",
+       "construction": null,
+       "skill": "DIFFICULTY",
+       "colours": null,
+       "verification": null,
+       "contents": "CONTENTS"
+      },
+      "aspirational_kinds": [
+       "finished_product",
+       "lifestyle_scene",
+       "on_model",
+       "seasonal_scene",
+       "styled_flatlay"
+      ],
+      "never_hero_kinds": [
+       "chart",
+       "colourways",
+       "construction_diagram",
+       "detail_closeup",
+       "diagram",
+       "dimensions",
+       "download_contents",
+       "engineering_render",
+       "materials",
+       "pattern_page",
+       "pdf_preview",
+       "scale",
+       "schematic",
+       "size_chart",
+       "skill_level",
+       "stitch_chart",
+       "stitch_closeup",
+       "trust",
+       "verification",
+       "yarn_materials"
+      ],
+      "classes": {
+       "fitted_garments": {
+        "product_class": "fitted_garments",
+        "hero_preference": [
+         "on_model",
+         "lifestyle_scene",
+         "finished_product"
+        ],
+        "laura": "preferred",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "loose_garments": {
+        "product_class": "loose_garments",
+        "hero_preference": [
+         "on_model",
+         "lifestyle_scene",
+         "finished_product"
+        ],
+        "laura": "preferred",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "accessories": {
+        "product_class": "accessories",
+        "hero_preference": [
+         "on_model",
+         "lifestyle_scene",
+         "styled_flatlay",
+         "finished_product"
+        ],
+        "laura": "optional",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "blankets_home_textiles": {
+        "product_class": "blankets_home_textiles",
+        "hero_preference": [
+         "lifestyle_scene",
+         "styled_flatlay",
+         "finished_product"
+        ],
+        "laura": "optional",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "baskets_storage": {
+        "product_class": "baskets_storage",
+        "hero_preference": [
+         "lifestyle_scene",
+         "finished_product",
+         "styled_flatlay"
+        ],
+        "laura": "not_default",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "coasters_tabletop": {
+        "product_class": "coasters_tabletop",
+        "hero_preference": [
+         "lifestyle_scene",
+         "styled_flatlay",
+         "finished_product"
+        ],
+        "laura": "not_default",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "seasonal": {
+        "product_class": "seasonal",
+        "hero_preference": [
+         "seasonal_scene",
+         "lifestyle_scene",
+         "styled_flatlay",
+         "finished_product"
+        ],
+        "laura": "optional",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       },
+       "laura_on_model": {
+        "product_class": "laura_on_model",
+        "hero_preference": [
+         "on_model",
+         "lifestyle_scene"
+        ],
+        "laura": "required",
+        "evidence_order": [
+         "clarity",
+         "dimensions",
+         "yarn",
+         "charts",
+         "construction",
+         "skill",
+         "colours",
+         "verification",
+         "contents"
+        ],
+        "max_frames": 10,
+        "version": "listing-sequence/1"
+       }
+      },
+      "rule": "frame 1 sells the finished dream; diagrams/engineering renders are evidence frames, never the hero; gate-failed assets appear nowhere"
+     },
+     "judges": {
+      "judges": [
+       "thumbnail_desirability",
+       "brand_consistency",
+       "blind_benchmark",
+       "photographic_quality"
+      ],
+      "basis": "PROXY",
+      "label": "PROXY -- internal estimate, not marketplace evidence",
+      "thumb_px": 170,
+      "palette": {
+       "paper": "#F3EEE7",
+       "forest": "#2F3E33",
+       "taupe": "#7F6851",
+       "rose": "#A67372",
+       "rose_deep": "#8E5A59",
+       "yarn": "#9E8170",
+       "yarn_deep": "#7E6253",
+       "leaf": "#4B503F",
+       "sage": "#7A7B68",
+       "sage_mist": "#CFD0C3",
+       "petal": "#FBF8F3",
+       "pollen": "#A48B5A",
+       "berry": "#86413D",
+       "yarn_light": "#D2B9A9",
+       "rose_light": "#DDB0AA",
+       "surface": "#FBF8F3"
+      },
+      "palette_provenance": "brand.identity_system palette sampled from the canonical owner files (D-FB-17)",
+      "brand_target": {
+       "decision": "D-FB-17",
+       "verified": true,
+       "problems": [],
+       "assets": {
+        "hero_logo": {
+         "file": "brambleloop_owner_logo_canonical.png",
+         "sha256": "28f301b28766acea7b0f632ceefcb1c66e271a6fba8da0c84a65c94647d35998",
+         "size": [
+          1536,
+          1024
+         ]
+        },
+        "storefront_banner": {
+         "file": "brambleloop_owner_banner_canonical.png",
+         "sha256": "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98",
+         "size": [
+          1983,
+          793
+         ]
+        }
+       },
+       "banner_art_target": "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98"
+      },
+      "note": "internal fast-loop proxies; marketplace evidence (slow loop) overrides them and lowers their trust when it disagrees"
+     },
+     "heroes": {
+      "seasonal": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "loose_garments": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "fitted_garments": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "accessories": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "coasters_tabletop": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "baskets_storage": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "blankets_home_textiles": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      },
+      "laura_on_model": {
+       "incumbent": null,
+       "incumbent_reading": "UNKNOWN: no free hero producer for this class; hero challengers queued",
+       "variants_by_state": {},
+       "gated_spend": [],
+       "proxy_trust": {
+        "desirability": 1,
+        "brand_consistency": 1,
+        "overturns": 0,
+        "required_margin": 0.02
+       },
+       "incumbent_funnel": {
+        "impressions": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "visits": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "ctr": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourites": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "favourite_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "carts": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "purchases": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "conversion": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refunds": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "refund_rate": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "feedback": {
+         "value": null,
+         "reading": "UNKNOWN",
+         "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+        },
+        "periods": 0,
+        "sources": []
+       }
+      }
+     }
+    },
+    "evolution": {
+     "status": "UNKNOWN",
+     "window_days": 90,
+     "from": "2026-07-13T00:29:42.572614+00:00",
+     "to": "2026-10-11T00:29:42.572614+00:00",
+     "classes": {
+      "seasonal": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "loose_garments": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "fitted_garments": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "accessories": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "coasters_tabletop": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "baskets_storage": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "blankets_home_textiles": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      },
+      "laura_on_model": {
+       "pipeline_generation": null,
+       "pipeline_versions_in_window": 0,
+       "promoted_techniques": [],
+       "rejected": 0,
+       "rolled_back": 0,
+       "overturned": 0,
+       "hero": null,
+       "hero_challengers_evaluated": 0,
+       "paid_challengers_waiting": [],
+       "proxy_trust": 1,
+       "ctr_conversion_by_month": [
+        {
+         "from": "2026-07-13",
+         "to": "2026-08-12",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-08-12",
+         "to": "2026-09-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        },
+        {
+         "from": "2026-09-11",
+         "to": "2026-10-11",
+         "ctr": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "conversion": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "impressions": {
+          "value": null,
+          "reading": "UNKNOWN",
+          "why": "no ListingOutcome row credited to this hero yet (no live listing/export)"
+         },
+         "periods": 0
+        }
+       ],
+       "ctr_trend": {
+        "value": null,
+        "reading": "UNKNOWN",
+        "why": "fewer than two 30-day buckets with measured CTR (no live listings / exports credited to this class's heroes yet)"
+       },
+       "verdict": "UNKNOWN"
+      }
+     },
+     "autonomy": "the loop challenges every class's pipeline and hero on its own cadence (visual.rnd.next_work); the owner is only asked for spend authority on queued paid challengers",
+     "basis_rule": "MATERIALLY_BETTER needs measured marketplace CTR; internal gate/proxy gains are reported as IMPROVING_INTERNALLY, never as sales progress"
+    },
+    "sources": [
+     "visual_rnd_pipelines",
+     "visual_rnd_experiments",
+     "visual_rnd_judgements",
+     "visual_rnd_market",
+     "visual_rnd_lessons",
+     "visual_rnd_identity_reviews",
+     "src/brambleloop/visual/rnd/loop.py",
+     "src/brambleloop/visual/rnd/gates.py",
+     "src/brambleloop/visual/rnd/pipeline.py",
+     "src/brambleloop/visual/render_verification.py",
+     "src/brambleloop/publish/layout_qa.py",
+     "src/brambleloop/visual/canonical.py",
+     "src/brambleloop/improve/invariants.py",
+     "src/brambleloop/improve/league.py",
+     "visual_rnd_hero_variants",
+     "listing_outcomes",
+     "src/brambleloop/visual/rnd/sequence.py",
+     "src/brambleloop/visual/rnd/objective.py",
+     "src/brambleloop/visual/rnd/judges.py",
+     "src/brambleloop/visual/rnd/hero.py",
+     "src/brambleloop/visual/rnd/commercial.py",
+     "src/brambleloop/visual/rnd/evolution.py"
+    ],
+    "provider": "brambleloop.visual.rnd.status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 8,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "provider_items": 8
+   },
+   "visual_rnd_governance": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:29:42+00:00",
+    "basis": "unknown",
+    "items": [
+     {
+      "title": "Laura identity review queue",
+      "status": "OK",
+      "detail": "0 borderline identity result(s) held for a human (newest 20 listed); a review never makes an image publication-approved",
+      "why": null,
+      "source": "brambleloop.visual.rnd.status",
+      "open_listed": 0
+     },
+     {
+      "title": "Paid challengers: spend plans",
+      "status": "OK",
+      "detail": "every queued paid challenger carries a complete plan; paid execution: {'allowed': False, 'phase': 'shadow', 'why': 'paid image generation needs a recorded owner spend authority for Visual R&D (amount, provider, ceiling); none exists, and CA$ spend is forbidden without owner approval. The experiment stays queued as GATED_SPEND'}",
+      "why": null,
+      "source": "brambleloop.visual.rnd.status",
+      "paid_plans_incomplete": []
+     },
+     {
+      "title": "Commercial hero objective",
+      "status": "OK",
+      "detail": "accessories: UNKNOWN: no free hero producer for this class; hero challengers queued; baskets_storage: UNKNOWN: no free hero producer for this class; hero challengers queued; blankets_home_textiles: UNKNOWN: no free hero producer for this class; hero challengers queued; coasters_tabletop: UNKNOWN: no free hero producer for this class; hero challengers queued; fitted_garments: UNKNOWN: no free hero producer for this class; hero challengers queued; laura_on_model: UNKNOWN: no free hero producer for this class; hero challengers queued; loose_garments: UNKNOWN: no free hero producer for this class; hero challengers queued; seasonal: UNKNOWN: no free hero producer for this class; hero challengers queued",
+      "why": null,
+      "source": "brambleloop.visual.rnd.status"
+     },
+     {
+      "title": "Evolution (is Visual getting better?)",
+      "status": "UNKNOWN",
+      "detail": "accessories: UNKNOWN; baskets_storage: UNKNOWN; blankets_home_textiles: UNKNOWN; coasters_tabletop: UNKNOWN; fitted_garments: UNKNOWN; laura_on_model: UNKNOWN; loose_garments: UNKNOWN; seasonal: UNKNOWN",
+      "why": "no measured trend yet (needs live listings and marketplace exports)",
+      "source": "brambleloop.visual.rnd.status"
+     }
+    ],
+    "sources": [
+     "visual_rnd_pipelines",
+     "visual_rnd_experiments",
+     "visual_rnd_judgements",
+     "visual_rnd_market",
+     "visual_rnd_lessons",
+     "visual_rnd_identity_reviews",
+     "src/brambleloop/visual/rnd/loop.py",
+     "src/brambleloop/visual/rnd/gates.py",
+     "src/brambleloop/visual/rnd/pipeline.py",
+     "src/brambleloop/visual/render_verification.py",
+     "src/brambleloop/publish/layout_qa.py",
+     "src/brambleloop/visual/canonical.py",
+     "src/brambleloop/improve/invariants.py",
+     "src/brambleloop/improve/league.py",
+     "visual_rnd_hero_variants",
+     "listing_outcomes",
+     "src/brambleloop/visual/rnd/sequence.py",
+     "src/brambleloop/visual/rnd/objective.py",
+     "src/brambleloop/visual/rnd/judges.py",
+     "src/brambleloop/visual/rnd/hero.py",
+     "src/brambleloop/visual/rnd/commercial.py",
+     "src/brambleloop/visual/rnd/evolution.py"
+    ],
+    "provider": "brambleloop.visual.rnd.status (governance)",
+    "reason": "Evolution (is Visual getting better?): no measured trend yet (needs live listings and marketplace exports)"
+   },
+   "laura_roadmap": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:29:42+00:00",
+    "basis": "modelled",
+    "reason": "4 required Laura item(s) GATED on provider + owner: LAURA-VOICE-P2, LAURA-LIVE-P3, LAURA-PRIVATE-REGISTER, LAURA-VOICE-IMPROVE",
+    "items": [
+     {
+      "title": "LAURA-TEXT-P1: Talk to Laura, Phase 1: visible canonical Laura + text, persistent company context, evidence-grounded answers, audited delegation, authority boundaries, private-memory isolation",
+      "status": "OK",
+      "detail": "COMPLETE",
+      "gate": null,
+      "required": true,
+      "cancelled": false,
+      "source": "D-FB-16 items 7,10; D-FB-18 item 8 (approved as the foundation)"
+     },
+     {
+      "title": "LAURA-VOICE-P2: Talk to Laura, Phase 2: voice in (phone mic / Galaxy Buds) and out in the canonical Laura Voice (spec v2), same Laura/memory/authority",
+      "status": "BLOCKED",
+      "detail": "GATED",
+      "gate": {
+       "kind": "owner",
+       "key": "laura_voice_provider",
+       "detail": "owner chooses a voice provider and approves a paid trial; the owner LISTENS to shortlisted candidates and records a selection decision; STT provider chosen; contract presence.SpeechToText/TextToSpeech"
+      },
+      "required": true,
+      "cancelled": false,
+      "source": "D-FB-16 items 7-9; D-FB-18 items 6-8"
+     },
+     {
+      "title": "LAURA-LIVE-P3: Talk to Laura, Phase 3: real-time Live Presence (Zoom-like): photoreal canonical Laura, blinking, expressions, subtle movement, lip sync, turn-taking",
+      "status": "BLOCKED",
+      "detail": "GATED",
+      "gate": {
+       "kind": "owner",
+       "key": "laura_live_presence_provider",
+       "detail": "LAURA-VOICE-P2 done; a real-time avatar renderer that reproduces laura-r2-a42aeac7 and passes identity -> photorealism -> anatomy; owner identity approval and spend authority; contract presence.LivePresenceRenderer"
+      },
+      "required": true,
+      "cancelled": false,
+      "source": "D-FB-16 items 7,10; D-FB-18 item 8"
+     },
+     {
+      "title": "LAURA-PRIVATE-REGISTER: Private owner register (text and, where supported, the same voice's private delivery)",
+      "status": "BLOCKED",
+      "detail": "GATED",
+      "gate": {
+       "kind": "owner",
+       "key": "laura_private_register",
+       "detail": "PRIV infrastructure exists; the conversational register needs its own owner-approved lane bounded by the provider's usage policies"
+      },
+      "required": true,
+      "cancelled": false,
+      "source": "spec/07 Ruling 2; D-FB-15; D-FB-16 item 11; D-FB-18 item 6"
+     },
+     {
+      "title": "LAURA-VOICE-IMPROVE: Voice as a permanent improvement domain: realism, latency, prosody, expressiveness, conversation quality -- without changing her recognisable identity",
+      "status": "BLOCKED",
+      "detail": "GATED",
+      "gate": {
+       "kind": "external",
+       "key": "laura_voice_provider",
+       "detail": "needs a selected voice to measure; loop registration is a WIRING REQUEST to the Learn/improve owner"
+      },
+      "required": true,
+      "cancelled": false,
+      "source": "D-FB-18 item 7"
+     }
+    ],
+    "improvement_domain": {
+     "key": "laura_voice",
+     "department": "learn",
+     "owner_domain": "Brand / Laura",
+     "dimensions": [
+      "realism",
+      "latency",
+      "prosody",
+      "expressiveness",
+      "conversation quality"
+     ],
+     "metrics": {
+      "latency_ms_p50": "UNKNOWN (no voice selected)",
+      "owner_listening_preference": "UNKNOWN (owner A/B listening, never auto-scored)",
+      "pronunciation_accuracy": "UNKNOWN",
+      "turn_taking_interruptions": "UNKNOWN"
+     },
+     "invariants": [
+      "recognisable identity is locked: every challenger must be judged by the owner as the same voice as the locked reference samples",
+      "spec v2 is not tuned by the loop; a spec change is an owner decision",
+      "no paid generation without owner spend authority",
+      "private register stays GATED"
+     ],
+     "promotion": "challenger -> voice_spec.qualify PASS -> voice_selection.scorecard PASS (replacement) -> owner decision -> voice_selection.select (new version)",
+     "status": "GATED"
+    },
+    "sources": [
+     "src/brambleloop/laura/agency/roadmap.py",
+     "DECISION_LOG D-FB-18"
+    ],
+    "provider": "brambleloop.laura.agency.roadmap.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 5,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   }
+  },
+  "last_useful_action": {
+   "id": 26,
+   "agent": "growth",
+   "job_type": "launch.plan",
+   "finished_at": "2026-10-11T00:08:42.027090+00:00",
+   "source": "jobs:26"
+  }
+ }
+}

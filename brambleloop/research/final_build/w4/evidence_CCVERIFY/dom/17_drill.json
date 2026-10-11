@@ -1,0 +1,25 @@
+{
+ "title": "Source details · Brambleloop",
+ "view_title": "Source details",
+ "page_meta": null,
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Source reference",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Source referenceWhere this fact came from(empty)This source type has no drill-down view in the Command Center yet. The reference above is the exact record or module the number came from."
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 190,
+ "body": "BackSource referenceWhere this fact came from(empty)This source type has no drill-down view in the Command Center yet. The reference above is the exact record or module the number came from.",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

@@ -1,0 +1,468 @@
+{
+ "status": 200,
+ "url": "/api/cc/money?period=all",
+ "body": {
+  "tab": "MONEY",
+  "generated_at": "2026-10-11T00:26:36+00:00",
+  "sections": {
+   "accounting": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:26:36.694197+00:00",
+    "basis": "unknown",
+    "items": [
+     {
+      "metric": "gross_sales",
+      "label": "Revenue (gross sales)",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "gross_sales",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:gross_sales"
+      ]
+     },
+     {
+      "metric": "refunds",
+      "label": "Refunds",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "refunds",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:refunds"
+      ]
+     },
+     {
+      "metric": "net_sales",
+      "label": "Net sales",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "net_sales",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:net_sales"
+      ]
+     },
+     {
+      "metric": "fees",
+      "label": "Marketplace fees",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "fees",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:fees"
+      ]
+     },
+     {
+      "metric": "operating_spend",
+      "label": "Operating spend",
+      "value_cad": 1.1,
+      "reading": "estimated",
+      "actual_cad": 0,
+      "estimated_cad": 1.102,
+      "drill": "operating_spend",
+      "why": "includes modelled listing-fee exposure / unknown-basis rows",
+      "state": "ESTIMATED",
+      "basis": "estimated",
+      "display": "CA$1.10 (estimated)",
+      "provider_reading": "estimated",
+      "sources": [
+       "finance.accounting.dashboard:operating_spend"
+      ]
+     },
+     {
+      "metric": "contribution",
+      "label": "Contribution",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "contribution",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:contribution"
+      ]
+     },
+     {
+      "metric": "profit",
+      "label": "Profit before tax reserve",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "profit",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:profit"
+      ]
+     },
+     {
+      "metric": "tax_reserve",
+      "label": "Sales-tax reserve",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "tax_reserve",
+      "why": "a management reserve against net sales (finance.books rate); not a booked liability -- the GST/HST treatment is for the human accountant (tax_pack)",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:tax_reserve"
+      ]
+     },
+     {
+      "metric": "cash",
+      "label": "Cash in bank",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "cash",
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:cash"
+      ]
+     },
+     {
+      "metric": "expected_payout",
+      "label": "Etsy balance (expected payout)",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "expected_payout",
+      "why": "derived receivable (not cash); UNKNOWN",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:expected_payout"
+      ]
+     },
+     {
+      "metric": "committed_spend",
+      "label": "Committed spend (live reservations)",
+      "value_cad": 0,
+      "reading": "measured",
+      "actual_cad": 0,
+      "estimated_cad": 0,
+      "drill": null,
+      "why": "",
+      "state": "MEASURED",
+      "basis": "measured",
+      "display": "CA$0.00",
+      "provider_reading": "measured",
+      "sources": [
+       "finance.accounting.dashboard:committed_spend"
+      ]
+     },
+     {
+      "metric": "owner_payable",
+      "label": "Owed to owner (owner-funded spend)",
+      "value_cad": 1.1,
+      "reading": "derived",
+      "actual_cad": 1.102,
+      "estimated_cad": 0,
+      "drill": "owner_payable",
+      "why": "",
+      "state": "RECORDED",
+      "basis": "derived",
+      "display": "CA$1.10 (derived)",
+      "provider_reading": "derived",
+      "sources": [
+       "finance.accounting.dashboard:owner_payable"
+      ]
+     },
+     {
+      "metric": "safe_discretionary_budget",
+      "label": "Safe discretionary budget",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": null,
+      "why": "UNKNOWN: cash is not a fresh, reconciled measurement, so nothing is safe to spend on the strength of it. no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:safe_discretionary_budget"
+      ]
+     }
+    ],
+    "sources": [
+     "ledger",
+     "cost_entries",
+     "spend_reservations",
+     "orders",
+     "operating_readings:commerce.orders_held",
+     "acct_journal_entries",
+     "acct_postings",
+     "acct_statement_lines",
+     "acct_exceptions"
+    ],
+    "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; orders: DISCONNECTED -- the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; etsy_ledger: DISCONNECTED -- Etsy payment-account ledger needs the same transactions_r grant as the order source; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+    "window": "all time",
+    "currency": "CAD",
+    "source_health": {
+     "orders": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "owner_action": "reauthorise_transactions_r"
+     },
+     "etsy_ledger": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "Etsy payment-account ledger needs the same transactions_r grant as the order source",
+      "owner_action": "verify the Etsy ledger mapping"
+     },
+     "bank": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "owner_action": "open a business bank account and provide statements (owner action; Finance cannot do banking)"
+     },
+     "spend": {
+      "state": "measured",
+      "last_read_at": "2026-10-11T00:26:36.694197+00:00",
+      "why": "this company's own cost ledger (cost_entries); row bases vary",
+      "owner_action": ""
+     }
+    },
+    "tax_reserve": {
+     "sales_tax_reserve_ytd_cad": null,
+     "income_tax_setaside_ytd_cad": null,
+     "basis": "estimated (management reserve; treatment for the human accountant)"
+    },
+    "payout_status": {
+     "expected_payout_cad": null,
+     "reading": "derived receivable (not cash); UNKNOWN"
+    },
+    "runway": {
+     "value": null,
+     "why": "UNKNOWN: cash is unknown. Operating spend is owner-funded today."
+    },
+    "obligations": {
+     "owner_funded_spend_payable_cad": 1.102,
+     "accrued_listing_fee_exposure_cad": 0
+    },
+    "upcoming_bills": [
+     {
+      "name": "hosting (declared run-rate)",
+      "amount_cad": 7,
+      "cadence": "monthly",
+      "basis": "declared_not_observed"
+     },
+     {
+      "name": "model/API spend ceiling",
+      "amount_cad": 100,
+      "cadence": "monthly",
+      "basis": "policy ceiling (maximum, not a forecast)"
+     }
+    ],
+    "exceptions": {
+     "open": 0,
+     "high": 0,
+     "top": []
+    },
+    "reconciliation_health": "clean",
+    "integrity": {
+     "ok": true,
+     "problems": [],
+     "legacy_v1_entries": 0
+    },
+    "close": {
+     "locked_periods": [],
+     "last_locked": null,
+     "previous_period": "2026-09",
+     "previous_period_locked": false,
+     "current_period": "2026-10",
+     "next_after_last_lock": null
+    },
+    "forecast": {
+     "as_of": "2026-10-11T00:26:36.694197+00:00",
+     "horizon_days": 30,
+     "currency": "CAD",
+     "is_booked": false,
+     "is_measured": false,
+     "basis": "modelled",
+     "presentation": "range only; never a point estimate presented as fact",
+     "operating_cost": {
+      "low_cad": 1.22,
+      "high_cad": 1.89,
+      "assumptions": [
+       "daily operating spend between the 27-day (history, max 60) and 7-day averages",
+       "high end +25% for unplanned work",
+       "the monthly model ceiling caps the true maximum"
+      ],
+      "confidence": "low",
+      "sample_days_with_spend": 2
+     },
+     "revenue": null,
+     "revenue_why": "no revenue forecast: the order source is disconnected, so there are no measured orders to project from"
+    },
+    "totals_micros": {
+     "gross": 0,
+     "refunds": 0,
+     "fees": 0,
+     "operating": 1102000,
+     "net_profit": -1102000
+    },
+    "provider": "brambleloop.finance.accounting.dashboard.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 13,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "spend_limits": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:26:36+00:00",
+    "basis": "unknown",
+    "items": [],
+    "sources": [
+     "spend_limits"
+    ],
+    "provider": "spend_limits",
+    "reason": "no spend limit configured (all spend is refused)"
+   },
+   "estimate_drift": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:26:36+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "purpose": "ccverify.listing_seo",
+      "calls": 22,
+      "estimated_cad": 0.22,
+      "recorded_cad": 0.352,
+      "ratio": 1.6,
+      "under_estimated": true,
+      "detail": "outside tolerance (under-estimated)",
+      "status": "DEGRADED"
+     }
+    ],
+    "sources": [
+     "finance.spend_report.estimate_drift",
+     "cost_entries"
+    ],
+    "provider": "finance.spend_report.estimate_drift",
+    "reason": "ccverify.listing_seo: 22 calls estimated CA$0.2200 and recorded CA$0.3520 (modelled; ratio 1.6), outside ±25% -- under-estimated, which is the direction that breaks the ceiling",
+    "label": "estimated vs actual (recorded per-call cost) model spend, this month",
+    "state": "degraded",
+    "degraded": true,
+    "why": "ccverify.listing_seo: 22 calls estimated CA$0.2200 and recorded CA$0.3520 (modelled; ratio 1.6), outside ±25% -- under-estimated, which is the direction that breaks the ceiling",
+    "token_priced_calls": 22,
+    "purposes_outside_tolerance": [
+     "ccverify.listing_seo"
+    ],
+    "purposes_too_few_calls_to_judge": [],
+    "calls_with_no_reservation_share": 0,
+    "tolerance": 0.25,
+    "settlement_against_provider_billing": "OWNER-GATED",
+    "settlement_why": "OWNER-GATED: settling recorded model spend against the provider's own billing needs provider usage-API (admin) access, which only the owner can grant; until then 'actual' means the recorded per-call cost, not the invoice"
+   }
+  },
+  "status": "UNKNOWN",
+  "revenue": {
+   "value_cad": null,
+   "state": "UNMEASURED",
+   "basis": "unknown",
+   "display": "UNMEASURED",
+   "sources": [
+    "ledger",
+    "orders",
+    "commerce.orders_ingest.source_state"
+   ],
+   "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+  },
+  "profit": {
+   "value_cad": null,
+   "state": "UNKNOWN",
+   "basis": "unknown",
+   "display": "UNKNOWN",
+   "sources": [
+    "finance.accounting.dashboard:profit"
+   ],
+   "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+  },
+  "recorded_spend": {
+   "value_cad": 1.1,
+   "state": "RECORDED",
+   "basis": "modelled",
+   "display": "CA$1.10 (recorded; CA$1.10 not measured)",
+   "sources": [
+    "cost_entries",
+    "ledger.fees_cad",
+    "ledger.expense_cad"
+   ],
+   "why": "recorded spend only (not reconciled, not an all-in opex)",
+   "label": "Recorded spend (all kinds)",
+   "by_kind": {
+    "llm": 1.102
+   },
+   "by_basis_cad": {
+    "modelled": 1.102
+   }
+  },
+  "source_health": {
+   "order_source_measured": false,
+   "order_source_state": "disconnected",
+   "last_read_at": null,
+   "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+   "warning": "order/payment source is not connected-and-read: revenue, fees and profit are UNKNOWN, not CA$0.00"
+  },
+  "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; orders: DISCONNECTED -- the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; etsy_ledger: DISCONNECTED -- Etsy payment-account ledger needs the same transactions_r grant as the order source; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+  "window": "all",
+  "period": "all time",
+  "period_applies_to": [
+   "accounting"
+  ]
+ }
+}

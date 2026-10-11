@@ -1,0 +1,4103 @@
+{
+ "status": 200,
+ "url": "/api/cc/store",
+ "body": {
+  "tab": "STORE",
+  "generated_at": "2026-10-11T00:26:49+00:00",
+  "sections": {
+   "store_foundation": {
+    "status": "BLOCKED",
+    "as_of": "2026-10-11T00:26:39.111188+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "key": "shop_name",
+      "label": "Shop name",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 1,
+      "top_findings": [
+       "NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name must also appear is an open Etsy rule reading (brand.seller_identity.PENDING_RULE_READINGS)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "icon",
+      "label": "Shop icon",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upload in Shop Manager"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "banner",
+      "label": "Shop banner",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or record a deliberate no-banner choice (master section 56 permits one)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "brand_face",
+      "label": "Brand face (Laura)",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 7,
+      "top_findings": [
+       "BRAND_FACE_MISSING_CANONICAL: frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'reference_pack/full_length_standing', 'stress_set/fitted_garment', 'stress_set/fitted_garment_close', 'stress_set/loose_layered_garment', 'stress_set/non_garment_lifestyle', 'stress_set/winter_seasonal']; owner action OA-CANON-1"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > About > Shop owner photo; banner; About; seasonal",
+      "source": "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "shop_title",
+      "label": "Shop title (tagline)",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: the shop title (tagline under the shop name): 41 characters; Etsy's limit is not on file (not on file; Etsy shows a counter in Shop Manager > Info & appearance). Check the counter in Shop Manager at entry."
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "announcement",
+      "label": "Announcement",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_REPO_ASSERTED: the shop announcement: 134/160 characters against an unsourced limit (brand.storefront.ANNOUNCEMENT_MAX -- no Etsy source recorded for the number)"
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "about",
+      "label": "About / shop story",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_REPO_ASSERTED: the About / shop story: 2249/5000 characters against an unsourced limit (brand.storefront.ABOUT_MAX ('Etsy's shop story field cap') -- no Etsy source recorded for the number)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > About your shop",
+      "source": "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_delivery",
+      "label": "Delivery (digital)",
+      "group": "policy",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one shop-policy text block: 396 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry."
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: processing and delivery",
+      "source": "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_returns",
+      "label": "Returns and refunds",
+      "group": "policy",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one shop-policy text block: 495 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry."
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: returns and exchanges",
+      "source": "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_licence",
+      "label": "Pattern licence and customer use",
+      "group": "policy",
+      "status": "NEEDS_OWNER",
+      "findings": 3,
+      "top_findings": [
+       "LEGAL_REVIEW_PENDING: commerce.terms is not legally reviewed; the licence says so publicly ('have not yet been through legal review'). Owner: legal review, or accept showing that sentence"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: FAQ (licence answers; policy_additional is EU-only and not used)",
+      "source": "commerce.terms via commerce.shop_package.licence_text",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_privacy",
+      "label": "Privacy",
+      "group": "policy",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "LEGAL_REVIEW_PENDING: the privacy text names PIPEDA and CASL; it is written from the encoded consent rules (growth.owned) and has not been reviewed by a lawyer"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: privacy",
+      "source": "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "disclosures",
+      "label": "AI-use, digital-item and image disclosures",
+      "group": "disclosure",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "DISCLOSURE_DESIGNER_CLAIM: gates.platform_policy says designs were 'directed and edited by the designer'. That is true only if a person directs and edits each design; owner to confirm who that is, or the wording changes at its source"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "every listing description (Etsy: 'Seller-prompted AI creations must disclose the use of AI.') and the shop FAQ/About",
+      "source": "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "faq",
+      "label": "Frequently asked questions",
+      "group": "help",
+      "status": "UNVERIFIED",
+      "findings": 2,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one FAQ question or answer: 367 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry.",
+       "FAQ_COUNT_LIMIT_UNVERIFIED: 15 entries; Etsy's FAQ entry limit is not on file"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: frequently asked questions",
+      "source": "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "support_contact",
+      "label": "Support and contact",
+      "group": "help",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "SUPPORT_RESPONSE_TIME_UNDECIDED: no response-time commitment is decided, so none is shown. Owner: choose one (e.g. two business days) or keep none"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "About section and FAQ (Etsy's Message button is automatic)",
+      "source": "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "digital_sale_message",
+      "label": "Message to buyers of digital items",
+      "group": "help",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: the message to buyers of digital items: 551 characters; Etsy's limit is not on file (not on file; the field itself is in Etsy's updateShop schema (commerce.shop_package.SOURCES['etsy_shop_api'])). Check the counter in Shop Manager at entry."
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "sections",
+      "label": "Shop sections",
+      "group": "merch",
+      "status": "READY",
+      "findings": 0,
+      "top_findings": [],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Listings > Sections",
+      "source": "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "opening_grid",
+      "label": "Opening grid (Launch-0 products)",
+      "group": "merch",
+      "status": "FAIL",
+      "findings": 5,
+      "top_findings": [
+       "TRUTH_SAFETY_CERT: opening_grid: 'CPSC' -- a safety or certification claim about a finished object this shop does not make; it needs evidence the shop does not hold"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop home page grid",
+      "source": "products.launch0 (+ drafted listings rows when present)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "trust_signals",
+      "label": "Trust signals",
+      "group": "trust",
+      "status": "READY",
+      "findings": 0,
+      "top_findings": [],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "About section, banner area, listings",
+      "source": "store_foundation.copy_v2.TRUST_SIGNALS",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "voice",
+      "label": "Brand voice",
+      "group": "brand",
+      "status": "UNVERIFIED",
+      "findings": 19,
+      "top_findings": [
+       "VOICE_SHOUTING: opening_grid: 'DETAILS' -- capitals as emphasis",
+       "VOICE_SHOUTING: opening_grid: 'SAFETY' -- capitals as emphasis",
+       "VOICE_SHOUTING: opening_grid: 'SUITABILITY' -- capitals as emphasis"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "applies to every surface",
+      "source": "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "settings_checklist",
+      "label": "Settings checklist (owner login)",
+      "group": "settings",
+      "status": "NEEDS_OWNER",
+      "findings": 1,
+      "top_findings": [
+       "SETTINGS_OWNER_LOGIN: 17 settings need the account holder signed in to Shop Manager; none is entered by this system and their live state is UNKNOWN"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop Manager",
+      "source": "store_foundation.content.settings_checklist",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "search_readiness",
+      "label": "Search visibility readiness",
+      "group": "readiness",
+      "status": "GATED",
+      "findings": 1,
+      "top_findings": [
+       "SEARCH_VISIBILITY_GATED: Etsy's Search Visibility page reads listings that are live; there are none, so it cannot be read yet (commerce.search_visibility intake is ready)"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop Manager > Marketing > Search Visibility",
+      "source": "brand.storefront.check_shop_seo; commerce.search_visibility",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "support_readiness",
+      "label": "Customer-support readiness",
+      "group": "readiness",
+      "status": "GATED",
+      "findings": 1,
+      "top_findings": [
+       "MESSAGING_INTEGRATION_GATED: there is no Etsy messaging integration: replies are drafted and held (support.department), never sent"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Etsy Messages",
+      "source": "support.department; commerce.shop_package",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "listing_images",
+      "label": "Listing hero images (disclosed renders)",
+      "group": "merch",
+      "status": "UNKNOWN",
+      "findings": 0,
+      "top_findings": [
+       "not verified in this call; the preview renders and verifies them on load"
+      ],
+      "entry": "listing upload",
+      "etsy_location": "listing images",
+      "source": "visual.disclosed_render + visual.render_verification",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "unknown"
+     },
+     {
+      "key": "storefront_banner",
+      "label": "Shop banner (owner's canonical file, D-FB-17)",
+      "group": "brand",
+      "status": "FAIL",
+      "findings": 6,
+      "top_findings": [
+       "f233_banner_canvas_4to1: UNVERIFIED_ASSUMPTION",
+       "f233_identity_block_survives_4to1: UNVERIFIED_ASSUMPTION",
+       "f233_identity_block_in_phone_window: UNVERIFIED_ASSUMPTION",
+       "laura_publication_status: FAIL",
+       "laura_photorealism_anatomy: UNKNOWN",
+       "ai_generated_imagery_disclosure: UNKNOWN"
+      ],
+      "entry": "big banner upload",
+      "etsy_location": "Shop Manager > Settings > Info & Appearance",
+      "source": "store_foundation.owner_banner",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured",
+      "failed": [
+       "laura_publication_status",
+       "nav_categories_truth"
+      ],
+      "unknown": [
+       "laura_photorealism_anatomy",
+       "ai_generated_imagery_disclosure",
+       "product_truth",
+       "visible_text_complete"
+      ]
+     }
+    ],
+    "sources": [
+     "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "brand.storefront.check_shop_seo; commerce.search_visibility",
+     "commerce.terms via commerce.shop_package.licence_text",
+     "listings (table, read-only)",
+     "products.launch0",
+     "products.launch0 (+ drafted listings rows when present)",
+     "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "store_foundation.content.settings_checklist",
+     "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+     "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+     "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+     "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+     "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+     "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+     "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+     "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "store_foundation.copy_v2.TRUST_SIGNALS",
+     "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+     "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+     "support.department; commerce.shop_package"
+    ],
+    "counts": {
+     "FAIL": 1,
+     "NEEDS_OWNER": 9,
+     "GATED": 2,
+     "UNVERIFIED": 8,
+     "READY": 2
+    },
+    "owner_actions": [
+     {
+      "surface": "shop_name",
+      "code": "NAME_CONFIRM",
+      "severity": "owner",
+      "detail": "confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name must also appear is an open Etsy rule reading (brand.seller_identity.PENDING_RULE_READINGS)"
+     },
+     {
+      "surface": "icon",
+      "code": "ICON_RASTER_PENDING",
+      "severity": "owner",
+      "detail": "Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upload in Shop Manager"
+     },
+     {
+      "surface": "banner",
+      "code": "BANNER_RASTER_PENDING",
+      "severity": "owner",
+      "detail": "Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or record a deliberate no-banner choice (master section 56 permits one)"
+     },
+     {
+      "surface": "brand_face",
+      "code": "BRAND_FACE_MISSING_CANONICAL",
+      "severity": "owner",
+      "detail": "frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'reference_pack/full_length_standing', 'stress_set/fitted_garment', 'stress_set/fitted_garment_close', 'stress_set/loose_layered_garment', 'stress_set/non_garment_lifestyle', 'stress_set/winter_seasonal']; owner action OA-CANON-1"
+     },
+     {
+      "surface": "policy_licence",
+      "code": "LEGAL_REVIEW_PENDING",
+      "severity": "owner",
+      "detail": "commerce.terms is not legally reviewed; the licence says so publicly ('have not yet been through legal review'). Owner: legal review, or accept showing that sentence"
+     },
+     {
+      "surface": "policy_privacy",
+      "code": "LEGAL_REVIEW_PENDING",
+      "severity": "owner",
+      "detail": "the privacy text names PIPEDA and CASL; it is written from the encoded consent rules (growth.owned) and has not been reviewed by a lawyer"
+     },
+     {
+      "surface": "disclosures",
+      "code": "DISCLOSURE_DESIGNER_CLAIM",
+      "severity": "owner",
+      "detail": "gates.platform_policy says designs were 'directed and edited by the designer'. That is true only if a person directs and edits each design; owner to confirm who that is, or the wording changes at its source"
+     },
+     {
+      "surface": "support_contact",
+      "code": "SUPPORT_RESPONSE_TIME_UNDECIDED",
+      "severity": "owner",
+      "detail": "no response-time commitment is decided, so none is shown. Owner: choose one (e.g. two business days) or keep none"
+     },
+     {
+      "surface": "opening_grid",
+      "code": "CATALOGUE_DEPTH",
+      "severity": "owner",
+      "detail": "5 Launch-0 products (sizes are not counted as products) against launch.readiness.MIN_LISTINGS_TO_OPEN=8. The threshold is not lowered; it is an open owner decision (D-FB-9)"
+     },
+     {
+      "surface": "opening_grid",
+      "code": "TITLE_PLAN_MISMATCH",
+      "severity": "owner",
+      "detail": "nursery-nesting-baskets: the plan calls it 'Nesting Baskets, three sizes', the listing title (from the CIR title) says 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | 3 Sizes | US and UK Terms'; ['Nesting'] missing. Owner naming decision"
+     },
+     {
+      "surface": "settings_checklist",
+      "code": "SETTINGS_OWNER_LOGIN",
+      "severity": "owner",
+      "detail": "17 settings need the account holder signed in to Shop Manager; none is entered by this system and their live state is UNKNOWN"
+     }
+    ],
+    "products": 5,
+    "sizes_counted_as_products": false,
+    "preview_path": "/cc/store-preview",
+    "preview_viewports": [
+     "desktop",
+     "mobile"
+    ],
+    "preview_variants": [
+     "brand_face",
+     "compare",
+     "standard",
+     "v2"
+    ],
+    "live": false,
+    "published": false,
+    "note": "Readiness of prepared drafts, measured by deterministic checks. Nothing is entered on Etsy by this system; the live shop's state is UNKNOWN here.",
+    "provider": "brambleloop.store_foundation.preview.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 24,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "reason": "provider gave no reason"
+   },
+   "live_drift": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:26:39.806587+00:00",
+    "basis": "unknown",
+    "items": [
+     {
+      "title": "Shop name",
+      "field": "shop_name",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Logo / shop icon",
+      "field": "shop_icon",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Banner",
+      "field": "shop_banner",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Shop title (tagline)",
+      "field": "shop_title",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "About headline",
+      "field": "about_headline",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_OBSERVE",
+      "proposal_why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "write_allowed": false
+     },
+     {
+      "title": "About story",
+      "field": "about_story",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_OBSERVE",
+      "proposal_why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "write_allowed": false
+     },
+     {
+      "title": "Laura shop-member profile (bio)",
+      "field": "laura_member_profile",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_OBSERVE",
+      "proposal_why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "write_allowed": false
+     },
+     {
+      "title": "Laura shop-member role",
+      "field": "laura_member_role",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": true,
+      "proposal": "OWNER_OBSERVE",
+      "proposal_why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "write_allowed": false
+     },
+     {
+      "title": "Announcement",
+      "field": "announcement",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Message to buyers (digital items)",
+      "field": "digital_sale_message",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Privacy policy",
+      "field": "policy_privacy",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Refunds / returns policy text",
+      "field": "policy_refunds",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "Delivery policy text",
+      "field": "policy_shipping",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     },
+     {
+      "title": "EU-only additional policy",
+      "field": "policy_additional",
+      "status": "UNKNOWN",
+      "live_state": "UNKNOWN",
+      "live_source": null,
+      "observed_at": null,
+      "owner_configured": false,
+      "proposal": "OWNER_CONFIRM",
+      "proposal_why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "write_allowed": false
+     }
+    ],
+    "sources": [
+     "store_foundation.live_state.drift",
+     "audit_log store.live_observation",
+     "operating_readings etsy.shop_snapshot / store.live_drift",
+     "POST /api/store/live_observation"
+    ],
+    "provider": "store_foundation.live_state",
+    "reason": "no live reading of any of 14 storefront fields yet: record what the live shop shows (POST /api/store/live_observation) or run etsy.shop_snapshot after re-authorisation",
+    "counts": {
+     "UNKNOWN": 14
+    },
+    "repo_proposals": [],
+    "owner_instructions": [
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Your shop > Shop name (Etsy limits renames; never changed by software)",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "shop_name"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Your shop > Logo",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "shop_icon"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Shop home editor > Banner",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "shop_banner"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Shop home editor > Shop title",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "shop_title"
+     },
+     {
+      "kind": "OWNER_OBSERVE",
+      "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "where": "Shop home editor > About > headline",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "about_headline"
+     },
+     {
+      "kind": "OWNER_OBSERVE",
+      "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "where": "Shop home editor > About > story",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "about_story"
+     },
+     {
+      "kind": "OWNER_OBSERVE",
+      "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "where": "Settings > Your shop > Shop team / About > Shop members",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "laura_member_profile"
+     },
+     {
+      "kind": "OWNER_OBSERVE",
+      "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+      "where": "Settings > Your shop > Shop team",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "laura_member_role"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Shop home editor > Announcement",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "announcement"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Info & Appearance > Message to Buyers for Digital Items",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "digital_sale_message"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Policy Settings > Privacy",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "policy_privacy"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Policy Settings",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "policy_refunds"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "Settings > Policy Settings",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "policy_shipping"
+     },
+     {
+      "kind": "OWNER_CONFIRM",
+      "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+      "where": "must stay empty for a Canadian shop (Open API)",
+      "auto_apply": false,
+      "write_allowed": false,
+      "field": "policy_additional"
+     }
+    ],
+    "writes_performed": 0,
+    "last_drift_job_at": null,
+    "rule": "software never writes to the live Etsy shop: repo proposals are ADOPT_LIVE_INTO_REPO only; every other proposal is an instruction for the owner"
+   },
+   "store_readiness": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:39.961154+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "title": "Re-authorise the Etsy app with all scopes incl. transactions_r",
+      "id": "SET-A1",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-A1"
+     },
+     {
+      "title": "Report whether the shop is 'open' (title/announcement fields visible)",
+      "id": "SET-A2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-A2"
+     },
+     {
+      "title": "Account public profile picture = Brambleloop logo mark (not Laura)",
+      "id": "SET-B1",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-B1"
+     },
+     {
+      "title": "Account preferred name = a real person's name or removed",
+      "id": "SET-B2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-B2"
+     },
+     {
+      "title": "Account bio blank or one honest line",
+      "id": "SET-B3",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-B3"
+     },
+     {
+      "title": "Two-factor authentication on",
+      "id": "SET-B4",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-B4"
+     },
+     {
+      "title": "Shop name kept as BrambleloopStudio",
+      "id": "SET-C1",
+      "area": "settings",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Logo / shop icon",
+      "id": "SET-C2",
+      "area": "settings",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Shop title (tagline) <= 55 chars",
+      "id": "SET-C3",
+      "area": "settings",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Banner (Big Banner) + phone-crop check in the Etsy app",
+      "id": "SET-C4",
+      "area": "settings",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Announcement",
+      "id": "SET-C5",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-C5"
+     },
+     {
+      "title": "About your shop (headline + story, AI disclosure)",
+      "id": "SET-C6",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Shop team: legal owner as Owner; Laura not Owner (owner added Laura as Designer)",
+      "id": "SET-C7",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "About featured photos (certified images only)",
+      "id": "SET-C8",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-C8"
+     },
+     {
+      "title": "Location = Canada (real province)",
+      "id": "SET-C9",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-C9"
+     },
+     {
+      "title": "Listing order = Custom",
+      "id": "SET-C10",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-C10"
+     },
+     {
+      "title": "Sold listings visibility off",
+      "id": "SET-C11",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-C11"
+     },
+     {
+      "title": "Sections: create only populated sections (D-FB-18 item 3)",
+      "id": "SET-D1",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-D1"
+     },
+     {
+      "title": "Featured listings (4 hero listings, once active)",
+      "id": "SET-D2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-D2"
+     },
+     {
+      "title": "Message to Buyers",
+      "id": "SET-E1",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-E1"
+     },
+     {
+      "title": "Message to Buyers for Digital Items",
+      "id": "SET-E2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-E2"
+     },
+     {
+      "title": "Order receipt banner (optional)",
+      "id": "SET-E3",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-E3"
+     },
+     {
+      "title": "Returns & exchanges (nothing to create for digital-only)",
+      "id": "SET-F1",
+      "area": "settings",
+      "status": "NOT-APPLICABLE",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Cancellations setting",
+      "id": "SET-F2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-F2"
+     },
+     {
+      "title": "Privacy policy",
+      "id": "SET-F3",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-F3"
+     },
+     {
+      "title": "Fixed policies (view only)",
+      "id": "SET-F4",
+      "area": "settings",
+      "status": "NOT-APPLICABLE",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "FAQ incl. pattern licence",
+      "id": "SET-F5",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-F5"
+     },
+     {
+      "title": "EU/Omnibus trader status (owner/legal)",
+      "id": "SET-F6",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-F6"
+     },
+     {
+      "title": "Options: 'Allow buyers to purchase digital prints' = Disabled",
+      "id": "SET-G1",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-G1"
+     },
+     {
+      "title": "Offsite Ads enrolment (owner decision; fee on sale, not spend)",
+      "id": "SET-G2",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-G2"
+     },
+     {
+      "title": "Etsy Ads off (no budget)",
+      "id": "SET-G3",
+      "area": "settings",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-G3"
+     },
+     {
+      "title": "Read-back/drift job on a cadence (store.live_drift)",
+      "id": "LIVE-4",
+      "area": "live_state",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Public shop page read",
+      "id": "LIVE-6",
+      "area": "live_state",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Seller taxonomy read (getSellerTaxonomyNodes) + crochet pattern subtree, daily listing.taxonomy_refresh",
+      "id": "TAX-1",
+      "area": "taxonomy",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Required attributes per taxonomy (getPropertiesByTaxonomyId) and property contract",
+      "id": "TAX-2",
+      "area": "attributes",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Live policy text consistency vs canonical (policy_consistency in etsy.shop_snapshot)",
+      "id": "POL-2",
+      "area": "policies",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Banner publication gates on the canonical owner banner (D-FB-17/18)",
+      "id": "IMG-2",
+      "area": "images",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-BANNER"
+     },
+     {
+      "title": "Listing readiness (release gates, search certificate, ranking readiness)",
+      "id": "LST-1",
+      "area": "listings",
+      "status": "DATA-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "API read of views/favourites (impressions/carts stay UNKNOWN)",
+      "id": "ANA-2",
+      "area": "analytics",
+      "status": "EXTERNAL-GATED",
+      "gate": null,
+      "owner_action": null
+     },
+     {
+      "title": "Publication pipeline (store.publish drafts; store.activate only on read-back proof + owner authority at execution time)",
+      "id": "PUB-1",
+      "area": "publication",
+      "status": "OWNER-GATED",
+      "gate": null,
+      "owner_action": "OA-LAUNCH"
+     }
+    ],
+    "sources": [
+     "store_foundation.store_readiness.build",
+     "research/final_build/w4/STORE_READINESS.json"
+    ],
+    "provider": "store_foundation.store_readiness",
+    "counts": {
+     "OWNER-GATED": 27,
+     "EXTERNAL-GATED": 10,
+     "NOT-APPLICABLE": 2,
+     "PROVEN": 11,
+     "DATA-GATED": 1
+    },
+    "total": 51,
+    "phase": "SHADOW",
+    "note": "items listed are the ones not yet PROVEN, each with its exact gate"
+   },
+   "competitor_intel": {
+    "status": "OK",
+    "as_of": "2026-10-07",
+    "basis": "measured",
+    "items": [
+     {
+      "title": "The benchmark allocates its catalogue garments 32%, hats 20%, blankets 19%, collections 7% of 441 observed listings",
+      "key": "assortment",
+      "category": "category_opportunity",
+      "confidence": "proxy",
+      "confidence_basis": "shelf allocation of one successful seller; where it invests, not what sells",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 441,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": null
+     },
+     {
+      "title": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth",
+      "key": "demand_by_pod",
+      "category": "what_is_selling",
+      "confidence": "proxy",
+      "confidence_basis": "favourites are a demand proxy, not sales",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 437,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "prioritise original concepts in stockings: demand per listing is high and the benchmark's range there is thin"
+     },
+     {
+      "title": "Observed benchmark pattern prices: amigurumi median CA$18.0 (IQR 18.0-18.0, n=21); bags median CA$18.0 (IQR 18.0-18.0, n=17); blankets median CA$18.0 (IQR 18.0-18.0, n=85); collections median CA$60.5 (IQR 45.5-85.5, n=29); garments median CA$22.0 (IQR 22.0-22.0, n=141); hats median CA$18.0 (IQR 18.0-18.0, n=86); home_decor median CA$18.0 (IQR 17.5-18.0, n=11); kitchen_bath median CA$17.75 (IQR 16.0-18.0, n=14); ornaments median CA$18.0 (IQR 17.0-18.0, n=13); seasonal_gift median CA$18.0 (IQR 18.0-18.0, n=10); stockings median CA$19.0 (IQR 19.0-19.0, n=10). Brambleloop concept pool prices sit blankets -38.9%, hats -63.9%, garments -61.4%, stockings -60.5%, seasonal_gift -69.4%, ornaments -69.4%, bags -58.3%, home_decor -66.7% against those medians; release pricing already anchors on the observed median (runtime.release._outcome_price) but radar scoring still uses the pool prices. 0 of 441 listings were on sale when observed",
+      "key": "pricing",
+      "category": "pricing",
+      "confidence": "observed",
+      "confidence_basis": "listed prices converted to CAD at observation",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 437,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "test launch prices inside the observed interquartile band before any discount; the benchmark does not rely on sales"
+     },
+     {
+      "title": "Benchmark bundle and collection listings sell at median CA$60.5 against CA$18.0 for single patterns (3.36x, n=29); a bundle collection family is a pricing lever, not only a convenience",
+      "key": "bundle_premium",
+      "category": "category_opportunity",
+      "confidence": "observed",
+      "confidence_basis": "listed prices; whether bundles sell is unmeasured",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 437,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "plan each launch family with a priced bundle from day one"
+     },
+     {
+      "title": "Benchmark listing galleries hold a median of 10 images (342 of 441 at ten or more, 58 under five); 116 of 142 gallery-audited listings carry a video, most judged shots are flat_lay 7, in_use 7, hero_styled 5. Brambleloop thumbnail and gallery plans should meet ten images and carry a technique video",
+      "key": "presentation",
+      "category": "presentation",
+      "confidence": "observed",
+      "confidence_basis": "Etsy image counts and video endpoint; shot types are vision judgements where image_vision has run",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 441,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "a ten-image gallery with video is table stakes; thin galleries in the benchmark are the opening"
+     },
+     {
+      "title": "87 of 143 benchmark hero palettes are low-saturation neutrals (dominant colour saturation under 15); neutral palette photography is the category default, so a saturated colourway palette stands apart in a search grid",
+      "key": "palette",
+      "category": "presentation",
+      "confidence": "observed",
+      "confidence_basis": "Etsy per-image colour statistics, first image",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 143,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "test a saturated colourway against a neutral one in concept briefs"
+     },
+     {
+      "title": "Christmas (2026-12-25) is inside the buying window: the benchmark carries 10 christmas stocking and 13 ornament listings; title-level seasonal positioning is unmeasured in this evidence. Christmas stocking and ornament concepts are quick makes that still sell late in the season",
+      "key": "seasonality",
+      "category": "seasonality",
+      "confidence": "proxy",
+      "confidence_basis": "seasonal pods (stockings, ornaments) as a proxy; titles not in evidence",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 441,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "prioritise christmas stocking and ornament quick makes now"
+     },
+     {
+      "title": "Of 100 benchmark reviews read, 5 are rated three or lower; recurring complaint themes: instructions unclear 3. Clear row-by-row instructions with stitch counts and stated US terms answer the commonest complaint",
+      "key": "customer_pain",
+      "category": "customer_expectations",
+      "confidence": "observed",
+      "confidence_basis": "keyword-classified review themes; counts only",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 100,
+      "observed_from": "2026-10-01T00:02:55.608651+00:00",
+      "observed_to": "2026-10-01T00:02:55.608651+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "ship instruction clarity as a feature: stitch counts, photo steps"
+     },
+     {
+      "title": "154 of 439 benchmark descriptions read state too little for a buyer to know what arrives; most often silent on delivery (438), extent (432), hook (218), finished size (196), terms (79). Brambleloop listings should state delivery, page extent, finished size, hook and yarn in every description",
+      "key": "deliverable_gaps",
+      "category": "weak_spots",
+      "confidence": "observed",
+      "confidence_basis": "eight boolean facts per description (intel.deliverable); copy is never stored",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 439,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "a complete 'what you get' block is a cheap, durable advantage"
+     },
+     {
+      "title": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+      "key": "coverage_gaps",
+      "category": "category_opportunity",
+      "confidence": "observed",
+      "confidence_basis": "coverage gap queue (intel.coverage)",
+      "provenance_source": "public_api_snapshot",
+      "benchmark": "mjs_off_the_hook_designs",
+      "sample": 7,
+      "observed_from": "2026-10-07T00:02:17.065439+00:00",
+      "observed_to": "2026-10-07T00:02:17.065439+00:00",
+      "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+      "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+     }
+    ],
+    "sources": [
+     "intel.findings.latest (operating_readings kind mjs.findings)",
+     "/api/mjs/findings"
+    ],
+    "provider": "intel.findings",
+    "unmeasured": [
+     {
+      "key": "seasonal_positioning",
+      "reason": "no listing title in this evidence; counted from pods only"
+     },
+     {
+      "key": "search_index",
+      "reason": "no SERP snapshot stored (intel.serp_capture has not run in this environment)"
+     }
+    ],
+    "blocked_sources": [
+     {
+      "latest": "2026-10-07T00:03:38.170198+00:00",
+      "reason": "no vision probe has succeeded",
+      "source": "intel.gallery_analysis_blocked"
+     },
+     {
+      "latest": "2026-09-19T18:00:32.396136+00:00",
+      "reason": "ETSY_API_KEY is not set. The benchmark mission reads public marketplace data only and cannot run without it; it is set in the hosting environment, never in this repository",
+      "source": "mjs.scan_blocked"
+     },
+     {
+      "reason": "HTTP 403 to automated readers; not scraped (rendered_pages gate, #39)",
+      "source": "etsy.com rendered search / shop pages"
+     },
+     {
+      "reason": "no API endpoint; owner-recorded only (intel.insights, #236)",
+      "source": "Etsy Marketplace Insights"
+     },
+     {
+      "reason": "not exposed by the sanctioned API; favourites are used as a labelled proxy",
+      "source": "competitor sales counts / revenue"
+     }
+    ],
+    "changed_since_previous": null,
+    "note": "demand/merchandising intelligence only; no competitor instructions, charts or photography are stored or reproduced. A 'proxy' grade is a labelled proxy, not a measurement."
+   },
+   "seo": {
+    "status": "UNKNOWN",
+    "as_of": null,
+    "basis": "unknown",
+    "items": [],
+    "sources": [
+     "seo_keyword_evidence",
+     "seo_proposals",
+     "seo_cycles",
+     "etsy_taxonomy_snapshots",
+     "listing_outcomes",
+     "operating_readings:attribution.stats",
+     "insights_snapshots",
+     "serp_snapshots",
+     "benchmark_listings",
+     "keywords",
+     "listings",
+     "products.launch0",
+     "commerce.search",
+     "commerce.seo"
+    ],
+    "kpis": {},
+    "guardrails": [
+     "F-918: no KPI may be improved by keyword stuffing, untraceable or misleading tags, competitor brand terms or protected IP (seo.truth.validate_listing is blocking)",
+     "a modelled phrase's demand is never reported as measured (evidence basis per row)",
+     "UNKNOWN is never rendered as 0: a term with no Stats row is UNKNOWN",
+     "proposals are never written to Etsy by this department (writes_to_etsy=False)",
+     "F-929: an unconfirmed category stays GATED(etsy_api); no remembered taxonomy id is used"
+    ],
+    "taxonomy": [
+     {
+      "slug": "market-basket-small",
+      "candidate": "nursery-nesting-baskets",
+      "category_intent": "basket",
+      "intent_terms": {
+       "object": [
+        "basket",
+        "storage"
+       ],
+       "family": [
+        "home"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "market-basket-medium",
+      "candidate": "nursery-nesting-baskets",
+      "category_intent": "basket",
+      "intent_terms": {
+       "object": [
+        "basket",
+        "storage"
+       ],
+       "family": [
+        "home"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "market-basket-large",
+      "candidate": "nursery-nesting-baskets",
+      "category_intent": "basket",
+      "intent_terms": {
+       "object": [
+        "basket",
+        "storage"
+       ],
+       "family": [
+        "home"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "cloudline-baby-blanket",
+      "candidate": "cloudline-baby-blanket",
+      "category_intent": "baby",
+      "intent_terms": {
+       "object": [
+        "baby",
+        "blanket"
+       ],
+       "family": [
+        "children",
+        "kids"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "hexagon-coaster-set",
+      "candidate": "hexagon-coaster-set",
+      "category_intent": "coaster",
+      "intent_terms": {
+       "object": [
+        "coaster"
+       ],
+       "family": [
+        "kitchen",
+        "home"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "nordic-star-ornaments",
+      "candidate": "nordic-star-ornaments",
+      "category_intent": "ornament",
+      "intent_terms": {
+       "object": [
+        "ornament"
+       ],
+       "family": [
+        "holiday",
+        "seasonal",
+        "christmas"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     },
+     {
+      "slug": "winter-village-graphghan",
+      "candidate": "winter-village-graphghan",
+      "category_intent": "blanket",
+      "intent_terms": {
+       "object": [
+        "blanket",
+        "afghan",
+        "throw"
+       ],
+       "family": [
+        "home"
+       ]
+      },
+      "taxonomy_id": null,
+      "path": [],
+      "properties_complete": null,
+      "snapshot": null,
+      "basis": "assumed",
+      "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+      "status": "GATED(etsy_api)",
+      "gated_by": "etsy_api",
+      "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+     }
+    ],
+    "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+    "w3": {
+     "constraints": {
+      "counts": {
+       "VERIFIED": 16,
+       "UNVERIFIED": 11
+      },
+      "retrieved_on": "2026-10-06",
+      "unverified_keys": [
+       "title_max_chars",
+       "tag_max_count",
+       "tag_max_chars",
+       "tag_no_leading_symbol",
+       "attributes_act_like_tags",
+       "ai_disclosure",
+       "crochet_pattern_buyer_path",
+       "shop_title_max_chars",
+       "sections_max_count",
+       "section_name_max_chars",
+       "search_visibility_page"
+      ],
+      "repo_disagreements": [],
+      "openapi_sha256": "b993d52f46afdf87f7687dc6ff8885f2b012589f9b123e1faf14cc54ee73a9ef"
+     },
+     "strategy": {
+      "version": "w3-seo-strategy-v1",
+      "ok": true,
+      "unverified_limits": [
+       "title_max_chars",
+       "tag_max_count",
+       "tag_max_chars",
+       "shop_title_max_chars",
+       "sections_max_count",
+       "section_name_max_chars"
+      ],
+      "products": [
+       {
+        "slug": "nursery-nesting-baskets",
+        "ok": true,
+        "title": "Hexagon Nesting Baskets Crochet Pattern in 3 Sizes | Nursery Storage | Worsted Cotton | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "cloudline-baby-blanket",
+        "ok": true,
+        "title": "Textured Baby Blanket Crochet Pattern | Cloudline Diamond Lattice in Two Colors | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "hexagon-coaster-set",
+        "ok": true,
+        "title": "Hexagon Coaster Crochet Pattern, Set of 4 | DK Cotton | Confident Beginner | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "nordic-star-ornaments",
+        "ok": true,
+        "title": "Snowflake Ornament Crochet Pattern, Set of 6 | Nordic Christmas Decor | Worsted Yarn | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "winter-village-graphghan",
+        "ok": true,
+        "title": "Winter Throw Blanket Crochet Pattern | Snowfall Texture in Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       }
+      ],
+      "demand_basis": "modelled unless a tag's basis says measured"
+     },
+     "learning": {
+      "search_visibility": {
+       "status": "UNKNOWN",
+       "value": null,
+       "why": "live_listings gate closed: no shop to read Search Visibility for"
+      },
+      "per_product": {
+       "nursery-nesting-baskets": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "cloudline-baby-blanket": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "hexagon-coaster-set": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "nordic-star-ornaments": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "winter-village-graphghan": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       }
+      },
+      "thresholds": {
+       "min_impressions": 200,
+       "min_visits": 30,
+       "basis": "modelled policy constant (no measured shop baseline exists)"
+      }
+     }
+    },
+    "provider": "brambleloop.seo.status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 0,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "seo_w3": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:40+00:00",
+    "basis": "modelled",
+    "items": [
+     {
+      "part": "constraints",
+      "counts": {
+       "VERIFIED": 16,
+       "UNVERIFIED": 11
+      },
+      "retrieved_on": "2026-10-06",
+      "unverified_keys": [
+       "title_max_chars",
+       "tag_max_count",
+       "tag_max_chars",
+       "tag_no_leading_symbol",
+       "attributes_act_like_tags",
+       "ai_disclosure",
+       "crochet_pattern_buyer_path",
+       "shop_title_max_chars",
+       "sections_max_count",
+       "section_name_max_chars",
+       "search_visibility_page"
+      ],
+      "repo_disagreements": [],
+      "openapi_sha256": "b993d52f46afdf87f7687dc6ff8885f2b012589f9b123e1faf14cc54ee73a9ef"
+     },
+     {
+      "part": "strategy",
+      "version": "w3-seo-strategy-v1",
+      "ok": true,
+      "unverified_limits": [
+       "title_max_chars",
+       "tag_max_count",
+       "tag_max_chars",
+       "shop_title_max_chars",
+       "sections_max_count",
+       "section_name_max_chars"
+      ],
+      "products": [
+       {
+        "slug": "nursery-nesting-baskets",
+        "ok": true,
+        "title": "Hexagon Nesting Baskets Crochet Pattern in 3 Sizes | Nursery Storage | Worsted Cotton | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "cloudline-baby-blanket",
+        "ok": true,
+        "title": "Textured Baby Blanket Crochet Pattern | Cloudline Diamond Lattice in Two Colors | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "hexagon-coaster-set",
+        "ok": true,
+        "title": "Hexagon Coaster Crochet Pattern, Set of 4 | DK Cotton | Confident Beginner | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "nordic-star-ornaments",
+        "ok": true,
+        "title": "Snowflake Ornament Crochet Pattern, Set of 6 | Nordic Christmas Decor | Worsted Yarn | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       },
+       {
+        "slug": "winter-village-graphghan",
+        "ok": true,
+        "title": "Winter Throw Blanket Crochet Pattern | Snowfall Texture in Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms",
+        "tags": 13,
+        "tag_basis_counts": {
+         "modelled": 13
+        },
+        "category_status": "GATED(etsy_api)",
+        "blocking": []
+       }
+      ],
+      "demand_basis": "modelled unless a tag's basis says measured"
+     },
+     {
+      "part": "learning",
+      "search_visibility": {
+       "status": "UNKNOWN",
+       "value": null,
+       "why": "live_listings gate closed: no shop to read Search Visibility for"
+      },
+      "per_product": {
+       "nursery-nesting-baskets": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "cloudline-baby-blanket": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "hexagon-coaster-set": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "nordic-star-ornaments": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       },
+       "winter-village-graphghan": {
+        "impressions": "UNKNOWN",
+        "clicks": "UNKNOWN",
+        "favourites": "UNKNOWN",
+        "orders": "UNKNOWN",
+        "carts": "UNKNOWN"
+       }
+      },
+      "thresholds": {
+       "min_impressions": 200,
+       "min_visits": 30,
+       "basis": "modelled policy constant (no measured shop baseline exists)"
+      }
+     }
+    ],
+    "sources": [
+     "brambleloop.seo.status (w3)"
+    ],
+    "provider": "brambleloop.seo.status.w3"
+   },
+   "products": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:40+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "slug": "hexagon-coaster-set",
+      "title": "Hexagon Coaster Set",
+      "status": "certified",
+      "version": "1.2.0",
+      "certified": true,
+      "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 4,
+      "sources": [
+       "products:1",
+       "pattern_versions:1",
+       "listings:1"
+      ]
+     },
+     {
+      "slug": "nordic-star-ornaments",
+      "title": "Nordic Snowflake Ornament Set (6)",
+      "status": "certified",
+      "version": "1.4.0",
+      "certified": true,
+      "release_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 4.5,
+      "sources": [
+       "products:2",
+       "pattern_versions:2",
+       "listings:2"
+      ]
+     },
+     {
+      "slug": "cloudline-baby-blanket",
+      "title": "Cloudline Textured Baby Blanket",
+      "status": "certified",
+      "version": "1.2.0",
+      "certified": true,
+      "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 7.5,
+      "sources": [
+       "products:3",
+       "pattern_versions:3",
+       "listings:3"
+      ]
+     }
+    ],
+    "sources": [
+     "products",
+     "pattern_versions",
+     "listings"
+    ],
+    "provider": "products+pattern_versions+listings",
+    "certified": 3,
+    "on_etsy": 0
+   },
+   "launch_verdict": {
+    "status": "UNKNOWN",
+    "as_of": null,
+    "basis": "unknown",
+    "items": [],
+    "sources": [
+     "audit_log"
+    ],
+    "reason": "launch.readiness has never run (no launch.assessed row)",
+    "provider": "audit_log (launch.assessed)"
+   },
+   "visibility": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:26:46+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "key": "launch_verdict",
+      "label": "Launch verdict (six questions)",
+      "state": "UNKNOWN",
+      "why": "launch.readiness has never run"
+     },
+     {
+      "key": "storefront_completion",
+      "label": "Storefront completion",
+      "state": "PASS",
+      "why": null
+     },
+     {
+      "key": "search_visibility_issues",
+      "label": "Search Visibility issues",
+      "state": "UNMEASURED",
+      "why": null
+     },
+     {
+      "key": "search_readiness",
+      "label": "Search readiness",
+      "state": "FAIL",
+      "why": null
+     },
+     {
+      "key": "search_terms",
+      "label": "Search terms",
+      "state": "UNMEASURED",
+      "why": "no Etsy Stats export has been ingested"
+     },
+     {
+      "key": "funnel",
+      "label": "Impressions, clicks, conversion",
+      "state": "UNMEASURED",
+      "why": null
+     },
+     {
+      "key": "traffic_sources",
+      "label": "Traffic sources (never blended)",
+      "state": "UNMEASURED",
+      "why": null
+     },
+     {
+      "key": "etsy_ads",
+      "label": "Etsy Ads",
+      "state": "BLOCKED",
+      "why": null
+     },
+     {
+      "key": "offsite_ads",
+      "label": "Offsite Ads",
+      "state": "UNMEASURED",
+      "why": null
+     },
+     {
+      "key": "seasonal_readiness",
+      "label": "Seasonal readiness (Christmas)",
+      "state": "TRACKED",
+      "why": null
+     },
+     {
+      "key": "demand_capture",
+      "label": "Demand-capture plan",
+      "state": "PASS",
+      "why": null
+     },
+     {
+      "key": "learning_plan",
+      "label": "First-30-day learning plan",
+      "state": "TRACKED",
+      "why": null
+     },
+     {
+      "key": "launch_success",
+      "label": "Launch success (multi-signal)",
+      "state": "UNMEASURED",
+      "why": null
+     },
+     {
+      "key": "recommendations",
+      "label": "Actionable recommendations",
+      "state": "UNMEASURED",
+      "why": "no Etsy Stats export has been ingested (/api/attribution/stats)"
+     },
+     {
+      "key": "owner_actions",
+      "label": "Owner actions",
+      "state": "OPEN",
+      "why": null
+     }
+    ],
+    "sources": [
+     "audit_log:launch.assessed",
+     "operating_readings:attribution.stats",
+     "finance.sources.table",
+     "growth.ads_readiness.summary",
+     "commerce.search_visibility.state",
+     "brand.storefront",
+     "owner_actions",
+     "launch.demand",
+     "launch.success",
+     "launch.recommendations"
+    ],
+    "provider": "brambleloop.launch.visibility.summary",
+    "unreadable": [],
+    "reason": "launch.readiness has never run",
+    "detail": {
+     "as_of": "2026-10-11T00:26:46+00:00",
+     "sections": {
+      "launch_verdict": {
+       "state": "UNKNOWN",
+       "why": "launch.readiness has never run"
+      },
+      "storefront_completion": {
+       "state": "PASS",
+       "storefront_problems": [],
+       "opening_grid_ok": true,
+       "opening_grid_problems": [],
+       "first_screen": [
+        "cloudline-baby-blanket",
+        "nordic-star-ornaments"
+       ]
+      },
+      "search_visibility_issues": {
+       "state": "UNMEASURED",
+       "live_gate": "live_listings",
+       "live_gate_open": false,
+       "readings_on_file": false,
+       "latest_reading_at": null,
+       "open": [],
+       "remediated_pending": [],
+       "cleared": 0,
+       "status": "UNMEASURED",
+       "rule": "only a later, complete recorded reading clears an item; a code change can only mark it REMEDIATED_PENDING"
+      },
+      "search_readiness": {
+       "state": "FAIL",
+       "certificates": {
+        "REFUSED": 3
+       },
+       "listings": [
+        {
+         "listing": "cloudline-baby-blanket@1.2.0",
+         "certificate": "REFUSED"
+        },
+        {
+         "listing": "hexagon-coaster-set@1.2.0",
+         "certificate": "REFUSED"
+        },
+        {
+         "listing": "nordic-star-ornaments@1.4.0",
+         "certificate": "REFUSED"
+        }
+       ]
+      },
+      "search_terms": {
+       "state": "UNMEASURED",
+       "why": "no Etsy Stats export has been ingested"
+      },
+      "funnel": {
+       "state": "UNMEASURED",
+       "impressions": {
+        "status": "UNMEASURED",
+        "value": null,
+        "why": "no listing is live (none carries an Etsy listing id); impressions, clicks and favourites are facts about a listing somebody can see",
+        "needs": "a live listing and its Stats"
+       },
+       "clicks_ctr": {
+        "status": "UNMEASURED",
+        "value": null,
+        "why": "no listing is live (none carries an Etsy listing id); impressions, clicks and favourites are facts about a listing somebody can see",
+        "needs": "a live listing, impressions and visits"
+       },
+       "conversion": {
+        "status": "UNMEASURED",
+        "value": null,
+        "why": "no visit count was supplied",
+        "needs": "visits from the Stats export, and orders"
+       },
+       "favourites_and_cart": {
+        "status": "UNMEASURED",
+        "value": null,
+        "why": "no listing is live (none carries an Etsy listing id); impressions, clicks and favourites are facts about a listing somebody can see",
+        "needs": "a live listing"
+       }
+      },
+      "traffic_sources": {
+       "state": "UNMEASURED",
+       "channels": {
+        "etsy_organic": {
+         "orders": 0,
+         "revenue_cad": 0,
+         "contribution_cad": 0
+        },
+        "etsy_ads": {
+         "orders": 0,
+         "revenue_cad": 0,
+         "contribution_cad": 0
+        },
+        "offsite_ads": {
+         "orders": 0,
+         "revenue_cad": 0,
+         "contribution_cad": 0
+        },
+        "owned_direct": {
+         "orders": 0,
+         "revenue_cad": 0,
+         "contribution_cad": 0
+        },
+        "unattributed": {
+         "orders": 0,
+         "revenue_cad": 0,
+         "contribution_cad": 0
+        }
+       },
+       "order": [
+        "etsy_organic",
+        "etsy_ads",
+        "offsite_ads",
+        "owned_direct",
+        "unattributed"
+       ],
+       "total_orders": 0,
+       "unattributed_share": null,
+       "rule": "every channel is a row; the total is the sum of the rows (F-289)"
+      },
+      "etsy_ads": {
+       "state": "BLOCKED",
+       "items": [
+        {
+         "type": "listing_readiness",
+         "slug": "cloudline-baby-blanket",
+         "status": "NOT_READY",
+         "blocking": [
+          "listing_live: FAIL",
+          "listing_certified: FAIL",
+          "organic_signal: UNKNOWN",
+          "ads_eligibility: UNKNOWN",
+          "trust_ladder: FAIL"
+         ],
+         "economics_basis": "modelled",
+         "break_even_roas": 1.1522,
+         "break_even_roas_conservative": 1.4675,
+         "contribution_per_order_cad": 6.5095,
+         "offsite_ads": {
+          "fee_per_attributed_order_cad_conservative": 1.125,
+          "participation": "UNKNOWN (trailing 365-day sales not measured)",
+          "basis": "modelled"
+         }
+        },
+        {
+         "type": "listing_readiness",
+         "slug": "hexagon-coaster-set",
+         "status": "NOT_READY",
+         "blocking": [
+          "listing_live: FAIL",
+          "listing_certified: FAIL",
+          "organic_signal: UNKNOWN",
+          "ads_eligibility: UNKNOWN",
+          "trust_ladder: FAIL"
+         ],
+         "economics_basis": "modelled",
+         "break_even_roas": 1.1969,
+         "break_even_roas_conservative": 1.5408,
+         "contribution_per_order_cad": 3.342,
+         "offsite_ads": {
+          "fee_per_attributed_order_cad_conservative": 0.6,
+          "participation": "UNKNOWN (trailing 365-day sales not measured)",
+          "basis": "modelled"
+         }
+        },
+        {
+         "type": "listing_readiness",
+         "slug": "nordic-star-ornaments",
+         "status": "NOT_READY",
+         "blocking": [
+          "listing_live: FAIL",
+          "listing_certified: FAIL",
+          "organic_signal: UNKNOWN",
+          "ads_eligibility: UNKNOWN",
+          "trust_ladder: FAIL"
+         ],
+         "economics_basis": "modelled",
+         "break_even_roas": 1.1859,
+         "break_even_roas_conservative": 1.5227,
+         "contribution_per_order_cad": 3.7945,
+         "offsite_ads": {
+          "fee_per_attributed_order_cad_conservative": 0.675,
+          "participation": "UNKNOWN (trailing 365-day sales not measured)",
+          "basis": "modelled"
+         }
+        }
+       ],
+       "reason": "no listing passes every ads readiness gate",
+       "basis": "modelled"
+      },
+      "offsite_ads": {
+       "state": "UNMEASURED",
+       "offsite_orders": 0,
+       "offsite_revenue_cad": 0,
+       "terms": {
+        "standard_fee_rate": 0.15,
+        "reduced_fee_rate": 0.12,
+        "fee_cap_usd": 100,
+        "threshold_usd": 10000,
+        "attribution_window_days": 30,
+        "mandatory_above_threshold": true,
+        "source": {
+         "reading": "advertising_rules",
+         "read_on": "2026-09-26",
+         "basis": "search_engine_excerpt_of_official_page",
+         "urls": [
+          "https://www.etsy.com/legal/advertising/",
+          "https://help.etsy.com/hc/en-us/articles/360000338367-How-Etsy-s-Offsite-Ads-Work"
+         ]
+        }
+       }
+      },
+      "seasonal_readiness": {
+       "state": "TRACKED",
+       "event": "Christmas",
+       "window_opens": "2026-08-20",
+       "peak": "2026-10-04",
+       "window_closes": "2026-11-18",
+       "days_to_peak": -7,
+       "checkpoints": [
+        {
+         "checkpoint": "query_strategy",
+         "requirement": "Christmas query/title/tag/attribute strategy refreshed from current evidence (F-285)",
+         "by": "2026-07-09",
+         "state": "DONE",
+         "evidence": "3 listing.query_portfolio reading(s) since 2026-04-22"
+        },
+        {
+         "checkpoint": "gallery",
+         "requirement": "Christmas gallery and hero frames final and Asset-Truth cleared",
+         "by": "2026-07-16",
+         "state": "DONE",
+         "evidence": "20 approved listing frame(s)"
+        },
+        {
+         "checkpoint": "listings_indexed",
+         "requirement": "Christmas listings live so Etsy can index them (indexing takes weeks)",
+         "by": "2026-07-30",
+         "state": "LATE",
+         "evidence": "0 listing(s) carry an Etsy listing id"
+        },
+        {
+         "checkpoint": "storefront",
+         "requirement": "banner, announcement, sections and featured products carry the Christmas story (F-279)",
+         "by": "2026-08-06",
+         "state": "LATE",
+         "evidence": "opening grid active events: []"
+        },
+        {
+         "checkpoint": "ads_learning",
+         "requirement": "if the owner authorises Etsy Ads, campaigns start early enough to finish learning before peak; organic-only is a valid answer",
+         "by": "2026-08-13",
+         "state": "NOT_AUTHORISED",
+         "evidence": "no owner-authorised Etsy Ads ceiling: the plan is organic-only, which needs no ads learning window"
+        },
+        {
+         "checkpoint": "engagement_window",
+         "requirement": "listings collect clicks and favourites before peak buying",
+         "by": "2026-08-20",
+         "state": "LATE",
+         "evidence": "latest Stats impressions: None"
+        }
+       ],
+       "late": [
+        "listings_indexed",
+        "storefront",
+        "engagement_window"
+       ],
+       "compressed": true,
+       "urgency_rule": "a late checkpoint compresses the schedule; it never relaxes truth, quality, policy or certification gates (F-276, F-298)"
+      },
+      "demand_capture": {
+       "state": "PASS",
+       "products": [
+        {
+         "slug": "cloudline-baby-blanket",
+         "version": "1.2.0",
+         "search_intents": [
+          "baby crochet pattern",
+          "written and chart",
+          "diy gift crochet",
+          "baby crochet diy",
+          "cloudline baby",
+          "digital download",
+          "instant download pdf",
+          "yarn craft project",
+          "us and uk terms",
+          "printable pdf chart",
+          "fiber art project",
+          "cloudline crochet",
+          "baby shower diy"
+         ],
+         "seasonal_runway": {
+          "action": "launch.planned",
+          "launch_on": "2026-10-18",
+          "compressed": true,
+          "warnings": [
+           "some stages are already past their ideal date; they are compressed into the time that actually remains"
+          ],
+          "may_launch_seasonally": null
+         },
+         "storefront_placement": {
+          "state": "FIRST_SCREEN",
+          "position": 1
+         },
+         "organic_readiness": {
+          "certificate": "REFUSED",
+          "why": "the certificate covers the listing as it stands"
+         },
+         "ads_plan": {
+          "plan": "organic only: no ad spend until every ads gate passes and the owner sets a ceiling",
+          "status": "NOT_READY",
+          "blocking": [
+           "listing_live: FAIL",
+           "listing_certified: FAIL",
+           "organic_signal: UNKNOWN",
+           "ads_eligibility: UNKNOWN",
+           "trust_ladder: FAIL"
+          ]
+         },
+         "measurement_checkpoints": [
+          {
+           "day": 1,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 3,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 7,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 14,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 30,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          }
+         ],
+         "gaps": [],
+         "complete": true
+        },
+        {
+         "slug": "hexagon-coaster-set",
+         "version": "1.2.0",
+         "search_intents": [
+          "coaster crochet",
+          "written and chart",
+          "diy gift crochet",
+          "crochet home decor",
+          "hexagon coaster",
+          "diy coaster",
+          "digital download",
+          "home decor diy",
+          "instant download pdf",
+          "yarn craft project",
+          "us and uk terms",
+          "printable pdf chart",
+          "fiber art project"
+         ],
+         "seasonal_runway": {
+          "action": "launch.planned",
+          "launch_on": "2026-10-18",
+          "compressed": true,
+          "warnings": [
+           "some stages are already past their ideal date; they are compressed into the time that actually remains"
+          ],
+          "may_launch_seasonally": null
+         },
+         "storefront_placement": {
+          "state": "EXCLUDED",
+          "why": "not launch-cleared: failing ['creative_gate_survivor']"
+         },
+         "organic_readiness": {
+          "certificate": "REFUSED",
+          "why": "the certificate covers the listing as it stands"
+         },
+         "ads_plan": {
+          "plan": "organic only: no ad spend until every ads gate passes and the owner sets a ceiling",
+          "status": "NOT_READY",
+          "blocking": [
+           "listing_live: FAIL",
+           "listing_certified: FAIL",
+           "organic_signal: UNKNOWN",
+           "ads_eligibility: UNKNOWN",
+           "trust_ladder: FAIL"
+          ]
+         },
+         "measurement_checkpoints": [
+          {
+           "day": 1,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 3,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 7,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 14,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 30,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          }
+         ],
+         "gaps": [],
+         "complete": true
+        },
+        {
+         "slug": "nordic-star-ornaments",
+         "version": "1.4.0",
+         "search_intents": [
+          "ornament crochet",
+          "holiday crochet",
+          "nordic ornament",
+          "snowflake ornament",
+          "holiday decor diy",
+          "nordic crochet",
+          "diy ornament",
+          "written and chart",
+          "diy gift crochet",
+          "digital download",
+          "instant download pdf",
+          "yarn craft project",
+          "us and uk terms"
+         ],
+         "seasonal_runway": {
+          "action": "launch.planned",
+          "launch_on": "2026-11-17",
+          "compressed": true,
+          "warnings": [
+           "some stages are already past their ideal date; they are compressed into the time that actually remains"
+          ],
+          "may_launch_seasonally": null
+         },
+         "storefront_placement": {
+          "state": "FIRST_SCREEN",
+          "position": 2
+         },
+         "organic_readiness": {
+          "certificate": "REFUSED",
+          "why": "the certificate covers the listing as it stands"
+         },
+         "ads_plan": {
+          "plan": "organic only: no ad spend until every ads gate passes and the owner sets a ceiling",
+          "status": "NOT_READY",
+          "blocking": [
+           "listing_live: FAIL",
+           "listing_certified: FAIL",
+           "organic_signal: UNKNOWN",
+           "ads_eligibility: UNKNOWN",
+           "trust_ladder: FAIL"
+          ]
+         },
+         "measurement_checkpoints": [
+          {
+           "day": 1,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 3,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 7,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 14,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          },
+          {
+           "day": 30,
+           "due_at": null,
+           "state": "SCHEDULED_RELATIVE"
+          }
+         ],
+         "gaps": [],
+         "complete": true
+        }
+       ],
+       "products_count": 3,
+       "complete": true,
+       "gaps_summary": [],
+       "why": null,
+       "rule": "before any phase change every opening product is linked to its search intents, seasonal runway, storefront placement, organic readiness, Etsy Ads plan and measurement checkpoints (F-275)"
+      },
+      "learning_plan": {
+       "state": "TRACKED",
+       "launch_started_at": null,
+       "anchor": "the owner's recorded move into limited_production (core.phase)",
+       "reviews": [
+        {
+         "day": 1,
+         "due_at": null,
+         "focus": "delivery and indexing: every live listing is reachable, downloads complete, no support friction from the first buyers; traffic is not judged yet",
+         "metrics": [
+          "impressions",
+          "clicks",
+          "favorites",
+          "sales",
+          "conversion",
+          "search_terms",
+          "ads",
+          "support_friction",
+          "contribution"
+         ],
+         "state": "SCHEDULED_RELATIVE",
+         "audit_id": null
+        },
+        {
+         "day": 3,
+         "due_at": null,
+         "focus": "exposure: are listings collecting impressions? Inadequate exposure stays UNMEASURED and routes to exposure diagnosis, never to 'weak'",
+         "metrics": [
+          "impressions",
+          "clicks",
+          "favorites",
+          "sales",
+          "conversion",
+          "search_terms",
+          "ads",
+          "support_friction",
+          "contribution"
+         ],
+         "state": "SCHEDULED_RELATIVE",
+         "audit_id": null
+        },
+        {
+         "day": 7,
+         "due_at": null,
+         "focus": "clicks: listings with adequate impressions and weak clicks route to hero/title diagnosis before any budget escalation",
+         "metrics": [
+          "impressions",
+          "clicks",
+          "favorites",
+          "sales",
+          "conversion",
+          "search_terms",
+          "ads",
+          "support_friction",
+          "contribution"
+         ],
+         "state": "SCHEDULED_RELATIVE",
+         "audit_id": null
+        },
+        {
+         "day": 14,
+         "due_at": null,
+         "focus": "conversion: healthy clicks with no sales route to product/value/trust/price diagnosis rather than SEO by default; amplify what converts",
+         "metrics": [
+          "impressions",
+          "clicks",
+          "favorites",
+          "sales",
+          "conversion",
+          "search_terms",
+          "ads",
+          "support_friction",
+          "contribution"
+         ],
+         "state": "SCHEDULED_RELATIVE",
+         "audit_id": null
+        },
+        {
+         "day": 30,
+         "due_at": null,
+         "focus": "first performance read: contribution per channel (organic, Etsy Ads, Offsite Ads, owned/direct kept separate), search terms that earn, support friction",
+         "metrics": [
+          "impressions",
+          "clicks",
+          "favorites",
+          "sales",
+          "conversion",
+          "search_terms",
+          "ads",
+          "support_friction",
+          "contribution"
+         ],
+         "state": "SCHEDULED_RELATIVE",
+         "audit_id": null
+        }
+       ],
+       "metrics": [
+        "impressions",
+        "clicks",
+        "favorites",
+        "sales",
+        "conversion",
+        "search_terms",
+        "ads",
+        "support_friction",
+        "contribution"
+       ],
+       "note": "predefined before launch; a review's metrics are snapshotted once its day arrives, and a metric with no source is UNMEASURED, never 0"
+      },
+      "launch_success": {
+       "state": "UNMEASURED",
+       "success": false,
+       "signals": {
+        "visibility": {
+         "status": "UNMEASURED",
+         "why": "no listing is live"
+        },
+        "clicks": {
+         "status": "UNMEASURED",
+         "why": "impressions below the floor or not supplied"
+        },
+        "honest_conversion": {
+         "status": "UNMEASURED",
+         "why": "visits None below 40"
+        },
+        "product_truth": {
+         "status": "PASS",
+         "why": "no open P0/P1 incident and no Asset-Truth block"
+        },
+        "customer_experience": {
+         "status": "UNMEASURED",
+         "why": "0 order(s) against a floor of 20"
+        },
+        "unit_economics": {
+         "status": "UNMEASURED",
+         "why": "no countable orders"
+        }
+       },
+       "failing": [],
+       "unmeasured": [
+        "visibility",
+        "clicks",
+        "honest_conversion",
+        "customer_experience",
+        "unit_economics"
+       ],
+       "context_not_signals": {
+        "live_listings": 0,
+        "note": "'live' and 'ads running' are never success"
+       },
+       "rule": "launch success requires visibility, clicks, honest conversion, product truth, customer experience and unit economics together (F-286)"
+      },
+      "recommendations": {
+       "state": "UNMEASURED",
+       "status": "UNMEASURED",
+       "recommendations": [],
+       "refused": [],
+       "why": "no Etsy Stats export has been ingested (/api/attribution/stats)"
+      },
+      "owner_actions": {
+       "state": "OPEN",
+       "open": 1,
+       "items": [
+        {
+         "key": "laura.voice.listen_shortlist",
+         "action": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+         "why": "D-FB-18 item 7: no voice becomes Laura's canonical voice until you have heard it; perceptual criteria (attractiveness, warmth, natural sensuality, match to her appearance, the exclusions) are your listening judgement, not a model's",
+         "max_cost_cad": null,
+         "max_cost_basis": "UNKNOWN",
+         "minutes": 20,
+         "consequence_of_delay": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority"
+        }
+       ]
+      }
+     },
+     "labels": {
+      "launch_verdict": "Launch verdict (six questions)",
+      "storefront_completion": "Storefront completion",
+      "search_visibility_issues": "Search Visibility issues",
+      "search_readiness": "Search readiness",
+      "search_terms": "Search terms",
+      "funnel": "Impressions, clicks, conversion",
+      "traffic_sources": "Traffic sources (never blended)",
+      "etsy_ads": "Etsy Ads",
+      "offsite_ads": "Offsite Ads",
+      "seasonal_readiness": "Seasonal readiness (Christmas)",
+      "demand_capture": "Demand-capture plan",
+      "learning_plan": "First-30-day learning plan",
+      "launch_success": "Launch success (multi-signal)",
+      "recommendations": "Actionable recommendations",
+      "owner_actions": "Owner actions"
+     },
+     "note": "one owner view of visibility; each section is read from its producer, UNKNOWN when unreadable, UNMEASURED when nothing has been observed"
+    },
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 15,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "search_evidence": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:26:46.991538+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "search_package": {
+       "id": 1,
+       "readiness": {
+        "state": "BLOCKED",
+        "gate": "search certificate",
+        "why": [
+         "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+         "attributes: no category, so no property schema to be complete against",
+         "hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer"
+        ]
+       },
+       "primary_intent": {
+        "phrase": "coaster crochet pattern pdf",
+        "intent": "product",
+        "family": "core",
+        "answered_by": "title_words",
+        "basis": "modelled",
+        "why": "the product-naming phrase the title answers (ordinal choice, no search volume implied)"
+       },
+       "tag_basis": {
+        "measured": 0,
+        "observed": 0,
+        "modelled": 13
+       },
+       "learning_status": "UNKNOWN",
+       "fingerprint": "59678398909d986e56d59b7385b6b0237cf2dcdacd4dece5e723dabb9a6ce681"
+      },
+      "slug": "hexagon-coaster-set",
+      "version": "1.2.0",
+      "match": {
+       "queries": 20,
+       "matched": 18,
+       "match_rate": 0.9,
+       "by_family": {
+        "core": {
+         "queries": 3,
+         "matched": 3
+        },
+        "motif": {
+         "queries": 3,
+         "matched": 3
+        },
+        "object": {
+         "queries": 2,
+         "matched": 2
+        },
+        "technique:always": {
+         "queries": 2,
+         "matched": 2
+        },
+        "format": {
+         "queries": 6,
+         "matched": 6
+        },
+        "skill": {
+         "queries": 1,
+         "matched": 0
+        },
+        "gift": {
+         "queries": 1,
+         "matched": 0
+        },
+        "family": {
+         "queries": 2,
+         "matched": 2
+        }
+       },
+       "by_field": {
+        "title_words": 10,
+        "tag_exact": 8
+       },
+       "basis": "persisted coverage_matrix (listing.seo), lexical match only"
+      },
+      "query_field_matrix": [
+       {
+        "phrase": "coaster crochet pattern pdf",
+        "family": "core",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "hexagon crochet pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "hexagon coaster pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet coaster",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "written and chart crochet pattern",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "pdf crochet pattern",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet hexagon chart",
+        "family": "motif",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet coaster pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "beginner crochet",
+        "family": "skill",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "diy coaster",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "coaster pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "digital download",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "diy gift crochet pattern",
+        "family": "gift",
+        "intent": "gift",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "crochet home decor",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "home decor diy",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "instant download pdf",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "yarn craft project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "us and uk terms crochet",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "printable pdf chart",
+        "family": "format",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "fiber art project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       }
+      ],
+      "rank_readiness": {
+       "dimensions": {
+        "listing_quality": "FAIL",
+        "click_readiness": "UNMEASURED",
+        "conversion_readiness": "FAIL",
+        "shop_quality": "PASS",
+        "service_quality": "UNMEASURED"
+       },
+       "certificate": "REFUSED",
+       "certificate_problems": [
+        "stored search verdict is REFUSED"
+       ],
+       "search_policy": []
+      },
+      "gallery": {
+       "status": "UNMEASURED",
+       "why": "no valid listing-set certificate for this release",
+       "category": "coaster"
+      },
+      "visibility_warnings": {
+       "status": "UNMEASURED",
+       "open": [],
+       "pending": [],
+       "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+      },
+      "ctr": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "conversion": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "funnel_stage": "UNMEASURED",
+      "experiments": [],
+      "rungs": {
+       "truthful_query_coverage": {
+        "verdict": "FAIL",
+        "why": "certificate REFUSED; match rate 0.9; stored search verdict is REFUSED"
+       },
+       "competitive_thumbnail": {
+        "verdict": "UNMEASURED",
+        "why": "no listing-set certificate is on file for this release"
+       },
+       "conversion_readiness": {
+        "verdict": "FAIL",
+        "why": "failed: first_customer: not ready: ['flawless_downloads', 'post_purchase_clarity']; gallery: no valid listing-set certificate for this release"
+       },
+       "no_unresolved_first_party_warning": {
+        "verdict": "UNMEASURED",
+        "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+       }
+      }
+     },
+     {
+      "search_package": {
+       "id": 2,
+       "readiness": {
+        "state": "BLOCKED",
+        "gate": "search certificate",
+        "why": [
+         "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+         "attributes: no category, so no property schema to be complete against",
+         "hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer"
+        ]
+       },
+       "primary_intent": {
+        "phrase": "ornament crochet pattern pdf",
+        "intent": "product",
+        "family": "core",
+        "answered_by": "title_words",
+        "basis": "modelled",
+        "why": "the product-naming phrase the title answers (ordinal choice, no search volume implied)"
+       },
+       "tag_basis": {
+        "measured": 0,
+        "observed": 0,
+        "modelled": 13
+       },
+       "learning_status": "UNKNOWN",
+       "fingerprint": "229a88de697bb26ee1a9a734aa3f36b01173ce8852a77395dcb6c3b862c422f6"
+      },
+      "slug": "nordic-star-ornaments",
+      "version": "1.4.0",
+      "match": {
+       "queries": 25,
+       "matched": 16,
+       "match_rate": 0.64,
+       "by_family": {
+        "core": {
+         "queries": 3,
+         "matched": 3
+        },
+        "motif": {
+         "queries": 6,
+         "matched": 4
+        },
+        "object": {
+         "queries": 2,
+         "matched": 2
+        },
+        "technique:always": {
+         "queries": 2,
+         "matched": 1
+        },
+        "format": {
+         "queries": 6,
+         "matched": 4
+        },
+        "technique:texture": {
+         "queries": 2,
+         "matched": 0
+        },
+        "skill": {
+         "queries": 1,
+         "matched": 0
+        },
+        "gift": {
+         "queries": 1,
+         "matched": 0
+        },
+        "family": {
+         "queries": 2,
+         "matched": 2
+        }
+       },
+       "by_field": {
+        "title_words": 10,
+        "tag_exact": 6
+       },
+       "basis": "persisted coverage_matrix (listing.seo), lexical match only"
+      },
+      "query_field_matrix": [
+       {
+        "phrase": "ornament crochet pattern pdf",
+        "family": "core",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "nordic crochet pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "snowflake crochet pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "nordic ornament pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "snowflake ornament pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet ornament",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "written and chart crochet pattern",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "pdf crochet pattern",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet nordic chart",
+        "family": "motif",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "crochet snowflake chart",
+        "family": "motif",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "textured crochet pattern",
+        "family": "technique:texture",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "crochet ornament pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "beginner crochet",
+        "family": "skill",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "diy ornament",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "ornament pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "digital download",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "crochet stitch pattern chart",
+        "family": "technique:texture",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "diy gift crochet pattern",
+        "family": "gift",
+        "intent": "gift",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "holiday crochet",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "holiday decor diy",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "instant download pdf",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "yarn craft project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "us and uk terms crochet",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "printable pdf chart",
+        "family": "format",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "fiber art project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       }
+      ],
+      "rank_readiness": {
+       "dimensions": {
+        "listing_quality": "FAIL",
+        "click_readiness": "UNMEASURED",
+        "conversion_readiness": "FAIL",
+        "shop_quality": "PASS",
+        "service_quality": "UNMEASURED"
+       },
+       "certificate": "REFUSED",
+       "certificate_problems": [
+        "stored search verdict is REFUSED"
+       ],
+       "search_policy": []
+      },
+      "gallery": {
+       "status": "UNMEASURED",
+       "why": "no valid listing-set certificate for this release",
+       "category": "ornament"
+      },
+      "visibility_warnings": {
+       "status": "UNMEASURED",
+       "open": [],
+       "pending": [],
+       "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+      },
+      "ctr": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "conversion": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "funnel_stage": "UNMEASURED",
+      "experiments": [],
+      "rungs": {
+       "truthful_query_coverage": {
+        "verdict": "FAIL",
+        "why": "certificate REFUSED; match rate 0.64; stored search verdict is REFUSED"
+       },
+       "competitive_thumbnail": {
+        "verdict": "UNMEASURED",
+        "why": "no listing-set certificate is on file for this release"
+       },
+       "conversion_readiness": {
+        "verdict": "FAIL",
+        "why": "failed: first_customer: not ready: ['flawless_downloads', 'post_purchase_clarity']; gallery: no valid listing-set certificate for this release"
+       },
+       "no_unresolved_first_party_warning": {
+        "verdict": "UNMEASURED",
+        "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+       }
+      }
+     },
+     {
+      "search_package": {
+       "id": 3,
+       "readiness": {
+        "state": "BLOCKED",
+        "gate": "search certificate",
+        "why": [
+         "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+         "attributes: no category, so no property schema to be complete against",
+         "hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer"
+        ]
+       },
+       "primary_intent": {
+        "phrase": "baby crochet pattern pdf",
+        "intent": "product",
+        "family": "core",
+        "answered_by": "title_words",
+        "basis": "modelled",
+        "why": "the product-naming phrase the title answers (ordinal choice, no search volume implied)"
+       },
+       "tag_basis": {
+        "measured": 0,
+        "observed": 0,
+        "modelled": 13
+       },
+       "learning_status": "UNKNOWN",
+       "fingerprint": "888eca4aefc07448a1e91317e646f2f35f181518bfda6da272f91a74a318cf67"
+      },
+      "slug": "cloudline-baby-blanket",
+      "version": "1.2.0",
+      "match": {
+       "queries": 24,
+       "matched": 20,
+       "match_rate": 0.8333,
+       "by_family": {
+        "core": {
+         "queries": 3,
+         "matched": 3
+        },
+        "motif": {
+         "queries": 5,
+         "matched": 5
+        },
+        "object": {
+         "queries": 2,
+         "matched": 1
+        },
+        "technique:always": {
+         "queries": 2,
+         "matched": 2
+        },
+        "format": {
+         "queries": 6,
+         "matched": 6
+        },
+        "technique:texture": {
+         "queries": 2,
+         "matched": 1
+        },
+        "skill": {
+         "queries": 1,
+         "matched": 0
+        },
+        "gift": {
+         "queries": 1,
+         "matched": 0
+        },
+        "family": {
+         "queries": 2,
+         "matched": 2
+        }
+       },
+       "by_field": {
+        "title_words": 12,
+        "tag_exact": 8
+       },
+       "basis": "persisted coverage_matrix (listing.seo), lexical match only"
+      },
+      "query_field_matrix": [
+       {
+        "phrase": "baby crochet pattern pdf",
+        "family": "core",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "baby crochet pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "cloudline crochet pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "cloudline baby pattern",
+        "family": "motif",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet baby",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "written and chart crochet pattern",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "pdf crochet pattern",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet baby chart",
+        "family": "motif",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet cloudline chart",
+        "family": "motif",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "textured crochet pattern",
+        "family": "technique:texture",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "crochet baby pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "beginner crochet",
+        "family": "skill",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "diy baby",
+        "family": "object",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "baby pattern",
+        "family": "core",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": false,
+        "field": "title_words"
+       },
+       {
+        "phrase": "digital download",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "crochet stitch pattern chart",
+        "family": "technique:texture",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "diy gift crochet pattern",
+        "family": "gift",
+        "intent": "gift",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": null
+       },
+       {
+        "phrase": "baby crochet diy",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "baby shower diy",
+        "family": "family",
+        "intent": "category",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "instant download pdf",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "yarn craft project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "us and uk terms crochet",
+        "family": "technique:always",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "title_words"
+       },
+       {
+        "phrase": "printable pdf chart",
+        "family": "format",
+        "intent": "technique",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       },
+       {
+        "phrase": "fiber art project",
+        "family": "format",
+        "intent": "product",
+        "provenance": "assumed",
+        "read_at": null,
+        "reachable": true,
+        "field": "tag_exact"
+       }
+      ],
+      "rank_readiness": {
+       "dimensions": {
+        "listing_quality": "FAIL",
+        "click_readiness": "UNMEASURED",
+        "conversion_readiness": "FAIL",
+        "shop_quality": "PASS",
+        "service_quality": "UNMEASURED"
+       },
+       "certificate": "REFUSED",
+       "certificate_problems": [
+        "stored search verdict is REFUSED"
+       ],
+       "search_policy": []
+      },
+      "gallery": {
+       "status": "UNMEASURED",
+       "why": "no valid listing-set certificate for this release",
+       "category": "baby"
+      },
+      "visibility_warnings": {
+       "status": "UNMEASURED",
+       "open": [],
+       "pending": [],
+       "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+      },
+      "ctr": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "conversion": {
+       "value": "UNMEASURED",
+       "basis": "no recorded period (live_listings)"
+      },
+      "funnel_stage": "UNMEASURED",
+      "experiments": [],
+      "rungs": {
+       "truthful_query_coverage": {
+        "verdict": "FAIL",
+        "why": "certificate REFUSED; match rate 0.8333; stored search verdict is REFUSED"
+       },
+       "competitive_thumbnail": {
+        "verdict": "UNMEASURED",
+        "why": "no listing-set certificate is on file for this release"
+       },
+       "conversion_readiness": {
+        "verdict": "FAIL",
+        "why": "failed: first_customer: not ready: ['flawless_downloads', 'post_purchase_clarity']; gallery: no valid listing-set certificate for this release"
+       },
+       "no_unresolved_first_party_warning": {
+        "verdict": "UNMEASURED",
+        "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+       }
+      }
+     }
+    ],
+    "visibility_warnings": {
+     "status": "UNMEASURED",
+     "open": [],
+     "pending": [],
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    },
+    "search_policy": {
+     "stamp": {
+      "source": "search_guidance",
+      "status": "NEVER_READ",
+      "snapshot_id": null,
+      "digest": null,
+      "checked_on": null
+     },
+     "limits": {
+      "source": "search_guidance",
+      "read_on": "2026-10-06",
+      "basis": "search_engine_excerpt_of_official_page",
+      "digest": "b595c5b479c148768b191efe92b03f2d6f854e4887917fa40d7a8f62d74cf027",
+      "limits": [
+       {
+        "rule": "title_max_chars",
+        "enforced": 140,
+        "reading_value": 140,
+        "status": "UNVERIFIED",
+        "read_on": "2026-10-06",
+        "agrees": true
+       },
+       {
+        "rule": "tag_max_count",
+        "enforced": 13,
+        "reading_value": 13,
+        "status": "UNVERIFIED",
+        "read_on": "2026-10-06",
+        "agrees": true
+       },
+       {
+        "rule": "tag_max_chars",
+        "enforced": 20,
+        "reading_value": 20,
+        "status": "UNVERIFIED",
+        "read_on": "2026-10-06",
+        "agrees": true
+       },
+       {
+        "rule": "tag_no_leading_symbol",
+        "enforced": "-'",
+        "reading_value": null,
+        "status": "UNVERIFIED",
+        "read_on": "2026-10-06",
+        "agrees": true
+       }
+      ],
+      "aliases": {
+       "search.TAG_SLOTS": 13,
+       "search.TAG_MAX_CHARS": 20,
+       "search.TITLE_MAX": 140
+      },
+      "disagreements": []
+     }
+    },
+    "supremacy_gate": {
+     "cleared": false
+    },
+    "reason": "provider gave no reason",
+    "sources": [
+     "listing_search_profiles",
+     "listing_set_certificates",
+     "listing_outcomes",
+     "experiments",
+     "search_visibility_items",
+     "policy_snapshots",
+     "seo_search_packages"
+    ],
+    "provider": "brambleloop.commerce.search_evidence.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 3,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "publication_candidates": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:26:49+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "card_id": "publication:cloudline-baby-blanket@1.2.0",
+      "kind": "PUBLICATION",
+      "title": "Create the Etsy draft for cloudline-baby-blanket v1.2.0",
+      "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+      "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+      "evidence": [
+       {
+        "label": "certification",
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "source": "ops.publication_authority.evidence[certification]"
+       },
+       {
+        "label": "parity",
+        "state": "UNKNOWN",
+        "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+        "source": "ops.publication_authority.evidence[parity]"
+       },
+       {
+        "label": "listing_set",
+        "state": "FAIL",
+        "why": "listing set not certified",
+        "source": "ops.publication_authority.evidence[listing_set]"
+       },
+       {
+        "label": "disclosure",
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "source": "ops.publication_authority.evidence[disclosure]"
+       },
+       {
+        "label": "policy",
+        "state": "UNKNOWN",
+        "why": "a policy source has never been read",
+        "source": "ops.publication_authority.evidence[policy]"
+       },
+       {
+        "label": "search",
+        "state": "FAIL",
+        "why": "search certificate refuses",
+        "source": "ops.publication_authority.evidence[search]"
+       },
+       {
+        "label": "rollback",
+        "state": "UNKNOWN",
+        "why": "no rollback rehearsal within the last 3 days",
+        "source": "ops.publication_authority.evidence[rollback]"
+       },
+       {
+        "label": "economics",
+        "state": "MODELLED",
+        "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+        "source": "ops.publication_authority.evidence[economics]"
+       }
+      ],
+      "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+      "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+      "downside": "a draft listing exists on Etsy; activation is a separate grant",
+      "max_spend_cad": null,
+      "economics": {
+       "state": "MODELLED",
+       "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+      },
+      "reversibility": "the grant is revocable until used; the draft can be deleted",
+      "deadline": null,
+      "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+      "executable": false,
+      "actions": [],
+      "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+      "sources": [
+       "pattern_versions:3",
+       "listings:3",
+       "ops.publication_authority.evidence"
+      ]
+     },
+     {
+      "card_id": "publication:nordic-star-ornaments@1.4.0",
+      "kind": "PUBLICATION",
+      "title": "Create the Etsy draft for nordic-star-ornaments v1.4.0",
+      "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+      "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+      "evidence": [
+       {
+        "label": "certification",
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "source": "ops.publication_authority.evidence[certification]"
+       },
+       {
+        "label": "parity",
+        "state": "UNKNOWN",
+        "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+        "source": "ops.publication_authority.evidence[parity]"
+       },
+       {
+        "label": "listing_set",
+        "state": "FAIL",
+        "why": "listing set not certified",
+        "source": "ops.publication_authority.evidence[listing_set]"
+       },
+       {
+        "label": "disclosure",
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "source": "ops.publication_authority.evidence[disclosure]"
+       },
+       {
+        "label": "policy",
+        "state": "UNKNOWN",
+        "why": "a policy source has never been read",
+        "source": "ops.publication_authority.evidence[policy]"
+       },
+       {
+        "label": "search",
+        "state": "FAIL",
+        "why": "search certificate refuses",
+        "source": "ops.publication_authority.evidence[search]"
+       },
+       {
+        "label": "rollback",
+        "state": "UNKNOWN",
+        "why": "no rollback rehearsal within the last 3 days",
+        "source": "ops.publication_authority.evidence[rollback]"
+       },
+       {
+        "label": "economics",
+        "state": "MODELLED",
+        "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+        "source": "ops.publication_authority.evidence[economics]"
+       }
+      ],
+      "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+      "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+      "downside": "a draft listing exists on Etsy; activation is a separate grant",
+      "max_spend_cad": null,
+      "economics": {
+       "state": "MODELLED",
+       "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+      },
+      "reversibility": "the grant is revocable until used; the draft can be deleted",
+      "deadline": null,
+      "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+      "executable": false,
+      "actions": [],
+      "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+      "sources": [
+       "pattern_versions:2",
+       "listings:2",
+       "ops.publication_authority.evidence"
+      ]
+     },
+     {
+      "card_id": "publication:hexagon-coaster-set@1.2.0",
+      "kind": "PUBLICATION",
+      "title": "Create the Etsy draft for hexagon-coaster-set v1.2.0",
+      "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+      "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+      "evidence": [
+       {
+        "label": "certification",
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "source": "ops.publication_authority.evidence[certification]"
+       },
+       {
+        "label": "parity",
+        "state": "UNKNOWN",
+        "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+        "source": "ops.publication_authority.evidence[parity]"
+       },
+       {
+        "label": "listing_set",
+        "state": "FAIL",
+        "why": "listing set not certified",
+        "source": "ops.publication_authority.evidence[listing_set]"
+       },
+       {
+        "label": "disclosure",
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "source": "ops.publication_authority.evidence[disclosure]"
+       },
+       {
+        "label": "policy",
+        "state": "UNKNOWN",
+        "why": "a policy source has never been read",
+        "source": "ops.publication_authority.evidence[policy]"
+       },
+       {
+        "label": "search",
+        "state": "FAIL",
+        "why": "search certificate refuses",
+        "source": "ops.publication_authority.evidence[search]"
+       },
+       {
+        "label": "rollback",
+        "state": "UNKNOWN",
+        "why": "no rollback rehearsal within the last 3 days",
+        "source": "ops.publication_authority.evidence[rollback]"
+       },
+       {
+        "label": "economics",
+        "state": "MODELLED",
+        "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+        "source": "ops.publication_authority.evidence[economics]"
+       }
+      ],
+      "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+      "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+      "downside": "a draft listing exists on Etsy; activation is a separate grant",
+      "max_spend_cad": null,
+      "economics": {
+       "state": "MODELLED",
+       "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+      },
+      "reversibility": "the grant is revocable until used; the draft can be deleted",
+      "deadline": null,
+      "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+      "executable": false,
+      "actions": [],
+      "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+      "sources": [
+       "pattern_versions:1",
+       "listings:1",
+       "ops.publication_authority.evidence"
+      ]
+     }
+    ],
+    "sources": [
+     "pattern_versions",
+     "listings",
+     "ops.publication_authority.evidence"
+    ],
+    "provider": "approvals.publication_candidates"
+   }
+  }
+ }
+}

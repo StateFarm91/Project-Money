@@ -1,0 +1,459 @@
+{
+ "tab": "INSIGHTS",
+ "generated_at": "2026-10-11T00:11:06+00:00",
+ "sections": {
+  "seo": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "seo_keyword_evidence",
+    "seo_proposals",
+    "seo_cycles",
+    "etsy_taxonomy_snapshots",
+    "listing_outcomes",
+    "operating_readings:attribution.stats",
+    "insights_snapshots",
+    "serp_snapshots",
+    "benchmark_listings",
+    "keywords",
+    "listings",
+    "products.launch0",
+    "commerce.search",
+    "commerce.seo"
+   ],
+   "kpis": {},
+   "guardrails": [
+    "F-918: no KPI may be improved by keyword stuffing, untraceable or misleading tags, competitor brand terms or protected IP (seo.truth.validate_listing is blocking)",
+    "a modelled phrase's demand is never reported as measured (evidence basis per row)",
+    "UNKNOWN is never rendered as 0: a term with no Stats row is UNKNOWN",
+    "proposals are never written to Etsy by this department (writes_to_etsy=False)",
+    "F-929: an unconfirmed category stays GATED(etsy_api); no remembered taxonomy id is used"
+   ],
+   "taxonomy": [
+    {
+     "slug": "market-basket-small",
+     "candidate": "nursery-nesting-baskets",
+     "category_intent": "basket",
+     "intent_terms": {
+      "object": [
+       "basket",
+       "storage"
+      ],
+      "family": [
+       "home"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "market-basket-medium",
+     "candidate": "nursery-nesting-baskets",
+     "category_intent": "basket",
+     "intent_terms": {
+      "object": [
+       "basket",
+       "storage"
+      ],
+      "family": [
+       "home"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "market-basket-large",
+     "candidate": "nursery-nesting-baskets",
+     "category_intent": "basket",
+     "intent_terms": {
+      "object": [
+       "basket",
+       "storage"
+      ],
+      "family": [
+       "home"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "cloudline-baby-blanket",
+     "candidate": "cloudline-baby-blanket",
+     "category_intent": "baby",
+     "intent_terms": {
+      "object": [
+       "baby",
+       "blanket"
+      ],
+      "family": [
+       "children",
+       "kids"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "hexagon-coaster-set",
+     "candidate": "hexagon-coaster-set",
+     "category_intent": "coaster",
+     "intent_terms": {
+      "object": [
+       "coaster"
+      ],
+      "family": [
+       "kitchen",
+       "home"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "nordic-star-ornaments",
+     "candidate": "nordic-star-ornaments",
+     "category_intent": "ornament",
+     "intent_terms": {
+      "object": [
+       "ornament"
+      ],
+      "family": [
+       "holiday",
+       "seasonal",
+       "christmas"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    },
+    {
+     "slug": "winter-village-graphghan",
+     "candidate": "winter-village-graphghan",
+     "category_intent": "blanket",
+     "intent_terms": {
+      "object": [
+       "blanket",
+       "afghan",
+       "throw"
+      ],
+      "family": [
+       "home"
+      ]
+     },
+     "taxonomy_id": null,
+     "path": [],
+     "properties_complete": null,
+     "snapshot": null,
+     "basis": "assumed",
+     "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+     "status": "GATED(etsy_api)",
+     "gated_by": "etsy_api",
+     "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY is set for the API-key-only taxonomy read"
+    }
+   ],
+   "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+   "w3": {
+    "constraints": {
+     "counts": {
+      "VERIFIED": 16,
+      "UNVERIFIED": 11
+     },
+     "retrieved_on": "2026-10-06",
+     "unverified_keys": [
+      "title_max_chars",
+      "tag_max_count",
+      "tag_max_chars",
+      "tag_no_leading_symbol",
+      "attributes_act_like_tags",
+      "ai_disclosure",
+      "crochet_pattern_buyer_path",
+      "shop_title_max_chars",
+      "sections_max_count",
+      "section_name_max_chars",
+      "search_visibility_page"
+     ],
+     "repo_disagreements": [],
+     "openapi_sha256": "b993d52f46afdf87f7687dc6ff8885f2b012589f9b123e1faf14cc54ee73a9ef"
+    },
+    "strategy": {
+     "version": "w3-seo-strategy-v1",
+     "ok": true,
+     "unverified_limits": [
+      "title_max_chars",
+      "tag_max_count",
+      "tag_max_chars",
+      "shop_title_max_chars",
+      "sections_max_count",
+      "section_name_max_chars"
+     ],
+     "products": [
+      {
+       "slug": "nursery-nesting-baskets",
+       "ok": true,
+       "title": "Hexagon Nesting Baskets Crochet Pattern in 3 Sizes | Nursery Storage | Worsted Cotton | PDF with Chart, US and UK Terms",
+       "tags": 13,
+       "tag_basis_counts": {
+        "modelled": 13
+       },
+       "category_status": "GATED(etsy_api)",
+       "blocking": []
+      },
+      {
+       "slug": "cloudline-baby-blanket",
+       "ok": true,
+       "title": "Textured Baby Blanket Crochet Pattern | Cloudline Diamond Lattice in Two Colors | PDF with Chart, US and UK Terms",
+       "tags": 13,
+       "tag_basis_counts": {
+        "modelled": 13
+       },
+       "category_status": "GATED(etsy_api)",
+       "blocking": []
+      },
+      {
+       "slug": "hexagon-coaster-set",
+       "ok": true,
+       "title": "Hexagon Coaster Crochet Pattern, Set of 4 | DK Cotton | Confident Beginner | PDF with Chart, US and UK Terms",
+       "tags": 13,
+       "tag_basis_counts": {
+        "modelled": 13
+       },
+       "category_status": "GATED(etsy_api)",
+       "blocking": []
+      },
+      {
+       "slug": "nordic-star-ornaments",
+       "ok": true,
+       "title": "Snowflake Ornament Crochet Pattern, Set of 6 | Nordic Christmas Decor | Worsted Yarn | PDF with Chart, US and UK Terms",
+       "tags": 13,
+       "tag_basis_counts": {
+        "modelled": 13
+       },
+       "category_status": "GATED(etsy_api)",
+       "blocking": []
+      },
+      {
+       "slug": "winter-village-graphghan",
+       "ok": true,
+       "title": "Winter Throw Blanket Crochet Pattern | Snowfall Texture in Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms",
+       "tags": 13,
+       "tag_basis_counts": {
+        "modelled": 13
+       },
+       "category_status": "GATED(etsy_api)",
+       "blocking": []
+      }
+     ],
+     "demand_basis": "modelled unless a tag's basis says measured"
+    },
+    "learning": {
+     "search_visibility": {
+      "status": "UNKNOWN",
+      "value": null,
+      "why": "live_listings gate closed: no shop to read Search Visibility for"
+     },
+     "per_product": {
+      "nursery-nesting-baskets": {
+       "impressions": "UNKNOWN",
+       "clicks": "UNKNOWN",
+       "favourites": "UNKNOWN",
+       "orders": "UNKNOWN",
+       "carts": "UNKNOWN"
+      },
+      "cloudline-baby-blanket": {
+       "impressions": "UNKNOWN",
+       "clicks": "UNKNOWN",
+       "favourites": "UNKNOWN",
+       "orders": "UNKNOWN",
+       "carts": "UNKNOWN"
+      },
+      "hexagon-coaster-set": {
+       "impressions": "UNKNOWN",
+       "clicks": "UNKNOWN",
+       "favourites": "UNKNOWN",
+       "orders": "UNKNOWN",
+       "carts": "UNKNOWN"
+      },
+      "nordic-star-ornaments": {
+       "impressions": "UNKNOWN",
+       "clicks": "UNKNOWN",
+       "favourites": "UNKNOWN",
+       "orders": "UNKNOWN",
+       "carts": "UNKNOWN"
+      },
+      "winter-village-graphghan": {
+       "impressions": "UNKNOWN",
+       "clicks": "UNKNOWN",
+       "favourites": "UNKNOWN",
+       "orders": "UNKNOWN",
+       "carts": "UNKNOWN"
+      }
+     },
+     "thresholds": {
+      "min_impressions": 200,
+      "min_visits": 30,
+      "basis": "modelled policy constant (no measured shop baseline exists)"
+     }
+    }
+   },
+   "provider": "brambleloop.seo.status.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 0,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   }
+  },
+  "ads": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-11T00:11:06.005000+00:00",
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "listings",
+    "listing_set_certificates",
+    "listing_outcomes",
+    "orders",
+    "incidents",
+    "spend_limits",
+    "cost_entries(kind=ads)",
+    "marketplace_capabilities",
+    "ads_spend_proposals",
+    "ads_finance_challenges",
+    "owner_actions",
+    "gates.policy_knowledge:fees",
+    "gates.policy_knowledge:advertising_rules"
+   ],
+   "reason": "ads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")",
+   "provider": "brambleloop.growth.ads_readiness.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 0,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   }
+  },
+  "experiments": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-11T00:11:06+00:00",
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "experiments"
+   ],
+   "provider": "experiments",
+   "reason": "no experiments recorded"
+  },
+  "lessons": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-11T00:11:06+00:00",
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "lessons"
+   ],
+   "provider": "lessons",
+   "reason": "no lessons recorded"
+  },
+  "improvements": {
+   "status": "OK",
+   "as_of": "2026-10-11T00:11:06+00:00",
+   "basis": "measured",
+   "items": [
+    {
+     "id": 3,
+     "at": "2026-10-11T00:07:51.672884+00:00",
+     "cell": "product_creativity",
+     "metric": "tournament_survival_with_spread",
+     "state": "proposed",
+     "hypothesis": "Raising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+     "baseline_value": 3.0,
+     "result_value": null,
+     "promoted_at": null,
+     "reverted_at": null,
+     "source": "improvements:3"
+    },
+    {
+     "id": 2,
+     "at": "2026-10-11T00:07:51.469499+00:00",
+     "cell": "product_creativity",
+     "metric": "tournament_survival_with_spread",
+     "state": "proposed",
+     "hypothesis": "Raising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+     "baseline_value": 3.0,
+     "result_value": null,
+     "promoted_at": null,
+     "reverted_at": null,
+     "source": "improvements:2"
+    },
+    {
+     "id": 1,
+     "at": "2026-10-11T00:07:51.305667+00:00",
+     "cell": "product_creativity",
+     "metric": "tournament_survival_with_spread",
+     "state": "proposed",
+     "hypothesis": "Raising customization on hexagon-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+     "baseline_value": 3.0,
+     "result_value": null,
+     "promoted_at": null,
+     "reverted_at": null,
+     "source": "improvements:1"
+    }
+   ],
+   "sources": [
+    "improvements"
+   ],
+   "provider": "improvements",
+   "total": 3
+  }
+ }
+}

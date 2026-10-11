@@ -1,0 +1,172 @@
+{
+ "status": 200,
+ "url": "/api/cc/laura/ask",
+ "body": {
+  "turn_id": 1,
+  "at": "2026-10-11T00:30:03.803131+00:00",
+  "register": "business",
+  "question": "What should I do first today?",
+  "intent": "needs_me",
+  "status": "ANSWERED",
+  "answer": "Here is what genuinely needs you -- only the decisions I can't make. 10 item(s) need you: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320 -- Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it; the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source) -- Recommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on it; a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it; owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it; the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it; an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it. And one of mine, when you're ready: Listen to the shortlisted Laura voice candidates and choose one (or none) -- needs provider access: a voice provider account/API key chosen by you; paid trial approval: generating candidate samples is a paid call (owner spend approval required before any call); max cost UNKNOWN until a provider is chosen (per-character / per-minute pricing); about 20 min; if it waits: Voice (Phase 2) and Live Pres.",
+  "facts": [
+   {
+    "statement": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320 -- Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source) -- Recommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns -- Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "a model provider that can actually serve a request -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner -- Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode -- Recommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on it",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/approvals",
+    "basis": "measured"
+   },
+   {
+    "statement": "Listen to the shortlisted Laura voice candidates and choose one (or none) -- needs provider access: a voice provider account/API key chosen by you; paid trial approval: generating candidate samples is a paid call (owner spend approval required before any call); max cost UNKNOWN until a provider is chosen (per-character / per-minute pricing); about 20 min; if it waits: Voice (Phase 2) and Live Pres",
+    "source": "laura.agency.voice_selection.OWNER_ACTION (D-FB-18 item 7)",
+    "as_of": "2026-10-11T00:30:03+00:00",
+    "link": "#/drill/laura.agency.voice_selection.OWNER_ACTION (D-FB-18 item 7)",
+    "basis": "unknown"
+   }
+  ],
+  "sources": [
+   "build2.executor.approval_inbox",
+   "laura.agency.voice_selection.OWNER_ACTION (D-FB-18 item 7)"
+  ],
+  "unknowns": [],
+  "proposals": [],
+  "sections": [
+   {
+    "key": "owner_queue",
+    "title": "Decisions only you can make",
+    "status": "OK",
+    "reason": null,
+    "facts": 10
+   },
+   {
+    "key": "laura_owner_actions",
+    "title": "Laura's voice: your listening decision",
+    "status": "OK",
+    "reason": null,
+    "facts": 1
+   }
+  ],
+  "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+  "phrasing": {
+   "phrased": false,
+   "method": "deterministic template"
+  },
+  "speaker": {
+   "name": "Laura",
+   "role": "Founder/CEO (persistent AI person)",
+   "identity_id": "laura-r2-a42aeac7",
+   "public_identity": "Brambleloop's AI founder",
+   "portrait_path": "/api/cc/laura/portrait",
+   "portrait_label": "Internal — canonical reference, not publication-approved",
+   "identity_source": "brambleloop.laura.identity"
+  },
+  "voice_findings": [
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_DOUBLE_HYPHEN",
+    "match": null
+   },
+   {
+    "rule": "VOICE_SHOUTING",
+    "match": null
+   }
+  ],
+  "delivery": {
+   "requested": "text",
+   "delivered": "text",
+   "degraded": false,
+   "skipped": []
+  }
+ }
+}

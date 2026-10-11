@@ -1,0 +1,34 @@
+{
+ "title": "Ask Company · Brambleloop",
+ "view_title": "Ask Company",
+ "page_meta": null,
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Ask Company",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Ask CompanyAnswers come from durable company records with links to the evidence. If there is no evidence, it says Unknown.Ask the companyAskWhat did Brambleloop do overnight?What is blocking launch?Why did profit fall?Why does this product need my approval?Are there open incidents?"
+  },
+  {
+   "title": "What is blocking launch?",
+   "pill": "ANSWERED",
+   "has_time": false,
+   "time_text": null,
+   "reason": "Next action: grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "tiles": [],
+   "text": "What is blocking launch?ANSWEREDLaunch is blocked by: the company runs in SHADOW (no live publication); 16 owner decision(s) open (top: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320).Factseffective phase shadow (BRAMBLELOOP_PHASE=shadow agrees with the recorded phase)core.phase.resolve (audit_log owner.phase.transition) · as of just now (2026-10-11 00:29:51 UTC)owner decision open: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320build2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)build2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grantbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: owner-recorded Marketplace Insights readings existbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rowsbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itselfbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returnsbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a model provider that can actually serve a requestbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)3 of 3 products have a certified release; 0 are on Etsyproducts+pattern_versions+listings · as of just now (2026-10-11 00:29:54 UTC)Next action: grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320Sources (3)build2.executor.approval_inboxcore.phase.resolve (audit_log owner.phase.transition)products+pattern_versions+listingsMethod: deterministic retrieval over durable state (no model call)"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 2788,
+ "body": "Ask CompanyAnswers come from durable company records with links to the evidence. If there is no evidence, it says Unknown.Ask the companyAskWhat did Brambleloop do overnight?What is blocking launch?Why did profit fall?Why does this product need my approval?Are there open incidents?What is blocking launch?ANSWEREDLaunch is blocked by: the company runs in SHADOW (no live publication); 16 owner decision(s) open (top: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320).Factseffective phase shadow (BRAMBLELOOP_PHASE=shadow agrees with the recorded phase)core.phase.resolve (audit_log owner.phase.transition) · as of just now (2026-10-11 00:29:51 UTC)owner decision open: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320build2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)build2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grantbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: owner-recorded Marketplace Insights readings existbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rowsbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itselfbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returnsbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)owner decision open: a model provider that can actually serve a requestbuild2.executor.approval_inbox · as of just now (2026-10-11 00:29:54 UTC)3 of 3 products have a certified release; 0 are on Etsyproducts+pattern_versions+listings · as of just now (2026-10-11 00:29:54 UTC)Next action: grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320Sources (3)build2.executor.approval_inboxcore.phase.resolve (audit_log owner.phase.transition)products+pattern_versions+listingsMethod: deterministic retrieval over durable state (no model call)",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

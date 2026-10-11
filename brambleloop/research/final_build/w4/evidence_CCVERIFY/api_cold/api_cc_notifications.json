@@ -1,0 +1,400 @@
+{
+ "tab": "NOTIFICATIONS",
+ "generated_at": "2026-10-11T00:11:09+00:00",
+ "sections": {},
+ "notifications": [
+  {
+   "id": 2,
+   "dedupe_key": "security_refusals:2026-10-11T00",
+   "severity": "critical",
+   "category": "security",
+   "title": "34 refused owner-auth attempts in the last hour",
+   "body": "see Account > security events",
+   "consequence": "possible credential guessing or a misconfigured device",
+   "deadline": null,
+   "evidence": [
+    "cc_security_events (outcome=refused)"
+   ],
+   "deep_link": "/cc/#/account",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 34,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 8,
+   "dedupe_key": "approval:gate:offsite_storage",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [51] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:offsite_storage",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 9,
+   "dedupe_key": "approval:gate:image_vision",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "body": "Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:image_vision",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 10,
+   "dedupe_key": "approval:gate:model_provider",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: a model provider that can actually serve a request",
+   "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "consequence": "The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:model_provider",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 11,
+   "dedupe_key": "approval:gate:owned_surfaces",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+   "body": "Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it",
+   "consequence": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:owned_surfaces",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 13,
+   "dedupe_key": "approval:gate:physical_proof",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "consequence": "market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade to",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:physical_proof",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 14,
+   "dedupe_key": "approval:gate:benchmark_purchases",
+   "severity": "high",
+   "category": "decision",
+   "title": "Decision needed: the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "body": "Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [163, 165, 168, 315, 317] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:benchmark_purchases",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 1,
+   "dedupe_key": "dead_letters",
+   "severity": "normal",
+   "category": "anomaly",
+   "title": "3 dead-lettered jobs",
+   "body": "jobs exhausted their retries; recovery may need a requeue",
+   "consequence": "the work they carried is not happening",
+   "deadline": null,
+   "evidence": [
+    "jobs (status=dead)"
+   ],
+   "deep_link": "/cc/#/operations",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 3,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 3,
+   "dedupe_key": "approval:gate:acceptance_ruling",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "body": "Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [189, 221, 222, 320] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:acceptance_ruling",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 4,
+   "dedupe_key": "approval:gate:transactions_r",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "body": "Recommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [11, 12] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:transactions_r",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 5,
+   "dedupe_key": "approval:gate:live_listings",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "body": "Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:live_listings",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 6,
+   "dedupe_key": "approval:gate:insights_access",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: owner-recorded Marketplace Insights readings exist",
+   "body": "Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [1, 37, 54, 236, 237] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:insights_access",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 7,
+   "dedupe_key": "approval:gate:production_window",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "consequence": "requirements [195] stay parked",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:production_window",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 12,
+   "dedupe_key": "approval:gate:tester_roster",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "body": "Recommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on it",
+   "consequence": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox"
+   ],
+   "deep_link": "/cc/#/approvals/gate:tester_roster",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 15,
+   "dedupe_key": "approval:owner_action:1",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "consequence": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority",
+   "deadline": null,
+   "evidence": [
+    "build2.executor.approval_inbox",
+    "owner_actions:1"
+   ],
+   "deep_link": "/cc/#/approvals/owner_action:1",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 16,
+   "dedupe_key": "approval:publication:cloudline-baby-blanket@1.2.0",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: Create the Etsy draft for cloudline-baby-blanket v1.2.0",
+   "body": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "consequence": "the release stays unpublished; nothing else waits",
+   "deadline": null,
+   "evidence": [
+    "pattern_versions:3",
+    "listings:3",
+    "ops.publication_authority.evidence"
+   ],
+   "deep_link": "/cc/#/approvals/publication:cloudline-baby-blanket@1.2.0",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 17,
+   "dedupe_key": "approval:publication:nordic-star-ornaments@1.4.0",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: Create the Etsy draft for nordic-star-ornaments v1.4.0",
+   "body": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "consequence": "the release stays unpublished; nothing else waits",
+   "deadline": null,
+   "evidence": [
+    "pattern_versions:2",
+    "listings:2",
+    "ops.publication_authority.evidence"
+   ],
+   "deep_link": "/cc/#/approvals/publication:nordic-star-ornaments@1.4.0",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  },
+  {
+   "id": 18,
+   "dedupe_key": "approval:publication:hexagon-coaster-set@1.2.0",
+   "severity": "normal",
+   "category": "decision",
+   "title": "Decision needed: Create the Etsy draft for hexagon-coaster-set v1.2.0",
+   "body": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "consequence": "the release stays unpublished; nothing else waits",
+   "deadline": null,
+   "evidence": [
+    "pattern_versions:1",
+    "listings:1",
+    "ops.publication_authority.evidence"
+   ],
+   "deep_link": "/cc/#/approvals/publication:hexagon-coaster-set@1.2.0",
+   "first_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "last_seen_at": "2026-10-11T00:11:09.369805+00:00",
+   "occurrences": 1,
+   "acked_at": null,
+   "delivered": "in_app",
+   "held_for_quiet_hours": false
+  }
+ ],
+ "digest": [],
+ "policy": {
+  "quiet_hours": null,
+  "min_severity": "normal",
+  "digest": "morning",
+  "channels": [
+   "in_app"
+  ],
+  "external_channels": "GATED: owner authority + CASL review required"
+ },
+ "quiet_hours_now": false,
+ "suppressed_count": 117,
+ "refresh": {
+  "created": 18,
+  "deduplicated": 0,
+  "resolved": 0,
+  "suppressed": 117
+ },
+ "sources": [
+  "incidents",
+  "owner_actions",
+  "jobs",
+  "spend_limits",
+  "cc_security_events",
+  "cc_notifications"
+ ]
+}

@@ -1,0 +1,190 @@
+{
+ "candidate": "7421ef6",
+ "verdict": "NOT READY: 1 release-blocking defect",
+ "pages": [
+  {
+   "page": "Login (passphrase+TOTP)",
+   "result": "PASS",
+   "defects": [
+    "FU-10"
+   ]
+  },
+  {
+   "page": "Home",
+   "result": "PASS",
+   "defects": [
+    "FU-6"
+   ]
+  },
+  {
+   "page": "Laura + Talk to Laura Phase 1",
+   "result": "PASS",
+   "defects": [
+    "FU-4"
+   ]
+  },
+  {
+   "page": "Approvals / decision batches",
+   "result": "PASS",
+   "defects": [
+    "FU-4"
+   ]
+  },
+  {
+   "page": "Money by period",
+   "result": "PASS_WITH_DEFECTS",
+   "defects": [
+    "FU-2",
+    "FU-6"
+   ]
+  },
+  {
+   "page": "Money estimated vs actual",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Money drill",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Money period=7d (400 by design)",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Store / launch readiness",
+   "result": "FAIL",
+   "defects": [
+    "RB-1"
+   ]
+  },
+  {
+   "page": "Company",
+   "result": "PASS",
+   "defects": [
+    "FU-3",
+    "FU-9"
+   ]
+  },
+  {
+   "page": "Build 2 ledger",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Final Master",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Completion board",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Launch packet",
+   "result": "PASS",
+   "defects": [
+    "FU-8"
+   ]
+  },
+  {
+   "page": "Operations (incidents/health/providers)",
+   "result": "PASS_WITH_DEFECTS",
+   "defects": [
+    "FU-5",
+    "FU-3"
+   ]
+  },
+  {
+   "page": "Rule #1",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Agents card (Learn)",
+   "result": "PASS_WITH_DEFECTS",
+   "defects": [
+    "FU-3"
+   ]
+  },
+  {
+   "page": "Learn",
+   "result": "PASS",
+   "defects": [
+    "FU-6"
+   ]
+  },
+  {
+   "page": "Visual",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "SEO",
+   "result": "PASS (Store part blocked by RB-1)",
+   "defects": [
+    "RB-1"
+   ]
+  },
+  {
+   "page": "MJs / competitor intel",
+   "result": "PASS (Store copy blocked by RB-1)",
+   "defects": [
+    "RB-1"
+   ]
+  },
+  {
+   "page": "Insights ads",
+   "result": "PASS_WITH_DEFECTS",
+   "defects": [
+    "FU-1"
+   ]
+  },
+  {
+   "page": "Notifications",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Timeline",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Ask Company",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Account",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Emergency / More / Drill",
+   "result": "PASS",
+   "defects": []
+  },
+  {
+   "page": "Phone width",
+   "result": "PASS",
+   "defects": []
+  }
+ ],
+ "defects": {
+  "RB-1": "RELEASE-BLOCKING: Store tab crashes: store.js:37-38 uses 'maxlength' (dom.js allows only 'maxLength')",
+  "FU-1": "Ads card always UNKNOWN: providers._invoke retries with Database only on 'session' AttributeError; ads reports 'engine'",
+  "FU-2": "Money headline Recorded spend is all-time but not labelled when a period is selected",
+  "FU-3": "Agent status inconsistent: Company 21 UNKNOWN vs Learn 28 SLEEPING; Operations 'Agents OK' is config",
+  "FU-4": "Owner-decision counts differ: 16/13/10/26",
+  "FU-5": "SLO card OK at boot with 5/7 objectives UNKNOWN and no scheduler",
+  "FU-6": "Cards without timestamp or 'as of: unknown'",
+  "FU-7": "'provider gave no reason' on DEGRADED/BLOCKED cards",
+  "FU-8": "Cold /api/cc/company 64.5 s; launch packet generating on first read",
+  "FU-9": "Claude dev lanes vs production agents not explicitly labelled",
+  "FU-10": "Login card squeezed on desktop"
+ }
+}

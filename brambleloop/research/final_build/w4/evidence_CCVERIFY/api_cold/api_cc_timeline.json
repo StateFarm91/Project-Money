@@ -1,0 +1,574 @@
+{
+ "tab": "TIMELINE",
+ "generated_at": "2026-10-11T00:11:06+00:00",
+ "sections": {},
+ "events": [
+  {
+   "id": 99,
+   "at": "2026-10-11T00:09:04.969983+00:00",
+   "actor": "orchestrator",
+   "action": "benchmarks.reconciled",
+   "artifact": null,
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:99",
+   "origin": "audit_log"
+  },
+  {
+   "at": "2026-10-11T00:09:04.914248+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "refs": [
+    "owner_actions:1"
+   ],
+   "source": "owner_actions",
+   "origin": "autonomy.status.timeline"
+  },
+  {
+   "id": 98,
+   "at": "2026-10-11T00:09:04.897958+00:00",
+   "actor": "orchestrator",
+   "action": "runtime.started",
+   "artifact": null,
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:98",
+   "origin": "audit_log"
+  },
+  {
+   "id": 97,
+   "at": "2026-10-11T00:09:04.889906+00:00",
+   "actor": "release_guard",
+   "action": "release.boot_verdict",
+   "artifact": "RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json",
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:97",
+   "origin": "audit_log"
+  },
+  {
+   "id": 96,
+   "at": "2026-10-11T00:08:54.772554+00:00",
+   "actor": "store_operator",
+   "action": "job.capability_not_enabled",
+   "artifact": "store.publish",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:96",
+   "origin": "audit_log"
+  },
+  {
+   "at": "2026-10-11T00:08:54.769928+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:28"
+   ],
+   "source": "jobs",
+   "origin": "autonomy.status.timeline"
+  },
+  {
+   "id": 95,
+   "at": "2026-10-11T00:08:54.766241+00:00",
+   "actor": "store_operator",
+   "action": "store.publish_refused",
+   "artifact": "cloudline-baby-blanket",
+   "phase": "shadow",
+   "summary": "shadow mode: no live publication",
+   "source": "audit_log:95",
+   "origin": "audit_log"
+  },
+  {
+   "id": 94,
+   "at": "2026-10-11T00:08:54.754180+00:00",
+   "actor": "store_operator",
+   "action": "store.release_gates",
+   "artifact": "cloudline-baby-blanket",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:94",
+   "origin": "audit_log"
+  },
+  {
+   "id": 93,
+   "at": "2026-10-11T00:08:44.746474+00:00",
+   "actor": "store_operator",
+   "action": "listing.parity",
+   "artifact": "cloudline-baby-blanket",
+   "phase": "shadow",
+   "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+   "source": "audit_log:93",
+   "origin": "audit_log"
+  },
+  {
+   "id": 92,
+   "at": "2026-10-11T00:08:44.717576+00:00",
+   "actor": "store_operator",
+   "action": "job.capability_not_enabled",
+   "artifact": "store.publish",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:92",
+   "origin": "audit_log"
+  },
+  {
+   "at": "2026-10-11T00:08:44.715882+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:25"
+   ],
+   "source": "jobs",
+   "origin": "autonomy.status.timeline"
+  },
+  {
+   "id": 91,
+   "at": "2026-10-11T00:08:44.713474+00:00",
+   "actor": "store_operator",
+   "action": "store.publish_refused",
+   "artifact": "nordic-star-ornaments",
+   "phase": "shadow",
+   "summary": "shadow mode: no live publication",
+   "source": "audit_log:91",
+   "origin": "audit_log"
+  },
+  {
+   "id": 90,
+   "at": "2026-10-11T00:08:44.707681+00:00",
+   "actor": "store_operator",
+   "action": "store.release_gates",
+   "artifact": "nordic-star-ornaments",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:90",
+   "origin": "audit_log"
+  },
+  {
+   "id": 89,
+   "at": "2026-10-11T00:08:43.478475+00:00",
+   "actor": "store_operator",
+   "action": "listing.parity",
+   "artifact": "nordic-star-ornaments",
+   "phase": "shadow",
+   "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+   "source": "audit_log:89",
+   "origin": "audit_log"
+  },
+  {
+   "id": 88,
+   "at": "2026-10-11T00:08:43.448116+00:00",
+   "actor": "store_operator",
+   "action": "job.capability_not_enabled",
+   "artifact": "store.publish",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:88",
+   "origin": "audit_log"
+  },
+  {
+   "at": "2026-10-11T00:08:43.445867+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:22"
+   ],
+   "source": "jobs",
+   "origin": "autonomy.status.timeline"
+  },
+  {
+   "id": 87,
+   "at": "2026-10-11T00:08:43.442962+00:00",
+   "actor": "store_operator",
+   "action": "store.publish_refused",
+   "artifact": "hexagon-coaster-set",
+   "phase": "shadow",
+   "summary": "shadow mode: no live publication",
+   "source": "audit_log:87",
+   "origin": "audit_log"
+  },
+  {
+   "id": 86,
+   "at": "2026-10-11T00:08:43.429974+00:00",
+   "actor": "store_operator",
+   "action": "store.release_gates",
+   "artifact": "hexagon-coaster-set",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:86",
+   "origin": "audit_log"
+  },
+  {
+   "id": 85,
+   "at": "2026-10-11T00:08:42.095351+00:00",
+   "actor": "store_operator",
+   "action": "listing.parity",
+   "artifact": "hexagon-coaster-set",
+   "phase": "shadow",
+   "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+   "source": "audit_log:85",
+   "origin": "audit_log"
+  },
+  {
+   "id": 84,
+   "at": "2026-10-11T00:08:42.030534+00:00",
+   "actor": "growth",
+   "action": "job.completed:launch.plan",
+   "artifact": "launch.plan",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:84",
+   "origin": "audit_log"
+  },
+  {
+   "id": 83,
+   "at": "2026-10-11T00:08:42.010471+00:00",
+   "actor": "orchestrator",
+   "action": "teardown.product_qa",
+   "artifact": "cloudline-baby-blanket",
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:83",
+   "origin": "audit_log"
+  },
+  {
+   "id": 82,
+   "at": "2026-10-11T00:08:41.975843+00:00",
+   "actor": "growth",
+   "action": "growth.experiments_registered",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:82",
+   "origin": "audit_log"
+  },
+  {
+   "id": 81,
+   "at": "2026-10-11T00:08:41.959267+00:00",
+   "actor": "growth",
+   "action": "launch.ranking_readiness",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:81",
+   "origin": "audit_log"
+  },
+  {
+   "id": 80,
+   "at": "2026-10-11T00:08:41.929711+00:00",
+   "actor": "growth",
+   "action": "listing.mobile_qa",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:80",
+   "origin": "audit_log"
+  },
+  {
+   "id": 79,
+   "at": "2026-10-11T00:08:40.840861+00:00",
+   "actor": "growth",
+   "action": "launch.planned",
+   "artifact": "cloudline-baby-blanket",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:79",
+   "origin": "audit_log"
+  },
+  {
+   "id": 78,
+   "at": "2026-10-11T00:08:40.822871+00:00",
+   "actor": "listing",
+   "action": "job.completed:listing.seo",
+   "artifact": "listing.seo",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:78",
+   "origin": "audit_log"
+  },
+  {
+   "id": 77,
+   "at": "2026-10-11T00:08:40.801379+00:00",
+   "actor": "listing",
+   "action": "listing.query_portfolio",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "no reachable alternative phrase; the original tags stand",
+   "source": "audit_log:77",
+   "origin": "audit_log"
+  },
+  {
+   "id": 76,
+   "at": "2026-10-11T00:08:40.797392+00:00",
+   "actor": "listing",
+   "action": "support.knowledge_built",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:76",
+   "origin": "audit_log"
+  },
+  {
+   "id": 75,
+   "at": "2026-10-11T00:08:40.774393+00:00",
+   "actor": "listing",
+   "action": "listing.disclosure_checked",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:75",
+   "origin": "audit_log"
+  },
+  {
+   "id": 74,
+   "at": "2026-10-11T00:08:40.736962+00:00",
+   "actor": "listing",
+   "action": "listing.search_hero_judged",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:74",
+   "origin": "audit_log"
+  },
+  {
+   "id": 73,
+   "at": "2026-10-11T00:08:39.746437+00:00",
+   "actor": "listing",
+   "action": "listing.seo_drafted",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:73",
+   "origin": "audit_log"
+  },
+  {
+   "id": 72,
+   "at": "2026-10-11T00:08:39.706434+00:00",
+   "actor": "listing",
+   "action": "listing.classified",
+   "artifact": "cloudline-baby-blanket@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:72",
+   "origin": "audit_log"
+  },
+  {
+   "id": 71,
+   "at": "2026-10-11T00:08:39.467142+00:00",
+   "actor": "growth",
+   "action": "job.completed:launch.plan",
+   "artifact": "launch.plan",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:71",
+   "origin": "audit_log"
+  },
+  {
+   "id": 70,
+   "at": "2026-10-11T00:08:39.444312+00:00",
+   "actor": "orchestrator",
+   "action": "teardown.product_qa",
+   "artifact": "nordic-star-ornaments",
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:70",
+   "origin": "audit_log"
+  },
+  {
+   "id": 69,
+   "at": "2026-10-11T00:08:39.412989+00:00",
+   "actor": "growth",
+   "action": "growth.experiments_registered",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:69",
+   "origin": "audit_log"
+  },
+  {
+   "id": 68,
+   "at": "2026-10-11T00:08:39.394846+00:00",
+   "actor": "growth",
+   "action": "launch.ranking_readiness",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:68",
+   "origin": "audit_log"
+  },
+  {
+   "id": 67,
+   "at": "2026-10-11T00:08:39.370015+00:00",
+   "actor": "growth",
+   "action": "listing.mobile_qa",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:67",
+   "origin": "audit_log"
+  },
+  {
+   "id": 66,
+   "at": "2026-10-11T00:08:38.437250+00:00",
+   "actor": "growth",
+   "action": "launch.planned",
+   "artifact": "nordic-star-ornaments",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:66",
+   "origin": "audit_log"
+  },
+  {
+   "id": 65,
+   "at": "2026-10-11T00:08:38.421872+00:00",
+   "actor": "listing",
+   "action": "job.completed:listing.seo",
+   "artifact": "listing.seo",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:65",
+   "origin": "audit_log"
+  },
+  {
+   "id": 64,
+   "at": "2026-10-11T00:08:38.407208+00:00",
+   "actor": "listing",
+   "action": "listing.query_portfolio",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "2 slot(s) moved off phrases another listing already competes for",
+   "source": "audit_log:64",
+   "origin": "audit_log"
+  },
+  {
+   "id": 63,
+   "at": "2026-10-11T00:08:38.403587+00:00",
+   "actor": "listing",
+   "action": "support.knowledge_built",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:63",
+   "origin": "audit_log"
+  },
+  {
+   "id": 62,
+   "at": "2026-10-11T00:08:38.359545+00:00",
+   "actor": "listing",
+   "action": "listing.disclosure_checked",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:62",
+   "origin": "audit_log"
+  },
+  {
+   "id": 61,
+   "at": "2026-10-11T00:08:38.326329+00:00",
+   "actor": "listing",
+   "action": "listing.search_hero_judged",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:61",
+   "origin": "audit_log"
+  },
+  {
+   "id": 60,
+   "at": "2026-10-11T00:08:37.301029+00:00",
+   "actor": "listing",
+   "action": "listing.seo_drafted",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:60",
+   "origin": "audit_log"
+  },
+  {
+   "id": 59,
+   "at": "2026-10-11T00:08:37.284954+00:00",
+   "actor": "listing",
+   "action": "listing.classified",
+   "artifact": "nordic-star-ornaments@1.4.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:59",
+   "origin": "audit_log"
+  },
+  {
+   "id": 58,
+   "at": "2026-10-11T00:08:37.233294+00:00",
+   "actor": "growth",
+   "action": "job.completed:launch.plan",
+   "artifact": "launch.plan",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:58",
+   "origin": "audit_log"
+  },
+  {
+   "id": 57,
+   "at": "2026-10-11T00:08:37.211090+00:00",
+   "actor": "orchestrator",
+   "action": "teardown.product_qa",
+   "artifact": "hexagon-coaster-set",
+   "phase": null,
+   "summary": "",
+   "source": "audit_log:57",
+   "origin": "audit_log"
+  },
+  {
+   "id": 56,
+   "at": "2026-10-11T00:08:37.176901+00:00",
+   "actor": "growth",
+   "action": "growth.experiments_registered",
+   "artifact": "hexagon-coaster-set@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:56",
+   "origin": "audit_log"
+  },
+  {
+   "id": 55,
+   "at": "2026-10-11T00:08:37.140627+00:00",
+   "actor": "growth",
+   "action": "launch.ranking_readiness",
+   "artifact": "hexagon-coaster-set@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:55",
+   "origin": "audit_log"
+  },
+  {
+   "id": 54,
+   "at": "2026-10-11T00:08:37.057841+00:00",
+   "actor": "growth",
+   "action": "listing.mobile_qa",
+   "artifact": "hexagon-coaster-set@1.2.0",
+   "phase": "shadow",
+   "summary": "",
+   "source": "audit_log:54",
+   "origin": "audit_log"
+  }
+ ],
+ "sources": [
+  "audit_log",
+  "brambleloop.autonomy.status.timeline",
+  "company_timeline",
+  "incidents",
+  "owner_actions",
+  "cost_entries",
+  "jobs"
+ ],
+ "autonomy_timeline": {
+  "status": "OK",
+  "reason": null
+ }
+}

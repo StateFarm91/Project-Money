@@ -1,0 +1,52 @@
+{
+ "title": "Emergency controls · Brambleloop",
+ "view_title": "Emergency controls",
+ "page_meta": "Loaded just now",
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Company phase",
+   "pill": "SHADOW",
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Company phaseSHADOWMoving the phase up is never done here; it stays on the evidence-bound owner phase route.Kill switch: return to shadow"
+  },
+  {
+   "title": "Publishing & spend",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Publishing & spendPublishing ACTIVENo live grantsPauseAll spend ACTIVENo spend scopes configuredPauseWhole company ACTIVEEvery pausable department, spend and publishingPause"
+  },
+  {
+   "title": "Departments",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "DepartmentsExecutive ACTIVEruns scheduling and the read-only Etsy observation/monitoring cadencesPauseIntelligence ACTIVEAgents: market_radarPauseProduct Design ACTIVEAgents: creative_director, crochet_engineerPauseProduct Truth ACTIVEdeterministic validation is evidence collection, never an external effectPauseVisual ACTIVEAgents: publishingPauseStore ACTIVEAgents: store_operator, listing, pricingPauseSupport ACTIVEAgents: supportPauseFinance ACTIVEreconciliation and spend challenge are monitoringPauseGrowth ACTIVEAgents: growth, adsPauseLearn ACTIVEAgents: learn, evaluator, failure_miner, experiment_designer, prompt_tool_challenger, cost_optimiser, creative_critic, lesson_router, experiment_stewardPausePlatform ACTIVEreliability and recovery must keep runningPause"
+  },
+  {
+   "title": "Never paused",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Never pausedThese keep running so the company stays observable and recoverable:Executiveruns scheduling and the read-only Etsy observation/monitoring cadencesProduct Truthdeterministic validation is evidence collection, never an external effectFinancereconciliation and spend challenge are monitoringPlatformreliability and recovery must keep running"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 1458,
+ "body": "AccountLoaded just nowCompany phaseSHADOWMoving the phase up is never done here; it stays on the evidence-bound owner phase route.Kill switch: return to shadowPublishing & spendPublishing ACTIVENo live grantsPauseAll spend ACTIVENo spend scopes configuredPauseWhole company ACTIVEEvery pausable department, spend and publishingPauseDepartmentsExecutive ACTIVEruns scheduling and the read-only Etsy observation/monitoring cadencesPauseIntelligence ACTIVEAgents: market_radarPauseProduct Design ACTIVEAgents: creative_director, crochet_engineerPauseProduct Truth ACTIVEdeterministic validation is evidence collection, never an external effectPauseVisual ACTIVEAgents: publishingPauseStore ACTIVEAgents: store_operator, listing, pricingPauseSupport ACTIVEAgents: supportPauseFinance ACTIVEreconciliation and spend challenge are monitoringPauseGrowth ACTIVEAgents: growth, adsPauseLearn ACTIVEAgents: learn, evaluator, failure_miner, experiment_designer, prompt_tool_challenger, cost_optimiser, creative_critic, lesson_router, experiment_stewardPausePlatform ACTIVEreliability and recovery must keep runningPauseNever pausedThese keep running so the company stays observable and recoverable:Executiveruns scheduling and the read-only Etsy observation/monitoring cadencesProduct Truthdeterministic validation is evidence collection, never an external effectFinancereconciliation and spend challenge are monitoringPlatformreliability and recovery must keep running",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

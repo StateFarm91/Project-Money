@@ -1,0 +1,2196 @@
+{
+ "status": 200,
+ "url": "/api/cc/home",
+ "body": {
+  "tab": "HOME",
+  "generated_at": "2026-10-11T00:30:08+00:00",
+  "sections": {
+   "changes_since_last_view": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:30:08+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "id": 99,
+      "at": "2026-10-11T00:09:04.969983+00:00",
+      "actor": "orchestrator",
+      "action": "benchmarks.reconciled",
+      "artifact": null,
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:99"
+     },
+     {
+      "id": 98,
+      "at": "2026-10-11T00:09:04.897958+00:00",
+      "actor": "orchestrator",
+      "action": "runtime.started",
+      "artifact": null,
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:98"
+     },
+     {
+      "id": 97,
+      "at": "2026-10-11T00:09:04.889906+00:00",
+      "actor": "release_guard",
+      "action": "release.boot_verdict",
+      "artifact": "RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json",
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:97"
+     },
+     {
+      "id": 96,
+      "at": "2026-10-11T00:08:54.772554+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:96"
+     },
+     {
+      "id": 95,
+      "at": "2026-10-11T00:08:54.766241+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:95"
+     },
+     {
+      "id": 94,
+      "at": "2026-10-11T00:08:54.754180+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:94"
+     },
+     {
+      "id": 93,
+      "at": "2026-10-11T00:08:44.746474+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:93"
+     },
+     {
+      "id": 92,
+      "at": "2026-10-11T00:08:44.717576+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:92"
+     },
+     {
+      "id": 91,
+      "at": "2026-10-11T00:08:44.713474+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:91"
+     },
+     {
+      "id": 90,
+      "at": "2026-10-11T00:08:44.707681+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:90"
+     },
+     {
+      "id": 89,
+      "at": "2026-10-11T00:08:43.478475+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "nordic-star-ornaments",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:89"
+     },
+     {
+      "id": 88,
+      "at": "2026-10-11T00:08:43.448116+00:00",
+      "actor": "store_operator",
+      "action": "job.capability_not_enabled",
+      "artifact": "store.publish",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:88"
+     },
+     {
+      "id": 87,
+      "at": "2026-10-11T00:08:43.442962+00:00",
+      "actor": "store_operator",
+      "action": "store.publish_refused",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "shadow mode: no live publication",
+      "source": "audit_log:87"
+     },
+     {
+      "id": 86,
+      "at": "2026-10-11T00:08:43.429974+00:00",
+      "actor": "store_operator",
+      "action": "store.release_gates",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:86"
+     },
+     {
+      "id": 85,
+      "at": "2026-10-11T00:08:42.095351+00:00",
+      "actor": "store_operator",
+      "action": "listing.parity",
+      "artifact": "hexagon-coaster-set",
+      "phase": "shadow",
+      "summary": "parity is unjudged on ['identity', 'product_truth', 'hero', 'mobile_grid', 'lifestyle_quality', 'gallery', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', ",
+      "source": "audit_log:85"
+     },
+     {
+      "id": 84,
+      "at": "2026-10-11T00:08:42.030534+00:00",
+      "actor": "growth",
+      "action": "job.completed:launch.plan",
+      "artifact": "launch.plan",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:84"
+     },
+     {
+      "id": 83,
+      "at": "2026-10-11T00:08:42.010471+00:00",
+      "actor": "orchestrator",
+      "action": "teardown.product_qa",
+      "artifact": "cloudline-baby-blanket",
+      "phase": null,
+      "summary": "",
+      "source": "audit_log:83"
+     },
+     {
+      "id": 82,
+      "at": "2026-10-11T00:08:41.975843+00:00",
+      "actor": "growth",
+      "action": "growth.experiments_registered",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:82"
+     },
+     {
+      "id": 81,
+      "at": "2026-10-11T00:08:41.959267+00:00",
+      "actor": "growth",
+      "action": "launch.ranking_readiness",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:81"
+     },
+     {
+      "id": 80,
+      "at": "2026-10-11T00:08:41.929711+00:00",
+      "actor": "growth",
+      "action": "listing.mobile_qa",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:80"
+     },
+     {
+      "id": 79,
+      "at": "2026-10-11T00:08:40.840861+00:00",
+      "actor": "growth",
+      "action": "launch.planned",
+      "artifact": "cloudline-baby-blanket",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:79"
+     },
+     {
+      "id": 78,
+      "at": "2026-10-11T00:08:40.822871+00:00",
+      "actor": "listing",
+      "action": "job.completed:listing.seo",
+      "artifact": "listing.seo",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:78"
+     },
+     {
+      "id": 77,
+      "at": "2026-10-11T00:08:40.801379+00:00",
+      "actor": "listing",
+      "action": "listing.query_portfolio",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "no reachable alternative phrase; the original tags stand",
+      "source": "audit_log:77"
+     },
+     {
+      "id": 76,
+      "at": "2026-10-11T00:08:40.797392+00:00",
+      "actor": "listing",
+      "action": "support.knowledge_built",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:76"
+     },
+     {
+      "id": 75,
+      "at": "2026-10-11T00:08:40.774393+00:00",
+      "actor": "listing",
+      "action": "listing.disclosure_checked",
+      "artifact": "cloudline-baby-blanket@1.2.0",
+      "phase": "shadow",
+      "summary": "",
+      "source": "audit_log:75"
+     }
+    ],
+    "sources": [
+     "audit_log:99",
+     "audit_log:98",
+     "audit_log:97",
+     "audit_log:96",
+     "audit_log:95",
+     "audit_log:94",
+     "audit_log:93",
+     "audit_log:92",
+     "audit_log:91",
+     "audit_log:90",
+     "audit_log:89",
+     "audit_log:88",
+     "audit_log:87",
+     "audit_log:86",
+     "audit_log:85",
+     "audit_log:84",
+     "audit_log:83",
+     "audit_log:82",
+     "audit_log:81",
+     "audit_log:80",
+     "audit_log:79",
+     "audit_log:78",
+     "audit_log:77",
+     "audit_log:76",
+     "audit_log:75"
+    ],
+    "provider": "audit_log",
+    "since": "2026-10-10T00:30:08.319578+00:00",
+    "basis_note": "no previous view recorded; showing the last 24 h"
+   },
+   "autonomy": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:30:04.733273+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "department": "executive",
+      "name": "Executive / COO",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:42.027090+00:00",
+      "next_wake": "2026-10-11T00:35:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "intelligence",
+      "name": "Intelligence",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "benchmark_observation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "read-only Etsy API credentials that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_design",
+      "name": "Product & Design",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 1,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "model_provider",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model provider that can actually serve a request",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "product_truth",
+      "name": "Product Truth / QA",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:07:51.698181+00:00",
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "visual",
+      "name": "Visual",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 4,
+      "completed_24h": 3,
+      "useful_24h": 3,
+      "dead_24h": 0,
+      "last_run": "2026-10-11T00:08:34.740056+00:00",
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "image_generation",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "canonical_model",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "image_vision",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "store_commerce",
+      "name": "Store / Commerce",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 9,
+      "useful_24h": 9,
+      "dead_24h": 3,
+      "last_run": "2026-10-11T00:08:54.769928+00:00",
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "etsy_api",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "live_listings",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "support",
+      "name": "Customer Support",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "data_gate",
+        "gate": "customers",
+        "waiting_on": "data",
+        "closure_kind": "DATA-GATED",
+        "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "finance",
+      "name": "Finance / Accounting",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "transactions_r",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "growth",
+      "name": "Growth / Marketing",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 3,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "ad_authority",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)",
+        "effect": "gated capability parked; READY work continues"
+       },
+       {
+        "kind": "owner_gate",
+        "gate": "owned_surfaces",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     },
+     {
+      "department": "learn",
+      "name": "Learn / Improvement",
+      "status": "UNKNOWN",
+      "orchestrator_state": null,
+      "open_jobs": 0,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [],
+      "gates_unknown": false
+     },
+     {
+      "department": "platform",
+      "name": "Platform / Reliability",
+      "status": "OK",
+      "orchestrator_state": null,
+      "open_jobs": 2,
+      "completed_24h": 0,
+      "useful_24h": 0,
+      "dead_24h": 0,
+      "last_run": null,
+      "next_wake": "2026-10-11T00:45:00+00:00",
+      "blockers": [
+       {
+        "kind": "owner_gate",
+        "gate": "offsite_storage",
+        "waiting_on": "owner",
+        "closure_kind": "OWNER-GATED",
+        "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+        "effect": "gated capability parked; READY work continues"
+       }
+      ],
+      "gates_unknown": false
+     }
+    ],
+    "orchestrator": {
+     "last_tick": null,
+     "stale": true,
+     "stale_after_minutes": 45,
+     "last_created": null
+    },
+    "overnight": {
+     "missions_12h": 0,
+     "by_outcome": {
+      "queued": 0,
+      "useful": 0,
+      "noop": 0,
+      "failed": 0
+     },
+     "latest_brief": null
+    },
+    "timeline": [
+     {
+      "at": "2026-10-11T00:09:04.914248+00:00",
+      "kind": "approval.open",
+      "department": "",
+      "severity": "decision",
+      "summary": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+      "refs": [
+       "owner_actions:1"
+      ],
+      "source": "owner_actions"
+     },
+     {
+      "at": "2026-10-11T00:08:54.769928+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:28"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:44.715882+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:25"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:08:43.445867+00:00",
+      "kind": "job.dead",
+      "department": "",
+      "severity": "warn",
+      "summary": "store.publish dead",
+      "refs": [
+       "jobs:22"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.698181+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:3"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.487901+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:2"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-11T00:07:51.355475+00:00",
+      "kind": "job.done",
+      "department": "",
+      "severity": "info",
+      "summary": "gate.certify done",
+      "refs": [
+       "jobs:1"
+      ],
+      "source": "jobs"
+     },
+     {
+      "at": "2026-10-10T23:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:1"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T22:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:2"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T21:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:3"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T20:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:4"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T19:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:5"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T18:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:6"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T17:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:7"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T16:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:8"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T15:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:9"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T14:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:10"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T13:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:11"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T12:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:12"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     },
+     {
+      "at": "2026-10-10T11:13:05.161776+00:00",
+      "kind": "spend",
+      "department": "growth",
+      "severity": "info",
+      "summary": "CA$0.0160 anthropic ccverify.listing_seo (seo_strategist)",
+      "refs": [
+       "cost_entries:13"
+      ],
+      "source": "cost_entries",
+      "basis": "measured"
+     }
+    ],
+    "sources": [
+     "jobs",
+     "company_memory",
+     "company_timeline",
+     "worker.CADENCES",
+     "build2.executor.gate_states"
+    ],
+    "provider": "brambleloop.autonomy.status.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 11,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "reason": "provider gave no reason"
+   },
+   "store": {
+    "status": "BLOCKED",
+    "as_of": "2026-10-11T00:30:04.792686+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "key": "shop_name",
+      "label": "Shop name",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 1,
+      "top_findings": [
+       "NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name must also appear is an open Etsy rule reading (brand.seller_identity.PENDING_RULE_READINGS)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "icon",
+      "label": "Shop icon",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upload in Shop Manager"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "banner",
+      "label": "Shop banner",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or record a deliberate no-banner choice (master section 56 permits one)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "brand_face",
+      "label": "Brand face (Laura)",
+      "group": "identity",
+      "status": "NEEDS_OWNER",
+      "findings": 7,
+      "top_findings": [
+       "BRAND_FACE_MISSING_CANONICAL: frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'reference_pack/full_length_standing', 'stress_set/fitted_garment', 'stress_set/fitted_garment_close', 'stress_set/loose_layered_garment', 'stress_set/non_garment_lifestyle', 'stress_set/winter_seasonal']; owner action OA-CANON-1"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > About > Shop owner photo; banner; About; seasonal",
+      "source": "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "shop_title",
+      "label": "Shop title (tagline)",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: the shop title (tagline under the shop name): 41 characters; Etsy's limit is not on file (not on file; Etsy shows a counter in Shop Manager > Info & appearance). Check the counter in Shop Manager at entry."
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "announcement",
+      "label": "Announcement",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_REPO_ASSERTED: the shop announcement: 134/160 characters against an unsourced limit (brand.storefront.ANNOUNCEMENT_MAX -- no Etsy source recorded for the number)"
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "about",
+      "label": "About / shop story",
+      "group": "text",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_REPO_ASSERTED: the About / shop story: 2249/5000 characters against an unsourced limit (brand.storefront.ABOUT_MAX ('Etsy's shop story field cap') -- no Etsy source recorded for the number)"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > About your shop",
+      "source": "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_delivery",
+      "label": "Delivery (digital)",
+      "group": "policy",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one shop-policy text block: 396 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry."
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: processing and delivery",
+      "source": "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_returns",
+      "label": "Returns and refunds",
+      "group": "policy",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one shop-policy text block: 495 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry."
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: returns and exchanges",
+      "source": "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_licence",
+      "label": "Pattern licence and customer use",
+      "group": "policy",
+      "status": "NEEDS_OWNER",
+      "findings": 3,
+      "top_findings": [
+       "LEGAL_REVIEW_PENDING: commerce.terms is not legally reviewed; the licence says so publicly ('have not yet been through legal review'). Owner: legal review, or accept showing that sentence"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: FAQ (licence answers; policy_additional is EU-only and not used)",
+      "source": "commerce.terms via commerce.shop_package.licence_text",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "policy_privacy",
+      "label": "Privacy",
+      "group": "policy",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "LEGAL_REVIEW_PENDING: the privacy text names PIPEDA and CASL; it is written from the encoded consent rules (growth.owned) and has not been reviewed by a lawyer"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: privacy",
+      "source": "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "disclosures",
+      "label": "AI-use, digital-item and image disclosures",
+      "group": "disclosure",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "DISCLOSURE_DESIGNER_CLAIM: gates.platform_policy says designs were 'directed and edited by the designer'. That is true only if a person directs and edits each design; owner to confirm who that is, or the wording changes at its source"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "every listing description (Etsy: 'Seller-prompted AI creations must disclose the use of AI.') and the shop FAQ/About",
+      "source": "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "faq",
+      "label": "Frequently asked questions",
+      "group": "help",
+      "status": "UNVERIFIED",
+      "findings": 2,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: one FAQ question or answer: 367 characters; Etsy's limit is not on file. Check the counter in Shop Manager at entry.",
+       "FAQ_COUNT_LIMIT_UNVERIFIED: 15 entries; Etsy's FAQ entry limit is not on file"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Settings > Policies: frequently asked questions",
+      "source": "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "support_contact",
+      "label": "Support and contact",
+      "group": "help",
+      "status": "NEEDS_OWNER",
+      "findings": 2,
+      "top_findings": [
+       "SUPPORT_RESPONSE_TIME_UNDECIDED: no response-time commitment is decided, so none is shown. Owner: choose one (e.g. two business days) or keep none"
+      ],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "About section and FAQ (Etsy's Message button is automatic)",
+      "source": "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "digital_sale_message",
+      "label": "Message to buyers of digital items",
+      "group": "help",
+      "status": "UNVERIFIED",
+      "findings": 1,
+      "top_findings": [
+       "LIMIT_UNVERIFIED: the message to buyers of digital items: 551 characters; Etsy's limit is not on file (not on file; the field itself is in Etsy's updateShop schema (commerce.shop_package.SOURCES['etsy_shop_api'])). Check the counter in Shop Manager at entry."
+      ],
+      "entry": "api_writable_after_owner_authority",
+      "etsy_location": "Shop Manager > Settings > Info & appearance",
+      "source": "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "sections",
+      "label": "Shop sections",
+      "group": "merch",
+      "status": "READY",
+      "findings": 0,
+      "top_findings": [],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "Shop Manager > Listings > Sections",
+      "source": "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "opening_grid",
+      "label": "Opening grid (Launch-0 products)",
+      "group": "merch",
+      "status": "FAIL",
+      "findings": 5,
+      "top_findings": [
+       "TRUTH_SAFETY_CERT: opening_grid: 'CPSC' -- a safety or certification claim about a finished object this shop does not make; it needs evidence the shop does not hold"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop home page grid",
+      "source": "products.launch0 (+ drafted listings rows when present)",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "trust_signals",
+      "label": "Trust signals",
+      "group": "trust",
+      "status": "READY",
+      "findings": 0,
+      "top_findings": [],
+      "entry": "owner_types_in_shop_manager",
+      "etsy_location": "About section, banner area, listings",
+      "source": "store_foundation.copy_v2.TRUST_SIGNALS",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "voice",
+      "label": "Brand voice",
+      "group": "brand",
+      "status": "UNVERIFIED",
+      "findings": 19,
+      "top_findings": [
+       "VOICE_SHOUTING: opening_grid: 'DETAILS' -- capitals as emphasis",
+       "VOICE_SHOUTING: opening_grid: 'SAFETY' -- capitals as emphasis",
+       "VOICE_SHOUTING: opening_grid: 'SUITABILITY' -- capitals as emphasis"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "applies to every surface",
+      "source": "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "settings_checklist",
+      "label": "Settings checklist (owner login)",
+      "group": "settings",
+      "status": "NEEDS_OWNER",
+      "findings": 1,
+      "top_findings": [
+       "SETTINGS_OWNER_LOGIN: 17 settings need the account holder signed in to Shop Manager; none is entered by this system and their live state is UNKNOWN"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop Manager",
+      "source": "store_foundation.content.settings_checklist",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "search_readiness",
+      "label": "Search visibility readiness",
+      "group": "readiness",
+      "status": "GATED",
+      "findings": 1,
+      "top_findings": [
+       "SEARCH_VISIBILITY_GATED: Etsy's Search Visibility page reads listings that are live; there are none, so it cannot be read yet (commerce.search_visibility intake is ready)"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Shop Manager > Marketing > Search Visibility",
+      "source": "brand.storefront.check_shop_seo; commerce.search_visibility",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "support_readiness",
+      "label": "Customer-support readiness",
+      "group": "readiness",
+      "status": "GATED",
+      "findings": 1,
+      "top_findings": [
+       "MESSAGING_INTEGRATION_GATED: there is no Etsy messaging integration: replies are drafted and held (support.department), never sent"
+      ],
+      "entry": "internal_not_a_shop_field",
+      "etsy_location": "Etsy Messages",
+      "source": "support.department; commerce.shop_package",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured"
+     },
+     {
+      "key": "listing_images",
+      "label": "Listing hero images (disclosed renders)",
+      "group": "merch",
+      "status": "UNKNOWN",
+      "findings": 0,
+      "top_findings": [
+       "not verified in this call; the preview renders and verifies them on load"
+      ],
+      "entry": "listing upload",
+      "etsy_location": "listing images",
+      "source": "visual.disclosed_render + visual.render_verification",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "unknown"
+     },
+     {
+      "key": "storefront_banner",
+      "label": "Shop banner (owner's canonical file, D-FB-17)",
+      "group": "brand",
+      "status": "FAIL",
+      "findings": 6,
+      "top_findings": [
+       "f233_banner_canvas_4to1: UNVERIFIED_ASSUMPTION",
+       "f233_identity_block_survives_4to1: UNVERIFIED_ASSUMPTION",
+       "f233_identity_block_in_phone_window: UNVERIFIED_ASSUMPTION",
+       "laura_publication_status: FAIL",
+       "laura_photorealism_anatomy: UNKNOWN",
+       "ai_generated_imagery_disclosure: UNKNOWN"
+      ],
+      "entry": "big banner upload",
+      "etsy_location": "Shop Manager > Settings > Info & Appearance",
+      "source": "store_foundation.owner_banner",
+      "entered_on_etsy": "UNKNOWN",
+      "basis": "measured",
+      "failed": [
+       "laura_publication_status",
+       "nav_categories_truth"
+      ],
+      "unknown": [
+       "laura_photorealism_anatomy",
+       "ai_generated_imagery_disclosure",
+       "product_truth",
+       "visible_text_complete"
+      ]
+     }
+    ],
+    "sources": [
+     "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "brand.storefront.check_shop_seo; commerce.search_visibility",
+     "commerce.terms via commerce.shop_package.licence_text",
+     "listings (table, read-only)",
+     "products.launch0",
+     "products.launch0 (+ drafted listings rows when present)",
+     "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "store_foundation.content.settings_checklist",
+     "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+     "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+     "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+     "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+     "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+     "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+     "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+     "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "store_foundation.copy_v2.TRUST_SIGNALS",
+     "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+     "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+     "support.department; commerce.shop_package"
+    ],
+    "counts": {
+     "FAIL": 1,
+     "NEEDS_OWNER": 9,
+     "GATED": 2,
+     "UNVERIFIED": 8,
+     "READY": 2
+    },
+    "owner_actions": [
+     {
+      "surface": "shop_name",
+      "code": "NAME_CONFIRM",
+      "severity": "owner",
+      "detail": "confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name must also appear is an open Etsy rule reading (brand.seller_identity.PENDING_RULE_READINGS)"
+     },
+     {
+      "surface": "icon",
+      "code": "ICON_RASTER_PENDING",
+      "severity": "owner",
+      "detail": "Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upload in Shop Manager"
+     },
+     {
+      "surface": "banner",
+      "code": "BANNER_RASTER_PENDING",
+      "severity": "owner",
+      "detail": "Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or record a deliberate no-banner choice (master section 56 permits one)"
+     },
+     {
+      "surface": "brand_face",
+      "code": "BRAND_FACE_MISSING_CANONICAL",
+      "severity": "owner",
+      "detail": "frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'reference_pack/full_length_standing', 'stress_set/fitted_garment', 'stress_set/fitted_garment_close', 'stress_set/loose_layered_garment', 'stress_set/non_garment_lifestyle', 'stress_set/winter_seasonal']; owner action OA-CANON-1"
+     },
+     {
+      "surface": "policy_licence",
+      "code": "LEGAL_REVIEW_PENDING",
+      "severity": "owner",
+      "detail": "commerce.terms is not legally reviewed; the licence says so publicly ('have not yet been through legal review'). Owner: legal review, or accept showing that sentence"
+     },
+     {
+      "surface": "policy_privacy",
+      "code": "LEGAL_REVIEW_PENDING",
+      "severity": "owner",
+      "detail": "the privacy text names PIPEDA and CASL; it is written from the encoded consent rules (growth.owned) and has not been reviewed by a lawyer"
+     },
+     {
+      "surface": "disclosures",
+      "code": "DISCLOSURE_DESIGNER_CLAIM",
+      "severity": "owner",
+      "detail": "gates.platform_policy says designs were 'directed and edited by the designer'. That is true only if a person directs and edits each design; owner to confirm who that is, or the wording changes at its source"
+     },
+     {
+      "surface": "support_contact",
+      "code": "SUPPORT_RESPONSE_TIME_UNDECIDED",
+      "severity": "owner",
+      "detail": "no response-time commitment is decided, so none is shown. Owner: choose one (e.g. two business days) or keep none"
+     },
+     {
+      "surface": "opening_grid",
+      "code": "CATALOGUE_DEPTH",
+      "severity": "owner",
+      "detail": "5 Launch-0 products (sizes are not counted as products) against launch.readiness.MIN_LISTINGS_TO_OPEN=8. The threshold is not lowered; it is an open owner decision (D-FB-9)"
+     },
+     {
+      "surface": "opening_grid",
+      "code": "TITLE_PLAN_MISMATCH",
+      "severity": "owner",
+      "detail": "nursery-nesting-baskets: the plan calls it 'Nesting Baskets, three sizes', the listing title (from the CIR title) says 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | 3 Sizes | US and UK Terms'; ['Nesting'] missing. Owner naming decision"
+     },
+     {
+      "surface": "settings_checklist",
+      "code": "SETTINGS_OWNER_LOGIN",
+      "severity": "owner",
+      "detail": "17 settings need the account holder signed in to Shop Manager; none is entered by this system and their live state is UNKNOWN"
+     }
+    ],
+    "products": 5,
+    "sizes_counted_as_products": false,
+    "preview_path": "/cc/store-preview",
+    "preview_viewports": [
+     "desktop",
+     "mobile"
+    ],
+    "preview_variants": [
+     "brand_face",
+     "compare",
+     "standard",
+     "v2"
+    ],
+    "live": false,
+    "published": false,
+    "note": "Readiness of prepared drafts, measured by deterministic checks. Nothing is entered on Etsy by this system; the live shop's state is UNKNOWN here.",
+    "provider": "brambleloop.store_foundation.preview.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 24,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    },
+    "reason": "provider gave no reason"
+   },
+   "products": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:30:05+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "slug": "hexagon-coaster-set",
+      "title": "Hexagon Coaster Set",
+      "status": "certified",
+      "version": "1.2.0",
+      "certified": true,
+      "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 4,
+      "sources": [
+       "products:1",
+       "pattern_versions:1",
+       "listings:1"
+      ]
+     },
+     {
+      "slug": "nordic-star-ornaments",
+      "title": "Nordic Snowflake Ornament Set (6)",
+      "status": "certified",
+      "version": "1.4.0",
+      "certified": true,
+      "release_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 4.5,
+      "sources": [
+       "products:2",
+       "pattern_versions:2",
+       "listings:2"
+      ]
+     },
+     {
+      "slug": "cloudline-baby-blanket",
+      "title": "Cloudline Textured Baby Blanket",
+      "status": "certified",
+      "version": "1.2.0",
+      "certified": true,
+      "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+      "listing_state": "draft",
+      "on_etsy": false,
+      "price_cad": 7.5,
+      "sources": [
+       "products:3",
+       "pattern_versions:3",
+       "listings:3"
+      ]
+     }
+    ],
+    "sources": [
+     "products",
+     "pattern_versions",
+     "listings"
+    ],
+    "provider": "products+pattern_versions+listings",
+    "certified": 3,
+    "on_etsy": 0
+   },
+   "money": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:30:04.543279+00:00",
+    "basis": "unknown",
+    "items": [
+     {
+      "metric": "gross_sales",
+      "label": "Revenue (gross sales)",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "gross_sales",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:gross_sales"
+      ]
+     },
+     {
+      "metric": "refunds",
+      "label": "Refunds",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "refunds",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:refunds"
+      ]
+     },
+     {
+      "metric": "net_sales",
+      "label": "Net sales",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "net_sales",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:net_sales"
+      ]
+     },
+     {
+      "metric": "fees",
+      "label": "Marketplace fees",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "fees",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:fees"
+      ]
+     },
+     {
+      "metric": "operating_spend",
+      "label": "Operating spend",
+      "value_cad": 1.1,
+      "reading": "estimated",
+      "actual_cad": 0,
+      "estimated_cad": 1.102,
+      "drill": "operating_spend",
+      "why": "includes modelled listing-fee exposure / unknown-basis rows",
+      "state": "ESTIMATED",
+      "basis": "estimated",
+      "display": "CA$1.10 (estimated)",
+      "provider_reading": "estimated",
+      "sources": [
+       "finance.accounting.dashboard:operating_spend"
+      ]
+     },
+     {
+      "metric": "contribution",
+      "label": "Contribution",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "contribution",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:contribution"
+      ]
+     },
+     {
+      "metric": "profit",
+      "label": "Profit before tax reserve",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "profit",
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:profit"
+      ]
+     },
+     {
+      "metric": "tax_reserve",
+      "label": "Sales-tax reserve",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "tax_reserve",
+      "why": "a management reserve against net sales (finance.books rate); not a booked liability -- the GST/HST treatment is for the human accountant (tax_pack)",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:tax_reserve"
+      ]
+     },
+     {
+      "metric": "cash",
+      "label": "Cash in bank",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "cash",
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:cash"
+      ]
+     },
+     {
+      "metric": "expected_payout",
+      "label": "Etsy balance (expected payout)",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "expected_payout",
+      "why": "derived receivable (not cash); UNKNOWN",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:expected_payout"
+      ]
+     },
+     {
+      "metric": "committed_spend",
+      "label": "Committed spend (live reservations)",
+      "value_cad": 0,
+      "reading": "measured",
+      "actual_cad": 0,
+      "estimated_cad": 0,
+      "drill": null,
+      "why": "",
+      "state": "MEASURED",
+      "basis": "measured",
+      "display": "CA$0.00",
+      "provider_reading": "measured",
+      "sources": [
+       "finance.accounting.dashboard:committed_spend"
+      ]
+     },
+     {
+      "metric": "owner_payable",
+      "label": "Owed to owner (owner-funded spend)",
+      "value_cad": 1.1,
+      "reading": "derived",
+      "actual_cad": 1.102,
+      "estimated_cad": 0,
+      "drill": "owner_payable",
+      "why": "",
+      "state": "RECORDED",
+      "basis": "derived",
+      "display": "CA$1.10 (derived)",
+      "provider_reading": "derived",
+      "sources": [
+       "finance.accounting.dashboard:owner_payable"
+      ]
+     },
+     {
+      "metric": "safe_discretionary_budget",
+      "label": "Safe discretionary budget",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": null,
+      "why": "UNKNOWN: cash is not a fresh, reconciled measurement, so nothing is safe to spend on the strength of it. no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "state": "UNKNOWN",
+      "basis": "unknown",
+      "display": "UNKNOWN",
+      "provider_reading": "UNKNOWN",
+      "sources": [
+       "finance.accounting.dashboard:safe_discretionary_budget"
+      ]
+     }
+    ],
+    "sources": [
+     "ledger",
+     "cost_entries",
+     "spend_reservations",
+     "orders",
+     "operating_readings:commerce.orders_held",
+     "acct_journal_entries",
+     "acct_postings",
+     "acct_statement_lines",
+     "acct_exceptions"
+    ],
+    "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; orders: DISCONNECTED -- the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; etsy_ledger: DISCONNECTED -- Etsy payment-account ledger needs the same transactions_r grant as the order source; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+    "window": "last 30 days",
+    "currency": "CAD",
+    "source_health": {
+     "orders": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+      "owner_action": "reauthorise_transactions_r"
+     },
+     "etsy_ledger": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "Etsy payment-account ledger needs the same transactions_r grant as the order source",
+      "owner_action": "verify the Etsy ledger mapping"
+     },
+     "bank": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "owner_action": "open a business bank account and provide statements (owner action; Finance cannot do banking)"
+     },
+     "spend": {
+      "state": "measured",
+      "last_read_at": "2026-10-11T00:30:04.543279+00:00",
+      "why": "this company's own cost ledger (cost_entries); row bases vary",
+      "owner_action": ""
+     }
+    },
+    "tax_reserve": {
+     "sales_tax_reserve_ytd_cad": null,
+     "income_tax_setaside_ytd_cad": null,
+     "basis": "estimated (management reserve; treatment for the human accountant)"
+    },
+    "payout_status": {
+     "expected_payout_cad": null,
+     "reading": "derived receivable (not cash); UNKNOWN"
+    },
+    "runway": {
+     "value": null,
+     "why": "UNKNOWN: cash is unknown. Operating spend is owner-funded today."
+    },
+    "obligations": {
+     "owner_funded_spend_payable_cad": 1.102,
+     "accrued_listing_fee_exposure_cad": 0
+    },
+    "upcoming_bills": [
+     {
+      "name": "hosting (declared run-rate)",
+      "amount_cad": 7,
+      "cadence": "monthly",
+      "basis": "declared_not_observed"
+     },
+     {
+      "name": "model/API spend ceiling",
+      "amount_cad": 100,
+      "cadence": "monthly",
+      "basis": "policy ceiling (maximum, not a forecast)"
+     }
+    ],
+    "exceptions": {
+     "open": 0,
+     "high": 0,
+     "top": []
+    },
+    "reconciliation_health": "clean",
+    "integrity": {
+     "ok": true,
+     "problems": [],
+     "legacy_v1_entries": 0
+    },
+    "close": {
+     "locked_periods": [],
+     "last_locked": null,
+     "previous_period": "2026-09",
+     "previous_period_locked": false,
+     "current_period": "2026-10",
+     "next_after_last_lock": null
+    },
+    "forecast": {
+     "as_of": "2026-10-11T00:30:04.543279+00:00",
+     "horizon_days": 30,
+     "currency": "CAD",
+     "is_booked": false,
+     "is_measured": false,
+     "basis": "modelled",
+     "presentation": "range only; never a point estimate presented as fact",
+     "operating_cost": {
+      "low_cad": 1.22,
+      "high_cad": 1.89,
+      "assumptions": [
+       "daily operating spend between the 27-day (history, max 60) and 7-day averages",
+       "high end +25% for unplanned work",
+       "the monthly model ceiling caps the true maximum"
+      ],
+      "confidence": "low",
+      "sample_days_with_spend": 2
+     },
+     "revenue": null,
+     "revenue_why": "no revenue forecast: the order source is disconnected, so there are no measured orders to project from"
+    },
+    "totals_micros": {
+     "gross": 0,
+     "refunds": 0,
+     "fees": 0,
+     "operating": 1102000,
+     "net_profit": -1102000
+    },
+    "provider": "brambleloop.finance.accounting.dashboard.summary",
+    "observation_window": {
+     "oldest": null,
+     "newest": null,
+     "mixed_snapshot": null,
+     "rows_with_time": 0,
+     "rows": 13,
+     "note": "no row carries an observation time; the card's as-of is query time"
+    }
+   },
+   "incidents": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:30:05+00:00",
+    "basis": "measured",
+    "items": [],
+    "sources": [
+     "incidents"
+    ],
+    "provider": "incidents (open)",
+    "open_total": 0
+   },
+   "owner_actions": {
+    "status": "BLOCKED",
+    "as_of": "2026-10-11T00:30:08+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "card_id": "gate:acceptance_ruling",
+      "what": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+      "max_spend_cad": 0,
+      "minutes": 2,
+      "consequence_of_waiting": "requirements [189, 221, 222, 320] stay parked"
+     },
+     {
+      "card_id": "gate:transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+      "max_spend_cad": 0,
+      "minutes": 3,
+      "consequence_of_waiting": "requirements [11, 12] stay parked"
+     },
+     {
+      "card_id": "gate:live_listings",
+      "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+      "max_spend_cad": 0,
+      "minutes": 5,
+      "consequence_of_waiting": "requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parked"
+     },
+     {
+      "card_id": "gate:insights_access",
+      "what": "owner-recorded Marketplace Insights readings exist",
+      "max_spend_cad": 0,
+      "minutes": 10,
+      "consequence_of_waiting": "requirements [1, 37, 54, 236, 237] stay parked"
+     },
+     {
+      "card_id": "gate:production_window",
+      "what": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+      "max_spend_cad": 0,
+      "minutes": 10,
+      "consequence_of_waiting": "requirements [195] stay parked"
+     },
+     {
+      "card_id": "gate:offsite_storage",
+      "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+      "max_spend_cad": 1,
+      "minutes": 15,
+      "consequence_of_waiting": "requirements [51] stay parked"
+     },
+     {
+      "card_id": "gate:image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "max_spend_cad": 25,
+      "minutes": 5,
+      "consequence_of_waiting": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked"
+     },
+     {
+      "card_id": "gate:model_provider",
+      "what": "a model provider that can actually serve a request",
+      "max_spend_cad": 25,
+      "minutes": 10,
+      "consequence_of_waiting": "The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice."
+     },
+     {
+      "card_id": "gate:owned_surfaces",
+      "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+      "max_spend_cad": 25,
+      "minutes": 65,
+      "consequence_of_waiting": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only"
+     },
+     {
+      "card_id": "gate:tester_roster",
+      "what": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+      "max_spend_cad": 0,
+      "minutes": 20,
+      "consequence_of_waiting": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale"
+     },
+     {
+      "card_id": "gate:physical_proof",
+      "what": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+      "max_spend_cad": 59.65,
+      "minutes": 5,
+      "consequence_of_waiting": "market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade to"
+     },
+     {
+      "card_id": "gate:benchmark_purchases",
+      "what": "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+      "max_spend_cad": 300,
+      "minutes": 75,
+      "consequence_of_waiting": "requirements [163, 165, 168, 315, 317] stay parked"
+     },
+     {
+      "card_id": "owner_action:1",
+      "what": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+      "max_spend_cad": null,
+      "minutes": 20,
+      "consequence_of_waiting": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority"
+     }
+    ],
+    "sources": [
+     "owner_actions",
+     "build2.executor.approval_inbox"
+    ],
+    "provider": "build2.executor.approval_inbox",
+    "reason": "13 owner decisions open",
+    "open_actions": 13
+   },
+   "work_24h": {
+    "status": "OK",
+    "as_of": "2026-10-11T00:30:08+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "agent": "growth",
+      "completed": 3
+     },
+     {
+      "agent": "listing",
+      "completed": 6
+     },
+     {
+      "agent": "pricing",
+      "completed": 3
+     },
+     {
+      "agent": "publishing",
+      "completed": 3
+     },
+     {
+      "agent": "quality_director",
+      "completed": 3
+     }
+    ],
+    "sources": [
+     "jobs"
+    ],
+    "provider": "jobs (last 24h)",
+    "completed": 18,
+    "failed": 3,
+    "created": 34,
+    "window_hours": 24,
+    "last_useful_action": {
+     "id": 26,
+     "agent": "growth",
+     "job_type": "launch.plan",
+     "finished_at": "2026-10-11T00:08:42.027090+00:00",
+     "source": "jobs:26"
+    }
+   },
+   "launch": {
+    "status": "BLOCKED",
+    "as_of": "2026-10-11T00:30:08+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "phase": "shadow",
+      "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+     }
+    ],
+    "sources": [
+     "audit_log (owner.phase.transition)",
+     "env BRAMBLELOOP_PHASE"
+    ],
+    "provider": "core.phase.resolve",
+    "reason": "SHADOW: nothing is published live"
+   },
+   "opportunities": {
+    "status": "DEGRADED",
+    "as_of": "2026-10-11T00:30:08+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "loop": "seo_lesson_match",
+      "title": "Listing / SEO lesson tag slots",
+      "cell": "seo_search",
+      "family": "replay",
+      "param": "min_shared",
+      "active": {
+       "loop": "seo_lesson_match",
+       "param": "min_shared",
+       "value": 2,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: listing_outcomes (impressions, visits, orders) per product_slug",
+      "decisions_logged": 3,
+      "decisions_with_outcome": 0,
+      "metric": "listing click-through (visits / impressions) after the decision",
+      "guardrail": "conversion (orders / visits) where orders are observed",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.consume.matching(cell='seo_search'), called by runtime.release listing.seo to give lesson-matched queries a tag slot",
+      "consumer_status": "live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject=slug)",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "support_lesson_match",
+      "title": "Support lessons attached to cases",
+      "cell": "customer_experience",
+      "family": "replay",
+      "param": "min_shared",
+      "active": {
+       "loop": "support_lesson_match",
+       "param": "min_shared",
+       "value": 1,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: support_cases (resolved, escalated)",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "share of cases resolved without escalation",
+      "guardrail": "share of decided cases resolved at all",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.consume.matching(cell='customer_experience'), called by runtime.release support.mine to attach lessons to open cases",
+      "consumer_status": "live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject='support_case:<id>')",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "pattern_defect_watch",
+      "title": "Pattern quality defect watch",
+      "cell": "quality",
+      "family": "predictor",
+      "param": "min_topic_defect_rate",
+      "active": {
+       "loop": "pattern_defect_watch",
+       "param": "min_topic_defect_rate",
+       "value": 0.5,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: pattern_versions x incidents / troubleshooter support_cases per product",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of extra-review flags against releases that later had a defect",
+      "guardrail": "review load: flagged share of releases (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.defect_watchlist / requires_extra_review; learn.improvement_status.next_work emits quality.extra_review items",
+      "consumer_status": "live via next_work (lane A enqueues); release-gate read needs WIRING REQUEST W-B3",
+      "proposer": "failure_miner",
+      "challenger": "pattern_engineering"
+     },
+     {
+      "loop": "visual_gate_precheck",
+      "title": "Visual gate pre-check",
+      "cell": "creative_assets",
+      "family": "predictor",
+      "param": "precheck_flag_rate",
+      "active": {
+       "loop": "visual_gate_precheck",
+       "param": "precheck_flag_rate",
+       "value": 0.5,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: listing_assets (approved, blocked_reasons) by asset_class/role",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of pre-check flags against assets the visual gate later blocked",
+      "guardrail": "review load: flagged share of assets (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.visual_precheck; next_work emits visual.precheck items",
+      "consumer_status": "live via next_work (lane A enqueues); render-path read needs WIRING REQUEST W-B4",
+      "proposer": "experiment_designer",
+      "challenger": "quality"
+     },
+     {
+      "loop": "release_cost_watch",
+      "title": "Cost per release watch",
+      "cell": "finance",
+      "family": "predictor",
+      "param": "early_cost_flag_cad",
+      "active": {
+       "loop": "release_cost_watch",
+       "param": "early_cost_flag_cad",
+       "value": 1,
+       "config_id": null,
+       "version": null,
+       "source": "code_default"
+      },
+      "reading": "UNMEASURED",
+      "why_unmeasured": "0 decision(s) with an observed outcome (needs 12); source: cost_entries (amount_cad, actual only) per product_slug",
+      "decisions_logged": 0,
+      "decisions_with_outcome": 0,
+      "metric": "F1 of early cost-review flags against releases whose actual cost ended above twice the median of earlier releases",
+      "guardrail": "review load: flagged share of releases (cap 0.5)",
+      "last_evaluation": null,
+      "proposals_by_state": {},
+      "promotions": [],
+      "rollbacks": [],
+      "refusals": 0,
+      "consumer": "improve.policy_loops.cost_watch; next_work emits finance.cost_review items",
+      "consumer_status": "live via next_work (lane A enqueues). Flags only: never raises or lowers a spend ceiling (spend controls are a protected invariant)",
+      "proposer": "cost_optimiser",
+      "challenger": "reliability_engineer"
+     },
+     {
+      "id": 3,
+      "at": "2026-10-11T00:07:51.672884+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:3"
+     },
+     {
+      "id": 2,
+      "at": "2026-10-11T00:07:51.469499+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:2"
+     },
+     {
+      "id": 1,
+      "at": "2026-10-11T00:07:51.305667+00:00",
+      "cell": "product_creativity",
+      "metric": "tournament_survival_with_spread",
+      "state": "proposed",
+      "hypothesis": "Raising customization on hexagon-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)",
+      "baseline_value": 3,
+      "result_value": null,
+      "promoted_at": null,
+      "reverted_at": null,
+      "source": "improvements:1"
+     }
+    ],
+    "sources": [
+     "learn_decisions",
+     "learn_proposals",
+     "learn_policy_lessons",
+     "improvements",
+     "config_versions",
+     "learn_gaps",
+     "core.models.ListingOutcome",
+     "core.models.SupportCase",
+     "core.models.ListingAsset",
+     "core.models.CostEntry",
+     "core.models.Incident",
+     "src/brambleloop/improve/policy_loops.py",
+     "src/brambleloop/improve/invariants.py",
+     "improvements"
+    ],
+    "provider": "learn+improvements"
+   }
+  },
+  "headline": {
+   "revenue": {
+    "value_cad": null,
+    "state": "UNMEASURED",
+    "basis": "unknown",
+    "display": "UNMEASURED",
+    "sources": [
+     "ledger",
+     "orders",
+     "commerce.orders_ingest.source_state"
+    ],
+    "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+   },
+   "profit": {
+    "value_cad": null,
+    "state": "UNKNOWN",
+    "basis": "unknown",
+    "display": "UNKNOWN",
+    "sources": [
+     "finance.accounting.dashboard:profit"
+    ],
+    "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+   },
+   "store": {
+    "products": 3,
+    "certified": 3,
+    "on_etsy": 0,
+    "status": "OK",
+    "reason": null
+   },
+   "launch": {
+    "phase": "shadow",
+    "status": "BLOCKED"
+   },
+   "autonomy": {
+    "status": "DEGRADED",
+    "reason": "provider gave no reason",
+    "jobs_completed_24h": 18
+   },
+   "incidents_open": 0,
+   "owner_decisions": 16
+  },
+  "last_seen_at": null
+ }
+}

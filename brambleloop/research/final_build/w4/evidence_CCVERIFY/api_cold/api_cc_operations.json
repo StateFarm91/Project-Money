@@ -1,0 +1,2482 @@
+{
+ "tab": "OPERATIONS",
+ "generated_at": "2026-10-11T00:10:59+00:00",
+ "sections": {
+  "slo": {
+   "status": "OK",
+   "as_of": "2026-10-11T00:10:57.066458+00:00",
+   "basis": "measured",
+   "reason": "every judged objective is met (UNKNOWN ones are listed as such)",
+   "items": [
+    {
+     "kind": "slo",
+     "key": "command_center_availability",
+     "requirement": "F-923",
+     "objective": "the owner Command Center answered an external probe in 99.5% of 5-minute intervals",
+     "target": 0.995,
+     "window_hours": 720,
+     "breach_severity": "P2",
+     "sli": null,
+     "basis": "unknown",
+     "state": "UNKNOWN",
+     "budget_total": 0.005,
+     "budget_consumed_share": null,
+     "budget_remaining_share": null,
+     "reason": "no external probe of the Command Center is recorded. The web process answering itself is not availability, so this is UNKNOWN rather than 100% (the watchdog cron in CLOUD_HOSTING_PLAN.md writes these rows)",
+     "measure": {
+      "probes": 0,
+      "proxy": null
+     },
+     "sources": [
+      "ops_runtime_samples(kind=probe, component=command_center)"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "scheduler_freshness",
+     "requirement": "F-924",
+     "objective": "the scheduler was fresh (recent self-heartbeat or cadence enqueue) in 99% of 5-minute intervals",
+     "target": 0.99,
+     "window_hours": 24,
+     "breach_severity": "P1",
+     "sli": null,
+     "basis": "unknown",
+     "state": "UNKNOWN",
+     "budget_total": 0.01,
+     "budget_consumed_share": null,
+     "budget_remaining_share": null,
+     "reason": "no scheduler heartbeat and no cadence job in the window",
+     "measure": {
+      "intervals": 0
+     },
+     "sources": [
+      "jobs(idempotency_key LIKE 'cadence:%').created_at"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "cadence_freshness",
+     "requirement": "F-924",
+     "objective": "95% of scheduled cadences completed within twice their period",
+     "target": 0.95,
+     "window_hours": 0,
+     "breach_severity": "P2",
+     "sli": null,
+     "basis": "unknown",
+     "state": "UNKNOWN",
+     "budget_total": 0.05,
+     "budget_consumed_share": null,
+     "budget_remaining_share": null,
+     "reason": "no cadence has ever been enqueued",
+     "measure": {},
+     "sources": [
+      "jobs"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "queue_latency",
+     "requirement": "F-924",
+     "objective": "95% of jobs started within 15 minutes of becoming due",
+     "target": 0.95,
+     "window_hours": 24,
+     "breach_severity": "P2",
+     "sli": 1.0,
+     "basis": "measured",
+     "state": "MET",
+     "budget_total": 0.05,
+     "budget_consumed_share": 0.0,
+     "budget_remaining_share": 1.0,
+     "reason": "21/21 started within 15 min of due",
+     "measure": {
+      "jobs": 21,
+      "p50_s": 2,
+      "p95_s": 25,
+      "max_s": 33
+     },
+     "sources": [
+      "jobs(created_at, run_after, started_at)"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "recovery_time",
+     "requirement": "F-924",
+     "objective": "90% of platform incidents closed within 60 minutes",
+     "target": 0.9,
+     "window_hours": 168,
+     "breach_severity": "P2",
+     "sli": null,
+     "basis": "unknown",
+     "state": "UNKNOWN",
+     "budget_total": 0.1,
+     "budget_consumed_share": null,
+     "budget_remaining_share": null,
+     "reason": "no platform incident opened or closed in the window, so recovery time has not been observed",
+     "measure": {
+      "incidents": 0
+     },
+     "sources": [
+      "incidents"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "department_heartbeat",
+     "requirement": "F-924/F-890",
+     "objective": "every department attempted work within max(2h, 2x its fastest cadence)",
+     "target": 1.0,
+     "window_hours": 0,
+     "breach_severity": "P2",
+     "sli": 1.0,
+     "basis": "measured",
+     "state": "MET",
+     "budget_total": 0.0,
+     "budget_consumed_share": 0.0,
+     "budget_remaining_share": 1.0,
+     "reason": "4/4 departments attempted work recently",
+     "measure": {
+      "silent": []
+     },
+     "sources": [
+      "jobs(job_type, started_at, finished_at, outputs)",
+      "runtime.worker.CADENCES",
+      "runtime.pipeline.did_no_work"
+     ]
+    },
+    {
+     "kind": "slo",
+     "key": "department_useful_work",
+     "requirement": "F-924/F-890",
+     "objective": "each department completed useful work in at least half of the hours its cadences expected it to work",
+     "target": 0.5,
+     "window_hours": 24,
+     "breach_severity": "P3",
+     "sli": null,
+     "basis": "unknown",
+     "state": "UNKNOWN",
+     "budget_total": 0.5,
+     "budget_consumed_share": null,
+     "budget_remaining_share": null,
+     "reason": "no department has a cadence to be judged against",
+     "measure": {},
+     "sources": [
+      "jobs(job_type, started_at, finished_at, outputs)",
+      "runtime.worker.CADENCES",
+      "runtime.pipeline.did_no_work"
+     ]
+    },
+    {
+     "kind": "scheduler_liveness",
+     "stale": null,
+     "age_s": null,
+     "threshold_s": 2100,
+     "source": "jobs(idempotency_key LIKE 'cadence:%')",
+     "latest": null,
+     "reason": "the scheduler has never enqueued a cadence and writes no heartbeat: no evidence either way"
+    },
+    {
+     "kind": "worker_liveness",
+     "stalled": false,
+     "reason": "no work has been due for longer than 15 minutes",
+     "source": "jobs"
+    },
+    {
+     "kind": "department",
+     "department": "executive",
+     "last_attempt": "2026-10-11T00:08:40.824030+00:00",
+     "heartbeat_window_s": 7200,
+     "heartbeat": true,
+     "completed_jobs_window": 3,
+     "useful_hours": 1,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0417,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "intelligence",
+     "last_attempt": null,
+     "heartbeat_window_s": 14400,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "product_design",
+     "last_attempt": null,
+     "heartbeat_window_s": 172800,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "product_truth",
+     "last_attempt": "2026-10-11T00:07:51.492109+00:00",
+     "heartbeat_window_s": 7200,
+     "heartbeat": true,
+     "completed_jobs_window": 3,
+     "useful_hours": 1,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0417,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "visual",
+     "last_attempt": "2026-10-11T00:08:09.559272+00:00",
+     "heartbeat_window_s": 7200,
+     "heartbeat": true,
+     "completed_jobs_window": 3,
+     "useful_hours": 1,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0417,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "store_commerce",
+     "last_attempt": "2026-10-11T00:08:44.718602+00:00",
+     "heartbeat_window_s": 7200,
+     "heartbeat": true,
+     "completed_jobs_window": 9,
+     "useful_hours": 1,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0417,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "support",
+     "last_attempt": null,
+     "heartbeat_window_s": 7200,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "finance",
+     "last_attempt": null,
+     "heartbeat_window_s": 7200,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "growth",
+     "last_attempt": null,
+     "heartbeat_window_s": 7200,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "learn",
+     "last_attempt": null,
+     "heartbeat_window_s": 7200,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "department",
+     "department": "platform",
+     "last_attempt": null,
+     "heartbeat_window_s": 7200,
+     "heartbeat": null,
+     "completed_jobs_window": 0,
+     "useful_hours": 0,
+     "expected_hours": 0,
+     "useful_hours_pct": 0.0,
+     "attainment": null,
+     "state": "UNKNOWN",
+     "reason": "the company has under an hour of history in the window"
+    },
+    {
+     "kind": "model_failover",
+     "status": "UNKNOWN",
+     "reason": "no model attempt in the last hour: availability is not observed, which is not the same as down",
+     "models": {},
+     "policy": {
+      "approved_fallbacks": {
+       "cheap": [
+        "claude-sonnet-5"
+       ],
+       "standard": [
+        "claude-opus-5"
+       ],
+       "deep": []
+      },
+      "fallback_direction": "stronger only; deep tier parks",
+      "down_after_consecutive_failures": 3,
+      "cooldown_s": 600
+     },
+     "last_probe": null,
+     "as_of": "2026-10-11T00:10:57.096027+00:00"
+    },
+    {
+     "kind": "autonomy_departments",
+     "status": "DEGRADED",
+     "as_of": "2026-10-11T00:10:57.098653+00:00",
+     "count": 11
+    }
+   ],
+   "sources": [
+    "incidents",
+    "jobs",
+    "jobs(created_at, run_after, started_at)",
+    "jobs(idempotency_key LIKE 'cadence:%').created_at",
+    "jobs(job_type, started_at, finished_at, outputs)",
+    "ops_runtime_samples(kind=probe, component=command_center)",
+    "runtime.pipeline.did_no_work",
+    "runtime.worker.CADENCES",
+    "audit_log(action=model.attempt|model.probe)",
+    "jobs",
+    "company_memory",
+    "company_timeline",
+    "worker.CADENCES",
+    "build2.executor.gate_states"
+   ],
+   "definitions": [
+    {
+     "key": "command_center_availability",
+     "requirement": "F-923",
+     "objective": "the owner Command Center answered an external probe in 99.5% of 5-minute intervals",
+     "target": 0.995,
+     "window_hours": 720,
+     "breach_severity": "P2"
+    },
+    {
+     "key": "scheduler_freshness",
+     "requirement": "F-924",
+     "objective": "the scheduler was fresh (recent self-heartbeat or cadence enqueue) in 99% of 5-minute intervals",
+     "target": 0.99,
+     "window_hours": 24,
+     "breach_severity": "P1"
+    },
+    {
+     "key": "cadence_freshness",
+     "requirement": "F-924",
+     "objective": "95% of scheduled cadences completed within twice their period",
+     "target": 0.95,
+     "window_hours": 0,
+     "breach_severity": "P2"
+    },
+    {
+     "key": "queue_latency",
+     "requirement": "F-924",
+     "objective": "95% of jobs started within 15 minutes of becoming due",
+     "target": 0.95,
+     "window_hours": 24,
+     "breach_severity": "P2"
+    },
+    {
+     "key": "recovery_time",
+     "requirement": "F-924",
+     "objective": "90% of platform incidents closed within 60 minutes",
+     "target": 0.9,
+     "window_hours": 168,
+     "breach_severity": "P2"
+    },
+    {
+     "key": "department_heartbeat",
+     "requirement": "F-924/F-890",
+     "objective": "every department attempted work within max(2h, 2x its fastest cadence)",
+     "target": 1.0,
+     "window_hours": 0,
+     "breach_severity": "P2"
+    },
+    {
+     "key": "department_useful_work",
+     "requirement": "F-924/F-890",
+     "objective": "each department completed useful work in at least half of the hours its cadences expected it to work",
+     "target": 0.5,
+     "window_hours": 24,
+     "breach_severity": "P3"
+    }
+   ],
+   "provider": "brambleloop.ops.slo.summary",
+   "observation_window": {
+    "oldest": "2026-10-11T00:10:57.096027+00:00",
+    "newest": "2026-10-11T00:10:57.098653+00:00",
+    "mixed_snapshot": false,
+    "rows_with_time": 2,
+    "rows": 22
+   }
+  },
+  "truth": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-11T00:10:59+00:00",
+   "basis": "measured",
+   "items": [
+    {
+     "section": "owner_inventory",
+     "status": "OK"
+    },
+    {
+     "section": "owner_lifecycle",
+     "status": "OK"
+    },
+    {
+     "section": "data_gates",
+     "status": "OK"
+    },
+    {
+     "section": "tester_roster",
+     "status": "NOT-YET-OBSERVED"
+    },
+    {
+     "section": "security_controls",
+     "status": "DEGRADED"
+    },
+    {
+     "section": "postconditions",
+     "status": "OK"
+    },
+    {
+     "section": "rollback_baseline",
+     "status": "DEGRADED"
+    },
+    {
+     "section": "provenance_coverage",
+     "status": "OK"
+    },
+    {
+     "section": "jobs",
+     "status": "OK"
+    },
+    {
+     "section": "incidents",
+     "status": "OK"
+    },
+    {
+     "section": "contract_audit",
+     "status": "OK"
+    }
+   ],
+   "sections": {
+    "owner_inventory": {
+     "items": [
+      {
+       "rank": 1,
+       "gate": "acceptance_ruling",
+       "requirement_key": "acceptance_ruling",
+       "capability": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+       "requirement_kind": "decision",
+       "action": "grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+       "why_software_cannot": "the acceptance wording is the owner's ruling",
+       "max_cost_cad": 0.0,
+       "minutes": 2,
+       "consequence_of_waiting": "requirements [189, 221, 222, 320] stay parked",
+       "unblocks_count": 4,
+       "urgency": "now: free, quick and unblocking",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 2,
+       "gate": "transactions_r",
+       "requirement_key": "transactions_r",
+       "capability": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+       "requirement_kind": "credentials",
+       "action": "grant the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+       "why_software_cannot": "the OAuth consent screen that grants transactions_r is shown only to the signed-in account holder",
+       "max_cost_cad": 0.0,
+       "minutes": 3,
+       "consequence_of_waiting": "requirements [11, 12] stay parked",
+       "unblocks_count": 2,
+       "urgency": "now: free, quick and unblocking",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 3,
+       "gate": "live_listings",
+       "requirement_key": "live_listings",
+       "capability": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+       "requirement_kind": "decision",
+       "action": "grant a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+       "why_software_cannot": "leaving shadow mode is a phase change only the owner authorises",
+       "max_cost_cad": 0.0,
+       "minutes": 5,
+       "consequence_of_waiting": "requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parked",
+       "unblocks_count": 9,
+       "urgency": "now: free, quick and unblocking",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 4,
+       "gate": "insights_access",
+       "requirement_key": "insights_access",
+       "capability": "owner-recorded Marketplace Insights readings exist",
+       "requirement_kind": "credentials",
+       "action": "grant owner-recorded Marketplace Insights readings exist",
+       "why_software_cannot": "Shop Manager Insights has no authorised API; only the signed-in owner can read it",
+       "max_cost_cad": 0.0,
+       "minutes": 10,
+       "consequence_of_waiting": "requirements [1, 37, 54, 236, 237] stay parked",
+       "unblocks_count": 5,
+       "urgency": "now: free, quick and unblocking",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 5,
+       "gate": "production_window",
+       "requirement_key": "production_window",
+       "capability": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+       "requirement_kind": "decision",
+       "action": "grant the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+       "why_software_cannot": "deploying this build for an unattended window is the owner's call under the Execution Directive",
+       "max_cost_cad": 0.0,
+       "minutes": 10,
+       "consequence_of_waiting": "requirements [195] stay parked",
+       "unblocks_count": 1,
+       "urgency": "now: free, quick and unblocking",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 6,
+       "gate": "offsite_storage",
+       "requirement_key": "offsite_storage",
+       "capability": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+       "requirement_kind": "credentials",
+       "action": "grant an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+       "why_software_cannot": "a bucket outside this provider is an account and a credential only the owner can create",
+       "max_cost_cad": 1.0,
+       "minutes": 15,
+       "consequence_of_waiting": "requirements [51] stay parked",
+       "unblocks_count": 1,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 7,
+       "gate": "image_vision",
+       "requirement_key": "image_vision",
+       "capability": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+       "requirement_kind": "spend",
+       "action": "grant a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+       "why_software_cannot": "a vision-capable provider is a paid account the owner opens",
+       "max_cost_cad": 25.0,
+       "minutes": 5,
+       "consequence_of_waiting": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+       "unblocks_count": 14,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 8,
+       "gate": "model_provider",
+       "requirement_key": "model_provider",
+       "capability": "Image-level observation of benchmark galleries, listing copy that is written rather than assembled, the critique and improvement loops, and the continuous learning architecture.",
+       "requirement_kind": "spend",
+       "action": "Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an Anthropic API key. The monthly ceiling is already enforced in code \u2014 gateway/routing.py refuses a call before making it once the month's ledgered spend would cross it, and there is no override.",
+       "why_software_cannot": "a provider account and its credit are a payment the owner authorises; software may not buy credit",
+       "max_cost_cad": 25.0,
+       "minutes": 10,
+       "consequence_of_waiting": "The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.",
+       "unblocks_count": 1,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 9,
+       "gate": "owned_surfaces",
+       "requirement_key": "owned_surfaces",
+       "capability": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+       "requirement_kind": "credentials",
+       "action": "The Etsy shop exists (recognised). Still missing, each a person-only account opening: email (an email sending provider with a CASL-compliant signup form), pinterest (a Pinterest business account for Brambleloop), site (a Brambleloop website on a domain the company controls), video (a YouTube channel for Brambleloop)",
+       "why_software_cannot": "a site or Pinterest account is opened by a person who accepts its terms",
+       "max_cost_cad": 25.0,
+       "minutes": 65,
+       "consequence_of_waiting": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+       "unblocks_count": 7,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 10,
+       "gate": "tester_roster",
+       "requirement_key": "tester_roster",
+       "capability": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+       "requirement_kind": "decision",
+       "action": "Confirm the tester outreach: post the prepared call for testers (Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)) -- text in research/final_build/w4/tester_kit/OUTREACH.md. Nothing is sent until you confirm",
+       "why_software_cannot": "recruiting testers is outreach to real people, which needs the owner's authorisation to leave shadow mode",
+       "max_cost_cad": 0.0,
+       "minutes": 20,
+       "consequence_of_waiting": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+       "unblocks_count": 3,
+       "urgency": "soon: free",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 11,
+       "gate": "physical_proof",
+       "requirement_key": "physical_proof",
+       "capability": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+       "requirement_kind": "physical",
+       "action": "authorise tester outreach so an independent tester can make the sample (tester_roster); you are not being asked to crochet",
+       "why_software_cannot": "a finished object is made by human hands; software cannot crochet, and the normal route is an independent tester",
+       "max_cost_cad": 59.65,
+       "minutes": 5,
+       "consequence_of_waiting": "market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade to",
+       "unblocks_count": 1,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 12,
+       "gate": "benchmark_purchases",
+       "requirement_key": "benchmark_purchases",
+       "capability": "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+       "requirement_kind": "spend",
+       "action": "grant the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+       "why_software_cannot": "buying competitor patterns is consequential spend",
+       "max_cost_cad": 300.0,
+       "minutes": 75,
+       "consequence_of_waiting": "requirements [163, 165, 168, 315, 317] stay parked",
+       "unblocks_count": 5,
+       "urgency": "when budgeted: costs money",
+       "max_cost_basis": "stated",
+       "packet_complete": true,
+       "packet_missing": []
+      },
+      {
+       "rank": 13,
+       "gate": null,
+       "requirement_key": "laura.voice.listen_shortlist",
+       "capability": "LAURA-VOICE-P2, LAURA-LIVE-P3",
+       "requirement_kind": "decision",
+       "action": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+       "why_software_cannot": "a listening judgement and a provider/paid-trial choice are the owner's (D-FB-18 item 7); provider access: a voice provider account/API key chosen by you; paid trial approval: generating candidate samples is a paid call (owner spend approval required before any call)",
+       "max_cost_cad": null,
+       "minutes": 20,
+       "consequence_of_waiting": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority",
+       "unblocks_count": 1,
+       "urgency": "when costed: the spend is not yet stated",
+       "max_cost_basis": "UNKNOWN",
+       "packet_complete": false,
+       "packet_missing": [
+        "max_cost_cad"
+       ]
+      }
+     ],
+     "count": 13,
+     "by_requirement_kind": {
+      "decision": 5,
+      "credentials": 4,
+      "spend": 3,
+      "physical": 1
+     },
+     "incomplete_packets": [
+      "laura.voice.listen_shortlist"
+     ],
+     "final_master_gates": {
+      "gated_by_kind": {
+       "owner": 83,
+       "data": 17,
+       "external": 26
+      },
+      "gated_by_key": {
+       "ad_authority": [
+        "F-295"
+       ],
+       "advertising_rules": [
+        "F-291"
+       ],
+       "bank_and_payment_ledger_feed": [
+        "F-608",
+        "F-904",
+        "F-908"
+       ],
+       "casl_notification_authority": [
+        "F-897"
+       ],
+       "credential_rotation": [
+        "F-160"
+       ],
+       "customer_service_stats": [
+        "F-532"
+       ],
+       "customers": [
+        "F-088",
+        "F-284",
+        "F-323"
+       ],
+       "dashboard_truth.evidence": [
+        "F-665"
+       ],
+       "deploy_trigger_config": [
+        "F-461"
+       ],
+       "etsy_ads": [
+        "F-297"
+       ],
+       "etsy_ai_partner_guidance": [
+        "F-588"
+       ],
+       "etsy_api": [
+        "F-005",
+        "F-007",
+        "F-009",
+        "F-010",
+        "F-243",
+        "F-247",
+        "F-437",
+        "F-542",
+        "F-594"
+       ],
+       "etsy_shop": [
+        "F-040",
+        "F-240",
+        "F-299",
+        "F-515@v0.16"
+       ],
+       "hosted_operating_history": [
+        "F-924"
+       ],
+       "image_vision": [
+        "F-027",
+        "F-031",
+        "F-041",
+        "F-252",
+        "F-253",
+        "F-278",
+        "F-364"
+       ],
+       "insights_access": [
+        "F-059",
+        "F-246",
+        "F-249",
+        "F-285"
+       ],
+       "legal_and_tax": [
+        "F-578"
+       ],
+       "live_listings": [
+        "F-248",
+        "F-258",
+        "F-260",
+        "F-261",
+        "F-280",
+        "F-282",
+        "F-287",
+        "F-321",
+        "F-325",
+        "F-524"
+       ],
+       "model_bearing_render": [
+        "F-676",
+        "F-731",
+        "F-732",
+        "F-734",
+        "F-736",
+        "F-740",
+        "F-741",
+        "F-746"
+       ],
+       "model_provider": [
+        "F-100",
+        "F-871"
+       ],
+       "no_messages_api": [
+        "F-556",
+        "F-557",
+        "F-617",
+        "F-689"
+       ],
+       "offsite_storage": [
+        "F-152",
+        "F-628",
+        "F-697"
+       ],
+       "owned_surfaces": [
+        "F-808"
+       ],
+       "payout": [
+        "F-577"
+       ],
+       "physical_proof": [
+        "F-360",
+        "F-363"
+       ],
+       "plane_violations": [
+        "F-497"
+       ],
+       "policy_settings": [
+        "F-587"
+       ],
+       "production_deploy": [
+        "F-144",
+        "F-171",
+        "F-172"
+       ],
+       "production_window": [
+        "F-135",
+        "F-158",
+        "F-176",
+        "F-371",
+        "F-380",
+        "F-381",
+        "F-396",
+        "F-495",
+        "F-518@v0.15",
+        "F-540",
+        "F-654",
+        "F-701",
+        "F-718",
+        "F-733",
+        "F-849",
+        "F-850",
+        "F-880",
+        "F-881",
+        "F-895",
+        "F-923"
+       ],
+       "provider_usage_api": [
+        "F-103",
+        "F-106",
+        "F-301"
+       ],
+       "publication_authority": [
+        "F-543"
+       ],
+       "rendered_pages": [
+        "F-039",
+        "F-042",
+        "F-239",
+        "F-293",
+        "F-536"
+       ],
+       "spend_policy numbers": [
+        "F-695"
+       ],
+       "store_preview_v2_review": [
+        "F-926"
+       ],
+       "tester_roster": [
+        "F-081",
+        "F-118"
+       ],
+       "transactions_r": [
+        "F-273",
+        "F-283",
+        "F-501",
+        "F-535",
+        "F-538",
+        "F-558",
+        "F-682",
+        "F-872"
+       ],
+       "visual_paid_generation": [
+        "F-030",
+        "F-254"
+       ],
+       "visual_v1_provider_capability": [
+        "F-221",
+        "F-222",
+        "F-225",
+        "F-227",
+        "F-674",
+        "F-851"
+       ]
+      }
+     },
+     "empty_state": {
+      "empty": false,
+      "proven_empty": false,
+      "state": "NOT-EMPTY",
+      "assessment_at": null,
+      "withheld": [],
+      "why": "13 card(s) are waiting",
+      "closes_anything": false,
+      "rule": "an empty queue closes nothing; the readiness closer still requires a non-empty assessment before closing (runtime.release 'if requests:')"
+     },
+     "source": "one queue: executor gate state merged with OwnerAction rows by requirement_key (build2.executor.approval_inbox)"
+    },
+    "owner_lifecycle": {
+     "by_state": {
+      "open": 1,
+      "satisfied": 0,
+      "superseded": 0,
+      "withdrawn": 0,
+      "parked": 0,
+      "expired": 0,
+      "closed_unclassified": 0
+     },
+     "active": 1,
+     "rows": [
+      {
+       "id": 1,
+       "requirement_key": "laura.voice.listen_shortlist",
+       "state": "open",
+       "done": false,
+       "state_at": null,
+       "state_reason": "",
+       "raised_at": "2026-10-11T00:09:04.914248+00:00",
+       "expires_at": null
+      }
+     ],
+     "states": [
+      "open",
+      "satisfied",
+      "superseded",
+      "withdrawn",
+      "parked",
+      "expired",
+      "closed_unclassified"
+     ]
+    },
+    "data_gates": {
+     "executor_data_gates": [
+      {
+       "gate": "customers",
+       "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+       "unblocks": [
+        8,
+        18,
+        19,
+        20,
+        21,
+        25,
+        28,
+        31,
+        33,
+        41,
+        45,
+        48,
+        120,
+        147,
+        169,
+        226,
+        229,
+        235,
+        242,
+        243,
+        244,
+        245,
+        252,
+        253,
+        256,
+        257,
+        258,
+        260,
+        265,
+        270,
+        272,
+        280,
+        292
+       ]
+      }
+     ],
+     "final_master_data_gated": [
+      {
+       "uid": "F-088",
+       "title": "Post-Launch Reality Feedback",
+       "gate": "customers",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-246",
+       "title": "Tag Diversity Gate",
+       "gate": "insights_access",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-248",
+       "title": "Search Visibility Intake",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-249",
+       "title": "Personalized-Ranking Humility",
+       "gate": "insights_access",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-258",
+       "title": "Conversion Evidence Loop",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-260",
+       "title": "Listing Experiment Discipline",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-261",
+       "title": "Underperformer Remediation",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-280",
+       "title": "Launch Search Visibility Watch",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-282",
+       "title": "No Zero-Sales Panic",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-284",
+       "title": "Review / Service Flywheel",
+       "gate": "customers",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-285",
+       "title": "Seasonal Keyword Refresh",
+       "gate": "insights_access",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-287",
+       "title": "Visibility Command Center",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-297",
+       "title": "Measurement Before Optimization",
+       "gate": "etsy_ads",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-321",
+       "title": "Per-Listing Maintenance Cost",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-323",
+       "title": "Cost Per Sale / Contribution",
+       "gate": "customers",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-325",
+       "title": "Steady-State Sustainability Forecast",
+       "gate": "live_listings",
+       "completion": "GATED"
+      },
+      {
+       "uid": "F-524",
+       "title": "First-Image Program",
+       "gate": "live_listings",
+       "completion": "GATED"
+      }
+     ],
+     "customers_gate_open": false,
+     "false_completion": [],
+     "status": "OK",
+     "rule": "a requirement waiting on customers/orders/traffic/reviews cannot be COMPLETE while the customers gate is closed",
+     "sources": [
+      "build2.executor.approval_inbox.waiting_on_data",
+      "build2/final_master_closure.json (gate.kind == data)"
+     ]
+    },
+    "tester_roster": {
+     "status": "NOT-YET-OBSERVED",
+     "testers": 0,
+     "tester_roster_gate_open": false,
+     "note": "no physical test has been recorded, so there is no tester network yet and every Class B and C product is unreleasable rather than delayed",
+     "source": "physical_tests via quality.testers.from_db"
+    },
+    "security_controls": {
+     "controls": [
+      {
+       "control": "operator_credential",
+       "state": "AVAILABLE",
+       "configured": true,
+       "available": true,
+       "probe": "opsauth.check accepts the configured credential and refuses another",
+       "why": ""
+      },
+      {
+       "control": "default_deny_mutations",
+       "state": "AVAILABLE",
+       "configured": true,
+       "available": true,
+       "probe": "security.requires_operator('POST', <unregistered route>)",
+       "why": ""
+      },
+      {
+       "control": "csp_headers",
+       "state": "AVAILABLE",
+       "configured": true,
+       "available": true,
+       "probe": "SecurityHeadersMiddleware on a synthetic response",
+       "why": "a response passed through the middleware carried the CSP header"
+      },
+      {
+       "control": "owner_login",
+       "state": "AVAILABLE",
+       "configured": true,
+       "available": true,
+       "probe": "verify_passphrase(wrong) refused + cc_security_events login ok",
+       "why": ""
+      },
+      {
+       "control": "offsite_backup",
+       "state": "UNAVAILABLE",
+       "configured": null,
+       "available": false,
+       "probe": "executor._offsite_archive_written",
+       "why": "no continuity archive has been written offsite"
+      },
+      {
+       "control": "boot_guard",
+       "state": "NOT-APPLICABLE",
+       "configured": null,
+       "available": false,
+       "probe": "release_record.verify_build",
+       "why": "not running on the hosting platform"
+      }
+     ],
+     "available": [
+      "operator_credential",
+      "default_deny_mutations",
+      "csp_headers",
+      "owner_login"
+     ],
+     "unavailable": [
+      "offsite_backup"
+     ],
+     "status": "DEGRADED",
+     "rule": "a control is available only when a functional probe shows it working; configured-but-unproven is reported unavailable (F-154)"
+    },
+    "postconditions": {
+     "postconditions": [
+      {
+       "postcondition": "restore_digest_matched",
+       "state": "NOT-YET-OBSERVED",
+       "evidence": {},
+       "why": "no continuity restore round trip has ever been recorded"
+      },
+      {
+       "postcondition": "jobs_completed",
+       "state": "VERIFIED",
+       "evidence": {
+        "done": 18,
+        "done_without_finish_or_outputs": []
+       },
+       "why": ""
+      },
+      {
+       "postcondition": "artefacts_rebuilt",
+       "state": "NOT-YET-OBSERVED",
+       "evidence": {},
+       "why": "the stale-artefact sentinel has not run"
+      },
+      {
+       "postcondition": "credential_served:integrations",
+       "state": "UNKNOWN",
+       "evidence": {
+        "health_state": "unknown"
+       },
+       "why": "not proven usable (no probe has ever been recorded, so whether it can serve a request is unknown), which is a gate rather than a fault: an absent capability is not a broken one, and reporting it as do"
+      },
+      {
+       "postcondition": "credential_served:rendered_pages",
+       "state": "UNKNOWN",
+       "evidence": {
+        "health_state": "unknown"
+       },
+       "why": "not proven usable (no probe has ever been recorded, so whether it can serve a request is unknown), which is a gate rather than a fault: an absent capability is not a broken one, and reporting it as do"
+      },
+      {
+       "postcondition": "credential_served:model_gateway",
+       "state": "UNKNOWN",
+       "evidence": {
+        "health_state": "unknown"
+       },
+       "why": "not proven usable (no probe has ever been recorded, so whether it can serve a request is unknown), which is a gate rather than a fault: an absent capability is not a broken one, and reporting it as do"
+      },
+      {
+       "postcondition": "cleanup_happened",
+       "state": "UNKNOWN",
+       "evidence": {
+        "temp_dirs_left_behind": 1,
+        "prefixes": {
+         "brambleloop-run-": 1
+        }
+       },
+       "why": "directories remain: work in flight or a died call; not deleted here"
+      },
+      {
+       "postcondition": "deployed_tree_recorded",
+       "state": "NOT-APPLICABLE",
+       "evidence": {},
+       "why": "not running on the hosting platform"
+      }
+     ],
+     "violated": [],
+     "status": "OK",
+     "as_of": "2026-10-11T00:10:57.315234+00:00"
+    },
+    "rollback_baseline": {
+     "components": {
+      "code_sha": {
+       "value": "unknown",
+       "ok": false
+      },
+      "tree_digest": {
+       "value": "4bdd487b80f09fa8b44a133a48e80df4d0dfe1ed36f20c359c4c52a42dcacb45",
+       "ok": true
+      },
+      "schema": {
+       "tables": 126,
+       "sha256": "f09f04add2768873d006a137e8d353ea79586c89bcfc7c48f4970b21bce9a4d2",
+       "ok": true
+      },
+      "config_names": {
+       "names": [
+        "ANTHROPIC_BASE_URL",
+        "BRAMBLELOOP_ARTIFACT_DIR",
+        "BRAMBLELOOP_DATABASE_URL",
+        "BRAMBLELOOP_EMBEDDED_WORKER",
+        "BRAMBLELOOP_OPS_TOKEN",
+        "BRAMBLELOOP_OWNER_PASSPHRASE_HASH",
+        "BRAMBLELOOP_OWNER_TOTP_SECRET",
+        "BRAMBLELOOP_PHASE"
+       ],
+       "ok": true,
+       "note": "names only; values are never read into the baseline"
+      },
+      "coverage_map": {
+       "launch_critical": {
+        "COMPLETE": 355,
+        "GATED": 126,
+        "OPEN": 9
+       },
+       "status": "DEGRADED",
+       "ok": true
+      },
+      "tests": {
+       "release_record": {
+        "file": "RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json",
+        "sha": "3967f405ef73c0d2b069a1f45a17cb71f31467aa",
+        "suite_run": "suite_runs/20261010T062725Z-14513.json"
+       },
+       "ok": true,
+       "why": ""
+      },
+      "restore_proof": {
+       "ok": false,
+       "why": "no continuity.verified round trip on file"
+      },
+      "rollback_target": {
+       "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+       "observed": "2026-10-06",
+       "how": "ops/deploy_guard.py rollback-commit --to <sha> (ROLLBACK_RUNBOOK)",
+       "ok": true
+      }
+     },
+     "missing": [
+      "code_sha",
+      "restore_proof"
+     ],
+     "recoverable": false,
+     "digest": "5b10b9904fd4324719a882fed4470c3d225f418481be644371c23db19ae0ae4f",
+     "status": "DEGRADED",
+     "why": "the baseline is not recoverable without: ['code_sha', 'restore_proof']"
+    },
+    "provenance_coverage": {
+     "by_class": {
+      "twin": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "geometry_proof": {
+       "numerator": 1,
+       "denominator": 1,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "reverse_result": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "certificate": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "pdf": {
+       "numerator": 6,
+       "denominator": 6,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "chart": {
+       "numerator": 6,
+       "denominator": 6,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "visual_truth": {
+       "numerator": 20,
+       "denominator": 20,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "listing_copy": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "seo": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "pricing": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "support_knowledge": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      },
+      "marketing_asset": {
+       "numerator": 0,
+       "denominator": 0,
+       "ratio": "UNMEASURED",
+       "invalidated": 0
+      },
+      "release_bundle": {
+       "numerator": 3,
+       "denominator": 3,
+       "ratio": 1.0,
+       "invalidated": 0
+      }
+     },
+     "numerator": 57,
+     "denominator": 57,
+     "ratio": 1.0,
+     "rule": "rows / (rows + unproven); absence is unproven, never fresh"
+    },
+    "jobs": {
+     "activity": {
+      "state": "work_completed",
+      "why": "18 job(s) completed in the last 6h",
+      "executing": 0,
+      "completed_in_window": 18,
+      "pending": 13,
+      "blocked_job_ids": [],
+      "observers_alive": 0,
+      "states": [
+       "work_executing",
+       "work_completed",
+       "observer_waiting",
+       "blocked",
+       "unknown"
+      ]
+     },
+     "over_envelope": [],
+     "running": 0,
+     "unassessable": 0
+    },
+    "incidents": {
+     "needs_owner_path": [],
+     "unconfirmed": [],
+     "learning": {
+      "gaps": [],
+      "recurred_after_prevention": [],
+      "families_with_learning": [],
+      "window_days": 30,
+      "status": "OK",
+      "rule": "every meaningful incident (P0/P1, or reliability/spend/evidence/customer family) needs root_cause, prevention_ref and regression_ref once resolved; an open incident in a family whose prevention is recorded is a recurrence and is surfaced"
+     },
+     "systemic": {
+      "systemic": false,
+      "integrity_failures": [],
+      "widespread_families": {},
+      "products": 3,
+      "rule": "one failure family halting >= 3 products and >= 50% of the catalogue, or any open integrity failure (authority_chain_tamper), escalates to a company-wide publication halt; otherwise halts stay per product"
+     }
+    },
+    "contract_audit": {
+     "providers": [
+      {
+       "provider": "autonomy",
+       "status": "DEGRADED",
+       "as_of": "2026-10-11T00:10:57.776055+00:00",
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 11,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "improvement",
+       "status": "DEGRADED",
+       "as_of": null,
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 5,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "accounting",
+       "status": "UNKNOWN",
+       "as_of": "2026-10-11T00:10:57.874797+00:00",
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 13,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "store_foundation",
+       "status": "BLOCKED",
+       "as_of": "2026-10-11T00:10:57.901794+00:00",
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 24,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "seo",
+       "status": "UNKNOWN",
+       "as_of": null,
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 0,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "ads",
+       "status": "UNKNOWN",
+       "as_of": "2026-10-11T00:10:59.021016+00:00",
+       "window": {
+        "oldest": null,
+        "newest": null,
+        "mixed_snapshot": null,
+        "rows_with_time": 0,
+        "rows": 0,
+        "note": "no row carries an observation time; the card's as-of is query time"
+       },
+       "violations": 0
+      },
+      {
+       "provider": "slo",
+       "status": "OK",
+       "as_of": "2026-10-11T00:10:59.021223+00:00",
+       "window": {
+        "oldest": "2026-10-11T00:10:59.048112+00:00",
+        "newest": "2026-10-11T00:10:59.050123+00:00",
+        "mixed_snapshot": false,
+        "rows_with_time": 2,
+        "rows": 22
+       },
+       "violations": 0
+      }
+     ],
+     "violations": []
+    }
+   },
+   "sources": [
+    "owner_actions",
+    "audit_log",
+    "incidents",
+    "jobs",
+    "artefact_provenance",
+    "cc_security_events",
+    "physical_tests",
+    "build2/final_master_closure.json"
+   ],
+   "reason": "sections needing attention: ['security_controls', 'rollback_baseline']",
+   "provider": "brambleloop.ops.truth.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 11,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   }
+  },
+  "autonomy": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-11T00:10:59.149850+00:00",
+   "basis": "measured",
+   "items": [
+    {
+     "department": "executive",
+     "name": "Executive / COO",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 3,
+     "useful_24h": 3,
+     "dead_24h": 0,
+     "last_run": "2026-10-11T00:08:42.027090+00:00",
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [],
+     "gates_unknown": false
+    },
+    {
+     "department": "intelligence",
+     "name": "Intelligence",
+     "status": "UNKNOWN",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "benchmark_observation",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "read-only Etsy API credentials that can actually serve a request",
+       "effect": "gated capability parked; READY work continues"
+      },
+      {
+       "kind": "owner_gate",
+       "gate": "etsy_api",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "product_design",
+     "name": "Product & Design",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 1,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "model_provider",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "a model provider that can actually serve a request",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "product_truth",
+     "name": "Product Truth / QA",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 3,
+     "completed_24h": 3,
+     "useful_24h": 3,
+     "dead_24h": 0,
+     "last_run": "2026-10-11T00:07:51.698181+00:00",
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [],
+     "gates_unknown": false
+    },
+    {
+     "department": "visual",
+     "name": "Visual",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 4,
+     "completed_24h": 3,
+     "useful_24h": 3,
+     "dead_24h": 0,
+     "last_run": "2026-10-11T00:08:34.740056+00:00",
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "image_generation",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+       "effect": "gated capability parked; READY work continues"
+      },
+      {
+       "kind": "owner_gate",
+       "gate": "canonical_model",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+       "effect": "gated capability parked; READY work continues"
+      },
+      {
+       "kind": "owner_gate",
+       "gate": "image_vision",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "store_commerce",
+     "name": "Store / Commerce",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 9,
+     "useful_24h": 9,
+     "dead_24h": 3,
+     "last_run": "2026-10-11T00:08:54.769928+00:00",
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "etsy_api",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+       "effect": "gated capability parked; READY work continues"
+      },
+      {
+       "kind": "owner_gate",
+       "gate": "live_listings",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "support",
+     "name": "Customer Support",
+     "status": "UNKNOWN",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "data_gate",
+       "gate": "customers",
+       "waiting_on": "data",
+       "closure_kind": "DATA-GATED",
+       "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "finance",
+     "name": "Finance / Accounting",
+     "status": "UNKNOWN",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "transactions_r",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "growth",
+     "name": "Growth / Marketing",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 3,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "ad_authority",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)",
+       "effect": "gated capability parked; READY work continues"
+      },
+      {
+       "kind": "owner_gate",
+       "gate": "owned_surfaces",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    },
+    {
+     "department": "learn",
+     "name": "Learn / Improvement",
+     "status": "UNKNOWN",
+     "orchestrator_state": null,
+     "open_jobs": 0,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [],
+     "gates_unknown": false
+    },
+    {
+     "department": "platform",
+     "name": "Platform / Reliability",
+     "status": "OK",
+     "orchestrator_state": null,
+     "open_jobs": 2,
+     "completed_24h": 0,
+     "useful_24h": 0,
+     "dead_24h": 0,
+     "last_run": null,
+     "next_wake": "2026-10-11T00:15:00+00:00",
+     "blockers": [
+      {
+       "kind": "owner_gate",
+       "gate": "offsite_storage",
+       "waiting_on": "owner",
+       "closure_kind": "OWNER-GATED",
+       "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+       "effect": "gated capability parked; READY work continues"
+      }
+     ],
+     "gates_unknown": false
+    }
+   ],
+   "orchestrator": {
+    "last_tick": null,
+    "stale": true,
+    "stale_after_minutes": 45,
+    "last_created": null
+   },
+   "overnight": {
+    "missions_12h": 0,
+    "by_outcome": {
+     "queued": 0,
+     "useful": 0,
+     "noop": 0,
+     "failed": 0
+    },
+    "latest_brief": null
+   },
+   "timeline": [
+    {
+     "at": "2026-10-11T00:09:04.914248+00:00",
+     "kind": "approval.open",
+     "department": "",
+     "severity": "decision",
+     "summary": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+     "refs": [
+      "owner_actions:1"
+     ],
+     "source": "owner_actions"
+    },
+    {
+     "at": "2026-10-11T00:08:54.769928+00:00",
+     "kind": "job.dead",
+     "department": "",
+     "severity": "warn",
+     "summary": "store.publish dead",
+     "refs": [
+      "jobs:28"
+     ],
+     "source": "jobs"
+    },
+    {
+     "at": "2026-10-11T00:08:44.715882+00:00",
+     "kind": "job.dead",
+     "department": "",
+     "severity": "warn",
+     "summary": "store.publish dead",
+     "refs": [
+      "jobs:25"
+     ],
+     "source": "jobs"
+    },
+    {
+     "at": "2026-10-11T00:08:43.445867+00:00",
+     "kind": "job.dead",
+     "department": "",
+     "severity": "warn",
+     "summary": "store.publish dead",
+     "refs": [
+      "jobs:22"
+     ],
+     "source": "jobs"
+    },
+    {
+     "at": "2026-10-11T00:07:51.698181+00:00",
+     "kind": "job.done",
+     "department": "",
+     "severity": "info",
+     "summary": "gate.certify done",
+     "refs": [
+      "jobs:3"
+     ],
+     "source": "jobs"
+    },
+    {
+     "at": "2026-10-11T00:07:51.487901+00:00",
+     "kind": "job.done",
+     "department": "",
+     "severity": "info",
+     "summary": "gate.certify done",
+     "refs": [
+      "jobs:2"
+     ],
+     "source": "jobs"
+    },
+    {
+     "at": "2026-10-11T00:07:51.355475+00:00",
+     "kind": "job.done",
+     "department": "",
+     "severity": "info",
+     "summary": "gate.certify done",
+     "refs": [
+      "jobs:1"
+     ],
+     "source": "jobs"
+    }
+   ],
+   "sources": [
+    "jobs",
+    "company_memory",
+    "company_timeline",
+    "worker.CADENCES",
+    "build2.executor.gate_states"
+   ],
+   "provider": "brambleloop.autonomy.status.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 11,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   },
+   "reason": "provider gave no reason"
+  },
+  "queue": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-11T00:10:59+00:00",
+   "basis": "measured",
+   "items": [
+    {
+     "status": "dead",
+     "count": 3
+    },
+    {
+     "status": "done",
+     "count": 18
+    },
+    {
+     "status": "pending",
+     "count": 13
+    }
+   ],
+   "sources": [
+    "jobs"
+   ],
+   "provider": "jobs",
+   "reason": "3 dead-lettered jobs",
+   "last_job_done_at": "2026-10-11T00:08:42.027090+00:00",
+   "dead_letters": [
+    {
+     "id": 28,
+     "agent": "store_operator",
+     "job_type": "store.publish",
+     "attempts": 1,
+     "last_error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+     "finished_at": "2026-10-11T00:08:54.769928+00:00",
+     "source": "jobs:28"
+    },
+    {
+     "id": 25,
+     "agent": "store_operator",
+     "job_type": "store.publish",
+     "attempts": 1,
+     "last_error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+     "finished_at": "2026-10-11T00:08:44.715882+00:00",
+     "source": "jobs:25"
+    },
+    {
+     "id": 22,
+     "agent": "store_operator",
+     "job_type": "store.publish",
+     "attempts": 1,
+     "last_error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+     "finished_at": "2026-10-11T00:08:43.445867+00:00",
+     "source": "jobs:22"
+    }
+   ]
+  },
+  "incidents": {
+   "status": "OK",
+   "as_of": "2026-10-11T00:10:59+00:00",
+   "basis": "measured",
+   "items": [],
+   "sources": [
+    "incidents"
+   ],
+   "provider": "incidents (open)",
+   "open_total": 0
+  },
+  "agents": {
+   "status": "OK",
+   "as_of": "2026-10-11T00:10:59+00:00",
+   "basis": "measured",
+   "items": [
+    {
+     "name": "ads",
+     "enabled": true,
+     "authority": "yellow",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:15"
+    },
+    {
+     "name": "asset_truth",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:8"
+    },
+    {
+     "name": "cfo",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:17"
+    },
+    {
+     "name": "coo",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.0,
+     "source": "agents:28"
+    },
+    {
+     "name": "cost_optimiser",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:22"
+    },
+    {
+     "name": "creative_critic",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:24"
+    },
+    {
+     "name": "creative_director",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 28.0,
+     "source": "agents:4"
+    },
+    {
+     "name": "crochet_engineer",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 4.0,
+     "source": "agents:5"
+    },
+    {
+     "name": "evaluator",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:18"
+    },
+    {
+     "name": "experiment_designer",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:20"
+    },
+    {
+     "name": "experiment_steward",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:27"
+    },
+    {
+     "name": "failure_miner",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:19"
+    },
+    {
+     "name": "growth",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 2.0,
+     "source": "agents:11"
+    },
+    {
+     "name": "laura",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.0,
+     "source": "agents:29"
+    },
+    {
+     "name": "learn",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.0,
+     "source": "agents:1"
+    },
+    {
+     "name": "lesson_router",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:25"
+    },
+    {
+     "name": "listing",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 2.0,
+     "source": "agents:12"
+    },
+    {
+     "name": "market_radar",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 4.0,
+     "source": "agents:3"
+    },
+    {
+     "name": "orchestrator",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 3.0,
+     "source": "agents:2"
+    },
+    {
+     "name": "policy",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:9"
+    },
+    {
+     "name": "pricing",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:13"
+    },
+    {
+     "name": "prompt_tool_challenger",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:21"
+    },
+    {
+     "name": "publishing",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 2.0,
+     "source": "agents:10"
+    },
+    {
+     "name": "quality_director",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:7"
+    },
+    {
+     "name": "reliability_engineer",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:23"
+    },
+    {
+     "name": "store_operator",
+     "enabled": true,
+     "authority": "yellow",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:14"
+    },
+    {
+     "name": "support",
+     "enabled": true,
+     "authority": "yellow",
+     "daily_cost_ceiling_cad": 2.0,
+     "source": "agents:16"
+    },
+    {
+     "name": "swarm_steward",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 0.25,
+     "source": "agents:26"
+    },
+    {
+     "name": "validator",
+     "enabled": true,
+     "authority": "green",
+     "daily_cost_ceiling_cad": 1.0,
+     "source": "agents:6"
+    }
+   ],
+   "sources": [
+    "agents"
+   ],
+   "provider": "agents",
+   "paused": []
+  }
+ },
+ "emergency": {
+  "phase": {
+   "phase": "shadow",
+   "env": "shadow",
+   "recorded_phase": "shadow",
+   "agree": true,
+   "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  },
+  "departments": [
+   {
+    "department": "executive",
+    "agents": [
+     "orchestrator"
+    ],
+    "registered": [
+     "orchestrator"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "runs scheduling and the read-only Etsy observation/monitoring cadences"
+   },
+   {
+    "department": "intelligence",
+    "agents": [
+     "market_radar"
+    ],
+    "registered": [
+     "market_radar"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_design",
+    "agents": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "registered": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_truth",
+    "agents": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "registered": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "deterministic validation is evidence collection, never an external effect"
+   },
+   {
+    "department": "visual",
+    "agents": [
+     "publishing"
+    ],
+    "registered": [
+     "publishing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "store",
+    "agents": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "registered": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "support",
+    "agents": [
+     "support"
+    ],
+    "registered": [
+     "support"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "finance",
+    "agents": [
+     "cfo"
+    ],
+    "registered": [
+     "cfo"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reconciliation and spend challenge are monitoring"
+   },
+   {
+    "department": "growth",
+    "agents": [
+     "growth",
+     "ads"
+    ],
+    "registered": [
+     "growth",
+     "ads"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "learn",
+    "agents": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "registered": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "platform",
+    "agents": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "registered": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reliability and recovery must keep running"
+   }
+  ],
+  "spend": {
+   "scopes": [],
+   "all_paused": false,
+   "no_scopes_configured": true
+  },
+  "publishing": {
+   "agents": [
+    "store_operator"
+   ],
+   "paused": false,
+   "live_grants": [],
+   "grants_status": "OK"
+  },
+  "paused_by_command_center": {},
+  "never_paused": {
+   "executive": "runs scheduling and the read-only Etsy observation/monitoring cadences",
+   "product_truth": "deterministic validation is evidence collection, never an external effect",
+   "finance": "reconciliation and spend challenge are monitoring",
+   "platform": "reliability and recovery must keep running"
+  },
+  "sources": [
+   "agents",
+   "spend_limits",
+   "audit_log (phase + grants)",
+   "cc_kv"
+  ]
+ }
+}

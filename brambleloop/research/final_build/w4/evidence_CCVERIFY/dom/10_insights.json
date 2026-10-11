@@ -1,0 +1,61 @@
+{
+ "title": "Insights · Brambleloop",
+ "view_title": "Insights",
+ "page_meta": "as of just now",
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Search & keywords",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of: unknown",
+   "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+   "tiles": [],
+   "text": "Search & keywordsUNKNOWNas of: unknownno SEO proposal exists yet: seo.jobs.run_cycle has not produced oneUnknown: no data available yet.Sources (14)seo_keyword_evidenceseo_proposalsseo_cyclesetsy_taxonomy_snapshotslisting_outcomesoperating_readings:attribution.statsinsights_snapshotsserp_snapshotsbenchmark_listingskeywordslistingsproducts.launch0commerce.searchcommerce.seo"
+  },
+  {
+   "title": "Ads readiness & economics",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": "ads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")",
+   "tiles": [],
+   "text": "Ads readiness & economicsUNKNOWNas of just nowads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")Unknown: no data available yet.Sources (13)listingslisting_set_certificateslisting_outcomesordersincidentsspend_limitscost_entries(kind=ads)marketplace_capabilitiesads_spend_proposalsads_finance_challengesowner_actionsgates.policy_knowledge:feesgates.policy_knowledge:advertising_rules"
+  },
+  {
+   "title": "Experiments",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": "no experiments recorded",
+   "tiles": [],
+   "text": "ExperimentsUNKNOWNas of just nowno experiments recordedUnknown: no data available yet.Sources (1)experiments"
+  },
+  {
+   "title": "Lessons",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": "no lessons recorded",
+   "tiles": [],
+   "text": "LessonsUNKNOWNas of just nowno lessons recordedUnknown: no data available yet.Sources (1)lessons"
+  },
+  {
+   "title": "Improvements",
+   "pill": "OK",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "ImprovementsOKas of just nowtournament_survival_with_spreadPROPOSEDId3At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknowntournament_survival_with_spreadPROPOSEDId2At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknowntournament_survival_with_spreadPROPOSEDId1At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on hexagon-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknownSources (1)improvements"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 1912,
+ "body": "as of just nowSearch & keywordsUNKNOWNas of: unknownno SEO proposal exists yet: seo.jobs.run_cycle has not produced oneUnknown: no data available yet.Sources (14)seo_keyword_evidenceseo_proposalsseo_cyclesetsy_taxonomy_snapshotslisting_outcomesoperating_readings:attribution.statsinsights_snapshotsserp_snapshotsbenchmark_listingskeywordslistingsproducts.launch0commerce.searchcommerce.seoAds readiness & economicsUNKNOWNas of just nowads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")Unknown: no data available yet.Sources (13)listingslisting_set_certificateslisting_outcomesordersincidentsspend_limitscost_entries(kind=ads)marketplace_capabilitiesads_spend_proposalsads_finance_challengesowner_actionsgates.policy_knowledge:feesgates.policy_knowledge:advertising_rulesExperimentsUNKNOWNas of just nowno experiments recordedUnknown: no data available yet.Sources (1)experimentsLessonsUNKNOWNas of just nowno lessons recordedUnknown: no data available yet.Sources (1)lessonsImprovementsOKas of just nowtournament_survival_with_spreadPROPOSEDId3At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknowntournament_survival_with_spreadPROPOSEDId2At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknowntournament_survival_with_spreadPROPOSEDId1At22 min ago (2026-10-11 00:07:51 UTC)Cellproduct_creativityHypothesisRaising customization on hexagon-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)Baseline Value3Result ValueUnknownSources (1)improvements",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

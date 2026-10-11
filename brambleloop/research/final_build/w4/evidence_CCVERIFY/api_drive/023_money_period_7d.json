@@ -1,0 +1,8 @@
+{
+ "status": 400,
+ "url": "/api/cc/money?period=7d",
+ "body": {
+  "error": "period '7d': use month, last_month, 30d, ytd, all or YYYY-MM",
+  "code": "BAD_PERIOD"
+ }
+}

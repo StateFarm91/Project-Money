@@ -1,0 +1,216 @@
+{
+ "status": 200,
+ "url": "/api/cc/emergency",
+ "body": {
+  "phase": {
+   "phase": "shadow",
+   "env": "shadow",
+   "recorded_phase": "shadow",
+   "agree": true,
+   "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  },
+  "departments": [
+   {
+    "department": "executive",
+    "agents": [
+     "orchestrator"
+    ],
+    "registered": [
+     "orchestrator"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "runs scheduling and the read-only Etsy observation/monitoring cadences"
+   },
+   {
+    "department": "intelligence",
+    "agents": [
+     "market_radar"
+    ],
+    "registered": [
+     "market_radar"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_design",
+    "agents": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "registered": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_truth",
+    "agents": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "registered": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "deterministic validation is evidence collection, never an external effect"
+   },
+   {
+    "department": "visual",
+    "agents": [
+     "publishing"
+    ],
+    "registered": [
+     "publishing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "store",
+    "agents": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "registered": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "support",
+    "agents": [
+     "support"
+    ],
+    "registered": [
+     "support"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "finance",
+    "agents": [
+     "cfo"
+    ],
+    "registered": [
+     "cfo"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reconciliation and spend challenge are monitoring"
+   },
+   {
+    "department": "growth",
+    "agents": [
+     "growth",
+     "ads"
+    ],
+    "registered": [
+     "growth",
+     "ads"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "learn",
+    "agents": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "registered": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "platform",
+    "agents": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "registered": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reliability and recovery must keep running"
+   }
+  ],
+  "spend": {
+   "scopes": [],
+   "all_paused": false,
+   "no_scopes_configured": true
+  },
+  "publishing": {
+   "agents": [
+    "store_operator"
+   ],
+   "paused": false,
+   "live_grants": [],
+   "grants_status": "OK"
+  },
+  "paused_by_command_center": {},
+  "never_paused": {
+   "executive": "runs scheduling and the read-only Etsy observation/monitoring cadences",
+   "product_truth": "deterministic validation is evidence collection, never an external effect",
+   "finance": "reconciliation and spend challenge are monitoring",
+   "platform": "reliability and recovery must keep running"
+  },
+  "sources": [
+   "agents",
+   "spend_limits",
+   "audit_log (phase + grants)",
+   "cc_kv"
+  ]
+ }
+}

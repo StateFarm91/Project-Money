@@ -1,0 +1,1389 @@
+{
+ "tab": "APPROVALS",
+ "generated_at": "2026-10-11T00:10:45+00:00",
+ "status": "OK",
+ "reason": null,
+ "cards": [
+  {
+   "card_id": "gate:acceptance_ruling",
+   "kind": "GATE",
+   "title": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "proposed_action": "grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "recommendation": "Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'acceptance_ruling' opens when: an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
+     "source": "executor gate acceptance_ruling"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 2,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [189, 221, 222, 320] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    189,
+    221,
+    222,
+    320
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "the acceptance wording is the owner's ruling",
+   "requirement_kind": "decision",
+   "packet_missing": [],
+   "rank": 1,
+   "urgency": "now: free, quick and unblocking",
+   "steps": "grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:transactions_r",
+   "kind": "GATE",
+   "title": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "proposed_action": "grant the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "recommendation": "Recommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'transactions_r' opens when: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
+     "source": "executor gate transactions_r"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 3,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [11, 12] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    11,
+    12
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "the OAuth consent screen that grants transactions_r is shown only to the signed-in account holder",
+   "requirement_kind": "credentials",
+   "packet_missing": [],
+   "rank": 2,
+   "urgency": "now: free, quick and unblocking",
+   "steps": "grant the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:live_listings",
+   "kind": "GATE",
+   "title": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "proposed_action": "grant a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "recommendation": "Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
+     "source": "executor gate live_listings"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 5,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [14, 16, 46, 238, 239, 241, 254, 263, 266] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    14,
+    16,
+    46,
+    238,
+    239,
+    241,
+    254,
+    263,
+    266
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "leaving shadow mode is a phase change only the owner authorises",
+   "requirement_kind": "decision",
+   "packet_missing": [],
+   "rank": 3,
+   "urgency": "now: free, quick and unblocking",
+   "steps": "grant a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:insights_access",
+   "kind": "GATE",
+   "title": "owner-recorded Marketplace Insights readings exist",
+   "proposed_action": "grant owner-recorded Marketplace Insights readings exist",
+   "recommendation": "Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'insights_access' opens when: at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
+     "source": "executor gate insights_access"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "owner-recorded Marketplace Insights readings exist",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 10,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [1, 37, 54, 236, 237] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    1,
+    37,
+    54,
+    236,
+    237
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "Shop Manager Insights has no authorised API; only the signed-in owner can read it",
+   "requirement_kind": "credentials",
+   "packet_missing": [],
+   "rank": 4,
+   "urgency": "now: free, quick and unblocking",
+   "steps": "grant owner-recorded Marketplace Insights readings exist",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:production_window",
+   "kind": "GATE",
+   "title": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "proposed_action": "grant the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "recommendation": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'production_window' opens when: autonomy.launch_item reads PROVEN from the rows a full production window left",
+     "source": "executor gate production_window"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 10,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [195] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    195
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: autonomy.launch_item reads PROVEN from the rows a full production window left",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "deploying this build for an unattended window is the owner's call under the Execution Directive",
+   "requirement_kind": "decision",
+   "packet_missing": [],
+   "rank": 5,
+   "urgency": "now: free, quick and unblocking",
+   "steps": "grant the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:offsite_storage",
+   "kind": "GATE",
+   "title": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "proposed_action": "grant an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "recommendation": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
+     "source": "executor gate offsite_storage"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 1.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 15,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [51] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    51
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "a bucket outside this provider is an account and a credential only the owner can create",
+   "requirement_kind": "credentials",
+   "packet_missing": [],
+   "rank": 6,
+   "urgency": "when budgeted: costs money",
+   "steps": "grant an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:image_vision",
+   "kind": "GATE",
+   "title": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "proposed_action": "grant a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "recommendation": "Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'image_vision' opens when: a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
+     "source": "executor gate image_vision"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 25.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 5,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    15,
+    44,
+    61,
+    67,
+    86,
+    88,
+    116,
+    126,
+    218,
+    277,
+    281,
+    304,
+    308,
+    309
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "a vision-capable provider is a paid account the owner opens",
+   "requirement_kind": "spend",
+   "packet_missing": [],
+   "rank": 7,
+   "urgency": "when budgeted: costs money",
+   "steps": "grant a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:model_provider",
+   "kind": "GATE",
+   "title": "a model provider that can actually serve a request",
+   "proposed_action": "Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an Anthropic API key. The monthly ceiling is already enforced in code \u2014 gateway/routing.py refuses a call before making it once the month's ledgered spend would cross it, and there is no override.",
+   "recommendation": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'model_provider' opens when: a recorded model.probe succeeded -- a real call, not a variable being set",
+     "source": "executor gate model_provider"
+    }
+   ],
+   "uncertainty": "An API key for the model vendor only. It reaches no Etsy account, no bank, no customer and no repository. Spend is metered per agent against ceilings that already exist and already halt work when breached.",
+   "expected_benefit": "Image-level observation of benchmark galleries, listing copy that is written rather than assembled, the critique and improvement loops, and the continuous learning architecture.",
+   "downside": "An API key for the model vendor only. It reaches no Etsy account, no bank, no customer and no repository. Spend is metered per agent against ceilings that already exist and already halt work when breached.",
+   "max_spend_cad": 25.0,
+   "monthly_ceiling_cad": 100.0,
+   "minutes": 10,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.",
+   "continues_regardless": "The whole deterministic spine \u2014 CIR, compiler, twin, reverse compiler, gates, pricing, scheduling \u2014 which is the part that must never depend on a model anyway.",
+   "unblocks": [
+    94
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: a recorded model.probe succeeded -- a real call, not a variable being set",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "a provider account and its credit are a payment the owner authorises; software may not buy credit",
+   "requirement_kind": "spend",
+   "packet_missing": [],
+   "rank": 8,
+   "urgency": "when budgeted: costs money",
+   "steps": "Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an Anthropic API key. The monthly ceiling is already enforced in code \u2014 gateway/routing.py refuses a call before making it once the month's ledgered spend would cross it, and there is no override.",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:owned_surfaces",
+   "kind": "GATE",
+   "title": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+   "proposed_action": "The Etsy shop exists (recognised). Still missing, each a person-only account opening: email (an email sending provider with a CASL-compliant signup form), pinterest (a Pinterest business account for Brambleloop), site (a Brambleloop website on a domain the company controls), video (a YouTube channel for Brambleloop)",
+   "recommendation": "Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+     "source": "executor gate owned_surfaces"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 25.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 65,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    4,
+    10,
+    246,
+    247,
+    248,
+    251,
+    255
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "a site or Pinterest account is opened by a person who accepts its terms",
+   "requirement_kind": "credentials",
+   "packet_missing": [],
+   "rank": 9,
+   "urgency": "when budgeted: costs money",
+   "steps": "email: open a free-tier sending account (accepts its terms, verifies the sender domain and a physical mailing address for CASL); pinterest: create a free Pinterest business account (accepts Pinterest's terms; person-only), then authorise the app; site: buy brambleloop domain (registrar of choice) and point it at a static host; the company builds and publishes the pages; video: create a YouTube brand channel (Google account terms; person-only)",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:tester_roster",
+   "kind": "GATE",
+   "title": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "proposed_action": "Confirm the tester outreach: post the prepared call for testers (Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)) -- text in research/final_build/w4/tester_kit/OUTREACH.md. Nothing is sent until you confirm",
+   "recommendation": "Recommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
+     "source": "executor gate tester_roster"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 0.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 20,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    9,
+    43,
+    250
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "recruiting testers is outreach to real people, which needs the owner's authorisation to leave shadow mode",
+   "requirement_kind": "decision",
+   "packet_missing": [],
+   "rank": 10,
+   "urgency": "soon: free",
+   "steps": "1) sign in to (or create) the Brambleloop Ravelry account; 2) post OUTREACH.md's title and body as a new thread in the group 'The Testing Pool' (tester-call board); 3) forward replies to the operator, who sends the intake form and records each agreement (quality.tester_programme.record_agreement). Nothing is posted until you confirm",
+   "state": "open"
+  },
+  {
+   "card_id": "gate:physical_proof",
+   "kind": "GATE",
+   "title": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "proposed_action": "authorise tester outreach so an independent tester can make the sample (tester_roster); you are not being asked to crochet",
+   "recommendation": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'physical_proof' opens when: at least one PhysicalTest row has a completion date -- the intake being built is not the same as a finished object existing, and nothing here says whose hands finished it",
+     "source": "executor gate physical_proof"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 59.65,
+   "monthly_ceiling_cad": null,
+   "minutes": 5,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "market-basket-small and its sibling sizes stay blocked from live sale; yardage stays uncalibrated; #64 has no finished-object photograph to upgrade to",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    64
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: at least one PhysicalTest row has a completion date -- the intake being built is not the same as a finished object existing, and nothing here says whose hands finished it",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "a finished object is made by human hands; software cannot crochet, and the normal route is an independent tester",
+   "requirement_kind": "physical",
+   "packet_missing": [],
+   "rank": 11,
+   "urgency": "when budgeted: costs money",
+   "steps": "authorise tester outreach so an independent tester can make the sample (tester_roster); you are not being asked to crochet",
+   "state": "open",
+   "tester_route": {
+    "normal_path": "independent tester (tester_roster gate)",
+    "asks_owner_to_crochet": false,
+    "why": "the owner parked the physical-sample ask on 2026-09-20 (launch.readiness PHYSICAL_SAMPLE_PARKED); the other way through is a tester who agreed to make one",
+    "status_path": "/api/cc/truth#tester_roster",
+    "tester_status": {
+     "status": "NOT-YET-OBSERVED",
+     "testers": 0,
+     "tester_roster_gate_open": false,
+     "note": "no physical test has been recorded, so there is no tester network yet and every Class B and C product is unreleasable rather than delayed",
+     "source": "physical_tests via quality.testers.from_db"
+    }
+   }
+  },
+  {
+   "card_id": "gate:benchmark_purchases",
+   "kind": "GATE",
+   "title": "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "proposed_action": "grant the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "recommendation": "Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "FAIL",
+     "why": "gate 'benchmark_purchases' opens when: at least one BenchmarkProduct row exists -- counted, not asked about",
+     "source": "executor gate benchmark_purchases"
+    }
+   ],
+   "uncertainty": "scope not yet described in the access registry",
+   "expected_benefit": "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "downside": "scope not yet described in the access registry",
+   "max_spend_cad": 300.0,
+   "monthly_ceiling_cad": null,
+   "minutes": 75,
+   "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+   "deadline": null,
+   "consequence_of_no_action": "requirements [163, 165, 168, 315, 317] stay parked",
+   "continues_regardless": "every requirement not parked on this gate",
+   "unblocks": [
+    163,
+    165,
+    168,
+    315,
+    317
+   ],
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: at least one BenchmarkProduct row exists -- counted, not asked about",
+   "sources": [
+    "build2.executor.approval_inbox"
+   ],
+   "why_software_cannot": "buying competitor patterns is consequential spend",
+   "requirement_kind": "spend",
+   "packet_missing": [],
+   "rank": 12,
+   "urgency": "when budgeted: costs money",
+   "steps": "grant the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+   "state": "open"
+  },
+  {
+   "card_id": "owner_action:1",
+   "kind": "OWNER-DECISION",
+   "title": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "proposed_action": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "recommendation": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+   "evidence": [
+    {
+     "label": "gate check",
+     "state": "OPEN",
+     "why": "OwnerAction #1 raised 2026-10-11T00:09:04.914248+00:00 for laura.voice.listen_shortlist",
+     "source": "owner_actions:1"
+    }
+   ],
+   "uncertainty": "stated in the action",
+   "expected_benefit": "LAURA-VOICE-P2, LAURA-LIVE-P3",
+   "downside": "stated in the action",
+   "max_spend_cad": null,
+   "monthly_ceiling_cad": null,
+   "minutes": 20,
+   "reversibility": "the decision is recorded and can be reversed by a later decision",
+   "deadline": null,
+   "consequence_of_no_action": "Voice (Phase 2) and Live Presence (Phase 3) stay GATED; Talk to Laura continues in text with no loss of identity, memory or authority",
+   "continues_regardless": "every requirement not waiting on this decision",
+   "unblocks": [
+    "LAURA-VOICE-P2, LAURA-LIVE-P3"
+   ],
+   "executable": false,
+   "actions": [
+    {
+     "action": "owner_action.defer",
+     "requires_step_up": false,
+     "params": {
+      "owner_action_id": 1
+     }
+    }
+   ],
+   "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: OwnerAction #1 (laura.voice.listen_shortlist) is marked done",
+   "sources": [
+    "build2.executor.approval_inbox",
+    "owner_actions:1"
+   ],
+   "why_software_cannot": "a listening judgement and a provider/paid-trial choice are the owner's (D-FB-18 item 7); provider access: a voice provider account/API key chosen by you; paid trial approval: generating candidate samples is a paid call (owner spend approval required before any call)",
+   "requirement_kind": "decision",
+   "packet_missing": [
+    "max_cost_cad"
+   ],
+   "rank": 13,
+   "urgency": "when costed: the spend is not yet stated",
+   "steps": "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+   "state": "open"
+  },
+  {
+   "card_id": "publication:cloudline-baby-blanket@1.2.0",
+   "kind": "PUBLICATION",
+   "title": "Create the Etsy draft for cloudline-baby-blanket v1.2.0",
+   "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+   "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "evidence": [
+    {
+     "label": "certification",
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld",
+     "source": "ops.publication_authority.evidence[certification]"
+    },
+    {
+     "label": "parity",
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+     "source": "ops.publication_authority.evidence[parity]"
+    },
+    {
+     "label": "listing_set",
+     "state": "FAIL",
+     "why": "listing set not certified",
+     "source": "ops.publication_authority.evidence[listing_set]"
+    },
+    {
+     "label": "disclosure",
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy",
+     "source": "ops.publication_authority.evidence[disclosure]"
+    },
+    {
+     "label": "policy",
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read",
+     "source": "ops.publication_authority.evidence[policy]"
+    },
+    {
+     "label": "search",
+     "state": "FAIL",
+     "why": "search certificate refuses",
+     "source": "ops.publication_authority.evidence[search]"
+    },
+    {
+     "label": "rollback",
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days",
+     "source": "ops.publication_authority.evidence[rollback]"
+    },
+    {
+     "label": "economics",
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+     "source": "ops.publication_authority.evidence[economics]"
+    }
+   ],
+   "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+   "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+   "downside": "a draft listing exists on Etsy; activation is a separate grant",
+   "max_spend_cad": null,
+   "economics": {
+    "state": "MODELLED",
+    "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+   },
+   "reversibility": "the grant is revocable until used; the draft can be deleted",
+   "deadline": null,
+   "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+   "sources": [
+    "pattern_versions:3",
+    "listings:3",
+    "ops.publication_authority.evidence"
+   ]
+  },
+  {
+   "card_id": "publication:nordic-star-ornaments@1.4.0",
+   "kind": "PUBLICATION",
+   "title": "Create the Etsy draft for nordic-star-ornaments v1.4.0",
+   "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+   "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "evidence": [
+    {
+     "label": "certification",
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld",
+     "source": "ops.publication_authority.evidence[certification]"
+    },
+    {
+     "label": "parity",
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+     "source": "ops.publication_authority.evidence[parity]"
+    },
+    {
+     "label": "listing_set",
+     "state": "FAIL",
+     "why": "listing set not certified",
+     "source": "ops.publication_authority.evidence[listing_set]"
+    },
+    {
+     "label": "disclosure",
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy",
+     "source": "ops.publication_authority.evidence[disclosure]"
+    },
+    {
+     "label": "policy",
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read",
+     "source": "ops.publication_authority.evidence[policy]"
+    },
+    {
+     "label": "search",
+     "state": "FAIL",
+     "why": "search certificate refuses",
+     "source": "ops.publication_authority.evidence[search]"
+    },
+    {
+     "label": "rollback",
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days",
+     "source": "ops.publication_authority.evidence[rollback]"
+    },
+    {
+     "label": "economics",
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+     "source": "ops.publication_authority.evidence[economics]"
+    }
+   ],
+   "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+   "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+   "downside": "a draft listing exists on Etsy; activation is a separate grant",
+   "max_spend_cad": null,
+   "economics": {
+    "state": "MODELLED",
+    "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+   },
+   "reversibility": "the grant is revocable until used; the draft can be deleted",
+   "deadline": null,
+   "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+   "sources": [
+    "pattern_versions:2",
+    "listings:2",
+    "ops.publication_authority.evidence"
+   ]
+  },
+  {
+   "card_id": "publication:hexagon-coaster-set@1.2.0",
+   "kind": "PUBLICATION",
+   "title": "Create the Etsy draft for hexagon-coaster-set v1.2.0",
+   "proposed_action": "record a sealed 24 h publication grant bound to this exact certified release and listing content",
+   "recommendation": "Not ready: parity, listing_set, policy, search, rollback not passing",
+   "evidence": [
+    {
+     "label": "certification",
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld",
+     "source": "ops.publication_authority.evidence[certification]"
+    },
+    {
+     "label": "parity",
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']",
+     "source": "ops.publication_authority.evidence[parity]"
+    },
+    {
+     "label": "listing_set",
+     "state": "FAIL",
+     "why": "listing set not certified",
+     "source": "ops.publication_authority.evidence[listing_set]"
+    },
+    {
+     "label": "disclosure",
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy",
+     "source": "ops.publication_authority.evidence[disclosure]"
+    },
+    {
+     "label": "policy",
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read",
+     "source": "ops.publication_authority.evidence[policy]"
+    },
+    {
+     "label": "search",
+     "state": "FAIL",
+     "why": "search certificate refuses",
+     "source": "ops.publication_authority.evidence[search]"
+    },
+    {
+     "label": "rollback",
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days",
+     "source": "ops.publication_authority.evidence[rollback]"
+    },
+    {
+     "label": "economics",
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested",
+     "source": "ops.publication_authority.evidence[economics]"
+    }
+   ],
+   "uncertainty": "UNKNOWN sections: parity, policy, rollback",
+   "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+   "downside": "a draft listing exists on Etsy; activation is a separate grant",
+   "max_spend_cad": null,
+   "economics": {
+    "state": "MODELLED",
+    "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+   },
+   "reversibility": "the grant is revocable until used; the draft can be deleted",
+   "deadline": null,
+   "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+   "executable": false,
+   "actions": [],
+   "not_executable_reason": "gated sections do not all pass (Product Truth first)",
+   "sources": [
+    "pattern_versions:1",
+    "listings:1",
+    "ops.publication_authority.evidence"
+   ]
+  }
+ ],
+ "open": 16,
+ "decision_batches": {
+  "status": "OK",
+  "as_of": "2026-10-10T04:30:36+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "id": "go_live",
+    "title": "Go live on Etsy (one sitting in Shop Manager)",
+    "why_batched": "each of these is a step of the same move out of shadow mode; none is useful alone, and answering them together takes one Etsy session",
+    "decisions": 5,
+    "minutes_total": 67,
+    "max_cost": "CA$651.00",
+    "items": [
+     {
+      "id": "leave_shadow",
+      "decision": "Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done.",
+      "why": "9 requirements are parked on it",
+      "evidence": "gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated: no spend beyond the listing fees above",
+      "consequence_of_yes": "listings can be published under the publication authority; the live-listing requirements un-park",
+      "consequence_of_no": "everything stays drafted and nothing reaches a customer",
+      "minutes": 5,
+      "fields_missing": []
+     },
+     {
+      "id": "etsy_kyc_payout",
+      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
+      "why": "production reason payout",
+      "evidence": "OwnerAction #3 raised 2026-10-10T04:30:36.121832 for payout",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "the payout prerequisite for publishing is met",
+      "consequence_of_no": "delay payout",
+      "minutes": 15,
+      "fields_missing": []
+     },
+     {
+      "id": "listing_fees",
+      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
+      "why": "production reason listing_fees",
+      "evidence": "OwnerAction #4 raised 2026-10-10T04:30:36.122107 for listing_fees",
+      "max_cost": "CA$6.00",
+      "max_cost_cad": 6.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "publishing is no longer blocked on fees",
+      "consequence_of_no": "delay listing_fees",
+      "minutes": 2,
+      "fields_missing": []
+     },
+     {
+      "id": "tester_outreach",
+      "decision": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+      "why": "3 requirements are parked on it",
+      "evidence": "gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
+      "max_cost": "CA$185.00",
+      "max_cost_cad": 185.0,
+      "max_cost_basis": "ESTIMATED ceiling, gates.risk_matrix: 2.8 tester h x CA$20 + 63 m yarn (W4-GATESB)",
+      "consequence_of_yes": "a measured sample calibrates yardage and Class C products can become shippable",
+      "consequence_of_no": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+      "minutes": 25,
+      "fields_missing": []
+     },
+     {
+      "id": "trademark_filing",
+      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
+      "why": "production reason brand_clearance",
+      "evidence": "OwnerAction #5 raised 2026-10-10T04:30:36.122363 for brand_clearance",
+      "max_cost": "CA$460.00",
+      "max_cost_cad": 460.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "the name is protected before brand equity accumulates on it",
+      "consequence_of_no": "delay brand_clearance",
+      "minutes": 20,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "model_funding",
+    "title": "Fund the model provider",
+    "why_batched": "model_provider, image_vision and the funding rows are one Anthropic balance: one top-up opens all of them",
+    "decisions": 1,
+    "minutes_total": 5,
+    "max_cost": "CA$25.00",
+    "items": [
+     {
+      "id": "fund_model",
+      "decision": "Add credit to the Anthropic account the API key belongs to (console.anthropic.com -> Plans & Billing).",
+      "why": "production reason model_credits",
+      "evidence": "gate 'model_provider' opens when: a recorded model.probe succeeded -- a real call, not a variable being set",
+      "max_cost": "CA$25.00",
+      "max_cost_cad": 25.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "judging, vision and text calls run again: identity measurement, asset-truth checks, gallery analysis, #94",
+      "consequence_of_no": "delay model_credits",
+      "minutes": 5,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "rulings",
+    "title": "Rulings only the owner can make (free, minutes)",
+    "why_batched": "free decisions with no account or spend behind them",
+    "decisions": 2,
+    "minutes_total": 12,
+    "max_cost": "CA$0.00",
+    "items": [
+     {
+      "id": "acceptance_ruling",
+      "decision": "Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no).",
+      "why": "4 requirements are parked on it",
+      "evidence": "gate 'acceptance_ruling' opens when: an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "four requirements are graded against the API path",
+      "consequence_of_no": "they stay parked and every acceptance grade stays provisional",
+      "minutes": 2,
+      "fields_missing": []
+     },
+     {
+      "id": "production_window",
+      "decision": "Authorise deploying the reviewed build to the existing service for one unattended window (phase stays shadow).",
+      "why": "1 requirements are parked on it",
+      "evidence": "gate 'production_window' opens when: autonomy.launch_item reads PROVEN from the rows a full production window left",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated: the existing service, no new spend",
+      "consequence_of_yes": "the off-device proof (#195) can be read from real rows, and the fixes that close stale production incidents take effect",
+      "consequence_of_no": "#195 stays parked and production keeps the stale rows",
+      "minutes": 10,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "etsy_account",
+    "title": "Owner-only Etsy account screens",
+    "why_batched": "each needs the signed-in account holder in a browser, so they are done in the same login",
+    "decisions": 11,
+    "minutes_total": 63,
+    "max_cost": "CA$0.00",
+    "items": [
+     {
+      "id": "transactions_scope",
+      "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen).",
+      "why": "2 requirements are parked on it",
+      "evidence": "gate 'transactions_r' opens when: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "orders can be read (#11, #12)",
+      "consequence_of_no": "the order source stays closed",
+      "minutes": 3,
+      "fields_missing": []
+     },
+     {
+      "id": "insights_reading",
+      "decision": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists).",
+      "why": "5 requirements are parked on it",
+      "evidence": "gate 'insights_access' opens when: at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "search-demand requirements (#1, #37, #236) get real readings",
+      "consequence_of_no": "they stay parked on proxies",
+      "minutes": 10,
+      "fields_missing": []
+     },
+     {
+      "id": "policy_page_reading",
+      "decision": "Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby) in your own browser and record each through POST /api/policy/snapshot (source, text, version, summary, read_by). No sign-in is needed; no software reads these pages for you.",
+      "why": "etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this company does not bypass bot protection, so a person's reading is the only honest source; a hosted browser worker would meet the same 403",
+      "evidence": "ops/owner_queue.DECISIONS; executor gate(s) rendered_pages",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated (reading public pages costs nothing)",
+      "consequence_of_yes": "#35 and #39 un-park: new product classes and the policy freshness watch rest on current pages, and the gate closes again by itself if a reading passes 30 days",
+      "consequence_of_no": "#35 and #39 stay parked; publishing and new classes stay blocked on unread policy, and nothing is published",
+      "minutes": 15,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-OBS",
+      "decision": "Record what the live shop shows for the fields no API returns: About headline, About story, Laura's member bio and role (paste text; one dated observation)",
+      "why": "lets the drift job treat your configuration as authoritative and check it (Laura disclosed as AI, not in the Owner role) without touching it",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "the drift job treats the live About/Laura fields as authoritative and checks them (Laura disclosed as AI, not Owner) without touching them",
+      "consequence_of_no": "About/Laura fields stay UNKNOWN; previews may show stale repo drafts",
+      "minutes": 5,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-B",
+      "decision": "Account settings: profile picture = logo mark, real preferred name, short bio, 2FA on (Batch B)",
+      "why": "the account picture/name present the legal account holder; Laura must not appear as the account holder",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "the account presents the legal holder; Laura never reads as the owner",
+      "consequence_of_no": "a persona could read as the legal owner",
+      "minutes": 5,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-BANNER",
+      "decision": "Phone check: open the shop in the Etsy app, screenshot the banner; and decide on the banner gate findings listed in IMG-2 (nav footer shows Wearables/Gifts/Seasonal, which have no products yet; Laura publication status)",
+      "why": "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and the repo gates found items only you can rule on",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "the phone crop is evidenced and the IMG-2 banner findings are ruled on; the live banner stays yours and is not replaced",
+      "consequence_of_no": "crop/footer findings stay unresolved",
+      "minutes": 3,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-C",
+      "decision": "Shop settings still open: announcement (C5), location (C9), listing order Custom (C10), sold visibility off (C11)",
+      "why": "trust surfaces and ordering",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "announcement, location, custom order and sold-visibility trust surfaces are set",
+      "consequence_of_no": "shop snapshot keeps reporting missing trust surfaces",
+      "minutes": 5,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-D1",
+      "decision": "Create sections for populated categories only (today: Home, Baby)",
+      "why": "D-FB-18 item 3: never advertise empty categories",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "listings land in populated sections only (D-FB-18 item 3)",
+      "consequence_of_no": "listings land unsectioned",
+      "minutes": 3,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-E",
+      "decision": "Info & Appearance: Message to Buyers + Message for Digital Items (Batch E)",
+      "why": "the digital message is the only text every buyer receives at purchase",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "every buyer receives the download guidance at purchase",
+      "consequence_of_no": "first buyers get no download guidance",
+      "minutes": 3,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-F",
+      "decision": "Policy Settings: privacy policy, FAQ with licence, cancellations (Batch F)",
+      "why": "Etsy trust surfaces; licence belongs in the FAQ for a Canadian shop",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "privacy, FAQ licence and cancellations are live; policy_consistency can pass on read-back",
+      "consequence_of_no": "policy_consistency stays failing",
+      "minutes": 10,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-G1",
+      "decision": "Settings > Options: 'Allow buyers to purchase digital prints' = Disabled",
+      "why": "a third party would sell printed copies of a pattern PDF",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "CA$0.00",
+      "max_cost_cad": 0.0,
+      "max_cost_basis": "stated",
+      "consequence_of_yes": "no third party sells printed copies of a pattern PDF beside ours",
+      "consequence_of_no": "auto-enrolment may put a third-party product beside ours",
+      "minutes": 1,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "storage",
+    "title": "Storage and continuity spend",
+    "why_batched": "both are storage accounts outside the code, approved as one spend line",
+    "decisions": 2,
+    "minutes_total": 25,
+    "max_cost": "CA$6.00",
+    "items": [
+     {
+      "id": "storage_offsite",
+      "decision": "Create a Backblaze B2 account, a PRIVATE bucket and an application key restricted to that bucket (read+write+delete), outside this provider, and set the five BRAMBLELOOP_ARCHIVE_* variables (W4-GATESI packet).",
+      "why": "1 requirements are parked on it",
+      "evidence": "gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
+      "max_cost": "CA$1.00",
+      "max_cost_cad": 1.0,
+      "max_cost_basis": "stated (per month): Backblaze B2 list price read 2026-10-10 (backblaze.com/cloud-storage/pricing): first 10 GB free, then US$6.95/TB per 30 days = US$0.00695/GB (~CA$0.0095/GB at 1.37). Expected ~0.94 GB (14 retained archives x ~67 MB, production 2026-10-10), so expected CA$0.00/month; the CA$1.00 ceiling covers ~115 GB stored",
+      "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
+      "consequence_of_no": "a provider loss loses the archive with it",
+      "minutes": 15,
+      "fields_missing": []
+     },
+     {
+      "id": "storage_durable",
+      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
+      "why": "production reason artifact_storage",
+      "evidence": "OwnerAction #1 raised 2026-10-10T04:30:36.120462 for artifact_storage",
+      "max_cost": "CA$5.00",
+      "max_cost_cad": 5.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "purchased files survive deploys",
+      "consequence_of_no": "delay artifact_storage",
+      "minutes": 10,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "benchmark",
+    "title": "Competitive benchmark purchases",
+    "why_batched": "the purchase gate and the pre-launch benchmark challenge wait on the same purchased patterns",
+    "decisions": 1,
+    "minutes_total": 75,
+    "max_cost": "CA$300.00",
+    "items": [
+     {
+      "id": "benchmark_purchase",
+      "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
+      "why": "production reason benchmark_challenge",
+      "evidence": "OwnerAction #7 raised 2026-10-10T04:30:36.122847 for benchmark_challenge",
+      "max_cost": "CA$300.00",
+      "max_cost_cad": 300.0,
+      "max_cost_basis": "stated by the producer",
+      "consequence_of_yes": "the pre-launch challenge (#168) and teardowns can run",
+      "consequence_of_no": "delay benchmark_challenge",
+      "minutes": 75,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "channels",
+    "title": "Owned publishing channels",
+    "why_batched": "accounts that accept a platform's terms in the owner's name",
+    "decisions": 1,
+    "minutes_total": 65,
+    "max_cost": "CA$25.00",
+    "items": [
+     {
+      "id": "owned_surfaces",
+      "decision": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+      "why": "7 requirements are parked on it",
+      "evidence": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+      "max_cost": "CA$25.00",
+      "max_cost_cad": 25.0,
+      "max_cost_basis": "ESTIMATED: one domain-year; Pinterest, email free tier and YouTube are free",
+      "consequence_of_yes": "off-Etsy content requirements un-park",
+      "consequence_of_no": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+      "minutes": 65,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "paid_media",
+    "title": "Paid media (after organic sales exist)",
+    "why_batched": "advertising authority; recommended only after the shop has sold",
+    "decisions": 2,
+    "minutes_total": 6,
+    "max_cost": "UNKNOWN (at least one item is not costed)",
+    "items": [
+     {
+      "id": "ad_budget",
+      "decision": "Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the recommended CA$3/day, CA$25 campaign, CA$60/month (paid_media.CONSERVATIVE_CAPS) or decline.",
+      "why": "advertising money leaves only on approval; ceilings are enforced in code",
+      "evidence": "ops/owner_queue.DECISIONS; executor gate(s) ad_authority",
+      "max_cost": "UNKNOWN",
+      "max_cost_cad": null,
+      "max_cost_basis": "UNKNOWN",
+      "consequence_of_yes": "the ads requirements un-park under that cap",
+      "consequence_of_no": "no paid media; recommended until organic sales exist",
+      "minutes": 5,
+      "fields_missing": []
+     },
+     {
+      "id": "OA-G2",
+      "decision": "Offsite Ads: decide enrolment (15% fee on attributed sales, no fixed spend)",
+      "why": "a margin decision, recorded rather than defaulted",
+      "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+      "max_cost": "UNKNOWN (15% of attributed orders (cap US$100/order))",
+      "max_cost_cad": null,
+      "max_cost_basis": "UNKNOWN (15% of attributed orders (cap US$100/order))",
+      "consequence_of_yes": "Offsite Ads enrolment is a recorded margin decision, not a default",
+      "consequence_of_no": "default enrolment stands",
+      "minutes": 1,
+      "fields_missing": []
+     }
+    ]
+   },
+   {
+    "id": "visual",
+    "title": "Paid image generation (visual plans)",
+    "why_batched": "three costed plans on one approval line",
+    "decisions": 1,
+    "minutes_total": 3,
+    "max_cost": "CA$4.01",
+    "items": [
+     {
+      "id": "visual_paid_generation",
+      "decision": "Approve up to CA$4.01 of paid image calls for the costed visual plans: P1 photograph judging (gpt-5 d_judge, <=16 calls, max CA$1.00), P2 LIFESTYLE protected composites for the 3 Launch-0 listings (flux-2-pro, 12+12 calls, max CA$2.00), P3 first judged challenger per launch class (36 calls, max CA$1.01). Approve per plan or all three; or decline and use the no-API alternative (physical sample photo session, yarn ~CA$30 estimated).",
+      "why": "each plan is a paid API call (consequential spend needs owner approval); none has been executed (VISUAL_STATUS: 8 GATED_SPEND, never executed)",
+      "evidence": "research/final_build/w4/VISUAL_STATUS.md 'Owner-ready costed plans' on origin/claude/w4-VISUAL 32332f5; visual/milestones.py milestone_d.assess",
+      "max_cost": "CA$4.01",
+      "max_cost_cad": 4.01,
+      "max_cost_basis": "stated plan ceilings (worst case), summed",
+      "consequence_of_yes": "milestone D's 7 judged items become PASS or FAIL; LIFESTYLE frames for the 3 Launch-0 listings; one judged photographic challenger per launch class",
+      "consequence_of_no": "D stays PARTIAL with 7 UNKNOWN judgements; LIFESTYLE and the photographic challengers stay queued (GATED_SPEND)",
+      "minutes": 3,
+      "fields_missing": []
+     }
+    ]
+   }
+  ],
+  "sources": [
+   "research/final_build/w4/OWNER_ACTIONS.json"
+  ],
+  "provider": "owner.decision_batches",
+  "batches": 9,
+  "decisions": 26,
+  "live_runtime_decisions": null,
+  "note": "answer batch by batch; each decision states why, evidence, max cost (UNKNOWN when not costed, never CA$0), what yes and no/delay mean, and minutes"
+ },
+ "empty_state": {
+  "empty": false,
+  "proven_empty": false,
+  "state": "NOT-EMPTY",
+  "assessment_at": null,
+  "withheld": [],
+  "why": "13 card(s) are waiting",
+  "closes_anything": false,
+  "rule": "an empty queue closes nothing; the readiness closer still requires a non-empty assessment before closing (runtime.release 'if requests:')"
+ },
+ "parked_owner_actions": [],
+ "waiting_on_data": [
+  {
+   "gate": "customers",
+   "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+   "kind": "DATA-GATED",
+   "unblocks": [
+    8,
+    18,
+    19,
+    20,
+    21,
+    25,
+    28,
+    31,
+    33,
+    41,
+    45,
+    48,
+    120,
+    147,
+    169,
+    226,
+    229,
+    235,
+    242,
+    243,
+    244,
+    245,
+    252,
+    253,
+    256,
+    257,
+    258,
+    260,
+    265,
+    270,
+    272,
+    280,
+    292
+   ],
+   "how_it_is_checked": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling"
+  }
+ ],
+ "external_capability_unavailable": [
+  {
+   "gate": "rendered_pages",
+   "what": "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for",
+   "kind": "EXTERNAL-BLOCKED",
+   "label": "external capability unavailable",
+   "why": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
+   "unblocks": [
+    35,
+    39
+   ],
+   "unblocks_count": 2,
+   "owner_action_ids": [],
+   "how_it_is_checked": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)"
+  },
+  {
+   "gate": "model_bearing_render",
+   "what": "a model-bearing listing frame that clears every floor -- identity, morphology, product truth, photographic realism, asset truth and styling -- which no image provider has yet rendered",
+   "kind": "EXTERNAL-BLOCKED",
+   "label": "external capability unavailable",
+   "why": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
+   "unblocks": [
+    72,
+    130,
+    202,
+    203,
+    300
+   ],
+   "unblocks_count": 5,
+   "owner_action_ids": [],
+   "how_it_is_checked": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count"
+  }
+ ],
+ "not_yet_askable": {
+  "status": "OK",
+  "items": [
+   {
+    "gate": "ad_authority",
+    "what": "an approved advertising budget -- recommended only once a listing is ready to sell (gate_clearance.ad_readiness)",
+    "askable_when": "no listing is ready to sell yet: no listing exists on Etsy yet (live_listings gate closed); orders cannot be read yet (transactions_r gate closed), so CAC would be unmeasured. The initial budget is recommended (paid_media.CONSERVATIVE_CAPS) the day it is",
+    "precondition": "no listing is ready to sell yet: no listing exists on Etsy yet (live_listings gate closed); orders cannot be read yet (transactions_r gate closed), so CAC would be unmeasured. The initial budget is recommended (paid_media.CONSERVATIVE_CAPS) the day it is",
+    "unblocks_count": 2,
+    "owner_action_ids": []
+   }
+  ],
+  "basis": "measured",
+  "sources": [
+   "build2.executor.approval_inbox",
+   "build2.gate_clearance.prerequisite"
+  ]
+ },
+ "note": "An inbox is only asynchronous if the queue behind it does not wait. 0 requirements are ready right now and none of them needs any of these answers; answering them un-parks 0 more (#196).",
+ "sources": [
+  "build2.executor.approval_inbox",
+  "owner_actions",
+  "ops.publication_authority.evidence"
+ ]
+}

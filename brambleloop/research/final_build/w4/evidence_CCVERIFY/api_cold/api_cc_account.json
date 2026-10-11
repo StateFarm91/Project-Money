@@ -1,0 +1,881 @@
+{
+ "tab": "ACCOUNT",
+ "generated_at": "2026-10-11T00:11:17+00:00",
+ "sections": {
+  "connected_services": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "basis": "unknown",
+   "items": [],
+   "sources": [],
+   "reason": "no connected OAuth service is recorded",
+   "provider": "oauth_credentials"
+  },
+  "budgets": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-11T00:11:17+00:00",
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "spend_limits"
+   ],
+   "provider": "spend_limits",
+   "reason": "no spend limit configured (all spend is refused)"
+  },
+  "authority_policy": {
+   "status": "OK",
+   "as_of": "2026-10-11T00:11:17.806921+00:00",
+   "basis": "measured",
+   "items": [],
+   "sources": [
+    "authority_policies"
+   ],
+   "phase": "shadow",
+   "classes": {
+    "classes": [
+     "OBSERVE",
+     "RESEARCH",
+     "BUILD",
+     "TEST",
+     "DRAFT",
+     "DEPLOY",
+     "SPEND",
+     "PUBLISH",
+     "LEGAL-TAX",
+     "CUSTOMER-REMEDY",
+     "CREDENTIALS"
+    ],
+    "autonomous": [
+     "BUILD",
+     "DRAFT",
+     "OBSERVE",
+     "RESEARCH",
+     "TEST"
+    ],
+    "gated": [
+     "CREDENTIALS",
+     "CUSTOMER-REMEDY",
+     "DEPLOY",
+     "LEGAL-TAX",
+     "PUBLISH",
+     "SPEND"
+    ],
+    "ladder_capped": [
+     "CREDENTIALS",
+     "DEPLOY",
+     "LEGAL-TAX"
+    ],
+    "build_plane_job_types": [
+     "build.tick",
+     "improve.league",
+     "improve.nightly",
+     "improve.replay",
+     "improve.role_work",
+     "improve.sandbox",
+     "improve.weekly",
+     "teardown.enforce"
+    ],
+    "classified_job_types": 143
+   },
+   "provider": "brambleloop.authority.policy.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 0,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   }
+  },
+  "authority_dag": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "basis": "unknown",
+   "reason": "no work items recorded yet",
+   "counts": {},
+   "items": [],
+   "sources": [
+    "company_work_items"
+   ],
+   "provider": "brambleloop.authority.dag.summary",
+   "observation_window": {
+    "oldest": null,
+    "newest": null,
+    "mixed_snapshot": null,
+    "rows_with_time": 0,
+    "rows": 0,
+    "note": "no row carries an observation time; the card's as-of is query time"
+   }
+  }
+ },
+ "owner": {
+  "principal": "owner (passphrase + TOTP)",
+  "login_configured": true,
+  "totp_required": true,
+  "stepup_window_seconds": 300
+ },
+ "sessions": [
+  {
+   "session_id": "s_7ed9a4ff56688f0c",
+   "device_label": "",
+   "created_at": "2026-10-11T00:09:30.837795+00:00",
+   "last_seen_at": "2026-10-11T00:11:17.373229+00:00",
+   "expires_at": "2026-10-11T12:09:30.837795+00:00",
+   "idle_expires_at": "2026-10-11T02:11:17.373229+00:00",
+   "stepup_valid_until": "2026-10-11T00:14:30.837795+00:00",
+   "revoked_at": null,
+   "revoked_reason": null,
+   "current": true
+  },
+  {
+   "session_id": "s_bcf1c7734ca00c33",
+   "device_label": "",
+   "created_at": "2026-10-11T00:09:19.340007+00:00",
+   "last_seen_at": "2026-10-11T00:09:19.340007+00:00",
+   "expires_at": "2026-10-11T12:09:19.340007+00:00",
+   "idle_expires_at": "2026-10-11T02:09:19.340007+00:00",
+   "stepup_valid_until": "2026-10-11T00:14:19.340007+00:00",
+   "revoked_at": null,
+   "revoked_reason": null,
+   "current": false
+  }
+ ],
+ "security_events": [
+  {
+   "id": 69,
+   "at": "2026-10-11T00:09:30.843468+00:00",
+   "kind": "login",
+   "outcome": "ok",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "",
+   "session_id": "s_7ed9a4ff56688f0c"
+  },
+  {
+   "id": 68,
+   "at": "2026-10-11T00:09:19.350275+00:00",
+   "kind": "login",
+   "outcome": "ok",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "",
+   "session_id": "s_bcf1c7734ca00c33"
+  },
+  {
+   "id": 67,
+   "at": "2026-10-11T00:09:19.268947+00:00",
+   "kind": "login",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "BAD_CREDENTIALS: passphrase or code not accepted",
+   "session_id": null
+  },
+  {
+   "id": 66,
+   "at": "2026-10-11T00:09:19.197680+00:00",
+   "kind": "login",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "BAD_CREDENTIALS: passphrase or code not accepted",
+   "session_id": null
+  },
+  {
+   "id": 65,
+   "at": "2026-10-11T00:09:19.124409+00:00",
+   "kind": "login",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "BAD_CREDENTIALS: passphrase or code not accepted",
+   "session_id": null
+  },
+  {
+   "id": 64,
+   "at": "2026-10-11T00:09:12.456161+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/forget",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 63,
+   "at": "2026-10-11T00:09:12.441919+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/turn",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 62,
+   "at": "2026-10-11T00:09:12.427458+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/remember",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 61,
+   "at": "2026-10-11T00:09:12.411715+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/view",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 60,
+   "at": "2026-10-11T00:09:12.396480+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/close",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 59,
+   "at": "2026-10-11T00:09:12.379929+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/private/open",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 58,
+   "at": "2026-10-11T00:09:12.365002+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/laura/voice",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 57,
+   "at": "2026-10-11T00:09:12.347441+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/laura/follow-on",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 56,
+   "at": "2026-10-11T00:09:12.331747+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/laura/ask",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 55,
+   "at": "2026-10-11T00:09:12.314932+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/authority/grant",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 54,
+   "at": "2026-10-11T00:09:12.294778+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/authority/approve/{key}",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 53,
+   "at": "2026-10-11T00:09:12.271588+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/listing-outcomes",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 52,
+   "at": "2026-10-11T00:09:12.254569+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/ask",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 51,
+   "at": "2026-10-11T00:09:12.237992+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/departments/{department}/unblock",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 50,
+   "at": "2026-10-11T00:09:12.221767+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/departments/{department}/block",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 49,
+   "at": "2026-10-11T00:09:12.204183+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/operations/recovery/rerun-cycle",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 48,
+   "at": "2026-10-11T00:09:12.187801+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/operations/recovery/release-lease",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 47,
+   "at": "2026-10-11T00:09:12.172236+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/operations/recovery/restart-job",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 46,
+   "at": "2026-10-11T00:09:12.156641+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/emergency/kill",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 45,
+   "at": "2026-10-11T00:09:12.139710+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/emergency/resume",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 44,
+   "at": "2026-10-11T00:09:12.122146+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/emergency/pause",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 43,
+   "at": "2026-10-11T00:09:12.106670+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/actions/{action}",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 42,
+   "at": "2026-10-11T00:09:12.088044+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/account/sessions/{session_id}/revoke",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 41,
+   "at": "2026-10-11T00:09:12.069570+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/account/sessions/revoke-others",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 40,
+   "at": "2026-10-11T00:09:12.051575+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/notifications/{notification_id}/ack",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 39,
+   "at": "2026-10-11T00:09:12.032442+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/notifications/policy",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 38,
+   "at": "2026-10-11T00:09:12.014006+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/notifications/refresh",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 37,
+   "at": "2026-10-11T00:09:11.999420+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/home/seen",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 36,
+   "at": "2026-10-11T00:09:11.981979+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/step-up",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 35,
+   "at": "2026-10-11T00:09:11.966432+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/logout",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 34,
+   "at": "2026-10-11T00:09:11.948711+00:00",
+   "kind": "login",
+   "outcome": "refused",
+   "method": "POST",
+   "route": "/api/cc/auth/login",
+   "reason": "BAD_CREDENTIALS: passphrase or code not accepted",
+   "session_id": null
+  },
+  {
+   "id": 33,
+   "at": "2026-10-11T00:09:11.919721+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/private/status",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 32,
+   "at": "2026-10-11T00:09:11.901983+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura/frame/{frame}",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 31,
+   "at": "2026-10-11T00:09:11.881999+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura/voice-spec",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 30,
+   "at": "2026-10-11T00:09:11.862574+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura/presence",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 29,
+   "at": "2026-10-11T00:09:11.843895+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura/portrait",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 28,
+   "at": "2026-10-11T00:09:11.807136+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura/conversation",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 27,
+   "at": "2026-10-11T00:09:11.792654+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/laura",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 26,
+   "at": "2026-10-11T00:09:11.779132+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/operations/soak",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 25,
+   "at": "2026-10-11T00:09:11.765662+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/operations/recovery",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 24,
+   "at": "2026-10-11T00:09:11.748990+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/emergency",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 23,
+   "at": "2026-10-11T00:09:11.734161+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/account/sessions",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 22,
+   "at": "2026-10-11T00:09:11.718692+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/account",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 21,
+   "at": "2026-10-11T00:09:11.701676+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/notifications",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  },
+  {
+   "id": 20,
+   "at": "2026-10-11T00:09:11.687655+00:00",
+   "kind": "request",
+   "outcome": "refused",
+   "method": "GET",
+   "route": "/api/cc/timeline",
+   "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+   "session_id": null
+  }
+ ],
+ "refused_attempts_24h": 67,
+ "model_providers": {
+  "configured": [],
+  "note": "a provider is listed only when its credential is configured"
+ },
+ "authorities": {
+  "phase": {
+   "phase": "shadow",
+   "env": "shadow",
+   "recorded_phase": "shadow",
+   "agree": true,
+   "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  },
+  "live_grants": []
+ },
+ "notification_policy": {
+  "quiet_hours": null,
+  "min_severity": "normal",
+  "digest": "morning",
+  "channels": [
+   "in_app"
+  ],
+  "external_channels": "GATED: owner authority + CASL review required"
+ },
+ "emergency": {
+  "phase": {
+   "phase": "shadow",
+   "env": "shadow",
+   "recorded_phase": "shadow",
+   "agree": true,
+   "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  },
+  "departments": [
+   {
+    "department": "executive",
+    "agents": [
+     "orchestrator"
+    ],
+    "registered": [
+     "orchestrator"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "runs scheduling and the read-only Etsy observation/monitoring cadences"
+   },
+   {
+    "department": "intelligence",
+    "agents": [
+     "market_radar"
+    ],
+    "registered": [
+     "market_radar"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_design",
+    "agents": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "registered": [
+     "creative_director",
+     "crochet_engineer"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "product_truth",
+    "agents": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "registered": [
+     "validator",
+     "quality_director",
+     "asset_truth",
+     "policy"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "deterministic validation is evidence collection, never an external effect"
+   },
+   {
+    "department": "visual",
+    "agents": [
+     "publishing"
+    ],
+    "registered": [
+     "publishing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "store",
+    "agents": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "registered": [
+     "store_operator",
+     "listing",
+     "pricing"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "support",
+    "agents": [
+     "support"
+    ],
+    "registered": [
+     "support"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "finance",
+    "agents": [
+     "cfo"
+    ],
+    "registered": [
+     "cfo"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reconciliation and spend challenge are monitoring"
+   },
+   {
+    "department": "growth",
+    "agents": [
+     "growth",
+     "ads"
+    ],
+    "registered": [
+     "growth",
+     "ads"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "learn",
+    "agents": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "registered": [
+     "learn",
+     "evaluator",
+     "failure_miner",
+     "experiment_designer",
+     "prompt_tool_challenger",
+     "cost_optimiser",
+     "creative_critic",
+     "lesson_router",
+     "experiment_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": true,
+    "never_paused_because": null
+   },
+   {
+    "department": "platform",
+    "agents": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "registered": [
+     "reliability_engineer",
+     "swarm_steward"
+    ],
+    "paused": false,
+    "paused_agents": [],
+    "pausable": false,
+    "never_paused_because": "reliability and recovery must keep running"
+   }
+  ],
+  "spend": {
+   "scopes": [],
+   "all_paused": false,
+   "no_scopes_configured": true
+  },
+  "publishing": {
+   "agents": [
+    "store_operator"
+   ],
+   "paused": false,
+   "live_grants": [],
+   "grants_status": "OK"
+  },
+  "paused_by_command_center": {},
+  "never_paused": {
+   "executive": "runs scheduling and the read-only Etsy observation/monitoring cadences",
+   "product_truth": "deterministic validation is evidence collection, never an external effect",
+   "finance": "reconciliation and spend challenge are monitoring",
+   "platform": "reliability and recovery must keep running"
+  },
+  "sources": [
+   "agents",
+   "spend_limits",
+   "audit_log (phase + grants)",
+   "cc_kv"
+  ]
+ }
+}

@@ -1,0 +1,124 @@
+{
+ "status": 200,
+ "url": "/api/cc/laura",
+ "body": {
+  "generated_at": "2026-10-11T00:26:28+00:00",
+  "register": "business",
+  "speaker": {
+   "name": "Laura",
+   "role": "Founder/CEO (persistent AI person)",
+   "identity_id": "laura-r2-a42aeac7",
+   "public_identity": "Brambleloop's AI founder",
+   "portrait_path": "/api/cc/laura/portrait",
+   "portrait_label": "Internal — canonical reference, not publication-approved",
+   "identity_source": "brambleloop.laura.identity"
+  },
+  "identity": {
+   "identity_id": "laura-r2-a42aeac7",
+   "name": "Laura",
+   "role": "Founder/CEO (persistent AI person)",
+   "public_identity": "Brambleloop's AI founder",
+   "truthful_identity": "Laura is a persistent AI person and the Founder/CEO of Brambleloop (D-FB-13). Publicly the Founder/CEO wording is used only with truthful AI disclosure (\"Laura, Brambleloop's AI founder\"), and her durable software actions are her genuine history. She is never claimed to be biologically human and is never given fabricated human experiences: a childhood, a family, learning to crochet from a relative, physically crocheting, designing or testing samples by hand, a home address, or events she attended. Laura copy never makes legal-ownership or seller-of-record statements; those must match the actual legal person(s).",
+   "authority": {
+    "may": [
+     "analyse",
+     "review",
+     "recommend",
+     "draft",
+     "set priorities",
+     "create internal follow-on work of job types every department charter already allows as generatable AND autonomy.charters.SAFE_GENERATED lists",
+     "convert protected work into owner action items"
+    ],
+    "may_not": [
+     "publish, activate or update anything on Etsy",
+     "spend money (her ceiling is CA$0.00)",
+     "message a customer",
+     "change price live",
+     "change Product Truth or certify a release",
+     "change financial truth or the books",
+     "fabricate evidence",
+     "weaken any gate, guardrail or evidence requirement",
+     "change her canonical identity",
+     "expand her own authority",
+     "act as, or consent for, the human Laura (legal consent, signatures, KYC, physical actions stay human-gated)"
+    ]
+   },
+   "source": "brambleloop.laura.identity",
+   "sources": [
+    "laura_identity_versions:2",
+    "laura.core.identity.GENESIS",
+    "visual.canonical"
+   ],
+   "verified": {
+    "status": "OK",
+    "reason": null,
+    "identity_version": 2,
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a"
+   },
+   "identity_disagreement": null
+  },
+  "needs_you": {
+   "status": "OK",
+   "count": 10,
+   "reason": null,
+   "items": [
+    {
+     "statement": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320 -- Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-11T00:26:27+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source) -- Recommended when convenient: it un-parks 2 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-11T00:26:27+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-11T00:26:27+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-11T00:26:27+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows -- Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-11T00:26:27+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    }
+   ]
+  },
+  "departments": {
+   "status": "DEGRADED",
+   "reason": "provider gave no reason",
+   "by_status": {
+    "OK": 7,
+    "UNKNOWN": 4
+   }
+  },
+  "phase": "the company runs in SHADOW -- nothing is published or spent live",
+  "suggested": [
+   "What did your company do overnight?",
+   "What are you working on?",
+   "How does your store look?",
+   "What's making money / losing money?",
+   "What did your departments discover?",
+   "What did you learn?",
+   "What should we launch next?",
+   "What genuinely needs me?"
+  ],
+  "recent_followons": [],
+  "method": "deterministic retrieval over durable state + fixed templates (no model call)"
+ }
+}

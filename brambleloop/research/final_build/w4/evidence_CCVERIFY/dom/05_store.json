@@ -1,0 +1,25 @@
+{
+ "title": "Store · Brambleloop",
+ "view_title": "Store",
+ "page_meta": null,
+ "error_state": true,
+ "error_text": "Could not loadh(): attribute maxlength is not allowedNothing on this screen is current. No data is shown rather than old or invented data.Try again",
+ "cards": [
+  {
+   "title": "Could not load",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Could not loadh(): attribute maxlength is not allowedNothing on this screen is current. No data is shown rather than old or invented data.Try again"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 147,
+ "body": "Could not loadh(): attribute maxlength is not allowedNothing on this screen is current. No data is shown rather than old or invented data.Try again",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

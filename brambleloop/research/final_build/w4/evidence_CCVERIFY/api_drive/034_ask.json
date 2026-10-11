@@ -1,0 +1,69 @@
+{
+ "status": 200,
+ "url": "/api/cc/ask",
+ "body": {
+  "question": "What is blocking launch?",
+  "intent": "launch_blocked",
+  "status": "ANSWERED",
+  "answer": "Launch is blocked by: the company runs in SHADOW (no live publication); 16 owner decision(s) open (top: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320).",
+  "facts": [
+   {
+    "statement": "effective phase shadow (BRAMBLELOOP_PHASE=shadow agrees with the recorded phase)",
+    "source": "core.phase.resolve (audit_log owner.phase.transition)",
+    "as_of": "2026-10-11T00:29:51+00:00"
+   },
+   {
+    "statement": "owner decision open: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: owner-recorded Marketplace Insights readings exist",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "owner decision open: a model provider that can actually serve a request",
+    "source": "build2.executor.approval_inbox",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   },
+   {
+    "statement": "3 of 3 products have a certified release; 0 are on Etsy",
+    "source": "products+pattern_versions+listings",
+    "as_of": "2026-10-11T00:29:54+00:00"
+   }
+  ],
+  "next_action": "grant the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+  "sources": [
+   "build2.executor.approval_inbox",
+   "core.phase.resolve (audit_log owner.phase.transition)",
+   "products+pattern_versions+listings"
+  ],
+  "method": "deterministic retrieval over durable state (no model call)"
+ }
+}

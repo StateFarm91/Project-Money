@@ -1,0 +1,24 @@
+{
+ "tab": "LAUNCH_PACKET",
+ "generated_at": "2026-10-11T00:11:11+00:00",
+ "status": "UNKNOWN",
+ "reason": "the launch packet is being generated from state; reload in a minute",
+ "sections": {
+  "packet": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "basis": "unknown",
+   "items": [],
+   "sources": [
+    "launch.packet.build",
+    "ops.publication_authority.evidence",
+    "launch.readiness.launch_assessment",
+    "core.phase.resolve",
+    "core.build.commit"
+   ],
+   "provider": "launch.packet.build",
+   "reason": "the launch packet is being generated from state; reload in a minute",
+   "generating": true
+  }
+ }
+}

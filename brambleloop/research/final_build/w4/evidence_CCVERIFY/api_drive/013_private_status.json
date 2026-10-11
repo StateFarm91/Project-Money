@@ -1,0 +1,12 @@
+{
+ "status": 200,
+ "url": "/api/cc/private/status",
+ "body": {
+  "configured": false,
+  "open": false,
+  "requires": "a fresh owner step-up to open; closes on logout/revoke or after 30 min",
+  "reply_register": "GATED",
+  "reply_why": "Laura's private conversational register is not implemented (GATED, D-FB-15/D-FB-16 item 11): your words are stored encrypted in the private context; no reply is generated.",
+  "isolation": "encrypted owner-only store; never read by business, public, customer or protected paths"
+ }
+}

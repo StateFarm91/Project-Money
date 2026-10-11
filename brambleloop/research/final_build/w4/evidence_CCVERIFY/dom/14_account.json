@@ -1,0 +1,151 @@
+{
+ "title": "Account · Brambleloop",
+ "view_title": "Account",
+ "page_meta": "as of just now",
+ "error_state": false,
+ "error_text": null,
+ "cards": [
+  {
+   "title": "Emergency controls",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Emergency controlsPause publishing, spend or departments immediately. Monitoring, evidence and recovery keep running.Open emergency controls"
+  },
+  {
+   "title": "Authentication",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "AuthenticationMethodPassphrase + authenticator codeRe-authenticated untilin 1 min (2026-10-11 00:31:07 UTC)Consequential actions (approvals, resuming anything paused) ask for your passphrase again. Pausing never does."
+  },
+  {
+   "title": "Signed-in devices",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Signed-in devicesRevoke anything you do not recognise.CCVERIFY test browserTHIS DEVICESigned in 4 min ago · last seen just now · expires in 12 hs_54f33ea84a128b8bCCVERIFY test browserSigned in 5 min ago · last seen 5 min ago · expires in 12 hs_2a446070332ff797RevokeUnnamed deviceSigned in 20 min ago · last seen 19 min ago · expires in 12 hs_7ed9a4ff56688f0cRevokeUnnamed deviceSigned in 21 min ago · last seen 21 min ago · expires in 12 hs_bcf1c7734ca00c33RevokeSign out all other devices"
+  },
+  {
+   "title": "Owner",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Owneras of just nowPrincipalowner (passphrase + TOTP)Login ConfiguredYesTotp RequiredYesStepup Window Seconds300"
+  },
+  {
+   "title": "Refused & suspicious attempts",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Refused & suspicious attemptsas of just nowloginId74At4 min ago (2026-10-11 00:26:07 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_54f33ea84a128b8bloginBAD_CREDENTIALS: passphrase or code not acceptedId73At4 min ago (2026-10-11 00:26:05 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginId72At5 min ago (2026-10-11 00:24:48 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_2a446070332ff797loginRATE_LIMITED: too many failed logins; wait 15 minutesId71At16 min ago (2026-10-11 00:14:07 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId70At16 min ago (2026-10-11 00:14:05 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginId69At20 min ago (2026-10-11 00:09:30 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_7ed9a4ff56688f0cloginId68At21 min ago (2026-10-11 00:09:19 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_bcf1c7734ca00c33loginBAD_CREDENTIALS: passphrase or code not acceptedId67At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId66At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId65At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id64At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/forgetSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id63At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/turnSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id62At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/rememberSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id61At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/viewSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id60At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/closeSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id59At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/openSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id58At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/voiceSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id57At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/follow-onSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id56At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/askSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id55At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/authority/grantSession IdUnknown"
+  },
+  {
+   "title": "Connected services & OAuth scopes",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of: unknown",
+   "reason": "no connected OAuth service is recorded",
+   "tiles": [],
+   "text": "Connected services & OAuth scopesUNKNOWNas of: unknownno connected OAuth service is recordedUnknown: no data available yet.No sources reported, so treat this as unverified."
+  },
+  {
+   "title": "Model providers",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Model providersas of just nowNotea provider is listed only when its credential is configuredConfiguredNone."
+  },
+  {
+   "title": "Budgets & spend limits",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": "no spend limit configured (all spend is refused)",
+   "tiles": [],
+   "text": "Budgets & spend limitsUNKNOWNas of just nowno spend limit configured (all spend is refused)Unknown: no data available yet.Sources (1)spend_limits"
+  },
+  {
+   "title": "Live authorities & grants",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Live authorities & grantsas of just nowPhasePhaseshadowEnvshadowRecorded PhaseshadowAgreeYesWhyBRAMBLELOOP_PHASE=shadow agrees with the recorded phaseLive GrantsNone."
+  },
+  {
+   "title": "Phase",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "PhasePhaseshadowEnvshadowRecorded PhaseshadowAgreeYesWhyBRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  },
+  {
+   "title": "Notification policy",
+   "pill": null,
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Notification policyas of just nowQuiet HoursUnknownMin SeveritynormalDigestmorningExternal ChannelsGATED: owner authority + CASL review requiredChannelsin_app"
+  },
+  {
+   "title": "Authority ladder: recorded grants",
+   "pill": "OK",
+   "has_time": true,
+   "time_text": "as of just now",
+   "reason": null,
+   "tiles": [],
+   "text": "Authority ladder: recorded grantsWhat each agent may do on its own, as recorded. Read-only here.OKas of just nowPhaseshadowGated action classesCREDENTIALS, CUSTOMER-REMEDY, DEPLOY, LEGAL-TAX, PUBLISH, SPENDAutonomous action classesBUILD, DRAFT, OBSERVE, RESEARCH, TESTNo authority grant is recorded: every gated action needs your approval.Sources (1)authority_policies"
+  },
+  {
+   "title": "Company work DAG: awaiting your approval",
+   "pill": "UNKNOWN",
+   "has_time": true,
+   "time_text": "as of: unknown",
+   "reason": "no work items recorded yet",
+   "tiles": [],
+   "text": "Company work DAG: awaiting your approvalWork items by state; approve them from Approvals.UNKNOWNas of: unknownno work items recorded yetUnknown: no work items recorded yet.Sources (1)company_work_items"
+  },
+  {
+   "title": "Appearance",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "AppearanceSystemLightDark"
+  },
+  {
+   "title": "Sign out",
+   "pill": null,
+   "has_time": false,
+   "time_text": null,
+   "reason": null,
+   "tiles": [],
+   "text": "Sign outSign out of this device"
+  }
+ ],
+ "bad_tokens": [],
+ "text_len": 5551,
+ "body": "as of just nowEmergency controlsPause publishing, spend or departments immediately. Monitoring, evidence and recovery keep running.Open emergency controlsAuthenticationMethodPassphrase + authenticator codeRe-authenticated untilin 1 min (2026-10-11 00:31:07 UTC)Consequential actions (approvals, resuming anything paused) ask for your passphrase again. Pausing never does.Signed-in devicesRevoke anything you do not recognise.CCVERIFY test browserTHIS DEVICESigned in 4 min ago · last seen just now · expires in 12 hs_54f33ea84a128b8bCCVERIFY test browserSigned in 5 min ago · last seen 5 min ago · expires in 12 hs_2a446070332ff797RevokeUnnamed deviceSigned in 20 min ago · last seen 19 min ago · expires in 12 hs_7ed9a4ff56688f0cRevokeUnnamed deviceSigned in 21 min ago · last seen 21 min ago · expires in 12 hs_bcf1c7734ca00c33RevokeSign out all other devicesOwneras of just nowPrincipalowner (passphrase + TOTP)Login ConfiguredYesTotp RequiredYesStepup Window Seconds300Refused & suspicious attemptsas of just nowloginId74At4 min ago (2026-10-11 00:26:07 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_54f33ea84a128b8bloginBAD_CREDENTIALS: passphrase or code not acceptedId73At4 min ago (2026-10-11 00:26:05 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginId72At5 min ago (2026-10-11 00:24:48 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_2a446070332ff797loginRATE_LIMITED: too many failed logins; wait 15 minutesId71At16 min ago (2026-10-11 00:14:07 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId70At16 min ago (2026-10-11 00:14:05 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginId69At20 min ago (2026-10-11 00:09:30 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_7ed9a4ff56688f0cloginId68At21 min ago (2026-10-11 00:09:19 UTC)OutcomeokMethodPOSTRoute/api/cc/auth/loginSession Ids_bcf1c7734ca00c33loginBAD_CREDENTIALS: passphrase or code not acceptedId67At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId66At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownloginBAD_CREDENTIALS: passphrase or code not acceptedId65At21 min ago (2026-10-11 00:09:19 UTC)OutcomerefusedMethodPOSTRoute/api/cc/auth/loginSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id64At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/forgetSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id63At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/turnSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id62At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/rememberSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id61At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/viewSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id60At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/closeSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id59At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/private/openSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id58At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/voiceSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id57At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/follow-onSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id56At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/laura/askSession IdUnknownrequestNOT_AUTHENTICATED: owner session required (no session)Id55At21 min ago (2026-10-11 00:09:12 UTC)OutcomerefusedMethodPOSTRoute/api/cc/authority/grantSession IdUnknownRefused attempts (24 h)70as of just nowConnected services & OAuth scopesUNKNOWNas of: unknownno connected OAuth service is recordedUnknown: no data available yet.No sources reported, so treat this as unverified.Model providersas of just nowNotea provider is listed only when its credential is configuredConfiguredNone.Budgets & spend limitsUNKNOWNas of just nowno spend limit configured (all spend is refused)Unknown: no data available yet.Sources (1)spend_limitsLive authorities & grantsas of just nowPhasePhaseshadowEnvshadowRecorded PhaseshadowAgreeYesWhyBRAMBLELOOP_PHASE=shadow agrees with the recorded phaseLive GrantsNone.Notification policyas of just nowQuiet HoursUnknownMin SeveritynormalDigestmorningExternal ChannelsGATED: owner authority + CASL review requiredChannelsin_appAuthority ladder: recorded grantsWhat each agent may do on its own, as recorded. Read-only here.OKas of just nowPhaseshadowGated action classesCREDENTIALS, CUSTOMER-REMEDY, DEPLOY, LEGAL-TAX, PUBLISH, SPENDAutonomous action classesBUILD, DRAFT, OBSERVE, RESEARCH, TESTNo authority grant is recorded: every gated action needs your approval.Sources (1)authority_policiesCompany work DAG: awaiting your approvalWork items by state; approve them from Approvals.UNKNOWNas of: unknownno work items recorded yetUnknown: no work items recorded yet.Sources (1)company_work_itemsAppearanceSystemLightDarkSign outSign out of this device",
+ "scroll": [
+  1280,
+  1280
+ ]
+}

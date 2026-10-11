@@ -1,0 +1,791 @@
+{
+ "status": 200,
+ "url": "/api/cc/launch/packet",
+ "body": {
+  "tab": "LAUNCH_PACKET",
+  "generated_at": "2026-10-11T00:30:26+00:00",
+  "status": "UNKNOWN",
+  "reason": "verdict UNKNOWN: 7 of 7 product(s) not publishable now; 7 product(s) with sections never read; 8 open owner action(s)",
+  "sections": {
+   "packet": {
+    "status": "UNKNOWN",
+    "as_of": "2026-10-11T00:29:00.392230+00:00",
+    "basis": "measured",
+    "items": [
+     {
+      "title": "nursery-nesting-baskets · market-basket-small v1.2.0",
+      "status": "UNKNOWN",
+      "certified": false,
+      "publishable_now": false,
+      "physical_proof": "UNKNOWN",
+      "listing_state": null,
+      "price_cad": null,
+      "open_gates": [
+       "certification: UNKNOWN",
+       "parity: UNKNOWN",
+       "listing_set: UNKNOWN",
+       "disclosure: UNKNOWN",
+       "policy: UNKNOWN",
+       "search: UNKNOWN",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "certification UNKNOWN: no stored release for this version; parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set UNKNOWN: listing set not certified; disclosure UNKNOWN: no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists"
+     },
+     {
+      "title": "nursery-nesting-baskets · market-basket-medium v1.2.0",
+      "status": "UNKNOWN",
+      "certified": false,
+      "publishable_now": false,
+      "physical_proof": "UNKNOWN",
+      "listing_state": null,
+      "price_cad": null,
+      "open_gates": [
+       "certification: UNKNOWN",
+       "parity: UNKNOWN",
+       "listing_set: UNKNOWN",
+       "disclosure: UNKNOWN",
+       "policy: UNKNOWN",
+       "search: UNKNOWN",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "certification UNKNOWN: no stored release for this version; parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set UNKNOWN: listing set not certified; disclosure UNKNOWN: no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists"
+     },
+     {
+      "title": "nursery-nesting-baskets · market-basket-large v1.2.0",
+      "status": "UNKNOWN",
+      "certified": false,
+      "publishable_now": false,
+      "physical_proof": "UNKNOWN",
+      "listing_state": null,
+      "price_cad": null,
+      "open_gates": [
+       "certification: UNKNOWN",
+       "parity: UNKNOWN",
+       "listing_set: UNKNOWN",
+       "disclosure: UNKNOWN",
+       "policy: UNKNOWN",
+       "search: UNKNOWN",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "certification UNKNOWN: no stored release for this version; parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set UNKNOWN: listing set not certified; disclosure UNKNOWN: no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists"
+     },
+     {
+      "title": "cloudline-baby-blanket · cloudline-baby-blanket v1.2.0",
+      "status": "UNKNOWN",
+      "certified": true,
+      "publishable_now": false,
+      "physical_proof": "not_required",
+      "listing_state": "draft",
+      "price_cad": 7.5,
+      "open_gates": [
+       "parity: UNKNOWN",
+       "listing_set: FAIL",
+       "policy: UNKNOWN",
+       "search: FAIL",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set FAIL: listing set not certified; policy UNKNOWN: a policy source has never been read; search FAIL: search certificate refuses"
+     },
+     {
+      "title": "hexagon-coaster-set · hexagon-coaster-set v1.2.0",
+      "status": "UNKNOWN",
+      "certified": true,
+      "publishable_now": false,
+      "physical_proof": "not_required",
+      "listing_state": "draft",
+      "price_cad": 4,
+      "open_gates": [
+       "parity: UNKNOWN",
+       "listing_set: FAIL",
+       "policy: UNKNOWN",
+       "search: FAIL",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set FAIL: listing set not certified; policy UNKNOWN: a policy source has never been read; search FAIL: search certificate refuses"
+     },
+     {
+      "title": "nordic-star-ornaments · nordic-star-ornaments v1.4.0",
+      "status": "UNKNOWN",
+      "certified": true,
+      "publishable_now": false,
+      "physical_proof": "not_required",
+      "listing_state": "draft",
+      "price_cad": 4.5,
+      "open_gates": [
+       "parity: UNKNOWN",
+       "listing_set: FAIL",
+       "policy: UNKNOWN",
+       "search: FAIL",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set FAIL: listing set not certified; policy UNKNOWN: a policy source has never been read; search FAIL: search certificate refuses"
+     },
+     {
+      "title": "winter-village-graphghan · winter-village-graphghan v1.3.0",
+      "status": "UNKNOWN",
+      "certified": false,
+      "publishable_now": false,
+      "physical_proof": "UNKNOWN",
+      "listing_state": null,
+      "price_cad": null,
+      "open_gates": [
+       "certification: UNKNOWN",
+       "parity: UNKNOWN",
+       "listing_set: UNKNOWN",
+       "disclosure: UNKNOWN",
+       "policy: UNKNOWN",
+       "search: UNKNOWN",
+       "rollback: UNKNOWN"
+      ],
+      "detail": "certification UNKNOWN: no stored release for this version; parity UNKNOWN: unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']; listing_set UNKNOWN: listing set not certified; disclosure UNKNOWN: no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists"
+     }
+    ],
+    "sources": [
+     "launch.packet.build",
+     "ops.publication_authority.evidence",
+     "launch.readiness.launch_assessment",
+     "core.phase.resolve",
+     "core.build.commit"
+    ],
+    "provider": "launch.packet.build",
+    "verdict": "UNKNOWN",
+    "verdict_rule": "READY only when every product's gated sections PASS, launch readiness is ready and the recorded phase agrees with the environment; UNKNOWN when anything was never read",
+    "candidate_sha": "unknown",
+    "phase": {
+     "phase": "shadow",
+     "env": "shadow",
+     "recorded_phase": "shadow",
+     "transition_id": null,
+     "agree": true,
+     "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+    },
+    "owner_queue": {
+     "ready": false,
+     "state": "FAIL",
+     "readiness_ready_before_off_device_proof": false,
+     "off_device_autonomy_proof": {
+      "key": "off_device_autonomy_proof",
+      "blocking": true,
+      "status": "NOT PROVEN",
+      "unmet": [
+       "jobs_completed",
+       "activity_spread",
+       "scheduler_alive"
+      ],
+      "window_hours": 24,
+      "why": "NOT PROVEN: jobs_completed, activity_spread, scheduler_alive unmet over the last 24 hours. #195 is launch-blocking, so launch is not ready until a full window passes every condition"
+     },
+     "providers": [],
+     "storage_durable": false,
+     "owner_actions": [
+      {
+       "key": "artifact_storage",
+       "action": "Approve object storage for generated PDFs and images (Railway volume or an S3-compatible bucket), about CA$1-5 per month, within the existing CA$20 ceiling.",
+       "why": "Artifact bytes are written to a container filesystem and do not survive a restart. The hashes are durable, so nothing is silently lost and everything re-renders from the certified CIR -- but a buyer's download link cannot point at a file that is regenerated on demand from a process that may be cold.",
+       "max_cost_cad": 5,
+       "minutes": 10,
+       "consequence_of_delay": "Every asset has to be re-rendered after a deploy. Harmless in shadow mode; a broken download for a paying customer once live.",
+       "blocks": "reliable delivery of purchased files"
+      },
+      {
+       "key": "etsy_shop",
+       "action": "Open the Etsy shop for Brambleloop Studio and complete Etsy's identity verification (name, address, government ID as Etsy requests it), then add the shop name, currency CAD and Canada as the shop location.",
+       "why": "Nothing can be published without a shop. Etsy's identity check is a legal requirement on the seller and must be completed by the person who is the seller -- automating it is both against Etsy's terms and against this system's own non-negotiables.",
+       "max_cost_cad": 0,
+       "minutes": 25,
+       "consequence_of_delay": "Every finished product stays in draft. The catalogue, imagery, pricing and launch calendar are all complete and idle.",
+       "blocks": "publishing anything at all"
+      },
+      {
+       "key": "payout",
+       "action": "Add the payout bank account and tax details to the Etsy shop (Canadian chequing account; GST/HST number if you have one, otherwise the small-supplier declaration).",
+       "why": "Etsy will not open a shop to buyers without a payout method, and revenue that cannot be paid out is not revenue. Banking credentials must be entered by the account holder.",
+       "max_cost_cad": 0,
+       "minutes": 15,
+       "consequence_of_delay": "Listings cannot go live even once the shop exists.",
+       "blocks": "publishing, and any revenue at all"
+      },
+      {
+       "key": "listing_fees",
+       "action": "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per listing for 4 months, so about US$0.60 (about CA$0.84) for the 3 listings currently drafted, plus 6.5% transaction fee and payment processing on each sale (fee reading of 2026-09-26).",
+       "why": "This is the first spend that leaves the account, and the directive is explicit that no consequential spend happens without approval. It is small, but it is not zero and it is not reversible.",
+       "max_cost_cad": 5,
+       "minutes": 2,
+       "consequence_of_delay": "Publishing stays blocked on a two-minute decision.",
+       "blocks": "publishing"
+      },
+      {
+       "key": "model_credits",
+       "action": "Add credit to the Anthropic account the API key belongs to. The console's smallest top-up is enough to start; the build's own ceiling is CA$100 a month and is enforced in code, so a larger balance cannot be spent faster than that.",
+       "why": "The key you supplied authenticates. The first request it made returned, verbatim, 'Your credit balance is too low to access the Anthropic API', so the account cannot serve a request. Nothing in the build treats the provider as available until a real call succeeds, which means four requirements stay parked and no model work starts -- correctly, but they are parked on this.",
+       "max_cost_cad": 25,
+       "minutes": 3,
+       "consequence_of_delay": "The creativity capability scorecard's blinded comparison (#94), the creative north star's desirability judgement (#104) and the two model-routing requirements (#177, #178) stay parked. The rest of Build 2 continues unaffected.",
+       "blocks": "every requirement that needs a model to make a judgement"
+      },
+      {
+       "key": "brand_clearance",
+       "action": "Decide whether to file a Canadian trademark for \"Brambleloop Studio\" (CA$458.05 for the first class). The free knock-out search on the Canadian register is company work and is not asked of you.",
+       "why": "The shop name goes on every listing, PDF and image. Discovering a conflict after the name is on a hundred customer documents is expensive in a way that checking first is not. Filing is a spend decision, so it is the owner's.",
+       "max_cost_cad": 460,
+       "minutes": 20,
+       "consequence_of_delay": "Brand equity accumulates on a name that has not been cleared. Low risk at zero sales, rising with every sale.",
+       "blocks": "nothing yet; rises with volume"
+      },
+      {
+       "key": "benchmark_challenge",
+       "action": "Buy the selected MJs benchmark patterns -- the current set and its cost are at /api/benchmark-selection, chosen for coverage of the facets a customer-experience teardown can differ along rather than by popularity -- then open /ops/teardown on a phone, tap each pick and choose the downloaded files. Zips go in as they downloaded. Nothing needs renaming, sorting or describing.",
+       "why": "#168 blocks a live launch until a representative Brambleloop product has been compared, dimension by dimension, against the best category-matched product a customer could buy instead. Without a purchased benchmark that comparison cannot be made, and an unrun challenge is not a pass -- it is the one check that would catch us shipping something a buyer would rate below what they already own.",
+       "max_cost_cad": 300,
+       "minutes": 30,
+       "consequence_of_delay": "The pre-launch challenge stays unrunnable, so the first honest comparison against a paid competitor happens in a buyer's downloads folder.",
+       "blocks": "the pre-launch benchmark challenge, and therefore live publishing"
+      },
+      {
+       "key": "phase",
+       "action": "After the checks above, record the move to staging (then limited production) via POST /api/owner/phase/transition with readiness and rollback evidence refs -- the ids of a recent launch.assessed row and a recent launch.rollback_rehearsed row (both passing from limited production up) -- once GET /api/owner/phase/verdict shows the launch verdict ready (every move up re-evaluates it at transition time, F-300), and set BRAMBLELOOP_PHASE to the same value, one step at a time (F-299: either one alone runs as the more restrictive phase).",
+       "why": "Shadow mode is enforced in code and refuses to publish, message customers or spend on advertising. Only the owner moves the phase, which is the point: the system cannot promote itself.",
+       "max_cost_cad": 0,
+       "minutes": 5,
+       "consequence_of_delay": "Everything stays drafted and nothing reaches a customer.",
+       "blocks": "the entire commercial phase"
+      }
+     ],
+     "outstanding": [
+      {
+       "key": "catalogue_depth",
+       "description": "at least 8 certified launch-scope products with listings (sizes are not counted as separate products)",
+       "blocked_by": "build"
+      },
+      {
+       "key": "listing_photography",
+       "description": "every certified product-first pattern has truthful customer-ready listing imagery that cleared its floors (a photograph, or a verified disclosed render set under D-FB-7)",
+       "blocked_by": "build"
+      },
+      {
+       "key": "content",
+       "description": "marketing content exists for the opening catalogue",
+       "blocked_by": "build"
+      },
+      {
+       "key": "storefront",
+       "description": "shop announcement, About, all five policies, the shop SEO surface (F-236), the public identity (F-240) and the rendered icon/banner and buyer-facing copy (F-233 storefront_gate) pass their checks",
+       "blocked_by": "build"
+      },
+      {
+       "key": "storefront_preview",
+       "description": "the pre-launch storefront preview renders at phone and desktop widths and passes its legibility checks: icon at 40/70px, banner crops, announcement opening, sections, first tiles from certified frames (F-239/F-293)",
+       "blocked_by": "build"
+      },
+      {
+       "key": "seller_identity",
+       "description": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "etsy_integration",
+       "description": "an Etsy integration exists, is credentialled and has been exercised",
+       "blocked_by": "integration"
+      },
+      {
+       "key": "artifact_storage",
+       "description": "purchased files live in durable storage",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "etsy_shop",
+       "description": "an Etsy shop exists, with identity verification complete",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "payout",
+       "description": "a payout account and tax details are on the shop",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "listing_fees",
+       "description": "the owner has approved Etsy's listing and transaction fees",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "model_credits",
+       "description": "the model provider can actually serve a request, proved by one",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "physical_calibration",
+       "description": "at least one physical sample has calibrated the yardage estimate",
+       "blocked_by": "tester"
+      },
+      {
+       "key": "risk_based_physical_evidence",
+       "description": "every certified release holds the physical evidence its risk tier requires, bound to its exact content",
+       "blocked_by": "tester"
+      },
+      {
+       "key": "brand_clearance",
+       "description": "the shop name has been through a trademark knock-out search",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "benchmark_challenge",
+       "description": "a representative product has beaten, or deliberately traded against, the best category-matched purchased benchmark",
+       "blocked_by": "owner"
+      },
+      {
+       "key": "rollback_plan",
+       "description": "a way to withdraw everything published without losing the evidence: every listing's certificate retained and its withdrawal round trip rehearsed (dry) within 3 days",
+       "blocked_by": "build"
+      },
+      {
+       "key": "sustainable_economics",
+       "description": "estimated steady-state AI/API cost is sustainable against contribution at opening prices, with no constant owner top-ups",
+       "blocked_by": "build"
+      },
+      {
+       "key": "final_master_closure",
+       "description": "every launch-critical Final Master requirement is complete or explicitly gated, and the closure snapshot passes its integrity checks",
+       "blocked_by": "build"
+      },
+      {
+       "key": "phase",
+       "description": "the phase allows publishing",
+       "blocked_by": "owner"
+      }
+     ],
+     "buildable": [
+      "catalogue_depth",
+      "listing_photography",
+      "content",
+      "storefront",
+      "storefront_preview",
+      "rollback_plan",
+      "sustainable_economics",
+      "final_master_closure"
+     ],
+     "unknowns": [
+      {
+       "key": "physical_calibration",
+       "source": "core.models.PhysicalTest",
+       "unknown": "no physical sample has been worked: every finished size, yardage and make-time figure is arithmetic from a stated gauge (twin.calibrated is False)",
+       "touches": "size and yardage claims, Class C release, first-customer gauge_and_size_claims"
+      },
+      {
+       "key": "uncalibrated_primitives",
+       "source": "cir.stitches.calibration_table",
+       "unknown": "10 stitch primitives have no measured height or yarn draw: beg_star_st, bob, bpdc, cable1x1, cable2x2, end_star_st, fpdc, hdc3, hdc_inc, star_st",
+       "touches": "any pattern using them (F-074)"
+      },
+      {
+       "key": "etsy_surface:digital_files",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Etsy's per-file size and count limits for digital listings are not in the OpenAPI document and the help page that carries them is 403 here. A deliverable larger than the limit would fail at upload, not at compile.",
+       "touches": "the Etsy surface 'digital_files'"
+      },
+      {
+       "key": "etsy_surface:orders",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether Etsy's consent screen re-grants the existing five scopes silently or presents them again for approval. Settled by doing it once.",
+       "touches": "the Etsy surface 'orders'"
+      },
+      {
+       "key": "etsy_surface:production_partners",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether Etsy considers a generative model used for listing imagery a production partner. Etsy's guidance is on help.etsy.com, which is 403 here. The AI-disclosure question is handled in `gates/platform_policy` and in the listing description; this entry records the doubt rather than resolving it.",
+       "touches": "the Etsy surface 'production_partners'"
+      },
+      {
+       "key": "etsy_surface:search_visibility",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether /listings/active's `score` ordering is the same ranking buyers see. Etsy does not say. Not settleable without a live listing to compare against a browser search.",
+       "touches": "the Etsy surface 'search_visibility'"
+      },
+      {
+       "key": "etsy_surface:share_and_save",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether enrolling changes the transaction fee on non-attributed orders, which would move the pricing floor. Unreadable from here.",
+       "touches": "the Etsy surface 'share_and_save'"
+      },
+      {
+       "key": "etsy_surface:taxonomy_and_attributes",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether taxonomy id 66 is the crochet-patterns node, and whether that node marks any property is_required. One API-key GET answers both.",
+       "touches": "the Etsy surface 'taxonomy_and_attributes'"
+      },
+      {
+       "key": "etsy_surface:taxonomy_and_attributes",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "This repository sends TAXONOMY_PATTERNS = 66 and has never read it back from Etsy. The OpenAPI document contains no taxonomy ids at all -- 'craft_supplies' appears zero times -- so it cannot be settled from the document. One unauthenticated GET to getSellerTaxonomyNodes with the API key settles it, and this lane is forbidden from making it.",
+       "touches": "the Etsy surface 'taxonomy_and_attributes'"
+      },
+      {
+       "key": "etsy_surface:webhooks",
+       "source": "intel.etsy_surfaces.coverage",
+       "unknown": "Whether a personal (non-commercial) application can subscribe. The page says webhooks are \"available for both commercial and personal applications\" and then describes the portal as reached through \"your commercial app\". Settled by opening the portal once.",
+       "touches": "the Etsy surface 'webhooks'"
+      },
+      {
+       "key": "launch0_make_time:nursery-nesting-baskets",
+       "source": "products.launch0.make_time",
+       "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+       "touches": "nursery-nesting-baskets make-time and lead-time claims"
+      },
+      {
+       "key": "launch0_make_time:cloudline-baby-blanket",
+       "source": "products.launch0.make_time",
+       "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+       "touches": "cloudline-baby-blanket make-time and lead-time claims"
+      },
+      {
+       "key": "launch0_make_time:hexagon-coaster-set",
+       "source": "products.launch0.make_time",
+       "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+       "touches": "hexagon-coaster-set make-time and lead-time claims"
+      },
+      {
+       "key": "launch0_make_time:nordic-star-ornaments",
+       "source": "products.launch0.make_time",
+       "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+       "touches": "nordic-star-ornaments make-time and lead-time claims"
+      },
+      {
+       "key": "launch0_make_time:winter-village-graphghan",
+       "source": "products.launch0.make_time",
+       "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+       "touches": "winter-village-graphghan make-time and lead-time claims"
+      },
+      {
+       "key": "storefront_preview:viewport",
+       "source": "brand.storefront_preview",
+       "unknown": "the phone banner crop, announcement length and section-label width are ASSUMED figures for Etsy's layout; the live shop is inspected only once a browser worker exists (rendered_pages)",
+       "touches": "the pre-launch storefront preview renders at phone and desktop widths and passes its legibility checks: icon at 40/70px, banner crops, announcement opening, sections, first tiles from certified frames (F-239/F-293)"
+      },
+      {
+       "key": "seller_identity:name",
+       "source": "brand.seller_identity",
+       "unknown": "the name on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+       "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+      },
+      {
+       "key": "seller_identity:country",
+       "source": "brand.seller_identity",
+       "unknown": "the country on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+       "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+      },
+      {
+       "key": "seller_identity:currency",
+       "source": "brand.seller_identity",
+       "unknown": "the currency on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+       "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+      },
+      {
+       "key": "seller_identity:owner_display_name",
+       "source": "brand.seller_identity",
+       "unknown": "the owner_display_name on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+       "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+      },
+      {
+       "key": "seller_identity:tax_registration",
+       "source": "brand.seller_identity",
+       "unknown": "the tax_registration on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+       "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+      },
+      {
+       "key": "model_provider",
+       "source": "gateway.anthropic.last_probe",
+       "unknown": "the model provider has never been probed",
+       "touches": "the model provider can actually serve a request, proved by one"
+      },
+      {
+       "key": "proxy:brand_moat",
+       "source": "launch.readiness:brand_moat",
+       "unknown": "measured by proxy only (recognisability_proxy: count of built non-model signatures)",
+       "touches": "the brand rests on something a competitor cannot reproduce in weeks, and every product-first listing is recognisable without the model"
+      }
+     ],
+     "questions": {
+      "ready": false,
+      "answers": {
+       "findable": {
+        "question": "Can buyers find it?",
+        "pass": false,
+        "checked": [
+         "catalogue_depth",
+         "launch_calendar",
+         "analytics_baseline"
+        ],
+        "failing": [
+         "catalogue_depth"
+        ],
+        "blocked_by": [
+         "build"
+        ]
+       },
+       "clickable": {
+        "question": "Will they click?",
+        "pass": false,
+        "checked": [
+         "listing_imagery",
+         "listing_photography",
+         "opening_grid",
+         "storefront_preview"
+        ],
+        "failing": [
+         "listing_photography",
+         "storefront_preview"
+        ],
+        "blocked_by": [
+         "build"
+        ]
+       },
+       "converts_honestly": {
+        "question": "Does it convert honestly?",
+        "pass": false,
+        "checked": [
+         "pricing",
+         "content",
+         "digital_disclosure",
+         "faq",
+         "pricing_promotion_plan",
+         "sustainable_economics"
+        ],
+        "failing": [
+         "content",
+         "sustainable_economics"
+        ],
+        "blocked_by": [
+         "build"
+        ]
+       },
+       "pattern_makes_what_is_shown": {
+        "question": "Does the pattern make what is shown?",
+        "pass": false,
+        "checked": [
+         "imagery_truthful",
+         "physical_calibration",
+         "benchmark_challenge"
+        ],
+        "failing": [
+         "physical_calibration",
+         "benchmark_challenge"
+        ],
+        "blocked_by": [
+         "owner",
+         "tester"
+        ]
+       },
+       "shop_trustworthy": {
+        "question": "Is the shop trustworthy?",
+        "pass": false,
+        "checked": [
+         "storefront",
+         "seller_identity",
+         "no_open_incidents",
+         "etsy_shop",
+         "payout",
+         "brand_clearance",
+         "brand_moat",
+         "support_knowledge"
+        ],
+        "failing": [
+         "storefront",
+         "seller_identity",
+         "etsy_shop",
+         "payout",
+         "brand_clearance"
+        ],
+        "blocked_by": [
+         "build",
+         "owner"
+        ]
+       },
+       "ads_measurable_bounded": {
+        "question": "Are ads measurable and bounded?",
+        "pass": false,
+        "checked": [
+         "spend_guards",
+         "rollback_plan",
+         "analytics_baseline"
+        ],
+        "failing": [
+         "rollback_plan"
+        ],
+        "blocked_by": [
+         "build"
+        ]
+       },
+       "other_hard_gates": {
+        "question": "Every other hard gate (accounts, storage, process)",
+        "pass": false,
+        "checked": [
+         "etsy_integration",
+         "artifact_storage",
+         "listing_fees",
+         "model_credits",
+         "risk_based_physical_evidence",
+         "final_master_closure",
+         "phase",
+         "off_device_autonomy_proof"
+        ],
+        "failing": [
+         "etsy_integration",
+         "artifact_storage",
+         "listing_fees",
+         "model_credits",
+         "risk_based_physical_evidence",
+         "final_master_closure",
+         "phase",
+         "off_device_autonomy_proof"
+        ]
+       }
+      },
+      "excluded": [],
+      "rule": "any failed hard gate blocks launch (F-300)"
+     }
+    },
+    "owner_queue_error": null,
+    "spend_limits": [],
+    "spend_limits_error": null,
+    "recorded_suite": {
+     "state": "UNKNOWN",
+     "suite_file": "research/final_build/RUN_6f9a2f7_full_suite.json",
+     "closure_file": "research/final_build/closure_matrix.json",
+     "suite": {},
+     "closure": {
+      "summary": {
+       "rows": 917,
+       "unmapped": [],
+       "problems": [],
+       "maturity": {
+        "DEPLOYED": 185,
+        "INTEGRATED": 497,
+        "MISSING": 109,
+        "IMPLEMENTED": 56,
+        "TESTED": 52,
+        "EXERCISED": 18
+       },
+       "maturity_claimed": {
+        "EXERCISED": 117,
+        "INTEGRATED": 467,
+        "DEPLOYED": 132,
+        "MISSING": 109,
+        "IMPLEMENTED": 45,
+        "TESTED": 47
+       },
+       "launch_class": {
+        "LAUNCH-CRITICAL": 490,
+        "MATURE": 420,
+        "NA": 7
+       },
+       "launch_critical_maturity": {
+        "DEPLOYED": 113,
+        "INTEGRATED": 321,
+        "IMPLEMENTED": 4,
+        "EXERCISED": 18,
+        "TESTED": 29,
+        "MISSING": 5
+       },
+       "gate_kind": {
+        "none": 618,
+        "owner": 176,
+        "data": 84,
+        "external": 39
+       },
+       "launch_critical_gate_kind": {
+        "none": 355,
+        "owner": 89,
+        "external": 29,
+        "data": 17
+       },
+       "coverage": {
+        "FULL": 422,
+        "PARTIAL": 495
+       },
+       "downgraded": 143,
+       "defects": 24,
+       "wave_reported": {
+        "PARTIAL": 50,
+        "DONE": 55,
+        "NOT_STARTED": 1
+       },
+       "completion": {
+        "COMPLETE": 355,
+        "GATED": 126,
+        "POST-LAUNCH": 420,
+        "OPEN": 9,
+        "NOT-APPLICABLE": 7
+       },
+       "launch_critical_completion": {
+        "COMPLETE": 355,
+        "GATED": 126,
+        "OPEN": 9
+       },
+       "launch_critical_open": 9,
+       "launch_critical_open_reasons": {
+        "maturity TESTED": 5,
+        "coverage PARTIAL": 8,
+        "maturity IMPLEMENTED": 3
+       },
+       "protected_action_applicability": {
+        "protected": 578,
+        "unprotected": 339
+       },
+       "capped_by_unwritten_state": 1,
+       "capped_by_proxy_evidence": 0,
+       "mapped_on": {
+        "fee1cfe": 177,
+        "8b67414": 45,
+        "6f9a2f7": 163,
+        "019ebf0": 523,
+        "2f36fe0": 9
+       },
+       "orphaned_partials": [],
+       "structural_target_overrides": [
+        "F-123",
+        "F-170",
+        "F-177",
+        "F-178",
+        "F-205",
+        "F-332",
+        "F-334",
+        "F-340",
+        "F-342",
+        "F-344",
+        "F-345",
+        "F-346",
+        "F-347",
+        "F-348",
+        "F-349",
+        "F-350",
+        "F-836",
+        "F-837",
+        "F-843",
+        "F-847"
+       ]
+      }
+     },
+     "why": "recorded evidence quoted as found; it was produced for the commit it names, which may not be this candidate -- re-run the suite for this SHA"
+    },
+    "rollback_path": {
+     "this_grant": "covers draft creation only: an Etsy draft is never visible to buyers, so no buyer can exist for it",
+     "remove_draft": "EtsyClient.delete_listing(listing_id) -- reads the listing back first and refuses unless Etsy reports it as draft or inactive",
+     "if_later_activated": "activation is a separate owner grant (store.activate). To withdraw a live listing the owner deactivates it in Etsy Shop Manager -- no automated deactivation job exists in this system -- and the release chain marks the local Listing 'withdrawn' (audited listing.withdrawn); it is restored via chain.rebuild from the retained release",
+     "buyers": "deactivation does not reach buyers who already purchased; the shop's buyer copy tells them downloads stay under Etsy Purchases. That Etsy behaviour is UNKNOWN to this system (not verified); a correcting release prepares buyer notices that the owner sends"
+    },
+    "activation_steps": [
+     "Resolve every open owner gate listed under each product and in the owner queue.",
+     "Record the phase move one step at a time via POST /api/owner/phase/transition (owner credential; evidence refs 'readiness' and 'rollback'), and set BRAMBLELOOP_PHASE on the deployment to the same value -- a mismatch runs as the more restrictive phase.",
+     "For each product: POST /api/owner/publication/preview, read its evidence, then POST /api/owner/publication/approve with the previewed digest (grant expires in 24 h; any change in the bound evidence voids it).",
+     "store.publish creates the Etsy draft only after re-validating phase, grant, parity, gates, payload, PDFs and images at the pre-create boundary.",
+     "Activation is a separate owner grant via /api/owner/activation; store.activate is the only path that makes a listing live and incurs the listing fee."
+    ],
+    "cache": {
+     "read_at": "2026-10-11T00:29:10.409233+00:00",
+     "ttl_seconds": 300,
+     "refreshing": false
+    },
+    "reason": "verdict UNKNOWN: 7 of 7 product(s) not publishable now; 7 product(s) with sections never read; 8 open owner action(s)"
+   }
+  }
+ }
+}
