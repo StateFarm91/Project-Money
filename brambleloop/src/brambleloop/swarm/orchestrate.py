@@ -1776,7 +1776,8 @@ def _admission_session(db, job):
     raise AssertionError("unreachable")  # pragma: no cover
 
 
-def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
+def lane_hold(db, job, *, worker: str, now: datetime | None = None,
+              control_lane: bool = False) -> bool:
     """Give a just-claimed job back to the queue if its lane is full. True when it was held.
 
     The single call the worker makes after `claim` and before running anything. The job goes
@@ -1797,6 +1798,14 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
         now = now or datetime.now(timezone.utc)
         decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id,
                                   now=now)
+        if decision["may_claim"] and control_lane:
+            # W4-AUTONOMY: the control lane (runtime.lanes) is a dedicated thread *beside*
+            # the pool, so the pool's function mix does not apply to it. Production held
+            # `autonomy.orchestrate` on the control lane for the infrastructure share
+            # (2026-10-11T14:03Z), delaying the very loop that gives idle departments work.
+            # The agent-lane concurrency limit above still applies.
+            lock.commit()
+            return False
         if decision["may_claim"]:
             # C-68 (#5, #30): the function mix and the production-lane split, at the same claim.
             from .capacity import share_decision

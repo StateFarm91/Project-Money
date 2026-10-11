@@ -226,6 +226,23 @@ def _runnable(rows, now):
             and _aware(j.run_after) <= now]
 
 
+def unrunnable_waiting(db, waiting, *, now: datetime) -> set[int]:
+    """Ids of due jobs a worker would claim only to give back: model jobs while the model
+    provider is measurably down (`runtime.worker.park_if_model_down` would park them)."""
+    from ..runtime.worker import MAX_PARK_SECONDS, MODEL_JOB_TYPES, model_provider_down
+
+    model = [j for j in waiting if j.job_type in MODEL_JOB_TYPES
+             and (j.created_at is None
+                  or (now - _aware(j.created_at)).total_seconds() <= MAX_PARK_SECONDS)]
+    if not model:
+        return set()
+    try:
+        down = model_provider_down(db, now=now).get("down")
+    except Exception:  # noqa: BLE001 - an unreadable outage is not evidence of one
+        down = False
+    return {j.id for j in model} if down else set()
+
+
 def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",)) -> dict:
     """Whether a just-claimed job's function share and production-lane share leave it room.
 
@@ -249,6 +266,13 @@ def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",)) 
             s.expunge(j)
     running = [j for j in running if not j.job_type.startswith(tuple(exempt))]
     waiting = [j for j in waiting if not j.job_type.startswith(tuple(exempt))]
+    # W4-AUTONOMY: work-conserving means "something starved *can run*". A model job while the
+    # model provider is measurably down is claimed only to be parked again (F-098), so it is
+    # not starved work: holding a runnable job of another function for it idles a worker
+    # and runs nothing.
+    unrunnable = unrunnable_waiting(db, waiting, now=now)
+    if unrunnable:
+        waiting = [j for j in waiting if j.id not in unrunnable]
 
     workers = worker_threads()
     mix = latest_mix(db, now=now)

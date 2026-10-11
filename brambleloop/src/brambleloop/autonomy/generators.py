@@ -55,39 +55,83 @@ def _aware(value):
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+# A pending job due within this many seconds is treated as due: it covers clock skew between
+# an enqueue and the read that follows it (run_after defaults to the enqueue instant) and a
+# 60-second lane hold, which is a job about to run rather than one that is waiting.
+DUE_GRACE_SECONDS = 60
+
+
+def due_cutoff(now: datetime) -> datetime:
+    return now + timedelta(seconds=DUE_GRACE_SECONDS)
+
+
+def actionable(status, run_after, now: datetime) -> bool:
+    """Whether an open job is work a worker can take now (or within `DUE_GRACE_SECONDS`).
+
+    RUNNING is. PENDING/FAILED is only once its `run_after` has arrived: a job parked because
+    the model provider is out of credit (F-098, re-parked every 30 min for up to 24 h) or a
+    retry in a long back-off is *waiting*, not occupying its department.
+    """
+    st = getattr(status, "value", status)
+    if st == JobStatus.RUNNING.value:
+        return True
+    if st not in (JobStatus.PENDING.value, JobStatus.FAILED.value):
+        return False
+    ra = _aware(run_after)
+    return ra is None or ra <= due_cutoff(now)
+
+
 @dataclass
 class Snapshot:
-    """One read of the queue shared by every department's generator in a tick."""
+    """One read of the queue shared by every department's generator in a tick.
+
+    W4-AUTONOMY (2026-10-11, Rule #1): `open_by_department` -- what makes a department BUSY
+    and therefore ungenerated -- counts only *actionable* jobs (`actionable`). Production ran
+    for hours with Product & Design, Intelligence and Visual reading BUSY on nothing but
+    model jobs parked while the Anthropic balance is spent (creative.tournament x4,
+    creative.grid_tournament, intel.gallery_analysis, seasonal.cycle_proof): no worker could
+    run them, and the orchestrator gave those departments none of the deterministic work
+    their generators held. `open_by_type` still counts every open job, so a type that is
+    merely waiting is never enqueued a second time; waiting jobs are reported in
+    `waiting_by_department`.
+    """
 
     now: datetime
     open_by_type: dict[str, int]
     last_done: dict[str, tuple[datetime, int]]        # job_type -> (finished_at, job id)
     open_by_department: dict[str, int]
+    waiting_by_department: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def read(cls, db, now: datetime) -> "Snapshot":
         from .kpis import job_department
 
         with db.session() as s:
-            open_rows = list(s.execute(select(Job.job_type, Job.inputs).where(
+            open_rows = list(s.execute(select(Job.job_type, Job.inputs, Job.status,
+                                              Job.run_after).where(
                 Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED]))))
             last = s.execute(select(Job.job_type, func.max(Job.finished_at), func.max(Job.id))
                              .where(Job.status == JobStatus.DONE)
                              .group_by(Job.job_type)).all()
         open_by_type: dict[str, int] = {}
         open_by_dept: dict[str, int] = {}
-        for jt, inputs in open_rows:
+        waiting_by_dept: dict[str, int] = {}
+        for jt, inputs, status, run_after in open_rows:
             open_by_type[jt] = open_by_type.get(jt, 0) + 1
             # The orchestrator itself is not department work; a pending tick must not make
             # the executive look busy forever.
             if jt == "autonomy.orchestrate":
                 continue
             d = job_department(jt, inputs)
-            if d:
+            if not d:
+                continue
+            if actionable(status, run_after, now):
                 open_by_dept[d] = open_by_dept.get(d, 0) + 1
+            else:
+                waiting_by_dept[d] = waiting_by_dept.get(d, 0) + 1
         return cls(now=now, open_by_type=open_by_type,
                    last_done={jt: (_aware(at), int(i)) for jt, at, i in last if at},
-                   open_by_department=open_by_dept)
+                   open_by_department=open_by_dept, waiting_by_department=waiting_by_dept)
 
 
 def _model(name: str):
@@ -99,6 +143,11 @@ def handoff_candidates(db, charter: charters.Charter, snap: Snapshot) -> list[Ca
     for h in charter.consumes:
         model = _model(h.table)
         col = getattr(model, h.time_column)
+        # A consumer job already open (even one only waiting) will read these rows when it
+        # runs; a second one would duplicate it. Before W4-AUTONOMY a department with any
+        # open job was BUSY and never reached this line, so the guard was implicit.
+        if snap.open_by_type.get(h.consumer_job_type):
+            continue
         last = snap.last_done.get(h.consumer_job_type)
         q = select(func.count(), func.max(model.id))
         for attr, value in h.where:

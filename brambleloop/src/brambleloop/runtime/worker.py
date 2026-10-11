@@ -306,6 +306,10 @@ class Worker:
         # applies to the next job (and `protected_phase` re-checks at each effect boundary).
         self.live_phase = live_phase
         self.job_types = list(job_types) if job_types else None
+        # A dedicated claimer of control job types only (runtime.lanes.CONTROL).
+        from .lanes import CONTROL as _CONTROL
+
+        self._control_lane = bool(self.job_types) and set(self.job_types) <= _CONTROL
         self.queue = JobQueue(db, lease_seconds=lease_seconds)
         self.agents = Registry(db)
         self.handlers = registry or handlers
@@ -342,7 +346,8 @@ class Worker:
 
         # #175: the lane allocation limits how many jobs an agent's lane runs at once. A job
         # over its lane's concurrency goes back to PENDING un-counted (audited swarm.lane_held).
-        if lane_hold(self.db, job, worker=self.name):
+        if lane_hold(self.db, job, worker=self.name,
+                     control_lane=getattr(self, "_control_lane", False)):
             return True
 
         # Authorize before anything else, including handler lookup. An agent reaching for work

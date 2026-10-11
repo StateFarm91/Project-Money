@@ -16,6 +16,17 @@
 > benchmark challenge now covers basket and coaster (was "uncategorised"). Scratch shadow chain radar.scan → … →
 > store.publish: 7/7 Launch-0 releases certified, Product Truth PASS, listings drafted, all refused at the owner
 > boundary; trend evidence UNMEASURED (none stamped). Report: `research/final_build/w4/PRODUCT_FIX.md`.
+> **2026-10-11 — W4-AUTONOMY: "departments idle while eligible work exists" root-caused and fixed (branch `claude/w4-AUTONOMY`, NOT deployed; production stays 0417f35).**
+> Production evidence (public GETs 14:39Z): the only open jobs were model jobs parked on the spent Anthropic balance, and
+> the orchestrator counted them as department work, so Product & Design, Intelligence and Visual read BUSY and got none
+> of their deterministic work (`rule1.measure` masked it the same way; `idle_wake` and Laura's empty-queue path never
+> fired). `ops.sentinel` dead-lettered 7× in 8 min on Postgres VARCHAR(200) (`rebuild:product:` key 544 chars; SQLite
+> never enforces it), so 14 stale products' `chain.rebuild` never queued. Share holds favoured unrunnable model jobs and
+> held the control lane's own `autonomy.orchestrate`. Fixes: actionable-only busy count (60 s due grace, waiting jobs
+> reported, no duplicates), deterministic key fitting at the enqueue boundary, work-conserving share holds, control
+> lane exempt from the pool mix. 10 regression tests (8 fail on 0417f35); Postgres 16 reproduction of the exact
+> production error; production-seeded simulation 0 → 9 missions for the three departments, parked jobs untouched.
+> Shadow, authority, spend and model policy unchanged. Evidence: `research/final_build/w4/AUTONOMY_FIX.md`.
 
 > **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
 > `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
