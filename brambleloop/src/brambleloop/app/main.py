@@ -674,6 +674,36 @@ def api_tick() -> dict:
     return {"enqueued": Scheduler(db).tick()}
 
 
+_NO_FILTER_AUDIT = {"state": "UNMEASURED", "entered": [], "lost_to_missing_data": [],
+                    "lost": [], "why": "listing.seo has not written a search profile for this "
+                                       "listing version"}
+
+
+def _catalogue_filters() -> dict:
+    """F-009: per listing version, the Etsy filters it enters and the ones it loses, read from
+    the search profile `listing.seo` stored (`ListingSearchProfile.filters`, produced by
+    `commerce.category.filter_audit`). UNMEASURED while the node's schema is unknown -- the
+    taxonomy has not been read -- never an empty list that reads as "no filter lost"."""
+    from ..core.models import ListingSearchProfile
+
+    out: dict = {}
+    with db.session() as s:
+        for row in s.scalars(select(ListingSearchProfile)):
+            f = row.filters or {}
+            measurable = bool(f.get("measurable"))
+            out[(row.product_slug, row.version)] = {
+                "state": "MEASURED" if measurable else "UNMEASURED",
+                "entered": [x.get("filter") for x in f.get("entered") or []],
+                "lost_to_missing_data": list(f.get("lost_to_missing_data") or []),
+                "lost": [{"filter": x.get("filter"), "status": x.get("status")}
+                         for x in f.get("lost") or []],
+                "why": ("filters the listing's Etsy node offers, entered vs lost, from the "
+                        "stored taxonomy snapshot" if measurable else
+                        f"category {row.category_status}: no taxonomy node schema to audit "
+                        "against (listing.taxonomy_refresh has not read Etsy's taxonomy)")}
+    return out
+
+
 @app.get("/api/catalogue")
 def api_catalogue() -> dict:
     """What the shop would be, if it were open. Drafted, never published."""
@@ -702,6 +732,7 @@ def api_catalogue() -> dict:
     profiles = {(l.product_slug, l.version): ranking_readiness.profile(
         db, l.product_slug, l.version, shared=shared) for l in listings}
     order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
+    filters = _catalogue_filters()
 
     return {
         "published": False,
@@ -717,7 +748,8 @@ def api_catalogue() -> dict:
              "chain_version": l.chain_version,
              "release": (l.release_hash or "")[:12],
              "images": by_slug.get(l.product_slug, 0),
-             "content_pieces": content_by_slug.get(l.product_slug, 0)}
+             "content_pieces": content_by_slug.get(l.product_slug, 0),
+             "filters": filters.get((l.product_slug, l.version), dict(_NO_FILTER_AUDIT))}
             for l in sorted(listings, key=lambda x: (
                 order.get(profiles[(x.product_slug, x.version)]["search_certificate"]
                           ["verdict"], 9), x.product_slug))
