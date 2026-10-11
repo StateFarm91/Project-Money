@@ -1,0 +1,2595 @@
+{
+ "generated_at": "2026-10-11T05:35:36+00:00",
+ "chain_dir": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/lr/chain",
+ "products": [
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-small",
+   "version": "1.2.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "market-basket-small",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 9, 'US': 9}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 6 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 1 for release 1ddde587f537",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence and the full children's statement set for this audience",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "unassigned: no seasonal premise to miss"
+    }
+   },
+   "listing": {
+    "id": 1,
+    "state": "draft",
+    "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "title_chars": 105,
+    "description_chars": 4627,
+    "tags": [
+     "basket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "nursery basket",
+     "diy basket",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart",
+     "fiber art project"
+    ],
+    "tag_count": 13,
+    "price_cad": 6.5,
+    "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.2.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "basket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "nursery-nesting-baskets",
+    "cir_slug": "market-basket-small",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(nursery-nesting-baskets): band CA$4.00-12.00 (SOURCED), proposal CA$6.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": false,
+    "family": null,
+    "bundles_with_family": []
+   }
+  },
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-medium",
+   "version": "1.2.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "market-basket-medium",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 10, 'US': 10}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 5 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 2 for release 00182234041c",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence and the full children's statement set for this audience",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "unassigned: no seasonal premise to miss"
+    }
+   },
+   "listing": {
+    "id": 2,
+    "state": "draft",
+    "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "title_chars": 107,
+    "description_chars": 4633,
+    "tags": [
+     "nursery crochet",
+     "pdf crochet pattern",
+     "basket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "nursery basket",
+     "diy basket",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms"
+    ],
+    "tag_count": 13,
+    "price_cad": 6.5,
+    "release_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.2.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "basket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "nursery-nesting-baskets",
+    "cir_slug": "market-basket-medium",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(nursery-nesting-baskets): band CA$4.00-12.00 (SOURCED), proposal CA$6.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": false,
+    "family": null,
+    "bundles_with_family": []
+   }
+  },
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-large",
+   "version": "1.2.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "market-basket-large",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 11, 'US': 11}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 5 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 3 for release cc698c1b1498",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence and the full children's statement set for this audience",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "unassigned: no seasonal premise to miss"
+    }
+   },
+   "listing": {
+    "id": 3,
+    "state": "draft",
+    "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "title_chars": 106,
+    "description_chars": 4740,
+    "tags": [
+     "beginner crochet",
+     "basket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "nursery basket",
+     "diy basket",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart"
+    ],
+    "tag_count": 13,
+    "price_cad": 6.5,
+    "release_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.2.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "basket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "nursery-nesting-baskets",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the CA$4-12 crochet-pattern cluster recorded in radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: no profiled shop's basket price was captured, so the proposal sits mid-band rather than pretending to a comparable",
+    "proposed_cad": 6.5,
+    "price_cad": 6.5,
+    "net_cad_after_fees": 5.6045,
+    "take_rate": 0.1378,
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "nursery-nesting-baskets",
+    "cir_slug": "market-basket-large",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(nursery-nesting-baskets): band CA$4.00-12.00 (SOURCED), proposal CA$6.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": false,
+    "family": null,
+    "bundles_with_family": []
+   }
+  },
+  {
+   "candidate": "cloudline-baby-blanket",
+   "slug": "cloudline-baby-blanket",
+   "version": "1.2.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "cloudline-baby-blanket",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 35, 'US': 35}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 4 for release 7c63dbdd501f",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence and the full children's statement set for this audience",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "evergreen: no seasonal premise to miss"
+    }
+   },
+   "listing": {
+    "id": 4,
+    "state": "draft",
+    "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "title_chars": 104,
+    "description_chars": 4506,
+    "tags": [
+     "baby crochet pattern",
+     "written and chart",
+     "diy gift crochet",
+     "baby crochet diy",
+     "cloudline baby",
+     "digital download",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart",
+     "fiber art project",
+     "cloudline crochet",
+     "baby shower diy"
+    ],
+    "tag_count": 13,
+    "price_cad": 7.5,
+    "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.2.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "baby",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "ink",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "cloudline-baby-blanket",
+    "band_cad": [
+     8.47,
+     11.65
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the premium mosaic-blanket band observed on HanJanCrochet (CA$8.47-11.65) and MJsOffTheHookDesigns (CA$8.47-11.64) in radar/market.py. We propose below its floor on purpose: those listings advertise PATTERN + VIDEO, which radar/market.py records as table stakes rather than a premium, and we have neither a video nor a review history",
+    "proposed_cad": 7.5,
+    "price_cad": 7.5,
+    "net_cad_after_fees": 6.5095,
+    "take_rate": 0.1321,
+    "reasons": [
+     "priced below the band floor of CA$8.47 deliberately, to buy early reviews rather than early margin"
+    ],
+    "warnings": [
+     "take rate 13.2% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 31.9% and the net is CA$5.11. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "cloudline-baby-blanket",
+    "band_cad": [
+     8.47,
+     11.65
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the band is the premium mosaic-blanket band observed on HanJanCrochet (CA$8.47-11.65) and MJsOffTheHookDesigns (CA$8.47-11.64) in radar/market.py. We propose below its floor on purpose: those listings advertise PATTERN + VIDEO, which radar/market.py records as table stakes rather than a premium, and we have neither a video nor a review history",
+    "proposed_cad": 7.5,
+    "price_cad": 7.5,
+    "net_cad_after_fees": 6.5095,
+    "take_rate": 0.1321,
+    "reasons": [
+     "priced below the band floor of CA$8.47 deliberately, to buy early reviews rather than early margin"
+    ],
+    "warnings": [
+     "take rate 13.2% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 31.9% and the net is CA$5.11. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "cloudline-baby-blanket",
+    "cir_slug": "cloudline-baby-blanket",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(cloudline-baby-blanket): band CA$8.47-11.65 (SOURCED), proposal CA$7.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": true,
+    "family": "cloudline",
+    "is_bundle": false,
+    "bundles_with_family": []
+   }
+  },
+  {
+   "candidate": "hexagon-coaster-set",
+   "slug": "hexagon-coaster-set",
+   "version": "1.2.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "hexagon-coaster-set",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 7, 'US': 7}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title says 'set', which promises more than one piece, and the CIR makes 4)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 5 for release 3754ed17a63b",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence; this product is not merchandised to a child, so no safety statement set attaches to it",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "unassigned: no seasonal premise to miss"
+    }
+   },
+   "listing": {
+    "id": 5,
+    "state": "draft",
+    "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "title_chars": 92,
+    "description_chars": 2910,
+    "tags": [
+     "coaster crochet",
+     "hexagon crochet",
+     "hexagon coaster",
+     "diy coaster",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart"
+    ],
+    "tag_count": 13,
+    "price_cad": 4.0,
+    "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.2.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "coaster",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "hexagon-coaster-set",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the CA$4-12 cluster from radar/market.py OBSERVATIONS, at its floor. commerce/pricing.fees shows what this leaves after Etsy's cut, and the answer is that this listing earns its place through reviews and cross-sell rather than margin",
+    "proposed_cad": 4.0,
+    "price_cad": 4.0,
+    "net_cad_after_fees": 3.342,
+    "take_rate": 0.1645,
+    "reasons": [],
+    "warnings": [
+     "take rate 16.4% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 35.1% and the net is CA$2.60. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "hexagon-coaster-set",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the CA$4-12 cluster from radar/market.py OBSERVATIONS, at its floor. commerce/pricing.fees shows what this leaves after Etsy's cut, and the answer is that this listing earns its place through reviews and cross-sell rather than margin",
+    "proposed_cad": 4.0,
+    "price_cad": 4.0,
+    "net_cad_after_fees": 3.342,
+    "take_rate": 0.1645,
+    "reasons": [],
+    "warnings": [
+     "take rate 16.4% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 35.1% and the net is CA$2.60. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "hexagon-coaster-set",
+    "cir_slug": "hexagon-coaster-set",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(hexagon-coaster-set): band CA$4.00-12.00 (SOURCED), proposal CA$4.00, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": false,
+    "family": null,
+    "bundles_with_family": []
+   }
+  },
+  {
+   "candidate": "nordic-star-ornaments",
+   "slug": "nordic-star-ornaments",
+   "version": "1.4.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "nordic-star-ornaments",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 7, 'US': 7}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title claims 6 pieces and the CIR makes 6)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 6 for release 18c6e64fa4c5",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence; this product is not merchandised to a child, so no safety statement set attaches to it",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "34 days of runway remain"
+    }
+   },
+   "listing": {
+    "id": 6,
+    "state": "draft",
+    "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
+    "title_chars": 73,
+    "description_chars": 2888,
+    "tags": [
+     "ornament crochet",
+     "holiday crochet",
+     "nordic ornament",
+     "snowflake ornament",
+     "holiday decor diy",
+     "nordic crochet",
+     "diy ornament",
+     "written and chart",
+     "diy gift crochet",
+     "digital download",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms"
+    ],
+    "tag_count": 13,
+    "price_cad": 4.5,
+    "release_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.4.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "ornament",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "forest",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "nordic-star-ornaments",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, near its floor: a small seasonal make. An ornament-specific observed price is UNKNOWN; no profiled shop's ornament price was captured",
+    "proposed_cad": 4.5,
+    "price_cad": 4.5,
+    "net_cad_after_fees": 3.7945,
+    "take_rate": 0.1568,
+    "reasons": [],
+    "warnings": [
+     "take rate 15.7% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 34.3% and the net is CA$2.96. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "nordic-star-ornaments",
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, near its floor: a small seasonal make. An ornament-specific observed price is UNKNOWN; no profiled shop's ornament price was captured",
+    "proposed_cad": 4.5,
+    "price_cad": 4.5,
+    "net_cad_after_fees": 3.7945,
+    "take_rate": 0.1568,
+    "reasons": [],
+    "warnings": [
+     "take rate 15.7% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 34.3% and the net is CA$2.96. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "nordic-star-ornaments",
+    "cir_slug": "nordic-star-ornaments",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(nordic-star-ornaments): band CA$4.00-12.00 (SOURCED), proposal CA$4.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": true,
+    "family": "nordic-forest",
+    "is_bundle": false,
+    "bundles_with_family": [
+     "nordic-forest-bundle"
+    ]
+   }
+  },
+  {
+   "candidate": "winter-village-graphghan",
+   "slug": "winter-village-graphghan",
+   "version": "1.3.0",
+   "cir": {
+    "compiles": true,
+    "errors": 0,
+    "warnings": 0
+   },
+   "release": {
+    "stored": true,
+    "certified": true,
+    "release_hash": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+    "certificate_keys": [
+     "confidence",
+     "content_hash",
+     "doc_version",
+     "findings",
+     "gauge_standard",
+     "granted",
+     "issued_at",
+     "physical_evidence",
+     "physical_test_passed",
+     "physical_test_required",
+     "platform_policy",
+     "policy_version",
+     "primitives",
+     "release_hash",
+     "risk_matrix",
+     "slug",
+     "stages_run",
+     "twin",
+     "version"
+    ],
+    "documents": {},
+    "physical_test_required": false,
+    "physical_test_passed": false
+   },
+   "product_truth": {
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    },
+    "passes": true,
+    "calibrated": false
+   },
+   "first_customer": {
+    "slug": "winter-village-graphghan",
+    "checks": [
+     {
+      "area": "final_pdf",
+      "state": "PASS",
+      "detail": "both documents render with no problems: {'UK': 7, 'US': 7}",
+      "measured_on": "publish.pdf.build_pattern_pdf, problems read off the rendered document",
+      "blocks": false
+     },
+     {
+      "area": "terminology",
+      "state": "PASS",
+      "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     },
+     {
+      "area": "counts_and_construction",
+      "state": "PASS",
+      "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)",
+      "measured_on": "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates",
+      "blocks": false
+     },
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "listing_claims",
+      "state": "PASS",
+      "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence",
+      "measured_on": "gates.policy.check_listing and gates.asset_truth on the assembled draft",
+      "blocks": false
+     },
+     {
+      "area": "imagery",
+      "state": "PASS",
+      "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 7 for release b41e0430fe3d",
+      "measured_on": "publish.disclosed_listing.usable_set and the valid ListingSetCertificateRecord for this release",
+      "blocks": false
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     },
+     {
+      "area": "licence_and_safety_statements",
+      "state": "PASS",
+      "detail": "both documents carry the canonical licence; this product is not merchandised to a child, so no safety statement set attaches to it",
+      "measured_on": "text extracted from both rendered documents",
+      "blocks": false
+     }
+    ],
+    "counts": {
+     "PASS": 6,
+     "FAIL": 1,
+     "UNVERIFIABLE": 1,
+     "UNRESOLVED": 1
+    },
+    "blocking": [
+     {
+      "area": "gauge_and_size_claims",
+      "state": "UNRESOLVED",
+      "detail": "no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "measured_on": "gates.certificate.bind_physical_evidence on stored PhysicalTest rows",
+      "blocks": true
+     },
+     {
+      "area": "etsy_remote_state",
+      "state": "UNVERIFIABLE",
+      "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's document (tests/fake_etsy.py) and against Etsy: never, because there are no credentials in this environment. Until one real upload succeeds, 'this listing can be activated' remains a reading of a document\", 'blocks_launch': True, 'verification': 'LOCALLY_TESTED'}. Nothing has ever authenticated against Etsy, so no remote state has ever been read back. One owner browser authorisation and one controlled round trip settle this",
+      "measured_on": "publish.listing_schema.gaps",
+      "blocks": true
+     },
+     {
+      "area": "fulfilment_and_download",
+      "state": "FAIL",
+      "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision",
+      "measured_on": "core.artifacts.ArtifactStore.durable",
+      "blocks": true
+     }
+    ],
+    "ready_for_owner_review": false,
+    "authorises_publication": false,
+    "why": "This gate does not authorise publication and has no code path that could. An automated PASS on all nine areas is evidence for an owner review, not a substitute for one. The first Launch-0 listings are published by a person who has read the document."
+   },
+   "publication_authority": {
+    "certification": {
+     "state": "PASS",
+     "why": "certificate granted for this release, nothing withheld"
+    },
+    "parity": {
+     "state": "UNKNOWN",
+     "why": "unjudged ['competitive_blind_review', 'hero']"
+    },
+    "listing_set": {
+     "state": "PASS",
+     "why": "listing set certified"
+    },
+    "disclosure": {
+     "state": "PASS",
+     "why": "every owed disclosure is in the stored copy"
+    },
+    "policy": {
+     "state": "UNKNOWN",
+     "why": "a policy source has never been read"
+    },
+    "search": {
+     "state": "FAIL",
+     "why": "search certificate refuses"
+    },
+    "rollback": {
+     "state": "UNKNOWN",
+     "why": "no rollback rehearsal within the last 3 days"
+    },
+    "economics": {
+     "state": "MODELLED",
+     "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+    }
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ],
+    "originality": {
+     "state": "CHECKED",
+     "reasons": []
+    },
+    "window": {
+     "may_launch_seasonally": true,
+     "action": "launch",
+     "why": "15 days of runway remain"
+    }
+   },
+   "listing": {
+    "id": 7,
+    "state": "draft",
+    "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket | US and UK Terms",
+    "title_chars": 78,
+    "description_chars": 2993,
+    "tags": [
+     "blanket crochet",
+     "snowfall crochet",
+     "snowfall blanket",
+     "winter blanket",
+     "winter crochet",
+     "diy blanket",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project"
+    ],
+    "tag_count": 13,
+    "price_cad": 7.5,
+    "release_hash": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+    "etsy_listing_id": ""
+   },
+   "search_profile": {
+    "version": "1.3.0",
+    "taxonomy_id": null,
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "blanket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "forest",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "verdict": "REFUSED"
+   },
+   "price_plan": {
+    "slug": "winter-village-graphghan",
+    "band_cad": [
+     8.47,
+     11.65
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the premium blanket band observed on HanJanCrochet and MJsOffTheHookDesigns (CA$8.47-11.65) in radar/market.py, proposed below its floor for the same reason as the baby blanket: no video and no review history",
+    "proposed_cad": 7.5,
+    "price_cad": 7.5,
+    "net_cad_after_fees": 6.5095,
+    "take_rate": 0.1321,
+    "reasons": [
+     "priced below the band floor of CA$8.47 deliberately, to buy early reviews rather than early margin"
+    ],
+    "warnings": [
+     "take rate 13.2% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 31.9% and the net is CA$5.11. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true
+   },
+   "launch_price": {
+    "slug": "winter-village-graphghan",
+    "band_cad": [
+     8.47,
+     11.65
+    ],
+    "band_basis": "SOURCED",
+    "band_why": "the premium blanket band observed on HanJanCrochet and MJsOffTheHookDesigns (CA$8.47-11.65) in radar/market.py, proposed below its floor for the same reason as the baby blanket: no video and no review history",
+    "proposed_cad": 7.5,
+    "price_cad": 7.5,
+    "net_cad_after_fees": 6.5095,
+    "take_rate": 0.1321,
+    "reasons": [
+     "priced below the band floor of CA$8.47 deliberately, to buy early reviews rather than early margin"
+    ],
+    "warnings": [
+     "take rate 13.2% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 31.9% and the net is CA$5.11. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "held_at_proposal": true,
+    "candidate": "winter-village-graphghan",
+    "cir_slug": "winter-village-graphghan",
+    "within_plan_band": true,
+    "basis": "products.launch0.price_plan(winter-village-graphghan): band CA$8.47-11.65 (SOURCED), proposal CA$7.50, decided by commerce.pricing"
+   },
+   "bundle": {
+    "in_pool": true,
+    "family": null,
+    "is_bundle": false,
+    "bundles_with_family": []
+   }
+  }
+ ],
+ "packet": {
+  "verdict": "UNKNOWN",
+  "verdict_rule": "READY only when every product's gated sections PASS, launch readiness is ready and the recorded phase agrees with the environment; UNKNOWN when anything was never read",
+  "products_blocked": [
+   "market-basket-small",
+   "market-basket-medium",
+   "market-basket-large",
+   "cloudline-baby-blanket",
+   "hexagon-coaster-set",
+   "nordic-star-ornaments",
+   "winter-village-graphghan"
+  ],
+  "products_with_unknowns": [
+   "market-basket-small",
+   "market-basket-medium",
+   "market-basket-large",
+   "cloudline-baby-blanket",
+   "hexagon-coaster-set",
+   "nordic-star-ornaments",
+   "winter-village-graphghan"
+  ],
+  "owner_queue": {
+   "ready": false,
+   "state": "FAIL",
+   "readiness_ready_before_off_device_proof": false,
+   "off_device_autonomy_proof": {
+    "key": "off_device_autonomy_proof",
+    "blocking": true,
+    "status": "NOT PROVEN",
+    "unmet": [
+     "activity_spread",
+     "scheduler_alive"
+    ],
+    "window_hours": 24,
+    "why": "NOT PROVEN: activity_spread, scheduler_alive unmet over the last 24 hours. #195 is launch-blocking, so launch is not ready until a full window passes every condition"
+   },
+   "providers": [],
+   "storage_durable": false,
+   "owner_actions": [
+    {
+     "key": "artifact_storage",
+     "action": "Approve object storage for generated PDFs and images (Railway volume or an S3-compatible bucket), about CA$1-5 per month, within the existing CA$20 ceiling.",
+     "why": "Artifact bytes are written to a container filesystem and do not survive a restart. The hashes are durable, so nothing is silently lost and everything re-renders from the certified CIR -- but a buyer's download link cannot point at a file that is regenerated on demand from a process that may be cold.",
+     "max_cost_cad": 5.0,
+     "minutes": 10,
+     "consequence_of_delay": "Every asset has to be re-rendered after a deploy. Harmless in shadow mode; a broken download for a paying customer once live.",
+     "blocks": "reliable delivery of purchased files"
+    },
+    {
+     "key": "etsy_shop",
+     "action": "Open the Etsy shop for Brambleloop Studio and complete Etsy's identity verification (name, address, government ID as Etsy requests it), then add the shop name, currency CAD and Canada as the shop location.",
+     "why": "Nothing can be published without a shop. Etsy's identity check is a legal requirement on the seller and must be completed by the person who is the seller -- automating it is both against Etsy's terms and against this system's own non-negotiables.",
+     "max_cost_cad": 0.0,
+     "minutes": 25,
+     "consequence_of_delay": "Every finished product stays in draft. The catalogue, imagery, pricing and launch calendar are all complete and idle.",
+     "blocks": "publishing anything at all"
+    },
+    {
+     "key": "payout",
+     "action": "Add the payout bank account and tax details to the Etsy shop (Canadian chequing account; GST/HST number if you have one, otherwise the small-supplier declaration).",
+     "why": "Etsy will not open a shop to buyers without a payout method, and revenue that cannot be paid out is not revenue. Banking credentials must be entered by the account holder.",
+     "max_cost_cad": 0.0,
+     "minutes": 15,
+     "consequence_of_delay": "Listings cannot go live even once the shop exists.",
+     "blocks": "publishing, and any revenue at all"
+    },
+    {
+     "key": "listing_fees",
+     "action": "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per listing for 4 months, so about US$1.40 (about CA$1.96) for the 7 listings currently drafted, plus 6.5% transaction fee and payment processing on each sale (fee reading of 2026-09-26).",
+     "why": "This is the first spend that leaves the account, and the directive is explicit that no consequential spend happens without approval. It is small, but it is not zero and it is not reversible.",
+     "max_cost_cad": 5.0,
+     "minutes": 2,
+     "consequence_of_delay": "Publishing stays blocked on a two-minute decision.",
+     "blocks": "publishing"
+    },
+    {
+     "key": "model_credits",
+     "action": "Add credit to the Anthropic account the API key belongs to. The console's smallest top-up is enough to start; the build's own ceiling is CA$100 a month and is enforced in code, so a larger balance cannot be spent faster than that.",
+     "why": "The key you supplied authenticates. The first request it made returned, verbatim, 'Your credit balance is too low to access the Anthropic API', so the account cannot serve a request. Nothing in the build treats the provider as available until a real call succeeds, which means four requirements stay parked and no model work starts -- correctly, but they are parked on this.",
+     "max_cost_cad": 25.0,
+     "minutes": 3,
+     "consequence_of_delay": "The creativity capability scorecard's blinded comparison (#94), the creative north star's desirability judgement (#104) and the two model-routing requirements (#177, #178) stay parked. The rest of Build 2 continues unaffected.",
+     "blocks": "every requirement that needs a model to make a judgement"
+    },
+    {
+     "key": "brand_clearance",
+     "action": "Decide whether to file a Canadian trademark for \"Brambleloop Studio\" (CA$458.05 for the first class). The free knock-out search on the Canadian register is company work and is not asked of you.",
+     "why": "The shop name goes on every listing, PDF and image. Discovering a conflict after the name is on a hundred customer documents is expensive in a way that checking first is not. Filing is a spend decision, so it is the owner's.",
+     "max_cost_cad": 460.0,
+     "minutes": 20,
+     "consequence_of_delay": "Brand equity accumulates on a name that has not been cleared. Low risk at zero sales, rising with every sale.",
+     "blocks": "nothing yet; rises with volume"
+    },
+    {
+     "key": "benchmark_challenge",
+     "action": "Buy the selected MJs benchmark patterns -- the current set and its cost are at /api/benchmark-selection, chosen for coverage of the facets a customer-experience teardown can differ along rather than by popularity -- then open /ops/teardown on a phone, tap each pick and choose the downloaded files. Zips go in as they downloaded. Nothing needs renaming, sorting or describing.",
+     "why": "#168 blocks a live launch until a representative Brambleloop product has been compared, dimension by dimension, against the best category-matched product a customer could buy instead. Without a purchased benchmark that comparison cannot be made, and an unrun challenge is not a pass -- it is the one check that would catch us shipping something a buyer would rate below what they already own.",
+     "max_cost_cad": 300.0,
+     "minutes": 30,
+     "consequence_of_delay": "The pre-launch challenge stays unrunnable, so the first honest comparison against a paid competitor happens in a buyer's downloads folder.",
+     "blocks": "the pre-launch benchmark challenge, and therefore live publishing"
+    },
+    {
+     "key": "phase",
+     "action": "After the checks above, record the move to staging (then limited production) via POST /api/owner/phase/transition with readiness and rollback evidence refs -- the ids of a recent launch.assessed row and a recent launch.rollback_rehearsed row (both passing from limited production up) -- once GET /api/owner/phase/verdict shows the launch verdict ready (every move up re-evaluates it at transition time, F-300), and set BRAMBLELOOP_PHASE to the same value, one step at a time (F-299: either one alone runs as the more restrictive phase).",
+     "why": "Shadow mode is enforced in code and refuses to publish, message customers or spend on advertising. Only the owner moves the phase, which is the point: the system cannot promote itself.",
+     "max_cost_cad": 0.0,
+     "minutes": 5,
+     "consequence_of_delay": "Everything stays drafted and nothing reaches a customer.",
+     "blocks": "the entire commercial phase"
+    }
+   ],
+   "outstanding": [
+    {
+     "key": "catalogue_depth",
+     "description": "at least 8 certified launch-scope products with listings (sizes are not counted as separate products)",
+     "blocked_by": "build"
+    },
+    {
+     "key": "listing_photography",
+     "description": "every certified product-first pattern has truthful customer-ready listing imagery that cleared its floors (a photograph, or a verified disclosed render set under D-FB-7)",
+     "blocked_by": "integration"
+    },
+    {
+     "key": "content",
+     "description": "marketing content exists for the opening catalogue",
+     "blocked_by": "build"
+    },
+    {
+     "key": "storefront",
+     "description": "shop announcement, About, all five policies, the shop SEO surface (F-236), the public identity (F-240) and the rendered icon/banner and buyer-facing copy (F-233 storefront_gate) pass their checks",
+     "blocked_by": "build"
+    },
+    {
+     "key": "storefront_preview",
+     "description": "the pre-launch storefront preview renders at phone and desktop widths and passes its legibility checks: icon at 40/70px, banner crops, announcement opening, sections, first tiles from certified frames (F-239/F-293)",
+     "blocked_by": "build"
+    },
+    {
+     "key": "seller_identity",
+     "description": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "etsy_integration",
+     "description": "an Etsy integration exists, is credentialled and has been exercised",
+     "blocked_by": "integration"
+    },
+    {
+     "key": "artifact_storage",
+     "description": "purchased files live in durable storage",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "etsy_shop",
+     "description": "an Etsy shop exists, with identity verification complete",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "payout",
+     "description": "a payout account and tax details are on the shop",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "listing_fees",
+     "description": "the owner has approved Etsy's listing and transaction fees",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "model_credits",
+     "description": "the model provider can actually serve a request, proved by one",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "physical_calibration",
+     "description": "at least one physical sample has calibrated the yardage estimate",
+     "blocked_by": "tester"
+    },
+    {
+     "key": "risk_based_physical_evidence",
+     "description": "every certified release holds the physical evidence its risk tier requires, bound to its exact content",
+     "blocked_by": "tester"
+    },
+    {
+     "key": "brand_clearance",
+     "description": "the shop name has been through a trademark knock-out search",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "benchmark_challenge",
+     "description": "a representative product has beaten, or deliberately traded against, the best category-matched purchased benchmark",
+     "blocked_by": "owner"
+    },
+    {
+     "key": "rollback_plan",
+     "description": "a way to withdraw everything published without losing the evidence: every listing's certificate retained and its withdrawal round trip rehearsed (dry) within 3 days",
+     "blocked_by": "build"
+    },
+    {
+     "key": "sustainable_economics",
+     "description": "estimated steady-state AI/API cost is sustainable against contribution at opening prices, with no constant owner top-ups",
+     "blocked_by": "build"
+    },
+    {
+     "key": "final_master_closure",
+     "description": "every launch-critical Final Master requirement is complete or explicitly gated, and the closure snapshot passes its integrity checks",
+     "blocked_by": "build"
+    },
+    {
+     "key": "phase",
+     "description": "the phase allows publishing",
+     "blocked_by": "owner"
+    }
+   ],
+   "buildable": [
+    "catalogue_depth",
+    "content",
+    "storefront",
+    "storefront_preview",
+    "rollback_plan",
+    "sustainable_economics",
+    "final_master_closure"
+   ],
+   "unknowns": [
+    {
+     "key": "physical_calibration",
+     "source": "core.models.PhysicalTest",
+     "unknown": "no physical sample has been worked: every finished size, yardage and make-time figure is arithmetic from a stated gauge (twin.calibrated is False)",
+     "touches": "size and yardage claims, Class C release, first-customer gauge_and_size_claims"
+    },
+    {
+     "key": "uncalibrated_primitives",
+     "source": "cir.stitches.calibration_table",
+     "unknown": "10 stitch primitives have no measured height or yarn draw: beg_star_st, bob, bpdc, cable1x1, cable2x2, end_star_st, fpdc, hdc3, hdc_inc, star_st",
+     "touches": "any pattern using them (F-074)"
+    },
+    {
+     "key": "etsy_surface:digital_files",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Etsy's per-file size and count limits for digital listings are not in the OpenAPI document and the help page that carries them is 403 here. A deliverable larger than the limit would fail at upload, not at compile.",
+     "touches": "the Etsy surface 'digital_files'"
+    },
+    {
+     "key": "etsy_surface:orders",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether Etsy's consent screen re-grants the existing five scopes silently or presents them again for approval. Settled by doing it once.",
+     "touches": "the Etsy surface 'orders'"
+    },
+    {
+     "key": "etsy_surface:production_partners",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether Etsy considers a generative model used for listing imagery a production partner. Etsy's guidance is on help.etsy.com, which is 403 here. The AI-disclosure question is handled in `gates/platform_policy` and in the listing description; this entry records the doubt rather than resolving it.",
+     "touches": "the Etsy surface 'production_partners'"
+    },
+    {
+     "key": "etsy_surface:search_visibility",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether /listings/active's `score` ordering is the same ranking buyers see. Etsy does not say. Not settleable without a live listing to compare against a browser search.",
+     "touches": "the Etsy surface 'search_visibility'"
+    },
+    {
+     "key": "etsy_surface:share_and_save",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether enrolling changes the transaction fee on non-attributed orders, which would move the pricing floor. Unreadable from here.",
+     "touches": "the Etsy surface 'share_and_save'"
+    },
+    {
+     "key": "etsy_surface:taxonomy_and_attributes",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether taxonomy id 66 is the crochet-patterns node, and whether that node marks any property is_required. One API-key GET answers both.",
+     "touches": "the Etsy surface 'taxonomy_and_attributes'"
+    },
+    {
+     "key": "etsy_surface:taxonomy_and_attributes",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "This repository sends TAXONOMY_PATTERNS = 66 and has never read it back from Etsy. The OpenAPI document contains no taxonomy ids at all -- 'craft_supplies' appears zero times -- so it cannot be settled from the document. One unauthenticated GET to getSellerTaxonomyNodes with the API key settles it, and this lane is forbidden from making it.",
+     "touches": "the Etsy surface 'taxonomy_and_attributes'"
+    },
+    {
+     "key": "etsy_surface:webhooks",
+     "source": "intel.etsy_surfaces.coverage",
+     "unknown": "Whether a personal (non-commercial) application can subscribe. The page says webhooks are \"available for both commercial and personal applications\" and then describes the portal as reached through \"your commercial app\". Settled by opening the portal once.",
+     "touches": "the Etsy surface 'webhooks'"
+    },
+    {
+     "key": "launch0_make_time:nursery-nesting-baskets",
+     "source": "products.launch0.make_time",
+     "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+     "touches": "nursery-nesting-baskets make-time and lead-time claims"
+    },
+    {
+     "key": "launch0_make_time:cloudline-baby-blanket",
+     "source": "products.launch0.make_time",
+     "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+     "touches": "cloudline-baby-blanket make-time and lead-time claims"
+    },
+    {
+     "key": "launch0_make_time:hexagon-coaster-set",
+     "source": "products.launch0.make_time",
+     "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+     "touches": "hexagon-coaster-set make-time and lead-time claims"
+    },
+    {
+     "key": "launch0_make_time:nordic-star-ornaments",
+     "source": "products.launch0.make_time",
+     "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+     "touches": "nordic-star-ornaments make-time and lead-time claims"
+    },
+    {
+     "key": "launch0_make_time:winter-village-graphghan",
+     "source": "products.launch0.make_time",
+     "unknown": "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until a sample is worked",
+     "touches": "winter-village-graphghan make-time and lead-time claims"
+    },
+    {
+     "key": "storefront_preview:viewport",
+     "source": "brand.storefront_preview",
+     "unknown": "the phone banner crop, announcement length and section-label width are ASSUMED figures for Etsy's layout; the live shop is inspected only once a browser worker exists (rendered_pages)",
+     "touches": "the pre-launch storefront preview renders at phone and desktop widths and passes its legibility checks: icon at 40/70px, banner crops, announcement opening, sections, first tiles from certified frames (F-239/F-293)"
+    },
+    {
+     "key": "seller_identity:name",
+     "source": "brand.seller_identity",
+     "unknown": "the name on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+     "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+    },
+    {
+     "key": "seller_identity:country",
+     "source": "brand.seller_identity",
+     "unknown": "the country on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+     "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+    },
+    {
+     "key": "seller_identity:currency",
+     "source": "brand.seller_identity",
+     "unknown": "the currency on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+     "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+    },
+    {
+     "key": "seller_identity:owner_display_name",
+     "source": "brand.seller_identity",
+     "unknown": "the owner_display_name on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+     "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+    },
+    {
+     "key": "seller_identity:tax_registration",
+     "source": "brand.seller_identity",
+     "unknown": "the tax_registration on the legal/payout/tax side is UNKNOWN until the account holder confirms it at Etsy KYC",
+     "touches": "the public shop identity differs from the legal/tax identity only where a cited Etsy rule permits, and the legal side is confirmed by the account holder (F-240)"
+    },
+    {
+     "key": "model_provider",
+     "source": "gateway.anthropic.last_probe",
+     "unknown": "the model provider has never been probed",
+     "touches": "the model provider can actually serve a request, proved by one"
+    },
+    {
+     "key": "proxy:brand_moat",
+     "source": "launch.readiness:brand_moat",
+     "unknown": "measured by proxy only (recognisability_proxy: count of built non-model signatures)",
+     "touches": "the brand rests on something a competitor cannot reproduce in weeks, and every product-first listing is recognisable without the model"
+    }
+   ],
+   "questions": {
+    "ready": false,
+    "answers": {
+     "findable": {
+      "question": "Can buyers find it?",
+      "pass": false,
+      "checked": [
+       "catalogue_depth",
+       "launch_calendar",
+       "analytics_baseline"
+      ],
+      "failing": [
+       "catalogue_depth"
+      ],
+      "blocked_by": [
+       "build"
+      ]
+     },
+     "clickable": {
+      "question": "Will they click?",
+      "pass": false,
+      "checked": [
+       "listing_imagery",
+       "listing_photography",
+       "opening_grid",
+       "storefront_preview"
+      ],
+      "failing": [
+       "listing_photography",
+       "storefront_preview"
+      ],
+      "blocked_by": [
+       "build",
+       "integration"
+      ]
+     },
+     "converts_honestly": {
+      "question": "Does it convert honestly?",
+      "pass": false,
+      "checked": [
+       "pricing",
+       "content",
+       "digital_disclosure",
+       "faq",
+       "pricing_promotion_plan",
+       "sustainable_economics"
+      ],
+      "failing": [
+       "content",
+       "sustainable_economics"
+      ],
+      "blocked_by": [
+       "build"
+      ]
+     },
+     "pattern_makes_what_is_shown": {
+      "question": "Does the pattern make what is shown?",
+      "pass": false,
+      "checked": [
+       "imagery_truthful",
+       "physical_calibration",
+       "benchmark_challenge"
+      ],
+      "failing": [
+       "physical_calibration",
+       "benchmark_challenge"
+      ],
+      "blocked_by": [
+       "owner",
+       "tester"
+      ]
+     },
+     "shop_trustworthy": {
+      "question": "Is the shop trustworthy?",
+      "pass": false,
+      "checked": [
+       "storefront",
+       "seller_identity",
+       "no_open_incidents",
+       "etsy_shop",
+       "payout",
+       "brand_clearance",
+       "brand_moat",
+       "support_knowledge"
+      ],
+      "failing": [
+       "storefront",
+       "seller_identity",
+       "etsy_shop",
+       "payout",
+       "brand_clearance"
+      ],
+      "blocked_by": [
+       "build",
+       "owner"
+      ]
+     },
+     "ads_measurable_bounded": {
+      "question": "Are ads measurable and bounded?",
+      "pass": false,
+      "checked": [
+       "spend_guards",
+       "rollback_plan",
+       "analytics_baseline"
+      ],
+      "failing": [
+       "rollback_plan"
+      ],
+      "blocked_by": [
+       "build"
+      ]
+     },
+     "other_hard_gates": {
+      "question": "Every other hard gate (accounts, storage, process)",
+      "pass": false,
+      "checked": [
+       "etsy_integration",
+       "artifact_storage",
+       "listing_fees",
+       "model_credits",
+       "risk_based_physical_evidence",
+       "final_master_closure",
+       "phase",
+       "off_device_autonomy_proof"
+      ],
+      "failing": [
+       "etsy_integration",
+       "artifact_storage",
+       "listing_fees",
+       "model_credits",
+       "risk_based_physical_evidence",
+       "final_master_closure",
+       "phase",
+       "off_device_autonomy_proof"
+      ]
+     }
+    },
+    "excluded": [],
+    "rule": "any failed hard gate blocks launch (F-300)"
+   }
+  },
+  "phase": {
+   "phase": "shadow",
+   "env": "shadow",
+   "recorded_phase": "shadow",
+   "transition_id": null,
+   "agree": true,
+   "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+  }
+ }
+}

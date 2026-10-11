@@ -1,3 +1,11 @@
+> **2026-10-11 — W4-LAUNCHREADY: Launch-0 readiness measured from gate code (branch `claude/w4-LAUNCHREADY`, not deployed).**
+> Scratch shadow chain at c131f07: all 7 Launch-0 releases certify, pass Product Truth, originality, US/UK PDFs, disclosed
+> certified imagery, listing set, disclosure and listing claims; 0 of 7 publishable. Per-release blockers are all owner/external:
+> Etsy taxonomy snapshot (search certificate), durable storage, physical sample, parity hero/blind review (image_vision),
+> Etsy remote state, policy readings, publication grant. Fix 88b240e: the creative gate now judges the engineered Launch-0
+> products (baskets, coaster set) as their own cohort with the unchanged jury -> launch-cleared 3/7 -> 7/7 and
+> storefront_preview ready. Report: `research/final_build/w4/LAUNCH_READINESS_c131f07.md`.
+
 > **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
 > `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
 > committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run
