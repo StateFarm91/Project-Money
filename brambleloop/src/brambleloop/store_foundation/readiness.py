@@ -264,6 +264,10 @@ def _check_opening_grid(s: C.Surface) -> list[dict]:
             out.append(_f("TITLE_NOT_DRAFTED", "unverified",
                           f"{p['candidate']}: title derived with the release chain's title "
                           f"builder; no drafted listing row was read"))
+        if "superseded_release=" in str(p["title_basis"]):
+            out.append(_f("TITLE_FROM_SUPERSEDED_RELEASE", "unverified",
+                          f"{p['candidate']}: the only drafted listing is of a superseded "
+                          f"release ({p['title_basis'].split(';', 1)[1]})"))
         if p.get("db_read_error"):
             out.append(_f("LISTINGS_UNREADABLE", "unverified", p["db_read_error"]))
     return out
