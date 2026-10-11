@@ -47,8 +47,14 @@ def test_every_launch0_release_reaches_the_opportunity_it_was_scored_as():
         for v in variants:
             cir_slug = l0.cir_for(v.build).slug
             seed = pipeline.product_seed(cir_slug)
+            if cir_slug in l0.NO_RADAR_CONCEPT:      # CAP-1: a recorded non-radar origin
+                assert seed is None and l0.NO_RADAR_CONCEPT[cir_slug], cir_slug
+                continue
             assert seed is not None, cir_slug
             assert release._seed_for(cir_slug) is not None, cir_slug
+    assert l0.radar_concept_for("nordic-forest-mosaic-throw-baby") == \
+        "nordic-forest-mosaic-throw"
+    assert set(l0.NO_RADAR_CONCEPT) == {"housewarming-key-basket"}
 
 
 def test_the_aliases_resolve_exactly():

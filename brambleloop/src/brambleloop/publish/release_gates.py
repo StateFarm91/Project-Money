@@ -1153,6 +1153,32 @@ def originality_gate(db, *, slug: str, version: str, store_root=None) -> dict:
                 "state": "UNKNOWN"}
 
 
+def launch_price_check(slug: str, listing_price_cad) -> dict:
+    """A Launch-0 listing must carry its own price plan's price (PT-04, W4-CAP1).
+
+    `mosaic-placemat-pair@1.3.0` was drafted in production at CA$9.50 before it joined
+    Launch-0: the generic path had no "placemat" band and priced it at the top of the unsourced
+    DEFAULT_BAND (4.50-9.50). Its plan is CA$5.00 on the SOURCED CA$4-12 cluster. A stored
+    listing priced off-plan is refused at publication until the release chain re-prices it;
+    the comparison is exact to the cent. Outside Launch-0 there is no plan: NOT_APPLICABLE.
+    """
+    from ..products import launch0
+
+    plan = launch0.launch_price(slug)
+    if plan is None or plan.get("price_cad") is None:
+        return {"state": "NOT_APPLICABLE", "why": "no Launch-0 price plan for this slug"}
+    if listing_price_cad is None:
+        return {"state": "NO_LISTING", "plan_cad": plan["price_cad"],
+                "why": "no stored listing to compare"}
+    if round(float(listing_price_cad), 2) != round(float(plan["price_cad"]), 2):
+        return {"state": "DRIFT", "plan_cad": plan["price_cad"],
+                "listing_cad": float(listing_price_cad),
+                "why": (f"the stored listing is CA${float(listing_price_cad):.2f} but the "
+                        f"Launch-0 price plan is CA${plan['price_cad']:.2f} ({plan['basis']}); "
+                        f"re-run pricing.position for this release")}
+    return {"state": "MATCH", "plan_cad": plan["price_cad"], "why": "listing carries the plan"}
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None,
                 read_only: bool = False) -> dict:
@@ -1210,6 +1236,9 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
                  {"title": row.title, "description": row.description,
                   "tags": list(row.tags or []), "price_cad": row.price_cad}))
     reasons.extend(f"{r['code']}: {r['why']}" for r in scope["reasons"])
+    price_check = launch_price_check(slug, None if row is None else row.price_cad)
+    if price_check["state"] == "DRIFT":
+        reasons.append(f"LISTING_PRICE_NOT_PLAN: {price_check['why']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
             "listing_set": set_verdict, "search": search, "standards": standards,

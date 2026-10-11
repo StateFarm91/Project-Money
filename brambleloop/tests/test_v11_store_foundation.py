@@ -147,15 +147,29 @@ def test_opening_grid_counts_products_not_sizes():
     rows, s = _rows()
     products = s["opening_grid"].value
     # W4-PIPE 2026-10-07: the snowflake ornaments and the snowfall throw joined Launch-0.
+    # W4-LAUNCHREADY 2026-10-11, owner-approved CAP-1: three more joined, reaching the floor of 8.
     assert [p["candidate"] for p in products] == [
         "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
-        "nordic-star-ornaments", "winter-village-graphghan"]
-    assert [p["price_cad"] for p in products] == [6.50, 7.50, 4.00, 4.50, 7.50]
+        "nordic-star-ornaments", "winter-village-graphghan",
+        "nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair", "housewarming-key-basket"]
+    assert [p["price_cad"] for p in products] == [6.50, 7.50, 4.00, 4.50, 7.50, 7.50, 5.00,
+                                                  5.50]
     assert products[0]["variant_count"] == 3
     assert lr.MIN_LISTINGS_TO_OPEN == 8           # not lowered by this lane
+    # Eight products (sizes not counted) meet the floor, so the depth finding is gone; it
+    # still fires below it (the check is unchanged).
     depth = [f for f in rows["opening_grid"]["findings"] if f["code"] == "CATALOGUE_DEPTH"]
-    assert depth and "5 Launch-0 products" in depth[0]["detail"]
+    assert not depth, depth
+    short = _rows(_short_grid())[0]["opening_grid"]["findings"]
+    depth = [f for f in short if f["code"] == "CATALOGUE_DEPTH"]
+    assert depth and "5 Launch-0 products" in depth[0]["detail"], short
     assert depth[0]["severity"] == "owner"
+
+
+def _short_grid():
+    s = content.build()
+    s["opening_grid"].value[:] = s["opening_grid"].value[:5]
+    return s
 
 
 def test_basket_naming_is_an_owner_decision():

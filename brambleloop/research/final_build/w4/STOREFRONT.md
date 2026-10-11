@@ -2,6 +2,21 @@
 
 Branch `claude/w4-STOREFRONT`, from `claude/w4-INTEG2` @ 68224ac. Nothing here is published, written to Etsy or spent. Auth, CSRF and step-up are unchanged. Brand assets and Laura's identity are untouched; Laura does not appear in the customer view.
 
+## Update after merging w4-INTEG2 @ a5b889b (CAP-1, ETSYREL, OWNERHOME, IMAGES, ONDEMAND)
+
+CAP-1 is merged. The owner approved the cap change from 5 to 8 products as **configuration
+only** (`launch0.CATALOGUE_FLOOR_APPROVED=True`), which brings the 3 prepared products into
+Launch-0 scope. The products themselves are **not approved, drafted or published**.
+
+- **How the 3 products are labelled.** The Command Center now labels them **"In Launch-0 scope (CAP-1); not approved: gates pending"** (status `CAP1_SCOPE`). The earlier "awaiting decision D-FB-9" label is gone. The owner decision card reads "CAP-1: products in Launch-0 scope — NOT APPROVED: GATES PENDING".
+- **Customer page.** They stay off the customer page unless every gate passes (`storefront.customer_gates_pass`): W4-IMAGES' computed customer approval (listing-set certificate for the exact release, parity fully judged, an owner publication grant) **and** a verified, complete hero image. None of the 3 passes today. The browser checks and `test_w4_storefront` assert both points.
+- **Incomplete hero images (W4-IMAGES).** A hero that shows fewer pieces than the pattern makes (`pieces_finding`) is never shown to customers. The customer page shows the placeholder instead. The owner still sees the image, tagged "incomplete hero", and gets a readiness blocker.
+- **Prices.** They come from what the store grid reports (`content.launch0_products`). The placemat shows its plan price, CA$5.00.
+- **Store overview.** The ETSYREL "Etsy connection" card (re-check / connect, with step-up) is kept on the Store overview as its own section, next to the live-shop observation. Each overview section is a separate, commented function, so the SHOPSYNC "Live shop settings" card can be added cleanly.
+- **First load never blocks the phone.** On a cold server process, rendering and checking eight pictures takes about 20–30 s. That was enough to time out the real-backend check on the Store tab. The full catalogue is now computed once in a background thread and cached for 120 s. A request waits at most 4 s for it, then gets the quick catalogue: the same products, prices and listings, with pictures marked NOT_CHECKED and quality UNKNOWN (never a pass), plus a "Still checking" note. The phone also stops waiting on the catalogue after 8 s and shows a "PREPARING" card. With this, the real-backend check passes cold (44 OK).
+- **Pre-existing failure fixed.** `test_w4_images::test_candidates_cover_the_preview_products_and_the_proposals` was already failing on a5b889b, because the opening grid grew to 8 under CAP-1. `image_review.candidates()` now marks as customer-shown exactly the storefront view's set, so the test passes with its assertion unchanged.
+- **Merge conflicts.** In app.css, api.js and cc_mock/data.mjs I kept both sides. In store.js I kept this branch's layout and added the ETSYREL card.
+
 ## A. Customer storefront preview
 
 New variant `storefront` (`store_foundation/storefront.py`). It is now what the Command Center opens by default: `/cc/store-preview` with no `variant` parameter. `preview.render_preview()` keeps its own default of `standard`, so existing callers are unaffected. The v1, brand-face, v2 and compare variants all still render, so nothing is deleted.
@@ -67,7 +82,7 @@ Routes are in `views/store.js`. Everything is read-only except the existing live
   - **Storefront review**: opens the customer view, with earlier designs folded;
   - the **live-shop observation form**, kept;
   - **Technical evidence**: all 12 earlier sections, folded.
-- **`#/store/collection`.** The dedicated **8-product launch collection**: 5 Launch-0 products plus 3 "Proposed, awaiting your decision" (`launch0.PROPOSED_CANDIDATES`, `CATALOGUE_FLOOR_APPROVED=False`). Proposed products never appear on the customer page.
+- **`#/store/collection`.** The dedicated **8-product launch collection**: 5 Launch-0 products plus the 3 CAP-1 products, labelled "In Launch-0 scope (CAP-1); not approved: gates pending". Before CAP-1 these were "Proposed". They are off the customer page until every gate passes.
 - **`#/store/product/<slug>`.** Product page with the verified image, price, digital label, description and sizes.
   - **US/UK pattern PDF previews**, rendered now from the CIR; the sold file is the released, hashed PDF.
   - Readiness blockers, each with who clears it.

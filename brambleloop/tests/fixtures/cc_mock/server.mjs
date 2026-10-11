@@ -79,7 +79,8 @@ export function createMock() {
       const simple = { home: "home", "brief/morning": "morning", approvals: "approvals", store: "store", operations: "operations",
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
         account: "account", "account/sessions": "sessions", emergency: "emergency",
-        company: "company", completion: "completion", "launch/packet": "launchPacket" };
+        company: "company", completion: "completion", "launch/packet": "launchPacket", etsy: "etsy",
+        checks: "checks" };
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
       if (route === "store/catalogue") return send(res, 200, DATA.storeCatalogue());
       if (route.startsWith("store/image/")) {

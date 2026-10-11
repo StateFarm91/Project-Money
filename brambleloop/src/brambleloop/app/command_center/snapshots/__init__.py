@@ -11,7 +11,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parents[4] / "research" / "final_build" / "w4"
-NAMES = ("COMPLETION_BOARD.json", "VISUAL_STATUS.json", "OWNER_ACTIONS.json")
+NAMES = ("COMPLETION_BOARD.json", "VISUAL_STATUS.json", "OWNER_ACTIONS.json",
+         "COMPLETION_BOARD_FINAL_CARD.json")
 
 
 def refresh() -> list[str]:

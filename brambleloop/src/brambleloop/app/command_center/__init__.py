@@ -87,6 +87,11 @@ def install(app, db) -> None:
 
     app.add_api_route(STORE_PREVIEW_PATH, store_preview_handler(db), methods=["GET"],
                       include_in_schema=False)
+    # W4-IMAGES: owner-only internal image review (security.OWNER_SESSION_PAGES).
+    from .api import IMAGE_REVIEW_PATH, image_review_handler
+
+    app.add_api_route(IMAGE_REVIEW_PATH, image_review_handler(db), methods=["GET"],
+                      include_in_schema=False)
     # W4-STORE wiring: owner-session gated (security.OWNER_SESSION_PAGES), CSRF + nonce.
     from .api import LIVE_OBSERVATION_PATH, live_observation_handler
 

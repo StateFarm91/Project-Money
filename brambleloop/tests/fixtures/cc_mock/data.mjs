@@ -14,8 +14,52 @@ export function tab(name, sections, extra = {}) {
   return { tab: name, generated_at: now(), sections, ...extra };
 }
 
+function ownerOverview() {
+  const blk = (key, title, status, headline, items, extra = {}) => ({ key, title, status, headline, items: items.slice(0, 5),
+    evidence: extra.evidence || items, as_of: status === "UNKNOWN" ? null : ago(1), basis: status === "UNKNOWN" ? "unknown" : "measured",
+    sources: ["fixture:overview"], href: extra.href || "#/company", ...extra });
+  const causes = [
+    ["Etsy API credentials that can actually serve a request", 21], ["a live Etsy shop", 9], ["paid advertising authority", 7],
+    ["a physical test of a made sample", 6], ["a recruited pattern tester", 4], ["transactions_r scope", 3], ["bank feed", 2]]
+    .map(([t, n], i) => ({ title: t, gate: `g${i}`, count: n, detail: `${n} requirement(s) wait on this`, status: "BLOCKED", source: `build2.executor.gate:g${i}` }));
+  return { status: "OK", as_of: ago(1), basis: "measured", items: [], sources: ["overview"], provider: "command_center.overview",
+    order: ["working", "blocked", "decisions", "accomplished", "ready", "money"],
+    blocks: {
+      working: blk("working", "What's working", "OK", "2 of 31 capabilities verified live; last self-check had failures", [
+        { title: "a model provider that can actually serve a request", detail: "a recorded model.probe succeeded", verified_at: ago(1), verified_basis: "checked live when this page was read", status: "OK", source: "build2.executor.gate:model_provider" },
+        { title: "Production self-check (/api/verify)", detail: "failing: no_unexpected_dead_letters_in_24h", verified_at: ago(20), verified_basis: "last recorded run", status: "DEGRADED", source: "audit_log:26852" }]),
+      blocked: blk("blocked", "What's blocked", "BLOCKED", "6 closed gate(s) hold 52 requirement(s)", causes),
+      decisions: blk("decisions", "Decisions for you", "OK", "4 decision(s) open", [], { href: "#/approvals", open: 4 }),
+      accomplished: blk("accomplished", "What the company accomplished (24 h)", "OK", "9 useful outcome(s) across 2 kind(s) of work; 30 finished job(s) did no work", [
+        { title: "listing.seo", count: 6, detail: "coverage refreshed for 6 listings", at: ago(40), agents: ["listing"], status: "OK", source: "jobs:12150" },
+        { title: "laura.executive_tick", count: 3, detail: "2 priorities set, 1 mission delegated", at: ago(15), agents: ["laura"], status: "OK", source: "jobs:12161" }], { href: "#/timeline" }),
+      ready: blk("ready", "Ready to sell", "BLOCKED", "0 of 1 product(s) ready to sell; 1 certified; 0 on Etsy", [
+        { title: "Harbour Throw", slug: "harbour-throw", certified: true, version: "1", pdf: { state: "BUILT", built_at: ago(300), source: "artefact_provenance:4" },
+          images: { state: "UNKNOWN", why: "no listing-set verdict or imagery provenance for this product" }, publication: "NOT READY",
+          why: "Not ready: parity not passing", status: "BLOCKED", source: "products:1" }], { href: "#/store" }),
+      money: blk("money", "Money and agent activity", "UNKNOWN", "Revenue UNMEASURED; spend 24 h CA$0.03 (recorded, 1 row(s)); 2 agent(s) produced useful results", [
+        { title: "Revenue", value_cad: null, state: "UNMEASURED", display: "UNMEASURED", detail: "order source not connected", status: "UNKNOWN" },
+        { title: "Profit", value_cad: null, state: "UNKNOWN", display: "UNKNOWN", status: "UNKNOWN" },
+        { title: "Recorded spend (all time)", value_cad: 76.43, state: "RECORDED", display: "CA$76.43 (recorded; CA$2.45 not measured)", status: "OK" },
+        { title: "Recorded spend (24 h)", value_cad: 0.03, state: "RECORDED", display: "CA$0.03 (recorded, 1 row(s))", status: "OK" }],
+      { href: "#/money", agents: [{ title: "listing", useful_24h: 6, no_work_24h: 2, status: "OK" }, { title: "laura", useful_24h: 3, no_work_24h: 0, status: "OK" },
+        { title: "orchestrator", useful_24h: 0, no_work_24h: 28, status: "DEGRADED" }], agents_counts: { active_24h: 2, ran_24h: 3 } }),
+    } };
+}
+
 export const DATA = {
+  // W4-ONDEMAND "Run checks now" (shape of ops.on_demand.status): one never run, one recent.
+  checks: () => ({ checks: [
+    { key: "model_probe", label: "Model provider probe", why: "Asks the model provider for a tiny answer.", external: true,
+      requires_stepup: true, available_now: true, next_allowed_at: null,
+      jobs: [{ cadence: "model_probe", job_type: "model.probe", scheduled_every_s: 21600, last: { status: "done", ok: true, at: ago(50), on_demand: false } }] },
+    { key: "capabilities", label: "Capabilities", why: "Re-checks every capability gate.", external: false,
+      requires_stepup: false, available_now: false, next_allowed_at: new Date(Date.now() + 5 * 60000).toISOString(),
+      jobs: [{ cadence: "capabilities", job_type: "ops.capabilities", scheduled_every_s: 3600, last: null }] }],
+    other_cadences: [{ cadence: "ops_health", job_type: "ops.health" }] }),
   home: () => tab("HOME", {
+    // W4-OWNERHOME: the six-block owner overview (shape of command_center/overview.py).
+    overview: ownerOverview(),
     changes_since_last_view: env("OK", [{ id: 17, at: ago(90), actor: "visual", action: "qa.passed", artifact: "harbour-throw@1", source: "audit_log:17" }],
       { since: ago(600), basis_note: "since your last view" }),
     autonomy: env("OK", [{ department: "Product & Design", status: "OK", last_run_at: ago(12) },
@@ -226,14 +270,24 @@ export const DATA = {
       useful_output: "company view", blocker: null, next_action: "deploy package", rows_closed: { count: 3, ids: ["F-884"] }, rows_closed_count: 3, stale: false },
     { lane: "W4-AUTO", worker: "lane AUTO", task: "autonomy", status: "UNKNOWN", started_at: null, last_update_at: null,
       useful_output: null, blocker: null, next_action: null, rows_closed: null, rows_closed_count: null, stale: false }],
-    { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }) }),
+    { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }),
+    // W4-BOARD: the finish-line card; one scope UNKNOWN (null) so it renders as Unknown, not 0.
+    finish_line: env("BLOCKED", [
+      { title: "Etsy API credential refused (HTTP 403) with a long title that must wrap on a phone screen", rows: 14, fm_launch_critical: 14, build2: 0,
+        owner_action: "Fix the Etsy API credential so etsy.probe succeeds: production gets HTTP 403 (check ETSY_SHARED_SECRET)" }],
+      { scopes: { final_master_launch_critical: { total: 490, verified_complete: 362, implemented_unverified: 1, in_progress: 0, blocked_engineering: 27, blocked_owner: 70, blocked_external: 30 },
+                  build2: { total: 320, verified_complete: 215, implemented_unverified: 0, in_progress: 0, blocked_engineering: 15, blocked_owner: 39, blocked_external: 48 },
+                  final_master_total: null },
+        critical_path: [{ step: 1, title: "Release not deployed", who: "engineering", unblocks_rows: 16, estimate: { figure: "release cycle + 24h" } }],
+        production_commit: "0417f3516f30" }) }),
   // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
   // W4-STOREFRONT: the owner catalogue (store_foundation.owner_store.catalogue shape).
   storeCatalogue: () => {
     const prod = (slug, name, status, priceCad, img, extra = {}) => ({
       slug, name, summary: `${name}, worked in the round.`, description: `${name}: one pattern, clear instructions, US and UK terms.`,
       section: extra.section || "home", kind: "basket", launch_status: status,
-      launch_status_note: status === "PROPOSED" ? "catalogue-floor proposal: owner decision D-FB-9" : "in the Launch-0 opening catalogue",
+      launch_status_note: status === "CAP1_SCOPE" ? "in Launch-0 scope (CAP-1); not approved: gates pending" : "in the Launch-0 opening catalogue",
+      on_customer_page: status === "LAUNCH_0",
       price_cad: priceCad, digital_label: "Digital download (PDF pattern)",
       sizes: [{ key: "one_size", label: "18.3 x 11.1 cm", cir_slug: slug }], variant_count: 1,
       representative: { build: slug.replace(/-/g, "_"), cir_slug: slug, cir_fingerprint: "abc123def456" },
@@ -245,8 +299,8 @@ export const DATA = {
       listing: { title: `${name} | Crochet Pattern PDF | US and UK Terms`, title_chars: 50, title_max: 140, title_ok: true,
         title_basis: "derived: commerce.seo.build_title", price_cad: priceCad, price_basis: priceCad === null ? "UNKNOWN" : "products.launch0.price_plan",
         on_etsy: "UNKNOWN", on_etsy_note: "nothing is entered on Etsy by this system" },
-      readiness: { status: "OWNER_GATED", blockers: status === "PROPOSED"
-        ? [{ what: "Owner decision D-FB-9 (catalogue floor)", clearer: "OWNER" }, { what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }]
+      readiness: { status: "OWNER_GATED", blockers: status === "CAP1_SCOPE"
+        ? [{ what: "Product not approved: gates pending (CAP-1 is configuration only)", clearer: "OWNER" }, { what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }]
         : [{ what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }], note: "Publication is the owner's authorisation." },
       pdf: { terms: ["US", "UK"], paths: { US: `/api/cc/store/pdf/${slug}?terms=US`, UK: `/api/cc/store/pdf/${slug}?terms=UK` }, note: "rendered on request" },
     });
@@ -256,13 +310,14 @@ export const DATA = {
       prod("hexagon-coaster-set", "Hexagon Coaster Set (4)", "LAUNCH_0", 4, "VERIFIED"),
       prod("nordic-star-ornaments", "Nordic Snowflake Ornament Set (6)", "LAUNCH_0", 4.5, "WITHHELD", { section: "seasonal" }),
       prod("winter-village-graphghan", "Winter Village Graphghan", "LAUNCH_0", 7.5, "VERIFIED", { section: "blankets" }),
-      prod("nordic-forest-mosaic-throw-baby", "Nordic Forest Relief Baby Blanket", "PROPOSED", 7.5, "VERIFIED", { section: "baby" }),
-      prod("mosaic-placemat-pair", "Diamond Lattice Placemat Pair", "PROPOSED", null, "VERIFIED"),
-      prod("housewarming-key-basket", "Housewarming Key Basket", "PROPOSED", 5.5, "VERIFIED"),
+      prod("nordic-forest-mosaic-throw-baby", "Nordic Forest Relief Baby Blanket", "CAP1_SCOPE", 7.5, "VERIFIED", { section: "baby" }),
+      prod("mosaic-placemat-pair", "Diamond Lattice Placemat Pair", "CAP1_SCOPE", 5, "VERIFIED"),
+      prod("housewarming-key-basket", "Housewarming Key Basket", "CAP1_SCOPE", null, "VERIFIED"),
     ];
     return { generated_at: now(), products,
-      counts: { collection: 8, launch0: 5, proposed: 3, images_verified: 7, quality_ok: 7 },
-      decision: { key: "D-FB-9", question: "Open with 5, or add the 3 prepared patterns to reach 8?", how: "Owner decision only.", approved: false },
+      counts: { collection: 8, launch0: 5, proposed: 0, cap1: 3, cap1_approved: 0, images_verified: 7, quality_ok: 7 },
+      decision: { key: "CAP-1", question: "Approve the 3 products CAP-1 brought into Launch-0 scope? The cap change was configuration only.",
+        how: "Each product still has to pass its gates and receive your publication approval.", cap_approved: true, approved: false },
       etsy: { status: "NOT_CONNECTED", items: [], reason: "no Etsy OAuth credential is recorded" },
       etsy_controls: { retrieved_on: "2026-10-06", note: "VERIFIED rows quote an Etsy document; UNKNOWN rows carry no number.",
         surfaces: { shop_title: [{ key: "shop_title_max_chars", what: "shop title (tagline) characters", value: 55, basis: "VERIFIED_HELP_CENTER" }],
@@ -271,6 +326,18 @@ export const DATA = {
         not_controlled: [{ element: "Page layout, colours, fonts and card design", why: "Etsy draws the shop page in its own design." }] },
       preview: { path: "/cc/store-preview", default_variant: "storefront", variants: ["storefront", "v2", "compare", "standard", "brand_face"] } };
   },
+  // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
+  // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
+  // transactions_r -- so the card renders its refused state and Connect stays disabled.
+  etsy: () => ({
+    api_key_probe: { state: "FAILING", ok: false, at: ago(300), endpoint: "ping",
+      etsy_error: "API key is not active (fixture)" },
+    grant: { stored: true, scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w"],
+      missing_scopes: ["transactions_r"] },
+    authorise: { ready: true, problems: [], callback_path: "/api/etsy/oauth/callback",
+      scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w", "transactions_r"] },
+    can_connect: false,
+  }),
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],

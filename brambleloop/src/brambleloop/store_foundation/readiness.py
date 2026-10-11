@@ -260,10 +260,21 @@ def _check_opening_grid(s: C.Surface) -> list[dict]:
                           f"{missing} missing. Owner naming decision"))
         if p["price_cad"] is None:
             out.append(_f("PRICE_UNKNOWN", "fail", f"{p['candidate']}: no price"))
+        elif (p.get("plan_price_cad") is not None
+              and round(float(p["price_cad"]), 2) != round(float(p["plan_price_cad"]), 2)):
+            out.append(_f("LISTING_PRICE_NOT_PLAN", "fail",
+                          f"{p['candidate']}: the drafted listing says "
+                          f"CA${float(p['price_cad']):.2f}, the Launch-0 price plan says "
+                          f"CA${float(p['plan_price_cad']):.2f}; publication refuses it "
+                          f"until pricing.position re-prices the release"))
         if not str(p["title_basis"]).startswith("drafted_listing"):
             out.append(_f("TITLE_NOT_DRAFTED", "unverified",
                           f"{p['candidate']}: title derived with the release chain's title "
                           f"builder; no drafted listing row was read"))
+        if "superseded_release=" in str(p["title_basis"]):
+            out.append(_f("TITLE_FROM_SUPERSEDED_RELEASE", "unverified",
+                          f"{p['candidate']}: the only drafted listing is of a superseded "
+                          f"release ({p['title_basis'].split(';', 1)[1]})"))
         if p.get("db_read_error"):
             out.append(_f("LISTINGS_UNREADABLE", "unverified", p["db_read_error"]))
     return out

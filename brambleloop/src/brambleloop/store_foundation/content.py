@@ -195,7 +195,10 @@ def launch0_products(db=None) -> list[dict]:
     from ..products import launch0 as l0
     from ..brand import storefront
 
-    drafted: dict[str, object] = {}
+    # Keyed by (slug, version): a product listed at a superseded release (production has
+    # nordic-star-ornaments 1.0.0 beside 1.4.0) must not lend that release's title or price
+    # to the current one, whichever row happens to have the higher id (W4-CATALOG).
+    drafted: dict[tuple[str, str], object] = {}
     read_error = None
     if db is not None:
         try:
@@ -207,7 +210,7 @@ def launch0_products(db=None) -> list[dict]:
             for row in _session_rows(db, select(Listing).where(
                     Listing.product_slug.in_(slugs), Listing.state != "withdrawn")
                     .order_by(Listing.id)):
-                drafted[row.product_slug] = row
+                drafted[(row.product_slug, row.version)] = row
         except Exception as exc:  # noqa: BLE001 - unreadable is said, not hidden
             read_error = f"{type(exc).__name__}: {str(exc)[:160]}"
 
@@ -220,12 +223,22 @@ def launch0_products(db=None) -> list[dict]:
         cirs = [l0.cir_for(v.build) for v in variants]
         rep_cir = l0.cir_for(rep.build)
         price = l0.launch_price(rep_cir.slug) or {}
-        row = next((drafted[c.slug] for c in [rep_cir] + cirs if c.slug in drafted), None)
+        row = next((drafted[(c.slug, c.version)] for c in [rep_cir] + cirs
+                    if (c.slug, c.version) in drafted), None)
+        stale = ""
+        if row is None:
+            # Only a superseded release is drafted: read it, and say which release it is.
+            current = {c.slug for c in [rep_cir] + cirs}
+            older = [r for (sl, _v), r in drafted.items() if sl in current]
+            row = max(older, key=lambda r: r.id) if older else None
+            if row is not None:
+                stale = (f";superseded_release={row.version} (current "
+                         f"{rep_cir.version}); re-draft at the current release")
         if row is not None:
-            title, title_basis = row.title, f"drafted_listing:listings.id={row.id}"
+            title, title_basis = row.title, f"drafted_listing:listings.id={row.id}{stale}"
             description = row.description
             price_cad = row.price_cad
-            price_basis = f"drafted_listing:listings.id={row.id}"
+            price_basis = f"drafted_listing:listings.id={row.id}{stale}"
         else:
             title = seo.build_title(rep_cir.title, ident.etsy_category, list(ident.qualifiers),
                                     None, sizes=len(variants))
@@ -238,6 +251,7 @@ def launch0_products(db=None) -> list[dict]:
             "candidate": slug, "plan_title": cand.title, "title": title,
             "title_basis": title_basis, "description": description,
             "price_cad": price_cad, "price_basis": price_basis,
+            "plan_price_cad": price.get("price_cad"),
             "sizes": [{"key": v.key, "label": v.label, "cir_slug": c.slug}
                       for v, c in zip(variants, cirs)],
             "variant_count": len(variants),

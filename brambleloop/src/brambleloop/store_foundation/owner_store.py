@@ -19,13 +19,13 @@ PDF_PATH = "/api/cc/store/pdf/{slug}?terms={terms}"
 PREVIEW_PATH = "/cc/store-preview"
 
 DECISION = {
-    "key": "D-FB-9",
-    "question": ("Open with the 5 Launch-0 patterns, or add the 3 prepared patterns so the "
-                 "opening catalogue reaches the 8-product floor (launch.readiness "
-                 "MIN_LISTINGS_TO_OPEN = 8)?"),
-    "where": "products.launch0.CATALOGUE_FLOOR_APPROVED",
-    "how": ("Owner decision only. Nothing here changes it; the 3 prepared patterns stay "
-            "outside launch scope and off the customer preview until it is made."),
+    "key": "CAP-1",
+    "question": ("Approve the 3 products CAP-1 brought into Launch-0 scope? The owner approved "
+                 "the cap change 5 -> 8 as configuration only (launch0.CATALOGUE_FLOOR_APPROVED); "
+                 "the products themselves are not approved, drafted or published."),
+    "where": "products.launch0.CATALOGUE_FLOOR_APPROVED (cap) + per-product publication approval",
+    "how": ("Each product still has to pass its gates and receive your publication approval. "
+            "Until every gate passes it stays off the customer preview."),
 }
 
 
@@ -71,7 +71,7 @@ def _listing(p: dict) -> dict:
 
 def _image(build: str, verify: bool) -> dict:
     if not verify:
-        return {"status": "NOT_CHECKED", "build": build}
+        return {"status": "NOT_CHECKED", "build": build, "path": None}
     from .preview import hero_frame
 
     f = hero_frame(build)
@@ -85,9 +85,15 @@ def _readiness(p: dict, q: dict, img: dict) -> dict:
     """One status per product: what stands between it and a listing, with who clears it."""
     blockers = []
     if p["launch_status"] == "PROPOSED":
-        blockers.append({"what": "Owner decision D-FB-9 (catalogue floor)", "clearer": "OWNER"})
+        blockers.append({"what": "Owner decision on the catalogue floor (cap)", "clearer": "OWNER"})
+    if p["launch_status"] == "CAP1_SCOPE":
+        blockers.append({"what": "Product not approved: gates pending (CAP-1 is configuration only)",
+                         "clearer": "OWNER"})
     if q.get("status") != "OK":
         blockers.append({"what": f"Pattern quality: {q.get('status')}", "clearer": "COMPANY"})
+    if img.get("pieces_finding"):
+        blockers.append({"what": f"Listing picture misleading: {img['pieces_finding']}",
+                         "clearer": "COMPANY"})
     if img.get("status") not in ("VERIFIED", "NOT_CHECKED"):
         blockers.append({"what": "Listing picture withheld (did not verify)", "clearer": "COMPANY"})
     blockers.append({"what": "Shop open and listing entered on Etsy (owner sign-in)",
@@ -127,20 +133,51 @@ def _etsy_status(db) -> dict:
 
 _CACHE: dict = {}
 CACHE_SECONDS = 120
+#: How long a request waits for a full (pictures + quality) catalogue before it is answered with
+#: the quick one. The full one keeps computing in the background and is cached for the next call.
+FULL_WAIT_SECONDS = 4.0
+_WARMING: dict = {}
 
 
-def catalogue(db=None, *, verify_images: bool = True, quality: bool = True) -> dict:
-    """The owner catalogue. Rendering and certifying eight designs takes seconds, so a result
-    is reused for CACHE_SECONDS (its `generated_at` says when it was computed)."""
+def catalogue(db=None, *, verify_images: bool = True, quality: bool = True,
+              wait: float | None = None) -> dict:
+    """The owner catalogue. Rendering and checking eight pictures takes tens of seconds on a
+    cold process, so the full result is computed once in the background and reused for
+    CACHE_SECONDS (`generated_at` says when). A phone never waits on that: after `wait` seconds
+    it gets the quick catalogue -- same products, prices and listings, pictures and quality
+    marked NOT_CHECKED / UNKNOWN (never a pass) -- with `preparing: True`."""
+    import threading
     import time
 
     key = (id(db), verify_images, quality)
     hit = _CACHE.get(key)
     if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
         return hit[1]
-    out = _catalogue(db, verify_images=verify_images, quality=quality)
-    _CACHE[key] = (time.monotonic(), out)
-    return out
+    if not (verify_images or quality):
+        out = _catalogue(db, verify_images=False, quality=False)
+        _CACHE[key] = (time.monotonic(), out)
+        return out
+    job = _WARMING.get(key)
+    if job is None or not job.is_alive():
+        def run():
+            try:
+                out = _catalogue(db, verify_images=verify_images, quality=quality)
+                _CACHE[key] = (time.monotonic(), out)
+            finally:
+                _WARMING.pop(key, None)
+
+        job = threading.Thread(target=run, name="owner-store-catalogue", daemon=True)
+        _WARMING[key] = job
+        job.start()
+    job.join(FULL_WAIT_SECONDS if wait is None else wait)
+    hit = _CACHE.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+        return hit[1]
+    quick = dict(catalogue(db, verify_images=False, quality=False))
+    quick["preparing"] = True
+    quick["preparing_note"] = ("pictures and pattern checks are being computed; they appear on "
+                               "the next refresh. Until then they read NOT_CHECKED / UNKNOWN.")
+    return quick
 
 
 def _catalogue(db=None, *, verify_images: bool = True, quality: bool = True) -> dict:
@@ -157,6 +194,9 @@ def _catalogue(db=None, *, verify_images: bool = True, quality: bool = True) -> 
             "slug": p["slug"], "name": p["name"], "summary": p["summary"],
             "description": p["description"], "section": p["section"], "kind": p["kind"],
             "launch_status": p["launch_status"], "launch_status_note": p["launch_status_note"],
+            "on_customer_page": (p["launch_status"] == "LAUNCH_0" or (
+                p["launch_status"] == storefront.CAP1_SCOPE
+                and storefront.customer_gates_pass(p, db)[0])),
             "price_cad": p["price_cad"], "digital_label": p["digital_label"],
             "sizes": p["sizes"], "variant_count": p["variant_count"],
             "representative": p["representative"], "image": img, "quality": q,
@@ -168,15 +208,18 @@ def _catalogue(db=None, *, verify_images: bool = True, quality: bool = True) -> 
         })
     launch = [p for p in products if p["launch_status"] == "LAUNCH_0"]
     proposed = [p for p in products if p["launch_status"] == "PROPOSED"]
+    cap1 = [p for p in products if p["launch_status"] == storefront.CAP1_SCOPE]
     return {
         "generated_at": _now(), "products": products,
         "counts": {"collection": len(products), "launch0": len(launch),
-                   "proposed": len(proposed),
+                   "proposed": len(proposed), "cap1": len(cap1),
+                   "cap1_approved": sum(1 for p in cap1 if p["on_customer_page"]),
                    "images_verified": (sum(1 for p in products if p["image"].get("status") == "VERIFIED")
                                        if verify_images else None),
                    "quality_ok": (sum(1 for p in products if p["quality"].get("status") == "OK")
                                   if quality else None)},
-        "decision": {**DECISION, "approved": len(proposed) == 0},
+        "decision": {**DECISION, "cap_approved": len(proposed) == 0,
+                     "approved": bool(cap1) and all(p["on_customer_page"] for p in cap1)},
         "etsy": _etsy_status(db),
         "etsy_controls": storefront.etsy_controls(),
         "preview": {"path": PREVIEW_PATH, "default_variant": storefront.VARIANT,

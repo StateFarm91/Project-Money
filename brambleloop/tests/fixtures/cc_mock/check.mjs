@@ -347,6 +347,40 @@ try {
   check(/Harbour Throw/.test(homeDecide) && /Max cost/.test(homeDecide) && /If you do nothing/.test(homeDecide) && /1 more open/.test(homeDecide)
     && (await page.isVisible(".decide-first .decide-rest a[href='#/approvals']")), "ccux home: top decisions with cost, consequence and a link to all", homeDecide.slice(0, 200));
   await noHScroll("ccux home");
+
+  // ---- W4-OWNERHOME: six-block owner overview at 390 px ----------------------------------
+  const ovTitles = await page.$$eval("#main .stack > .card", (els) => els.map((e) => e.classList.contains("hero") ? "hero"
+    : e.classList.contains("decide-first") ? "decisions" : (e.className.match(/ov-(working|blocked|accomplished|ready|money)/) || [])[1] || null).filter(Boolean));
+  check(JSON.stringify(ovTitles.slice(0, 7)) === JSON.stringify(["hero", "decisions", "working", "blocked", "accomplished", "ready", "money"]),
+    "ownerhome: six blocks lead Home (decisions first after the brief)", JSON.stringify(ovTitles));
+  const ovRows = await page.$$eval(".ov-block", (els) => els.map((e) => [e.className, e.querySelectorAll(":scope > .ov-rows > li").length,
+    e.querySelector(":scope > .ov-evidence > summary")?.textContent || "", e.querySelector(":scope > details.ov-evidence")?.open]));
+  check(ovRows.length === 5 && ovRows.every(([, n]) => n <= 5) && ovRows.every(([, , , open]) => open === false),
+    "ownerhome: each block shows at most five rows, evidence folded", JSON.stringify(ovRows));
+  check(ovRows.some(([c, n, sum]) => /ov-blocked/.test(c) && n === 5 && /Evidence \(7\)/.test(sum)), "ownerhome: evidence keeps every row the block summarises", JSON.stringify(ovRows));
+  const blockedTop = await page.textContent(".ov-blocked .ov-rows li");
+  check(/Etsy API credentials/.test(blockedTop) && /21 waiting/.test(blockedTop), "ownerhome: blocked ranks root causes by count", blockedTop);
+  const moneyTxt = await page.textContent(".ov-money");
+  check(/UNMEASURED/.test(moneyTxt) && !/Revenue\s*CA\$0\.00/.test(moneyTxt) && /Agent activity \(24 h\): 2 of 3/.test(moneyTxt),
+    "ownerhome: money keeps UNKNOWN/UNMEASURED, agents measured by useful results", moneyTxt.slice(0, 240));
+  const readyTxt = await page.textContent(".ov-ready .ov-rows");
+  check(/PDF BUILT/.test(readyTxt) && /images UNKNOWN/.test(readyTxt) && /NOT READY/.test(readyTxt), "ownerhome: ready to sell shows certification, PDF and image status", readyTxt);
+  check(/#4/.test(await page.textContent(".decide-first .ov-next-decisions")) && (await page.$$(".decide-first .decide-go")).length === 3,
+    "ownerhome: decisions block reaches rank 5 without extra tap targets", "");
+  check(!(await page.$eval("details.home-more", (d) => d.open)), "ownerhome: the previous Home detail is kept, folded", "");
+  for (const sel of [".ov-blocked > .ov-evidence > summary", ".ov-ready > .ov-evidence > summary", ".ov-money > .ov-evidence > summary"]) await page.click(sel);
+  await page.waitForTimeout(100);
+  check((await page.$$eval(".ov-blocked .ov-ev", (e) => e.length)) === 7, "ownerhome: expanding evidence lists the rows with sources", "");
+  await noHScroll("ownerhome expanded");
+  const ovTap = await page.$$eval(".ov-evidence > summary", (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  check(ovTap.length >= 5 && ovTap.every((x) => x >= 44), "ownerhome: evidence toggles are >=44px tap targets", JSON.stringify(ovTap));
+  if (SCREENS) {
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_expanded_full.png"), fullPage: true });
+    await page.reload();
+    await settle();
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_top.png"), fullPage: false });
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_full.png"), fullPage: true });
+  }
   const goH = await page.$$eval(".decide-first .decide-go", (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
   check(goH.length === 3 && goH.every((x) => x >= 44), "ccux home: each top decision is a >=44px tap target", JSON.stringify(goH));
 
@@ -450,7 +484,10 @@ try {
   check(JSON.stringify(sov.nav) === JSON.stringify(["Overview", "Collection", "Listings & prices", "Storefront"]), "storefront cc: store sub-navigation", JSON.stringify(sov.nav));
   check(/Launch collection\s*8/.test(sov.readiness) && /Pictures verified\s*7 \/ 8/.test(sov.readiness) && /Etsy connection\s*Not connected/.test(sov.readiness),
     "storefront cc: launch readiness shows collection, verified pictures and Etsy connection", sov.readiness.slice(0, 240));
-  check(/D-FB-9/.test(sov.decisions) && /AWAITING YOU/.test(sov.decisions), "storefront cc: owner decision D-FB-9 shown", sov.decisions.slice(0, 200));
+  check(/CAP-1: products in Launch-0 scope/.test(sov.decisions) && /NOT APPROVED: GATES PENDING/.test(sov.decisions) && !/D-FB-9/.test(sov.decisions),
+    "storefront cc: CAP-1 products shown as not approved (gates pending)", sov.decisions.slice(0, 200));
+  const etsyCardText = await page.evaluate(() => [...document.querySelectorAll("#main section.card")].find((c) => c.querySelector(".card-title")?.textContent === "Etsy connection")?.textContent || "");
+  check(/refusing the app key/.test(etsyCardText) && (await page.isDisabled("button:has-text('Connect Etsy shop')")), "storefront cc: Etsy connection card kept on the Store overview", etsyCardText.slice(0, 160));
   const verifiedTiles = sov.tiles.filter((t) => t.img);
   const withheld = sov.tiles.filter((t) => !t.img);
   check(sov.tiles.length === 5 && verifiedTiles.length === 4 && verifiedTiles.every((t) => t.img.startsWith("/api/cc/store/image/") && t.loaded),
@@ -466,7 +503,8 @@ try {
   await settle();
   const coll = await page.$$eval(".pgrid", (gs) => gs.map((g) => g.querySelectorAll(".ptile").length));
   const collText = await page.textContent("section[aria-labelledby='store-collection']");
-  check(JSON.stringify(coll) === JSON.stringify([5, 3]) && /Proposed, awaiting your decision \(3\)/.test(collText), "storefront cc: 8-product launch collection, 5 Launch-0 + 3 proposed", JSON.stringify(coll));
+  check(JSON.stringify(coll) === JSON.stringify([5, 3]) && /In Launch-0 scope \(CAP-1\); not approved: gates pending \(3\)/.test(collText) && !/awaiting your decision/.test(collText),
+    "storefront cc: 8-product launch collection, 5 Launch-0 + 3 CAP-1 not approved", JSON.stringify(coll));
   check(/Unknown/.test(collText) && !/CA\$0\.00/.test(collText), "storefront cc: an unknown price reads Unknown, never CA$0.00");
   await noHScroll("storefront collection");
   const smallC = await page.$$eval("#main button, #main a.btn", (els) => els.filter((e) => e.offsetParent !== null).map((e) => Math.round(e.getBoundingClientRect().height)).filter((x) => x < 40));
@@ -490,10 +528,11 @@ try {
     "storefront cc: readiness, read-only listing (on Etsy UNKNOWN) and folded evidence", (pd.readiness + pd.listing).slice(0, 300));
   check((await page.$$("section[aria-labelledby='product-listing'] button")).length === 0, "storefront cc: listing view is read-only");
   await noHScroll("storefront product");
-  await page.goto(`${BASE}/cc/#/store/product/mosaic-placemat-pair`);
+  await page.goto(`${BASE}/cc/#/store/product/housewarming-key-basket`);
   await settle();
   const pd2 = await page.textContent("#main");
-  check(/PROPOSED/.test(pd2) && /D-FB-9/.test(pd2) && /Price\s*Unknown/.test(pd2) && !/CA\$0\.00/.test(pd2), "storefront cc: proposed product names the decision; unknown price Unknown", pd2.slice(0, 200));
+  check(/CAP-1 · NOT APPROVED/.test(pd2) && /not approved: gates pending/.test(pd2) && /Not shown on the customer preview/.test(pd2)
+    && /Price\s*Unknown/.test(pd2) && !/CA\$0\.00/.test(pd2), "storefront cc: CAP-1 product labelled not approved, off the customer page; unknown price Unknown", pd2.slice(0, 240));
 
   await page.goto(`${BASE}/cc/#/store/listings`);
   await settle();

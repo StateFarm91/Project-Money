@@ -43,6 +43,36 @@ NOT_ETSY = ("A preview of the Brambleloop Studio shop built from its own drafts.
             "the real Etsy storefront: nothing here is published, and Etsy draws the real page "
             "in its own layout.")
 DIGITAL_LABEL = "Digital download (PDF pattern)"
+CAP1_SCOPE = "CAP1_SCOPE"
+CAP1_NOTE = "in Launch-0 scope (CAP-1); not approved: gates pending"
+
+
+def customer_gates_pass(p: dict, db=None) -> tuple[bool, list[str]]:
+    """Whether a CAP-1 product may appear on the customer page: every gate must pass.
+
+    Reuses W4-IMAGES' computed customer approval (listing-set certificate for the exact
+    release, parity fully judged, an owner publication grant), plus a verified, complete hero.
+    Nothing is assumed: any failure or error keeps the product off the customer page."""
+    try:
+        from ..products import launch0 as l0
+        from .image_review import _approval
+        from .preview import hero_frame
+
+        build = p["representative"]["build"]
+        cir = l0.cir_for(build)
+        # The approval conditions first (cheap); the hero is rendered and checked only when
+        # they all hold, so a page load never renders a picture it could not show anyway.
+        appr = _approval(db, cir, True)
+        why = list(appr.get("why_not") or [])
+        if not appr.get("customer_approved"):
+            return False, why or ["not approved"]
+        f = hero_frame(build)
+        verified = f.get("status") == "VERIFIED" and not f.get("pieces_finding")
+        if not verified:
+            return False, ["hero image not verified and complete"] + why
+        return bool(_approval(db, cir, True).get("customer_approved")), why
+    except Exception as exc:  # noqa: BLE001 - an unreadable gate is a failing gate
+        return False, [f"{type(exc).__name__}: {str(exc)[:160]}"]
 COPY_LANE_MODULE = "copy_w4"
 
 # Product words keyed for the COPY lane. Until it supplies them, the product's own plan title
@@ -120,9 +150,16 @@ def collection(db=None, *, verify_images: bool = False) -> list[dict]:
     from . import content as C
 
     rows = []
+    cap1 = set(getattr(l0, "PROPOSED_SLUGS", ()))
     for p in C.launch0_products(db):
-        rows.append({**p, "launch_status": "LAUNCH_0",
-                     "launch_status_note": "in the Launch-0 opening catalogue"})
+        if p["candidate"] in cap1:
+            # CAP-1 (owner, 2026-10-11): the cap 5 -> 8 is configuration only. These products
+            # are in Launch-0 scope but NOT approved, drafted or published; their gates are
+            # pending, and the customer page shows them only when every gate passes.
+            rows.append({**p, "launch_status": CAP1_SCOPE, "launch_status_note": CAP1_NOTE})
+        else:
+            rows.append({**p, "launch_status": "LAUNCH_0",
+                         "launch_status_note": "in the Launch-0 opening catalogue"})
     approved = bool(getattr(l0, "CATALOGUE_FLOOR_APPROVED", False))
     if not approved:
         for cand in getattr(l0, "PROPOSED_CANDIDATES", ()):
@@ -316,7 +353,8 @@ def _img(frame: dict | None, alt_fallback: str) -> tuple[str, bool]:
     """An image element. Verified frames are drawn from one stylesheet rule per frame (so a
     picture used on its card and its sheet is embedded once); anything else is the neutral
     placeholder, never the unverified asset."""
-    if frame and frame.get("status") == "VERIFIED" and frame.get("png"):
+    if frame and frame.get("status") == "VERIFIED" and frame.get("png") \
+            and not frame.get("pieces_finding"):  # W4-IMAGES: an incomplete hero misleads
         return (f'<div class="im im-{_esc(frame["build"])}" role="img" '
                 f'aria-label="{_esc(frame.get("alt_text") or alt_fallback)}" '
                 f'data-image="verified"></div>'), True
@@ -327,7 +365,8 @@ def _img(frame: dict | None, alt_fallback: str) -> tuple[str, bool]:
 def _image_css(frames: list[dict]) -> str:
     out = [f'.im-placeholder{{background-image:url("{_placeholder_uri()}")}}']
     for f in frames:
-        if f.get("status") == "VERIFIED" and f.get("png") and re.fullmatch(r"[a-z0-9_]+", f["build"]):
+        if f.get("status") == "VERIFIED" and f.get("png") and not f.get("pieces_finding") \
+                and re.fullmatch(r"[a-z0-9_]+", f["build"]):
             uri = "data:image/png;base64," + base64.b64encode(f["png"]).decode("ascii")
             out.append(f'.im-{f["build"]}{{background-image:url("{uri}")}}')
     return "".join(out)
@@ -429,7 +468,9 @@ def render(db, viewport: str = "mobile", *, now: datetime | None = None, today=N
     viewport = viewport if viewport in V1.VIEWPORTS else "mobile"
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     surfaces, rows, roll = V1._evaluate(db, today=today)
-    products = [p for p in collection(db) if p["launch_status"] == "LAUNCH_0"]
+    coll = collection(db)
+    products = [p for p in coll if p["launch_status"] == "LAUNCH_0"
+                or (p["launch_status"] == CAP1_SCOPE and customer_gates_pass(p, db)[0])]
     frames = [V1.hero_frame(p["representative"]["build"]) for p in products]
     by_build = {f["build"]: f for f in frames}
     nav = navigation.public_nav(db)

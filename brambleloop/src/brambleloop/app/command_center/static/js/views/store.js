@@ -22,6 +22,7 @@ const ORDER = [["store_foundation", "Store foundation"],
   ["seo_w3", "Search: Etsy constraints & strategy"], ["search_evidence", "Search evidence per listing"],
   ["launch_packet", "Launch packet"]];
 
+const CATALOGUE_WAIT_MS = 8000;
 const SUBNAV = [["", "Overview"], ["collection", "Collection"], ["listings", "Listings & prices"], ["storefront", "Storefront"]];
 
 function findPreview(data, s) {
@@ -41,6 +42,14 @@ function findPreview(data, s) {
 const ETSY_LABEL = { CONNECTED: "Connected", NOT_CONNECTED: "Not connected", UNKNOWN: UNKNOWN_TEXT };
 const price = (v) => (typeof v === "number" ? formatMoney({ value_cad: v, state: "MEASURED" }) : UNKNOWN_TEXT);
 const pill = (st, label) => statusPill(st === "OWNER_GATED" ? "PENDING" : st, label || st);
+// Launch status of a collection product. CAP-1 (owner, 2026-10-11) changed the cap 5 -> 8 as
+// configuration only: those products are in Launch-0 scope but not approved; gates pending.
+const CAP1_LABEL = "In Launch-0 scope (CAP-1); not approved: gates pending";
+function launchPill(p) {
+  if (p.launch_status === "CAP1_SCOPE") return statusPill(p.on_customer_page ? "OK" : "DEGRADED", p.on_customer_page ? "CAP-1 · GATES PASS" : "CAP-1 · NOT APPROVED");
+  if (p.launch_status === "PROPOSED") return statusPill("DEGRADED", "PROPOSED");
+  return statusPill("OK", "LAUNCH-0");
+}
 
 function subnav(current) {
   return h("nav", { class: "seg store-nav", aria: { label: "Store sections" } },
@@ -53,7 +62,7 @@ function productImage(p, cls = "pimg") {
   const img = p.image || {};
   if (img.status === "VERIFIED" && img.path) {
     return h("div", { class: cls }, h("img", { src: img.path, alt: img.alt_text || `${p.name}: digital rendering`, loading: "lazy", width: 400, height: 400 }),
-      h("span", { class: "pimg-tag" }, "Rendering"));
+      h("span", { class: "pimg-tag" }, img.pieces_finding ? "Rendering · incomplete hero" : "Rendering"));
   }
   const why = img.status === "NOT_CHECKED" ? "Image not checked" : img.status === "WITHHELD" ? "Image withheld (did not verify)" : `Image ${img.status || UNKNOWN_TEXT}`;
   return h("div", { class: [cls, "pimg-none"], data: { image: img.status || "UNKNOWN" } }, h("span", null, why));
@@ -64,7 +73,7 @@ function productTile(p) {
     productImage(p),
     h("span", { class: "ptile-name" }, p.name),
     h("span", { class: "ptile-price" }, price(p.price_cad)),
-    h("span", { class: "ptile-meta" }, p.launch_status === "PROPOSED" ? statusPill("DEGRADED", "PROPOSED") : statusPill("OK", "LAUNCH-0"),
+    h("span", { class: "ptile-meta" }, launchPill(p),
       " ", pill((p.readiness || {}).status || "UNKNOWN", (p.readiness || {}).status === "OWNER_GATED" ? "OWNER-GATED" : null)));
 }
 
@@ -79,9 +88,10 @@ function readinessCard(cat, data, s) {
   const n = (v) => (typeof v === "number" ? String(v) : UNKNOWN_TEXT);
   return card({ title: "Launch readiness", labelId: "store-readiness", actions: statusPill(verdict && verdict.status ? verdict.status : "UNKNOWN") },
     h("p", { class: "card-meta" }, freshness(cat.generated_at || null)),
+    cat.preparing ? h("p", { class: "callout callout-info", data: { preparing: "1" } }, `Still checking: ${cat.preparing_note || "pictures and pattern checks are being computed"}`) : null,
     h("div", { class: "tiles" },
       h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Launch collection"), h("p", { class: "tile-value" }, n(c.collection)),
-        h("p", { class: "tile-meta" }, `${n(c.launch0)} Launch-0 · ${n(c.proposed)} proposed`)),
+        h("p", { class: "tile-meta" }, `${n(c.launch0)} Launch-0 · ${n(c.cap1)} CAP-1 (not approved)${c.proposed ? ` · ${n(c.proposed)} proposed` : ""}`)),
       h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Pictures verified"), h("p", { class: "tile-value" }, `${n(c.images_verified)} / ${n(c.collection)}`)),
       h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Pattern quality OK"), h("p", { class: "tile-value" }, `${n(c.quality_ok)} / ${n(c.collection)}`)),
       h("div", { class: "tile", data: { etsy: etsy.status || "UNKNOWN" } }, h("p", { class: "tile-label" }, "Etsy connection"),
@@ -96,8 +106,8 @@ function decisionsCard(cat, s) {
   const pubs = s.publication_candidates && Array.isArray(s.publication_candidates.items) ? s.publication_candidates.items.length : null;
   return card({ title: "Your store decisions", labelId: "store-decisions" },
     h("ul", { class: "rows" },
-      h("li", { class: "row" }, h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${d.key || "D-FB-9"}: catalogue floor`),
-        statusPill(d.approved ? "OK" : "PENDING", d.approved ? "DECIDED" : "AWAITING YOU")),
+      h("li", { class: "row" }, h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${d.key || "CAP-1"}: products in Launch-0 scope`),
+        statusPill(d.approved ? "OK" : "PENDING", d.approved ? "APPROVED" : "NOT APPROVED: GATES PENDING")),
         h("p", { class: "row-detail" }, d.question || UNKNOWN_TEXT), d.how ? h("p", { class: "muted small" }, d.how) : null),
       h("li", { class: "row" }, h("div", { class: "row-head" }, h("p", { class: "row-title" }, "Publication approvals"),
         statusPill(pubs ? "PENDING" : pubs === 0 ? "OK" : "UNKNOWN", pubs === null ? "UNKNOWN" : `${pubs} READY FOR REVIEW`)),
@@ -131,6 +141,50 @@ function controlsCard(cat) {
       h("ul", { class: "rows" }, (ctl.not_controlled || []).map((x) => h("li", { class: "row" }, h("p", { class: "row-title" }, x.element), h("p", { class: "row-detail" }, x.why))))));
 }
 
+// ---- section: Etsy connection (W4-ETSYCOMM) ---------------------------------------------------
+// The two Etsy-connection steps only the owner can take, from a phone. Re-check
+// queues a read-only ping of the app key; Connect (step-up) starts the shop authorization and
+// opens Etsy's own consent page. Neither changes scopes, credentials or the Etsy app.
+const ETSY_CONSENT_HOST = "www.etsy.com";
+
+function etsyCard(etsy, stale, rerender) {
+  if (!etsy) return null;
+  const probe = etsy.api_key_probe || {};
+  const grant = etsy.grant || {};
+  const auth = etsy.authorise || {};
+  const lines = [];
+  if (probe.state === "OK") lines.push(h("p", { class: "callout callout-info" }, `Etsy accepts the app key (last check ${probe.at || "?"}).`));
+  else if (probe.state === "FAILING") lines.push(h("p", { class: "callout callout-bad" },
+    `Etsy is refusing the app key (last check ${probe.at || "?"})${probe.etsy_error ? `: "${probe.etsy_error}"` : ""}. Check the app at etsy.com/developers/your-apps, then re-check.`));
+  else lines.push(h("p", { class: "callout callout-warn" }, "The app key has not been checked yet."));
+  lines.push(h("p", { class: "muted" }, grant.stored
+    ? `Shop authorised for: ${(grant.scopes || []).join(", ") || "none"}.` + ((grant.missing_scopes || []).length ? ` Still needed: ${grant.missing_scopes.join(", ")}.` : "")
+    : "The shop has not been authorised for this app yet."));
+  for (const p of auth.problems || []) lines.push(h("p", { class: "callout callout-warn" }, p));
+  const recheck = h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
+    const r = await guardedAction({ title: "Re-check the Etsy connection?",
+      lines: ["Sends one read-only test request to Etsy. Nothing is written or published."],
+      confirmLabel: "Re-check", run: () => api.etsyRecheck(), success: "Re-check queued." });
+    if (r) rerender();
+  } }, "Re-check Etsy connection");
+  const connect = h("button", { class: "btn btn-primary", type: "button", disabled: stale || !etsy.can_connect, onclick: async () => {
+    const r = await guardedAction({ title: "Connect the Etsy shop?",
+      lines: ["Opens Etsy's own page asking you to approve this app's access to your shop, including reading orders (transactions_r).",
+        "Sign in as the account that owns the shop and press Allow. Nothing is published."],
+      confirmLabel: "Continue to Etsy", requiresStepUp: true,
+      run: () => api.etsyConnect(), success: "Opening Etsy..." });
+    // Navigate only to Etsy's own consent host: the URL is built server-side, but the phone
+    // checks it anyway rather than following whatever a response says.
+    const url = r && safeUrl(r.authorize_url);
+    let host = "";
+    try { host = url ? new URL(url).hostname : ""; } catch (_) { host = ""; }
+    if (host === ETSY_CONSENT_HOST) window.location.assign(url);
+  } }, "Connect Etsy shop");
+  return card({ title: "Etsy connection", subtitle: "Only you can fix the app key or authorise the shop. These buttons are safe to press." },
+    ...lines, h("div", { class: "btn-row" }, recheck, connect));
+}
+
+// ---- section: live-shop observation (W4-STORE) -------------------------------------------------
 // The owner records what the live Etsy page shows, one field at a time. Nothing is written to
 // Etsy: the reading only feeds the drift check, whose repo proposals are ADOPT_LIVE_INTO_REPO.
 function observationCard(drift, stale, rerender) {
@@ -156,8 +210,9 @@ function observationCard(drift, stale, rerender) {
 }
 
 function catalogueError(err) {
-  return card({ title: "Catalogue", actions: statusPill("UNKNOWN") },
-    h("p", { class: "muted" }, `Unknown: the catalogue could not be loaded (${(err && err.message) || "error"}).`));
+  return card({ title: "Catalogue", labelId: "store-catalogue-unavailable", actions: statusPill(err && err.preparing ? "PENDING" : "UNKNOWN", err && err.preparing ? "PREPARING" : "UNKNOWN") },
+    h("p", { class: "muted" }, err && err.preparing ? `Not loaded yet: ${err.message}.`
+      : `Unknown: the catalogue could not be loaded (${(err && err.message) || "error"}).`));
 }
 
 function evidenceGroup(data, result) {
@@ -178,13 +233,14 @@ function productPage(p, cat) {
   const img = p.image || {};
   const pdf = p.pdf || {};
   return h("div", { class: "stack" },
-    card({ title: p.name, labelId: "product-head", cls: "product-head", actions: p.launch_status === "PROPOSED" ? statusPill("DEGRADED", "PROPOSED") : statusPill("OK", "LAUNCH-0") },
+    card({ title: p.name, labelId: "product-head", cls: "product-head", actions: launchPill(p) },
       productImage(p, "pimg pimg-lg"),
       h("p", { class: "ptile-price big" }, price(p.price_cad)),
       h("p", { class: "dl-label" }, p.digital_label || "Digital download (PDF pattern)"),
       h("p", null, p.description || ""),
       h("dl", { class: "kv" }, (p.sizes || []).map((sz) => h("div", null, h("dt", null, (p.sizes || []).length > 1 ? `Size: ${String(sz.key).replace(/_/g, " ")}` : "Size"), h("dd", null, sz.label)))),
-      p.launch_status === "PROPOSED" ? h("p", { class: "callout callout-warn" }, p.launch_status_note) : null),
+      p.launch_status !== "LAUNCH_0" ? h("p", { class: "callout callout-warn" }, p.launch_status_note) : null,
+      h("p", { class: "muted small" }, p.on_customer_page ? "Shown on the customer preview." : "Not shown on the customer preview until every gate passes.")),
     card({ title: "Pattern PDF", labelId: "product-pdf", subtitle: "Your review copy, rendered now from the pattern file" },
       h("div", { class: "btn-row" }, (pdf.terms || []).map((t) => h("a", { class: "btn", href: (pdf.paths || {})[t], target: "_blank", rel: "noopener noreferrer", data: { pdf: t } }, icon("external", 18), `${t} terms PDF`))),
       h("p", { class: "muted small" }, pdf.note || "")),
@@ -214,14 +270,15 @@ function productPage(p, cat) {
 
 function collectionPage(cat) {
   const ps = cat.products || [];
-  const l0 = ps.filter((p) => p.launch_status === "LAUNCH_0");
-  const prop = ps.filter((p) => p.launch_status === "PROPOSED");
+  const groups = [
+    ["LAUNCH_0", "Launch-0"],
+    ["CAP1_SCOPE", CAP1_LABEL],
+    ["PROPOSED", "Proposed, awaiting your decision"],
+  ].map(([st, label]) => [label, ps.filter((p) => p.launch_status === st)]).filter(([, list]) => list.length);
   return h("div", { class: "stack" },
-    card({ title: `Launch collection · ${ps.length} patterns`, labelId: "store-collection", subtitle: "5 Launch-0 patterns plus 3 prepared for the 8-product floor" },
+    card({ title: `Launch collection · ${ps.length} patterns`, labelId: "store-collection", subtitle: "The 8-product launch collection and where each pattern stands" },
       h("p", { class: "card-meta" }, freshness(cat.generated_at || null)),
-      h("h3", { class: "section-title" }, `Launch-0 (${l0.length})`), catalogueGrid(l0),
-      h("h3", { class: "section-title" }, `Proposed, awaiting your decision (${prop.length})`),
-      prop.length ? catalogueGrid(prop) : h("p", { class: "muted" }, "None: the catalogue-floor decision has been made.")),
+      groups.map(([label, list]) => [h("h3", { class: "section-title" }, `${label} (${list.length})`), catalogueGrid(list)])),
     decisionsCard(cat, {}));
 }
 
@@ -236,7 +293,7 @@ function listingsPage(cat) {
           h("div", { class: "row-head" }, h("a", { class: "row-title", href: `#/store/product/${encodeURIComponent(p.slug)}` }, p.name),
             h("span", { class: "ptile-price" }, price(l.price_cad))),
           h("p", { class: "row-detail" }, l.title || UNKNOWN_TEXT),
-          h("p", { class: "muted small" }, `${l.title_chars ?? UNKNOWN_TEXT}/${l.title_max ?? UNKNOWN_TEXT} characters · ${p.launch_status === "PROPOSED" ? "proposed" : "Launch-0"} · on Etsy: ${l.on_etsy || UNKNOWN_TEXT}`),
+          h("p", { class: "muted small" }, `${l.title_chars ?? UNKNOWN_TEXT}/${l.title_max ?? UNKNOWN_TEXT} characters · ${p.launch_status === "CAP1_SCOPE" ? "CAP-1, not approved" : p.launch_status === "PROPOSED" ? "proposed" : "Launch-0"} · on Etsy: ${l.on_etsy || UNKNOWN_TEXT}`),
           h("details", { class: "review" }, h("summary", null, "Where title and price come from"),
             h("p", { class: "muted small" }, `Title: ${l.title_basis || UNKNOWN_TEXT}`), h("p", { class: "muted small" }, `Price: ${l.price_basis || UNKNOWN_TEXT}`)));
       }))));
@@ -244,13 +301,20 @@ function listingsPage(cat) {
 
 export async function render({ params = [], rerender } = {}) {
   const sub = params[0] || "";
-  const [storeR, catR] = await Promise.allSettled([api.store(), api.storeCatalogue()]);
+  // The first catalogue of a server process renders and checks eight pictures (tens of
+  // seconds); later ones are cached. The page does not wait on that: past CATALOGUE_WAIT_MS it
+  // renders with a "being prepared" card, and the request keeps warming the server cache.
+  const catalogue = Promise.race([api.storeCatalogue(), new Promise((_, rej) => setTimeout(
+    () => rej(Object.assign(new Error("the catalogue is still being prepared (pictures are rendered and checked on first load); refresh in a moment"), { preparing: true })),
+    CATALOGUE_WAIT_MS))]);
+  const [storeR, catR, etsyR] = await Promise.allSettled([api.store(), catalogue, api.etsy()]);
   if (storeR.status === "rejected" && catR.status === "rejected") throw storeR.reason;
   const result = storeR.status === "fulfilled" ? storeR.value : { data: {}, fetchedAt: null };
   const data = result.data || {};
   const s = sectionsOf(data);
   const cat = catR.status === "fulfilled" ? (catR.value.data || {}) : null;
   const preview = findPreview(data, s);
+  const etsy = etsyR.status === "fulfilled" ? etsyR.value.data : null;
   const head = [...pageMeta(result, data), subnav(sub === "product" ? "collection" : sub)];
 
   if (sub === "product") {
@@ -268,7 +332,9 @@ export async function render({ params = [], rerender } = {}) {
     cat ? decisionsCard(cat, s) : null,
     cat ? card({ title: "Catalogue", labelId: "store-catalogue", subtitle: "Tap a pattern for its pictures, PDFs, quality and listing", actions: h("a", { class: "btn", href: "#/store/collection" }, "All 8") },
       catalogueGrid((cat.products || []).filter((p) => p.launch_status === "LAUNCH_0"))) : null,
+    // Overview sections, each self-contained (a later lane adds its own card here):
     previewCard(preview, cat),
+    etsyCard(etsy, result.stale, rerender || (() => {})),
     observationCard(s.live_drift, result.stale, rerender || (() => {})),
     evidenceGroup(data, result));
 }

@@ -169,6 +169,8 @@ body.is-signed-out { padding-bottom: 0; }
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .row { border-top: 1px solid var(--border); padding: 12px 0; position: relative; min-width: 0; }
 .row:first-child { border-top: 0; padding-top: 4px; }
+.root-cause { border-top: 1px solid var(--border); padding: 10px 0; min-width: 0; overflow-wrap: anywhere; }
+.root-cause:first-child { border-top: 0; }
 .row-link { display: block; color: inherit; text-decoration: none; padding-right: 28px; min-height: var(--tap); }
 .row-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .row-title { font-weight: 600; margin: 0; overflow-wrap: anywhere; }
@@ -400,3 +402,21 @@ details.card[open] > summary { margin-bottom: 8px; }
 .dl-label { font-weight: 650; color: var(--accent); margin: 4px 0 8px; }
 .evidence-group > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .evidence-group[open] > summary { margin-bottom: 10px; }
+/* W4-OWNERHOME: six-block owner overview on Home -- compact, phone first, evidence on demand. */
+.ov-headline { margin: 0 0 8px; font-weight: 650; overflow-wrap: anywhere; }
+.ov-rows { list-style: none; margin: 0 0 8px; padding: 0; }
+.ov-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 0; border-top: 1px solid var(--border); min-width: 0; }
+.ov-row:first-child { border-top: 0; }
+.ov-row-title { flex: 1 1 140px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ov-row-value { flex: 1 1 160px; min-width: 0; color: var(--text-2); font-size: .92em; overflow-wrap: anywhere; }
+.ov-row-value.is-unknown { color: var(--unk); font-style: italic; }
+.ov-sub { margin: 8px 0 4px; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+.ov-evidence { margin-top: 4px; }
+.ov-evidence > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 600; color: var(--accent); }
+.ov-ev-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+.ov-ev { padding: 8px 0; border-top: 1px solid var(--border); min-width: 0; }
+.ov-ev-title { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ov-ev-detail, .ov-ev-meta { margin: 2px 0 0; font-size: .9em; color: var(--text-2); overflow-wrap: anywhere; }
+.home-more > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 650; color: var(--accent); padding: 0 var(--gutter); }
+.home-more[open] > summary { margin-bottom: 8px; }
+.home-more > .card, .home-more > .quick { margin-bottom: 12px; }

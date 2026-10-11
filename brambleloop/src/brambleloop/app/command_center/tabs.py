@@ -422,7 +422,14 @@ def home(db) -> dict:
         improve["status"] if improve["status"] != "UNKNOWN" else "OK",
         [i for i in improve.get("items", [])][:5] + readers.improvements(db).get("items", [])[:5],
         (improve.get("sources") or []) + ["improvements"], provider="learn+improvements"))
+    # W4-OWNERHOME: the six-block owner overview leads Home. It reuses what was read above
+    # (queue, money, products, autonomy) rather than reading them a second time.
+    from . import overview as overview_mod
+
+    ov = guard("overview", lambda: overview_mod.overview(
+        db, box=box, m=m, products=prods, departments=autonomy))
     return _tab("HOME", {
+        "overview": ov,
         "changes_since_last_view": _changes_since(db, since),
         "autonomy": autonomy, "store": store_f, "products": prods,
         "money": m["accounting"], "incidents": inc,

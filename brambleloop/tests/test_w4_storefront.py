@@ -110,14 +110,17 @@ def test_cards_titles_prices_digital_label_and_verified_images_only():
     html = page()
     cust = SF.customer_html(html)
     cards = re.findall(r'<a class="card"[^>]*data-product="([^"]+)"', cust)
-    launch = [p for p in SF.collection(None) if p["launch_status"] == "LAUNCH_0"]
-    assert sorted(cards) == sorted(p["slug"] for p in launch) and len(cards) == 5
+    coll = SF.collection(None)
+    launch = [p for p in coll if p["launch_status"] == "LAUNCH_0"
+              or (p["launch_status"] == SF.CAP1_SCOPE and SF.customer_gates_pass(p)[0])]
+    assert sorted(cards) == sorted(p["slug"] for p in launch) and len(cards) >= 5
     assert cust.count(SF.DIGITAL_LABEL) >= 2 * len(cards)  # card + sheet
     for p in launch:
         assert f"CA${p['price_cad']:.2f}" in cust, p["slug"]
     frames = {f["build"]: f for f in (preview.hero_frame(p["representative"]["build"]) for p in launch)}
+    assert frames
     for build, f in frames.items():
-        if f["status"] == "VERIFIED":
+        if f["status"] == "VERIFIED" and not f.get("pieces_finding"):
             assert f'im-{build}' in cust and f".im-{build}{{background-image" in html
         else:
             assert f'im-{build}' not in html
@@ -126,21 +129,33 @@ def test_cards_titles_prices_digital_label_and_verified_images_only():
     markup, real = SF._img(fake, "Name")
     assert not real and "im-placeholder" in markup and 'data-image="placeholder"' in markup
     assert "im-x" not in SF._image_css([fake])
-    # proposed products are not on the customer page
-    for p in SF.collection(None):
-        if p["launch_status"] == "PROPOSED":
+    # CAP-1 products (cap 5 -> 8 is configuration only) and any proposal stay off the
+    # customer page unless every gate passes; none passes today (no owner grant, no
+    # listing-set certificate in this harness).
+    assert coll
+    for p in coll:
+        if p["launch_status"] == SF.CAP1_SCOPE:
+            ok, why = SF.customer_gates_pass(p)
+            assert not ok and why, (p["slug"], why)
+            assert p["launch_status_note"] == SF.CAP1_NOTE
+        if p["launch_status"] in (SF.CAP1_SCOPE, "PROPOSED"):
             assert f'data-product="{p["slug"]}"' not in cust
+    # an incomplete hero (W4-IMAGES pieces finding) is never shown to customers
+    inc = {"build": "y", "status": "VERIFIED", "png": b"x", "pieces_finding": "shows 1 of 6"}
+    assert not SF._img(inc, "N")[1] and "im-y" not in SF._image_css([inc])
 
 
 def test_categories_are_populated_only_and_disclosures_stay_customer_facing():
     from brambleloop.store_foundation import navigation
 
     cust = SF.customer_html(page())
-    for s in navigation.public_nav(None):
+    public, hidden = navigation.public_nav(None), navigation.hidden(None)
+    assert public and hidden    # both exist today (e.g. Wearables / Gifts are hidden)
+    for s in public:
         assert f'href="#c-{s["slug"]}"' in cust and f'id="c-{s["slug"]}"' in cust
-    for s in navigation.hidden(None):
+    for s in hidden:
         assert f'#c-{s["slug"]}"' not in cust
-    assert 'data-disclosure="shop"' in cust and cust.count('data-disclosure="listing"') == 5
+    assert 'data-disclosure="shop"' in cust and cust.count('data-disclosure="listing"') == len(re.findall(r'<a class="card"', cust))
     assert "not a photograph" in cust and "AI" in V2.visible_text(cust)
 
 
@@ -166,15 +181,23 @@ def test_etsy_controls_are_quoted_or_unknown():
 
 
 def test_owner_catalogue_is_the_8_product_collection():
-    cat = owner_store.catalogue(None)
+    cat = owner_store.catalogue(None, wait=900)   # the full (pictures + quality) catalogue
+    assert not cat.get("preparing")
     ps = cat["products"]
     from brambleloop.products import launch0 as l0
 
     assert len(ps) == 8 and cat["counts"]["collection"] == 8
     assert cat["counts"]["launch0"] == 5
-    assert cat["counts"]["proposed"] == (0 if l0.CATALOGUE_FLOOR_APPROVED else 3)
-    assert cat["decision"]["key"] == "D-FB-9"
-    assert cat["decision"]["approved"] is bool(l0.CATALOGUE_FLOOR_APPROVED)
+    if l0.CATALOGUE_FLOOR_APPROVED:   # CAP-1: cap approved as configuration only
+        assert cat["counts"]["proposed"] == 0 and cat["counts"]["cap1"] == 3
+        assert cat["decision"]["key"] == "CAP-1" and cat["decision"]["cap_approved"] is True
+        assert cat["decision"]["approved"] is False      # the products are not approved
+        for p in ps:
+            if p["launch_status"] == SF.CAP1_SCOPE:
+                assert p["on_customer_page"] is False
+                assert any("not approved" in b["what"] for b in p["readiness"]["blockers"])
+    else:
+        assert cat["counts"]["proposed"] == 3
     for p in ps:
         assert p["digital_label"] == SF.DIGITAL_LABEL
         assert p["listing"]["on_etsy"] == "UNKNOWN"
@@ -184,6 +207,19 @@ def test_owner_catalogue_is_the_8_product_collection():
         assert p["quality"]["status"] in ("OK", "BLOCKED", "UNKNOWN")
         assert set(p["pdf"]["paths"]) == {"US", "UK"}
     assert cat["etsy"]["status"] == "UNKNOWN"   # no database in this call: never "connected"
+
+
+def test_a_cold_catalogue_never_blocks_and_never_claims_a_pass():
+    class Fresh:   # a db stand-in nobody has warmed: forces the quick path
+        def session(self):
+            raise RuntimeError("no database")
+    quick = owner_store.catalogue(Fresh(), wait=0)
+    assert quick.get("preparing") is True and quick["etsy"]["status"] == "UNKNOWN"
+    assert quick["products"] and len(quick["products"]) == 8
+    for p in quick["products"]:
+        assert p["image"]["status"] == "NOT_CHECKED" and p["image"]["path"] is None
+        assert p["quality"]["status"] == "UNKNOWN"
+    assert quick["counts"]["images_verified"] is None and quick["counts"]["quality_ok"] is None
 
 
 def test_image_and_pdf_helpers_refuse_anything_outside_the_collection():
@@ -207,6 +243,7 @@ def test_api_routes_need_an_owner_session_and_never_serve_unverified():
     os.environ[auth.PASSPHRASE_VAR] = auth.hash_passphrase(pw, iterations=100_000)
     os.environ.pop(auth.TOTP_VAR, None)
     main.db.create_all()
+    owner_store.catalogue(main.db, wait=900)      # warm: the route then answers in full
     anon = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
     for path in ("/api/cc/store/catalogue", "/api/cc/store/image/basket_medium",
                  "/api/cc/store/pdf/hexagon-coaster-set?terms=US"):
