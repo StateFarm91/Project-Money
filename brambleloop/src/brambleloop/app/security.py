@@ -150,6 +150,12 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     # W4-FMEND (F-878): the launch packet carries the owner queue, spend limits and product
     # gate state -> operator credential.
     "/api/launch/packet",
+    # W4-SECFIX (independent security review e3747c5, LOW-2): owner-recorded Marketplace
+    # Insights (search counts, related terms, who recorded them) are the shop's private demand
+    # research, read from the owner's Shop Manager -> operator credential, like
+    # /api/mjs/findings. tests/test_w4_secfix_insights_private.py sweeps every public GET.
+    "/api/market-intel",
+    "/api/insights",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in

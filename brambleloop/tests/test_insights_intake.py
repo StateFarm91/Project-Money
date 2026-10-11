@@ -111,7 +111,9 @@ def test_the_intake_route_is_authenticated_and_records_the_reading():
         assert ok.status_code == 200, ok.text
         assert ok.json()["basis"] == "owner_recorded_shop_manager"
 
-        listed = client.get("/api/insights").json()
+        # W4-SECFIX: the owner's Insights figures are operator-only.
+        assert client.get("/api/insights").status_code == 401
+        listed = client.get("/api/insights", headers=AUTH).json()
         assert listed["recorded"] is True
         assert listed["snapshots"][0]["keyword"] == "crochet bag pattern"
     assert insights.insights_recorded(app_main.db) is True
