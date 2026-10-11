@@ -1,0 +1,56 @@
+{
+ "rendered_pages": {
+  "endpoint_configured": false,
+  "last_probe": {
+   "at": "2026-10-11T14:05:53.454941+00:00",
+   "url": "https://www.etsy.com/legal/terms",
+   "ok": false,
+   "reason": "no BRAMBLELOOP_BROWSER_URL in this environment"
+  },
+  "usable": false,
+  "politeness": {
+   "user_agent": "BrambleloopStudioResearch/1.0 (+contact via Etsy shop BrambleloopStudio)",
+   "min_seconds_between_fetches": 3.0,
+   "robots_txt": "respected, and requested of the worker on every call"
+  },
+  "what_it_is_for": "pages with no sanctioned endpoint: Marketplace Insights, search results and platform policy. Gallery images are not in this list -- those arrive from the Etsy API and are judged by the model, which needs no browser",
+  "why_a_probe": "a configured URL is a string. Set, misconfigured, unreachable and answered with a 403 are four states and one environment variable, and the gate that read that variable stood in front of twenty-eight requirements"
+ },
+ "image_vision": {
+  "last_probe": {
+   "at": "2026-10-11T14:05:53.483202+00:00",
+   "model": "claude-haiku-4-5-20251001",
+   "ok": false,
+   "reason": "anthropic 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011CfvaUZYm5zY3E52CjpCcQ\"}",
+   "image_url": "https://i.etsystatic.com/15888388/r/il/5f5ab7/6587305673/il_fullxfull.6587305673_gmdw.jpg"
+  },
+  "usable": false,
+  "what_it_is": "a model looking at the gallery URLs the sanctioned Etsy endpoint already returns. No browser, and no spend beyond the monthly model ceiling",
+  "image_tokens_estimate": 6000
+ },
+ "culture_feed": {
+  "source": "wikimedia_pageviews",
+  "requires_a_key": false,
+  "cost_cad_per_month": 0.0,
+  "sanctioned": "Wikimedia's own REST API, used within its documented terms with an identifying user agent. Nothing here scrapes and nothing evades a rate limit",
+  "channel": "reference",
+  "measures": "reference reading: how many people looked a topic up",
+  "does_not_measure": "search volume, social volume or purchase intent. Calling this search interest would make #140's lead-lag model compare a series against a mislabelled copy of itself",
+  "lag_days": 2,
+  "last_probe": {
+   "at": "2026-10-11T14:05:54.128009+00:00",
+   "source": "wikimedia_pageviews",
+   "article": "Crochet",
+   "ok": true,
+   "reason": "",
+   "days": 28,
+   "interest": 0.8417,
+   "observed_on": "2026-10-09",
+   "peak_views": 436
+  },
+  "usable": true,
+  "sourced_observations": 454,
+  "still_missing_for_140": "the marketplace demand series. A lead-lag model needs two series, and this is one of them"
+ },
+ "why_probes": "a credential is not a capability, and neither is a URL. Every gate here reads a row written by something that worked"
+}

@@ -1,8 +1,12 @@
 """Write research/final_build/w4/BUILD2_LEDGER.json (+ .md) from build2.closure.ledger.
 
-Usage: PYTHONPATH=src python research/final_build/w4/build2_ledger.py [prod_api_build.json]
+Usage: PYTHONPATH=src python research/final_build/w4/build2_ledger.py [prod_api_build.json
+       [derived_gates.json]]
 The optional argument is a read-only GET of production `/api/build`; its `gates` block supplies
 live gate readings for the gates production knows. Gates it does not know stay `unchecked`.
+The optional second argument (W4-B2GATE2) is `{"gates": {key: {"open": bool, "source": str}}}`:
+readings of gates production's deployed code does not yet serve, each derived from a named
+read-only production GET; it never overrides a gate production itself reported.
 """
 from __future__ import annotations
 
@@ -22,7 +26,15 @@ def main(argv: list[str]) -> None:
         gate_open = {k: bool(v.get("open")) for k, v in prod.get("gates", {}).items()}
         source = (f"production GET /api/build (read-only), deployed commit "
                   f"{prod.get('_commit', 'fcb982d')}, read {prod.get('_read_at', '2026-10-07')}")
-    led = closure.ledger(gate_open=gate_open, gate_source=source)
+    sources: dict[str, str] = {}
+    if len(argv) > 2 and gate_open is not None:
+        derived = json.loads(Path(argv[2]).read_text(encoding="utf-8"))
+        for k, v in derived.get("gates", {}).items():
+            if k in gate_open:
+                continue  # production's own reading wins
+            gate_open[k] = bool(v["open"])
+            sources[k] = v["source"]
+    led = closure.ledger(gate_open=gate_open, gate_source=source, gate_sources=sources)
     (HERE / "BUILD2_LEDGER.json").write_text(json.dumps(led, indent=1, default=str) + "\n",
                                             encoding="utf-8")
     c = led["counts"]

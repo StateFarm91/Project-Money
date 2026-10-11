@@ -1,3 +1,14 @@
+> **2026-10-11 — W4-B2GATE2: all 102 gated Build 2 rows read against production 0417f35 (branch `claude/w4-B2GATE2`, not deployed).**
+> Ledger regenerated from production `/api/build` + 8 data gates derived from production GETs (`evidence_B2GATE2/`);
+> counts unchanged 215/56/41/5/3/0, every gate now has a production reading. Fixes: (F1) #140 `radar.lead_lag` refuses a
+> plateau -- production served 4 "measurable" lead-lags that were artefacts and `lead_lag_series` would have opened on
+> them; (F2) `gates/policy_access.py` (robots.txt + Etsy Help Center companion articles as change signals, never a
+> legal page, never opens the gate; `/api/policy` legal_access); (F3) the 30-day policy reading is now a PROPOSAL the
+> owner may accept or decline; (F4) the transactions_r card names its other half: production `etsy.probe` has been
+> HTTP 403 since 2026-10-07 12:00Z (owner: check the Etsy app + `ETSY_SHARED_SECRET`). #195's only unmet condition is
+> company dead letters (fixes on claude/w4-FMGATE). B2GATES doors are not in production yet. Report:
+> `research/final_build/w4/B2_GATE2_REPORT.md`. Tests: test_w4_b2gate2 11/11 + focused suites green.
+
 > **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
 > `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
 > committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run

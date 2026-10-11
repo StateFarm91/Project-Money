@@ -1272,6 +1272,60 @@ async def api_owner_decision(request: Request,
     return JSONResponse({"recorded": True, "kind": kind, "id": ident, "result": out})
 
 
+@app.post("/api/tester/agreement")
+async def api_tester_agreement(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Record one tester who agreed -- the door the `tester_roster` gate reads (W4-B2GATES).
+
+    `quality.tester_programme.record_agreement` was "the one intake" for the CreatorProfile the
+    gate counts, and nothing in the running system called it: a person could agree to test and
+    #9/#43/#250 would have stayed parked. This records only (no message is sent, CASL consent
+    must already exist and is named, never stored here). Operator credential because it writes.
+
+    Body: {handle_ref, specialties: [pod], express_consent: true, consent_source,
+    photo_scopes?: [scope], agreed_on?: YYYY-MM-DD}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import date as _date
+
+    from ..quality import tester_programme
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        agreed_on = _date.fromisoformat(body["agreed_on"]) if body.get("agreed_on") else None
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "agreed_on must be YYYY-MM-DD"}, status_code=400)
+    specialties = body.get("specialties") or []
+    scopes = body.get("photo_scopes") or []
+    if not isinstance(specialties, list) or not isinstance(scopes, list):
+        return JSONResponse({"error": "specialties and photo_scopes must be lists"},
+                            status_code=400)
+    try:
+        out = tester_programme.record_agreement(
+            db, handle_ref=str(body.get("handle_ref") or ""),
+            specialties=[str(x)[:40] for x in specialties][:5],
+            express_consent=body.get("express_consent") is True,
+            consent_source=str(body.get("consent_source") or "")[:300],
+            photo_scopes=[str(x)[:40] for x in scopes][:10], agreed_on=agreed_on)
+    except tester_programme.TesterRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    Registry(db).audit("operator", "tester.agreement_recorded", artifact=out["ref"],
+                       detail={"ref": out["ref"], "consent_version":
+                               out["permission"]["consent_version"]})
+    return JSONResponse({"recorded": True, "ref": out["ref"]})
+
+
 @app.post("/api/mjs/veto")
 async def api_mjs_veto(request: Request, authorization: str = Header(default="")) -> JSONResponse:
     """Record one owner ruling on flagship creative or canonical model identity (#228).
@@ -1604,7 +1658,7 @@ def api_policy() -> dict:
     dashboard on every other page, and they are opposite states.
     """
     from ..commerce import terms as customer_terms
-    from ..gates import policy_knowledge
+    from ..gates import policy_access, policy_knowledge
     from ..gates.platform_policy import describe, freshness, policy_stamp
 
     return {
@@ -1613,6 +1667,9 @@ def api_policy() -> dict:
         # The dated readings themselves: what was concluded, from which URL, on what basis,
         # and what a page reading recorded through POST /api/policy/snapshot supersedes.
         "knowledge": policy_knowledge.describe(),
+        # W4-B2GATE2 (#35/#39): what software may read of each etsy.com/legal source and what
+        # only a person can, with Etsy's Help Center change signals.
+        "legal_access": policy_access.status(db),
         "rules": describe(),
         "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
         "terms_surfaces": {

@@ -65,7 +65,7 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
     const isPreview = verb === "preview";
     const blocked = stale || (isApprove && (!evidence.length || c.executable === false));
     const btn = h("button", { type: "button", class: ["btn", isApprove ? "btn-primary" : verb === "revoke" ? "btn-danger" : null],
-      disabled: blocked, data: { action: a.action || "" } }, actionLabel(a.action));
+      disabled: blocked, data: { action: a.action || "" } }, a.label || actionLabel(a.action));
     btn.addEventListener("click", async () => {
       if (isPreview) {
         btn.disabled = true;
@@ -80,13 +80,13 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         return;
       }
       const body = await guardedAction({
-        title: `${actionLabel(a.action)}: ${c.title || "this proposal"}?`,
+        title: `${a.label || actionLabel(a.action)}: ${c.title || "this proposal"}?`,
         lines: [c.proposed_action || "", `Max spend: ${fieldText("max_spend_cad", c.max_spend_cad)}`,
           `Reversibility: ${c.reversibility || "Not stated"}`].filter(Boolean),
         confirmLabel: actionLabel(a.action), danger: verb === "revoke",
         requiresStepUp: !!a.requires_step_up,
-        reasonLabel: isApprove ? "Why are you approving this?" : "Note",
-        reasonRequired: isApprove,
+        reasonLabel: isApprove || a.requires_step_up ? "Why are you deciding this?" : "Note",
+        reasonRequired: isApprove || !!a.requires_step_up,
         run: (reason) => api.action(a.action, actionParams(a, reason)),
         success: `${actionLabel(a.action)} recorded.`,
       });

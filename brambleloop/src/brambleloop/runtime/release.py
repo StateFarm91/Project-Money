@@ -4392,6 +4392,22 @@ def handle_policy_watch(ctx: JobContext) -> dict:
             help_center = policy_reader.read_help_center(ctx.db)
         except Exception as exc:  # noqa: BLE001 - a reader fault must not stop the watch
             help_center = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # W4-B2GATE2: per etsy.com/legal source, what software may read (robots.txt; Etsy's Help
+    # Center articles that link the page, as change signals) and why the page itself needs a
+    # person. Never fetches a legal page; never opens the gate.
+    if not policy_reader.enabled():
+        access = {"skipped": "no network read from a test or laptop"}
+    else:
+        try:
+            from ..gates import policy_access
+
+            got = policy_access.assess(ctx.db)
+            access = {"changed_companions": got["changed_companions"],
+                      "robots_read": got["robots_read"],
+                      "machine_signal": {k: v["machine_signal"]
+                                         for k, v in got["sources"].items()}}
+        except Exception as exc:  # noqa: BLE001 - evidence gathering must not stop the watch
+            access = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     report = freshness(ctx.db)
     unread = list(report["never_checked"])
     stale = [e["source"] for e in report["stale"]]
@@ -4470,7 +4486,8 @@ def handle_policy_watch(ctx: JobContext) -> dict:
         "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
         "blocked_workflows": report["blocked_workflows"],
         "help_center": {k: help_center.get(k) for k in ("read", "failed", "external", "error",
-                                                       "skipped") if k in help_center}})
+                                                       "skipped") if k in help_center},
+        "legal_access": access})
 
     return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
             "changes_opened": changes_opened, "changes_unreviewed": sorted(
@@ -6584,6 +6601,7 @@ def handle_capability_probes(ctx: JobContext) -> dict:
     from ..culture import feeds
     from ..gateway import anthropic as gw
     from ..gateway import images
+    from ..growth import owned_surface
     from ..intel import browser
 
     results = {
@@ -6596,6 +6614,10 @@ def handle_capability_probes(ctx: JobContext) -> dict:
         # recorded nowhere, and twelve requirements stayed parked on the absence of a row
         # nobody was writing. A gate that reads evidence needs something that produces it.
         "image_generation": images.probe(ctx.db, job_id=ctx.job.id),
+        # W4-B2GATES: the `owned_surfaces` gate read `owned_surface.probe` rows and nothing
+        # wrote one, so seven rows could never un-park however many surfaces the owner opened.
+        # Reads only: the site's owner-published verification file, a Pinterest board list.
+        "owned_surfaces": owned_surface.probe(ctx.db),
     }
     opened = sorted(k for k, v in results.items() if v.get("ok"))
     ctx.audit("ops.capability_probes", detail={
