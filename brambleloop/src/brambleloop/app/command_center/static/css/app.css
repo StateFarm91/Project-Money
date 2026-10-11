@@ -124,6 +124,10 @@ body.is-signed-out { padding-bottom: 0; }
    research/final_build/w4/tester_kit/OUTREACH.md in an approval proposal) pushed the Approvals
    page to 413px on a 390px phone. Long tokens wrap inside every card instead. */
 .card { overflow-wrap: break-word; }
+/* A long token in a card title (e.g. `commerce.shop_package.policies()`) sits in the flex
+   card-head beside the status pill; let the title shrink and break so the pill stays on screen. */
+.card-head > :first-child { min-width: 0; }
+.card-title { overflow-wrap: anywhere; }
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
 .card-title { font: 600 18px/1.3 var(--font-display); }
 .card-sub, .card-meta { color: var(--text-2); font-size: 14px; margin: 2px 0 10px; }

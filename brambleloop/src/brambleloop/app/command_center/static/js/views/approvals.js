@@ -1,7 +1,7 @@
 // APPROVALS (F-885 evidence-backed inbox, F-886 one-tap actions, F-887 step-up).
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, sourcesList, guardedAction, toast } from "../components.js";
+import { card, statusPill, sourcesList, guardedAction, toast, freshness } from "../components.js";
 import { formatMoney, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../format.js";
 import { sectionsOf, pageMeta, renderSection, backLink, tabStatus } from "./_shared.js";
 
@@ -54,7 +54,7 @@ function actionParams(a, reason) {
   return params;
 }
 
-function approvalCard(c, { stale, rerender, open = false }) {
+function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
   const evidence = Array.isArray(c.evidence) ? c.evidence : [];
   const actions = Array.isArray(c.actions) ? c.actions : [];
   const out = h("div", { class: "preview-out" });
@@ -98,6 +98,8 @@ function approvalCard(c, { stale, rerender, open = false }) {
     h("header", { class: "card-head" },
       h("div", null, h("p", { class: "tile-label" }, c.kind || "DECISION"), h("h2", { class: "card-title" }, c.title || "Untitled proposal")),
       statusPill(c.executable === false ? "BLOCKED" : "PENDING", c.executable === false ? "NOT EXECUTABLE" : "AWAITING YOU")),
+    // W4-CCGAP: when this card's state was read (the inbox is computed live on each load).
+    h("p", { class: "card-meta" }, "Inbox read: ", freshness(c.as_of || readAt || null)),
     h("p", { class: "proposal" }, c.proposed_action || "Proposed action not stated."),
     h("details", { class: "review", open },
       h("summary", null, `Review evidence (${evidence.length}) and decide`,
@@ -134,7 +136,7 @@ function batchesCard(env) {
       h("p", { class: "muted" }, env.reason || "Unknown: no decision batches reported."));
   }
   return card({ title: "Your decisions, batch by batch", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches`, actions: statusPill(env.status) },
-    h("p", { class: "card-meta" }, env.as_of ? `As of ${relTime(env.as_of)} (${utcStamp(env.as_of)})` : "As of: Unknown"),
+    h("p", { class: "card-meta" }, freshness(env.as_of || null), env.as_of ? ` (${utcStamp(env.as_of)}; a dated snapshot of the owner action list)` : ""),
     env.note ? h("p", { class: "muted small" }, env.note) : null,
     batches.map((b, i) => h("details", { class: "review", open: i === 0 },
       h("summary", null, h("strong", null, `${i + 1}. ${b.title || b.id}`),
@@ -153,6 +155,7 @@ function notYetAskableCard(env) {
       h("p", { class: "muted" }, env.reason || "Unknown: not reported."));
   }
   return card({ title: "Not yet askable", subtitle: `${items.length} decision(s) wait on a precondition`, actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of || null)),
     h("ul", { class: "rows" }, items.map((it) => h("li", { class: "row" },
       h("p", { class: "row-title" }, it.what || it.gate),
       h("p", { class: "muted small" }, `Askable when: ${it.askable_when || UNKNOWN_TEXT}`)))),
@@ -163,7 +166,7 @@ export async function render({ params, rerender }) {
   if (params[0]) {
     const result = await api.approval(params[0]);
     return h("div", { class: "stack" }, backLink("#/approvals", "All approvals"), ...pageMeta(result, result.data),
-      approvalCard(result.data || {}, { stale: result.stale, rerender, open: true }));
+      approvalCard(result.data || {}, { stale: result.stale, rerender, open: true, readAt: (result.data && result.data.generated_at) || null }));
   }
   const result = await api.approvals();
   const data = result.data || {};
@@ -174,7 +177,7 @@ export async function render({ params, rerender }) {
     data.reason ? tabStatus(data) : null,
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),
-    cards.length ? cards.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0 }))
+    cards.length ? cards.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,
     data.external_capability_unavailable !== undefined ? renderSection("external_capability_unavailable", data.external_capability_unavailable, { title: "External capability unavailable", result }) : null,

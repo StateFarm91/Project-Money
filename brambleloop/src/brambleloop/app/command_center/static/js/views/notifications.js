@@ -1,7 +1,7 @@
 // NOTIFICATIONS (F-897): severity-ranked, deduplicated, actionable; policy controls.
 import { h } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, toast, guardedAction } from "../components.js";
+import { card, statusPill, toast, guardedAction, freshness } from "../components.js";
 import { relTime, utcStamp, humanize } from "../format.js";
 import { pageMeta, renderSection, toHashRoute, sectionsOf } from "./_shared.js";
 
@@ -20,7 +20,7 @@ function notificationCard(n, { stale, rerender }) {
     n.body ? h("p", null, n.body) : null,
     n.consequence ? h("p", { class: "callout callout-warn" }, `Consequence: ${n.consequence}`) : null,
     h("p", { class: "card-meta" }, n.deadline ? `Deadline ${relTime(n.deadline)} (${utcStamp(n.deadline)}) · ` : "",
-      `Last seen ${relTime(n.last_seen_at || n.first_seen_at)}`, n.held_for_quiet_hours ? " · held for quiet hours" : ""),
+      "Last seen: ", freshness(n.last_seen_at || n.first_seen_at || null), n.held_for_quiet_hours ? " · held for quiet hours" : ""),
     ev.length ? h("p", { class: "row-detail" }, "Evidence: ",
       ...ev.map((e, i) => [i ? ", " : "", h("a", { href: `#/drill/${encodeURIComponent(String(e))}` }, String(e))])) : null,
     h("div", { class: "btn-row" },

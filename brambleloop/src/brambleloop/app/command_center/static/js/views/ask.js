@@ -1,7 +1,7 @@
 // ASK COMPANY (F-928, F-929): source-linked answers from durable evidence; nothing invented.
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, sourcesList, loading, toast } from "../components.js";
+import { card, statusPill, sourcesList, loading, toast, freshness } from "../components.js";
 import { relTime, utcStamp } from "../format.js";
 
 const SUGGESTIONS = ["What did Brambleloop do overnight?", "What is blocking launch?", "Why did profit fall?",
@@ -14,6 +14,7 @@ function answerCard(a) {
   const facts = Array.isArray(a.facts) ? a.facts : [];
   const sources = Array.isArray(a.sources) ? a.sources : [];
   return card({ title: a.question || "Question", actions: statusPill(status === "ANSWERED" ? "OK" : "UNKNOWN", status), cls: "answer-card" },
+    h("p", { class: "card-meta" }, freshness(a.answered_at || null)),
     h("p", { class: "answer", data: { answer: status } }, a.answer || "No answer."),
     status !== "ANSWERED" ? h("p", { class: "callout callout-warn" }, "The company could not find durable evidence for a confident answer, so it says so instead of guessing.") : null,
     !sources.length && status === "ANSWERED" ? h("p", { class: "callout callout-bad" }, "This answer has no sources, so treat it as unverified.") : null,
