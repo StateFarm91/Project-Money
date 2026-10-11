@@ -98,6 +98,40 @@ def test_distinct_products_are_untouched():
     assert not grid["excluded"], grid["excluded"]
 
 
+def test_the_owner_preview_reads_the_listing_of_the_current_release_only():
+    # Production holds nordic-star-ornaments 1.0.0 ("Nordic Star Ornament Set (6)") beside
+    # 1.4.0. A superseded row with the higher id must not name or price the current product.
+    from brambleloop.products import launch0 as l0
+    from brambleloop.store_foundation.content import launch0_products
+
+    cur = l0.cir_for("snowflake_ornaments")
+    assert cur.version != "1.0.0"
+    db = _db()
+    with db.session() as s:
+        s.add(Listing(product_slug=cur.slug, version=cur.version, title="CURRENT RELEASE",
+                      description="d", tags=[], price_cad=4.5))
+        s.flush()
+        s.add(Listing(product_slug=cur.slug, version="1.0.0", title="SUPERSEDED RELEASE",
+                      description="d", tags=[], price_cad=9.99))
+    rows = {r["candidate"]: r for r in launch0_products(db)}
+    row = rows["nordic-star-ornaments"]
+    assert row["title"] == "CURRENT RELEASE", row["title"]
+    assert row["price_cad"] == 4.5, row["price_cad"]
+    # With only the superseded row stored it is still read, but it says which release it is.
+    db2 = _db()
+    with db2.session() as s:
+        s.add(Listing(product_slug=cur.slug, version="1.0.0", title="SUPERSEDED RELEASE",
+                      description="d", tags=[], price_cad=9.99))
+    row2 = {r["candidate"]: r for r in launch0_products(db2)}["nordic-star-ornaments"]
+    assert "superseded_release=1.0.0" in row2["title_basis"], row2["title_basis"]
+    assert f"current {cur.version}" in row2["price_basis"], row2["price_basis"]
+    from brambleloop.store_foundation import content as C, readiness as R
+
+    surf = C.build(db2)
+    codes = [f["code"] for f in R._check_opening_grid(surf["opening_grid"])]
+    assert "TITLE_FROM_SUPERSEDED_RELEASE" in codes, codes
+
+
 if __name__ == "__main__":
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]
     assert tests
