@@ -235,6 +235,27 @@ def fingerprint(nodes: list[dict], properties: dict) -> str:
     return hashlib.sha256(blob).hexdigest()
 
 
+# HTTP statuses with which Etsy refuses the credential itself (same as intel.etsy_public
+# AUTH_REFUSED): the same key gets the same answer, so retrying only manufactures dead letters.
+CREDENTIAL_REFUSED = (401, 403)
+
+
+def credential_refusal_status(exc: BaseException) -> int | None:
+    """401/403 when `exc` is Etsy refusing the credential, else None.
+
+    Both Etsy clients raise `EtsyRejected("Etsy returned <status> for ...")`; a status attribute
+    is read first when one is present."""
+    import re
+
+    from .etsy import EtsyRejected
+
+    status = getattr(exc, "status", None)
+    if status is None and isinstance(exc, EtsyRejected):
+        m = re.match(r"Etsy returned (\d{3}) for ", str(exc))
+        status = int(m.group(1)) if m else None
+    return status if status in CREDENTIAL_REFUSED else None
+
+
 def refresh(db, *, now: datetime | None = None) -> dict:
     """Read the tree and the subtree's properties into a snapshot, or say why not.
 
@@ -263,7 +284,23 @@ def refresh(db, *, now: datetime | None = None) -> dict:
                        "environment, so no client could be built"}
 
     calls = 0
-    results = read_tree(client)
+    try:
+        results = read_tree(client)
+    except Exception as exc:  # noqa: BLE001 - only a credential refusal is caught below
+        status = credential_refusal_status(exc)
+        if status is None:
+            raise  # rate limits, server faults, unreadable trees: the job's retries decide
+        # W4-FMGATE (production 0417f35, 2026-10-11): Etsy answered 403 on the API-key-only
+        # path and the daily refresh was retried into a dead letter, which keeps the 24-hour
+        # off-device proof from ever passing. A refused credential is an external fact (the
+        # etsy_api gate, owner-held), not a failing job: it is reported, every category stays
+        # UNKNOWN and search certification keeps refusing. The next daily run re-tests it.
+        return {"ran": False, "reading": "UNMEASURED", "network_calls": 1, "gate": g,
+                "credential_refused": True, "status": status,
+                "why": (f"Etsy refused the credential (HTTP {status}) on the "
+                        f"{g.get('via') or 'unknown'} taxonomy read: {str(exc)[:200]}. The "
+                        "taxonomy was not read; every category reads UNKNOWN until a read "
+                        "succeeds")}
     calls += 1
     nodes = flatten(results)
     subtree = pattern_subtree(nodes)
