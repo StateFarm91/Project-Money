@@ -423,6 +423,113 @@ CATALOGUE_BRIEFS: dict[str, EmotionalBrief] = {
                  "from a dowel over a desk.")),
 }
 
+# W4-LAUNCHREADY (2026-10-11): briefs for the Launch-0 products that are NOT builder designs.
+# The baskets and the coaster set are engineered in `products.vessels` / `products.launch0`,
+# so `audit_catalogue` (the builder cohort) never judged them and `dashboard_truth` could never
+# count them as creative-gate survivors -- four certified Launch-0 releases were excluded from
+# the opening grid by an audit that had not looked at them. Keyed by Launch-0 candidate slug;
+# validated by the same `validate` against the motif `creative.audit.ENGINEERED_MOTIF` names
+# for each, and judged by the same jury (`creative.audit.audit_launch0_engineered`). Every
+# sensory hook names something the CIR makes (cream rounds, wine bands / contrast round,
+# single-crochet walls, six stacked corners); nothing here claims stiffness or lying flat,
+# which only a worked sample can establish.
+ENGINEERED_BRIEFS: dict[str, EmotionalBrief] = {
+    "nursery-nesting-baskets": EmotionalBrief(
+        key="nursery-nesting-baskets", recipient="new_parent", occasion="new_baby",
+        feeling="tender",
+        moment=("A friend sets three nested baskets on the changing shelf the week before the "
+                "baby comes home, one each for nappies, muslins and creams."),
+        function=("keeps nappies, muslins and creams sorted in three sizes on the changing "
+                  "shelf, within the parent's reach and away from the baby"),
+        gifting=("Given to the expecting parents at the baby shower, the three baskets "
+                 "nested one inside the next like a single parcel."),
+        sensory=("six-sided single crochet walls worked in rounds from a flat base",
+                 "cream walls crossed by two narrow wine bands near the rim"),
+        handmade_life=("A nursery set made in the weeks before a birth, so the first room "
+                       "the baby sleeps in holds something the maker made."),
+        laura_scene=("Three nested baskets on a white changing shelf beside folded muslins; "
+                     "product-first, no Laura needed, and no child handling the baskets."),
+        premise=("Three nested hexagon baskets in cream with wine bands sort the changing "
+                 "shelf from smallest to largest.")),
+    "hexagon-coaster-set": EmotionalBrief(
+        key="hexagon-coaster-set", recipient="host", occasion="housewarming",
+        feeling="playful",
+        moment=("A guest arrives at a first-home party with four hexagon coasters tied in "
+                "twine, and they are under the mugs before the evening is out."),
+        function=("protects a new table from hot mugs and wet glasses from the first evening "
+                  "guests sit down at it"),
+        gifting=("Brought to a housewarming tied with twine: four coasters made in a couple "
+                 "of evenings for a friend's first table."),
+        sensory=("six sharp corners where the increases stack round after round",
+                 "cream centres framed by one wine contrast round near the edge"),
+        handmade_life=("A quick set a new maker can finish in two evenings and give away "
+                       "the same week."),
+        laura_scene=("Four coasters fanned on a pale wooden table under two mugs at a "
+                     "housewarming; product-first, Laura's hand setting a mug down optional."),
+        premise=("Four hexagon coasters, each cream centre framed by a wine contrast round, "
+                 "sit under the mugs on a new table.")),
+}
+
+# W4-PRODUCT: briefs for the engineered products of the Launch-0 catalogue-floor PROPOSAL
+# (`products.launch0.PROPOSED_CANDIDATES`; authored by W4-LAUNCHREADY). The audit can judge
+# them now (`creative.audit.audit_launch0_engineered(proposed=True)`); they join
+# ENGINEERED_BRIEFS -- and so the Launch-0 cohort -- only when the owner approves the cap.
+PROPOSED_ENGINEERED_BRIEFS: dict[str, EmotionalBrief] = {
+    "nordic-forest-mosaic-throw-baby": EmotionalBrief(
+        key="nordic-forest-mosaic-throw-baby", recipient="new_parent", occasion="new_baby",
+        feeling="heirloom",
+        moment=("A baby's first Christmas: the blanket goes over the pram for the walk to "
+                "see the lights, firs and stars in forest and cream, and comes out again "
+                "every December after."),
+        function=("wraps the baby in the pram and on a lap through the first winter, then "
+                  "stays as the family's Christmas keepsake"),
+        gifting=("Given to new parents in early December by a grandparent or friend, so it "
+                 "is ready for the baby's first Christmas."),
+        sensory=("raised double crochet firs and stars standing above a flat single crochet "
+                 "ground",
+                 "deep forest and cream rows that read as a winter woodland"),
+        handmade_life=("A first-Christmas make the family keeps and brings out every winter "
+                       "as the child grows."),
+        laura_scene=("The blanket folded over a pram handle beside a lit tree; product-first, "
+                     "Laura optional, no child handling it."),
+        premise=("Rows of raised fir and star figures in forest and cream run across a baby "
+                 "blanket for a first Christmas.")),
+    "housewarming-key-basket": EmotionalBrief(
+        key="housewarming-key-basket", recipient="host", occasion="housewarming",
+        feeling="heirloom",
+        moment=("The first week in a new home the keys keep going missing, until a round "
+                "basket on the hall table becomes the place everything lands."),
+        function=("keeps the keys, letters and dog lead of a first home together in one "
+                  "place by the door"),
+        gifting=("Carried to a housewarming as the first useful thing in the new hall, made "
+                 "by a friend who helped with the move."),
+        sensory=("basketweave relief blocks worked in rounds above a flat cream base",
+                 "pine and cream blocks that read from the doorway"),
+        handmade_life=("A first-home ritual: something made by hand is the first thing set on "
+                       "the hall table."),
+        laura_scene=("Laura dropping keys into the basket on a hall table, coat still on; "
+                     "basket in sharp focus."),
+        premise=("A round basketweave catch-all in pine and cream sits on the hall table to "
+                 "hold the keys of a first home.")),
+}
+
+
+def _merge_approved_proposal() -> None:
+    from ..products.launch0 import CATALOGUE_FLOOR_APPROVED
+
+    if CATALOGUE_FLOOR_APPROVED:
+        ENGINEERED_BRIEFS.update(PROPOSED_ENGINEERED_BRIEFS)
+
+
+_merge_approved_proposal()
+
+
+def engineered_fingerprint() -> str:
+    payload = {"v": BRIEF_VERSION,
+               "briefs": {k: b.to_dict() for k, b in sorted(ENGINEERED_BRIEFS.items())}}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+
+
 # Products the design process cannot honestly brief until Product resolves a title/fabric
 # conflict. The proposed titles are suggestions for the product owner, not changes made here.
 #

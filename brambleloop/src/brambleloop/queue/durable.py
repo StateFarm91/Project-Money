@@ -121,6 +121,48 @@ def redrivable(job_type: str, last_error: str = "") -> bool:
     return classify_dead_letter(job_type, last_error) != REFUSED
 
 
+def dead_letter_digest(jobs) -> list[dict]:
+    """Group dead letters by job type: count, latest time and the latest error's first line.
+
+    W4-FINHEALTH: `/api/verify` listed only the job types, so a type that died once and one
+    that died seventeen times read the same. The error head is the first line only, cut at
+    200 characters -- enough to name the defect, short of carrying a full SQL statement or
+    provider body into a public reading.
+    """
+    groups: dict[str, dict] = {}
+    for job in jobs:
+        at = _aware(getattr(job, "finished_at", None) or getattr(job, "created_at", None))
+        g = groups.setdefault(job.job_type, {"job_type": job.job_type, "count": 0,
+                                             "last_at": None, "last_error": ""})
+        g["count"] += 1
+        if g["last_at"] is None or (at is not None and at >= g["last_at"]):
+            g["last_at"] = at
+            g["last_error"] = ((job.last_error or "").strip().splitlines() or [""])[0][:200]
+    return [{**g, "last_at": g["last_at"].isoformat() if g["last_at"] else None}
+            for g in sorted(groups.values(), key=lambda g: (-g["count"], g["job_type"]))]
+
+
+# W4-AUTONOMY (2026-10-11): `jobs.idempotency_key` is VARCHAR(200). SQLite ignores the length,
+# Postgres enforces it, so a key built from a variable-length set (the stale-artefact
+# sentinel's rebuild key carries every moved fingerprint) passed every SQLite test and raised
+# StringDataRightTruncation in production -- the sentinel dead-lettered on every attempt and
+# the rebuild work it exists to enqueue never reached the queue. A key that does not fit is
+# shortened deterministically: a readable prefix plus a digest of the WHOLE key, so the same
+# long key always maps to the same stored key (idempotency kept) and two different long keys
+# sharing a prefix never collide (plain truncation would merge them).
+IDEMPOTENCY_KEY_MAX = 200
+
+
+def fit_idempotency_key(key: str | None) -> str | None:
+    """`key` unchanged when it fits the column, else prefix + '#' + sha256 digest (<= 200)."""
+    if key is None or len(key) <= IDEMPOTENCY_KEY_MAX:
+        return key
+    import hashlib
+
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
+    return f"{key[:IDEMPOTENCY_KEY_MAX - len(digest) - 1]}#{digest}"
+
+
 class DuplicateJob(Exception):
     """Raised when an idempotency key already exists. Not an error -- a guarantee working."""
 
@@ -190,6 +232,8 @@ class JobQueue:
                 priority = priority_for(job_type, inputs or None, db=self.db)
             except Exception:  # noqa: BLE001 - a priority reading never blocks an enqueue
                 priority = priority_for(job_type)
+
+        idempotency_key = fit_idempotency_key(idempotency_key)
 
         def _do(s: Session) -> Job:
             if idempotency_key:

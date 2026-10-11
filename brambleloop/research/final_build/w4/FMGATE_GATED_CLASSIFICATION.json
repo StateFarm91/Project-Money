@@ -1,0 +1,2425 @@
+{
+ "kind": "w4-FMGATE gated-row classification",
+ "basis": {
+  "matrix_before": "0417f3516f30:closure_matrix.json",
+  "matrix_after": "this branch's regenerated closure_matrix.json",
+  "production_gates": "evidence_FMGATE_0417f35/prod_api_build_*.json"
+ },
+ "counts": {
+  "rows": 126,
+  "classification": {
+   "GENUINE-OWNER": 62,
+   "GENUINE-EXTERNAL": 26,
+   "GENUINE-DATA": 14,
+   "RE-KEYED": 17,
+   "MISCLASSIFIED": 4,
+   "CLEARED": 3
+  },
+  "now": {
+   "GATED": 119,
+   "OPEN": 4,
+   "COMPLETE": 3
+  },
+  "now_gate_kind": {
+   "owner": 64,
+   "external": 26,
+   "data": 29
+  }
+ },
+ "rows": [
+  {
+   "uid": "F-005",
+   "title": "Deepest Truthful Category",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-007",
+   "title": "Attribute Completeness",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-009",
+   "title": "Filter-Surface Audit",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "company half built here (/api/catalogue per-listing filters); real values need the node schema behind etsy_api",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-010",
+   "title": "Attribute Drift Monitor",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "periodic node/property schema diff (daily listing.taxonomy_refresh exists; the diff/alert half is unverified)",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-027",
+   "title": "First-Image Search Gate",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-030",
+   "title": "Gallery Information Architecture",
+   "was": {
+    "kind": "owner",
+    "key": "visual_paid_generation"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "OWNER_ACTIONS batch 'visual': paid image generation (max CA$2.00) or physical sample photographs",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "visual_paid_generation"
+    }
+   }
+  },
+  {
+   "uid": "F-031",
+   "title": "Thumbnail Simulator",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-039",
+   "title": "Search Policy Snapshot",
+   "was": {
+    "kind": "external",
+    "key": "rendered_pages"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.rendered_pages.open=false (0417f35, 2026-10-11T14:39Z) (Etsy pages/help centre answer 403 to automated retrieval; never bypassed)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "rendered_pages"
+    }
+   }
+  },
+  {
+   "uid": "F-040",
+   "title": "Shop Quality Gate",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_shop"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_shop.open=false (0417f35, 2026-10-11T14:39Z) (shop identifier set AND a recorded successful etsy.probe; only the account holder opens a shop)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_shop"
+    }
+   }
+  },
+  {
+   "uid": "F-041",
+   "title": "Listing Quality Gate",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-042",
+   "title": "Customer-Service Search Monitor",
+   "was": {
+    "kind": "external",
+    "key": "rendered_pages"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.rendered_pages.open=false (0417f35, 2026-10-11T14:39Z) (Etsy pages/help centre answer 403 to automated retrieval; never bypassed)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "rendered_pages"
+    }
+   }
+  },
+  {
+   "uid": "F-059",
+   "title": "SEO Self-Flattery Refusal",
+   "was": {
+    "kind": "owner",
+    "key": "insights_access"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.insights_access.open=false (0417f35, 2026-10-11T14:39Z) (owner Etsy Stats / Search Visibility exports; no API)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "an explicit switch that makes real Etsy evidence override internal SEO scoring",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "insights_access"
+    }
+   }
+  },
+  {
+   "uid": "F-081",
+   "title": "High-Risk Full-Make Gate",
+   "was": {
+    "kind": "owner",
+    "key": "tester_roster"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.tester_roster.open=false (0417f35, 2026-10-11T14:39Z) (human pattern testers recruited by the owner)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "tester_roster"
+    }
+   }
+  },
+  {
+   "uid": "F-088",
+   "title": "Post-Launch Reality Feedback",
+   "was": {
+    "kind": "data",
+    "key": "customers"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.customers.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue UNMEASURED: buyers create orders",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "per-version/descendant halting and confidence updates from tickets/refunds",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "customers"
+    }
+   }
+  },
+  {
+   "uid": "F-100",
+   "title": "Owner-Gated Diversification Spend",
+   "was": {
+    "kind": "owner",
+    "key": "model_provider"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.model_provider.open=false (0417f35, 2026-10-11T14:39Z) (provider funding/credits)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "model_provider"
+    }
+   }
+  },
+  {
+   "uid": "F-103",
+   "title": "Post-Call Reconciliation",
+   "was": {
+    "kind": "owner",
+    "key": "provider_usage_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/verify readbacks.estimate_drift.settlement_against_provider_billing = OWNER-GATED (provider admin usage keys)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "provider_usage_api"
+    }
+   }
+  },
+  {
+   "uid": "F-106",
+   "title": "Provider Billing Reconciliation",
+   "was": {
+    "kind": "owner",
+    "key": "provider_usage_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/verify readbacks.estimate_drift.settlement_against_provider_billing = OWNER-GATED (provider admin usage keys)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "provider_usage_api"
+    }
+   }
+  },
+  {
+   "uid": "F-118",
+   "title": "Risk-Based Physical Escalation",
+   "was": {
+    "kind": "owner",
+    "key": "tester_roster"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.tester_roster.open=false (0417f35, 2026-10-11T14:39Z) (human pattern testers recruited by the owner)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "tester_roster"
+    }
+   }
+  },
+  {
+   "uid": "F-135",
+   "title": "Lease-Recovery Drill",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "production_window -> owner live_restart_drill (the 24h window never records a lease-recovery drill)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "live_restart_drill"
+    }
+   }
+  },
+  {
+   "uid": "F-144",
+   "title": "Production Readback Gate",
+   "was": {
+    "kind": "owner",
+    "key": "production_deploy"
+   },
+   "classification": "MISCLASSIFIED",
+   "evidence": "production_deploy cleared; what remains is company work (per-feature readback manifest) and a red /api/verify -> OPEN",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "OPEN",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-152",
+   "title": "Scratch Non-Authority",
+   "was": {
+    "kind": "owner",
+    "key": "offsite_storage"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.offsite_storage.open=false (0417f35, 2026-10-11T14:39Z) (bucket + credential outside the provider; consequential spend/account)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "offsite_storage"
+    }
+   }
+  },
+  {
+   "uid": "F-158",
+   "title": "Dependency Integrity Audit",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "CLEARED",
+   "evidence": "production_window was 'image never built from the lock': 0417f35 built with pip --require-hashes from requirements.lock, boot guard matched the digest incl. the lock -> COMPLETE (producer re-mapped to the boot guard)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "COMPLETE",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-160",
+   "title": "Credential Rotation Register",
+   "was": {
+    "kind": "owner",
+    "key": "credential_rotation"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "stale missing_part corrected: register reached on 0417f35",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "credential_rotation"
+    }
+   }
+  },
+  {
+   "uid": "F-171",
+   "title": "Production Smoke Matrix",
+   "was": {
+    "kind": "owner",
+    "key": "production_deploy"
+   },
+   "classification": "MISCLASSIFIED",
+   "evidence": "production_deploy cleared; remaining: extend /api/verify and fix the two red checks -> OPEN",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "OPEN",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-172",
+   "title": "Shadow-Mode Publication Proof",
+   "was": {
+    "kind": "owner",
+    "key": "production_deploy"
+   },
+   "classification": "CLEARED",
+   "evidence": "production_deploy cleared: /api/verify on 0417f35 re-proves shadow publication (phase_is_shadow, nothing_published, 185 refusals) -> COMPLETE",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "COMPLETE",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-176",
+   "title": "Rollback Baseline",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "CLEARED",
+   "evidence": "production_window was the deploy: ops.truth.sweep row 26799 on 0417f35 rollback_baseline recoverable:true, missing [] -> COMPLETE",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "COMPLETE",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-221",
+   "title": "Photographic Realism Hard Floor",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-222",
+   "title": "Natural, Not Over-Polished",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-225",
+   "title": "Gallery-as-Real-Photo-Shoot",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-227",
+   "title": "Product Truth Outranks Beauty",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-239",
+   "title": "Mobile Storefront QA",
+   "was": {
+    "kind": "external",
+    "key": "rendered_pages"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.rendered_pages.open=false (0417f35, 2026-10-11T14:39Z) (Etsy pages/help centre answer 403 to automated retrieval; never bypassed)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "mobile QA of the company's own storefront preview (Etsy pages are 403; the preview is not)",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "rendered_pages"
+    }
+   }
+  },
+  {
+   "uid": "F-240",
+   "title": "Public Seller Identity Integrity",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_shop"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_shop.open=false (0417f35, 2026-10-11T14:39Z) (shop identifier set AND a recorded successful etsy.probe; only the account holder opens a shop)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_shop"
+    }
+   }
+  },
+  {
+   "uid": "F-243",
+   "title": "Query-Matching Completeness",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-246",
+   "title": "Tag Diversity Gate",
+   "was": {
+    "kind": "data",
+    "key": "insights_access"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.insights_access.open=false (0417f35, 2026-10-11T14:39Z) (owner Etsy Stats / Search Visibility exports; no API)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "insights_access"
+    }
+   }
+  },
+  {
+   "uid": "F-247",
+   "title": "Attribute / Category Integrity",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-248",
+   "title": "Search Visibility Intake",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-249",
+   "title": "Personalized-Ranking Humility",
+   "was": {
+    "kind": "data",
+    "key": "insights_access"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.insights_access.open=false (0417f35, 2026-10-11T14:39Z) (owner Etsy Stats / Search Visibility exports; no API)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "insights_access"
+    }
+   }
+  },
+  {
+   "uid": "F-252",
+   "title": "First-Photo Click Gate",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-253",
+   "title": "Natural Photo + Product Truth",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-254",
+   "title": "Gallery Information Architecture",
+   "was": {
+    "kind": "owner",
+    "key": "visual_paid_generation"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "OWNER_ACTIONS batch 'visual': paid image generation (max CA$2.00) or physical sample photographs",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "visual_paid_generation"
+    }
+   }
+  },
+  {
+   "uid": "F-258",
+   "title": "Conversion Evidence Loop",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-260",
+   "title": "Listing Experiment Discipline",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-261",
+   "title": "Underperformer Remediation",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-273",
+   "title": "Offsite Ads Accounting",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-278",
+   "title": "Hero Thumbnail Tournament",
+   "was": {
+    "kind": "owner",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z) (a recorded successful vision.probe; owner model/vision provider funding)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-280",
+   "title": "Launch Search Visibility Watch",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-282",
+   "title": "No Zero-Sales Panic",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-283",
+   "title": "First-Sale Attribution",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-284",
+   "title": "Review / Service Flywheel",
+   "was": {
+    "kind": "data",
+    "key": "customers"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.customers.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue UNMEASURED: buyers create orders",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "customers"
+    }
+   }
+  },
+  {
+   "uid": "F-285",
+   "title": "Seasonal Keyword Refresh",
+   "was": {
+    "kind": "data",
+    "key": "insights_access"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.insights_access.open=false (0417f35, 2026-10-11T14:39Z) (owner Etsy Stats / Search Visibility exports; no API)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "insights_access"
+    }
+   }
+  },
+  {
+   "uid": "F-287",
+   "title": "Visibility Command Center",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-291",
+   "title": "Search / Ads Policy Watch",
+   "was": {
+    "kind": "external",
+    "key": "advertising_rules"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy ads policy pages are 403 to automated re-fetch; the dated reading is owner-recorded",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "advertising_rules"
+    }
+   }
+  },
+  {
+   "uid": "F-293",
+   "title": "Storefront Visual Inspection",
+   "was": {
+    "kind": "external",
+    "key": "rendered_pages"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.rendered_pages.open=false (0417f35, 2026-10-11T14:39Z) (Etsy pages/help centre answer 403 to automated retrieval; never bypassed)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "desktop/mobile inspection of the company's own storefront preview",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "rendered_pages"
+    }
+   }
+  },
+  {
+   "uid": "F-295",
+   "title": "Ads Dry Run",
+   "was": {
+    "kind": "owner",
+    "key": "ad_authority"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.ad_authority.open=false (0417f35, 2026-10-11T14:39Z) (paid-media authority is consequential spend)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "ad_authority"
+    }
+   }
+  },
+  {
+   "uid": "F-297",
+   "title": "Measurement Before Optimization",
+   "was": {
+    "kind": "data",
+    "key": "etsy_ads"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "Etsy Ads data exists only once ads run on live listings",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "etsy_ads"
+    }
+   }
+  },
+  {
+   "uid": "F-299",
+   "title": "Controlled Phase Change",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_shop"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_shop.open=false (0417f35, 2026-10-11T14:39Z) (shop identifier set AND a recorded successful etsy.probe; only the account holder opens a shop)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_shop"
+    }
+   }
+  },
+  {
+   "uid": "F-301",
+   "title": "Provider-Observed Spend Reconciliation",
+   "was": {
+    "kind": "owner",
+    "key": "provider_usage_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/verify readbacks.estimate_drift.settlement_against_provider_billing = OWNER-GATED (provider admin usage keys)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "provider_usage_api"
+    }
+   }
+  },
+  {
+   "uid": "F-321",
+   "title": "Per-Listing Maintenance Cost",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "stale missing_part corrected: product attribution since 6d86a8b",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-323",
+   "title": "Cost Per Sale / Contribution",
+   "was": {
+    "kind": "data",
+    "key": "customers"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.customers.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue UNMEASURED: buyers create orders",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "per-sale contribution net of refunds/advertising/processing",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "customers"
+    }
+   }
+  },
+  {
+   "uid": "F-325",
+   "title": "Steady-State Sustainability Forecast",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-360",
+   "title": "Sizing Is Safety-Critical Product Truth",
+   "was": {
+    "kind": "owner",
+    "key": "physical_proof"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.physical_proof.open=false (0417f35, 2026-10-11T14:39Z) (a physical worked sample; an unavoidable physical action)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "physical_proof"
+    }
+   }
+  },
+  {
+   "uid": "F-363",
+   "title": "Physical Plausibility",
+   "was": {
+    "kind": "owner",
+    "key": "physical_proof"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.physical_proof.open=false (0417f35, 2026-10-11T14:39Z) (a physical worked sample; an unavoidable physical action)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "physical_proof"
+    }
+   }
+  },
+  {
+   "uid": "F-364",
+   "title": "Visual Merchandising",
+   "was": {
+    "kind": "external",
+    "key": "image_vision"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.image_vision.open=false (0417f35, 2026-10-11T14:39Z)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "image_vision"
+    }
+   }
+  },
+  {
+   "uid": "F-371",
+   "title": "24/7 Cloud Operation",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-380",
+   "title": "Code Change Governance",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-381",
+   "title": "Rollback First-Class",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-396",
+   "title": "PC-Off Improvement Continuity",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "production_window -> owner offsite_storage (the owner half of its two blockers)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "offsite_storage"
+    }
+   }
+  },
+  {
+   "uid": "F-437",
+   "title": "Primary Documentation for Integrations",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-461",
+   "title": "Deploy Serialization",
+   "was": {
+    "kind": "owner",
+    "key": "deploy_trigger_config"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "server-side deploy enforcement (Railway 'wait for CI' / branch protection) is a platform setting; the runtime boot guard already forces SHADOW on an unproven build (/api/status boot_guard enforced:true)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "deploy_trigger_config"
+    }
+   }
+  },
+  {
+   "uid": "F-495",
+   "title": "24/7 Parallel Continuity",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-497",
+   "title": "Build vs Operate Separation",
+   "was": {
+    "kind": "owner",
+    "key": "plane_violations"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "token-scope separation of build vs operate credentials is an owner credential action",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "plane_violations"
+    }
+   }
+  },
+  {
+   "uid": "F-501",
+   "title": "Etsy Event Feedback",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-518@v0.15",
+   "title": "Safe Rollback",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "production_window -> owner publication_authority (a live rollback is an Etsy write under the owner's grant)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "publication_authority"
+    }
+   }
+  },
+  {
+   "uid": "F-515@v0.16",
+   "title": "Shop Completeness Gate",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_shop"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_shop.open=false (0417f35, 2026-10-11T14:39Z) (shop identifier set AND a recorded successful etsy.probe; only the account holder opens a shop)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_shop"
+    }
+   }
+  },
+  {
+   "uid": "F-524",
+   "title": "First-Image Program",
+   "was": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "classification": "GENUINE-DATA",
+   "evidence": "prod /api/build gates.live_listings.open=false (0417f35, 2026-10-11T14:39Z); /api/verify nothing_published ok: no listing exists to produce exposure",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "live_listings"
+    }
+   }
+  },
+  {
+   "uid": "F-532",
+   "title": "Customer-Service Standards Watch",
+   "was": {
+    "kind": "external",
+    "key": "customer_service_stats"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy Customer Service Stats have no API",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "customer_service_stats"
+    }
+   }
+  },
+  {
+   "uid": "F-535",
+   "title": "Refund/Cancellation Root Cause",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-536",
+   "title": "Policy-Violation Watch",
+   "was": {
+    "kind": "external",
+    "key": "rendered_pages"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.rendered_pages.open=false (0417f35, 2026-10-11T14:39Z) (Etsy pages/help centre answer 403 to automated retrieval; never bypassed)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "rendered_pages"
+    }
+   }
+  },
+  {
+   "uid": "F-538",
+   "title": "Finance Reconciliation",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-540",
+   "title": "OAuth Credential Health",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "production_window -> owner etsy_api (rotation proof needs a working Etsy credential; Etsy answered 403)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-542",
+   "title": "Remote Write Readback",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": "read-back on the production publish path (the exercise path has it)",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-543",
+   "title": "Draft-to-Live Activation Gate",
+   "was": {
+    "kind": "owner",
+    "key": "publication_authority"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "draft-to-live needs the owner's sealed publication/activation grant",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "publication_authority"
+    }
+   }
+  },
+  {
+   "uid": "F-556",
+   "title": "Message SLA Engine",
+   "was": {
+    "kind": "external",
+    "key": "no_messages_api"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy Open API v3 has no conversations/messages endpoint; buyer messages reach the company only via owner intake",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "no_messages_api"
+    }
+   }
+  },
+  {
+   "uid": "F-557",
+   "title": "Message Triage & Escalation",
+   "was": {
+    "kind": "external",
+    "key": "no_messages_api"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy Open API v3 has no conversations/messages endpoint; buyer messages reach the company only via owner intake",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": "pre-sale/refund/safety/policy/abuse triage classes",
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "no_messages_api"
+    }
+   }
+  },
+  {
+   "uid": "F-558",
+   "title": "Order Operations Ledger",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-577",
+   "title": "Payment Settings Guard",
+   "was": {
+    "kind": "owner",
+    "key": "payout"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "Etsy Payments onboarding is KYC/banking",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "payout"
+    }
+   }
+  },
+  {
+   "uid": "F-578",
+   "title": "Tax Information Registry",
+   "was": {
+    "kind": "owner",
+    "key": "legal_and_tax"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "tax registration decisions are the owner's (CRA)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "legal_and_tax"
+    }
+   }
+  },
+  {
+   "uid": "F-587",
+   "title": "Policy Settings Canonicalization",
+   "was": {
+    "kind": "owner",
+    "key": "policy_settings"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "Etsy-side policy text is set in the owner's Shop Manager; read-back needs the Etsy credential",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "policy_settings"
+    }
+   }
+  },
+  {
+   "uid": "F-588",
+   "title": "Partners You Work With",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_ai_partner_guidance"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "stale missing_part corrected: UNKNOWN reaches readiness",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_ai_partner_guidance"
+    }
+   }
+  },
+  {
+   "uid": "F-594",
+   "title": "First-Sale Readiness Gate",
+   "was": {
+    "kind": "owner",
+    "key": "etsy_api"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.etsy_api.open=false (0417f35, 2026-10-11T14:39Z); /api/queue/dead: listing.taxonomy_refresh 403 on the API-key-only path at 14:05Z and mjs.scan 403 'check ETSY_SHARED_SECRET'; /api/status revenue: 'no recorded successful etsy.probe'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "etsy_api"
+    }
+   }
+  },
+  {
+   "uid": "F-608",
+   "title": "Independent Accountant",
+   "was": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "no bank / Etsy payment-ledger / processor statement can be read without the owner's banking export (KYC/banking)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "bank_and_payment_ledger_feed"
+    }
+   }
+  },
+  {
+   "uid": "F-617",
+   "title": "Customer Experience Department",
+   "was": {
+    "kind": "external",
+    "key": "no_messages_api"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy Open API v3 has no conversations/messages endpoint; buyer messages reach the company only via owner intake",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "no_messages_api"
+    }
+   }
+  },
+  {
+   "uid": "F-628",
+   "title": "24/7 Runtime & Continuity",
+   "was": {
+    "kind": "owner",
+    "key": "offsite_storage"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.offsite_storage.open=false (0417f35, 2026-10-11T14:39Z) (bucket + credential outside the provider; consequential spend/account)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "offsite_storage"
+    }
+   }
+  },
+  {
+   "uid": "F-654",
+   "title": "Cloud-Always-On Core",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-665",
+   "title": "Evidence WHY",
+   "was": {
+    "kind": "owner",
+    "key": "dashboard_truth.evidence"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "lane-recorded production evidence item the owner holds",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "dashboard_truth.evidence"
+    }
+   }
+  },
+  {
+   "uid": "F-674",
+   "title": "Visual Pipeline",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-676",
+   "title": "AI Photography",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-682",
+   "title": "Accountant Activity",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-689",
+   "title": "Customer Workspace",
+   "was": {
+    "kind": "external",
+    "key": "no_messages_api"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "Etsy Open API v3 has no conversations/messages endpoint; buyer messages reach the company only via owner intake",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "no_messages_api"
+    }
+   }
+  },
+  {
+   "uid": "F-695",
+   "title": "Spend Governance",
+   "was": {
+    "kind": "owner",
+    "key": "spend_policy numbers"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "provider/department ceiling numbers are owner spend policy (not changed by this lane)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "spend_policy numbers"
+    }
+   }
+  },
+  {
+   "uid": "F-697",
+   "title": "Business Continuity",
+   "was": {
+    "kind": "owner",
+    "key": "offsite_storage"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.offsite_storage.open=false (0417f35, 2026-10-11T14:39Z) (bucket + credential outside the provider; consequential spend/account)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "offsite_storage"
+    }
+   }
+  },
+  {
+   "uid": "F-701",
+   "title": "Autonomy Is Core",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-718",
+   "title": "No Chat as Source of Truth",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "MISCLASSIFIED",
+   "evidence": "production_window does not govern it: the model.frozen approval row is readable now (/api/audit?action=model.frozen id 5693); export into the repo is company work -> OPEN",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "OPEN",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-731",
+   "title": "Canonical Model Is Mandatory",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-732",
+   "title": "Exact Identity, Not a Similar Person",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-733",
+   "title": "Canonical Asset Registry",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "MISCLASSIFIED",
+   "evidence": "as F-718 -> OPEN",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "OPEN",
+    "gate": {
+     "kind": "none",
+     "key": "none"
+    }
+   }
+  },
+  {
+   "uid": "F-734",
+   "title": "Dual Truth Contract",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-736",
+   "title": "No Silent Substitution",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-740",
+   "title": "Persistent Character Continuity",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-741",
+   "title": "Product Before Pose",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-746",
+   "title": "Listing Set Consistency",
+   "was": {
+    "kind": "external",
+    "key": "model_bearing_render"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "prod /api/build gates.model_bearing_render.open=false (0417f35, 2026-10-11T14:39Z) (no provider renders a model-bearing frame that passes the identity/product floors)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "model_bearing_render"
+    }
+   }
+  },
+  {
+   "uid": "F-808",
+   "title": "Contextual Help Inside Patterns",
+   "was": {
+    "kind": "owner",
+    "key": "owned_surfaces"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.owned_surfaces.open=false (0417f35, 2026-10-11T14:39Z) (a site/Pinterest account opened by the owner)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "owned_surfaces"
+    }
+   }
+  },
+  {
+   "uid": "F-849",
+   "title": "Claude/Chat Independence",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-850",
+   "title": "Restart Recovery",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "production_window -> owner live_restart_drill",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "live_restart_drill"
+    }
+   }
+  },
+  {
+   "uid": "F-851",
+   "title": "B+C Default",
+   "was": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability"
+   },
+   "classification": "GENUINE-EXTERNAL",
+   "evidence": "no image provider offers the 3D->conditioning->photoreal stage the row needs (VISUAL_STATUS / W4-VISUAL2); not an executor gate",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "external",
+     "key": "visual_v1_provider_capability"
+    }
+   }
+  },
+  {
+   "uid": "F-871",
+   "title": "Provider Funding Is Authority",
+   "was": {
+    "kind": "owner",
+    "key": "model_provider"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.model_provider.open=false (0417f35, 2026-10-11T14:39Z) (provider funding/credits)",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "model_provider"
+    }
+   }
+  },
+  {
+   "uid": "F-872",
+   "title": "Etsy Scope Reauthorization",
+   "was": {
+    "kind": "owner",
+    "key": "transactions_r"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "prod /api/build gates.transactions_r.open=false (0417f35, 2026-10-11T14:39Z); /api/status revenue.why: 'the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser'",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "transactions_r"
+    }
+   }
+  },
+  {
+   "uid": "F-880",
+   "title": "Cloud-Resident Always-On Runtime",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-881",
+   "title": "No Development-Chat Dependency",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-895",
+   "title": "Overnight Autonomy",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-897",
+   "title": "Smart Notification Policy",
+   "was": {
+    "kind": "owner",
+    "key": "casl_notification_authority"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "an external notification channel needs CASL review and owner authority",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "casl_notification_authority"
+    }
+   }
+  },
+  {
+   "uid": "F-904",
+   "title": "Bank/Etsy/Processor Reconciliation",
+   "was": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "no bank / Etsy payment-ledger / processor statement can be read without the owner's banking export (KYC/banking)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "bank_and_payment_ledger_feed"
+    }
+   }
+  },
+  {
+   "uid": "F-908",
+   "title": "Cash & Runway Intelligence",
+   "was": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "no bank / Etsy payment-ledger / processor statement can be read without the owner's banking export (KYC/banking)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "bank_and_payment_ledger_feed"
+    }
+   }
+  },
+  {
+   "uid": "F-923",
+   "title": "Owner Availability SLO",
+   "was": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner production_window -> data production_window: the owner authorised and the integrator performed the deploy (0417f35 unattended since 13:59:48Z); the gate opens mechanically on autonomy.off_device_proof PROVEN over 24h; at 14:39Z unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200), taxonomy 403) -- repaired on this branch, so the gate can open 24h after the successor deploy",
+   "prod_executor_gate_open": false,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "production_window"
+    }
+   }
+  },
+  {
+   "uid": "F-924",
+   "title": "Production Autonomy SLO",
+   "was": {
+    "kind": "owner",
+    "key": "hosted_operating_history"
+   },
+   "classification": "RE-KEYED",
+   "evidence": "owner hosted_operating_history -> data (elapsed hosted history)",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "data",
+     "key": "hosted_operating_history"
+    }
+   }
+  },
+  {
+   "uid": "F-926",
+   "title": "Store Preview Mode",
+   "was": {
+    "kind": "owner",
+    "key": "store_preview_v2_review"
+   },
+   "classification": "GENUINE-OWNER",
+   "evidence": "a taste decision only the owner makes",
+   "prod_executor_gate_open": null,
+   "company_substep_unverified": null,
+   "now": {
+    "completion": "GATED",
+    "gate": {
+     "kind": "owner",
+     "key": "store_preview_v2_review"
+    }
+   }
+  }
+ ]
+}

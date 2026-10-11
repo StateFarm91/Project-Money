@@ -405,6 +405,30 @@ BUILDERS: dict[str, object] = {
                                                          **_v(version)),
 }
 
+# W4-PRODUCT (2026-10-11): the builders of the catalogue-floor PROPOSAL (see
+# `CATALOGUE_FLOOR_APPROVED` below). Buildable now -- `cir_for` resolves them, so every gate can
+# be measured on them -- but kept out of BUILDERS, which the Launch-0 consumers iterate, until
+# the owner approves raising the Launch-0 cap.
+PROPOSED_BUILDERS: dict[str, object] = {
+    "nordic_forest_baby": lambda version=None: _nordic_forest("baby", version),
+    "key_basket": lambda version=None: _moment("housewarming_key_basket", version),
+    "placemat_pair": lambda version=None: flat.for_slug("mosaic-placemat-pair",
+                                                        **_v(version)),
+}
+
+
+def _nordic_forest(size: str, version: str | None) -> CIR:
+    """One Nordic Forest size under its own size slug (the baby blanket is the proposed one)."""
+    from . import nordic_forest
+
+    return nordic_forest.build(size, **_v(version))
+
+
+def _moment(function: str, version: str | None) -> CIR:
+    from . import moment_candidates
+
+    return getattr(moment_candidates, function)(**_v(version))
+
 
 def cir_for(build_key: str, version: str | None = None) -> CIR:
     """The CIR a variant names, built fresh.
@@ -413,7 +437,7 @@ def cir_for(build_key: str, version: str | None = None) -> CIR:
     a dotted string resolved at runtime, so a variant naming a builder that does not exist is a
     KeyError here and not a plausible-looking empty product downstream.
     """
-    fn = BUILDERS.get(build_key)
+    fn = BUILDERS.get(build_key) or PROPOSED_BUILDERS.get(build_key)
     if fn is None:
         raise KeyError(f"no builder named {build_key!r}; have {sorted(BUILDERS)}")
     return fn(version)          # type: ignore[operator]
@@ -453,6 +477,22 @@ LEGACY_DUPLICATES: dict[str, dict] = {
 }
 
 
+def radar_concept_for(cir_slug: str) -> str | None:
+    """The retired radar concept a Launch-0 product was scored as, or None (D-W5-7).
+
+    Measures: LEGACY_DUPLICATES, exactly (no prefix match: PT-01). Why: the radar scores the
+    baskets and the coaster set as `market-basket-trio` / `hexie-coaster-set`, Launch-0 sells
+    them as `market-basket-*` / `hexagon-coaster-set`. PT-11 routed the radar to the Launch-0
+    slugs; this is the way back, so a reader keyed on the product (the teardown product class,
+    the #168 benchmark challenge, a storefront tile's prior strength) finds the opportunity
+    the product was promoted on instead of reading it as uncategorised or unscored.
+    """
+    for alias, rec in LEGACY_DUPLICATES.items():
+        if cir_slug == rec["candidate"] or cir_slug in rec["superseded_by"]:
+            return alias
+    return None
+
+
 # The observed price evidence, from `radar/market.py`, which recorded it on 2026-09-17 against
 # named shops. Quoted rather than re-derived so that the source of a band is one hop away.
 _BLANKET_BAND = (8.47, 11.65)
@@ -462,7 +502,7 @@ _BABY_BLANKET_STATEMENTS = ch.required_statements("baby_blanket", ch.UNDER_3)
 _NURSERY_STATEMENTS = ch.required_statements("nursery_decor", ch.UNDER_3)
 
 
-CANDIDATES: tuple[Candidate, ...] = (
+_BASE_CANDIDATES: tuple[Candidate, ...] = (
     Candidate(
         slug="nursery-nesting-baskets",
         title="Nesting Baskets, three sizes",
@@ -700,10 +740,156 @@ CANDIDATES: tuple[Candidate, ...] = (
 
 # The slugs Launch-0 actually launches, in listing order. The reserve is in CANDIDATES and not
 # here, so the gate results for it are still computed and reported.
-LAUNCH0_SLUGS: tuple[str, ...] = (
+_CORE_LAUNCH0_SLUGS: tuple[str, ...] = (
     "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
     "nordic-star-ornaments", "winter-village-graphghan",
 )
+
+# ---- the catalogue-floor proposal (OWNER DECISION, not made) ----------------
+#
+# `launch.readiness.catalogue_depth` asks for MIN_LISTINGS_TO_OPEN = 8 products; Launch-0 is
+# capped at 5 by its tests, and D-FB-9 records the choice between the two as the owner's
+# (keep 8, or set a Launch-0 depth). W4-LAUNCHREADY engineered three gate-clean products to
+# reach the floor and raised the cap on its branch; that is the owner's decision to make, so
+# here the three are PREPARED and NOT launched. Approval is this one line becoming True (plus
+# the cap assertions in the tests the decision rewrites; research/final_build/w4/
+# PRODUCT_FIX.md lists them). Until then they are buildable through `cir_for`, measurable
+# through `proposed_candidate`, and outside every Launch-0 scope.
+CATALOGUE_FLOOR_APPROVED = False
+
+PROPOSED_CANDIDATES: tuple[Candidate, ...] = (
+    # W4-LAUNCHREADY (2026-10-11): three products engineered so the opening catalogue could
+    # reach the launch.readiness floor (MIN_LISTINGS_TO_OPEN = 8 products). Chosen from the
+    # repository's own demand evidence (radar.opportunity.score_concept on 2026-10-11, the
+    # radar POOL families and the seasonal calendar) among designs that already compile clean, pass every
+    # Launch-0 gate and survive the creative gate; each then had to clear the same release
+    # chain (certification, first-customer nine areas, disclosed imagery, listing set) as the
+    # first five, with nothing relaxed. Demand intelligence only: no competitor instructions,
+    # charts or photographs informed any of them.
+    #
+    # Tried and dropped on a gate, never by tuning it (scratch shadow chain, 2026-10-11):
+    # pet-snuggle-mat (its CIR names no product-type family, LISTING_PRODUCT_TYPE_UNSUPPORTED);
+    # spooky-garland (#297 missed window: pivot_to_evergreen; and the renderer cannot draw an
+    # assembled garland); valentine-heart-garland (same renderer refusal: "an assembled front
+    # view of repeated loose pieces is not drawable here"); cottage-wall-hanging (340 px
+    # legibility, 22% fill); the Nordic Forest throw (scale frame: cream not visible at 340
+    # px) and large size (#297: simplify to a quick make); harvest-table-runner (Thanksgiving
+    # (CA) is 2026-10-12, so its window is gone).
+    Candidate(
+        slug="nordic-forest-mosaic-throw-baby",
+        title="Nordic Forest Relief Baby Blanket",
+        what_it_is=(
+            "A 57.6 x 67.8 cm baby blanket worked flat in forest and cream, one colour per "
+            "row, the 12-stitch fir-and-star motif a double-crochet relief standing above a "
+            "single-crochet ground."),
+        why_at_launch=(
+            "The Nordic Forest concept is the highest-scoring in the radar pool on 2026-10-11 "
+            "(0.761; only its own bundle scores higher), it shares the nordic-forest family "
+            "with the snowflake ornaments, and the Christmas window is open for the baby "
+            "size. The throw and large sizes were tried and dropped: the throw's scale frame "
+            "fails the unchanged 340 px legibility check, and the large size misses the "
+            "#297 Christmas window (simplify to a quick make)."),
+        variants=(Variant("baby", "57.6 x 67.8 cm", "nordic_forest_baby"),),
+        pod="blankets",
+        subcategory="baby_blanket", audience=ch.UNDER_3,
+        committed_statements=_BABY_BLANKET_STATEMENTS,
+        listing=ListingIdentity(kind="blanket", etsy_category="baby",
+                                nouns=("blanket",),
+                                qualifiers=("nordic", "forest", "fir", "star"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the premium blanket band observed on HanJanCrochet and "
+                 "MJsOffTheHookDesigns (CA$8.47-11.65) in radar/market.py, proposed below its "
+                 "floor for the same reason as the Cloudline baby blanket: no video and no "
+                 "review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a two-colour fir or star in one row: the "
+            "fabric is one colour per row",
+            "a worked sample whose fir-and-star relief does not read at baby-blanket size",
+        ),
+        aspiration=(
+            "57.6 x 67.8 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="mosaic-placemat-pair",
+        title="Diamond Lattice Placemat Pair",
+        what_it_is=(
+            "Two placemats, each 28.8 x 47.7 cm at the stated gauge, worked flat in cream and "
+            "wine, one colour per row, with a raised diamond lattice in double crochet "
+            "against a single-crochet ground."),
+        why_at_launch=(
+            "The table-setting partner to the hexagon coaster set in the same cream and wine "
+            "palette (radar score 0.621, evergreen, a housewarming gift), so the two make a "
+            "natural table-set pairing at the cluster price; a pair is the multiplicity the "
+            "pattern makes (Component.make = 2)."),
+        variants=(Variant("pair", "2 pieces, 28.8 x 47.7 cm each", "placemat_pair"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="placemat", etsy_category="placemat",
+                                nouns=("placemat",), qualifiers=("diamond", "lattice"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.00, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, in "
+                 "its lower half, one rung above the coaster set it pairs with")),
+        disqualifiers=(
+            "copy or imagery implying a two-colour lattice in one row: the fabric is one "
+            "colour per row",
+            "a worked sample that does not lie flat under a plate, which only fabric confirms",
+        ),
+        aspiration=(
+            "28.8 x 47.7 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="housewarming-key-basket",
+        title="Housewarming Key Basket",
+        what_it_is=(
+            "A round catch-all basket about 18.3 cm across and 11.1 cm tall at the stated "
+            "gauge, worked in one piece from the centre of a staggered-increase cream base "
+            "into pine and cream basketweave relief walls, one colour per round."),
+        why_at_launch=(
+            "The moment-first housewarming candidate (W4-PIPE2) with the engineered CIR, in "
+            "the basket category whose observed demand put the nesting baskets in Launch-0. "
+            "A gift for a first home, it pairs with the coaster set and the placemat pair "
+            "as the shop's housewarming table-and-hall set."),
+        variants=(Variant("one_size", "18.3 x 11.1 cm", "key_basket"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",),
+                                qualifiers=("housewarming", "basketweave"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, "
+                 "below the nesting baskets' three-size price. A key-basket-specific observed "
+                 "price is UNKNOWN")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge: nothing is claimed about "
+            "stiffness until a sample is made",
+            "a base that does not lie flat, which only a sample confirms",
+        ),
+        aspiration=(
+            "18.3 x 11.1 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+)
+PROPOSED_SLUGS: tuple[str, ...] = tuple(c.slug for c in PROPOSED_CANDIDATES)
+
+CANDIDATES: tuple[Candidate, ...] = (
+    _BASE_CANDIDATES + (PROPOSED_CANDIDATES if CATALOGUE_FLOOR_APPROVED else ()))
+LAUNCH0_SLUGS: tuple[str, ...] = (
+    _CORE_LAUNCH0_SLUGS + (PROPOSED_SLUGS if CATALOGUE_FLOOR_APPROVED else ()))
+if CATALOGUE_FLOOR_APPROVED:
+    BUILDERS.update(PROPOSED_BUILDERS)
+
+
+def proposed_candidate(slug: str) -> Candidate:
+    """A catalogue-floor proposal candidate, whether or not the owner has approved it."""
+    for c in PROPOSED_CANDIDATES:
+        if c.slug == slug:
+            return c
+    raise KeyError(f"no proposed Launch-0 candidate {slug!r}")
 
 
 _LAUNCH_SCOPE: frozenset[str] | None = None

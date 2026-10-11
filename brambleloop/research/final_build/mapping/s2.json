@@ -1490,20 +1490,21 @@
   "evidence": [
    "C-11, C-12, C-13 FIXED",
    "queue/durable.py in production fcb982d",
-   "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed"
+   "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed",
+   "w4-FMGATE on 0417f35: production_window opening (24h off-device proof) would not record a lease-recovery drill; the drill needs a controlled kill of the production worker mid-job"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "owner",
-   "key": "production_window",
-   "detail": "the drill runs on the deployed candidate"
+   "key": "live_restart_drill",
+   "detail": "owner authorises a controlled restart of the production worker during a queued job (Railway restart; disturbs production); the drill then reads lease expiry and no duplicate effect from real rows"
   },
   "defect": null,
   "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-136",
@@ -1778,30 +1779,31 @@
   "launch_class_reason": "local tests are not production truth",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "Readback exists (/api/verify, /api/status commit) and is run by the operator loop, but it is not an enforced gate per major feature (no rule that a feature is not 'done' until its deployed readback passes); Build 2 has never been deployed so none of its features has a readback.",
+  "missing_part": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
   "producer": "src/brambleloop/app/main.py::api_verify",
   "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
   "consumer": null,
   "protected_effect": "production behaviour checked after deploy",
   "tests": [
-   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
-   "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running"
+   "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
   ],
   "evidence": [
-   "four prod_api_verify evidence files 2026-09-27..28"
+   "four prod_api_verify evidence files 2026-09-27..28",
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_deploy",
-   "detail": "Build 2/Final Build is not authorised to merge/deploy to production; readback of its features waits on that"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Now: write a per-feature readback manifest (endpoint + expected field) for launch-critical features; after owner-authorised deploy, run it and store the evidence file.",
+  "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-145",
@@ -2180,37 +2182,39 @@
   "uid": "F-158",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "release/supply-chain integrity before deploy",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "the image has never been built from the lock: the Railway build of a candidate is the deploy",
-  "producer": "scripts/lock_requirements.py -> requirements.lock",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/release_record.py::verify_build (requirements.lock is in the deployable-tree digest the hosted build must match; the record's supply_chain is verified by ops/deploy_guard.py record from scripts/lock_requirements.py output)",
   "durable_state": "brambleloop/requirements.lock",
-  "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock",
+  "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock; src/brambleloop/app/main.py::_startup boot guard",
   "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
   "tests": [
    "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
    "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions",
    "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+   "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
    "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
    "tests/test_w3_supply_chain.py::test_release_evidence_is_computed_at_the_sha_and_a_bad_lock_refuses_the_record",
    "tests/test_w3_supply_chain.py::test_sbom_and_change_record_are_derived_from_the_lock"
   ],
   "evidence": [
-   "requirements.lock absent from fcb982d",
-   "build/release path, not a runtime root",
-   "w4-FM close on 8b67414 (FOLD): ops/deploy_guard record embeds the lock verification, an SBOM and the change record derived from requirements.lock at the SHA (tests/test_w3_supply_chain.py); the Dockerfile installs only the hash-checked lock. The image has never been built from the lock because no candidate has been deployed"
+   "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json supply_chain",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json",
+   "w4-FMGATE on 0417f35: the gap was 'the image has never been built from the lock'. 0417f35 is deployed: its Dockerfile installs only requirements.lock with pip --require-hashes --no-deps, the release record's supply_chain is {status verified, 34 distributions, 1375 hashes, SBOM, material change vs fcb982d recorded}, and the hosted boot guard matched the deployed tree digest -- which includes requirements.lock -- to that record (/api/status boot_guard ok)"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "production_window",
-   "detail": "deploying the frozen candidate builds the image from the lock"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "owner gate production_window: deploy the candidate; deploy_guard record then binds the lock verification to the built image",
+  "next_action": "none: every release record carries its supply-chain check",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-159",
@@ -2257,7 +2261,7 @@
   "launch_class_reason": "security: exposed credentials must be rotated before launch",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_API_KEY is still rotation-required",
+  "missing_part": "the chat-exposed ANTHROPIC_API_KEY is still rotation-required: rotating it is an owner act; the register and owner card are wired",
   "producer": "src/brambleloop/ops/credential_register.py::REGISTER/owner_requests",
   "durable_state": "code-held register (no values)",
   "consumer": null,
@@ -2270,7 +2274,8 @@
    "tests/test_fb4_ops.py::test_the_credential_rotation_card_reaches_the_owner_queue_and_the_dashboard"
   ],
   "evidence": [
-   "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner"
+   "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner",
+   "w4-FMGATE on 0417f35: missing_part was stale: ops/credential_register.py is reached on 0417f35 (owner_requests via launch.readiness) and the rotation card reaches the owner queue (tests/test_fb4_ops.py); what remains is the owner's rotation"
   ],
   "build2_rows": [],
   "gate": {
@@ -2281,7 +2286,7 @@
   "defect": null,
   "next_action": "owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-161",
@@ -2551,33 +2556,39 @@
   "uid": "F-169",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "F-831..F-850 certification contract: clean-tree full suite on the deploy tree",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build without it -- and HEAD (acb6c9f) has moved past 6f9a2f7 by docs-only commits, so the RC SHA is not yet frozen",
-  "producer": "run_tests.sh (REQUIRE_CLEAN, release_eligible run record)",
-  "durable_state": "artifacts/suite_runs/*.json; research/final_build/RUN_6f9a2f7_full_suite.json",
-  "consumer": "ops/deploy_guard.py::check (exact candidate SHA)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/release_record.py::verify_build (runtime boot guard: the hosted build must carry a committed release-eligible full-suite record naming its exact deployable-tree digest; written by run_tests.sh REQUIRE_CLEAN=1 + ops/deploy_guard.py record)",
+  "durable_state": "release/RELEASE_<sha>.json + release/suite_runs/*.json (tracked, in the image); incidents (release.unproven_build)",
+  "consumer": "src/brambleloop/app/main.py::_startup / release_record.apply_at_import (forces SHADOW + P1 incident on an unproven build); /api/status boot_guard; ops/deploy_guard.py::check (deploy path)",
   "protected_effect": "only a full, clean, unmoved-HEAD, zero-failing run on the exact candidate SHA allows deploy",
   "tests": [
-   "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
-   "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible",
    "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
-   "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused"
+   "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused",
+   "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+   "tests/test_rc1_own_release.py::test_boot_guard_opens_and_resolves_a_p1_incident",
+   "tests/test_rc1_own_release.py::test_boot_guard_rejects_a_red_or_unpinned_suite_record",
+   "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
+   "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
+   "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible"
   ],
   "evidence": [
-   "RUN_6f9a2f7_full_suite.json: release_eligible true, dirty_paths 0, git_sha == git_sha_at_end, 5,653 passing",
-   "release procedure, not a runtime root; not in fcb982d"
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json (boot_guard ok, record RELEASE_5dfd1ac, tree 30a4dc93)",
+   "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt (ALLOW)",
+   "w4-FMGATE on 0417f35: the final handoff's full suite ran against the exact deployed tree and the running build proves it: release/RELEASE_5dfd1ac...json is release_eligible (7877 passing, 0 failing suites, tree clean, HEAD unmoved) and names source_tree_sha256 30a4dc93...; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/status boot_guard {enforced:true, ok:true, record RELEASE_5dfd1ac, tree_sha256 30a4dc93} -- the runtime boot guard recomputed the deployed tree digest and matched it; ops/deploy_guard.py check --candidate 0417f35 --deployed fcb982d = ALLOW (research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt). The old gap ('deploy_guard is run by hand, a push builds without it') is closed at runtime: an unproven hosted build is forced to SHADOW with a P1 incident"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": null,
-   "detail": "software work remains or none; nothing external blocks it"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Freeze the RC (6f9a2f7 or re-run REQUIRE_CLEAN=1 ./run_tests.sh on the final HEAD) and run ops/deploy_guard.py check --candidate <RC> --deployed fcb982d, committing the verdict; document/enforce that Railway deploys only that SHA",
+  "next_action": "none: every successor carries its own release record; the boot guard re-checks it on every hosted boot",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-170",
@@ -2615,60 +2626,63 @@
   "launch_class_reason": "post-deploy truth of critical paths",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "/api/verify covers phase, publication refusals, ad/revenue, model spend vs ceiling, agent ceilings, durable DB, worker/scheduler liveness and dead letters; it does not exercise queues end to end, provider probes, continuity or search intelligence, and has not been run on a Final Build deploy.",
+  "missing_part": "the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final Build deploy it is red on two checks",
   "producer": "src/brambleloop/app/main.py::api_verify",
   "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
   "consumer": null,
   "protected_effect": "production smoke of critical invariants",
   "tests": [
-   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
-   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
   ],
   "evidence": [
-   "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)"
+   "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)",
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_deploy",
-   "detail": "final deploy is not authorised; the matrix can only run after it"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Extend /api/verify (or a smoke script) with model.probe/vision probe recency, last ops.continuity proof, cadence tick coverage, queue round-trip and intel.serp/etsy probe recency; run after the authorised deploy.",
+  "next_action": "company: extend /api/verify (probe recency, continuity proof, cadence coverage, queue round-trip); deploy the dead-letter fixes (843af70, 4b55f22); integrator decides the 0.0 agent ceilings",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-172",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "safe publication before phase change",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Proven on the current production (fcb982d): phase shadow, 0 published, 165 publish refusals counted as expected; must be re-proven on the Final Build deploy before any phase change.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/main.py::api_verify",
   "durable_state": "audit_log store.publish_refused",
-  "consumer": null,
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish (refuses in shadow; refusals are what api_verify counts); app/main.py::dashboard (last clean /api/verify)",
   "protected_effect": "no consequential publication in shadow; refusals are non-defects",
   "tests": [
-   "tests/test_shadow.py",
+   "tests/test_deploy.py::test_the_requeue_endpoint_never_re_drives_a_publication_refusal",
    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-   "tests/test_deploy.py::test_the_requeue_endpoint_never_re_drives_a_publication_refusal"
+   "tests/test_shadow.py"
   ],
   "evidence": [
-   "prod_api_verify_2026-09-28T0816Z.json phase_is_shadow, nothing_published, publication_was_actually_attempted_and_refused (165)"
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_verify_20261011T1439Z.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_queue_dead_20261011T1439Z.json",
+   "w4-FMGATE on 0417f35: re-proven on the Final Build deploy before any phase change: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify phase_is_shadow ok, nothing_published ok, publication_was_actually_attempted_and_refused ok (185 expected refusals; /api/queue/dead store.publish last_seen 2026-10-11T14:26:20Z, after the 13:59Z deploy); the production_deploy gate is cleared"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "production_deploy",
-   "detail": "re-proof requires the authorised Final Build deploy"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "After the authorised deploy, run /api/verify and store the evidence file before any phase-change request.",
+  "next_action": "none: re-run /api/verify after every deploy and before any phase-change request",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-173",
@@ -2770,8 +2784,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "recovery: a restorable pre-launch baseline",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=false and names them",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/ops/assurance.py::rollback_baseline / record_baseline",
   "durable_state": "continuity exports; audit_log ops.continuity",
   "consumer": "runtime/release.handle_health_sweep -> ops/truth.sweep (ops.health cadence) -> audit_log",
@@ -2783,23 +2797,22 @@
    "tests/test_w3_k7_ops_truth.py::test_rollback_baseline_names_missing_components"
   ],
   "evidence": [
-   "BUILD_STATE.md ~l.360/4831 continuity proved in production",
-   "launch/rollback.py not in production fcb982d",
-   "w4-FM close on 8b67414 (FOLD): ops/assurance.rollback_baseline binds code SHA, tree digest, schema digest, config names (never values), coverage map, release-record tests, restore proof and rollback target, and names each missing component; record_baseline writes it once per digest on the ops.health sweep (ops/truth.py:353). It reads recoverable=false locally: code SHA, release-record tests and restore proof exist only on a deployed build"
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+   "w4-FMGATE on 0417f35: the deployed candidate's baseline is recorded and recoverable in production: ops.truth.sweep audit row 26799 at 2026-10-11T14:31:00Z on 0417f35 reads rollback_baseline {recoverable:true, recorded:true, missing:[]} (research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json); the production_window gate it waited on was the deploy"
   ],
   "build2_rows": [
    "#51 OWNER-GATED",
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_window",
-   "detail": "deploy the candidate so the baseline is recorded on it"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "owner gate production_window: deploy the frozen candidate; the ops.health sweep then records a recoverable baseline",
+  "next_action": "none: record_baseline writes once per deployed digest",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-177",

@@ -37,13 +37,26 @@ const browser = await pw.chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
   colorScheme: "light", isMobile: true, hasTouch: true, serviceWorkers: "allow" });
 const page = await context.newPage();
+// Opt-in fault injection (W4-CCUX): CC_HASHCHANGE_DELAY_MS=200 runs every hashchange handler
+// late, as a busy event loop does under CPU contention. settle() must still wait for the new
+// view (render-complete signal), so the whole check passes with or without it.
+const HC_DELAY = Number(process.env.CC_HASHCHANGE_DELAY_MS || 0);
+if (HC_DELAY > 0) {
+  await page.addInitScript((d) => {
+    const add = window.addEventListener.bind(window);
+    window.addEventListener = (t, fn, o) => add(t, t === "hashchange" ? (e) => setTimeout(() => fn(e), d) : fn, o);
+  }, HC_DELAY);
+}
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 const postLog = async () => (await (await fetch(`${BASE}/__mock/log`)).json());
 
 async function settle() {
-  await page.waitForFunction(() => !document.querySelector("#main .loading"), null, { timeout: 10000 });
+  // Settled = the app's render-complete signal names the current URL (app.js route()) and
+  // nothing is loading. "No spinner" alone was also true of the previous view in the gap
+  // between a hash change and its hashchange handler, which made the deep-link check flaky.
+  await page.waitForFunction(() => { const m = document.getElementById("main"); return m.dataset.rendered === location.hash && !m.querySelector(".loading"); }, null, { timeout: 10000 });
   await page.waitForTimeout(150);
 }
 async function noHScroll(name) {
@@ -53,7 +66,7 @@ async function noHScroll(name) {
 }
 let shots = 0;
 async function shot(name) {
-  if (!SCREENS || shots >= 12) return;
+  if (!SCREENS || shots >= 14) return;
   shots++;
   await page.screenshot({ path: path.join(SCREENS, `${String(shots).padStart(2, "0")}_${name}.png`), fullPage: false });
 }
@@ -279,6 +292,142 @@ try {
   await page.click("form.ask-form button[type=submit]");
   await page.waitForFunction(() => document.querySelectorAll(".answer-card").length === 2);
   check(await page.isVisible(".answer-card .answer[data-answer=UNKNOWN]"), "ask: unanswerable question shown as UNKNOWN");
+
+  // ---- W4-CCUX: decide-first prioritisation, long-page sections, phone navigation ----------
+  await page.goto(`${BASE}/cc/#/approvals`);
+  await settle();
+  const order = await page.$$eval("#main .stack > *", (els) => els.map((e) => e.matches("article.approval") ? "card"
+    : e.matches(".decide-first") ? "decide" : e.matches("section[aria-labelledby='approvals-batches']") ? "batches" : "other"));
+  const iDecide = order.indexOf("decide"), iCard = order.indexOf("card"), iBatch = order.indexOf("batches");
+  check(iDecide >= 0 && iDecide < iCard && iCard < iBatch, "ccux approvals: Decide first leads, then the cards, then the batch queue", JSON.stringify(order));
+  const dRows = await page.$$eval(".decide-first li.decide-row", (els) => els.map((e) => ({ kind: e.dataset.decision, text: e.textContent,
+    href: e.querySelector("a.decide-go")?.getAttribute("href") || null, btn: e.querySelector("button.decide-go")?.textContent || null })));
+  check(dRows.length === 3 && dRows[0].kind === "card" && /Harbour Throw/.test(dRows[0].text) && dRows[1].kind === "batch" && dRows[2].kind === "batch",
+    "ccux approvals: top 3 = decidable card, then batch queue in order (non-executable card last)", JSON.stringify(dRows.map((d) => [d.kind, d.text.slice(0, 40)])));
+  check(/Max cost\s*Unknown/.test(dRows[0]?.text || "") && /If you do nothing\s*Launch slips/.test(dRows[0]?.text || "") && /Deadline\s*in /.test(dRows[0]?.text || ""),
+    "ccux approvals: each top decision shows cost (Unknown, never CA$0) and consequence", (dRows[0]?.text || "").slice(0, 300));
+  check(/Max cost\s*CA\$25\.00/.test(dRows[1]?.text || "") && /Max cost\s*Unknown/.test(dRows[2]?.text || "") && !/CA\$0\.00/.test(dRows[2]?.text || "")
+    && /If you do nothing\s*revenue stays Unknown/.test(dRows[2]?.text || ""), "ccux approvals: batch decision costs stated or Unknown", JSON.stringify(dRows.slice(1).map((d) => d.text.slice(0, 160))));
+  check(dRows[0]?.href === "#/approvals/publication%3Aharbour-throw%401", "ccux approvals: top decision links to its evidence card", String(dRows[0]?.href));
+  check(/1 more below/.test(await page.textContent(".decide-first")), "ccux approvals: the rest are counted, not hidden");
+  const firstOpen = await page.$eval("article.approval", (e) => e.querySelector("details.review").open && /Harbour/.test(e.textContent));
+  check(firstOpen, "ccux approvals: the most urgent card is first and open");
+  await page.click(".decide-first li.decide-row:nth-child(2) button.decide-go");
+  await page.waitForTimeout(200);
+  const batchInView = await page.$eval("section[aria-labelledby='approvals-batches']", (e) => { const r = e.getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0 && e.querySelector("details.review").open; });
+  check(batchInView, "ccux approvals: 'Show in batches' scrolls to the open batch");
+  await page.click(".decide-first li.decide-row:first-child a.decide-go");
+  await settle();
+  check(/#\/approvals\/publication/.test(page.url()) && (await page.$$("article.approval .evidence li")).length === 3, "ccux approvals: decide-first link opens the card with its evidence");
+
+  // deterministic ranking (unit, in the page): deadline, evidence, executability, cost text
+  const rank = await page.evaluate(async () => {
+    const m = await import("/cc/js/views/_decisions.js");
+    const d = (h) => new Date(Date.now() + h * 3600000).toISOString();
+    const r = m.rankDecisions([
+      { card_id: "late", executable: true, evidence: [1], deadline: d(48), max_spend_cad: 0 },
+      { card_id: "noev", executable: true, evidence: [], deadline: d(1) },
+      { card_id: "blocked", executable: false, evidence: [1], deadline: d(0.5) },
+      { card_id: "soon", executable: true, evidence: [1], deadline: d(2), max_spend_cad: 12.5 },
+      { card_id: "nodl", executable: true, evidence: [1], deadline: null },
+    ], { items: [{ title: "B", items: [{ id: "b1", decision: "b1", max_cost: null }] }] });
+    return r.map((x) => [x.id, x.cost]);
+  });
+  check(JSON.stringify(rank.map((x) => x[0])) === JSON.stringify(["soon", "late", "nodl", "noev", "b1", "blocked"]),
+    "ccux ranking: evidence+soonest first, no-deadline after, missing evidence, batch, not-executable last", JSON.stringify(rank));
+  check(rank.find((x) => x[0] === "late")[1] === "CA$0.00" && rank.find((x) => x[0] === "noev")[1] === "Unknown" && rank.find((x) => x[0] === "b1")[1] === "Unknown",
+    "ccux ranking: a stated 0 stays CA$0.00, an unstated cost is Unknown", JSON.stringify(rank));
+
+  // home: decide-first is the first card after the hero
+  await page.goto(`${BASE}/cc/#/home`);
+  await settle();
+  const homeOrder = await page.$$eval("#main .stack > .card", (els) => els.slice(0, 2).map((e) => e.classList.contains("hero") ? "hero" : e.classList.contains("decide-first") ? "decide" : e.className));
+  check(JSON.stringify(homeOrder) === JSON.stringify(["hero", "decide"]), "ccux home: Decide first directly after the brief", JSON.stringify(homeOrder));
+  const homeDecide = await page.textContent(".decide-first");
+  check(/Harbour Throw/.test(homeDecide) && /Max cost/.test(homeDecide) && /If you do nothing/.test(homeDecide) && /1 more open/.test(homeDecide)
+    && (await page.isVisible(".decide-first .decide-rest a[href='#/approvals']")), "ccux home: top decisions with cost, consequence and a link to all", homeDecide.slice(0, 200));
+  await noHScroll("ccux home");
+  const goH = await page.$$eval(".decide-first .decide-go", (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  check(goH.length === 3 && goH.every((x) => x >= 44), "ccux home: each top decision is a >=44px tap target", JSON.stringify(goH));
+
+  // long page: sections index + collapse all, nothing dropped
+  await page.goto(`${BASE}/cc/#/learn`);
+  await settle();
+  check(await page.isVisible(".page-tools"), "ccux learn: long page has a sections toolbar");
+  const linksBefore = await page.$$eval("#main a[href]", (a) => a.map((x) => x.getAttribute("href")).sort());
+  const hBefore = await page.evaluate(() => document.documentElement.scrollHeight);
+  const nCards = await page.$$eval("#main .stack > .card:not(.hero) > .card-head .card-title", (e) => e.length);
+  const nIndex = await page.$$eval(".page-index .index-link", (e) => e.length);
+  check(nIndex === nCards && nCards >= 5, "ccux learn: index lists every titled section", `${nIndex} vs ${nCards}`);
+  await page.click(".page-tools button[data-fold=all]");
+  const folded = await page.$$eval("#main .stack > .card.is-collapsed", (e) => e.length);
+  const hAfter = await page.evaluate(() => document.documentElement.scrollHeight);
+  check(folded === nCards && hAfter < hBefore / 2, "ccux learn: Collapse all folds every section to its header", `${folded}/${nCards}, ${hBefore}->${hAfter}`);
+  check(!(await page.isVisible("section[aria-labelledby='autonomy-rule1'] li.row >> nth=0")) && (await page.isVisible("section[aria-labelledby='autonomy-rule1'] .card-title")),
+    "ccux learn: folded card hides its body, keeps its title");
+  const linksFolded = await page.$$eval("#main a[href]", (a) => a.map((x) => x.getAttribute("href")).sort());
+  check(JSON.stringify(linksFolded) === JSON.stringify(linksBefore), "ccux learn: folding keeps every link in the page (hidden, not removed)", `${linksBefore.length} vs ${linksFolded.length}`);
+  await noHScroll("ccux learn folded");
+  const smallFolded = await page.$$eval("#main button, #main a.btn", (els) => els.filter((e) => e.offsetParent !== null)
+    .map((e) => Math.round(e.getBoundingClientRect().height)).filter((x) => x < 40));
+  check(smallFolded.length === 0, "ccux learn: fold controls meet tap-size floor", JSON.stringify(smallFolded));
+  await shot("ccux_learn_folded");
+  await page.click("section[aria-labelledby='autonomy-rule1'] .card-expand");
+  check(await page.isVisible("section[aria-labelledby='autonomy-rule1'] li.row >> nth=0"), "ccux learn: Show reopens one section");
+  await page.click(".page-index > summary");
+  await page.click(".page-index .index-link >> text=Agents: status");
+  await page.waitForTimeout(150);
+  const agentsOk = await page.$eval("section[aria-labelledby='autonomy-agents']", (e) => !e.classList.contains("is-collapsed") && e.getBoundingClientRect().top < 200 && e.getBoundingClientRect().top > -5);
+  check(agentsOk, "ccux learn: index link opens the section and scrolls to it");
+  await page.goto(`${BASE}/cc/#/home`);
+  await settle();
+  await page.goto(`${BASE}/cc/#/learn`);
+  await settle();
+  check((await page.getAttribute(".page-tools button[data-fold=all]", "aria-pressed")) === "true", "ccux learn: fold choice kept while navigating (memory only)");
+  await page.click(".page-tools button[data-fold=all]");
+  check((await page.$$("#main .card.is-collapsed")).length === 0, "ccux learn: Expand all restores every section");
+  const lsKeys = await page.evaluate(() => Object.keys(localStorage));
+  check(!lsKeys.some((k) => /collap|fold/i.test(k)), "ccux learn: fold state never written to browser storage", JSON.stringify(lsKeys));
+  // approvals folded: evidence links and decision buttons survive, return on expand
+  await page.goto(`${BASE}/cc/#/approvals`);
+  await settle();
+  const apTools = await page.$(".page-tools button[data-fold=all]");
+  if (apTools) {
+    const evBefore = await page.$$eval("article.approval .evidence a", (a) => a.length);
+    await apTools.click();
+    const evFolded = await page.$$eval("article.approval .evidence a", (a) => a.length);
+    await page.click(".page-tools button[data-fold=all]");
+    check(evBefore === 3 && evFolded === evBefore && (await page.isVisible("article.approval button[data-action='publication.approve']")),
+      "ccux approvals: folding keeps evidence links and actions", `${evBefore}/${evFolded}`);
+  } else ok("ccux approvals: page short enough that no folding is offered");
+  // short page: no toolbar
+  await page.goto(`${BASE}/cc/#/more`);
+  await settle();
+  check(!(await page.$(".page-tools")), "ccux more: short pages get no toolbar");
+
+  // navigation: More menu hints + badges; breadcrumb on More sections (phone only)
+  const menu = await page.$$eval(".menu a", (els) => els.map((e) => ({ id: e.dataset.more, hint: e.querySelector(".menu-hint")?.textContent || "",
+    badge: e.querySelector(".badge") })));
+  check(menu.length === 10 && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
+  const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));
+  const barBadge = await page.$eval("#tabbar [data-badge=more]", (b) => ({ hidden: b.hidden, t: b.textContent }));
+  check(!nb.hidden && nb.t === barBadge.t && !barBadge.hidden, "ccux more: menu shows the same notifications badge as the bar", JSON.stringify([nb, barBadge]));
+  await shot("ccux_more");
+  await page.click(".menu a[data-more=company]");
+  await settle();
+  const crumb = await page.$eval("#main nav.crumb", (e) => ({ t: e.textContent, href: e.querySelector("a").getAttribute("href"), vis: e.offsetParent !== null })).catch(() => null);
+  check(!!crumb && crumb.vis && crumb.href === "#/more" && /More\s*›\s*Company/.test(crumb.t), "ccux nav: More sections show 'More › Section' with a way back", JSON.stringify(crumb));
+  await page.click("#main nav.crumb a");
+  await settle();
+  check(/#\/more$/.test(page.url()), "ccux nav: breadcrumb returns to More");
+  await page.goto(`${BASE}/cc/#/home`);
+  await settle();
+  check(!(await page.$("#main nav.crumb")), "ccux nav: primary tabs carry no breadcrumb");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${BASE}/cc/#/company`);
+  await settle();
+  check(!(await page.isVisible("#main nav.crumb")) && (await page.isVisible("#sidenav a[data-tab=company][aria-current=page]")), "ccux nav: desktop uses the sidebar, breadcrumb hidden");
+  await page.setViewportSize({ width: 390, height: 844 });
 
   // ---- deep link from a notification ----------------------------------------------------
   await page.goto(`${BASE}/cc/#/notifications`);

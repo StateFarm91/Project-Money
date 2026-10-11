@@ -166,6 +166,10 @@ def momentum(db, signal_key: str, *, channel: str | None = None) -> dict:
 # Lead and lag (#140)
 
 
+# A maximum reached on this many distinct dates or more is a plateau, not a peak (#140).
+PLATEAU_MIN_DATES = 3
+
+
 def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
              demand_channel: str = "etsy") -> dict:
     """Does cultural interest move before Etsy demand, or after it?
@@ -190,6 +194,28 @@ def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
                            f"and {len(demand)} {demand_channel} readings. One series cannot "
                            f"lead anything"),
                 "culture_readings": len(culture), "demand_readings": len(demand)}
+
+    # W4-B2GATE2, 2026-10-11: a maximum held on PLATEAU_MIN_DATES or more distinct dates is
+    # a level, not a peak. `max()` then returns whichever of the tied readings came first,
+    # which is the day observation started -- so the "peak" measures when the scanner began,
+    # not when demand peaked. Production (GET /api/culture at 0417f35, read 2026-10-11)
+    # showed exactly that: the etsy series of crochet, crochet_hook and granny_square sit at
+    # 1.0 from 2026-09-13 to 2026-09-19 (the single-pass catalogue baseline), and halloween's
+    # reference series holds 1.0 on nine dates (a rising topic re-normalised to its own window
+    # each day), so all four lead_days measured when observation began. That is refused by
+    # name rather than reported as a lag.
+    for name, points in (("culture", culture), ("demand", demand)):
+        top_value = max(p["interest"] for p in points)
+        tied = sorted({str(p["on"]) for p in points if p["interest"] == top_value})
+        if len(tied) >= PLATEAU_MIN_DATES:
+            return {"measurable": False,
+                    "reason": (f"the {name} series holds its maximum ({top_value}) on "
+                               f"{len(tied)} dates ({tied[0]} .. {tied[-1]}): a plateau has "
+                               f"no peak date, and taking its first day would measure when "
+                               f"observation began, not when interest peaked"),
+                    "culture_readings": len(culture), "demand_readings": len(demand),
+                    "plateau": {"series": name, "value": top_value, "dates": len(tied),
+                                "from": tied[0], "to": tied[-1]}}
 
     def peak_date(points):
         top = max(points, key=lambda p: p["interest"])

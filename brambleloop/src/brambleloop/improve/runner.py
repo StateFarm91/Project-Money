@@ -402,7 +402,8 @@ def _rows(db) -> list[dict]:
     with db.session() as s:
         return [{"id": r.id, "cell": r.cell, "state": r.state,
                  "baseline": r.baseline_value, "result": r.result_value,
-                 "cost": r.cost_cad or 0.0, "evidence": dict(r.evidence or {})}
+                 "cost": r.cost_cad or 0.0, "evidence": dict(r.evidence or {}),
+                 "baseline_ref": r.baseline_ref or ""}
                 for r in s.scalars(select(Improvement).where(
                     Improvement.state.in_((cells.PROPOSED, cells.TESTING)))
                     .order_by(Improvement.id))]
@@ -488,6 +489,15 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
         loops = policy_loops.cycle(db, now=now)
     except Exception as exc:  # noqa: BLE001 - reported, never silent
         loops = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # 0b. W4-LEARN: the bounded backlog. Every open proposal is re-measured by the instrument
+    #     that raised it or expires on record, so PROPOSED cannot only grow. Isolated like the
+    #     policy loops: its failure is reported and never stops the sandbox pass.
+    from . import backlog
+
+    try:
+        bounded = backlog.evaluate(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - reported, never silent
+        bounded = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     sandboxed, waiting, tested, approved, promoted, carded, held = [], [], [], [], [], [], []
     anchored, rejected, executed = [], [], []
     rules = discipline(db, now=now)
@@ -510,6 +520,12 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
                                     f"in {THRASH_DAYS} days; held as thrash (#99)")})
             continue
         name = trial_for(ev)
+        if name is None and backlog.delight_target(r.get("baseline_ref", "")):
+            waiting.append({"improvement": r["id"], "cell": r["cell"],
+                            "trial": "delight_remeasure",
+                            "why": ("re-measured each pass by improve.backlog; unchanged so "
+                                    f"far, expires after {backlog.DELIGHT_TTL_DAYS} days")})
+            continue
         if name is None:
             waiting.append({"improvement": r["id"], "cell": r["cell"],
                             "why": "no registered sandbox trial can evaluate this proposal, "
@@ -620,6 +636,7 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             "anchored": anchored, "rejected": rejected, "executed": executed,
             "prioritised": ordering["ranked"], "unprioritised": ordering["unprioritised"],
             "discipline": rules,
+            "backlog": bounded,
             "trials": sorted(TRIALS),
             "policy_loops": {k: {kk: v.get(kk) for kk in ("reading", "why")}
                              | {"state": (v.get("outcome") or {}).get("state")}

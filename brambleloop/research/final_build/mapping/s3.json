@@ -2368,7 +2368,7 @@
   "launch_class_reason": "P0 addendum: provider cost truth — per-listing maintenance cost",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be attributed to a listing in production; reads UNMEASURED while nothing is live",
+  "missing_part": "maintenance cost per listing reads UNMEASURED until a listing is live (data gate live_listings); spend rows already carry product_slug at runtime (6d86a8b)",
   "producer": "src/brambleloop/finance/sustainability.py::listing_maintenance_cost",
   "durable_state": "cost_entries (product_slug, purpose)",
   "consumer": "finance/sustainability.py::forecast -> verdict -> launch/readiness.py::assess (sustainable_economics)",
@@ -2381,7 +2381,8 @@
    "research/final_build/waves/fb1_D.json F-321 PARTIAL",
    "grep 'product_slug=' over gateway/, visual/, culture/: no spend_report.record call sets it",
    "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d",
-   "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)"
+   "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)",
+   "w4-FMGATE on 0417f35: missing_part was stale: runtime spend writers carry product attribution since 6d86a8b; what remains is a live listing to attribute recurring cost to"
   ],
   "build2_rows": [],
   "gate": {
@@ -2392,7 +2393,7 @@
   "defect": null,
   "next_action": "data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-322",

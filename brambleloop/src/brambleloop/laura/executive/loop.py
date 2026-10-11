@@ -176,9 +176,26 @@ def observe(db, *, now: datetime | None = None) -> dict:
         open_rows = s.execute(select(Job.job_type, func.count()).where(
             Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]))
             .group_by(Job.job_type)).all()
+        # W4-AUTONOMY: "company work open" counts only what a worker can take now (running,
+        # or pending and due). A job parked on a spent model balance is waiting; counting it
+        # kept "company queue is empty: give departments their next safe work" from ever
+        # firing during an outage. `open_by_type` keeps every open job, so a type that is
+        # merely waiting is still never delegated twice.
+        from sqlalchemy import and_, or_
+
+        from ...autonomy.generators import due_cutoff
+
+        due_rows = s.execute(select(Job.job_type, func.count()).where(or_(
+            Job.status == JobStatus.RUNNING,
+            and_(Job.status == JobStatus.PENDING,
+                 Job.run_after <= due_cutoff(now))))
+            .group_by(Job.job_type)).all()
     state["queue"] = {"open_by_type": {jt: int(n) for jt, n in open_rows}}
     state["queue"]["company_work_open"] = sum(
-        n for jt, n in state["queue"]["open_by_type"].items() if jt not in CONTROL_TYPES)
+        int(n) for jt, n in due_rows if jt not in CONTROL_TYPES)
+    state["queue"]["company_work_waiting"] = sum(
+        n for jt, n in state["queue"]["open_by_type"].items()
+        if jt not in CONTROL_TYPES) - state["queue"]["company_work_open"]
     state["sources"] += ["owner_actions", "incidents", "jobs"]
     providers = {}
     for name in PROVIDERS:

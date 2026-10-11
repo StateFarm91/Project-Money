@@ -373,8 +373,15 @@ def stitch_key(text: str, terminology: str = "US") -> list[KeyEntry]:
                    if _contains(low, word.lower())]
         if not present:
             continue
-        out.append(KeyEntry(token=present[0], means=meaning(code, terminology),
-                            method=method(code, terminology)))
+        # W4-LAUNCHREADY: one entry per spelling the document actually uses. A pattern with a
+        # slip-stitch round prints `slst` from the writer's op *and* `sl st` from the joined-
+        # round line; keying only the first left the other undefined, and the completeness
+        # check below (run against the printed key) refused the document -- rightly.
+        for word in present:
+            if any(e.token == word for e in out):
+                continue
+            out.append(KeyEntry(token=word, means=meaning(code, terminology),
+                                method=method(code, terminology)))
     return out
 
 

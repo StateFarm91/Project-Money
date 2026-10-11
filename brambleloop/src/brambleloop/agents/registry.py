@@ -787,3 +787,75 @@ DECLARED_IO["laura"] = {"inputs": ["autonomy.status", "company_memory", "owner_a
                         "function_metric": "useful_output_rate",
                         "function_reads": "executive ticks whose work_done > 0"}
 
+
+
+# ---------------------------------------------------------------------------
+# W4-FINHEALTH: what a CA$0 daily ceiling means, said once.
+#
+# `/api/verify`'s `every_agent_has_a_cost_ceiling` failed in production on `learn`, `coo` and
+# `laura` -- the three agents DEFAULT_AGENTS deliberately declares at CA$0 ("publishes,
+# activates, spends and messages nothing"; `autonomy.charters`: "CA$0 ceiling"). Those are not
+# missing ceilings. A ceiling of CA$0 is a permission of zero: `gateway.anthropic.check_budget`
+# refuses any call with a positive estimate before it is made, and `ModelGateway` refuses again
+# after. A red light on a deliberate, enforced refusal is a light people learn to ignore.
+#
+# What *is* a misconfiguration, and still fails the check:
+#   * a non-finite ceiling (NaN/inf compares False against every spend);
+#   * a zero or negative ceiling on an agent whose declaration is positive (or that has no
+#     declaration at all) -- a database row that drifted from the code, or a value nobody set;
+#   * a declared no-spend agent that has recorded spend today -- the refusal did not hold.
+def declared_daily_ceiling(name: str) -> float | None:
+    """The daily ceiling DEFAULT_AGENTS declares for `name`, or None if it declares none."""
+    default = Agent.__table__.c.daily_cost_ceiling_cad.default
+    fallback = float(default.arg) if default is not None else None
+    for spec in DEFAULT_AGENTS:
+        if spec["name"] == name:
+            value = spec.get("daily_cost_ceiling_cad", fallback)
+            return None if value is None else float(value)
+    return None
+
+
+def ceiling_audit(agents: Iterable[tuple[str, float | None]],
+                  spent_today: dict[str, float] | None = None) -> dict:
+    """Classify every agent's daily ceiling. Pure: rows in, verdict and evidence out."""
+    import math
+
+    spent_today = spent_today or {}
+    rows = list(agents)
+    with_ceiling, no_spend, misconfigured, spent_without_permission = [], [], [], []
+    for name, raw in rows:
+        try:
+            ceiling = float(raw) if raw is not None else float("nan")
+        except (TypeError, ValueError):
+            ceiling = float("nan")
+        declared = declared_daily_ceiling(name)
+        if not math.isfinite(ceiling):
+            misconfigured.append({
+                "agent": name, "ceiling_cad": None, "declared_cad": declared,
+                "why": "non-finite ceiling; enforcement reads it as CA$0 and refuses every "
+                       "call, but nobody declared that"})
+        elif ceiling > 0:
+            with_ceiling.append(name)
+        elif ceiling == 0 and declared == 0.0:
+            no_spend.append(name)
+            spent = float(spent_today.get(name) or 0.0)
+            if spent > 0:
+                spent_without_permission.append({"agent": name, "spent_today_cad": spent})
+        else:
+            misconfigured.append({
+                "agent": name, "ceiling_cad": ceiling, "declared_cad": declared,
+                "why": ("negative ceiling" if ceiling < 0 else
+                        "CA$0 ceiling the declaration does not give" if declared
+                        else "CA$0 ceiling on an agent DEFAULT_AGENTS does not declare")})
+    return {
+        "ok": bool(rows) and not misconfigured and not spent_without_permission,
+        "agents": len(rows),
+        "with_positive_ceiling": len(with_ceiling),
+        "declared_no_spend": sorted(no_spend),
+        "misconfigured": misconfigured,
+        "no_spend_agents_that_spent_today": spent_without_permission,
+        "zero_ceiling_means": (
+            "a permission of CA$0: gateway.anthropic.check_budget refuses any call with a "
+            "positive estimate before it is made. Declared in agents.registry.DEFAULT_AGENTS; "
+            "raising it is an owner decision"),
+    }

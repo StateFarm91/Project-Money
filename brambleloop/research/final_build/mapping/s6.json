@@ -1387,7 +1387,7 @@
   "launch_class_reason": "24/7 cloud continuity is runtime durability; off-device proof was declared launch-blocking (#195)",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "the formal 24-hour off-device proof for the current build has not passed (parked on production_window); HQ/other departments' sleep independence is only implied",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: the formal 24-hour off-device proof for the current build has not passed (parked on production_window); HQ/other departments' sleep independence is only implied",
   "producer": "src/brambleloop/build2/autonomy.py::off_device_proof",
   "durable_state": "jobs, audit_log",
   "consumer": "src/brambleloop/build2/autonomy.py::launch_item",
@@ -1397,21 +1397,22 @@
   ],
   "evidence": [
    "BUILD_STATE.md 'Current phase': deployed and running 24/7 on Railway, /api/verify 12 of 12",
-   "requirements #195 note: run against production reports four of five met on real rows"
+   "requirements #195 note: run against production reports four of five met on real rows",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN",
    "#195 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "needs Build 2 deployed and a full unattended window"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "After the owner deploys Build 2, let the 24h window run and read autonomy.launch_item until PROVEN",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-496",
@@ -2138,7 +2139,8 @@
   "evidence": [
    "launch/rollback.py (C-80 rehearsed dry withdrawal) not in fcb982d",
    "commerce/paid_media.py::should_pause",
-   "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows"
+   "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows",
+   "w4-FMGATE on 0417f35: a live-listing rollback is an Etsy write: it needs a publishing phase and the owner's write grant, not the 24h window"
   ],
   "build2_rows": [
    "#93 COMPLETE+PROVEN",
@@ -2146,13 +2148,13 @@
   ],
   "gate": {
    "kind": "owner",
-   "key": "production_window",
-   "detail": "executing a live-listing rollback is a live Etsy write: it needs a publishing phase and the owner's write grant (OwnerGrant) at execution time; in shadow the plan is computed and shown, never sent"
+   "key": "publication_authority",
+   "detail": "owner write grant (OwnerGrant) in a publishing phase at execution time; in shadow the plan is computed and shown, never sent"
   },
   "defect": null,
   "next_action": "owner: production window + write grant; then the attached plan is executed through listing_rollback.execute",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM2 close"
+  "searched": " | w4-FM2 close | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-519@v0.15",
@@ -3073,18 +3075,19 @@
   ],
   "evidence": [
    "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'",
-   "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key"
+   "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key",
+   "w4-FMGATE on 0417f35: the remaining proof (refresh-token rotation in production) needs a working Etsy credential: production /api/build gates.etsy_api open:false and Etsy answered 403 at 2026-10-11T14:05Z; the 24h window does not open it"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
-   "key": "production_window",
-   "detail": "credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build"
+   "key": "etsy_api",
+   "detail": "Etsy credential: a recorded successful etsy.probe; then rotation is proven on the deployed build"
   },
   "defect": null,
   "next_action": "owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-541",

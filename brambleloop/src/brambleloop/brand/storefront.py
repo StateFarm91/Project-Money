@@ -396,7 +396,7 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
     )
     from ..publish.eligibility import legacy_status
     from ..radar.opportunity import score_concept
-    from ..runtime.pipeline import _seed_for
+    from ..runtime.pipeline import product_seed as _seed_for
     from .takeover import active
 
     today = today or _date.today()

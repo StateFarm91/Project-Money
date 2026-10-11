@@ -262,6 +262,9 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
     for charter in departments or DEPARTMENT_ORDER:
         key = charter.key
         entry: dict = {"open_jobs": snap.open_by_department.get(key, 0)}
+        if snap.waiting_by_department.get(key):
+            # Parked / backed-off / held jobs: reported, but they do not make it BUSY.
+            entry["waiting_jobs"] = snap.waiting_by_department[key]
         report["departments"][key] = entry
         try:
             block = memory.active_block(db, key, now=now)
@@ -343,10 +346,17 @@ def idle_wake(db, queue, *, now: datetime | None = None) -> bool:
     next fifteen-minute window. Keyed per five minutes so it cannot flood."""
     from ..queue.durable import DuplicateJob
 
+    from sqlalchemy import and_, or_
+
     now = now or _now()
+    # W4-AUTONOMY: "nothing queued" means nothing a worker can take now. Jobs parked on a
+    # spent model balance (run_after up to 30 min ahead, re-parked for up to 24 h) used to
+    # suppress this wake for the whole outage while every worker sat idle.
     with db.session() as s:
-        busy = s.scalar(select(Job.id).where(
-            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING])).limit(1))
+        busy = s.scalar(select(Job.id).where(or_(
+            Job.status == JobStatus.RUNNING,
+            and_(Job.status == JobStatus.PENDING,
+                 Job.run_after <= generators.due_cutoff(now)))).limit(1))
     if busy is not None:
         return False
     try:

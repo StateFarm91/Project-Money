@@ -1,0 +1,227 @@
+{
+ "source": "public GETs of https://brambleloop-os-production.up.railway.app (commit 0417f35), read 2026-10-11T14:39-14:45Z",
+ "open_jobs": [
+  {
+   "id": 12165,
+   "agent": "laura",
+   "type": "laura.executive_tick",
+   "status": "running",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 11903,
+   "agent": "creative_director",
+   "type": "creative.tournament",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11902,
+   "agent": "creative_director",
+   "type": "creative.tournament",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11901,
+   "agent": "creative_director",
+   "type": "creative.tournament",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11900,
+   "agent": "creative_director",
+   "type": "creative.tournament",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11866,
+   "agent": "creative_director",
+   "type": "creative.grid_tournament",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11829,
+   "agent": "market_radar",
+   "type": "intel.gallery_analysis",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  },
+  {
+   "id": 11817,
+   "agent": "publishing",
+   "type": "seasonal.cycle_proof",
+   "status": "pending",
+   "attempts": 0,
+   "error": ""
+  }
+ ],
+ "dead_letter_groups": [
+  {
+   "job_type": "store.publish",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+   "count": 185,
+   "first_seen": "2026-09-17T14:17:57.775756+00:00",
+   "last_seen": "2026-10-11T14:26:20.491516+00:00",
+   "example_job_id": 107
+  },
+  {
+   "job_type": "mjs.scan",
+   "error": "ReadFailed: find_shops returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET",
+   "count": 17,
+   "first_seen": "2026-10-07T12:01:03.767290+00:00",
+   "last_seen": "2026-10-11T12:00:49.099041+00:00",
+   "example_job_id": 10069
+  },
+  {
+   "job_type": "ops.sentinel",
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)",
+   "count": 7,
+   "first_seen": "2026-10-11T14:27:08.157929+00:00",
+   "last_seen": "2026-10-11T14:35:22.050854+00:00",
+   "example_job_id": 12069
+  },
+  {
+   "job_type": "creative.model_reference_pack",
+   "error": "RuntimeError: this job asked for pack 'v4-approval-conditions-stated-one-by-one' and this build produces 'v16-the-fallback-provider-has-time-to-render'. Failing",
+   "count": 1,
+   "first_seen": "2026-09-25T23:01:08.604404+00:00",
+   "last_seen": "2026-09-25T23:01:08.604404+00:00",
+   "example_job_id": 2277
+  },
+  {
+   "job_type": "listing.taxonomy_refresh",
+   "error": "EtsyRejected: Etsy returned 403 for GET /seller-taxonomy/nodes (getSellerTaxonomyNodes) on the API-key-only path",
+   "count": 1,
+   "first_seen": "2026-10-11T14:05:57.917944+00:00",
+   "last_seen": "2026-10-11T14:05:57.917944+00:00",
+   "example_job_id": 11847
+  }
+ ],
+ "ai_parked_last_hour": {
+  "market_radar|the Anthropic account balance is spent (open owner action)": 2,
+  "publishing|the Anthropic account balance is spent (open owner action)": 2,
+  "creative_director|the Anthropic account balance is spent (open owner action)": 10
+ },
+ "ops_sentinel_dead_since_deploy": [
+  {
+   "id": 12164,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12163,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12162,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12160,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12159,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12158,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12069,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  }
+ ],
+ "control_lane_share_hold_example": {
+  "id": 24791,
+  "at": "2026-10-11T14:03:17.709912+00:00",
+  "actor": "swarm_steward",
+  "action": "swarm.lane_held",
+  "artifact": "autonomy.orchestrate",
+  "phase": null,
+  "detail": {
+   "agent": "coo",
+   "worker": "web-2-control",
+   "hold_kind": "function_share",
+   "share": {
+    "function": "infrastructure",
+    "running_by_function": {
+     "product_qa": 1,
+     "market_intelligence": 0,
+     "distribution": 1,
+     "infrastructure": 0
+    },
+    "budgets": {
+     "product_qa": 1,
+     "market_intelligence": 1,
+     "distribution": 1,
+     "infrastructure": 1
+    },
+    "mix_source": "ops.capacity audit 21615",
+    "workers": 3,
+    "window": {
+     "shares": {
+      "infrastructure": 0.6543,
+      "market_intelligence": 0.2886,
+      "distribution": 0.0405,
+      "product_qa": 0.0166
+     },
+     "hours": 24.0,
+     "status": "MEASURED"
+    },
+    "hold": true,
+    "kind": "function_share",
+    "why": "infrastructure has run 65% of the last 24h of job-seconds against a target share of 10%, while ['distribution', 'market_intelligence', 'product_qa'] are below their share and have runnable work (#30: the mix is enforced on measured work, not on a report)"
+   },
+   "running": null,
+   "limit": null,
+   "allocation_id": null,
+   "hold_seconds": 60,
+   "why": "infrastructure has run 65% of the last 24h of job-seconds against a target share of 10%, while ['distribution', 'market_intelligence', 'product_qa'] are below their share and have runnable work (#30: the mix is enforced on measured work, not on a report)"
+  }
+ },
+ "lane_held_by_kind": {
+  "agent_lane": 321,
+  "function_share": 166,
+  "lane_share": 3
+ }
+}

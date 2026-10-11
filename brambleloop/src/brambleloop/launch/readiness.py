@@ -775,7 +775,7 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # concept seed the product was engineered from, one representative per category is
     # challenged (the requirement says products, plural), and our scores are read from the
     # audits recorded against `brambleloop:<slug>` -- unscored stays unscored, never neutral.
-    from ..runtime.pipeline import _seed_for
+    from ..runtime.pipeline import product_seed as _seed_for
     from ..teardown.scorecard import SELF_PREFIX
 
     from ..core.models import TeardownFinding

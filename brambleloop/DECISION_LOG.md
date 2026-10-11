@@ -1748,6 +1748,18 @@ certification judgement — those checkpoint and wait for the reset. The authori
 All Models weekly reset: no new Fable work after it, all later work returns to the strongest appropriate model, and it
 is never resurrected in a future week. D-FB-20 (strongest model only) is otherwise unchanged and governs after expiry.
 
+
+## 2026-10-11 — W4-PRODUCT
+
+**D-W4P-1. The catalogue-floor products are a flagged proposal, not a raised cap.** W4-LAUNCHREADY raised the
+Launch-0 cap 5 -> 8 and edited existing assertions; the cap is the owner's (D-FB-9). The three products live in
+`PROPOSED_*` registries merged only when `CATALOGUE_FLOOR_APPROVED` is True, so every gate can measure them now and
+approval is one line plus the cap assertions the decision itself rewrites.
+
+**D-W4P-2. D-W5-7 is resolved by a way back, not a rename.** `radar_concept_for` maps a Launch-0 product slug to its
+retired radar alias exactly (LEGACY_DUPLICATES), and only product-keyed readers use it (`pipeline.product_seed`,
+`release._seed_for`). `pipeline._seed_for` stays exact because in `cir.draft` a seed decides whether a payload faces
+the pre-engineering gate. Renaming the radar keys remains a merchandising decision.
 ## D-W4-LAURA1 (2026-10-11) — Laura's CEO briefing: routing task and grounding rule
 1. New paid model task `laura.ceo_briefing` (prompt `laura.ceo_briefing@1`) on the EXISTING standard tier
    (`claude-sonnet-5`), `stronger_fallback=False`: grounded synthesis over a supplied evidence pack, not extraction and

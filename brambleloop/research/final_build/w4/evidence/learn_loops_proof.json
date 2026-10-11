@@ -1,0 +1,602 @@
+{
+ "kind": "W4-LEARN loops proof",
+ "phase": "shadow",
+ "commit": "0417f3516f30bb7c52926187fc475a0f46536e86",
+ "seeded_from": "learn_prod_snapshot_20261011.json (production public GETs)",
+ "chain": {
+  "jobs": 51,
+  "seconds": 340.5,
+  "delight_proposals": [
+   {
+    "id": 1,
+    "cell": "product_creativity",
+    "ref": "delight:market-basket-small:customization",
+    "baseline": 3.0,
+    "state": "proposed"
+   },
+   {
+    "id": 2,
+    "cell": "product_creativity",
+    "ref": "delight:cloudline-baby-blanket:customization",
+    "baseline": 3.0,
+    "state": "proposed"
+   },
+   {
+    "id": 3,
+    "cell": "product_creativity",
+    "ref": "delight:hexagon-coaster-set:customization",
+    "baseline": 3.0,
+    "state": "proposed"
+   },
+   {
+    "id": 4,
+    "cell": "product_creativity",
+    "ref": "delight:nordic-star-ornaments:customization",
+    "baseline": 3.0,
+    "state": "proposed"
+   },
+   {
+    "id": 5,
+    "cell": "product_creativity",
+    "ref": "delight:winter-village-graphghan:customization",
+    "baseline": 3.0,
+    "state": "proposed"
+   }
+  ],
+  "products": [
+   "cloudline-baby-blanket",
+   "hexagon-coaster-set",
+   "market-basket-small",
+   "nordic-star-ornaments",
+   "winter-village-graphghan"
+  ]
+ },
+ "A_lessons": {
+  "incidents_seeded": 12,
+  "legacy_lessons": 12,
+  "before": {
+   "lessons": 12,
+   "routed": 12,
+   "acted_on": 0
+  },
+  "after": {
+   "lessons": 2,
+   "routed": 2,
+   "acted_on": 0,
+   "superseded": 12
+  },
+  "mine_job": {
+   "read": 17,
+   "groups": 2,
+   "published": 2,
+   "reused": 0
+  }
+ },
+ "B_replay_production_history": {
+  "jobs_seeded_from_cadences": 29919,
+  "cadences": 114,
+  "production_recorded": {
+   "ran": true,
+   "jobs": 11958,
+   "days": 25,
+   "compared": [
+    {
+     "config_id": 32,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 33,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 34,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 35,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 36,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 37,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    }
+   ],
+   "retired": [
+    {
+     "config_id": 32,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 33,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 34,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 35,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 36,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 37,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    }
+   ]
+  },
+  "jobs": 29971,
+  "days": 26,
+  "compared": [
+   {
+    "config_id": 2,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 3,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 4,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 5,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 6,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 7,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.030 margin for 21 tasks; promoting on noise is how a league churns"
+    ]
+   }
+  ],
+  "retired": 6,
+  "proposed": [],
+  "next_day_reopened": 0,
+  "after_retrial_window": {
+   "reopened": 6,
+   "compared": 6,
+   "retired_again": 6
+  }
+ },
+ "C_replay_accept_path_SYNTHETIC_contention": {
+  "label": "SYNTHETIC: separate scratch DB, 5 days x 10 contention jobs (cert-test shape)",
+  "compared": [
+   {
+    "config_id": 2,
+    "promote": true,
+    "quality_gain": 0.3,
+    "holdout": "held",
+    "blockers": []
+   },
+   {
+    "config_id": 3,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.067 margin for 4 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 4,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.067 margin for 4 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 5,
+    "promote": true,
+    "quality_gain": 0.3,
+    "holdout": "held",
+    "blockers": []
+   },
+   {
+    "config_id": 6,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.067 margin for 4 tasks; promoting on noise is how a league churns"
+    ]
+   },
+   {
+    "config_id": 7,
+    "promote": false,
+    "quality_gain": 0.0,
+    "holdout": "held",
+    "blockers": [
+     "quality gain +0.000 is within the 0.067 margin for 4 tasks; promoting on noise is how a league churns"
+    ]
+   }
+  ],
+  "proposed": [
+   {
+    "improvement": 1,
+    "config_id": 2,
+    "baseline": 0.5,
+    "challenger_quality": 0.8
+   }
+  ],
+  "retired": 4,
+  "sandbox": {
+   "tested": [
+    {
+     "improvement": 1,
+     "regression": true,
+     "adversarial": true,
+     "why": [
+      "every captured defect is still caught",
+      "every attempt to break the claim failed"
+     ],
+     "config_runs_recorded": 2
+    }
+   ],
+   "approved": [
+    1
+   ],
+   "promoted": [
+    {
+     "route": "promoted",
+     "improvement": 1,
+     "tier": "scoring",
+     "by": "evaluator",
+     "owner_approved": false
+    }
+   ],
+   "note": "1 sandboxed, 1 tested, 1 approved by evaluator, 1 promoted, 0 routed to the owner, 0 waiting for a trial that can evaluate them"
+  },
+  "improvement": {
+   "improvement": 1,
+   "state": "promoted",
+   "baseline": 0.5,
+   "result": 0.8,
+   "approved_by": "evaluator",
+   "executed": true,
+   "change": 2
+  },
+  "active_priority_policy": 2,
+  "scoreboard_experiments": {
+   "accepted": 1,
+   "rejected": 4,
+   "open": 1
+  },
+  "scoreboard_experiments_note": "corrected after the run: the first scoreboard counted the replay winner twice (its incumbent version and its Improvement row); loops.py now counts it once"
+ },
+ "D_delight_backlog": {
+  "sandbox_job_backlog": {
+   "verified": 0,
+   "regressed": 0,
+   "expired": 0,
+   "deferred": 0,
+   "waiting": 5,
+   "open_before": 5,
+   "open_after": 5
+  },
+  "inside_ttl": {
+   "waiting": [
+    {
+     "improvement": 1,
+     "cell": "product_creativity",
+     "slug": "market-basket-small",
+     "driver": "customization",
+     "reading": 3.0,
+     "measured": true,
+     "expires_in_days": 13.0
+    },
+    {
+     "improvement": 2,
+     "cell": "product_creativity",
+     "slug": "cloudline-baby-blanket",
+     "driver": "customization",
+     "reading": 3.0,
+     "measured": true,
+     "expires_in_days": 13.0
+    },
+    {
+     "improvement": 3,
+     "cell": "product_creativity",
+     "slug": "hexagon-coaster-set",
+     "driver": "customization",
+     "reading": 3.0,
+     "measured": true,
+     "expires_in_days": 13.0
+    },
+    {
+     "improvement": 4,
+     "cell": "product_creativity",
+     "slug": "nordic-star-ornaments",
+     "driver": "customization",
+     "reading": 3.0,
+     "measured": true,
+     "expires_in_days": 13.0
+    },
+    {
+     "improvement": 5,
+     "cell": "product_creativity",
+     "slug": "winter-village-graphghan",
+     "driver": "customization",
+     "reading": 3.0,
+     "measured": true,
+     "expires_in_days": 13.0
+    }
+   ],
+   "verified": [],
+   "expired": []
+  },
+  "after_ttl": {
+   "expired": [
+    {
+     "improvement": 1,
+     "cell": "product_creativity",
+     "slug": "market-basket-small",
+     "driver": "customization",
+     "reading": 3.0,
+     "why": "expired unexecuted"
+    },
+    {
+     "improvement": 2,
+     "cell": "product_creativity",
+     "slug": "cloudline-baby-blanket",
+     "driver": "customization",
+     "reading": 3.0,
+     "why": "expired unexecuted"
+    },
+    {
+     "improvement": 3,
+     "cell": "product_creativity",
+     "slug": "hexagon-coaster-set",
+     "driver": "customization",
+     "reading": 3.0,
+     "why": "expired unexecuted"
+    },
+    {
+     "improvement": 4,
+     "cell": "product_creativity",
+     "slug": "nordic-star-ornaments",
+     "driver": "customization",
+     "reading": 3.0,
+     "why": "expired unexecuted"
+    },
+    {
+     "improvement": 5,
+     "cell": "product_creativity",
+     "slug": "winter-village-graphghan",
+     "driver": "customization",
+     "reading": 3.0,
+     "why": "expired unexecuted"
+    }
+   ],
+   "verified": [],
+   "regressed": [],
+   "open_before": 5,
+   "open_after": 0
+  },
+  "rows": [
+   {
+    "id": 1,
+    "ref": "delight:market-basket-small:customization",
+    "state": "rejected",
+    "baseline": 3.0,
+    "measured": 3.0,
+    "why": "expired unexecuted: the driver this hypothesis promised to raise was re-measured unchanged after the TTL (14 days): customization on market-basket-small reads 3"
+   },
+   {
+    "id": 2,
+    "ref": "delight:cloudline-baby-blanket:customization",
+    "state": "rejected",
+    "baseline": 3.0,
+    "measured": 3.0,
+    "why": "expired unexecuted: the driver this hypothesis promised to raise was re-measured unchanged after the TTL (14 days): customization on cloudline-baby-blanket read"
+   },
+   {
+    "id": 3,
+    "ref": "delight:hexagon-coaster-set:customization",
+    "state": "rejected",
+    "baseline": 3.0,
+    "measured": 3.0,
+    "why": "expired unexecuted: the driver this hypothesis promised to raise was re-measured unchanged after the TTL (14 days): customization on hexagon-coaster-set reads 3"
+   },
+   {
+    "id": 4,
+    "ref": "delight:nordic-star-ornaments:customization",
+    "state": "rejected",
+    "baseline": 3.0,
+    "measured": 3.0,
+    "why": "expired unexecuted: the driver this hypothesis promised to raise was re-measured unchanged after the TTL (14 days): customization on nordic-star-ornaments reads"
+   },
+   {
+    "id": 5,
+    "ref": "delight:winter-village-graphghan:customization",
+    "state": "rejected",
+    "baseline": 3.0,
+    "measured": 3.0,
+    "why": "expired unexecuted: the driver this hypothesis promised to raise was re-measured unchanged after the TTL (14 days): customization on winter-village-graphghan re"
+   }
+  ]
+ },
+ "scoreboard": {
+  "count": {
+   "MEASURED": 2,
+   "WAITING": 1,
+   "UNKNOWN": 4
+  },
+  "experiments": {
+   "accepted": 0,
+   "rejected": 11,
+   "open": 0
+  },
+  "lessons": {
+   "live": 2,
+   "superseded": 12,
+   "routed": 2,
+   "acted_on": 0,
+   "routed_only_to_cells_without_a_consumer": 0
+  },
+  "loops": [
+   {
+    "loop": "capability_cells",
+    "status": "UNKNOWN",
+    "outcomes": {
+     "measured": 0,
+     "of": 13,
+     "with_two_or_more_readings": 0
+    },
+    "why": "cells with no reading are UNKNOWN: their source rows (sales, orders, traffic, forecasts) do not exist before launch"
+   },
+   {
+    "loop": "lesson_bus",
+    "status": "WAITING",
+    "outcomes": {
+     "live": 2,
+     "superseded": 12,
+     "routed": 2,
+     "acted_on": 0,
+     "routed_only_to_cells_without_a_consumer": 0
+    },
+    "why": "no consumer decision has matched a lesson yet; lessons routed only to cells without a consumer cannot be acted on by construction"
+   },
+   {
+    "loop": "job_priority_replay",
+    "status": "MEASURED",
+    "outcomes": {
+     "rejected": 6,
+     "accepted": 0,
+     "open": 0,
+     "incumbent": 1
+    },
+    "why": ""
+   },
+   {
+    "loop": "improvement_backlog",
+    "status": "MEASURED",
+    "outcomes": {
+     "by_state": {
+      "rejected": 5
+     },
+     "delight_by_state": {
+      "rejected": 5
+     },
+     "open": 0,
+     "decided": 5
+    },
+    "why": ""
+   },
+   {
+    "loop": "realised_benefit",
+    "status": "UNKNOWN",
+    "outcomes": {
+     "promotions": 0,
+     "assessed": 0,
+     "hit_rate": null
+    },
+    "why": "no promoted change has been assessed; nothing to measure, not a zero return"
+   },
+   {
+    "loop": "growth_experiments",
+    "status": "UNKNOWN",
+    "outcomes": {
+     "by_state": {},
+     "decided": 0
+    },
+    "why": "no listing is live, so no visit, order or attach rate exists to conclude any experiment on: UNKNOWN, not 0"
+   },
+   {
+    "loop": "learn_gap_coverage",
+    "status": "UNKNOWN",
+    "outcomes": {
+     "gaps_total": 0,
+     "gaps_covered": 0,
+     "coverage": null,
+     "lessons_approved": 0
+    },
+    "why": "no source-backed learner gap recorded"
+   }
+  ]
+ }
+}

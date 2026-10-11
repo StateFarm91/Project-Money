@@ -45,14 +45,19 @@ def creative_survivors(db=None) -> dict:
     `audit_catalogue` measures the legacy builder catalogue; the concept tournament is a
     separate cohort read from its own runs, so legacy failures are never attributed to it.
     """
-    from ..creative.audit import audit_catalogue, tournament_cohort
+    from ..creative.audit import audit_catalogue, audit_launch0_engineered, tournament_cohort
 
     report = audit_catalogue()
     survivors = [str(s) for s in report["survivors"]]
     cohort = report["cohort"]
+    # W4-LAUNCHREADY: the Launch-0 products engineered outside the builder are their own
+    # cohort, judged by the same jury. Kept apart from the legacy count (F-188) and joined
+    # only where launch clearance is read per certified slug (`alive_slugs`).
+    engineered = audit_launch0_engineered()
     return {"survivors": survivors, "count": len(survivors),
             "audited": report["products_audited"],
             "cohort": cohort,
+            "launch0_engineered": engineered,
             "tournament_cohort": tournament_cohort(db),
             "dominant_failure": report["autopsy"].get("dominant_cause"),
             "evidence": evidence(
@@ -63,6 +68,19 @@ def creative_survivors(db=None) -> dict:
                 confidence="measured (deterministic jury)")}
 
 
+def alive_slugs(report: dict) -> list[str]:
+    """Every slug that survives the creative gate in a cohort launch clearance reads.
+
+    The legacy builder cohort's survivors plus the engineered Launch-0 cohort's surviving
+    variant CIR slugs (W4-LAUNCHREADY). Same jury for both; a cohort that was not read
+    contributes nothing, so an unread cohort can never clear a product.
+    """
+    out = [str(s) for s in report.get("survivors") or []]
+    eng = report.get("launch0_engineered") or {}
+    out += [str(s) for s in eng.get("survivor_slugs") or [] if str(s) not in out]
+    return out
+
+
 def launch_inventory(db, survivors: list[str] | None = None) -> dict:
     """Certified vs launch-cleared, per product, with the criterion each one fails."""
     from sqlalchemy import select
@@ -71,7 +89,7 @@ def launch_inventory(db, survivors: list[str] | None = None) -> dict:
     from ..gates.certificate import GAUGE_STANDARD
 
     if survivors is None:
-        survivors = creative_survivors()["survivors"]
+        survivors = alive_slugs(creative_survivors())
     alive = set(survivors)
     with db.session() as s:
         certified: dict[str, set[str]] = {}
@@ -323,7 +341,7 @@ def _tournament_kpi(t: dict) -> dict:
 def headline(db, status: dict, inbox: dict | None = None) -> dict:
     """The commercial-truth headline (F-206) plus the demoted volume counts."""
     survivors = creative_survivors(db)
-    inventory = launch_inventory(db, survivors["survivors"])
+    inventory = launch_inventory(db, alive_slugs(survivors))
     commerce = commercial_evidence(db)
     bench = benchmark_status(db)
     dead = dead_letter_split(status)

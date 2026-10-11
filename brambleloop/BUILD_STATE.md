@@ -1,3 +1,33 @@
+> **2026-10-11 — W4-B2GATE2: all 102 gated Build 2 rows read against production 0417f35 (branch `claude/w4-B2GATE2`, not deployed).**
+> Ledger regenerated from production `/api/build` + 8 data gates derived from production GETs (`evidence_B2GATE2/`);
+> counts unchanged 215/56/41/5/3/0, every gate now has a production reading. Fixes: (F1) #140 `radar.lead_lag` refuses a
+> plateau -- production served 4 "measurable" lead-lags that were artefacts and `lead_lag_series` would have opened on
+> them; (F2) `gates/policy_access.py` (robots.txt + Etsy Help Center companion articles as change signals, never a
+> legal page, never opens the gate; `/api/policy` legal_access); (F3) the 30-day policy reading is now a PROPOSAL the
+> owner may accept or decline; (F4) the transactions_r card names its other half: production `etsy.probe` has been
+> HTTP 403 since 2026-10-07 12:00Z (owner: check the Etsy app + `ETSY_SHARED_SECRET`). #195's only unmet condition is
+> company dead letters (fixes on claude/w4-FMGATE). B2GATES doors are not in production yet. Report:
+> `research/final_build/w4/B2_GATE2_REPORT.md`. Tests: test_w4_b2gate2 11/11 + focused suites green.
+> **2026-10-11 — W4-PRODUCT (branch `claude/w4-PRODUCT`, base 0417f35; not deployed).** Carried the two genuine
+> defect fixes from W4-LAUNCHREADY (creative gate judges the engineered Launch-0 cohort; PDF stitch key defines both
+> `slst`/`sl st`). The three catalogue-floor products are a PROPOSAL, not Launch-0: `launch0.CATALOGUE_FLOOR_APPROVED =
+> False` (owner decision CAP-1 / D-FB-9; Launch-0 cap stays 5, no test assertion edited). D-W5-7 closed for readers:
+> `launch0.radar_concept_for` + `pipeline.product_seed` give product-keyed readers the radar concept, so the #168
+> benchmark challenge now covers basket and coaster (was "uncategorised"). Scratch shadow chain radar.scan → … →
+> store.publish: 7/7 Launch-0 releases certified, Product Truth PASS, listings drafted, all refused at the owner
+> boundary; trend evidence UNMEASURED (none stamped). Report: `research/final_build/w4/PRODUCT_FIX.md`.
+> **2026-10-11 — W4-AUTONOMY: "departments idle while eligible work exists" root-caused and fixed (branch `claude/w4-AUTONOMY`, NOT deployed; production stays 0417f35).**
+> Production evidence (public GETs 14:39Z): the only open jobs were model jobs parked on the spent Anthropic balance, and
+> the orchestrator counted them as department work, so Product & Design, Intelligence and Visual read BUSY and got none
+> of their deterministic work (`rule1.measure` masked it the same way; `idle_wake` and Laura's empty-queue path never
+> fired). `ops.sentinel` dead-lettered 7× in 8 min on Postgres VARCHAR(200) (`rebuild:product:` key 544 chars; SQLite
+> never enforces it), so 14 stale products' `chain.rebuild` never queued. Share holds favoured unrunnable model jobs and
+> held the control lane's own `autonomy.orchestrate`. Fixes: actionable-only busy count (60 s due grace, waiting jobs
+> reported, no duplicates), deterministic key fitting at the enqueue boundary, work-conserving share holds, control
+> lane exempt from the pool mix. 10 regression tests (8 fail on 0417f35); Postgres 16 reproduction of the exact
+> production error; production-seeded simulation 0 → 9 missions for the three departments, parked jobs untouched.
+> Shadow, authority, spend and model policy unchanged. Evidence: `research/final_build/w4/AUTONOMY_FIX.md`.
+
 > **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
 > `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
 > committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run

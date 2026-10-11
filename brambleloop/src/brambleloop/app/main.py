@@ -674,6 +674,36 @@ def api_tick() -> dict:
     return {"enqueued": Scheduler(db).tick()}
 
 
+_NO_FILTER_AUDIT = {"state": "UNMEASURED", "entered": [], "lost_to_missing_data": [],
+                    "lost": [], "why": "listing.seo has not written a search profile for this "
+                                       "listing version"}
+
+
+def _catalogue_filters() -> dict:
+    """F-009: per listing version, the Etsy filters it enters and the ones it loses, read from
+    the search profile `listing.seo` stored (`ListingSearchProfile.filters`, produced by
+    `commerce.category.filter_audit`). UNMEASURED while the node's schema is unknown -- the
+    taxonomy has not been read -- never an empty list that reads as "no filter lost"."""
+    from ..core.models import ListingSearchProfile
+
+    out: dict = {}
+    with db.session() as s:
+        for row in s.scalars(select(ListingSearchProfile)):
+            f = row.filters or {}
+            measurable = bool(f.get("measurable"))
+            out[(row.product_slug, row.version)] = {
+                "state": "MEASURED" if measurable else "UNMEASURED",
+                "entered": [x.get("filter") for x in f.get("entered") or []],
+                "lost_to_missing_data": list(f.get("lost_to_missing_data") or []),
+                "lost": [{"filter": x.get("filter"), "status": x.get("status")}
+                         for x in f.get("lost") or []],
+                "why": ("filters the listing's Etsy node offers, entered vs lost, from the "
+                        "stored taxonomy snapshot" if measurable else
+                        f"category {row.category_status}: no taxonomy node schema to audit "
+                        "against (listing.taxonomy_refresh has not read Etsy's taxonomy)")}
+    return out
+
+
 @app.get("/api/catalogue")
 def api_catalogue() -> dict:
     """What the shop would be, if it were open. Drafted, never published."""
@@ -702,6 +732,7 @@ def api_catalogue() -> dict:
     profiles = {(l.product_slug, l.version): ranking_readiness.profile(
         db, l.product_slug, l.version, shared=shared) for l in listings}
     order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
+    filters = _catalogue_filters()
 
     return {
         "published": False,
@@ -717,7 +748,8 @@ def api_catalogue() -> dict:
              "chain_version": l.chain_version,
              "release": (l.release_hash or "")[:12],
              "images": by_slug.get(l.product_slug, 0),
-             "content_pieces": content_by_slug.get(l.product_slug, 0)}
+             "content_pieces": content_by_slug.get(l.product_slug, 0),
+             "filters": filters.get((l.product_slug, l.version), dict(_NO_FILTER_AUDIT))}
             for l in sorted(listings, key=lambda x: (
                 order.get(profiles[(x.product_slug, x.version)]["search_certificate"]
                           ["verdict"], 9), x.product_slug))
@@ -1272,6 +1304,60 @@ async def api_owner_decision(request: Request,
     return JSONResponse({"recorded": True, "kind": kind, "id": ident, "result": out})
 
 
+@app.post("/api/tester/agreement")
+async def api_tester_agreement(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Record one tester who agreed -- the door the `tester_roster` gate reads (W4-B2GATES).
+
+    `quality.tester_programme.record_agreement` was "the one intake" for the CreatorProfile the
+    gate counts, and nothing in the running system called it: a person could agree to test and
+    #9/#43/#250 would have stayed parked. This records only (no message is sent, CASL consent
+    must already exist and is named, never stored here). Operator credential because it writes.
+
+    Body: {handle_ref, specialties: [pod], express_consent: true, consent_source,
+    photo_scopes?: [scope], agreed_on?: YYYY-MM-DD}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import date as _date
+
+    from ..quality import tester_programme
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        agreed_on = _date.fromisoformat(body["agreed_on"]) if body.get("agreed_on") else None
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "agreed_on must be YYYY-MM-DD"}, status_code=400)
+    specialties = body.get("specialties") or []
+    scopes = body.get("photo_scopes") or []
+    if not isinstance(specialties, list) or not isinstance(scopes, list):
+        return JSONResponse({"error": "specialties and photo_scopes must be lists"},
+                            status_code=400)
+    try:
+        out = tester_programme.record_agreement(
+            db, handle_ref=str(body.get("handle_ref") or ""),
+            specialties=[str(x)[:40] for x in specialties][:5],
+            express_consent=body.get("express_consent") is True,
+            consent_source=str(body.get("consent_source") or "")[:300],
+            photo_scopes=[str(x)[:40] for x in scopes][:10], agreed_on=agreed_on)
+    except tester_programme.TesterRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    Registry(db).audit("operator", "tester.agreement_recorded", artifact=out["ref"],
+                       detail={"ref": out["ref"], "consent_version":
+                               out["permission"]["consent_version"]})
+    return JSONResponse({"recorded": True, "ref": out["ref"]})
+
+
 @app.post("/api/mjs/veto")
 async def api_mjs_veto(request: Request, authorization: str = Header(default="")) -> JSONResponse:
     """Record one owner ruling on flagship creative or canonical model identity (#228).
@@ -1604,7 +1690,7 @@ def api_policy() -> dict:
     dashboard on every other page, and they are opposite states.
     """
     from ..commerce import terms as customer_terms
-    from ..gates import policy_knowledge
+    from ..gates import policy_access, policy_knowledge
     from ..gates.platform_policy import describe, freshness, policy_stamp
 
     return {
@@ -1613,6 +1699,9 @@ def api_policy() -> dict:
         # The dated readings themselves: what was concluded, from which URL, on what basis,
         # and what a page reading recorded through POST /api/policy/snapshot supersedes.
         "knowledge": policy_knowledge.describe(),
+        # W4-B2GATE2 (#35/#39): what software may read of each etsy.com/legal source and what
+        # only a person can, with Etsy's Help Center change signals.
+        "legal_access": policy_access.status(db),
         "rules": describe(),
         "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
         "terms_surfaces": {
@@ -2618,7 +2707,7 @@ def api_mjs_vision() -> dict:
 @app.get("/api/improve")
 def api_improve() -> dict:
     """The Improvement Department: what moved, what regressed, and what it may never do."""
-    from ..improve import director, roi
+    from ..improve import director, loops, roi
     from ..improve.bus import compounding
     from ..improve.cells import CELLS, capability_history, retrospective
     from ..improve.governance import describe
@@ -2635,6 +2724,9 @@ def api_improve() -> dict:
                    "higher_is_better": c.higher_is_better, "measure": c.measure,
                    "history": capability_history(db, c.key, limit=20)} for c in CELLS],
         "governance": describe(),
+        # W4-LEARN: each learning loop's producer, store, metric, baseline, decision rule,
+        # consumer and status (MEASURED / WAITING / UNKNOWN), read from rows.
+        "loops": loops.scoreboard(db),
     }
 
 
@@ -4670,10 +4762,21 @@ def api_verify() -> JSONResponse:
     from ..finance.spend_report import per_agent_today
 
     today = per_agent_today(db)
-    check("every_agent_has_a_cost_ceiling",
-          bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
+    # W4-FINHEALTH: a CA$0 ceiling that DEFAULT_AGENTS declares (learn, coo, laura) is a
+    # permission of zero, refused before the call -- not a missing ceiling. The verdict now
+    # fails on what is actually wrong: a non-finite ceiling, a zero/negative one nobody
+    # declared, or a declared no-spend agent that spent. `registry.ceiling_audit` says how.
+    from ..agents.registry import ceiling_audit
+
+    audit_c = ceiling_audit([(a.name, a.daily_cost_ceiling_cad) for a in agents],
+                            {r["agent"]: r["spent_today_cad"] for r in today["agents"]})
+    check("every_agent_has_a_cost_ceiling", audit_c["ok"],
           {"agents": len(agents),
-           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0],
+           "without_ceiling": [m["agent"] for m in audit_c["misconfigured"]],
+           "declared_no_spend": audit_c["declared_no_spend"],
+           "misconfigured": audit_c["misconfigured"],
+           "no_spend_agents_that_spent_today": audit_c["no_spend_agents_that_spent_today"],
+           "zero_ceiling_means": audit_c["zero_ceiling_means"],
            "spent_today_against_ceiling": today["agents"],
            "over_their_ceiling_today": today["over"],
            "this_check_measures": ("that a ceiling exists, not that it was enforced. The "
@@ -4752,8 +4855,15 @@ def api_verify() -> JSONResponse:
 
     unexpected = [j for j in dead if not _deliberate(j)]
     recent = [j for j in unexpected if _aware(j.finished_at or j.created_at) >= cutoff]
+    # W4-FINHEALTH: a list of job types said *which* failed, not how many or why, so "17
+    # mjs.scan dead letters" and "1 mjs.scan dead letter" read the same. The per-type count,
+    # last time and first error line are carried now. Verdict unchanged.
+    from ..queue.durable import dead_letter_digest
+
     check("no_unexpected_dead_letters_in_24h", not recent,
           {"recent": sorted({j.job_type for j in recent}),
+           "recent_by_type": dead_letter_digest(recent),
+           "recent_total": len(recent),
            "historical_total": len(unexpected),
            "historical_types": sorted({j.job_type for j in unexpected}),
            "expected_publish_refusals":

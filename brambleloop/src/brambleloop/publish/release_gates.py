@@ -721,14 +721,25 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
         def __init__(self, image, position):
             self.image, self.position = image, position
 
-    kept = []
+    found = LI._primary_for(slug)
+    primary = found[2] if found else None
+    kept, presented = [], []
     for f in offer.get("frames") or []:
         img = Image.open(_io.BytesIO(f["png"])).convert("RGB")
         report = layout_qa.inspect(img, position=f["position"], expect_text=True)
         if report.problems:
             notes[f["job"]] = "layout QA: " + "; ".join(report.problems)[:280]
             continue
+        # W4-VISUALSEO: a supplement is exported into the phone gallery and the full gallery
+        # like the disclosed set, so it is measured in those contexts and for its label in
+        # its own pixels/alt text before it may be certified -- never assumed from its
+        # producer. A frame that fails is left out with the reason (fail closed).
+        shown = supplement_presentation(f, img, cir=primary)
+        if not shown["ok"]:
+            notes[f["job"]] = "presentation: " + "; ".join(shown["problems"])[:280]
+            continue
         kept.append((f, img))
+        presented.append(shown)
     supplements: list = []
     for i, (f, _img) in enumerate(kept):
         supplements.append(ls.CertifiedFrame(
@@ -756,8 +767,59 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
     frame_set = el.check_set(candidates)
     qa = {"verified": [True] * len(supplements),
           "layout_qa": {"ok": not layout, "problems": layout},
-          "frame_set": {"ok": frame_set["ok"], "problems": frame_set["problems"]}}
+          "frame_set": {"ok": frame_set["ok"], "problems": frame_set["problems"]},
+          # W4-VISUALSEO: the gallery as exported (disclosed set + supplements), not the
+          # disclosed set alone, in the contexts a supplement is seen in.
+          "mobile": {"ok": all(p["ok"] for p in presented),
+                     "full_gallery_frames": len(base) + len(kept),
+                     "contexts": [mobile.PHONE_GALLERY, mobile.FULL_GALLERY],
+                     "frames": {p["job"]: p["readings"] for p in presented}},
+          "disclosure": {"ok": all(p["readings"]["label_in_image"] is True
+                                   and p["readings"]["label_in_alt_text"] is True
+                                   for p in presented)}}
     return supplements, qa, notes
+
+
+# The contexts a supplement (position > mobile.BEFORE_SCROLL, never the search thumbnail) is
+# seen in, and the size each is measured at: the swiped phone gallery and the full gallery.
+SUPPLEMENT_CONTEXT_PX: dict[str, int] = {mobile.PHONE_GALLERY: 390, mobile.FULL_GALLERY: 2000}
+
+
+def supplement_presentation(frame: dict, image, *, cir=None) -> dict:
+    """Measure one supplement frame where a shopper sees it, and its honesty label.
+
+    - no ink in the marketplace's title-safe band at each context's size
+      (`mobile.title_safe_ink`, threshold 0 as for the disclosed set);
+    - the label in the pixels: a drawn frame carries the render disclosure caption
+      (`disclosed_listing.caption_in_image`); the CONTENTS frame is a document preview whose
+      label is `eligibility.PREVIEW_LABEL`, verified with the bytes by `contents_frame.verify`;
+    - the alt text opens with the frame's own label, within Etsy's alt-text limit.
+
+    Every value is True/False from a measurement; nothing is assumed from the producer.
+    """
+    from . import disclosed_listing as dl
+
+    job = frame.get("job") or ""
+    label = frame.get("honesty_label") or ""
+    alt = frame.get("alt_text") or ""
+    ink = {ctx: round(mobile.title_safe_ink(image, px=px), 5)
+           for ctx, px in SUPPLEMENT_CONTEXT_PX.items()}
+    if job == el.CONTENTS:
+        in_image = label == el.PREVIEW_LABEL
+    else:
+        in_image = (label == dl.DISCLOSURE
+                    and dl.caption_in_image(frame.get("png") or b"", cir).get("status") == "PASS")
+    norm = " ".join(alt.lower().replace("’", "'").split())
+    in_alt = bool(label) and norm.startswith(label.lower()) and len(alt) <= dl.ALT_TEXT_MAX
+    problems = [f"{ctx}: {v:.2%} of the ink sits in the title-safe band"
+                for ctx, v in ink.items() if v > 0]
+    if not in_image:
+        problems.append(f"{job}: the frame's label is not in its pixels")
+    if not in_alt:
+        problems.append(f"{job}: the alt text does not open with the frame's label")
+    return {"job": job, "ok": not problems, "problems": problems,
+            "readings": {"title_safe_ink": ink, "label_in_image": in_image,
+                         "label_in_alt_text": in_alt}}
 
 
 def ls_disclosure() -> str:

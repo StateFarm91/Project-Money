@@ -2664,7 +2664,7 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independent reviewer",
+  "missing_part": "final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a production_producer and failure_test receipt, a suite receipt whose head/run match the packet (the release record names 5dfd1ac, the packet 0417f35), an execution_gate receipt on protected rows, and an independent_review by a reviewer other than the emitter. The rehearsal records job outcomes only, so the emitter can supply producer + live_root receipts and nothing else",
   "producer": "src/brambleloop/build2/final_proof.py::validate",
   "durable_state": null,
   "consumer": null,
@@ -2678,18 +2678,20 @@
    "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
    "research/final_build/aggregate.py (no consumer check)",
    "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
-   "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)"
+   "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven",
+   "w4-FMGATE on 0417f35: runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "END-STAGE (integrator): on the frozen RC, emit packets for the launch-critical rows, run final_proof.py --matrix closure_matrix.json --reachability module_reachability.json and commit the report with the independent review",
+  "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
   "confidence": "HIGH",
-  "searched": " | w4-FM2 close"
+  "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-835",
@@ -2818,88 +2820,105 @@
   "uid": "F-839",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "F-831..F-850 certification contract",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "no frozen launch candidate (F-845), so the function-level re-audit has not been run on that exact SHA by an independent session",
-  "producer": "src/brambleloop/build2/reachability.py",
-  "durable_state": "research/final_build/module_reachability.json (basis 'HEAD 6f9a2f7')",
-  "consumer": null,
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/reachability.py::reached (per-function trace from the runtime roots)",
+  "durable_state": "research/final_build/module_reachability.json (basis HEAD 0417f35)",
+  "consumer": "research/final_build/aggregate.py::cap (INTEGRATED needs a reached producer); src/brambleloop/build2/closure.py::proof_of (live dashboard)",
   "protected_effect": null,
   "tests": [
    "tests/test_final_proof.py::test_mutations_refused",
-   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached"
+   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached",
+   "tests/test_reachability.py::test_the_real_package_still_reaches_its_handlers_libraries"
   ],
   "evidence": [
-   "research/final_build/module_reachability.json basis HEAD 6f9a2f7",
-   "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)",
-   "w4-FM close on w4-FMLEDGER (FMLEDGER): the recorded defect (closure_matrix basis label stale) no longer holds: the basis now records the mapping base, every remap SHA and per-row mapped_on, and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 modules, 560 reached, none lost vs 8b67414). The final-head audit itself still needs a frozen candidate"
+   "research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+   "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+   "w4-FMGATE on 0417f35: the reachability audit was re-run on the final effective source tree: a clean detached worktree at the deployed 0417f35 (research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json; installed as module_reachability.json): 656 modules, 564 reached from a live root, none lost against 2f36fe0, gained app/command_center/launch_packet.py, launch/packet.py, growth/free_assets.py, growth/free_to_paid.py; aggregate.py re-adjudicated every row on it and final_proof.py ran on 0417f35 with the 0417f35 rehearsal packets (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json). Independent function-level review of the same deployable tree (2c6d775 == 5dfd1ac == 0417f35 src/): research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (NO BLOCKER), on top of INDEPENDENT_REAUDIT_7421ef6.md"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "END-STAGE: freeze the RC (F-845), regenerate reachability on it, re-run aggregate.py and the function-level audit there by an independent session, commit the verdict",
+  "next_action": "none for 0417f35; a material successor re-runs the same audit before it is frozen",
   "confidence": "HIGH",
-  "searched": " | w4-FMLEDGER close"
+  "searched": " | w4-FMLEDGER close | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-840",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "F-831..F-850 certification contract",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), and a green suite exists on 6f9a2f7; the requirement-level runtime proof on the same SHA (final_proof report) does not exist yet",
-  "producer": "research/final_build/aggregate.py::cap",
-  "durable_state": "research/final_build/closure_matrix.json",
-  "consumer": null,
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py::summary (live launch gate: ready iff zero launch-critical rows OPEN, whatever the suite says); research/final_build/aggregate.py::cap (a green suite never raises maturity)",
+  "durable_state": "src/brambleloop/build2/final_master_closure.json (in the image)",
+  "consumer": "src/brambleloop/launch/readiness.py::assess (final_master check) -> /api/build final_master; executor report",
   "protected_effect": null,
   "tests": [
-   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
    "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason",
-   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks"
+   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+   "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open",
+   "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure",
+   "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
   ],
   "evidence": [
-   "research/final_build/RUN_6f9a2f7_full_suite.json"
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_build_20261011T1439Z.json final_master",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json boot_guard",
+   "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+   "research/final_build/CANDIDATE_0417f35.json",
+   "w4-FMGATE on 0417f35: in production the green suite is demonstrably not sufficient: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) booted on a release-eligible green full suite (boot_guard ok, 7877 passing) and its live launch gate still reads /api/build final_master {status DEGRADED, launch_ready false, launch_critical COMPLETE 355 / GATED 126 / OPEN 9} -- build2/final_master.py refuses launch while any launch-critical row lacks requirement-level proof. The candidate's full-suite record and the final_proof report for the same SHA are cited together in research/final_build/CANDIDATE_0417f35.json and research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json (917 rows, certified false: a green suite certifies none of them)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Final verdict must cite the candidate's full-suite record and the final_proof.py report for the same SHA",
+  "next_action": "none: the rule is enforced in the running launch gate",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-841",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "F-831..F-850 certification contract",
-  "maturity": "IMPLEMENTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
-  "producer": null,
-  "durable_state": "research/final_build/FINAL_BUILD_STATE.md (Fixed facts: 019ebf0 certified baseline)",
-  "consumer": null,
+  "producer": "src/brambleloop/ops/release_record.py::known_good_predecessor (reads the shipped release/DEPLOYED_HISTORY.json: the baseline is the last reviewed, deployed commit)",
+  "durable_state": "release/DEPLOYED_HISTORY.json; audit_log ops.truth.sweep",
+  "consumer": "src/brambleloop/ops/assurance.py::rollback_baseline (ops.health sweep); ops/deploy_guard.py rollback-commit (targets only a listed SHA)",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_rc1_own_release.py::test_the_real_history_names_production_and_the_runbook_exists",
+   "tests/test_w3_deploy_evidence.py::test_the_history_ships_in_the_image",
+   "tests/test_w3_deploy_evidence.py::test_the_known_good_predecessor_comes_from_the_shipped_deployed_history"
+  ],
   "evidence": [
-   "FINAL_BUILD_STATE.md fixed facts; DECISION_LOG D-FB-1; Final Build commits on claude/visual-investigation after 019ebf0; production branch untouched at fcb982d"
+   "release/DEPLOYED_HISTORY.json (fcb982d, 0417f35)",
+   "research/final_build/CANDIDATE_0417f35.json",
+   "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+   "w4-FMGATE on 0417f35: an explicitly reviewed successor to 019ebf0 now exists and runs: 0417f35 (release record RELEASE_5dfd1ac, freeze check 0 refusals in CANDIDATE_0417f35.json, independent security review of the identical deployable tree INDEPENDENT_SECREVIEW_2c6d775.md NO BLOCKER, migration/rollback proof MIGRATION_ROLLBACK_2c6d775.md) and is deployed (production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z)); release/DEPLOYED_HISTORY.json records it, and the runtime treats the deployed history as the only sanctioned rollback baseline (known_good_predecessor; ops.truth.sweep rollback_baseline recoverable:true on 0417f35)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none — hold 019ebf0 as baseline until the reviewed successor candidate is frozen (F-845)",
+  "next_action": "none: 0417f35 is the reviewed successor baseline; the next one is appended after its own review and verified deploy",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-842",
@@ -3002,7 +3021,9 @@
   "tests": [],
   "evidence": [
    "git branch -a: only build2-candidate-63f2493",
-   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z"
+   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z",
+   "w4-PACKETREL: freeze ref recorded -- branch claude/final-candidate-7421ef6 on origin points at 7421ef6215588659da314cced213a848ffc8e567 (a tag push was refused by the git proxy, so the ref is a branch, not tag final-candidate-7421ef6). The closing event also requires the defect ledger, and none exists for 7421ef6 (no DEFECT_LEDGER_7421ef6.json or CANDIDATE_7421ef6.json). scripts/freeze_candidate.py --dry-run on 7421ef6 refuses (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6.json): the only suite record is for 3967f40, not exactly 7421ef6, and its tests_failing_reported is 2, although the log has no FAIL test lines; the 2 are OK lines whose text contains 'FAIL'. Not closed: the ref exists, but the freeze tool refuses and no defect ledger is open",
+   "w4-PACKETREL (integrator decision): the closing event is met on 7421ef6. Freeze ref: refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. Defect ledger opened in research/final_build/DEFECT_LEDGER_7421ef6.json (8 open: re-audit D-1 MEDIUM, L-1, L-2 and L-3 with repairs on claude/w4-AUDITFIX; shadow-rehearsal blockers search_certificate_not_pass, grant_snapshot_refused, past_shadow_publish_blocked and order_version_unmapped). Candidate record: research/final_build/CANDIDATE_7421ef6.json. scripts/freeze_candidate.py now binds the suite by the deploy guard's rule (G.release_proof: exact SHA, or the same deployable-tree digest with an ancestor record SHA). It recounts failing tests from the pinned log, so the 2 lines run_tests.sh miscounted as failures, now fixed, no longer refuse. Its dry run on a clean checkout of 7421ef6 returns refusals [] (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json). The adjudicator still caps this tooling row at TESTED, below INTEGRATED. It computes COMPLETE only with the completion_target TESTED override proposed in w4/OVERRIDES_PROPOSED_PACKETREL.json (dry run: COMPLETE), which awaits integrator acceptance into overrides.json"
   ],
   "build2_rows": [],
   "gate": {
@@ -3013,35 +3034,38 @@
   "defect": null,
   "next_action": "After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-PACKETREL"
  },
  {
   "uid": "F-846",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "F-831..F-850 certification contract",
-  "maturity": "IMPLEMENTED",
-  "coverage": "PARTIAL",
-  "missing_part": "the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candidate with an independent re-audit",
-  "producer": null,
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "scripts/freeze_candidate.py (freeze + defect ledger) -> research/final_build/DEFECT_LEDGER_<sha7>.json",
   "durable_state": "research/final_build/codex_reconciliation/*.json; research/final_build/waves/*.json; RUN_6f9a2f7_full_suite.json",
-  "consumer": null,
+  "consumer": "integrator release loop: independent re-audit and successor full suite before deploy (ops/deploy_guard.py check)",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_freeze_candidate.py::test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger"
+  ],
   "evidence": [
    "research/final_build/codex_reconciliation/build2_assist_reconciliation.json",
    "research/final_build/codex_reconciliation/codex_fb_verification.json",
-   "FINAL_BUILD_STATE.md RESUME 2026-10-05"
+   "FINAL_BUILD_STATE.md RESUME 2026-10-05",
+   "w4-FMGATE on 0417f35: one full loop has run: freeze 7421ef6 (CANDIDATE/DEFECT_LEDGER_7421ef6) -> independent re-audit (INDEPENDENT_REAUDIT_7421ef6.md: D-1, L-1..L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_*) -> full suite on the successor (RELEASE_5dfd1ac: 7877 passing) -> independent re-audit (INDEPENDENT_SECREVIEW_2c6d775.md: all four fixed, NO BLOCKER) -> deployed 0417f35. The next loop is open: DEFECT_LEDGER_0417f35.json (5 rehearsal blockers carrying owner/external gates, 3 production-readback defects; 2 repaired on claude/w4-FMGATE)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Run freeze -> independent audit -> defect ledger -> repair -> regression -> full suite -> independent re-audit on the frozen candidate",
+  "next_action": "integrator: the producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction; accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_FMGATE.json (same basis as F-843/F-845/F-847)",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-847",
@@ -3075,7 +3099,7 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "no complete recorded rehearsal: the latest run (ddf9c6e) stops at the owner publication grant (search certificate REFUSED; taxonomy UNKNOWN) and none has run on a frozen candidate",
+  "missing_part": "approval -> simulated publish is not exercised. Two blockers carry real gates: the grant needs a certified Etsy taxonomy (owner etsy_api: production listing.taxonomy_refresh got 403 at 2026-10-11T14:05Z) and the phase transition needs launch readiness, whose owner items (seller_identity, etsy_shop, payout, brand_clearance, benchmark_challenge, ...) are open. But the rehearsal evaluates readiness on a FRESH scratch DB holding one product, where findable:catalogue_depth, clickable:storefront_preview and converts_honestly:sustainable_economics can never pass whatever the owner does: as built, the step cannot open",
   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
   "durable_state": "jobs / audit_log",
   "consumer": null,
@@ -3087,18 +3111,20 @@
   ],
   "evidence": [
    "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
-   "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked"
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json (production mode, head 7421ef6, tree clean, 352.8 s, network guard installed, no Etsy, no spend): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger. REFUSED_AS_EXPECTED: store.publish[shadow]. BLOCKED: owner_publication_grant (ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited -- waits on the external Etsy taxonomy read) and store.publish[past-shadow] (no grant, so still refused as SHADOW). blocking_defects: search_certificate_not_pass (stored search verdict REFUSED), grant_snapshot_refused, past_shadow_publish_blocked, order_version_unmapped (new: the fixture receipt could not map to cloudline-baby-blanket@1.2.0 because no draft listing id existed, downstream of the grant refusal). Rehearsal ran on the candidate but is not complete; requirement not proven",
+   "w4-FMGATE on 0417f35: scripts/shadow_rehearsal.py on a clean detached worktree at the deployed 0417f35, production mode, 457.9 s (research/final_build/w4/evidence_FMGATE_0417f35/shadow_rehearsal_0417f35.json; also research/final_build/evidence/): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger; store.publish[shadow] REFUSED_AS_EXPECTED; BLOCKED: owner_phase_transition (readiness not ready), owner_publication_grant (taxonomy UNKNOWN), store.publish[past-shadow]"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "END-STAGE: on the frozen RC run scripts/shadow_rehearsal.py and commit the evidence JSON; each not_complete_because item must be fixed or carry its recorded gate",
+  "next_action": "company: make owner_phase_transition cite the readiness verdict of a production-shaped state (seed the scratch DB from a continuity export, or read production's live launch.assessed row) instead of a one-product fresh DB; then the remaining blockers are exactly the owner etsy_api / readiness gates",
   "confidence": "HIGH",
-  "searched": " | w4-FMLEDGER close"
+  "searched": " | w4-FMLEDGER close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-849",
@@ -3106,31 +3132,32 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
   "producer": "src/brambleloop/app/main.py::_startup (embedded scheduler/worker)",
   "durable_state": "jobs (runtime.started rows)",
   "consumer": null,
   "protected_effect": null,
   "tests": [
    "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
-   "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
-   "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state"
+   "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
+   "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact"
   ],
   "evidence": [
    "research/final_build/RUN_6f9a2f7_full_suite.json (independence suite passed)",
    "9a5a5a7 stall-based wait fix",
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "deploying the candidate and a 24h unattended window is the owner's authorisation"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "Buildable now: re-run tests/test_cert_claude_independence.py on the frozen candidate and commit the evidence; owner: authorise the production_window for the 24h unattended run",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-850",
@@ -3144,23 +3171,24 @@
   "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
   "protected_effect": "no lost or duplicated work across restarts",
   "tests": [
-   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
    "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
-   "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
+   "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts",
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it"
   ],
   "evidence": [
-   "module_reachability: queue/durable.py reached, in fcb982d"
+   "module_reachability: queue/durable.py reached, in fcb982d",
+   "w4-FMGATE on 0417f35: same as F-135: a live restart drill, not the 24h window, closes this"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
-   "key": "production_window",
-   "detail": "restarting the live service disturbs production; owner authorises"
+   "key": "live_restart_drill",
+   "detail": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate"
   },
   "defect": null,
   "next_action": "Buildable now: add a restart test that kills the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ingest and asserts exactly one listing/ledger effect; owner: authorise a live restart drill",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-851",
@@ -3985,7 +4013,7 @@
   "launch_class_reason": "owner needs a truthful launch packet",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "the packet is operator tooling only (launch/packet.py not reached from a runtime root) and no packet exists for a frozen candidate",
+  "missing_part": "the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE (launch/packet.py release-record citation + CC builder passes the image's release/ root), not yet released",
   "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
   "durable_state": "audit_log; operating readings",
   "consumer": "app/main.py dashboard",
@@ -3996,7 +4024,10 @@
   ],
   "evidence": [
    "launch/rollback.py not in fcb982d",
-   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate"
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+   "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven",
+   "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)"
   ],
   "build2_rows": [
    "#54 OWNER-GATED",
@@ -4004,13 +4035,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
+  "next_action": "integrator: full suite + release record + deploy of the successor carrying the PACKETREL packet fix; then read /api/cc/launch/packet recorded_suite with the owner credential and commit it",
   "confidence": "MEDIUM",
-  "searched": " | w4-FMLEDGER close"
+  "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-879",

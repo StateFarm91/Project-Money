@@ -3,6 +3,7 @@ import { h, icon, clear } from "./dom.js";
 import { loadStatus, onAuthRequired, login, logout, ApiError, api, authState, setStepUpPrompt } from "./api.js";
 import { loading, errorState, statusPill, toast, stepUpDialog } from "./components.js";
 import { TABS, MORE_ROUTES } from "./routes.js";
+import { enhanceLongPage } from "./sections.js";
 
 const EXTRA_ROUTES = {
   more: { id: "more", label: "More" },
@@ -54,16 +55,39 @@ function markActive(tabId) {
   }
 }
 
+// Last known badge counts, so a badge rendered after the chrome refresh (the More menu) shows
+// the same number as the bar instead of staying blank (W4-CCUX).
+const badgeCounts = new Map();
+
+function paintBadge(b, count) {
+  const n = Number(count);
+  if (Number.isFinite(n) && n > 0) {
+    b.hidden = false;
+    b.textContent = n > 99 ? "99+" : String(n);
+    b.setAttribute("aria-label", `${n} pending`);
+  } else { b.hidden = true; b.textContent = ""; }
+}
+
 export function setBadge(tabId, count) {
   if (tabId === "notifications") setBadge("more", count); // notifications live under More on phones
-  for (const b of document.querySelectorAll(`[data-badge="${tabId}"]`)) {
-    const n = Number(count);
-    if (Number.isFinite(n) && n > 0) {
-      b.hidden = false;
-      b.textContent = n > 99 ? "99+" : String(n);
-      b.setAttribute("aria-label", `${n} pending`);
-    } else { b.hidden = true; b.textContent = ""; }
+  badgeCounts.set(tabId, count);
+  for (const b of document.querySelectorAll(`[data-badge="${tabId}"]`)) paintBadge(b, count);
+}
+
+function repaintBadges(scope) {
+  for (const b of scope.querySelectorAll("[data-badge]")) {
+    if (badgeCounts.has(b.dataset.badge)) paintBadge(b, badgeCounts.get(b.dataset.badge));
   }
+}
+
+// W4-CCUX: on a phone the sidebar is hidden, so a section reached through More says so and
+// links back to it ("More › Company"). Hidden at desktop width, where the sidebar shows.
+function moreCrumb(def) {
+  if (!(MORE_ROUTES.includes(def.id) || def.id === "emergency")) return null;
+  return h("nav", { class: "crumb", aria: { label: "Breadcrumb" } },
+    h("a", { href: "#/more", class: "back" }, icon("back", 18), "More"),
+    h("span", { class: "crumb-sep", aria: { hidden: "true" } }, "›"),
+    h("span", { class: "crumb-here", aria: { current: "page" } }, def.label));
 }
 
 function showPhase(phaseName) {
@@ -105,6 +129,12 @@ function parseHash() {
 
 async function route() {
   if (!state.session || !state.session.authenticated) return showLogin();
+  // Render-complete signal: `#main[data-rendered]` names the hash whose view is on screen. It is
+  // cleared as soon as a new route starts and set only when that route's view (or its error
+  // state) is in place, so "settled" can mean "this URL's view finished", not merely "nothing
+  // is loading" (which an old, already-rendered view also satisfies).
+  const hash = location.hash;
+  delete root.dataset.rendered;
   const r = parseHash();
   const def = TABS.find((t) => t.id === r.name) || (Object.hasOwn(EXTRA_ROUTES, r.name) ? EXTRA_ROUTES[r.name] : null);
   const seq = ++state.renderSeq;
@@ -120,7 +150,11 @@ async function route() {
       rerender: () => route(), setBadge });
     if (seq !== state.renderSeq) return; // a newer navigation won
     clear(root);
+    const crumb = moreCrumb(def);
+    if (crumb) root.append(crumb);
     root.append(node);
+    repaintBadges(root);
+    if (def.id !== "more" && !r.params.length) enhanceLongPage(node, def.id);
   } catch (err) {
     if (seq !== state.renderSeq) return;
     if (err instanceof ApiError && err.status === 401) return; // login takes over
@@ -132,6 +166,7 @@ async function route() {
     root.focus({ preventScroll: true });
   }
   state.route = location.hash;
+  if (seq === state.renderSeq) root.dataset.rendered = hash;
 }
 
 // ---- login ----------------------------------------------------------------------------------
@@ -175,6 +210,7 @@ function showLogin(message) {
   });
   root.append(form);
   input.focus();
+  root.dataset.rendered = location.hash; // the sign-in screen is this URL's settled view
 }
 
 export async function signOut() {
@@ -200,6 +236,7 @@ async function boot() {
   } catch (err) {
     clear(root);
     root.append(errorState(err, () => boot()));
+    root.dataset.rendered = location.hash; // settled: an honest error, nothing loading
     return;
   }
   if (!state.session || !state.session.authenticated) return showLogin();

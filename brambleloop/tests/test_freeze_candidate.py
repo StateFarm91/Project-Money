@@ -107,7 +107,7 @@ def test_a_suite_record_for_a_different_sha_is_refused():
         base = _git(repo.path, "rev-parse", "HEAD")
         repo.evidence(base)            # evidence commit moves HEAD past the suite's SHA
         why = _refusals(repo)
-        assert "no release-eligible suite record for exactly" in why, why
+        assert "no release-eligible suite record for" in why, why
     finally:
         repo.close()
 
@@ -235,6 +235,77 @@ def test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger():
         ledger = json.loads((repo.fb / f"DEFECT_LEDGER_{sha[:7]}.json").read_text())
         keys = {d["key"] for d in ledger["defects"]}
         assert ledger["status"] == "open" and {"search_certificate_not_pass", "F-1"} <= keys
+    finally:
+        repo.close()
+
+
+def _tracked_release(repo, code, *, log_extra="", failing_reported=0):
+    """A tracked release record for `code`, committed on top (record-only commit), shaped
+    like brambleloop/release/: record + suite_runs/<run>.json + .log, sha256-pinned."""
+    import hashlib
+
+    m = _mod()
+    run = "20261010T000000Z-1"
+    rel = repo.path / "brambleloop" / "release"
+    (rel / "suite_runs").mkdir(parents=True, exist_ok=True)
+    suite = dict(_suite(code), run_id=run, tests_failing_reported=failing_reported)
+    (rel / "suite_runs" / f"{run}.json").write_text(json.dumps(suite))
+    (rel / "suite_runs" / f"{run}.log").write_text(
+        f"RUN ID: {run}\nGIT SHA: {code}\n== tests/test_x.py\n   OK   test_a\n{log_extra}"
+        "TOTAL PASSING: 1 ; suites failing: 0\n")
+    h = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()  # noqa: E731
+    rec = {"kind": "brambleloop.release_record", "sha": code, "release_eligible": True,
+           "source_tree_sha256": m.G.git_tree_digest(repo.path, code),
+           "suite_record": {"path": f"suite_runs/{run}.json",
+                            "sha256": h(rel / "suite_runs" / f"{run}.json")},
+           "suite_log": {"path": f"suite_runs/{run}.log",
+                         "sha256": h(rel / "suite_runs" / f"{run}.log")}}
+    (rel / f"RELEASE_{code}.json").write_text(json.dumps(rec))
+    return repo.commit("release record")
+
+
+def test_a_record_only_commit_binds_by_the_deploy_guard_rule():
+    """W4-PACKETREL: the candidate is the record-only commit on top of the suite's commit;
+    the tracked release record of its exact deployable tree binds it, as the deploy guard
+    accepts it. A historic over-count (`FAILS 0` counted as a failure) is recounted from the
+    pinned log; a real FAIL marker line in that log still refuses."""
+    repo = Repo()
+    try:
+        code = _git(repo.path, "rev-parse", "HEAD")
+        (repo.fb / "evidence" / "shadow_rehearsal_c_x.json").write_text(
+            json.dumps(_rehearsal(code)))
+        code = repo.commit("rehearsal evidence")      # no code change: rehearsal still binds
+        cand = _tracked_release(repo, code, log_extra="   FAILS 0\n", failing_reported=2)
+        dry = _mod().freeze(repo.path, "HEAD", fb=repo.fb, dry_run=True)
+        assert dry["refusals"] == [], dry["refusals"]
+        assert dry["sha"] == cand and "deploy guard rule" in dry["suite_binding"], dry
+        assert dry["suite"].endswith(".json") and "release/suite_runs/" in dry["suite"]
+    finally:
+        repo.close()
+    repo = Repo()
+    try:
+        code = _git(repo.path, "rev-parse", "HEAD")
+        (repo.fb / "evidence" / "shadow_rehearsal_c_x.json").write_text(
+            json.dumps(_rehearsal(code)))
+        code = repo.commit("rehearsal evidence")
+        _tracked_release(repo, code, log_extra="   FAIL test_b boom\n")
+        why = _refusals(repo)
+        assert "failing tests (1 FAIL marker" in why, why
+    finally:
+        repo.close()
+
+
+def test_a_tracked_record_for_a_different_tree_does_not_bind():
+    repo = Repo()
+    try:
+        code = _git(repo.path, "rev-parse", "HEAD")
+        _tracked_release(repo, code)
+        (repo.path / "brambleloop" / "src" / "code.py").write_text("x = 2\n")
+        (repo.fb / "evidence" / "shadow_rehearsal_d_x.json").write_text(
+            json.dumps(_rehearsal(repo.commit("code change"))))
+        repo.commit("rehearsal")
+        why = _refusals(repo)
+        assert "tracked release record" in why and "deployable tree digest" in why, why
     finally:
         repo.close()
 

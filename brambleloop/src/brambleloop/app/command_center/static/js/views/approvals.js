@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { card, statusPill, sourcesList, guardedAction, toast, freshness, releaseNote } from "../components.js";
 import { formatMoney, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../format.js";
 import { sectionsOf, pageMeta, renderSection, backLink, tabStatus } from "./_shared.js";
+import { rankDecisions, decideFirstCard } from "./_decisions.js";
 
 // Every field F-885 requires on a card, in reading order. A missing one is shown as missing.
 const FIELDS = [
@@ -64,7 +65,7 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
     const isPreview = verb === "preview";
     const blocked = stale || (isApprove && (!evidence.length || c.executable === false));
     const btn = h("button", { type: "button", class: ["btn", isApprove ? "btn-primary" : verb === "revoke" ? "btn-danger" : null],
-      disabled: blocked, data: { action: a.action || "" } }, actionLabel(a.action));
+      disabled: blocked, data: { action: a.action || "" } }, a.label || actionLabel(a.action));
     btn.addEventListener("click", async () => {
       if (isPreview) {
         btn.disabled = true;
@@ -79,13 +80,13 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         return;
       }
       const body = await guardedAction({
-        title: `${actionLabel(a.action)}: ${c.title || "this proposal"}?`,
+        title: `${a.label || actionLabel(a.action)}: ${c.title || "this proposal"}?`,
         lines: [c.proposed_action || "", `Max spend: ${fieldText("max_spend_cad", c.max_spend_cad)}`,
           `Reversibility: ${c.reversibility || "Not stated"}`].filter(Boolean),
         confirmLabel: actionLabel(a.action), danger: verb === "revoke",
         requiresStepUp: !!a.requires_step_up,
-        reasonLabel: isApprove ? "Why are you approving this?" : "Note",
-        reasonRequired: isApprove,
+        reasonLabel: isApprove || a.requires_step_up ? "Why are you deciding this?" : "Note",
+        reasonRequired: isApprove || !!a.requires_step_up,
         run: (reason) => api.action(a.action, actionParams(a, reason)),
         success: `${actionLabel(a.action)} recorded.`,
       });
@@ -137,7 +138,7 @@ function batchesCard(env) {
   }
   const isLive = env.live === true;
   const extra = Array.isArray(env.release_only) ? env.release_only : [];
-  return card({ title: "Your decisions, batch by batch", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches${isLive ? " · live owner queue" : ""}`, actions: statusPill(env.status) },
+  return card({ title: "Your decisions, batch by batch", labelId: "approvals-batches", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches${isLive ? " · live owner queue" : ""}`, actions: statusPill(env.status) },
     h("p", { class: "card-meta" }, freshness(env.as_of || null), env.as_of ? ` (${utcStamp(env.as_of)})` : ""),
     isLive ? null : releaseNote(env),
     env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
@@ -183,13 +184,28 @@ export async function render({ params, rerender }) {
   const data = result.data || {};
   const cards = Array.isArray(data.cards) ? data.cards : [];
   const s = sectionsOf(data);
+  // W4-CCUX: top decisions first. The ranked summary leads; the full cards follow in the same
+  // order (so the first open card is the most urgent), then the batch queue.
+  const ranked = rankDecisions(cards, data.decision_batches);
+  const order = new Map(ranked.filter((d) => d.kind === "card").map((d, i) => [d.id, i]));
+  const sorted = cards.map((c, i) => [c, i]).sort(([a, ia], [b, ib]) =>
+    (order.get(a && a.card_id) ?? ia) - (order.get(b && b.card_id) ?? ib) || ia - ib).map(([c]) => c);
+  const toBatches = () => {
+    const sec = document.querySelector("section[aria-labelledby='approvals-batches']");
+    if (!sec) return;
+    const first = sec.querySelector("details.review");
+    if (first) first.open = true;
+    sec.scrollIntoView({ block: "start" });
+  };
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     data.reason ? tabStatus(data) : null,
+    decideFirstCard(ranked, { limit: 3, onBatch: toBatches,
+      meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
+    sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
+      : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),
-    cards.length ? cards.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
-      : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,
     data.external_capability_unavailable !== undefined ? renderSection("external_capability_unavailable", data.external_capability_unavailable, { title: "External capability unavailable", result }) : null,
     ...Object.entries(s).map(([k, v]) => renderSection(k, v, { result })));

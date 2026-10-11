@@ -1,0 +1,13 @@
+{
+ "tables": 51,
+ "rows_compared": 3516,
+ "missing_rows": {},
+ "changed_rows": {
+  "agents": 9
+ },
+ "changed_columns": {
+  "agents": [
+   "allowed_job_types"
+  ]
+ }
+}

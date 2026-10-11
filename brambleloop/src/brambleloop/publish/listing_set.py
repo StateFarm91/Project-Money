@@ -277,14 +277,19 @@ def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | N
     s_truth = [bool(v) for v in sq.get("verified") or []]
     s_layout = [_ok(sq.get("layout_qa"))] if supplement_qa else []
     s_set = [_ok(sq.get("frame_set"))] if supplement_qa else []
+    # W4-VISUALSEO: the supplements' own phone/full-gallery and label readings, when the
+    # certifying path measured them (`release_gates.supplement_presentation`). Additive only.
+    s_mobile = [_ok(sq.get("mobile"))] if "mobile" in sq else []
+    s_label = [_ok(sq.get("disclosure"))] if "disclosure" in sq else []
     return {
         eligibility.DATA_TRUTH: _outcome(*(truth or [None]), _ok(qa.get("asset_truth")),
                                          dimensions_ok, *s_truth),
         eligibility.LAYOUT_QA: _outcome(_ok(qa.get("layout_qa")), *(legible or [None]),
                                         *s_layout),
         eligibility.COMMERCIAL_QA: _outcome(_ok(qa.get("frame_set")), _ok(qa.get("mobile")),
-                                            _ok(qa.get("hero_thumbnail")), *s_set),
-        eligibility.POLICY_PROVENANCE: _outcome(bool(exported)),
+                                            _ok(qa.get("hero_thumbnail")), *s_set,
+                                            *s_mobile),
+        eligibility.POLICY_PROVENANCE: _outcome(bool(exported), *s_label),
     }
 
 

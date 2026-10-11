@@ -528,6 +528,117 @@ def _ads_authorised(db, env) -> bool:
         return bool(limit and limit.daily_cap_cad > 0 and not limit.paused)
 
 
+# ---- W4-B2GATES: the data gates of the registry's data_gated rows -------------------------
+#
+# Eight rows are registered `data_gated` (the registry forbids `parked_on` on them), and until
+# now the ledger showed them with no gate at all -- "needs customers, orders or traffic" in
+# prose. Each check below reads the runtime record the row's own machinery reads, at the
+# machinery's own minimum, so the gate opens exactly when that machinery can return a measured
+# reading. `DATA_GATE_FOR` maps each row to its gate; the closure reads it.
+
+
+def _listing_outcomes(db):
+    from sqlalchemy import select
+
+    from ..core.models import ListingOutcome
+
+    with db.session() as s:
+        return [(o.product_slug, o.hero_style, int(o.impressions or 0), int(o.visits or 0))
+                for o in s.scalars(select(ListingOutcome))]
+
+
+def _countable_orders(db) -> list:
+    from ..commerce import orders_ingest
+
+    with db.session() as s:
+        return [(o.product_slug, o.detail or {}) for o in orders_ingest.countable_orders(s)]
+
+
+def _listing_traffic_measured(db, env) -> bool:
+    """#23: a listing period with counted visits exists (commerce.kill_table's input)."""
+    return any(visits > 0 for _p, _s, _i, visits in _listing_outcomes(db))
+
+
+def _style_outcomes_measured(db, env) -> bool:
+    """#82: one hero style on >= MIN_LISTINGS listings with >= MIN_IMPRESSIONS impressions
+    (creative.style_learning's own minimum for a measured style reading)."""
+    from ..creative import style_learning as SL
+
+    by: dict[str, tuple[set, int]] = {}
+    for slug, style, impressions, _v in _listing_outcomes(db):
+        if not style:
+            continue
+        slugs, total = by.get(style, (set(), 0))
+        slugs.add(slug)
+        by[style] = (slugs, total + impressions)
+    return any(len(sl) >= SL.MIN_LISTINGS and n >= SL.MIN_IMPRESSIONS
+               for sl, n in by.values())
+
+
+def _concept_outcomes_measured(db, env) -> bool:
+    """#89: >= MIN_VISITS listing visits and >= MIN_ORDERS countable orders
+    (creative.outcome_learning's own minimums)."""
+    from ..creative import outcome_learning as OL
+
+    visits = sum(v for _p, _s, _i, v in _listing_outcomes(db))
+    return visits >= OL.MIN_VISITS and len(_countable_orders(db)) >= OL.MIN_ORDERS
+
+
+def _market_outcomes_measured(db, env) -> bool:
+    """#94: market CTR / conversion / winner rate need live traffic AND a sale."""
+    return _listing_traffic_measured(db, env) and bool(_countable_orders(db))
+
+
+def _learning_sources_observed(db, env) -> bool:
+    """#98: the two radar domains no engineering here can feed have an observation each:
+    `techniques` (a craft source) and `customer_pain` (buyers' complaints)."""
+    from sqlalchemy import select
+
+    from ..core.models import LearningObservation
+
+    with db.session() as s:
+        domains = {d for (d,) in s.execute(select(LearningObservation.domain).distinct())}
+    return {"techniques", "customer_pain"} <= domains
+
+
+def _lead_lag_measurable(db, env) -> bool:
+    """#140: culture.radar.lead_lag is measurable for at least one observed signal (both
+    the culture and the marketplace series hold >= 2 readings)."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation
+    from ..culture import radar
+
+    with db.session() as s:
+        keys = [k for (k,) in s.execute(select(CultureObservation.signal_key).distinct()
+                                        .limit(200)) if k]
+    return any(radar.lead_lag(db, k).get("measurable") for k in keys)
+
+
+def _seasonal_orders_recorded(db, env) -> bool:
+    """#296: a countable order attributed to a seasonal event (the war room's revenue)."""
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal.leadtime import occasion_for
+
+    events = {e.name for e in SEASONAL_EVENTS}
+    for slug, detail in _countable_orders(db):
+        if (detail.get("season") or occasion_for(slug)) in events:
+            return True
+    return False
+
+
+def _season_harvested(db, env) -> bool:
+    """#298: a SeasonHarvest was measured (seasonal.harvest: a passed event, >= 20 orders)."""
+    from sqlalchemy import select
+
+    from ..core.models import SeasonHarvest
+    from ..seasonal import harvest
+
+    with db.session() as s:
+        return s.scalar(select(SeasonHarvest.id).where(
+            SeasonHarvest.status == harvest.MEASURED).limit(1)) is not None
+
+
 class Gate:
     """One owner-granted thing, its checkable condition, and what waits on it."""
 
@@ -560,7 +671,10 @@ GATES: tuple[Gate, ...] = (
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
-         (94, 277, 281),
+         # W4-B2GATES: #94 removed. It is registry data_gated (market CTR, conversion and
+         # winner rate need live traffic and a sale; DATA_GATE_FOR -> market_outcomes), so
+         # no model call opens it, yet this tuple made the owner card claim it did.
+         (277, 281),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
     # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
     # deleted, and carrying no requirements rather than the four it used to. Those four --
@@ -734,7 +848,10 @@ GATES: tuple[Gate, ...] = (
          _owned_surface_probed,
          (),
          "the latest owned_surface.probe audit row records ok: true -- a real publish-path "
-         "check, not a site URL or token variable being set"),
+         "check, not a site URL or token variable being set. Written six-hourly by "
+         "ops.capability_probes (growth.owned_surface.probe): the site at "
+         "BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing "
+         "'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board"),
     Gate("live_listings",
          "a listing that exists on the marketplace: company work first (a product clears the "
          "final publication gate), then the owner's per-listing publication grant",
@@ -742,6 +859,47 @@ GATES: tuple[Gate, ...] = (
          (),
          "at least one Listing row carries an Etsy listing id -- counted, not read from the "
          "phase flag, because a phase is a statement of intent and a listing id is a listing"),
+    # W4-B2GATES: one data gate per registry data_gated row (DATA_GATE_FOR). Kept out of the
+    # requirement-id tuples so the owner-gate table is untouched (#94/#140 still sit there:
+    # B2_GATES_AUDIT.md R1 is for the owner to decide).
+    Gate("listing_traffic",
+         "a listing period with counted visits (live listings and buyers browsing them)",
+         _listing_traffic_measured, (),
+         "a ListingOutcome row records visits > 0 (commerce.kill_table's input)"),
+    Gate("style_outcomes",
+         "enough listing impressions for one hero style to be measured",
+         _style_outcomes_measured, (),
+         "one hero_style across >= 3 listings with >= 200 ListingOutcome impressions "
+         "(creative.style_learning MIN_LISTINGS / MIN_IMPRESSIONS)"),
+    Gate("concept_outcomes",
+         "enough visits and orders to join concepts to outcomes",
+         _concept_outcomes_measured, (),
+         ">= 200 ListingOutcome visits and >= 20 countable orders "
+         "(creative.outcome_learning MIN_VISITS / MIN_ORDERS)"),
+    Gate("market_outcomes",
+         "live listing traffic and at least one sale",
+         _market_outcomes_measured, (),
+         "a ListingOutcome with visits > 0 AND at least one countable Order"),
+    Gate("learning_sources",
+         "a craft-technique source and buyers' complaints observed by the learning radar",
+         _learning_sources_observed, (),
+         "LearningObservation rows exist for both the 'techniques' and 'customer_pain' "
+         "domains (intel.learning.record / ingest_complaints)"),
+    Gate("lead_lag_series",
+         "both a culture series and a marketplace series for one signal, built up over time",
+         _lead_lag_measurable, (),
+         "culture.radar.lead_lag(signal) is measurable for at least one CultureObservation "
+         "signal (>= 2 culture and >= 2 marketplace readings)"),
+    Gate("seasonal_orders",
+         "an order attributed to a seasonal event",
+         _seasonal_orders_recorded, (),
+         "a countable Order whose season (order detail, else the product's concept seed) is "
+         "one of radar.market.SEASONAL_EVENTS (not evergreen or unassigned)"),
+    Gate("season_harvest",
+         "a passed seasonal event with enough orders to learn from",
+         _season_harvested, (),
+         "a SeasonHarvest row with status measured (seasonal.harvest: >= 20 orders in a "
+         "passed occurrence)"),
     Gate("customers",
          "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner "
          "action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
@@ -838,6 +996,26 @@ def _registry_gates() -> dict[int, str]:
     return {r.id: r.parked_on for r in reg.load() if r.parked_on}
 
 
+#: W4-B2GATES: registry data_gated row -> the data gate the closure parks it on.
+DATA_GATE_FOR: dict[int, str] = {
+    23: "listing_traffic", 82: "style_outcomes", 89: "concept_outcomes",
+    94: "market_outcomes", 98: "learning_sources", 140: "lead_lag_series",
+    296: "seasonal_orders", 298: "season_harvest",
+}
+
+
+def _table_applies(requirement_id: int) -> bool:
+    """W4-B2GATES: the hand-written table may park only rows that can wait on an owner gate.
+    A row the registry calls data_gated or covered is not waiting on any owner act, so a
+    stale table entry for it (as #94 and #140 were) must not make a card claim it."""
+    st = _registry_status().get(requirement_id)
+    return st not in (reg.DATA_GATED, reg.COVERED)
+
+
+def _registry_status() -> dict[int, str]:
+    return {r.id: r.status for r in reg.load()}
+
+
 def gate_for(requirement_id: int) -> str | None:
     """Which owner gate this requirement waits on, if any.
 
@@ -848,12 +1026,17 @@ def gate_for(requirement_id: int) -> str | None:
     declared = _registry_gates().get(requirement_id)
     if declared:
         return declared
+    if not _table_applies(requirement_id):
+        return None
     return _GATE_FOR_REQUIREMENT.get(requirement_id)
 
 
 def gated_requirements() -> dict[int, str]:
     """Every requirement parked on a gate, from both halves. Registry wins on a conflict."""
-    return {**_GATE_FOR_REQUIREMENT, **_registry_gates()}
+    status = _registry_status()
+    table = {rid: k for rid, k in _GATE_FOR_REQUIREMENT.items()
+             if status.get(rid) not in (reg.DATA_GATED, reg.COVERED)}
+    return {**table, **_registry_gates()}
 
 
 def gate_states(db, env=None) -> dict:
@@ -1506,7 +1689,9 @@ def _urgency(card: dict) -> tuple:
 # nothing is a genuine standalone decision (a budget, a retirement review) and is presented as
 # its own card, keyed on its requirement.
 OWNER_ACTION_GATE_ALIASES: dict[str, str] = {
-    "model_credits": "model_provider",
+    # W4-B2GATES: credits are what a vision call needs, and image_vision is the gate with
+    # real rows (14) behind it; model_provider no longer parks any (see its tuple).
+    "model_credits": "image_vision",
     "reauthorise_transactions_r": "transactions_r",
     "canonical_model_selection": "canonical_model",
     "canonical_model_approval": "canonical_model",
@@ -1618,6 +1803,8 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
                 "how_it_is_checked": gate.how})
             continue
         if kind == closure.DATA_GATED:
+            parked = sorted(set(parked) | {rid for rid, k in DATA_GATE_FOR.items()
+                                           if k == gate.key})
             data_wait.append({"gate": gate.key, "what": gate.what, "kind": kind,
                               "unblocks": parked, "how_it_is_checked": gate.how})
             continue

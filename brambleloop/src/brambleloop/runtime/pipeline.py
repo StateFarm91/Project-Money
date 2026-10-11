@@ -184,6 +184,22 @@ def _seed_for(slug: str) -> ConceptSeed | None:
     return next((s for s in POOL if s.slug == slug), None)
 
 
+def product_seed(slug: str) -> ConceptSeed | None:
+    """The radar concept a PRODUCT slug was scored as: its own, or its retired alias (D-W5-7).
+
+    For readers keyed on a certified product (teardown class, benchmark challenge, storefront
+    strength). `_seed_for` stays exact for the drafting path, where a seed decides whether a
+    payload is a new concept for the pre-engineering gate.
+    """
+    seed = _seed_for(slug)
+    if seed is None:
+        from ..products import launch0 as l0
+
+        alias = l0.radar_concept_for(slug)
+        seed = _seed_for(alias) if alias else None
+    return seed
+
+
 # ---- job handlers --------------------------------------------------------
 
 
@@ -433,6 +449,23 @@ ENGINEERED: dict[str, str] = {
     "housewarming-key-basket": "brambleloop.products.moment_candidates:housewarming_key_basket",
     "spring-garden-kneeler": "brambleloop.products.moment_candidates:spring_garden_kneeler",
 }
+# W4-PRODUCT: the Nordic Forest baby size is a catalogue-floor PROPOSAL product under its own
+# size slug (the throw stays the concept slug above). It is registered only once the owner
+# approves raising the Launch-0 cap (`products.launch0.CATALOGUE_FLOOR_APPROVED`); until then
+# `products.launch0.cir_for("nordic_forest_baby")` builds it for measurement.
+PROPOSED_ENGINEERED: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "launch0:nordic_forest_baby",
+}
+
+
+def _merge_approved_proposal() -> None:
+    from ..products.launch0 import CATALOGUE_FLOOR_APPROVED
+
+    if CATALOGUE_FLOOR_APPROVED:
+        ENGINEERED.update(PROPOSED_ENGINEERED)
+
+
+_merge_approved_proposal()
 
 
 def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
@@ -899,7 +932,7 @@ def handle_certify(ctx: JobContext) -> dict:
         # the reason audited, before anything downstream is built for it.
         from ..teardown import lab as teardown_lab
 
-        seed = _seed_for(cir.slug)
+        seed = product_seed(cir.slug)
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))

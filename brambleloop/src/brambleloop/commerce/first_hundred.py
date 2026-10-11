@@ -194,10 +194,18 @@ def _post_purchase(db, listings) -> tuple[bool, str, dict]:
         return False, "the support concierge cannot be loaded, so nobody answers", {}
     if not listings:
         return False, "no listing copy exists to tell a buyer how to ask for help", {}
-    silent = [f"{slug}@{v}" for slug, v in listings
-              if any(m["disclosure"] == "support" for m in
-                     listing_disclosure_finding(db, slug=slug, version=v).get("missing")
-                     or [{"disclosure": "support"}])]
+    def _silent(slug: str, v: str) -> bool:
+        # An unchecked listing (no copy) is silent. A checked one is silent only when the
+        # check lists "support" as missing: an EMPTY missing list means every owed
+        # disclosure is present. (W4-VISUALSEO: `missing or [support]` read [] as silent, so
+        # a listing with complete disclosures always failed this priority.)
+        f = listing_disclosure_finding(db, slug=slug, version=v)
+        missing = f.get("missing") if f.get("checked") else None
+        if not isinstance(missing, list):
+            return True
+        return any(m.get("disclosure") == "support" for m in missing)
+
+    silent = [f"{slug}@{v}" for slug, v in listings if _silent(slug, v)]
     if silent:
         return False, (f"{len(silent)} listing(s) do not say how to ask a question, first "
                        f"{silent[0]}"), {"silent": silent[:5]}
