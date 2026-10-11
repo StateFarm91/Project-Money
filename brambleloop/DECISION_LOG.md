@@ -1756,7 +1756,9 @@ is never resurrected in a future week. D-FB-20 (strongest model only) is otherwi
 2. Deterministic wins (prompt `laura.ceo_briefing@2`, after two independent reviews): the model only SELECTS and
    ORDERS evidence ids per section and may add one closed-vocabulary note (no numbers, events or action verbs); code
    renders every factual line from the records' own statements. Decision ranking and card text (owner queue),
-   VERIFIED/UNKNOWN labels and the authority boundary are code-rendered. Any deviation → that section falls back to
-   the deterministic briefing, which is the complete fallback.
+   VERIFIED/UNKNOWN labels, the authority boundary and each section's mandatory records (halting incidents, Etsy
+   state, SHADOW, UNKNOWN headline facts) are code-rendered first; notes are neutral connectives only; record text is
+   shown as quoted data with instruction-like sentences removed. Any deviation → that section falls back to the
+   deterministic briefing, which is the complete fallback.
 3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
    `research/final_build/w4/LAURA1_FIX.md`.
