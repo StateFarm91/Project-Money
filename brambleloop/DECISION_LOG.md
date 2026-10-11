@@ -1774,3 +1774,16 @@ the pre-engineering gate. Renaming the radar keys remains a merchandising decisi
    deviation → that section falls back to the deterministic briefing, which is the complete fallback.
 3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
    `research/final_build/w4/LAURA1_FIX.md`.
+
+## D-W4-LAURA1-BUDGET (2026-10-11) — Owner approves Laura's model budget: CA$0.50/day
+**Owner decision, relayed by the W4 coordinator on 2026-10-11:** Laura's production model budget is approved at
+**CA$0.50 per day**, subject to the existing monthly ceiling and the approved model-selection policy.
+1. Implemented through the existing registry mechanism only: `agents.registry.DEFAULT_AGENTS["laura"]
+   .daily_cost_ceiling_cad = 0.50` (reconciled into the agent row by `Registry.seed_defaults` on deploy). Authority is
+   unchanged (GREEN; publishes, activates and messages nothing); model selection unchanged (`laura.ceo_briefing` on the
+   declared standard tier, no stronger fallback); the monthly ceiling and its configuration are untouched.
+2. Enforcement is the existing pre-call path: `failover.decide` (month + agent day per model) then
+   `anthropic.check_budget_cad` (month, provider, agent day, reservation — atomic, before the request), billing through
+   `ModelGateway._record`, every refusal audited. At the cap Laura shows the deterministic briefing and says why.
+   Compatible with W4-FINHEALTH (a declared CA$0 agent is refused pre-call): `coo` and `learn` stay CA$0.
+3. Evidence: `tests/test_w4_laura1_budget.py`; cost basis in `research/final_build/w4/LAURA1_FIX.md` §5.

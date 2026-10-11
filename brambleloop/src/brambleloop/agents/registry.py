@@ -767,16 +767,22 @@ DECLARED_IO["coo"] = {"inputs": ["jobs", "company_memory", "owner_actions", "gat
 # ---------------------------------------------------------------------------
 # Wave 3 lane D (D-FB-13): Laura, Founder/CEO. Her only job type is her executive tick; she
 # delegates through the COO's mission boundary (`autonomy.orchestrator._enqueue_mission`), so
-# every job she causes runs under the department agent that already holds it. GREEN,
-# zero-ceiling, and structurally forbidden every protected or truth-changing job type -- she
-# cannot expand her own authority (the identity record is owner-controlled).
+# every job she causes runs under the department agent that already holds it. GREEN, a
+# CA$0.50 daily model ceiling (owner, 2026-10-11), and structurally forbidden every protected
+# or truth-changing job type -- she cannot expand her own authority (the identity record is owner-controlled).
 DEFAULT_AGENTS.append(dict(
     name="laura",
     description=("Laura, Founder/CEO (AI person, D-FB-13): observes company state, sets "
                  "priorities, delegates through the COO, reviews and challenges results. "
                  "Publishes, activates, spends and messages nothing."),
     allowed_job_types=["laura.executive_tick"],
-    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+    # Owner decision 2026-10-11 (DECISION_LOG D-W4-LAURA1-BUDGET): CA$0.50/day of model
+    # budget for Laura's CEO-briefing synthesis (`gateway.laura_briefing`, purpose
+    # `laura.ceo_briefing@3`), inside the unchanged monthly ceiling and the approved
+    # model-selection policy. Checked and reserved before every call; at the cap the call is
+    # refused and the deterministic briefing answers. Authority is unchanged: GREEN, and she
+    # still publishes, activates and messages nothing.
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.50))
 FORBIDDEN_COMBINATIONS["laura"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
     "finance.accounting.cycle", "finance.reconcile", "ops.publication_authority",
     "ops.activation_authority"}
@@ -793,7 +799,8 @@ DECLARED_IO["laura"] = {"inputs": ["autonomy.status", "company_memory", "owner_a
 # W4-FINHEALTH: what a CA$0 daily ceiling means, said once.
 #
 # `/api/verify`'s `every_agent_has_a_cost_ceiling` failed in production on `learn`, `coo` and
-# `laura` -- the three agents DEFAULT_AGENTS deliberately declares at CA$0 ("publishes,
+# `laura` -- the agents DEFAULT_AGENTS then declared at CA$0 (`laura` has CA$0.50 since the
+# owner's 2026-10-11 decision) ("publishes,
 # activates, spends and messages nothing"; `autonomy.charters`: "CA$0 ceiling"). Those are not
 # missing ceilings. A ceiling of CA$0 is a permission of zero: `gateway.anthropic.check_budget`
 # refuses any call with a positive estimate before it is made, and `ModelGateway` refuses again

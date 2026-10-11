@@ -136,10 +136,13 @@ def test_declared_zero_ceilings_are_no_spend_not_missing():
     db = _db()
     declared_zero = sorted(d["name"] for d in DEFAULT_AGENTS
                            if float(d.get("daily_cost_ceiling_cad", 1)) == 0.0)
-    assert declared_zero == ["coo", "laura", "learn"], declared_zero
+    # `laura` left this set on the owner's 2026-10-11 decision (CA$0.50/day,
+    # DECISION_LOG D-W4-LAURA1-BUDGET); the no-spend semantics are unchanged for the rest.
+    assert declared_zero == ["coo", "learn"], declared_zero
+    assert declared_daily_ceiling("laura") == 0.50
     out = ceiling_audit(_seeded_rows(db))
     assert out["ok"] is True, out
-    assert out["declared_no_spend"] == ["coo", "laura", "learn"]
+    assert out["declared_no_spend"] == ["coo", "learn"]
     assert out["misconfigured"] == []
 
 
@@ -162,13 +165,13 @@ def test_a_no_spend_agent_that_spent_fails_and_shows_as_over():
 
     db = _db()
     with db.session() as s:
-        s.add(CostEntry(agent="laura", amount_cad=0.01, kind="llm", detail={}))
+        s.add(CostEntry(agent="coo", amount_cad=0.01, kind="llm", detail={}))
     today = spend_report.per_agent_today(db)
-    assert "laura" in [r["agent"] for r in today["over"]], today["over"]
+    assert "coo" in [r["agent"] for r in today["over"]], today["over"]
     out = ceiling_audit(_seeded_rows(db),
                         {r["agent"]: r["spent_today_cad"] for r in today["agents"]})
     assert out["ok"] is False
-    assert out["no_spend_agents_that_spent_today"][0]["agent"] == "laura"
+    assert out["no_spend_agents_that_spent_today"][0]["agent"] == "coo"
 
 
 def test_zero_ceiling_is_refused_before_the_call():
@@ -177,7 +180,7 @@ def test_zero_ceiling_is_refused_before_the_call():
     from brambleloop.gateway import anthropic as gw
 
     db = _db()
-    for name in ("learn", "coo", "laura"):
+    for name in ("learn", "coo"):
         permission = gw.agent_daily_ceiling(db, name)
         assert permission == {"agent": name, "daily_ceiling_cad": 0.0,
                               "spent_today_cad": 0.0}, permission
@@ -228,7 +231,7 @@ def test_generic_gateway_path_never_calls_the_provider_for_a_zero_ceiling_agent(
 
     db = _db()
     reg = Registry(db)
-    for name in ("learn", "coo", "laura"):
+    for name in ("learn", "coo"):
         stub = _CountingProvider()
         g = ModelGateway([stub], registry=reg)
         try:
@@ -244,7 +247,7 @@ def test_generic_gateway_path_never_calls_the_provider_for_a_zero_ceiling_agent(
         assert s.scalars(select(SpendReservation)).all() == []
         refused = [a.detail for a in s.scalars(select(AuditLog))
                    if a.action == spend_report.REFUSED_ACTION]
-    assert sorted(r["agent"] for r in refused) == ["coo", "laura", "learn"], refused
+    assert sorted(r["agent"] for r in refused) == ["coo", "learn"], refused
     assert {r["which"] for r in refused} == {"agent_daily_ceiling"}, refused
     # A positive-ceiling agent on the same path is unaffected.
     stub = _CountingProvider()

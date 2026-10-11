@@ -175,6 +175,7 @@ def test_owner_question_parses_into_six_components_in_order():
 
 def test_fallback_when_laura_has_no_daily_budget_answers_everything_and_spends_nothing():
     calls: list = []
+    _set_laura_ceiling(0.0)   # the CA$0.00 path (production before D-W4-LAURA1-BUDGET)
     with DB.session() as s:
         assert s.scalar(select(Agent.daily_cost_ceiling_cad).where(Agent.name == "laura")) == 0
     before = len(_ledger())

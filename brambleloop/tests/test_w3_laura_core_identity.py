@@ -261,7 +261,9 @@ def test_laura_agent_is_green_zero_ceiling_and_structurally_bounded():
     assert len(a) == 1, a
     a = a[0]
     assert a["allowed_job_types"] == ["laura.executive_tick"]
-    assert a["daily_cost_ceiling_cad"] == 0.0 and str(a["authority"].value) == "green"
+    # Owner decision 2026-10-11 (D-W4-LAURA1-BUDGET): CA$0.50/day of model budget; still
+    # GREEN, still structurally bounded below.
+    assert a["daily_cost_ceiling_cad"] == 0.50 and str(a["authority"].value) == "green"
     forbidden = FORBIDDEN_COMBINATIONS["laura"]
     assert charters.PROTECTED_JOB_TYPES <= forbidden
     assert {"gate.certify", "cir.draft", "cir.revise"} <= forbidden
