@@ -18,11 +18,11 @@ Pipeline, deterministic first:
                top N, never re-ranked by a model
   proposals    follow-on work only through `followon.proposal` (GREEN missions inside the
                department's charter, or protected work as an owner decision -- never an act)
-  synthesis    the model only SELECTS and ORDERS evidence ids per section (plus one
-               closed-vocabulary note) through `gateway.laura_briefing` (Laura's own daily
-               permission, month ceiling, check-and-reserve); code renders every factual line
-               from the records' own statements, and any deviation sends that section back to
-               the deterministic text (`validate`, `model_lines`)
+  synthesis    the model only SELECTS and ORDERS optional evidence ids per section, through
+               `gateway.laura_briefing` (Laura's own daily permission, month ceiling,
+               check-and-reserve); code renders every line -- mandatory records first, each
+               record's statement verbatim as quoted data -- and any deviation sends that
+               section back to the deterministic text (`validate`, `model_lines`)
   fallback     when the model is unavailable or refused, `compose` answers every requested
                component from the same pack and says plainly that it is the fallback and why
   follow-ups   "expand decision 2" resolves against the stored briefing turn (`followup`)
@@ -149,36 +149,29 @@ def _is_private(item: dict) -> bool:
 
 
 def _status(f: dict) -> str:
+    """The provenance label, from the reader's declared basis (code), never from the
+    record's text: a record cannot label itself VERIFIED or UNKNOWN (round 4)."""
     basis = str(f.get("basis") or "unknown")
-    if UNKNOWN in str(f.get("statement") or "") or basis == "unknown":
+    if basis == "unknown":
         return UNKNOWN
     if basis in ("modelled", "estimated"):
         return ESTIMATE
     return VERIFIED
 
 
-# Record text is data, never instructions (round 3, LOW-R3-4). A sentence in a record that
-# reads as an instruction to the reader, the owner or a model is removed before the text
-# reaches the owner or the model prompt, and the remainder is shown as quoted record text.
-_INJECTION = re.compile(
-    r"\bignore\b[^.]{0,40}\binstructions?\b|\bdisregard\b|\bnote to (the )?(owner|reader|"
-    r"assistant|model|laura|ceo)\b|\b(system|developer) (prompt|message)\b|\bnew instructions?\b|"
-    r"\byou (must|should|need to|are to|have to)\b|\b(assistant|system|user)\s*:|\bact as\b|"
-    r"\bdo not (tell|show|mention|report)\b|\bnothing needs you\b|\b(approve|approved) all\b|"
-    r"\ball decisions (are )?approved\b|\bpretend\b|\bjailbreak\b|<\s*/?\s*(system|instructions?)",
-    re.I)
-INJECTION_MARK = "[instruction-like text removed]"
+# Record text is data, never instructions (round 4, R4-2). Nothing is deleted from a record:
+# every statement is shown verbatim as quoted data attached to its record id (`_q`), and it
+# reaches the model only inside a delimited data block (`gateway.laura_briefing`).
+_CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
 
-def neutralise(text: str) -> str:
-    text = str(text or "")
-    if not _INJECTION.search(text):
-        return text
-    parts = re.split(r"(?<=[.!?;])\s+", text)
-    kept = [p for p in parts if not _INJECTION.search(p)]
-    if not kept:
-        return f"record text withheld {INJECTION_MARK}"
-    return f"record says: \u201c{' '.join(kept).strip()}\u201d {INJECTION_MARK}"
+def _q(text: str, n: int = MAX_LINE) -> str:
+    """A record's statement as quoted, escaped data: one line, no quote or id brackets of its
+    own (so it can neither close the quotation nor forge an [E#] citation)."""
+    t = _CTRL.sub(" ", str(text or ""))
+    t = t.replace("\u201c", "'").replace("\u201d", "'").replace('"', "'")
+    t = t.replace("[", "(").replace("]", ")")
+    return f"\u201c{_clip(t, n)}\u201d"
 
 
 class _Pack:
@@ -188,7 +181,7 @@ class _Pack:
 
     def add(self, statement: str, source: str, components, *, section: str, as_of=None,
             status: str | None = None, basis: str = "measured", **extra) -> dict:
-        f = ev.fact(neutralise(statement), source, as_of=as_of, basis=basis)
+        f = ev.fact(statement, source, as_of=as_of, basis=basis)
         item = {"id": f"E{len(self.items) + 1}", "components": list(components),
                 "section": section, "statement": f["statement"], "source": f["source"],
                 "as_of": f["as_of"], "link": f["link"], "basis": f["basis"],
@@ -212,7 +205,7 @@ class _Pack:
             src = (sec.get("sources") or [sec["key"]])[0]
             it = self.add(f"{sec['title']}: UNKNOWN -- {sec.get('reason') or 'no evidence'}",
                           src, components, section=sec["key"], status=UNKNOWN,
-                          basis="unknown")
+                          basis="unknown", missing=True)
             if it:
                 out.append(it)
         return out
@@ -262,6 +255,9 @@ _AUDIT_NOISE = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)*\.(refused|denied|read|vie
                           re.I)
 
 
+_SEV = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+
+
 _ETSY_WORDS = re.compile(r"etsy|listing|publication|publish|transactions_r|shop|marketplace|"
                          r"order|receipt", re.I)
 
@@ -287,16 +283,30 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
     p.section(store, ["blockers"], limit=6,
               keep=lambda f: not re.search(r": (READY|OK|PASS)\b", f["statement"]))
     try:
-        inc = readers.incidents(db, limit=10)
-        for i in inc.get("items") or []:
-            if i.get("halts_publication") or i.get("severity") in ("P0", "P1"):
-                p.add(f"open {i['severity']} incident"
-                      + (" (halts publication)" if i.get("halts_publication") else "")
-                      + f": {neutralise(i['summary'][:300])[:200]}", i["source"], ["blockers"],
-                      section="incidents", as_of=i.get("at"))
+        # Round 4 (R4-1): EVERY open P0/P1 and EVERY publication-halting incident, ordered
+        # severity -> halting -> most recent; lower-severity others are counted, never dropped
+        # silently.
+        inc = readers.incidents(db, limit=500)
+        rows = [i for i in inc.get("items") or []
+                if i.get("halts_publication") or i.get("severity") in ("P0", "P1")]
+        rows.sort(key=lambda i: str(i.get("at") or ""), reverse=True)
+        rows.sort(key=lambda i: (_SEV.get(i.get("severity"), 9),
+                                 not i.get("halts_publication")))
+        for i in rows:
+            p.add(f"open {i['severity']} incident"
+                  + (" (halts publication)" if i.get("halts_publication") else "")
+                  + f": {i['summary'][:300]}", i["source"], ["blockers"],
+                  section="incidents", as_of=i.get("at"),
+                  halts=bool(i.get("halts_publication")))
+        others = int(inc.get("open_total") or len(inc.get("items") or [])) - len(rows)
+        if others > 0:
+            p.add(f"+{others} more open lower-severity incident(s), not shown here; see the "
+                  f"incidents view", "incidents (open)", ["blockers"],
+                  section="incidents_more")
     except Exception as exc:  # noqa: BLE001
         p.add(f"Incidents: UNKNOWN -- unreadable ({type(exc).__name__})", "incidents",
-              ["blockers"], section="incidents", status=UNKNOWN, basis="unknown")
+              ["blockers"], section="incidents", status=UNKNOWN, basis="unknown",
+              missing=True)
     for it in dep_items:
         if "blocked by" in it["statement"] and re.search(r"store|commerce|finance|support",
                                                           it["statement"], re.I):
@@ -321,7 +331,8 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
               section="spend")
     except Exception as exc:  # noqa: BLE001
         p.add(f"Spend: UNKNOWN -- unreadable ({type(exc).__name__})", "cost_entries",
-              ["facts_unknowns"], section="spend", status=UNKNOWN, basis="unknown")
+              ["facts_unknowns"], section="spend", status=UNKNOWN, basis="unknown",
+              missing=True)
     # 4. decisions -- the queue's own ranking, top N
     cards, why = _decision_candidates(db)
     decisions: list[dict] = []
@@ -342,7 +353,8 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
                 it["components"].append("blockers")
     if why:
         p.add(f"Owner queue: UNKNOWN -- {why}", "build2.executor.approval_inbox",
-              ["decisions"], section="owner_queue", status=UNKNOWN, basis="unknown")
+              ["decisions"], section="owner_queue", status=UNKNOWN, basis="unknown",
+              missing=True)
     return {"items": p.items, "decisions": decisions, "open_decisions": len(cards),
             "sections": p.sections, "window_hours": window_hours,
             "products": (prod.get("items") or []), "store_status": store.get("status"),
@@ -405,7 +417,15 @@ def _clip(text: str, n: int = MAX_LINE) -> str:
 
 
 def _line(text: str, refs: list[str]) -> str:
+    """A line Laura's code wrote (a summary, a proposal, a boundary), with its refs."""
     return f"- {_clip(text)} [{', '.join(refs)}]"
+
+
+def _rec(item: dict, n: int = MAX_LINE) -> str:
+    """A record line: the record's statement verbatim as quoted data, its id, and an
+    UNKNOWN label from code when the record's basis is unknown."""
+    label = "UNKNOWN: " if item["status"] == UNKNOWN else ""
+    return f"- {label}{_q(item['statement'], n)} [{item['id']}]"
 
 
 def _for(pack: dict, comp: str) -> list[dict]:
@@ -421,22 +441,22 @@ def mandatory(pack: dict, comp: str) -> list[dict]:
     HIGH-R3-1): the model may add and order optional records, never omit these."""
     items = _for(pack, comp)
     if comp == "blockers":
-        inc = [i for i in items if i["section"] == "incidents"][:3]
+        inc = [i for i in items if i["section"] in ("incidents", "incidents_more")]  # never capped
         etsy = [i for i in items if i["section"] == "products" and "are on Etsy" in
                 i["statement"]][:1]
-        shadow = [i for i in items if i["section"] == "phase" and "SHADOW" in i["statement"]]
+        shadow = [i for i in items if i["section"] == "phase"][:1]
         rev = [i for i in items if i["section"] == "money" and i["status"] == UNKNOWN
                and i["statement"].startswith("Revenue")][:1]
-        unk = [i for i in items if i["status"] == UNKNOWN and "UNKNOWN --" in i["statement"]
-               and i["section"] in ("products", "store", "incidents")][:2]
+        unk = [i for i in items if i.get("missing")
+               and i["section"] in ("products", "store")][:2]
         return _dedupe(inc + etsy + unk + shadow + rev)
     if comp == "last_window":
         summary = [i for i in items if "job(s) completed and" in i["statement"]][:1]
-        unk = [i for i in items if i["status"] == UNKNOWN and "UNKNOWN --" in i["statement"]]
+        unk = [i for i in items if i.get("missing")]
         return _dedupe(summary + unk)
     if comp == "departments":
         hot = [i for i in items if re.search(r": (BLOCKED|DEGRADED)\b", i["statement"][:80])]
-        unk = [i for i in items if "UNKNOWN --" in i["statement"]]
+        unk = [i for i in items if i.get("missing")]
         return _dedupe(hot[:3] + unk[:2])
     return []
 
@@ -482,32 +502,51 @@ _UNKNOWN_ORDER = ("money", "spend", "owner_queue", "incidents", "overnight", "wo
                   "executive", "store", "products", "departments")
 
 
-def _deterministic_lines(pack: dict, comp: str, props: list[dict], n: int) -> list[str]:
+# Length budget (round 4): mandatory records are never cut. When the answer would exceed
+# MAX_ANSWER_CHARS / MAX_LINES, optional lines are reduced level by level instead of the old
+# tail-trim (which could cut whole sections).
+MAX_LINES = 60
+CAP_LEVELS = (
+    {"last": 5, "dept": 6, "ver": 4, "unk": 4, "missions": 4, "extras": 5, "line": 170},
+    {"last": 3, "dept": 3, "ver": 3, "unk": 3, "missions": 2, "extras": 3, "line": 150},
+    {"last": 1, "dept": 1, "ver": 2, "unk": 2, "missions": 1, "extras": 1, "line": 120},
+    {"last": 0, "dept": 0, "ver": 1, "unk": 1, "missions": 1, "extras": 0, "line": 100},
+)
+
+
+def _deterministic_lines(pack: dict, comp: str, props: list[dict], n: int,
+                         cap: dict | None = None) -> list[str]:
+    cap = cap or CAP_LEVELS[0]
+    w = cap["line"]
     if comp == "last_window":
         items = _for(pack, "last_window")
-        return [_line(i["statement"] if i["status"] != UNKNOWN else
-                      i["statement"], [i["id"]]) for i in items[:MAX_ITEMS]]
+        must = mandatory(pack, "last_window")
+        rest = [i for i in items if i not in must]
+        return [_rec(i, 400) for i in must] + [_rec(i, w) for i in rest[:cap["last"]]]
     if comp == "departments":
         items = _for(pack, "departments")
         busy = [i for i in items if not re.search(r": UNKNOWN, 0 job", i["statement"])]
         idle = [i for i in items if i not in busy]
-        lines = [_line(i["statement"], [i["id"]]) for i in busy[:6]]
+        must = mandatory(pack, "departments")
+        lines = [_rec(i, 400) for i in must] + [
+            _rec(i, w) for i in [b for b in busy if b not in must][:cap["dept"]]]
         if idle:
-            names = [re.split(r":", i["statement"])[0] for i in idle]
-            lines.append(_line(f"No recorded activity in the window (status UNKNOWN): "
-                               f"{', '.join(names)}", [i["id"] for i in idle][:8]))
+            names = [_q(re.split(r":", i["statement"])[0], 40) for i in idle]
+            lines.append(f"- No recorded activity in the window (status UNKNOWN): "
+                         f"{', '.join(names)} [{', '.join(i['id'] for i in idle[:8])}]")
         return lines
     if comp == "blockers":
-        b = blockers(pack)
+        must = mandatory(pack, "blockers")
+        b = [i for i in blockers(pack) if i not in must][:cap["extras"]]
         etsy_dec = [d for d in pack["decisions"] if d["etsy"]]
-        lines = [_line(i["statement"], [i["id"]]) for i in b]
+        lines = [_rec(i, 400) for i in must] + [_rec(i, w) for i in b]
         if etsy_dec:
             lines.append(_line("Also waiting on you (see decisions): " + "; ".join(
                 f"#{d['rank']}" for d in etsy_dec), [d["evidence_id"] for d in etsy_dec]))
         return lines or ["- UNKNOWN: no blocker evidence could be read"]
     if comp == "decisions":
         decs = pack["decisions"][:n]
-        lines = [f"{d['rank']}. {_clip(d['statement'])} [{d['evidence_id']}]" for d in decs]
+        lines = [f"{d['rank']}. {_q(d['statement'])} [{d['evidence_id']}]" for d in decs]
         if len(decs) < n:
             lines.append(f"- Only {len(decs)} owner decision(s) are open in the queue; I won't "
                          f"invent the rest.")
@@ -526,24 +565,24 @@ def _deterministic_lines(pack: dict, comp: str, props: list[dict], n: int) -> li
                                 if i["section"] in _UNKNOWN_ORDER else len(_UNKNOWN_ORDER)))
         lines = [f"Verified ({len(ver_all)} records, each with a source and timestamp); "
                  f"the most material:"]
-        lines += [_line(_clip(i["statement"], 140), [i["id"]]) for i in ver[:4]]
+        lines += [_rec(i, min(w, 140)) for i in ver[:cap["ver"]]]
         lines.append(f"Unknown ({len(unk)} records; UNKNOWN is never shown as zero); "
                      f"the most material:")
-        lines += [_line(_clip(i["statement"] if UNKNOWN in i["statement"] else
-                              f"UNKNOWN: {i['statement']}", 140), [i["id"]]) for i in unk[:4]]
+        lines += [_rec(i, min(w, 140)) for i in unk[:cap["unk"]]]
         if est:
             lines.append(_line(f"{len(est)} record(s) are estimates or models, not "
                                f"measurements", [i["id"] for i in est][:5]))
         return lines
     if comp == "autonomous":
         lines = []
-        for prop in [x for x in props if x["kind"] == "mission"][:4]:
+        for prop in [x for x in props if x["kind"] == "mission"][:cap["missions"]]:
             lines.append(_line(f"{prop['title']} ({prop['department']}): {prop['why']}",
                                [prop["pid"]]))
         wip = [i for i in _for(pack, "autonomous") if i["status"] != UNKNOWN]
         if wip:
-            lines.append(_line("Already running without you: " + "; ".join(
-                i["statement"] for i in wip[:3]), [i["id"] for i in wip[:3]]))
+            lines.append("- Already running without you: " + "; ".join(
+                _q(i["statement"], 90) for i in wip[:3])
+                + f" [{', '.join(i['id'] for i in wip[:3])}]")
         if lines:
             lines.append("  All internal GREEN work inside each department's charter: confirm "
                          "a step and it is queued. No publishing, spending, pricing or customer "
@@ -562,72 +601,44 @@ def _header(window: int, as_of: str) -> str:
 
 
 def compose(pack: dict, parsed: dict, props: list[dict], *, mode_line: str,
-            lines_by_comp: dict[str, list[str]] | None = None) -> str:
-    """The sectioned briefing, in the order asked. `lines_by_comp` (validated model lines)
-    overrides the deterministic lines component by component."""
+            render=None) -> str:
+    """The sectioned briefing, in the order asked. `render(comp, cap)` gives a section's
+    lines (validated model selection or deterministic). Optional lines shrink level by level
+    to fit; mandatory records are never cut and nothing is tail-trimmed."""
     n, window = parsed["decisions_n"], parsed["window_hours"]
-    parts = [_header(window, pack["as_of"]), mode_line]
-    for k, comp in enumerate(parsed["components"], 1):
-        title = TITLES[comp].format(h=window, n=n)
-        lines = (lines_by_comp or {}).get(comp) or _deterministic_lines(pack, comp, props, n)
-        parts.append(f"\n{k}. {title}\n" + "\n".join(lines))
-    parts.append("\nAsk \"expand decision 2\" (or blocker / step N) for the detail behind any "
-                 "line; every [E#] is a record you can open.")
-    text = "\n".join(parts)
-    if len(text) > MAX_ANSWER_CHARS:
-        text = text[: MAX_ANSWER_CHARS - 40].rstrip() + "\n… (trimmed for length)"
+
+    def det(comp, cap):
+        return _deterministic_lines(pack, comp, props, n, cap)
+
+    render = render or det
+    text = ""
+    for cap in CAP_LEVELS:
+        parts = [_header(window, pack["as_of"]), mode_line]
+        for k, comp in enumerate(parsed["components"], 1):
+            title = TITLES[comp].format(h=window, n=n)
+            parts.append(f"\n{k}. {title}\n" + "\n".join(render(comp, cap)))
+        parts.append("\nAsk \"expand decision 2\" (or blocker / step N) for the detail behind "
+                     "any line; every [E#] is a record you can open, and quoted text is that "
+                     "record's own words.")
+        text = "\n".join(parts)
+        if len(text) <= MAX_ANSWER_CHARS and len(text.splitlines()) <= MAX_LINES:
+            break
     return text
 
 
-# ---- the model's contract: select and order, never assert ---------------------------------
+# ---- the model's contract: select and order optional records, nothing else ---------------
 #
-# Round-2 review (INDEPENDENT_REVIEW_LAURA1.md, 5dcb6c0): validating free prose with keyword
-# rules keeps losing to rephrasing. So the model no longer writes claims at all. Per section it
-# may only
-#   * SELECT and ORDER evidence ids (E#, or P# for the autonomy section) that belong to that
-#     section, and
-#   * add ONE short note built only from `NOTE_VOCABULARY` -- a closed list of connective and
-#     framing words with no numbers, no events (sale, listing, launch, order...) and no action
-#     verbs (publish, price, spend, contact...).
-# Every factual line the owner sees is rendered by code from the selected record's own
-# statement text. The decision section is always the owner queue's cards, verbatim, in queue
-# order; the VERIFIED / UNKNOWN listing and the authority boundary are always code-rendered.
-# Anything else in a section -- an unknown or foreign id, free text, a word outside the
-# vocabulary, a digit -- and that whole section falls back to the deterministic text.
+# Reviews 2-4 (INDEPENDENT_REVIEW_LAURA1.md): free prose kept beating keyword validation, and
+# even a closed-vocabulary note could frame or dismiss what followed. So the model writes no
+# text at all. Per section it may only SELECT and ORDER optional evidence ids (E#, or P# GREEN
+# missions for the autonomy section) that belong to that section. Code renders every line:
+# the section's mandatory records first (`mandatory`), then the model's optional picks, each as
+# the record's own statement in quotes with its id. Decisions (owner queue order) and the
+# VERIFIED/UNKNOWN listing are wholly code-rendered. Any other field (a note, free text), an
+# unknown, foreign or repeated id, or a repeated section, and that whole section falls back to
+# the deterministic text.
 
-NOTE_MAX_WORDS = 20
-NOTE_MAX_CHARS = 140
-# Neutral connectives only (round 3): no word here can assert, deny or rank status --
-# no "not", "verified", "unknown", "open", "all", "priority", "worth", "attention", "most",
-# "key", "first"... A note can frame the lines below it; it can never characterise them.
-NOTE_VOCABULARY = frozenset("""
-a also an and are as at below briefly by each for from here in is it its line lines next of
-on our overall picture plainly read record records short so source sources start summary the
-then these this those to view what where your
-""".split())
-# Sections whose content is wholly code-rendered take no model note at all.
-NO_NOTE_SECTIONS = ("decisions", "facts_unknowns")
-
-
-def note_problem(note) -> str | None:
-    """Why a model note is not allowed, or None. Closed vocabulary; no digits."""
-    if note is None or note == "":
-        return None
-    if not isinstance(note, str):
-        return "note is not text"
-    if len(note) > NOTE_MAX_CHARS:
-        return f"note longer than {NOTE_MAX_CHARS} characters"
-    if re.search(r"\d", note):
-        return "note contains a number"
-    if re.search(r"[^A-Za-z ,.;:'\-]", note):
-        return "note contains characters outside plain words"
-    words = re.findall(r"[a-z']+", note.lower())
-    if len(words) > NOTE_MAX_WORDS:
-        return f"note longer than {NOTE_MAX_WORDS} words"
-    outside = sorted({w for w in words if w not in NOTE_VOCABULARY})
-    if outside:
-        return f"note uses words outside the closed vocabulary: {outside[:5]}"
-    return None
+CONTRACT_FIELDS = frozenset({"component", "evidence"})
 
 
 def _allowed_ids(comp: str, pack: dict, props: list[dict], n: int) -> set[str]:
@@ -641,10 +652,8 @@ def _allowed_ids(comp: str, pack: dict, props: list[dict], n: int) -> set[str]:
 
 def validate(data, pack: dict, parsed: dict, props: list[dict]
              ) -> tuple[dict[str, dict], list[dict]]:
-    """({component: {"ids": [...], "note": str}}, rejected [{component, reason}]).
-
-    Section-level and deterministic: a section is accepted only if it is exactly
-    {component, evidence: [ids allowed for that section], note: closed-vocabulary text}."""
+    """({component: {"ids": [...]}}, rejected [{component, reason}]). Deterministic,
+    section-level: a section is accepted only if it is exactly {component, evidence}."""
     accepted: dict[str, dict] = {}
     rejected: list[dict] = []
     sections = data.get("sections") if isinstance(data, dict) else None
@@ -665,11 +674,11 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
             poisoned.add(comp)
             continue
         seen_comps.add(comp)
-        extra = sorted(set(sec) - {"component", "evidence", "note"})
+        extra = sorted(set(sec) - CONTRACT_FIELDS)
         if extra:
             rejected.append({"component": comp,
                              "reason": f"fields outside the contract: {extra} (the model may "
-                                       f"only select evidence ids and add one note)"})
+                                       f"only select and order evidence ids)"})
             continue
         ids = sec.get("evidence")
         if not isinstance(ids, list) or not ids or not all(isinstance(i, str) for i in ids):
@@ -685,47 +694,42 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
         if len(set(ids)) != len(ids):
             rejected.append({"component": comp, "reason": "an id is selected twice"})
             continue
-        why = note_problem(sec.get("note"))
-        if not why and comp in NO_NOTE_SECTIONS and (sec.get("note") or "").strip():
-            why = f"{comp} is wholly code-rendered and takes no model note"
-        if why:
-            rejected.append({"component": comp, "reason": why})
-            continue
         if comp in poisoned:
             continue
-        accepted[comp] = {"ids": ids[:MAX_ITEMS + 3], "note": (sec.get("note") or "").strip()}
+        accepted[comp] = {"ids": ids[:MAX_ITEMS + 3]}
     for comp in poisoned:
         accepted.pop(comp, None)
     return accepted, rejected
 
 
 def model_lines(accepted: dict[str, dict], pack: dict, parsed: dict,
-                props: list[dict] | None = None) -> dict:
-    """Render accepted selections. Every factual line is a record's own statement."""
+                props: list[dict] | None = None, cap: dict | None = None) -> dict:
+    """Render accepted selections: mandatory records first, then the model's optional picks,
+    every line a record's own statement (quoted) or a code-authored line."""
     props = props or []
     by_id = {i["id"]: i for i in pack["items"]}
     pmap = {p["pid"]: p for p in props}
     n = parsed["decisions_n"]
     out: dict[str, list[str]] = {}
     for comp, sel in accepted.items():
-        note = [f"  {sel['note']}"] if sel["note"] else []
+        cap = cap or CAP_LEVELS[0]
         if comp in ("decisions", "facts_unknowns"):
-            # queue order / record status are never the model's: note only
-            out[comp] = note + _deterministic_lines(pack, comp, props, n)
+            out[comp] = _deterministic_lines(pack, comp, props, n, cap)   # never the model's
             continue
         must = mandatory(pack, comp)
-        lines = [_line(m["statement"], [m["id"]]) for m in must]
+        lines = [_rec(m, 400) for m in must]
         extras = [i for i in sel["ids"] if i not in {m["id"] for m in must}]
-        for i in extras[:MAX_ITEMS]:
+        limit = max(1, cap["missions"]) if comp == "autonomous" else cap["extras"] + 1
+        for i in extras[:limit]:
             if i in pmap:
                 p = pmap[i]
                 lines.append(_line(f"{p['title']} ({p['department']}): {p['why']}", [i]))
             else:
-                lines.append(_line(by_id[i]["statement"], [i]))
+                lines.append(_rec(by_id[i], cap["line"]))
         if comp == "autonomous":
-            lines += [x for x in _deterministic_lines(pack, comp, props, n)
+            lines += [x for x in _deterministic_lines(pack, comp, props, n, cap)
                       if "All internal GREEN" in x or "Not mine to do" in x]
-        out[comp] = note + lines
+        out[comp] = lines
     return out
 
 
@@ -752,8 +756,13 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
         accepted, rejected = validate(out["data"], pack, parsed, props)
         lines = model_lines(accepted, pack, parsed, props)
         filled = [c for c in parsed["components"] if not lines.get(c)]
-        mode = ("Written with model synthesis: the model chose and ordered the evidence; "
-                "every factual line is the record's own text"
+
+        def render(comp, cap):
+            if comp in accepted:
+                return model_lines({comp: accepted[comp]}, pack, parsed, props, cap)[comp]
+            return _deterministic_lines(pack, comp, props, parsed["decisions_n"], cap)
+        mode = ("Model-assisted: the model chose and ordered optional evidence; the required "
+                "records always come first, and every line is a quoted record or my own summary"
                 + (f"; {len(filled)} section(s) fell back to my deterministic text"
                    f" ({', '.join(filled)})" if filled else "") + ".")
         method = METHOD_MODEL.format(ref=laura_briefing.PROMPT.ref, model=out["model"])
@@ -761,7 +770,8 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
         mode = (f"Model synthesis unavailable: {out['reason']}. This is my deterministic "
                 f"fallback briefing, built only from the evidence records cited below.")
         method = f"{METHOD_FALLBACK}; model synthesis unavailable: {out['reason']}"
-    text = compose(pack, parsed, props, mode_line=mode, lines_by_comp=lines)
+    text = compose(pack, parsed, props, mode_line=mode,
+                   render=render if out["source"] == "model" else None)
     unknowns = [{"section": i["section"], "title": i["id"], "reason": i["statement"][:300]}
                 for i in pack["items"] if i["status"] == UNKNOWN]
     facts = [{k: i[k] for k in ("id", "statement", "source", "as_of", "link", "basis",
@@ -846,7 +856,7 @@ def followup(db, question: str, session_public_id: str) -> dict | None:
                              f"decision(s); there is no decision {n}.", [], UNKNOWN)
         detail = _card_detail(db, item.get("card_id"))
         lines = [f"Decision {n} from my briefing at {at} (turn {prev['turn_id']}): "
-                 f"{item['statement']} [{item['id']}]"]
+                 f"{_q(item['statement'], 400)} [{item['id']}]"]
         if detail is None:
             lines.append("It is no longer open in the owner queue, so it may already be "
                          "settled; nothing else is known about it here.")
@@ -859,7 +869,7 @@ def followup(db, question: str, session_public_id: str) -> dict | None:
                                ("Uncertainty", "uncertainty")):
                 v = detail.get(key)
                 if v:
-                    lines.append(f"- {label}: {_clip(v, 300)}")
+                    lines.append(f"- {label}: {_q(v, 300)}")
             if detail.get("unblocks"):
                 lines.append(f"- It un-parks {len(detail['unblocks'])} requirement(s).")
             lines.append("- You decide it in Approvals; I can't act on it myself.")
@@ -873,11 +883,12 @@ def followup(db, question: str, session_public_id: str) -> dict | None:
                              f"{n}.", [], UNKNOWN)
         related = [f for f in facts if f.get("section") == item.get("section")
                    and f["id"] != item["id"]][:4]
-        lines = [f"Blocker {n} from my briefing at {at}: {item['statement']} [{item['id']}] "
+        lines = [f"Blocker {n} from my briefing at {at}: {_q(item['statement'], 400)} "
+                 f"[{item['id']}] "
                  f"(source {item['source']}, as of {item.get('as_of') or UNKNOWN}; "
                  f"{item.get('status')})."]
         for f in related:
-            lines.append(f"- Related: {_clip(f['statement'])} [{f['id']}]")
+            lines.append(f"- Related: {_q(f['statement'])} [{f['id']}]")
         return _fu(prev, "\n".join(lines), [item] + related, "ANSWERED")
     props = prev["proposals"]
     prop = next((p for p in props if p.get("pid") == f"P{n}"), None) or (
