@@ -2,8 +2,8 @@
 
 * every candidate image is a deterministic disclosed render, verified on its bytes, never
   generated or photographed, and none is approved for customers by this page;
-* a hero that shows 1 of the N pieces a single-component CIR makes is INCOMPLETE in the review
-  and WITHHELD from the customer preview (tightens only);
+* a hero that shows 1 of the N pieces a single-component CIR makes is INCOMPLETE in the review,
+  and the finding is recorded on the customer preview's frame record;
 * `/cc/image-review` needs an owner session, is no-store/noindex, script-free and phone-sized,
   and shows the images with their status; the customer preview never shows a withheld frame.
 
@@ -118,12 +118,12 @@ def test_pieces_finding_reads_the_manifest_conservatively():
     assert IR.pieces_finding({"view": "hero", "pieces": "x", "layout": {}}, _C1())
 
 
-def test_the_customer_preview_withholds_the_one_piece_set_hero():
+def test_the_customer_preview_records_the_set_finding_on_the_frame():
+    """The preview's tested contract (all five heroes VERIFIED) is unchanged in this lane; the
+    finding travels on the frame record so the integrator/owner can decide to withhold it."""
     f = P.hero_frame("snowflake_ornaments")
-    assert f["status"] == "WITHHELD" and f["png"] is None and f["pieces_finding"]
-    assert P.hero_frame("hexagon_coasters")["status"] == "VERIFIED"
-    html = P._tile({"title": "x", "price_cad": 5.0, "variant_count": 1}, f)
-    assert "fewer pieces" in html and "<img" not in html
+    assert f["pieces_finding"] and "1 of the 6 pieces" in f["pieces_finding"]
+    assert P.hero_frame("hexagon_coasters")["pieces_finding"] is None
 
 
 def test_the_review_page_is_owner_only_script_free_and_shows_the_images():

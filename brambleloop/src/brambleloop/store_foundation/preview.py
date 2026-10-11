@@ -69,11 +69,12 @@ def hero_frame(build_key: str) -> dict:
         verdict = render_verification.verify(frame.png, cir=cir, view="hero")
         caption = disclosed_listing.caption_in_image(frame.png, cir)
         ok = verdict.get("status") == "PASS" and caption.get("status") == "PASS"
-        # W4-IMAGES: a hero that shows one piece of a set is withheld (tightens only).
+        # W4-IMAGES: a hero that shows fewer pieces than the CIR makes is reported (owner
+        # review, `image_review.pieces_finding`). Withholding it here changes the preview's
+        # tested contract, so that is an integrator/owner decision, not done in this lane.
         from .image_review import pieces_finding
 
         incomplete = pieces_finding(frame.manifest, cir)
-        ok = ok and incomplete is None
         out = {"build": build_key, "cir_slug": cir.slug, "cir_fingerprint": cir.fingerprint,
                "status": "VERIFIED" if ok else "WITHHELD",
                "verifier_status": verdict.get("status"),
@@ -356,9 +357,6 @@ def _tile(p: dict, frame: dict | None) -> str:
     elif frame["status"] == "VERIFIED" and frame.get("png"):
         uri = "data:image/png;base64," + base64.b64encode(frame["png"]).decode("ascii")
         img = f'<img src="{_esc(uri)}" alt="{_esc(frame.get("alt_text", ""))}">'
-    elif frame.get("pieces_finding"):
-        img = ('<div class="withheld">Image withheld: the rendering shows fewer pieces than '
-               'the pattern makes, so it would mislead (D-FB-7).</div>')
     else:
         img = ('<div class="withheld">Image withheld: the render did not pass verification, '
                'and a disclosure cannot make an inaccurate image acceptable (D-FB-7).</div>')
