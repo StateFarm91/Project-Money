@@ -34,8 +34,8 @@ function observationCard(drift, stale, rerender) {
   const rows = drift && Array.isArray(drift.items) ? drift.items : [];
   if (!rows.length) return null;
   const field = h("select", { id: "obs-field" }, rows.map((r) => h("option", { value: r.field }, r.title || r.field)));
-  const value = h("textarea", { id: "obs-value", rows: 3, maxlength: 6000 });
-  const statement = h("input", { id: "obs-statement", type: "text", maxlength: 500, placeholder: "e.g. read from the live shop page on my phone" });
+  const value = h("textarea", { id: "obs-value", rows: 3, maxLength: 6000 });
+  const statement = h("input", { id: "obs-statement", type: "text", maxLength: 500, placeholder: "e.g. read from the live shop page on my phone" });
   const btn = h("button", { class: "btn btn-primary", type: "button", disabled: stale, onclick: async () => {
     const statementText = statement.value.trim();
     if (!statementText) { statement.focus(); return; }
