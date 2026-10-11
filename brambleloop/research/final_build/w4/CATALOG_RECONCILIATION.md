@@ -269,3 +269,90 @@ price plan (CA$5.00, CA$4.00) applies through `launch_price`.
 - `test_v11_store_preview`
 - `test_w3_store_ux_structure`
 - `test_vacuity`
+
+## 6. CAP-1 approved by the owner (2026-10-11) — branch `claude/w4-CAP1`
+
+**What was approved:** the Launch-0 cap rises from 5 to 8. **What was not approved:** the eight
+products themselves, Etsy drafts, publication, ads, spend, or leaving shadow (D-CAP1-1).
+
+### What changed in the code
+
+- `products.launch0.CATALOGUE_FLOOR_APPROVED = True`. This adds three products to Launch-0:
+  `nordic-forest-mosaic-throw-baby`, `mosaic-placemat-pair` and `housewarming-key-basket`.
+- The cap tests now expect 8 instead of 5. This is the change the decision implies, with counts
+  as W4-LAUNCHREADY measured them. The `CATALOGUE_DEPTH` finding still fires when a grid has
+  fewer than 8 products.
+- **No gate was changed.** `tests/test_w4_cap1_gates_intact.py` checks each of the three new
+  products separately, with nothing recorded for it. Each one is still refused by:
+  - certification (not PASS)
+  - the listing-set certificate (not PASS)
+  - the storefront tile (`not_certified`)
+  - launch clearance (not cleared, and absent from the opening grid)
+  - `for_publish` (blocks, and no owner grant exists)
+- **Registry gap closed.** The baby blanket is now linked to the radar concept it belongs to
+  (`SIZE_OF_RADAR_CONCEPT`). The key basket has no radar opportunity; that origin is now
+  recorded (`NO_RADAR_CONCEPT`), so it no longer reads as a missing link.
+
+### The placemat price: CA$5.00 is correct, CA$9.50 is not
+
+| | value | where it came from |
+|---|---|---|
+| production draft listing, `mosaic-placemat-pair@1.3.0` (`b2cd736f0f34`) | CA$9.50 | The generic pricing path, before the placemat joined Launch-0. `release.CATEGORY_BANDS_CAD` has no `placemat` band, so it fell back to `DEFAULT_BAND` (CA$4.50–9.50), which has no evidence behind it, and landed on the ceiling. |
+| Launch-0 price plan, `launch0.price_plan` | **CA$5.00** | A SOURCED CA$4–12 crochet-pattern cluster (`radar/market.py`), set one rung above the coaster set it pairs with, and decided by `commerce.pricing`. Rule PT-04 makes this plan the price of record for a Launch-0 product. |
+
+The fix has three parts:
+
+1. Since CAP-1, `pricing.position` prices the placemat from its plan.
+2. Publication now refuses any Launch-0 listing whose stored price differs from its plan
+   (`release_gates.launch_price_check`, `LISTING_PRICE_NOT_PLAN`).
+3. The store grid reports the mismatch.
+
+The production draft is corrected by re-running `pricing.position` for that release. Nothing is
+written to Etsy. Tests: `tests/test_w4_cap1_placemat_price.py`.
+
+### Housewarming Key Basket (still version 0.1.0)
+
+The full release chain was run again on a scratch database in shadow mode (97 s). Evidence:
+`evidence_CAP1/key_basket_chain.json`.
+
+The release hash is `142b52f0f9c6…` again, so the build is reproducible.
+
+| check | result |
+|---|---|
+| compile | 0 errors, 0 warnings |
+| certified | yes; the certificate was granted |
+| physical test required | no |
+| Product Truth (5 gates) | PASS; the twin is not calibrated |
+| final PDF (US and UK) | PASS |
+| terminology, counts, listing claims | PASS |
+| imagery | PASS |
+| licence and safety statements | PASS |
+| listing set, disclosure | PASS |
+| listing draft | 13 tags, CA$5.50, inside the plan band |
+
+**Blocking:** the same owner and external blockers as the other seven products:
+
+- search category and taxonomy
+- gauge and size claims (UNRESOLVED)
+- Etsy remote state (UNVERIFIABLE)
+- non-durable fulfilment storage
+- parity and policy (UNKNOWN)
+- rollback (UNKNOWN on this database, because the daily rehearsal did not run)
+
+**Verdict.** It is release-quality to the same standard as the other Launch-0 releases. Two
+caveats apply:
+
+- **Version.** Its version is honestly `0.x`. `products.moment_candidates` keeps a candidate at
+  `0.x` until it clears Product Truth, its taste gate and an owner-governed adoption.
+  - Product Truth: cleared.
+  - Taste gate: like every Launch-0 product, it survives only as `needs_taste` (structurally
+    clean, not judged by eyes).
+  - Adoption: CAP-1 approved the configuration only.
+
+  So the number is **not** bumped here. When the owner adopts the product, the normal release
+  path applies: a new version in the builder, then re-certification under the new release hash.
+- **Demand.** Its own demand is UNKNOWN. It has no radar opportunity; it is a moment-first
+  creative candidate.
+
+**Recommendation:** it can go to the owner for adoption alongside the other two new products,
+labelled as "demand UNKNOWN; engineering and certification evidence equal to the rest".
