@@ -195,6 +195,7 @@ def test_the_keystring_client_is_used_even_after_the_probe_succeeds():
     finally:
         T.api_key_transport_factory = saved
     assert got["ran"] and got["reading"] == "measured" and got["snapshot_id"], got
+    assert len(transport.requests) == got["network_calls"] >= 2
     for method, url, headers in transport.requests:
         assert method == "GET" and "/seller-taxonomy/" in url
         assert "Authorization" not in headers and headers["x-api-key"] == f"{KEY}:{SECRET}"
