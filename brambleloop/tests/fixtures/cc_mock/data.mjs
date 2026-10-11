@@ -293,6 +293,24 @@ export const DATA = {
       scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w", "transactions_r"] },
     can_connect: false,
   }),
+  // W4-SHOPSYNC fixture: one setting in each state, as GET /api/cc/store/settings returns them.
+  storeSettings: () => ({
+    generated_at: ago(0), states: ["CONFIRMED-LIVE", "OWNER-CONFIRMED", "UNVERIFIED"],
+    counts: { "CONFIRMED-LIVE": 1, "OWNER-CONFIRMED": 1, UNVERIFIED: 1 }, writes_performed: 0,
+    last_read: { at: ago(3600), operations: [], shop_id_source: "ETSY_SHOP_ID" },
+    settings: [
+      { key: "tagline", label: "Shop title (tagline)", state: "CONFIRMED-LIVE", source: "getShop.title",
+        observed_at: ago(3600), owner_confirmable: false, where: "Shop home editor", api_operations: ["getShop.title"] },
+      { key: "two_factor", label: "Two-factor authentication on", state: "OWNER-CONFIRMED",
+        source: "owner (Command Center)", observed_at: ago(7200), owner_confirmable: true,
+        where: "Account settings > Security", api_operations: [], prefilled_statement: "fixture",
+        evidence: { api: {}, observations: {}, owner_actions: [] } },
+      { key: "faq", label: "FAQ (with licence)", state: "UNVERIFIED", source: null, observed_at: null,
+        why: "no Open API v3 operation exposes it; confirm it from the Store tab", owner_confirmable: true,
+        where: "Shop home editor > FAQ", api_operations: [], prefilled_statement: "fixture",
+        evidence: { api: {}, observations: {}, owner_actions: [{ key: "store:OA-F", done: false, action: "Policy Settings" }] } },
+    ],
+  }),
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],

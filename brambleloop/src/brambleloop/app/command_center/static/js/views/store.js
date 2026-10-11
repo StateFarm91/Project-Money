@@ -93,6 +93,8 @@ function settingsCard(st, stale, rerender) {
   return card({ title: "Live shop settings",
     subtitle: `CONFIRMED-LIVE ${counts["CONFIRMED-LIVE"] || 0} · OWNER-CONFIRMED ${counts["OWNER-CONFIRMED"] || 0} · UNVERIFIED ${counts.UNVERIFIED || 0}` },
     ...rows, h("div", { class: "btn-row" }, sync));
+}
+
 // W4-ETSYCOMM: the two Etsy-connection steps only the owner can take, from a phone. Re-check
 // queues a read-only ping of the app key; Connect (step-up) starts the shop authorization and
 // opens Etsy's own consent page. Neither changes scopes, credentials or the Etsy app.
