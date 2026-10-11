@@ -126,6 +126,26 @@ try {
   const laneRows = await page.$$eval("section:not([aria-labelledby='completion-launch-packet']) li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
+  // ---- RB-1 (CC_VERIFY_7421ef6): the Store tab renders the live-shop observation form ------
+  await page.goto(`${BASE}/cc/#/store`);
+  await settle();
+  const storeErr = await page.$(".card-error");
+  const form = await page.evaluate(() => {
+    const v = document.getElementById("obs-value"), st = document.getElementById("obs-statement"), f = document.getElementById("obs-field");
+    return { v: v ? v.maxLength : null, st: st ? st.maxLength : null, opts: f ? f.options.length : 0 };
+  });
+  check(!storeErr && form.v === 6000 && form.st === 500 && form.opts === 2,
+    "store: live-drift observation form renders (field options, maxLength 6000/500)", storeErr ? await storeErr.textContent() : JSON.stringify(form));
+
+  // ---- FU-2 (CC_VERIFY_7421ef6): all-time headline figures are labelled, Unknown never 0 ----
+  await page.goto(`${BASE}/cc/#/money?period=last_month`);
+  await settle();
+  const head = await page.$$eval(".tile", (els) => els.map((e) => [e.querySelector(".tile-label")?.textContent, e.querySelector(".tile-value")?.textContent]));
+  const spendT = head.find(([l]) => /^Recorded spend/.test(l || ""));
+  const revT = head.find(([l]) => /^Revenue \(all time\)$/.test(l || ""));
+  check(!!spendT && /\(all time\)$/.test(spendT[0]) && !!revT && revT[1] === "Unknown",
+    "money: all-time headline tiles say 'all time' under a period filter; unknown revenue reads Unknown", JSON.stringify(head.slice(0, 4)));
+
   // ---- W4-CCFIN: estimate drift is a status card that keeps its detail; Unknown, never 0% ----
   await page.goto(`${BASE}/cc/#/money`);
   await settle();
@@ -184,7 +204,7 @@ try {
   check(!!contrib && /estimated/i.test(contrib.basis), "money: estimated figure visibly labelled Estimated", JSON.stringify(contrib));
   const model = tiles.find((x) => x.label === "Safe discretionary budget");
   check(!!model && /modelled/i.test(model.basis), "money: modelled figure visibly labelled Modelled", JSON.stringify(model));
-  const rec = tiles.find((x) => x.label === "Recorded spend (not reconciled)");
+  const rec = tiles.find((x) => x.label === "Recorded spend (not reconciled) (all time)"); // FU-2: all-time scope shown
   check(!!rec && rec.value === "CA$14.20" && /recorded/i.test(rec.basis), "money: recorded (unreconciled) spend labelled Recorded", JSON.stringify(rec));
   check(await page.isVisible("text=revenue, fees and profit are UNKNOWN"), "money: source-health warning shown");
   // drill-through (F-915)

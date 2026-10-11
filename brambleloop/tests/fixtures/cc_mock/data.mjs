@@ -75,6 +75,14 @@ export const DATA = {
     seo: env("OK", [{ title: "Coverage matrix", detail: "38/52 query families covered" }]),
     products: env("OK", [{ title: "Harbour Throw", status: "READY", release: "r3", price_cad: 9.5 }]),
     publication_candidates: env("OK", [{ card_id: "publication:harbour-throw@1", title: "Publish Harbour Throw v1", kind: "PUBLICATION" }]),
+    // CC_VERIFY_7421ef6 RB-1: a real backend always lists the storefront fields here, which
+    // renders the live-shop observation form; the mock must exercise it too.
+    live_drift: env("UNKNOWN", [
+      { title: "Shop name", field: "shop_name", status: "UNKNOWN", live_state: "UNKNOWN", live_source: null, observed_at: null,
+        owner_configured: true, proposal: "OWNER_CONFIRM", proposal_why: "no live reading yet", write_allowed: false },
+      { title: "About headline", field: "about_headline", status: "UNKNOWN", live_state: "UNKNOWN", live_source: null, observed_at: null,
+        owner_configured: true, proposal: "OWNER_OBSERVE", proposal_why: "no API returns this field", write_allowed: false }],
+      { reason: "no live reading of any of 2 storefront fields yet", counts: { UNKNOWN: 2 }, writes_performed: 0 }),
   }),
   money: (period) => ({ tab: "MONEY", generated_at: now(), period: period ? `${period} (fixture)` : null, status: "DEGRADED",
     reason: "order/payment source not connected", sections: {
@@ -92,9 +100,10 @@ export const DATA = {
         purposes_outside_tolerance: [], purposes_too_few_calls_to_judge: [], calls_with_no_reservation_share: null, tolerance: 0.25,
         settlement_against_provider_billing: "OWNER-GATED", settlement_why: "OWNER-GATED: settling recorded model spend needs the provider's billing export" }),
     },
-    revenue: money(null, "UNMEASURED", { why: "order source not connected and read" }),
+    // FU-2 (CC_VERIFY_7421ef6): revenue and recorded spend are all-time readers (scope).
+    revenue: money(null, "UNMEASURED", { scope: "all_time", why: "order source not connected and read" }),
     profit: money(null, "UNKNOWN", { why: "the accountant provider owns profit" }),
-    recorded_spend: { ...money(14.2, "RECORDED"), label: "Recorded spend (not reconciled)" },
+    recorded_spend: { ...money(14.2, "RECORDED", { scope: "all_time" }), label: "Recorded spend (not reconciled)" },
     source_health: { order_source_measured: false, last_read_at: null, why: "Etsy API not connected",
       warning: "order/payment source is not connected-and-read: revenue, fees and profit are UNKNOWN, not CA$0.00" } }),
   moneyDrill: (metric) => ({ metric, label: metric === "model_spend" ? "Model/API spend" : metric, status: metric === "model_spend" ? "OK" : "UNKNOWN",

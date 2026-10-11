@@ -259,10 +259,16 @@ def money(db, window: str | None = None) -> dict:
     # spend headline tiles are the command center's own all-time readers and say so.
     echoed = (acct.get("window") or acct.get("period") or window) if window else None
     drift = guard("estimate_drift", lambda: estimate_drift_reading(db))
+
+    # CC_VERIFY_7421ef6 FU-2: these two headline figures ignore the period filter; say so on
+    # the value itself so the tile can never read as the selected period's figure.
+    def all_time(v):
+        return {**v, "scope": "all_time"} if isinstance(v, dict) else v
+
     return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
                           "estimate_drift": drift},
-                status=m["status"], revenue=m["revenue"], profit=m["profit"],
-                recorded_spend=m["recorded_spend"], source_health=m["source_health"],
+                status=m["status"], revenue=all_time(m["revenue"]), profit=m["profit"],
+                recorded_spend=all_time(m["recorded_spend"]), source_health=m["source_health"],
                 reason=m["reason"], window=window,
                 period=(echoed if isinstance(echoed, str) else
                         (echoed or {}).get("label") if isinstance(echoed, dict) else None),

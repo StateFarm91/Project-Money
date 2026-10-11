@@ -108,21 +108,30 @@ def available(key: str) -> bool:
     return _resolve(key)[0] is not None
 
 
+def _wants_facade(text: str) -> bool:
+    """A provider handed a bare SQLAlchemy Session that needed the `Database` facade."""
+    return "'Session' object has no attribute" in text
+
+
 def _invoke(fn, db, *args, **kwargs):
     session = db.new_session()
     try:
         try:
             out = fn(session, *args, **kwargs)
         except AttributeError as exc:
-            if "session" not in str(exc):
+            if "session" not in str(exc) and not _wants_facade(str(exc)):
                 raise
             session.rollback()
             return fn(db, *args, **kwargs)
         # W3-F: a provider that needs the `Database` facade but catches its own exceptions
         # reports "'Session' object has no attribute 'session'" as an UNKNOWN reason instead
         # of raising. That is the same contract mismatch; retry once with the facade.
+        # CC_VERIFY_7421ef6 FU-1: growth.ads_readiness reports the same mismatch as
+        # "'Session' object has no attribute 'engine'"; any "'Session' object has no
+        # attribute" reason is a provider that wanted the facade.
         if (isinstance(out, dict) and out.get("status") == "UNKNOWN"
-                and "has no attribute 'session'" in str(out.get("reason") or "")):
+                and ("has no attribute 'session'" in str(out.get("reason") or "")
+                     or _wants_facade(str(out.get("reason") or "")))):
             session.rollback()
             return fn(db, *args, **kwargs)
         return out

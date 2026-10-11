@@ -133,11 +133,16 @@ export async function render({ params, query }) {
   const q = period ? `?period=${encodeURIComponent(period)}` : "";
   const headline = [["revenue", "Revenue"], ["profit", "Profit"], ["recorded_spend", "Recorded spend"]]
     .filter(([k]) => data[k] !== undefined);
+  // FU-2 (CC_VERIFY_7421ef6): a headline figure the period filter does not apply to says so.
+  const headLabel = (k, label) => {
+    const base = isMoney(data[k]) && data[k].label ? data[k].label : label;
+    return isMoney(data[k]) && data[k].scope === "all_time" ? `${base} (all time)` : base;
+  };
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     tabStatus(data),
     headline.length ? card({ title: "Headline", subtitle: "Tap a figure to see the records behind it." },
-      h("div", { class: "tiles" }, headline.map(([k, label]) => moneyTile(isMoney(data[k]) && data[k].label ? data[k].label : label,
+      h("div", { class: "tiles" }, headline.map(([k, label]) => moneyTile(headLabel(k, label),
         isMoney(data[k]) ? data[k] : null, { drillHref: `#/money/drill/${k}${q}` })))) : null,
     sourceHealthCard(data.source_health),
     card({ title: "Period" }, seg,
