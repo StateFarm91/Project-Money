@@ -134,26 +134,27 @@ Existing suites run (all pass): `test_w3_laura_cc_talk` 9/9, `_private` 7/7, `_f
 Model: the task's declared STANDARD tier, `claude-sonnet-5`, priced by
 `gateway.anthropic.PRICES_USD_PER_MTOK` at USD 3 / 15 per MTok, converted at the assumed
 0.715 USD/CAD (×1.3986). Token counts use the gateway's own accounting (`chars // 4` of system +
-rendered prompt; `laura_briefing.estimate`). Reservation = padded ×1.25 with the full 1,800-token
-output allowance.
+rendered prompt; `laura_briefing.estimate`). Reservation = padded ×1.25 with the full output
+allowance. **Revised for the round-2 contract (prompt `@2`)**: the model now returns only
+selected ids plus short notes, so the output allowance is 600 tokens (expected ~200).
 
 | Case | Input tok | Output tok | Expected billed | Pre-call reservation |
 |---|---|---|---|---|
-| Seeded test DB (44 evidence items) | 3,333 | ~1,100 expected (1,800 max) | **CA$0.037** | CA$0.065 |
-| Production-sized (all pack caps, 68 items, avg ~120-char statements) | ~4,800 | ~1,200 | **CA$0.045** | ~CA$0.075 |
-| Production worst case (68 items × 400-char statements) | 10,254 | 1,800 | CA$0.081 | CA$0.101 |
-| Briefing + 2 follow-ups | follow-ups are deterministic (no model call) | — | **CA$0.045** typical (≤CA$0.081) | as above |
+| Seeded test DB (44 evidence items) | 3,319 | ~200 expected (600 max) | **CA$0.018** | CA$0.033 |
+| Production-sized (all pack caps, 68 items, avg ~120-char statements) | ~5,000 | ~200 | **CA$0.025** | ~CA$0.042 |
+| Production worst case (68 items × 400-char statements) | ~10,450 | 600 | CA$0.056 | CA$0.071 |
+| Briefing + 2 follow-ups | follow-ups are deterministic (no model call) | — | **CA$0.025** typical (≤CA$0.056) | as above |
 
-**Proposed Laura daily budget: CA$0.50/day** (not set). Covers ≥4 briefings even at the
-worst-case reservation, ~10 typical briefings a day; expected use (≈3 briefings/day) ≈ CA$0.14/day,
-≈CA$4/month; hard maximum exposure CA$15/month = 15% of the CA$100 monthly ceiling, which stays
-authoritative.
+**Proposed Laura daily budget: CA$0.50/day** (not set). Covers ≥7 briefings even at the
+worst-case reservation, ~12-20 typical briefings a day; expected use (≈3 briefings/day) ≈
+CA$0.08/day, ≈CA$2.30/month; hard maximum exposure CA$15/month = 15% of the CA$100 monthly
+ceiling, which stays authoritative.
 
 Hard enforcement once set: (1) Laura's per-agent daily ceiling and (2) the monthly ceiling, both
 checked before the call (`failover.decide` pre-filter, then `anthropic.check_budget_cad` under the
 budget lock with a written reservation, padded estimate); every refusal writes a `spend.refused`
 audit row; billing is the gateway's single `_record` path to `cost_entries` (agent `laura`,
-purpose `laura.ceo_briefing@1`). At CA$0.00 (today) no call is attempted at all.
+purpose `laura.ceo_briefing@2`). At CA$0.00 (today) no call is attempted at all.
 
 When the ceiling is reached Laura does **not** degrade to a weaker model or skip parts: the call
 parks before it is made, nothing is billed, and the full deterministic briefing is shown with the
@@ -201,3 +202,23 @@ All findings addressed; each attack is a regression test in `tests/test_w4_laura
 - **INFO**: DECISION_LOG entry D-W4-LAURA1 records the routing choice.
 
 Fallback, spend checks, privacy and identity are unchanged.
+
+## 8. Round-2 review (5dcb6c0): the model's contract changed — select and order, never assert
+
+The round-2 review showed keyword validation of free prose keeps losing to rephrasing (7 of 19
+new attacks passed). The prose validator is removed. Prompt `laura.ceo_briefing@2`: per
+section the model may only **select and order evidence ids** allowed for that section (E#, or
+P# GREEN missions for the autonomy section) and add **one note** of ≤20 words drawn from a
+closed vocabulary (`briefing.NOTE_VOCABULARY`: connective/framing words only — no numbers, no
+event words, no action verbs). Code renders every factual line from the selected record's own
+statement text; decisions stay the owner queue's cards verbatim in queue order; the
+VERIFIED/UNKNOWN listing and the authority boundary are always code-rendered. Any deviation in a
+section (unknown/foreign/duplicate id, a field other than component/evidence/note, a word outside
+the vocabulary, a digit) → that whole section falls back to the deterministic text, and the
+answer says how many sections fell back.
+
+Regression: all 30 reviewer attacks (11 round-1 + 19 round-2) are tests; each is rejected both
+as a note and as free prose, and end to end none reaches the owner. New test: "Give me a CEO
+briefing on the store and the decisions you need" keeps both parts (store → first-sale blockers
+section + decisions); "What did you do overnight and what needs me?" keeps both parts. Suite
+14/14. Output allowance fell 1,800 → 600 tokens, so cost estimates in §5 dropped.

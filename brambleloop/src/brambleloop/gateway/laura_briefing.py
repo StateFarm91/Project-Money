@@ -1,8 +1,9 @@
 """Model synthesis of Laura's CEO briefing, through the existing gateway (W4-LAURA1).
 
 `laura.agency.briefing` builds the evidence pack and the deterministic briefing in code. This
-module only asks a model to *write* the briefing from that pack, and only when every existing
-money control says the call may be made:
+module only asks a model to *select and order* evidence ids per section (plus one
+closed-vocabulary note; code renders every factual line), and only when every existing money
+control says the call may be made:
 
 1. Laura's own daily permission (`agents.registry` row `laura`). A permission of CA$0.00 --
    the declared value until the owner authorises one -- means **no call**: it is refused here,
@@ -29,39 +30,39 @@ from . import prompts, routing
 TASK = "laura.ceo_briefing"
 AGENT = "laura"          # Laura's canonical registry agent: her own daily permission binds
 
+def _vocabulary() -> str:
+    from ..laura.agency.briefing import NOTE_VOCABULARY
+
+    return " ".join(sorted(NOTE_VOCABULARY))
+
+
+# v2 (round-2 review): the model selects and orders evidence; it writes no claims. v1 (free
+# prose checked by keyword rules) never made a production call (Laura's permission is
+# CA$0.00) and is retired with this contract.
 PROMPT = prompts.register(prompts.Prompt(
-    name=TASK, version="1",
+    name=TASK, version="2",
     system=(
-        "You are writing as Laura, the AI Founder/CEO of Brambleloop, a crochet pattern "
-        "studio, briefing its owner. Voice: warm, plain, decisive, first person, brief. You "
-        "are an AI; never say or imply you are human, did anything physical, or own anything "
-        "legally.\n"
-        "Grounding rules, which are checked by code and anything breaking them is deleted:\n"
-        "1. Use ONLY the evidence pack. Every item you write must cite one or more evidence "
-        "ids (E#) or proposal ids (P#) in its \"evidence\" list. An item with no valid id is "
-        "removed.\n"
-        "2. Never introduce a number, amount, date or name that is not in the evidence you "
-        "cite. Do not number your items; code numbers them.\n"
-        "3. Evidence marked UNKNOWN stays UNKNOWN: say it is unknown, never estimate it and "
-        "never present it as zero.\n"
-        "4. Owner decisions: write one item per decision id given, in the given rank order; "
-        "each cites exactly that decision's id. Do not add, drop or reorder decisions.\n"
-        "5. What you will do on your own: only the listed proposals of kind 'mission' or "
-        "work already in progress. Publishing, activating listings, pricing, spending, ads "
-        "and customer messages are never yours to do; they are owner decisions.\n"
-        "6. Answer only the requested components, in the requested order, prioritised, at "
-        "most five items each (decisions: exactly the given count). Concise: each item one "
-        "or two sentences.\n"
-        "Reply with JSON only."),
+        "You help Laura, the AI Founder/CEO of Brambleloop (a crochet pattern studio), "
+        "prepare a briefing for its owner. You do NOT write sentences of fact: code renders "
+        "every factual line from the evidence records you choose.\n"
+        "For each requested component return the evidence ids (E#, or P# for the autonomy "
+        "component) that best answer it, most important first, chosen only from the ids "
+        "listed for that component. You may add one optional note of at most "
+        "20 words that uses ONLY the words of the note vocabulary given below. No numbers. "
+        "Any other word, "
+        "any id not listed for that component, or any other field makes code discard your "
+        "choice for that component. Decisions keep the owner queue's order whatever you "
+        "return. Reply with JSON only."),
     template=(
         "Owner's question:\n{question}\n\n"
         "Requested components, in order: {components}\n"
         "Time window: last {window_hours} hours. Decisions requested: {decisions_n}.\n\n"
-        "Ranked owner decisions (cite these ids, in this order):\n{decisions}\n\n"
-        "Proposals (P#):\n{proposals}\n\n"
+        "Ranked owner decisions (ids for the decisions component):\n{decisions}\n\n"
+        "Proposals (P#, for the autonomous component):\n{proposals}\n\n"
         "Evidence pack (id | components | status | as_of | source | statement):\n{evidence}\n\n"
-        "JSON: {{\"sections\": [{{\"component\": \"<one of the requested components>\", "
-        "\"items\": [{{\"text\": \"...\", \"evidence\": [\"E1\"]}}]}}]}}"),
+        "Note vocabulary: {vocab}\n\n"
+        "JSON: {{\"sections\": [{{\"component\": \"<requested component>\", "
+        "\"evidence\": [\"E1\"], \"note\": \"<optional, vocabulary only>\"}}]}}"),
     output_schema=("sections",),
     max_output_tokens=routing.TASKS[TASK].max_output_tokens))
 
@@ -80,7 +81,7 @@ def render_values(*, question: str, components: list[str], window_hours: int,
             "window_hours": str(window_hours), "decisions_n": str(decisions_n),
             "decisions": "\n".join(dec_lines) or "(none open)",
             "proposals": "\n".join(prop_lines) or "(none)",
-            "evidence": "\n".join(ev_lines) or "(empty)"}
+            "evidence": "\n".join(ev_lines) or "(empty)", "vocab": _vocabulary()}
 
 
 def laura_daily_permission(db, registry=None) -> float:

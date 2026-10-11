@@ -18,10 +18,11 @@ Pipeline, deterministic first:
                top N, never re-ranked by a model
   proposals    follow-on work only through `followon.proposal` (GREEN missions inside the
                department's charter, or protected work as an owner decision -- never an act)
-  synthesis    the model writes the briefing from the pack through `gateway.laura_briefing`
-               (Laura's own daily permission, month ceiling, check-and-reserve); its output is
-               validated here (`validate`): every item must cite pack ids and may not add a
-               number its evidence lacks; unsupported items are stripped
+  synthesis    the model only SELECTS and ORDERS evidence ids per section (plus one
+               closed-vocabulary note) through `gateway.laura_briefing` (Laura's own daily
+               permission, month ceiling, check-and-reserve); code renders every factual line
+               from the records' own statements, and any deviation sends that section back to
+               the deterministic text (`validate`, `model_lines`)
   fallback     when the model is unavailable or refused, `compose` answers every requested
                component from the same pack and says plainly that it is the fallback and why
   follow-ups   "expand decision 2" resolves against the stored briefing turn (`followup`)
@@ -56,12 +57,13 @@ _PATTERNS: dict[str, re.Pattern] = {
         r"last \d+ ?(h\b|hours?|days?)|last (twenty[- ]four|twenty four) hours|last day|"
         r"past (day|\d+ hours)|overnight|accomplish|what happened|since yesterday|"
         r"what (did )?(we|you|the company|brambleloop) (do|did|get done)"),
-    "departments": re.compile(r"department|each team|every team|the teams"),
+    "departments": re.compile(r"department|each team|every team|the teams|"
+                              r"(are|is) (you |they |everyone )?working on|busy with"),
     "blockers": re.compile(r"block|prevent|stopping (us|our)|in the way|obstacle|"
                            r"first (etsy )?sale|holding (us|it) back|"
                            r"(not|n't|never) (yet )?sell|no sales|(not|n't) (making|getting) "
                            r"(any )?(sales|money)"),
-    "decisions": re.compile(r"decision|\bdecide|need me to|approv|sign[- ]off"),
+    "decisions": re.compile(r"decision|\bdecide|needs? me\b|needs? my|approv|sign[- ]off"),
     "facts_unknowns": re.compile(r"verified|unknowns?\b|facts? (vs|versus|from|and)|"
                                  r"what you (know|don't know)|separate"),
     "autonomous": re.compile(r"without (my|me)\b|on your own|handle (it |that )?(yourself|"
@@ -102,8 +104,17 @@ def parse(question: str) -> dict:
     comps = [c for _, c in sorted(found)]
     named = bool(_BRIEFING_WORDS.search(q))
     # Review LOW-1: "a rundown of the store" / "status report on revenue" is a topical
-    # question, not a six-part briefing; the topical intent answers it.
-    topical = bool(_TOPICAL.search(q)) and len(comps) < 2
+    # question, not a six-part briefing; the topical intent answers it. Round 2: a topic plus
+    # any asked-for part ("a CEO briefing on the store and the decisions you need") is a
+    # briefing on both -- the store/money topic is answered by the section that holds it.
+    t = _TOPICAL.search(q)
+    if named and t and comps:
+        topic_comp = ("facts_unknowns" if re.search(r"revenue|money|sales|finance|books",
+                                                    t.group(0)) else "blockers")
+        if topic_comp not in comps:
+            found.append((t.start(), topic_comp))
+            comps = [c for _, c in sorted(found)]
+    topical = bool(t) and len(comps) < 2
     # Review MEDIUM-2: two or more asked-for parts are answered part by part (never collapsed
     # onto one single-keyword intent); a briefing word with fewer parts means the full briefing.
     is_briefing = ((named and bool(q)) and not topical) or len(comps) >= 2
@@ -509,247 +520,137 @@ def compose(pack: dict, parsed: dict, props: list[dict], *, mode_line: str,
     return text
 
 
-# ---- validation of model output ---------------------------------------------------------
+# ---- the model's contract: select and order, never assert ---------------------------------
 #
-# Hardened after the independent review of 3565b5f (INDEPENDENT_REVIEW_LAURA1.md, HIGH-1).
-# The model may only *phrase* what a cited record already says. Per claim (one item):
-#   * values: every number -- digits *or words* ("five hundred", "a dozen", "nothing") -- must
-#     occur in the statement of a record the item cites. Timestamps are not statements and
-#     grant nothing; no number is allowed globally (only the literal "last {window} hours"
-#     phrase of the question itself is ignored);
-#   * UNKNOWN: an item citing an UNKNOWN record must say it is unknown and may state no value
-#     at all -- UNKNOWN can never be asserted as a figure, zero included;
-#   * events: a sale/revenue/order, live/listed/on-Etsy, refund, review, launch, customer or
-#     certification claim must cite a record that states that kind of event, and where the
-#     record states it negatively ("0 are on Etsy", "Revenue: UNKNOWN") the claim must too;
-#   * authority: publish / activate / price / spend / buy / ads / customer or tester outreach
-#     in the first person is refused in every section, and in any form unless a cited record
-#     itself names that act; there is no bare-word negation escape;
-#   * identity: no claim of being human, having a body or doing physical work;
-#   * decisions: the line is the owner card's own text, verbatim; the model may add one short
-#     "why" that passes every rule above, nothing else.
+# Round-2 review (INDEPENDENT_REVIEW_LAURA1.md, 5dcb6c0): validating free prose with keyword
+# rules keeps losing to rephrasing. So the model no longer writes claims at all. Per section it
+# may only
+#   * SELECT and ORDER evidence ids (E#, or P# for the autonomy section) that belong to that
+#     section, and
+#   * add ONE short note built only from `NOTE_VOCABULARY` -- a closed list of connective and
+#     framing words with no numbers, no events (sale, listing, launch, order...) and no action
+#     verbs (publish, price, spend, contact...).
+# Every factual line the owner sees is rendered by code from the selected record's own
+# statement text. The decision section is always the owner queue's cards, verbatim, in queue
+# order; the VERIFIED / UNKNOWN listing and the authority boundary are always code-rendered.
+# Anything else in a section -- an unknown or foreign id, free text, a word outside the
+# vocabulary, a digit -- and that whole section falls back to the deterministic text.
 
-_NUM = re.compile(r"\d+(?:[.,]\d+)*")
-_NUMBER_WORDS = {
-    "zero": 0, "nil": 0, "nothing": 0, "none": 0, "free": 0, "one": 1, "single": 1,
-    "two": 2, "couple": 2, "pair": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "dozen": 12,
-    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
-    "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
-    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100,
-    "thousand": 1000, "million": 1000000, "billion": 1000000000, "half": 0.5,
-    "dozens": 12, "hundreds": 100, "thousands": 1000, "millions": 1000000,
-    "twice": 2, "double": 2, "triple": 3, "once": 1, "several": -1, "many": -1,
-}
-_NUMBER_WORD_RX = re.compile(r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True))
-                             + r")\b", re.I)
-_UNKNOWN_WORDS = re.compile(r"\bunknown\b|not known|unmeasured|not yet measured|no evidence|"
-                            r"can't say|cannot say|don't know|not recorded|no record", re.I)
-_NEG = r"(\b(0|no|none|not|never|nothing|zero|isn't|aren't|hasn't|haven't|yet to|without)\b)"
-_EVENTS: dict[str, re.Pattern] = {
-    "sale": re.compile(r"\b(sale|sales|sold|sell|selling|orders?|purchased|revenue|earn\w*|"
-                       r"income|profit\w*|paid|buyers?|receipts?)\b", re.I),
-    "live": re.compile(r"\b(live|on etsy|listed|active listing|went up|in the shop|"
-                       r"published|is open|opened)\b", re.I),
-    "refund": re.compile(r"\brefund\w*", re.I),
-    "review": re.compile(r"\breviews?\b|\bstars?\b|\brating", re.I),
-    "launch": re.compile(r"\b(launch\w*|released?|shipped|debuted?)\b", re.I),
-    "customer": re.compile(r"\b(customers?|shoppers?|visitors?|traffic|favou?rites?)\b", re.I),
-    "certified": re.compile(r"\bcertif\w*", re.I),
-}
-_PROTECTED = re.compile(
-    r"\b(publish\w*|go(es|ing)? live|push\w* (it |them |\w+ )?live|activat\w*|"
-    r"(set|change|raise|lower|cut)\w* (its |the |our |their )?prices?|re-?pric\w*|pricing|"
-    r"spend\w*|spent|buy\w*|purchas\w*|pay for|advertis\w*|ads?\b|campaigns?|"
-    r"e-?mail\w*|messag\w*|outreach|contact\w*|dm\b|post(ed|ing)? to)", re.I)
-_FIRST_PERSON = re.compile(r"\b(i|i'll|i've|i'd|i'm|me|my|myself|let me|we|we'll|we've|"
-                           r"we're|us|our team will)\b", re.I)
-_HUMAN = re.compile(
-    r"\b(i am|i'm|as) (a |an )?(real |actual )?(human|person|woman|lady|mother|wife|"
-    r"crocheter|knitter)\b|\breal (woman|person|human)\b|\bmy (body|hands|fingers|hook|"
-    r"needles|home|kitchen|family|husband|spouse)\b|\byears at the hook\b|\bi (personally )?"
-    r"(crochet|knit|stitch|made|hand-?made|sewed|photographed|shipped|posted)\b|\bin person\b|"
-    r"\bphysically\b", re.I)
+NOTE_MAX_WORDS = 20
+NOTE_MAX_CHARS = 140
+NOTE_VOCABULARY = frozenset("""
+a all also an and are as at below briefly by each first focus for from have here i in is it
+its key line lines main matter matters most my next note of on order our overall picture
+plainly point points priority read record records remain remains short so source sources
+stand stands start still summary that the then these this those to top unknown unknowns
+verified view what where worth yet your attention open known not ranked listed importance
+""".split())
 
 
-def _norm_num(n: str) -> str:
-    n = n.replace(",", "")
-    try:
-        v = float(n)
-    except ValueError:
-        return n
-    return str(int(v)) if v == int(v) else str(v)
-
-
-def _nums(text: str) -> set[str]:
-    """Every numeric value a text states: digits normalised, plus number words."""
-    text = text or ""
-    out = {_norm_num(n) for n in _NUM.findall(text)}
-    for w in _NUMBER_WORD_RX.findall(text):
-        v = _NUMBER_WORDS[w.lower()]
-        out.add("WORD:" + w.lower() if v < 0 else _norm_num(str(v)))
-    return out
-
-
-def _stated_nums(text: str) -> set[str]:
-    """Values a record states (digits and number words), as `_nums` would read them."""
-    return {n for n in _nums(text) if not n.startswith("WORD:")}
-
-
-def _negated_at(text: str, rx: re.Pattern) -> tuple[bool, bool]:
-    """(asserted positively somewhere, asserted negatively somewhere) for an event class."""
-    pos = neg = False
-    for m in rx.finditer(text):
-        before = text[max(0, m.start() - 40):m.start()]
-        after = text[m.end():m.end() + 25]
-        if re.search(_NEG, before, re.I) or re.search(r"UNKNOWN|unknown|UNMEASURED", after):
-            neg = True
-        else:
-            pos = True
-    return pos, neg
-
-
-def claim_problem(text: str, cited: list[dict], cited_props: list[dict], *,
-                  window_hours: int) -> str | None:
-    """Why one model claim is not supported by the records it cites, or None. Deterministic."""
-    body = re.sub(rf"\b(last|past) {int(window_hours)} ?(h\b|hours?)", " ", text, flags=re.I)
-    statements = [c["statement"] for c in cited] + [f"{p['title']}. {p['why']}"
-                                                    for p in cited_props]
-    joined = " || ".join(statements)
-    if _HUMAN.search(text):
-        return "claims to be human or to do physical work"
-    # authority, every section
-    m = _PROTECTED.search(text)
-    if m:
-        if _FIRST_PERSON.search(text):
-            return (f"claims a protected act ({m.group(0)!r}: publish/price/spend/ads/outreach) "
-                    f"as Laura's or the company's own")
-        if not re.search(re.escape(m.group(0)[:5]), joined, re.I):
-            return f"names a protected act ({m.group(0)!r}) no cited record states"
-    # UNKNOWN can never be asserted as a value
-    unknown_cited = [c for c in cited if c["status"] == UNKNOWN]
-    if unknown_cited:
-        if not _UNKNOWN_WORDS.search(text):
-            return "cites an UNKNOWN record without saying it is unknown"
-        if _nums(body):
-            return "states a value while citing an UNKNOWN record (UNKNOWN is never a value)"
-    # values: each must occur in a cited statement (never a timestamp, never global)
-    allowed = set()
-    for s_ in statements:
-        allowed |= _stated_nums(s_)
-    added = sorted(n for n in _nums(body) if n not in allowed)
-    if added:
-        return f"unsupported values not stated by the cited records: {added[:5]}"
-    # events: the cited records must state the same kind of event, with the same polarity
-    for kind, rx in _EVENTS.items():
-        t_pos, _t_neg = _negated_at(text, rx)
-        if not (t_pos or _t_neg):
-            continue
-        c_pos, c_neg = _negated_at(joined, rx)
-        if not (c_pos or c_neg):
-            return f"claims a {kind} event no cited record states"
-        if t_pos and not c_pos:
-            return f"asserts a {kind} event the cited records state only negatively/UNKNOWN"
+def note_problem(note) -> str | None:
+    """Why a model note is not allowed, or None. Closed vocabulary; no digits."""
+    if note is None or note == "":
+        return None
+    if not isinstance(note, str):
+        return "note is not text"
+    if len(note) > NOTE_MAX_CHARS:
+        return f"note longer than {NOTE_MAX_CHARS} characters"
+    if re.search(r"\d", note):
+        return "note contains a number"
+    if re.search(r"[^A-Za-z ,.;:'\-]", note):
+        return "note contains characters outside plain words"
+    words = re.findall(r"[a-z']+", note.lower())
+    if len(words) > NOTE_MAX_WORDS:
+        return f"note longer than {NOTE_MAX_WORDS} words"
+    outside = sorted({w for w in words if w not in NOTE_VOCABULARY})
+    if outside:
+        return f"note uses words outside the closed vocabulary: {outside[:5]}"
     return None
 
 
+def _allowed_ids(comp: str, pack: dict, props: list[dict], n: int) -> set[str]:
+    if comp == "decisions":
+        return {d["evidence_id"] for d in pack["decisions"][:n]}
+    if comp == "autonomous":
+        return ({p["pid"] for p in props if p["kind"] == "mission"}
+                | {i["id"] for i in _for(pack, "autonomous") if i["status"] != UNKNOWN})
+    return {i["id"] for i in _for(pack, comp)}
+
+
 def validate(data, pack: dict, parsed: dict, props: list[dict]
-             ) -> tuple[dict[str, list[dict]], list[dict]]:
-    """(accepted items by component, rejected [{component, text, reason}]). Deterministic."""
-    by_id = {i["id"]: i for i in pack["items"]}
-    pmap = {p["pid"]: p for p in props}
-    decision_ids = {d["evidence_id"]: d for d in pack["decisions"][:parsed["decisions_n"]]}
-    accepted: dict[str, list[dict]] = {}
+             ) -> tuple[dict[str, dict], list[dict]]:
+    """({component: {"ids": [...], "note": str}}, rejected [{component, reason}]).
+
+    Section-level and deterministic: a section is accepted only if it is exactly
+    {component, evidence: [ids allowed for that section], note: closed-vocabulary text}."""
+    accepted: dict[str, dict] = {}
     rejected: list[dict] = []
     sections = data.get("sections") if isinstance(data, dict) else None
     if not isinstance(sections, list):
-        return {}, [{"component": "*", "text": "", "reason": "no sections list"}]
+        return {}, [{"component": "*", "reason": "no sections list"}]
+    n = parsed["decisions_n"]
     for sec in sections:
         comp = sec.get("component") if isinstance(sec, dict) else None
-        raw_items = sec.get("items") if isinstance(sec, dict) else None
-        if comp not in parsed["components"] or not isinstance(raw_items, list):
-            rejected.append({"component": str(comp), "text": "",
-                             "reason": "component not requested or malformed"})
+        if comp not in parsed["components"]:
+            rejected.append({"component": str(comp), "reason": "component not requested"})
             continue
-        for it in raw_items:
-            if not isinstance(it, dict):
-                rejected.append({"component": comp, "text": "", "reason": "malformed item"})
-                continue
-            text = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", str(it.get("text") or "").strip())
-            raw_refs = it.get("evidence") if isinstance(it.get("evidence"), list) else []
-            refs = [str(r).strip() for r in raw_refs]
-
-            def reject(why):
-                rejected.append({"component": comp, "text": text[:200], "reason": why})
-
-            if not text:
-                reject("empty")
-                continue
-            limit = 160 if comp == "decisions" else 300
-            if len(text) > limit:
-                reject(f"longer than {limit} characters")
-                continue
-            if not refs:
-                reject("unsupported: cites no evidence id")
-                continue
-            bad = [r for r in refs if r not in by_id and r not in pmap]
-            if bad:
-                reject(f"cites ids not in the evidence pack: {bad[:3]}")
-                continue
-            cited = [by_id[r] for r in refs if r in by_id]
-            cited_p = [pmap[r] for r in refs if r in pmap]
-            if comp == "decisions":
-                ids = [r for r in refs if r in decision_ids]
-                if len(ids) != 1 or len(refs) != 1:
-                    reject("a decision note must cite exactly one ranked decision id")
-                    continue
-            if comp == "autonomous":
-                ok_ref = any(p["kind"] == "mission" for p in cited_p) or any(
-                    "autonomous" in c["components"] for c in cited)
-                if not ok_ref:
-                    reject("autonomous work must cite a GREEN proposal or work in progress")
-                    continue
-            why = claim_problem(text, cited, cited_p, window_hours=parsed["window_hours"])
-            if why:
-                reject(why)
-                continue
-            accepted.setdefault(comp, []).append({"text": text, "refs": refs})
+        if comp in accepted:
+            rejected.append({"component": comp, "reason": "component given twice"})
+            accepted.pop(comp)
+            continue
+        extra = sorted(set(sec) - {"component", "evidence", "note"})
+        if extra:
+            rejected.append({"component": comp,
+                             "reason": f"fields outside the contract: {extra} (the model may "
+                                       f"only select evidence ids and add one note)"})
+            continue
+        ids = sec.get("evidence")
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, str) for i in ids):
+            rejected.append({"component": comp, "reason": "no evidence ids selected"})
+            continue
+        ids = [i.strip() for i in ids]
+        allowed = _allowed_ids(comp, pack, props, n)
+        bad = [i for i in ids if i not in allowed]
+        if bad:
+            rejected.append({"component": comp,
+                             "reason": f"ids not in this section's evidence: {bad[:4]}"})
+            continue
+        if len(set(ids)) != len(ids):
+            rejected.append({"component": comp, "reason": "an id is selected twice"})
+            continue
+        why = note_problem(sec.get("note"))
+        if why:
+            rejected.append({"component": comp, "reason": why})
+            continue
+        accepted[comp] = {"ids": ids[:MAX_ITEMS + 3], "note": (sec.get("note") or "").strip()}
     return accepted, rejected
 
 
-def model_lines(accepted: dict[str, list[dict]], pack: dict, parsed: dict,
+def model_lines(accepted: dict[str, dict], pack: dict, parsed: dict,
                 props: list[dict] | None = None) -> dict:
-    """Validated model items as briefing lines. What stays code-rendered whatever the model
-    wrote: each decision line is the owner card's own text verbatim, in the queue's ranking
-    (the model may add one validated "why" under it); the VERIFIED / UNKNOWN listing (each
-    record's own status); and the authority boundary of the autonomy section."""
-    out: dict[str, list[str]] = {}
+    """Render accepted selections. Every factual line is a record's own statement."""
+    props = props or []
+    by_id = {i["id"]: i for i in pack["items"]}
+    pmap = {p["pid"]: p for p in props}
     n = parsed["decisions_n"]
-    for comp, items in accepted.items():
-        if comp == "facts_unknowns":
-            out[comp] = ([_line(it["text"], it["refs"]) for it in items[:2]]
-                         + _deterministic_lines(pack, comp, props or [], n))
+    out: dict[str, list[str]] = {}
+    for comp, sel in accepted.items():
+        note = [f"  {sel['note']}"] if sel["note"] else []
+        if comp in ("decisions", "facts_unknowns"):
+            # queue order / record status are never the model's: note only
+            out[comp] = note + _deterministic_lines(pack, comp, props, n)
             continue
+        lines = []
+        for i in sel["ids"][:MAX_ITEMS + (1 if comp == "departments" else 0)]:
+            if i in pmap:
+                p = pmap[i]
+                lines.append(_line(f"{p['title']} ({p['department']}): {p['why']}", [i]))
+            else:
+                lines.append(_line(by_id[i]["statement"], [i]))
         if comp == "autonomous":
-            bound = [x for x in _deterministic_lines(pack, comp, props or [], n)
-                     if "All internal GREEN" in x or "Not mine to do" in x]
-            out[comp] = [_line(it["text"], it["refs"]) for it in items[:MAX_ITEMS]] + bound
-            continue
-        if comp == "decisions":
-            why: dict[str, str] = {}
-            for it in items:
-                why.setdefault(it["refs"][0], it["text"])
-            lines = []
-            for d in pack["decisions"][:n]:
-                lines.append(f"{d['rank']}. {_clip(d['statement'])} [{d['evidence_id']}]")
-                if d["evidence_id"] in why:
-                    lines.append(f"   Why it matters: {_clip(why[d['evidence_id']], 160)}")
-            if len(pack["decisions"]) < n:
-                lines.append(f"- Only {len(pack['decisions'])} owner decision(s) are open in "
-                             f"the queue; I won't invent the rest.")
-            out[comp] = lines
-        else:
-            out[comp] = [_line(it["text"], it["refs"]) for it in items[:MAX_ITEMS]]
+            lines += [x for x in _deterministic_lines(pack, comp, props, n)
+                      if "All internal GREEN" in x or "Not mine to do" in x]
+        out[comp] = note + lines
     return out
 
 
@@ -776,11 +677,10 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
         accepted, rejected = validate(out["data"], pack, parsed, props)
         lines = model_lines(accepted, pack, parsed, props)
         filled = [c for c in parsed["components"] if not lines.get(c)]
-        mode = ("Written with model synthesis from my evidence pack; every line cites its "
-                "evidence" + (f"; {len(rejected)} unsupported claim(s) were removed"
-                              if rejected else "")
-                + (f"; {', '.join(filled)} filled from records directly" if filled else "")
-                + ".")
+        mode = ("Written with model synthesis: the model chose and ordered the evidence; "
+                "every factual line is the record's own text"
+                + (f"; {len(filled)} section(s) fell back to my deterministic text"
+                   f" ({', '.join(filled)})" if filled else "") + ".")
         method = METHOD_MODEL.format(ref=laura_briefing.PROMPT.ref, model=out["model"])
     else:
         mode = (f"Model synthesis unavailable: {out['reason']}. This is my deterministic "

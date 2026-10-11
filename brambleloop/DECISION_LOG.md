@@ -1753,8 +1753,10 @@ is never resurrected in a future week. D-FB-20 (strongest model only) is otherwi
    (`claude-sonnet-5`), `stronger_fallback=False`: grounded synthesis over a supplied evidence pack, not extraction and
    not a release verdict. No new model, provider or tier; billed to agent `laura` under her own daily permission and
    the monthly ceiling. While Laura's permission is CA$0.00 no call is made (refused before reservation, audited).
-2. Deterministic wins: decision ranking (owner queue), VERIFIED/UNKNOWN labels, decision card text and the authority
-   boundary are code-rendered; every model claim must cite pack ids and state only values/events those records state
-   (`laura.agency.briefing.claim_problem`). The deterministic briefing is the complete fallback.
+2. Deterministic wins (prompt `laura.ceo_briefing@2`, after two independent reviews): the model only SELECTS and
+   ORDERS evidence ids per section and may add one closed-vocabulary note (no numbers, events or action verbs); code
+   renders every factual line from the records' own statements. Decision ranking and card text (owner queue),
+   VERIFIED/UNKNOWN labels and the authority boundary are code-rendered. Any deviation → that section falls back to
+   the deterministic briefing, which is the complete fallback.
 3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
    `research/final_build/w4/LAURA1_FIX.md`.
