@@ -147,6 +147,9 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/etsy/policy-violations",
     # W4-MJS wiring: the latest competitor-intelligence findings reading (operator only).
     "/api/mjs/findings",
+    # W4-FMEND (F-878): the launch packet carries the owner queue, spend limits and product
+    # gate state -> operator credential.
+    "/api/launch/packet",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in

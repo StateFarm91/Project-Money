@@ -1,0 +1,103 @@
+{
+ "kind": "release_evidence",
+ "lane": "w4-FMEND",
+ "candidate": "c131f072b3eb4a9f31fa290c69fd33e8434cf267",
+ "generated_at": "2026-10-11",
+ "ran_on": "clean detached worktree at c131f07 (git status empty before and after); outputs written outside the tree then copied here",
+ "python": "/home/user/Project-Money/brambleloop/.venv/bin/python (the path named in the brief, visual-investigation/brambleloop/.venv, does not exist; this is the interpreter the running full suite uses)",
+ "conditions": "offline; scratch sqlite + artifact dir; BRAMBLELOOP_PHASE=shadow; network guard; no Etsy, no Railway, no spend, no customer messages",
+ "commands": {
+  "shadow_rehearsal": "PYTHONPATH=src python scripts/shadow_rehearsal.py --out <scratch>/shadow_rehearsal_c131f07.json  (in the c131f07 worktree)",
+  "launch_packet": "PYTHONPATH=src python scripts/launch_packet.py --db sqlite:///<scratch>/packet.sqlite --sha c131f072b3eb4a9f31fa290c69fd33e8434cf267 --out <scratch>  (c131f07 worktree; schema created with Database(url).create_all())",
+  "reachability": "FINAL_BUILD_RESUME_MANIFEST.md section 14 snippet, run in the c131f07 worktree, written to module_reachability_c131f07.json",
+  "packets": "PYTHONPATH=<c131f07>/brambleloop/src python scripts/emit_runtime_packets.py --matrix research/final_build/closure_matrix.json --rehearsal research/final_build/w4/evidence_FMEND_c131f07/shadow_rehearsal_c131f07.json --artifacts . --out .../runtime_packets_c131f07.json  (emitter is new tooling on claude/w4-FMEND; handlers read from c131f07's src)",
+  "final_proof": "PYTHONPATH=<c131f07>/brambleloop/src python -m brambleloop.build2.final_proof --matrix research/final_build/closure_matrix.json --packets .../runtime_packets_c131f07.json --head c131f072b3eb4a9f31fa290c69fd33e8434cf267 --artifacts . --reachability .../module_reachability_c131f07.json --output .../final_proof_c131f07.json"
+ },
+ "results": {
+  "shadow_rehearsal": {
+   "complete": false,
+   "exit": 2,
+   "seconds": 406.5,
+   "tree_dirty": false,
+   "mode": "production",
+   "pass": [
+    "boot",
+    "chain.jobs",
+    "cir.compile",
+    "gate.certify",
+    "assets.build",
+    "listing.seo",
+    "network[shadow]",
+    "network[past-shadow]",
+    "orders.ingest",
+    "support.case",
+    "ledger"
+   ],
+   "refused_as_expected": [
+    "store.publish[shadow]"
+   ],
+   "blocked": [
+    "owner_publication_grant",
+    "store.publish[past-shadow]"
+   ],
+   "defects": [
+    "search_certificate_not_pass",
+    "grant_snapshot_refused",
+    "past_shadow_publish_blocked",
+    "order_version_unmapped"
+   ],
+   "same_as_7421ef6": true
+  },
+  "launch_packet": {
+   "verdict": "UNKNOWN",
+   "products_unknown": 7,
+   "phase": "shadow (agree)",
+   "owner_queue": "FAIL, 8 owner actions",
+   "recorded_suite": "UNKNOWN: c131f07's launch/packet.py quotes RUN_6f9a2f7 (the PACKETREL release-record citation is not in c131f07), and no release record for c131f07 exists yet"
+  },
+  "reachability": {
+   "modules": 656,
+   "reached": 564,
+   "lost_vs_2f36fe0": [],
+   "gained": [
+    "app/command_center/launch_packet.py",
+    "growth/free_assets.py",
+    "growth/free_to_paid.py",
+    "launch/packet.py"
+   ]
+  },
+  "packets": {
+   "emitted": 10,
+   "uids": [
+    "F-048",
+    "F-084",
+    "F-243",
+    "F-252",
+    "F-298",
+    "F-299",
+    "F-477",
+    "F-543",
+    "F-835",
+    "F-848"
+   ],
+   "claims": "producer + live_root receipts only; no suite (no record for c131f07), no independent review"
+  },
+  "final_proof": {
+   "rows": 917,
+   "BLOCKED": 917,
+   "REVIEWABLE": 0,
+   "certified": false,
+   "exit": 1,
+   "packet_rows_now_pass": "run identity, artifact binding, producer and live_root receipts",
+   "packet_rows_still_missing": "durable_state/consumer/decision/effect/result receipts, production_producer, failure_test, suite, execution_gate (protected rows), independent_review"
+  }
+ },
+ "files": {
+  "final_proof_c131f07.json": "aec050260997e2faedaa8b09e2bd936d2e989fd9c4764274a5a876b2422af66d",
+  "launch_packet_c131f072b3eb_20261011T053329Z.json": "33e62e766d183220445f2943123a4ff23fbcc5a1e963a9421aa01941948a9c4e",
+  "launch_packet_c131f072b3eb_20261011T053329Z.md": "f404e89793b6178fb3c2424c7a233f5b34344673c4c365dd1bd743724b80c5db",
+  "module_reachability_c131f07.json": "dda7899763615e1b07bea2871903095aa1687fc0e2ff271f6b4547303b2d5e61",
+  "runtime_packets_c131f07.json": "a2140493e2088aaf0c1aa4e63869c69a46eb1a408d62308b0b91a16eca14ec15",
+  "shadow_rehearsal_c131f07.json": "2632f5407de7aa3105be26a53167ccef01972f820e6e5a095894bc942ad4cb75"
+ }
+}
