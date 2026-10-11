@@ -1,0 +1,192 @@
+{
+ "candidate": "0417f3516f30bb7c52926187fc475a0f46536e86",
+ "tag": null,
+ "tag_not_created": "no local tag or freeze-ref branch is created by this lane (pushes are restricted to claude/w4-FMGATE); the deployed production branch claude/repository-setup-nc9x6o points at this SHA (/health build.commit) and release/DEPLOYED_HISTORY.json records it. Integrator: push refs/heads/claude/final-candidate-0417f35",
+ "deployed": {
+  "observed": "2026-10-11T14:39:50Z",
+  "how": "GET /health build.commit, known:true; /api/status boot_guard enforced:true ok:true",
+  "evidence": "brambleloop/research/final_build/w4/evidence_FMGATE_0417f35/"
+ },
+ "frozen_at": "2026-10-11T14:55:47Z",
+ "pushed": false,
+ "freeze_check": {
+  "tool": "scripts/freeze_candidate.py::check (PACKETREL guard-rule binding)",
+  "worktree": "clean detached worktree at 0417f3516f30bb7c52926187fc475a0f46536e86",
+  "refusals": []
+ },
+ "suite_record": {
+  "path": "brambleloop/release/suite_runs/20261011T083839Z-21062.json",
+  "sha256": "745391c05256d97c3905df91b8aacf3021f21481e0627362e818d627fbef9081",
+  "binding": "tracked release record RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json: same deployable tree as 0417f3516f30, record SHA 5dfd1ac56ba4 is an ancestor (deploy guard rule)"
+ },
+ "matrix": {
+  "path": "brambleloop/research/final_build/closure_matrix.json",
+  "at": "0417f3516f30bb7c52926187fc475a0f46536e86",
+  "sha256": "763633a0d6ba63082997565423b86ac86f4922108770d0cff613ec160f4b4986",
+  "basis": {
+   "mapping": {
+    "base": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+    "remaps": {
+     "6f9a2f7": {
+      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+      "rows": 163
+     },
+     "fee1cfe": {
+      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+      "rows": 177
+     },
+     "8b67414": {
+      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+      "rows": 45
+     },
+     "2f36fe0": {
+      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
+      "rows": 9
+     }
+    },
+    "rows_on_base": 523,
+    "per_row": "matrix[].mapped_on"
+   },
+   "reachability": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
+   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+   "registry": "master_registry.json + master_registry_v1_1.json"
+  },
+  "summary": {
+   "rows": 917,
+   "unmapped": [],
+   "problems": [],
+   "maturity": {
+    "DEPLOYED": 185,
+    "INTEGRATED": 497,
+    "MISSING": 109,
+    "IMPLEMENTED": 56,
+    "TESTED": 52,
+    "EXERCISED": 18
+   },
+   "maturity_claimed": {
+    "EXERCISED": 117,
+    "INTEGRATED": 467,
+    "DEPLOYED": 132,
+    "MISSING": 109,
+    "IMPLEMENTED": 45,
+    "TESTED": 47
+   },
+   "launch_class": {
+    "LAUNCH-CRITICAL": 490,
+    "MATURE": 420,
+    "NA": 7
+   },
+   "launch_critical_maturity": {
+    "DEPLOYED": 113,
+    "INTEGRATED": 321,
+    "IMPLEMENTED": 4,
+    "EXERCISED": 18,
+    "TESTED": 29,
+    "MISSING": 5
+   },
+   "gate_kind": {
+    "none": 618,
+    "owner": 176,
+    "data": 84,
+    "external": 39
+   },
+   "launch_critical_gate_kind": {
+    "none": 355,
+    "owner": 89,
+    "external": 29,
+    "data": 17
+   },
+   "coverage": {
+    "FULL": 422,
+    "PARTIAL": 495
+   },
+   "downgraded": 143,
+   "defects": 24,
+   "wave_reported": {
+    "PARTIAL": 50,
+    "DONE": 55,
+    "NOT_STARTED": 1
+   },
+   "completion": {
+    "COMPLETE": 355,
+    "GATED": 126,
+    "POST-LAUNCH": 420,
+    "OPEN": 9,
+    "NOT-APPLICABLE": 7
+   },
+   "launch_critical_completion": {
+    "COMPLETE": 355,
+    "GATED": 126,
+    "OPEN": 9
+   },
+   "launch_critical_open": 9,
+   "launch_critical_open_reasons": {
+    "maturity TESTED": 5,
+    "coverage PARTIAL": 8,
+    "maturity IMPLEMENTED": 3
+   },
+   "protected_action_applicability": {
+    "protected": 578,
+    "unprotected": 339
+   },
+   "capped_by_unwritten_state": 1,
+   "capped_by_proxy_evidence": 0,
+   "mapped_on": {
+    "fee1cfe": 177,
+    "8b67414": 45,
+    "6f9a2f7": 163,
+    "019ebf0": 523,
+    "2f36fe0": 9
+   },
+   "orphaned_partials": [],
+   "structural_target_overrides": [
+    "F-123",
+    "F-170",
+    "F-177",
+    "F-178",
+    "F-205",
+    "F-332",
+    "F-334",
+    "F-340",
+    "F-342",
+    "F-344",
+    "F-345",
+    "F-346",
+    "F-347",
+    "F-348",
+    "F-349",
+    "F-350",
+    "F-836",
+    "F-837",
+    "F-843",
+    "F-847"
+   ]
+  },
+  "launch_critical_open": 9
+ },
+ "rehearsal": {
+  "path": "brambleloop/research/final_build/evidence/shadow_rehearsal_0417f35.json",
+  "sha256": "753f11a4f405654bcba1dd57805903e20dab3fe5a56c8080992a223b77939fbc",
+  "binding": "exact",
+  "complete": false,
+  "outcomes": {
+   "boot": "PASS",
+   "chain.jobs": "PASS",
+   "cir.compile": "PASS",
+   "gate.certify": "PASS",
+   "assets.build": "PASS",
+   "listing.seo": "PASS",
+   "store.publish[shadow]": "REFUSED_AS_EXPECTED",
+   "network[shadow]": "PASS",
+   "owner_phase_transition": "BLOCKED",
+   "owner_publication_grant": "BLOCKED",
+   "store.publish[past-shadow]": "BLOCKED",
+   "network[past-shadow]": "PASS",
+   "orders.ingest": "PASS",
+   "support.case": "PASS",
+   "ledger": "PASS"
+  }
+ },
+ "defect_ledger": "brambleloop/research/final_build/DEFECT_LEDGER_0417f35.json",
+ "next": "independent audit of this exact SHA by a different model/session (F-846); repairs land on a successor candidate, never on this SHA"
+}

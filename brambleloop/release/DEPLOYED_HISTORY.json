@@ -6,6 +6,11 @@
       "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
       "observed": "2026-10-06",
       "evidence": "brambleloop/research/final_build/CANDIDATE_3be3096.json matrix.basis.production; research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (production fcb982d schema)"
+    },
+    {
+      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+      "observed": "2026-10-11T14:39:50Z",
+      "evidence": "production GET /health build.commit 0417f3516f30 known:true, branch claude/repository-setup-nc9x6o; /api/status boot_guard enforced:true ok:true record RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json tree_sha256 30a4dc93; runner worker_started_at 2026-10-11T13:59:48Z (brambleloop/research/final_build/w4/evidence_FMGATE_0417f35/prod_health_20261011T1439Z.json)"
     }
   ]
 }
