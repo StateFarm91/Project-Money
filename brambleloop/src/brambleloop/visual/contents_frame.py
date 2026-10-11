@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import threading
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
@@ -36,6 +37,13 @@ TITLE_PX = 64
 BODY_PX = 46
 SMALL_PX = 36
 PAGE_BORDER = (88, 70, 44)    # K.GAP: the page edge reads as a sheet on the sage canvas
+
+#: PDFium is not thread-safe: two threads inside it at once abort or segfault the whole
+#: process (W4-CCGAP reproduced `bad_variant_access` / SIGSEGV killing the web process when the
+#: Command Center's launch-packet thread and a request thread both verified a CONTENTS frame).
+#: Every PDFium call in this process goes through this lock, and each document is closed while
+#: the lock is held so no finalizer runs PDFium later on another thread.
+PDFIUM_LOCK = threading.RLock()
 
 
 class ContentsRefused(ValueError):
@@ -93,7 +101,12 @@ def released_pdf(db, slug: str, version: str, *, store=None, release: str = "") 
 def _pages_pdfium(pdf: bytes) -> int:
     import pypdfium2 as pdfium
 
-    return len(pdfium.PdfDocument(pdf))
+    with PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(pdf)
+        try:
+            return len(doc)
+        finally:
+            doc.close()
 
 
 def _pages_pypdf(pdf: bytes) -> int:
@@ -130,6 +143,33 @@ def _text(d, xy, text: str, px: int) -> int:
     return int(round(px * 1.35))
 
 
+def _paste_pages(d, img, doc, f: dict, x0, y, x1, y1) -> None:
+    """Rasterise the first pages onto the canvas. Caller holds PDFIUM_LOCK."""
+    n = f["pages_shown"]
+    cols = 2 if n > 1 else 1
+    rows = (n + cols - 1) // cols
+    gap = 48
+    label_h = int(SMALL_PX * 1.35) + 8
+    cell_w = (x1 - x0 - gap * (cols - 1)) / cols
+    cell_h = (y1 - y - gap * (rows - 1)) / rows - label_h
+    for i in range(n):
+        page = doc[i]
+        pw, ph = page.get_size()
+        scale = min(cell_w / pw, cell_h / ph)
+        bitmap = page.render(scale=scale)
+        bmp = bitmap.to_pil().convert("RGB")
+        bitmap.close()
+        page.close()
+        r, c = divmod(i, cols)
+        cx = x0 + c * (cell_w + gap) + (cell_w - bmp.width) / 2
+        cy = y + r * (cell_h + label_h + gap)
+        px, py = round(cx), round(cy)
+        img.paste(bmp, (px, py))
+        d.rectangle([px - 3, py - 3, px + bmp.width + 2, py + bmp.height + 2],
+                    outline=PAGE_BORDER, width=3)
+        _text(d, (px, py + bmp.height + 8), f"Page {i + 1} of {f['pages']}", SMALL_PX)
+
+
 def draw(f: dict, pdf: bytes) -> bytes:
     """Pixels from facts and the PDF's own pages. Producer and verifier both call this."""
     import pypdfium2 as pdfium
@@ -144,27 +184,12 @@ def draw(f: dict, pdf: bytes) -> bytes:
     sub = (f"Shown: the {f['terminology']}-terms edition"
            + (f"; also included: {', '.join(others)}-terms edition" if others else ""))
     y += _text(d, (x0, y), sub, SMALL_PX) + 24
-    doc = pdfium.PdfDocument(pdf)
-    n = f["pages_shown"]
-    cols = 2 if n > 1 else 1
-    rows = (n + cols - 1) // cols
-    gap = 48
-    label_h = int(SMALL_PX * 1.35) + 8
-    cell_w = (x1 - x0 - gap * (cols - 1)) / cols
-    cell_h = (y1 - y - gap * (rows - 1)) / rows - label_h
-    for i in range(n):
-        page = doc[i]
-        pw, ph = page.get_size()
-        scale = min(cell_w / pw, cell_h / ph)
-        bmp = page.render(scale=scale).to_pil().convert("RGB")
-        r, c = divmod(i, cols)
-        cx = x0 + c * (cell_w + gap) + (cell_w - bmp.width) / 2
-        cy = y + r * (cell_h + label_h + gap)
-        px, py = round(cx), round(cy)
-        img.paste(bmp, (px, py))
-        d.rectangle([px - 3, py - 3, px + bmp.width + 2, py + bmp.height + 2],
-                    outline=PAGE_BORDER, width=3)
-        _text(d, (px, py + bmp.height + 8), f"Page {i + 1} of {f['pages']}", SMALL_PX)
+    with PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(pdf)
+        try:
+            _paste_pages(d, img, doc, f, x0, y, x1, y1)
+        finally:
+            doc.close()
     label = preview_label()
     lf = K.font(K.CAPTION_PX)
     w = d.textlength(label, font=lf)
