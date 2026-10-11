@@ -6,7 +6,7 @@
 // security data and are current truth only at the moment they are served (F-898). API
 // requests are not intercepted at all; they go straight to the network. Non-GET requests are
 // never intercepted. Cross-origin requests are never intercepted.
-const VERSION = "cc-shell-v11";
+const VERSION = "cc-shell-v12";
 const SHELL = [
   "./",
   "index.html",
@@ -24,6 +24,7 @@ const SHELL = [
   "js/sections.js",
   "js/views/_shared.js",
   "js/views/_decisions.js",
+  "js/views/_checks.js",
   "js/views/account.js",
   "js/views/approvals.js",
   "js/views/company.js",

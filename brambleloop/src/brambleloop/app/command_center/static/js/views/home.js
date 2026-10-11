@@ -5,6 +5,7 @@ import { card, freshness, itemRow, sourcesList, toast, errorState, moneyTile, st
 import { formatMoney, relTime, utcStamp } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, sectionDetails, isMoney } from "./_shared.js";
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
+import { checksCard } from "./_checks.js";
 
 const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
@@ -53,6 +54,7 @@ function heroCard(hl, result) {
 
 export async function render({ rerender }) {
   const [homeR, briefR, apprR] = await Promise.allSettled([api.home(), api.morning(12), api.approvals()]);
+  const checks = await checksCard({ rerender });
   if (homeR.status === "rejected") throw homeR.reason;
   const result = homeR.value;
   const data = result.data || {};
@@ -93,6 +95,7 @@ export async function render({ rerender }) {
     changes && changes.status && changes.status !== "OK" ? statusPill(changes.status) : null,
     changes ? sourcesList(changes.sources) : null),
     briefR.status === "fulfilled" ? morningCard(briefR.value) : errorState(briefR.reason),
+    checks,
     ...renderAll(data, [["owner_actions", "Your actions"], ["launch", "Launch"], ["money", "Money (controller)"],
       ["store", "Store foundation"], ["products", "Products"], ["autonomy", "Autonomy health"], ["work_24h", "Work (24 h)"],
       ["incidents", "Incidents"], ["opportunities", "Opportunities"]],

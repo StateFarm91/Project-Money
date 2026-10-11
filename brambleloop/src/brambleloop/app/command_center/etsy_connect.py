@@ -69,7 +69,8 @@ def recheck(db, *, actor: str) -> dict:
 
     key = f"etsy.probe:cc:{datetime.now(timezone.utc):%Y%m%dT%H%M}"
     try:
-        job = JobQueue(db).enqueue("market_radar", "etsy.probe", {}, idempotency_key=key)
+        job = JobQueue(db).enqueue("market_radar", "etsy.probe", {"on_demand": True},
+                                   idempotency_key=key)
     except DuplicateJob:
         job = None
     Registry(db).audit("orchestrator", RECHECK_ACTION,
