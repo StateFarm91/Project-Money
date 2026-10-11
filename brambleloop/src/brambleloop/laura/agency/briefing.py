@@ -58,7 +58,9 @@ _PATTERNS: dict[str, re.Pattern] = {
         r"what (did )?(we|you|the company|brambleloop) (do|did|get done)"),
     "departments": re.compile(r"department|each team|every team|the teams"),
     "blockers": re.compile(r"block|prevent|stopping (us|our)|in the way|obstacle|"
-                           r"first (etsy )?sale|holding (us|it) back"),
+                           r"first (etsy )?sale|holding (us|it) back|"
+                           r"(not|n't|never) (yet )?sell|no sales|(not|n't) (making|getting) "
+                           r"(any )?(sales|money)"),
     "decisions": re.compile(r"decision|\bdecide|need me to|approv|sign[- ]off"),
     "facts_unknowns": re.compile(r"verified|unknowns?\b|facts? (vs|versus|from|and)|"
                                  r"what you (know|don't know)|separate"),
@@ -66,6 +68,9 @@ _PATTERNS: dict[str, re.Pattern] = {
                              r"alone)|you can handle|next steps?|you will do next|"
                              r"autonom|by yourself"),
 }
+_TOPICAL = re.compile(r"\b(of|on|about|for) (the |our |my |your )?(store|shop|storefront|"
+                      r"revenue|money|sales|seo|search|products?|visual|ads|finance|books|"
+                      r"listings?|banner|brand)\b")
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
           "eight": 8, "nine": 9, "ten": 10, "top": 0}
 _N_DECISIONS = re.compile(
@@ -96,8 +101,13 @@ def parse(question: str) -> dict:
             found.append((m.start(), comp))
     comps = [c for _, c in sorted(found)]
     named = bool(_BRIEFING_WORDS.search(q))
-    is_briefing = (named and bool(q)) or len(comps) >= 3
-    if named and len(comps) < 2:
+    # Review LOW-1: "a rundown of the store" / "status report on revenue" is a topical
+    # question, not a six-part briefing; the topical intent answers it.
+    topical = bool(_TOPICAL.search(q)) and len(comps) < 2
+    # Review MEDIUM-2: two or more asked-for parts are answered part by part (never collapsed
+    # onto one single-keyword intent); a briefing word with fewer parts means the full briefing.
+    is_briefing = ((named and bool(q)) and not topical) or len(comps) >= 2
+    if named and not topical and len(comps) < 2:
         comps = list(COMPONENTS)
     window = 24
     m = re.search(r"last (\d{1,3}) ?(h\b|hours?)", q)
@@ -209,6 +219,14 @@ def _decision_candidates(db) -> tuple[list[dict], str | None]:
     return out, (box.get("reason") if box.get("status") == UNKNOWN else None)
 
 
+# Review LOW-2: refusals, access reads and security bookkeeping are audit noise, not company
+# accomplishments (and can carry session ids); they never enter the "accomplished" section.
+_AUDIT_NOISE = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)*\.(refused|denied|read|viewed|accessed|"
+                          r"rejected|refusal|login|logout|session\w*|step_?up)\b|"
+                          r"PermissionRefused|Refused\b|owner:p\w*|\bsession\b|security",
+                          re.I)
+
+
 _ETSY_WORDS = re.compile(r"etsy|listing|publication|publish|transactions_r|shop|marketplace|"
                          r"order|receipt", re.I)
 
@@ -219,7 +237,8 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
 
     p = _Pack()
     # 1. last window
-    p.section(ev.overnight(db, window_hours), ["last_window"], limit=8)
+    p.section(ev.overnight(db, window_hours), ["last_window"], limit=8,
+              keep=lambda f: not _AUDIT_NOISE.search(f["statement"]))
     # 2. departments: status + queued missions/open jobs + Laura's own priorities
     dep = ev.departments(db)
     dep_items = p.section(dep, ["departments"], limit=12)
@@ -491,21 +510,147 @@ def compose(pack: dict, parsed: dict, props: list[dict], *, mode_line: str,
 
 
 # ---- validation of model output ---------------------------------------------------------
+#
+# Hardened after the independent review of 3565b5f (INDEPENDENT_REVIEW_LAURA1.md, HIGH-1).
+# The model may only *phrase* what a cited record already says. Per claim (one item):
+#   * values: every number -- digits *or words* ("five hundred", "a dozen", "nothing") -- must
+#     occur in the statement of a record the item cites. Timestamps are not statements and
+#     grant nothing; no number is allowed globally (only the literal "last {window} hours"
+#     phrase of the question itself is ignored);
+#   * UNKNOWN: an item citing an UNKNOWN record must say it is unknown and may state no value
+#     at all -- UNKNOWN can never be asserted as a figure, zero included;
+#   * events: a sale/revenue/order, live/listed/on-Etsy, refund, review, launch, customer or
+#     certification claim must cite a record that states that kind of event, and where the
+#     record states it negatively ("0 are on Etsy", "Revenue: UNKNOWN") the claim must too;
+#   * authority: publish / activate / price / spend / buy / ads / customer or tester outreach
+#     in the first person is refused in every section, and in any form unless a cited record
+#     itself names that act; there is no bare-word negation escape;
+#   * identity: no claim of being human, having a body or doing physical work;
+#   * decisions: the line is the owner card's own text, verbatim; the model may add one short
+#     "why" that passes every rule above, nothing else.
 
 _NUM = re.compile(r"\d+(?:[.,]\d+)*")
-_UNKNOWN_WORDS = re.compile(r"unknown|not known|unmeasured|not yet measured|no evidence|"
-                            r"can't say|cannot say|don't know", re.I)
-_PROTECTED_ACT = re.compile(r"\b(publish|activate|list (it|them) on etsy|spend|buy|purchase|"
-                            r"advertis|run ads|email|message (a |the )?customers?|reprice|"
-                            r"change (the )?price)", re.I)
-_NEGATED = re.compile(r"\b(won't|will not|never|not|no|only you|your decision|needs you)\b",
-                      re.I)
-_HUMAN = re.compile(r"\b(i am|i'm) (a )?(human|person|woman|real person)\b|\bmy (body|hands)\b",
-                    re.I)
+_NUMBER_WORDS = {
+    "zero": 0, "nil": 0, "nothing": 0, "none": 0, "free": 0, "one": 1, "single": 1,
+    "two": 2, "couple": 2, "pair": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "dozen": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+    "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100,
+    "thousand": 1000, "million": 1000000, "billion": 1000000000, "half": 0.5,
+    "dozens": 12, "hundreds": 100, "thousands": 1000, "millions": 1000000,
+    "twice": 2, "double": 2, "triple": 3, "once": 1, "several": -1, "many": -1,
+}
+_NUMBER_WORD_RX = re.compile(r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True))
+                             + r")\b", re.I)
+_UNKNOWN_WORDS = re.compile(r"\bunknown\b|not known|unmeasured|not yet measured|no evidence|"
+                            r"can't say|cannot say|don't know|not recorded|no record", re.I)
+_NEG = r"(\b(0|no|none|not|never|nothing|zero|isn't|aren't|hasn't|haven't|yet to|without)\b)"
+_EVENTS: dict[str, re.Pattern] = {
+    "sale": re.compile(r"\b(sale|sales|sold|sell|selling|orders?|purchased|revenue|earn\w*|"
+                       r"income|profit\w*|paid|buyers?|receipts?)\b", re.I),
+    "live": re.compile(r"\b(live|on etsy|listed|active listing|went up|in the shop|"
+                       r"published|is open|opened)\b", re.I),
+    "refund": re.compile(r"\brefund\w*", re.I),
+    "review": re.compile(r"\breviews?\b|\bstars?\b|\brating", re.I),
+    "launch": re.compile(r"\b(launch\w*|released?|shipped|debuted?)\b", re.I),
+    "customer": re.compile(r"\b(customers?|shoppers?|visitors?|traffic|favou?rites?)\b", re.I),
+    "certified": re.compile(r"\bcertif\w*", re.I),
+}
+_PROTECTED = re.compile(
+    r"\b(publish\w*|go(es|ing)? live|push\w* (it |them |\w+ )?live|activat\w*|"
+    r"(set|change|raise|lower|cut)\w* (its |the |our |their )?prices?|re-?pric\w*|pricing|"
+    r"spend\w*|spent|buy\w*|purchas\w*|pay for|advertis\w*|ads?\b|campaigns?|"
+    r"e-?mail\w*|messag\w*|outreach|contact\w*|dm\b|post(ed|ing)? to)", re.I)
+_FIRST_PERSON = re.compile(r"\b(i|i'll|i've|i'd|i'm|me|my|myself|let me|we|we'll|we've|"
+                           r"we're|us|our team will)\b", re.I)
+_HUMAN = re.compile(
+    r"\b(i am|i'm|as) (a |an )?(real |actual )?(human|person|woman|lady|mother|wife|"
+    r"crocheter|knitter)\b|\breal (woman|person|human)\b|\bmy (body|hands|fingers|hook|"
+    r"needles|home|kitchen|family|husband|spouse)\b|\byears at the hook\b|\bi (personally )?"
+    r"(crochet|knit|stitch|made|hand-?made|sewed|photographed|shipped|posted)\b|\bin person\b|"
+    r"\bphysically\b", re.I)
+
+
+def _norm_num(n: str) -> str:
+    n = n.replace(",", "")
+    try:
+        v = float(n)
+    except ValueError:
+        return n
+    return str(int(v)) if v == int(v) else str(v)
 
 
 def _nums(text: str) -> set[str]:
-    return {n.replace(",", "") for n in _NUM.findall(text or "")}
+    """Every numeric value a text states: digits normalised, plus number words."""
+    text = text or ""
+    out = {_norm_num(n) for n in _NUM.findall(text)}
+    for w in _NUMBER_WORD_RX.findall(text):
+        v = _NUMBER_WORDS[w.lower()]
+        out.add("WORD:" + w.lower() if v < 0 else _norm_num(str(v)))
+    return out
+
+
+def _stated_nums(text: str) -> set[str]:
+    """Values a record states (digits and number words), as `_nums` would read them."""
+    return {n for n in _nums(text) if not n.startswith("WORD:")}
+
+
+def _negated_at(text: str, rx: re.Pattern) -> tuple[bool, bool]:
+    """(asserted positively somewhere, asserted negatively somewhere) for an event class."""
+    pos = neg = False
+    for m in rx.finditer(text):
+        before = text[max(0, m.start() - 40):m.start()]
+        after = text[m.end():m.end() + 25]
+        if re.search(_NEG, before, re.I) or re.search(r"UNKNOWN|unknown|UNMEASURED", after):
+            neg = True
+        else:
+            pos = True
+    return pos, neg
+
+
+def claim_problem(text: str, cited: list[dict], cited_props: list[dict], *,
+                  window_hours: int) -> str | None:
+    """Why one model claim is not supported by the records it cites, or None. Deterministic."""
+    body = re.sub(rf"\b(last|past) {int(window_hours)} ?(h\b|hours?)", " ", text, flags=re.I)
+    statements = [c["statement"] for c in cited] + [f"{p['title']}. {p['why']}"
+                                                    for p in cited_props]
+    joined = " || ".join(statements)
+    if _HUMAN.search(text):
+        return "claims to be human or to do physical work"
+    # authority, every section
+    m = _PROTECTED.search(text)
+    if m:
+        if _FIRST_PERSON.search(text):
+            return (f"claims a protected act ({m.group(0)!r}: publish/price/spend/ads/outreach) "
+                    f"as Laura's or the company's own")
+        if not re.search(re.escape(m.group(0)[:5]), joined, re.I):
+            return f"names a protected act ({m.group(0)!r}) no cited record states"
+    # UNKNOWN can never be asserted as a value
+    unknown_cited = [c for c in cited if c["status"] == UNKNOWN]
+    if unknown_cited:
+        if not _UNKNOWN_WORDS.search(text):
+            return "cites an UNKNOWN record without saying it is unknown"
+        if _nums(body):
+            return "states a value while citing an UNKNOWN record (UNKNOWN is never a value)"
+    # values: each must occur in a cited statement (never a timestamp, never global)
+    allowed = set()
+    for s_ in statements:
+        allowed |= _stated_nums(s_)
+    added = sorted(n for n in _nums(body) if n not in allowed)
+    if added:
+        return f"unsupported values not stated by the cited records: {added[:5]}"
+    # events: the cited records must state the same kind of event, with the same polarity
+    for kind, rx in _EVENTS.items():
+        t_pos, _t_neg = _negated_at(text, rx)
+        if not (t_pos or _t_neg):
+            continue
+        c_pos, c_neg = _negated_at(joined, rx)
+        if not (c_pos or c_neg):
+            return f"claims a {kind} event no cited record states"
+        if t_pos and not c_pos:
+            return f"asserts a {kind} event the cited records state only negatively/UNKNOWN"
+    return None
 
 
 def validate(data, pack: dict, parsed: dict, props: list[dict]
@@ -527,10 +672,12 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
                              "reason": "component not requested or malformed"})
             continue
         for it in raw_items:
-            text = str((it or {}).get("text") or "").strip() if isinstance(it, dict) else ""
-            text = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", text)
-            refs = [str(r).strip() for r in ((it or {}).get("evidence") or [])
-                    if isinstance(it, dict)] if isinstance(it, dict) else []
+            if not isinstance(it, dict):
+                rejected.append({"component": comp, "text": "", "reason": "malformed item"})
+                continue
+            text = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", str(it.get("text") or "").strip())
+            raw_refs = it.get("evidence") if isinstance(it.get("evidence"), list) else []
+            refs = [str(r).strip() for r in raw_refs]
 
             def reject(why):
                 rejected.append({"component": comp, "text": text[:200], "reason": why})
@@ -538,8 +685,9 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
             if not text:
                 reject("empty")
                 continue
-            if len(text) > 400:
-                reject("longer than 400 characters")
+            limit = 160 if comp == "decisions" else 300
+            if len(text) > limit:
+                reject(f"longer than {limit} characters")
                 continue
             if not refs:
                 reject("unsupported: cites no evidence id")
@@ -550,48 +698,31 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
                 continue
             cited = [by_id[r] for r in refs if r in by_id]
             cited_p = [pmap[r] for r in refs if r in pmap]
-            allowed = set()
-            for c in cited:
-                allowed |= _nums(c["statement"]) | _nums(str(c.get("as_of") or ""))
-            for c in cited_p:
-                allowed |= _nums(f"{c['title']} {c['why']}")
-            allowed |= {str(parsed["window_hours"]), str(parsed["decisions_n"])}
-            added = sorted(_nums(text) - allowed)
-            if added:
-                reject(f"unsupported figures not in the cited evidence: {added[:5]}")
-                continue
-            if any(c["status"] == UNKNOWN for c in cited) and not _UNKNOWN_WORDS.search(text) \
-                    and all(c["status"] == UNKNOWN for c in cited):
-                reject("presents UNKNOWN evidence as known")
-                continue
-            if _HUMAN.search(text):
-                reject("claims to be human or physical")
-                continue
             if comp == "decisions":
                 ids = [r for r in refs if r in decision_ids]
-                if len(ids) != 1:
-                    reject("a decision item must cite exactly one ranked decision id")
+                if len(ids) != 1 or len(refs) != 1:
+                    reject("a decision note must cite exactly one ranked decision id")
                     continue
             if comp == "autonomous":
                 ok_ref = any(p["kind"] == "mission" for p in cited_p) or any(
                     "autonomous" in c["components"] for c in cited)
-                if not ok_ref and not any(p["kind"] != "mission" for p in cited_p):
+                if not ok_ref:
                     reject("autonomous work must cite a GREEN proposal or work in progress")
                     continue
-                if _PROTECTED_ACT.search(text) and not _NEGATED.search(text):
-                    reject("claims protected work (publish/spend/price/ads/customer contact) "
-                           "as Laura's own")
-                    continue
+            why = claim_problem(text, cited, cited_p, window_hours=parsed["window_hours"])
+            if why:
+                reject(why)
+                continue
             accepted.setdefault(comp, []).append({"text": text, "refs": refs})
     return accepted, rejected
 
 
 def model_lines(accepted: dict[str, list[dict]], pack: dict, parsed: dict,
                 props: list[dict] | None = None) -> dict:
-    """Validated model items as briefing lines. Two parts stay deterministic whatever the
-    model wrote: the decision ranking (the owner queue's) and the VERIFIED / UNKNOWN labelling
-    (each record's own status); model text may only phrase them. The authority boundary in
-    the autonomy section is always appended by code."""
+    """Validated model items as briefing lines. What stays code-rendered whatever the model
+    wrote: each decision line is the owner card's own text verbatim, in the queue's ranking
+    (the model may add one validated "why" under it); the VERIFIED / UNKNOWN listing (each
+    record's own status); and the authority boundary of the autonomy section."""
     out: dict[str, list[str]] = {}
     n = parsed["decisions_n"]
     for comp, items in accepted.items():
@@ -599,26 +730,26 @@ def model_lines(accepted: dict[str, list[dict]], pack: dict, parsed: dict,
             out[comp] = ([_line(it["text"], it["refs"]) for it in items[:2]]
                          + _deterministic_lines(pack, comp, props or [], n))
             continue
-        if comp == "autonomous":           # the authority boundary is stated by code
+        if comp == "autonomous":
             bound = [x for x in _deterministic_lines(pack, comp, props or [], n)
                      if "All internal GREEN" in x or "Not mine to do" in x]
             out[comp] = [_line(it["text"], it["refs"]) for it in items[:MAX_ITEMS]] + bound
             continue
         if comp == "decisions":
-            by_dec: dict[str, str] = {}
+            why: dict[str, str] = {}
             for it in items:
-                for r in it["refs"]:
-                    by_dec.setdefault(r, it["text"])
+                why.setdefault(it["refs"][0], it["text"])
             lines = []
-            for d in pack["decisions"][:n]:      # the queue's ranking, never the model's
-                text = by_dec.get(d["evidence_id"]) or d["statement"]
-                lines.append(f"{d['rank']}. {_clip(text)} [{d['evidence_id']}]")
+            for d in pack["decisions"][:n]:
+                lines.append(f"{d['rank']}. {_clip(d['statement'])} [{d['evidence_id']}]")
+                if d["evidence_id"] in why:
+                    lines.append(f"   Why it matters: {_clip(why[d['evidence_id']], 160)}")
             if len(pack["decisions"]) < n:
                 lines.append(f"- Only {len(pack['decisions'])} owner decision(s) are open in "
                              f"the queue; I won't invent the rest.")
             out[comp] = lines
         else:
-            out[comp] = [_line(it["text"], it["refs"]) for it in items[:MAX_ITEMS + 2]]
+            out[comp] = [_line(it["text"], it["refs"]) for it in items[:MAX_ITEMS]]
     return out
 
 
@@ -683,10 +814,14 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
 
 # ---- follow-ups against the stored briefing ---------------------------------------------
 
+# Review LOW-3: anchored at the start of a short message, so an ordinary question that
+# merely mentions "step 2" is not hijacked as a follow-up.
 _FOLLOW = re.compile(
-    r"\b(expand|more on|more about|tell me more|explain|detail|elaborate|unpack|go deeper|"
-    r"what about|why)\b.*?\b(?P<kind>decision|blocker|step|proposal)s?\s*"
-    r"(?:#|no\.?|number)?\s*(?P<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b")
+    r"^(laura[,:]?\s+)?(please\s+)?(can you\s+|could you\s+)?(expand( on)?|more on|"
+    r"more about|tell me more( about)?|explain|elaborate( on)?|unpack|go deeper( on)?|"
+    r"what about|why)\s+(on\s+)?(the\s+|your\s+)?(?P<kind>decision|blocker|step|proposal)s?"
+    r"\s*(?:#|no\.?|number)?\s*(?P<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|"
+    r"ten)\b[\s?.!]*$")
 
 
 def parse_followup(question: str) -> tuple[str, int] | None:

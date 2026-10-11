@@ -1747,3 +1747,14 @@ finance/accounting correctness, Laura identity, authority/permissions, credentia
 certification judgement — those checkpoint and wait for the reset. The authorisation EXPIRES automatically at the next
 All Models weekly reset: no new Fable work after it, all later work returns to the strongest appropriate model, and it
 is never resurrected in a future week. D-FB-20 (strongest model only) is otherwise unchanged and governs after expiry.
+
+## D-W4-LAURA1 (2026-10-11) — Laura's CEO briefing: routing task and grounding rule
+1. New paid model task `laura.ceo_briefing` (prompt `laura.ceo_briefing@1`) on the EXISTING standard tier
+   (`claude-sonnet-5`), `stronger_fallback=False`: grounded synthesis over a supplied evidence pack, not extraction and
+   not a release verdict. No new model, provider or tier; billed to agent `laura` under her own daily permission and
+   the monthly ceiling. While Laura's permission is CA$0.00 no call is made (refused before reservation, audited).
+2. Deterministic wins: decision ranking (owner queue), VERIFIED/UNKNOWN labels, decision card text and the authority
+   boundary are code-rendered; every model claim must cite pack ids and state only values/events those records state
+   (`laura.agency.briefing.claim_problem`). The deterministic briefing is the complete fallback.
+3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
+   `research/final_build/w4/LAURA1_FIX.md`.

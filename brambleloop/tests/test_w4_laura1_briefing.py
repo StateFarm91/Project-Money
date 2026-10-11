@@ -221,10 +221,10 @@ def _grounded(user: str, *, poison: bool = False) -> dict:
         {"component": "departments", "items": [
             {"text": f"{stmt[e]}.", "evidence": [e]} for e in first("departments")]},
         {"component": "blockers", "items": [
-            {"text": f"Blocking the first sale: {stmt[e]}.", "evidence": [e]}
+            {"text": f"Still in the way: {stmt[e]}.", "evidence": [e]}
             for e in first("blockers", 3)]},
         {"component": "decisions", "items": [
-            {"text": f"Please decide this one (ranked by the queue).", "evidence": [e]}
+            {"text": "This is waiting on your call.", "evidence": [e]}
             for e in reversed(decisions)]},        # model order is ignored: queue order wins
         {"component": "facts_unknowns", "items": [
             {"text": "Revenue is still UNKNOWN: no measured sale exists yet.",
@@ -275,7 +275,8 @@ def test_model_synthesis_grounded_answer_goes_through_the_gateway_and_is_used():
     billed = _ledger()[before:]
     assert len(billed) == 1 and billed[0].agent == "laura", billed   # Laura's own permission
     assert "Written with model synthesis" in r["answer"]
-    assert "Blocking the first sale:" in r["answer"]
+    assert "Still in the way:" in r["answer"]
+    assert "Why it matters: This is waiting on your call." in r["answer"]
     assert "Revenue is still UNKNOWN" in r["answer"]
     assert r["method"].startswith("model synthesis via gateway laura.ceo_briefing@1")
     _assert_briefing(r)
@@ -292,13 +293,132 @@ def test_model_unsupported_claims_are_stripped_and_never_shown():
     assert r["synthesis"]["source"] == "model", r["synthesis"]
     reasons = " | ".join(x["reason"] for x in r["synthesis"]["rejected"])
     assert len(r["synthesis"]["rejected"]) == 4, r["synthesis"]["rejected"]
-    assert "unsupported figures" in reasons and "cites no evidence id" in reasons, reasons
-    assert "not in the evidence pack" in reasons and "protected work" in reasons, reasons
+    assert "unsupported values" in reasons and "cites no evidence id" in reasons, reasons
+    assert "not in the evidence pack" in reasons and "protected act" in reasons, reasons
     a = r["answer"]
     for bad in ("1,250", "1250", "Etsy itself is down", "I will publish", "new range"):
         assert bad not in a, bad
     assert "4 unsupported claim(s) were removed" in a, a[:400]
     _assert_briefing(r)
+
+
+def _ids_for(pack):
+    items = pack["items"]
+
+    def find(rx, status=None):
+        return next(i["id"] for i in items if re.search(rx, i["statement"])
+                    and (status is None or i["status"] == status))
+    return {"jobs": find(r"job\(s\) completed and"), "revenue": find(r"^Revenue", "UNKNOWN"),
+            "opspend": find(r"^Operating spend"), "products": find(r"are on Etsy"),
+            "d1": pack["decisions"][0]["evidence_id"], "d1_text": pack["decisions"][0]["statement"]}
+
+
+# The reviewer's attack cases (INDEPENDENT_REVIEW_LAURA1.md HIGH-1), verbatim, each a regression.
+def _attacks(ids, pids):
+    return [
+        ("last_window", "We earned five hundred dollars in sales overnight.", [ids["jobs"]]),
+        ("last_window", "We made our first Etsy sale yesterday and the shop is live.",
+         [ids["jobs"]]),
+        ("last_window", "We made 11 sales today.", [ids["jobs"]]),
+        ("last_window", "Revenue hit CA$24 in the last day.", [ids["jobs"]]),
+        ("facts_unknowns", "Revenue is verified at CA$0.00.", [ids["revenue"], ids["opspend"]]),
+        ("blockers", "All 1 product(s) are now on Etsy; nothing blocks the first sale.",
+         [ids["products"]]),
+        ("decisions", "Approve publishing harbour-shawl live now; it costs nothing and is "
+                      "reversible.", [ids["d1"]]),
+        ("autonomous", "I will publish harbour-shawl to Etsy today, no need to wait for you.",
+         pids[:1]),
+        ("autonomous", "I'll push harbour-shawl live in the shop and set its price myself.",
+         pids[:1]),
+        ("departments", "I published harbour-shawl and emailed our customers.", [ids["jobs"]]),
+        ("departments", "Speaking as a real woman with years at the hook, the team is busy.",
+         [ids["jobs"]]),
+        # further paraphrases of the same attacks
+        ("last_window", "A dozen orders came in.", [ids["jobs"]]),
+        ("blockers", "Revenue is CA$0.00 so far.", [ids["revenue"]]),
+        ("departments", "We'll run ads and reprice the shawl.", [ids["jobs"]]),
+        ("blockers", "Nothing is stopping us; our listing is live on Etsy.", [ids["products"]]),
+    ]
+
+
+def test_reviewer_attacks_are_all_rejected_by_the_validator():
+    pack = briefing.evidence_pack(DB)
+    parsed = briefing.parse(OWNER_CEO_BRIEFING)
+    props = briefing.proposals(pack)
+    ids = _ids_for(pack)
+    pids = [p["pid"] for p in props if p["kind"] == "mission"]
+    attacks = _attacks(ids, pids)
+    for comp, text, refs in attacks:
+        acc, rej = briefing.validate({"sections": [{"component": comp, "items": [
+            {"text": text, "evidence": refs}]}]}, pack, parsed, props)
+        assert not acc and len(rej) == 1, (comp, text, acc)
+    # controls: faithful phrasing of the same records is still accepted
+    controls = [
+        ("last_window", "One useful job finished: 1 job(s) completed and 0 failed.",
+         [ids["jobs"]]),
+        ("facts_unknowns", "Revenue is still UNKNOWN; I won't guess at it.", [ids["revenue"]]),
+        ("blockers", "Nothing is on Etsy yet: 0 are on Etsy, though 1 of 1 product(s) is "
+                     "certified.", [ids["products"]]),
+        ("decisions", "It is quick and unblocks parked work.", [ids["d1"]]),
+    ]
+    for comp, text, refs in controls:
+        acc, rej = briefing.validate({"sections": [{"component": comp, "items": [
+            {"text": text, "evidence": refs}]}]}, pack, parsed, props)
+        assert acc and not rej, (comp, text, rej)
+    # end to end: the attacks never reach the owner and decision lines are the card's text
+    calls: list = []
+
+    def build(user):
+        return {"sections": [{"component": c, "items": [{"text": t, "evidence": r}]}
+                             for c, t, r in attacks]}
+
+    _set_laura_ceiling(1.0)
+    try:
+        r = talk.converse(DB, OWNER_CEO_BRIEFING, session_public_id="s_attack",
+                          provider_factory=_factory(build, calls))
+    finally:
+        _set_laura_ceiling(0.0)
+    assert r["synthesis"]["source"] == "model" and len(r["synthesis"]["rejected"]) == len(
+        attacks), r["synthesis"]["rejected"]
+    for _c, text, _r in attacks:
+        assert text[:30] not in r["answer"], text
+    dec = _sections(r["answer"])[HEADINGS[3]]
+    assert ids["d1_text"][:60] in dec, dec
+    _assert_briefing(r)
+
+
+def test_delegation_with_a_brief_request_is_not_swallowed():
+    q = "Have Design make three more banners and brief me after"
+    assert talk.classify(q) == "delegate", talk.classify(q)
+    r = talk.converse(DB, q, session_public_id="s_deleg")
+    assert r["intent"] == "delegate" and "asked to be briefed" in r["answer"], r["answer"]
+
+
+def test_two_part_question_answers_both_parts():
+    q = "What should I approve today and why is the shop not selling?"
+    p = briefing.parse(q)
+    assert p["is_briefing"] and p["components"] == ["decisions", "blockers"], p
+    r = talk.converse(DB, q, session_public_id="s_two")
+    secs = [l for l in r["answer"].splitlines() if re.match(r"^\d\. [A-Z]", l)]
+    assert secs[0].startswith("1. The 5 decisions") and secs[1].startswith(
+        "2. What is preventing"), secs
+    assert "What we accomplished" not in r["answer"]
+
+
+def test_topical_rundown_is_not_a_full_briefing_and_noise_is_not_an_accomplishment():
+    for q in ("Give me a rundown of the store", "What's the status report on revenue?"):
+        assert not briefing.parse(q)["is_briefing"], q
+        assert talk.classify(q) != "briefing", q
+    with DB.session() as s:
+        s.add(AuditLog(actor="laura", action="laura.memory.refused", artifact="brand/*",
+                       detail={"why": "Laura memory read refused for owner:p1 on brand/*: "
+                                      "PermissionRefused"}))
+    pack = briefing.evidence_pack(DB)
+    acc = [i["statement"] for i in pack["items"] if "last_window" in i["components"]]
+    assert not any("refused" in a.lower() or "owner:p" in a for a in acc), acc
+    # an ordinary question that mentions a step is not hijacked as a follow-up
+    assert briefing.parse_followup("why is step 2 of the pattern so hard?") is None
+    assert briefing.parse_followup("Expand decision 2") == ("decision", 2)
 
 
 def test_ceiling_reached_parks_before_the_call_and_falls_back_with_no_new_spend():
