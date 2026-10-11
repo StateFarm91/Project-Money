@@ -88,8 +88,14 @@ def test_everything_listed_for_launch_passes_every_gate():
 
 
 def test_launch0_is_small_and_every_item_is_reachable():
-    """Small is the feature. Three listings, and each one resolves to a real builder."""
-    assert 1 <= len(l0.LAUNCH0_SLUGS) <= 5, l0.LAUNCH0_SLUGS
+    """Small is the feature, bounded by the launch floor, and each item resolves to a builder.
+
+    W4-LAUNCHREADY (2026-10-11, branch only): the cap moved from 5 to the launch.readiness floor
+    (MIN_LISTINGS_TO_OPEN = 8) when three gate-clean products joined; it is still a cap.
+    """
+    from brambleloop.launch.readiness import MIN_LISTINGS_TO_OPEN
+
+    assert 1 <= len(l0.LAUNCH0_SLUGS) <= MIN_LISTINGS_TO_OPEN == 8, l0.LAUNCH0_SLUGS
     for slug in l0.LAUNCH0_SLUGS:
         cand = l0.candidate(slug)
         assert cand.variants, slug
@@ -368,8 +374,13 @@ def test_a_childrens_title_with_no_audience_assignment_is_reported():
     import brambleloop.products.launch0 as mod
 
     saved_extra, saved_cache = mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE
+    saved_cands = mod.CANDIDATES
     try:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS = {}
+        # W4-LAUNCHREADY: the baby size is now a Launch-0 candidate that assigns itself, so
+        # the fixture removes that assignment too -- both sources, or the survey proves nothing.
+        mod.CANDIDATES = tuple(c for c in saved_cands
+                               if c.slug != "nordic-forest-mosaic-throw-baby")
         mod._CIR_AUDIENCE = None
         rows = mod.childrens_titles_without_an_assignment()
         unassigned = {row["slug"] for row in rows}
@@ -384,6 +395,7 @@ def test_a_childrens_title_with_no_audience_assignment_is_reported():
         assert _vac_375, "rows was empty: the loop proved nothing (F-123)"
     finally:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
+        mod.CANDIDATES = saved_cands
     assert l0.childrens_titles_without_an_assignment() == [], "the fixture leaked"
 
 
@@ -738,7 +750,14 @@ def test_launch_scope_holds_every_variant_slug_and_only_launch0():
     assert {"market-basket-small", "market-basket-medium", "market-basket-large",
             "hexagon-coaster-set", "cloudline-baby-blanket"} <= scope
     assert "harvest-table-runner" not in scope          # the reserve is not launched
-    assert "nordic-forest-mosaic-throw" not in scope
+    # W4-LAUNCHREADY: the Nordic Forest blanket joined as three sized variants.
+    assert {"nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair",
+            "housewarming-key-basket"} <= scope
+    # The dropped tries stay out (each failed a gate; see products.launch0).
+    for slug in ("nordic-forest-mosaic-throw", "nordic-forest-mosaic-throw-large",
+                 "pet-snuggle-mat", "spooky-garland", "valentine-heart-garland",
+                 "cottage-wall-hanging", "autumn-oak-mosaic-throw"):
+        assert slug not in scope, slug
 
 
 if __name__ == "__main__":

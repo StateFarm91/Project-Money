@@ -316,6 +316,8 @@ ENGINEERED_COHORT = "launch0_engineered"
 ENGINEERED_MOTIF: dict[str, str] = {
     "nursery-nesting-baskets": "hexagon",
     "hexagon-coaster-set": "hexagon-contrast-round",
+    "nordic-forest-mosaic-throw-baby": "fir-and-star",
+    "housewarming-key-basket": "basketweave",
 }
 _CIR_CONSTRUCTION: dict[str, str] = {
     "joined_rounds": "in_the_round",

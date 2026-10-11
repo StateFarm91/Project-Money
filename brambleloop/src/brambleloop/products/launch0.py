@@ -403,7 +403,25 @@ BUILDERS: dict[str, object] = {
                                                               **_v(version)),
     "snowfall_throw": lambda version=None: flat.for_slug("winter-village-graphghan",
                                                          **_v(version)),
+    # W4-LAUNCHREADY (2026-10-11): the three products added to reach the catalogue floor.
+    "nordic_forest_baby": lambda version=None: _nordic_forest("baby", version),
+    "key_basket": lambda version=None: _moment("housewarming_key_basket", version),
+    "placemat_pair": lambda version=None: flat.for_slug("mosaic-placemat-pair",
+                                                        **_v(version)),
 }
+
+
+def _nordic_forest(size: str, version: str | None) -> CIR:
+    """One Nordic Forest size under its own size slug (the baby blanket is the Launch-0 one)."""
+    from . import nordic_forest
+
+    return nordic_forest.build(size, **_v(version))
+
+
+def _moment(function: str, version: str | None) -> CIR:
+    from . import moment_candidates
+
+    return getattr(moment_candidates, function)(**_v(version))
 
 
 def cir_for(build_key: str, version: str | None = None) -> CIR:
@@ -674,6 +692,121 @@ CANDIDATES: tuple[Candidate, ...] = (
             "86.4 x 91.8 cm is computed from the stated gauge; twin.calibrated is False",
         ),
     ),
+    # W4-LAUNCHREADY (2026-10-11): three products added so the opening catalogue reaches the
+    # launch.readiness floor (MIN_LISTINGS_TO_OPEN = 8 products). Chosen from the repository's
+    # own demand evidence (radar.opportunity.score_concept on 2026-10-11, the radar POOL
+    # families and the seasonal calendar) among designs that already compile clean, pass every
+    # Launch-0 gate and survive the creative gate; each then had to clear the same release
+    # chain (certification, first-customer nine areas, disclosed imagery, listing set) as the
+    # first five, with nothing relaxed. Demand intelligence only: no competitor instructions,
+    # charts or photographs informed any of them.
+    #
+    # Tried and dropped on a gate, never by tuning it (scratch shadow chain, 2026-10-11):
+    # pet-snuggle-mat (its CIR names no product-type family, LISTING_PRODUCT_TYPE_UNSUPPORTED);
+    # spooky-garland (#297 missed window: pivot_to_evergreen; and the renderer cannot draw an
+    # assembled garland); valentine-heart-garland (same renderer refusal: "an assembled front
+    # view of repeated loose pieces is not drawable here"); cottage-wall-hanging (340 px
+    # legibility, 22% fill); the Nordic Forest throw (scale frame: cream not visible at 340
+    # px) and large size (#297: simplify to a quick make); harvest-table-runner (Thanksgiving
+    # (CA) is 2026-10-12, so its window is gone).
+    Candidate(
+        slug="nordic-forest-mosaic-throw-baby",
+        title="Nordic Forest Relief Baby Blanket",
+        what_it_is=(
+            "A 57.6 x 67.8 cm baby blanket worked flat in forest and cream, one colour per "
+            "row, the 12-stitch fir-and-star motif a double-crochet relief standing above a "
+            "single-crochet ground."),
+        why_at_launch=(
+            "The Nordic Forest concept is the highest-scoring in the radar pool on 2026-10-11 "
+            "(0.761; only its own bundle scores higher), it shares the nordic-forest family "
+            "with the snowflake ornaments, and the Christmas window is open for the baby "
+            "size. The throw and large sizes were tried and dropped: the throw's scale frame "
+            "fails the unchanged 340 px legibility check, and the large size misses the "
+            "#297 Christmas window (simplify to a quick make)."),
+        variants=(Variant("baby", "57.6 x 67.8 cm", "nordic_forest_baby"),),
+        pod="blankets",
+        subcategory="baby_blanket", audience=ch.UNDER_3,
+        committed_statements=_BABY_BLANKET_STATEMENTS,
+        listing=ListingIdentity(kind="blanket", etsy_category="baby",
+                                nouns=("blanket",),
+                                qualifiers=("nordic", "forest", "fir", "star"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the premium blanket band observed on HanJanCrochet and "
+                 "MJsOffTheHookDesigns (CA$8.47-11.65) in radar/market.py, proposed below its "
+                 "floor for the same reason as the Cloudline baby blanket: no video and no "
+                 "review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a two-colour fir or star in one row: the "
+            "fabric is one colour per row",
+            "a worked sample whose fir-and-star relief does not read at baby-blanket size",
+        ),
+        aspiration=(
+            "57.6 x 67.8 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="mosaic-placemat-pair",
+        title="Diamond Lattice Placemat Pair",
+        what_it_is=(
+            "Two placemats, each 28.8 x 47.7 cm at the stated gauge, worked flat in cream and "
+            "wine, one colour per row, with a raised diamond lattice in double crochet "
+            "against a single-crochet ground."),
+        why_at_launch=(
+            "The table-setting partner to the hexagon coaster set in the same cream and wine "
+            "palette (radar score 0.621, evergreen, a housewarming gift), so the two make a "
+            "natural table-set pairing at the cluster price; a pair is the multiplicity the "
+            "pattern makes (Component.make = 2)."),
+        variants=(Variant("pair", "2 pieces, 28.8 x 47.7 cm each", "placemat_pair"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="placemat", etsy_category="placemat",
+                                nouns=("placemat",), qualifiers=("diamond", "lattice"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.00, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, in "
+                 "its lower half, one rung above the coaster set it pairs with")),
+        disqualifiers=(
+            "copy or imagery implying a two-colour lattice in one row: the fabric is one "
+            "colour per row",
+            "a worked sample that does not lie flat under a plate, which only fabric confirms",
+        ),
+        aspiration=(
+            "28.8 x 47.7 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="housewarming-key-basket",
+        title="Housewarming Key Basket",
+        what_it_is=(
+            "A round catch-all basket about 18.3 cm across and 11.1 cm tall at the stated "
+            "gauge, worked in one piece from the centre of a staggered-increase cream base "
+            "into pine and cream basketweave relief walls, one colour per round."),
+        why_at_launch=(
+            "The moment-first housewarming candidate (W4-PIPE2) with the engineered CIR, in "
+            "the basket category whose observed demand put the nesting baskets in Launch-0. "
+            "A gift for a first home, it pairs with the coaster set and the placemat pair "
+            "as the shop's housewarming table-and-hall set."),
+        variants=(Variant("one_size", "18.3 x 11.1 cm", "key_basket"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",),
+                                qualifiers=("housewarming", "basketweave"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, "
+                 "below the nesting baskets' three-size price. A key-basket-specific observed "
+                 "price is UNKNOWN")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge: nothing is claimed about "
+            "stiffness until a sample is made",
+            "a base that does not lie flat, which only a sample confirms",
+        ),
+        aspiration=(
+            "18.3 x 11.1 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
     # First reserve. Gate-clean and deliberately not in Launch-0: it is the same flat fabric as
     # the blanket, it serves neither the children's entry order nor the price ladder, and small
     # is the feature. Named rather than omitted so that "why only three" has an answer.
@@ -703,6 +836,8 @@ CANDIDATES: tuple[Candidate, ...] = (
 LAUNCH0_SLUGS: tuple[str, ...] = (
     "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
     "nordic-star-ornaments", "winter-village-graphghan",
+    # W4-LAUNCHREADY (branch only, 2026-10-11): the catalogue-floor additions.
+    "nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair", "housewarming-key-basket",
 )
 
 

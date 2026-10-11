@@ -62,7 +62,14 @@ def test_every_launch0_primary_is_offered_its_verified_applicable_jobs():
             "hexagon-coaster-set": ["COLOUR_CONTEXT", "MATERIALS"],
             # promoted by lane PIPE (18baa94); both are flat colourwork pieces
             "nordic-star-ornaments": ["COLOUR_CONTEXT", "MATERIALS"],
-            "winter-village-graphghan": ["COLOUR_CONTEXT", "MATERIALS"]}
+            "winter-village-graphghan": ["COLOUR_CONTEXT", "MATERIALS"],
+            # W4-LAUNCHREADY (branch only): the catalogue-floor additions. The key basket is
+            # worked in the round, so it is offered the basket's ANGLE and CONSTRUCTION frames
+            # (one size, so no SIZING); the other two are flat colourwork pieces.
+            "nordic-forest-mosaic-throw-baby": ["COLOUR_CONTEXT", "MATERIALS"],
+            "mosaic-placemat-pair": ["COLOUR_CONTEXT", "MATERIALS"],
+            "housewarming-key-basket": ["ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT",
+                                        "MATERIALS"]}
     assert cirs and list(cirs) == list(launch0.LAUNCH0_SLUGS), cirs.keys()
     missing = sorted(set(cirs) - set(want))
     assert not missing, f"Launch-0 listings with no expected gallery jobs: {missing}"

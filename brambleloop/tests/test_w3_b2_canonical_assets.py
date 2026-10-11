@@ -493,7 +493,7 @@ def test_preview_is_built_around_the_owner_files():
     if choice["derivative"]:
         assert "small-size derivative of the owner artwork" in shop
     cards = __import__("re").findall(r'<article class="card">.*?</article>', shop, 16)
-    assert len(cards) == 5      # W4-PIPE 18baa94: one card per Launch-0 product (5)
+    assert len(cards) == 8      # one card per Launch-0 product (8, W4-LAUNCHREADY)
     for c in cards:
         assert "No picture of the finished piece yet" in c   # never a fabricated lifestyle
         assert "Digital rendering, not a photograph" in c

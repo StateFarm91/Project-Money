@@ -53,26 +53,29 @@ def test_basket_sizes_map_to_one_product():
     assert {R.product_of_slug(s) for s in sizes} == {"nursery-nesting-baskets"}
 
 
-def test_launch0_reports_five_products_with_the_list_in_evidence():
-    # W4-PIPE 2026-10-07: Launch-0 is five products (seven CIR slugs: three basket sizes) since
-    # the snowflake ornaments and the snowfall throw joined it. The rule is unchanged: sizes
-    # are not products, and five products do not meet a floor of eight.
-    cir = sorted(s for s in L.launch_scope_slugs() if s != "nursery-nesting-baskets")
-    assert len(cir) == 7, cir
+def test_launch0_reports_eight_products_with_the_list_in_evidence():
+    # W4-PIPE 2026-10-07: five products. W4-LAUNCHREADY 2026-10-11 (branch only): eight -- the
+    # Nordic Forest baby blanket, the placemat pair and the housewarming key basket joined. The rule
+    # is unchanged: sizes are not products, and certified patterns alone are not listings.
+    cir = sorted({L.cir_for(v.build).slug for c in L.LAUNCH0_SLUGS
+                  for v in L.candidate(c).variants})
+    assert len(cir) == 10, cir
     req = _depth(_db_with(cir))
     ev = req.evidence
-    assert ev["certified_patterns"] == 7, ev            # versions still reported, beside
-    assert ev["products_counted"] == 5, ev
+    assert ev["certified_patterns"] == 10, ev           # versions still reported, beside
+    assert ev["products_counted"] == 8, ev
     assert ev["products"] == sorted(L.LAUNCH0_SLUGS), ev
     assert "sizes" in ev["counting_rule"], ev
-    assert not req.ready, "5 products met a floor of 8"
+    # Eight certified products with no listing rows: the floor counts listed products too.
+    assert ev["products_with_listings"] == [], ev
+    assert not req.ready, "certified patterns with no listings met the floor"
 
 
 def test_a_product_outside_launch0_counts_as_itself_once():
     assert R.product_of_slug("harvest-table-runner") == "harvest-table-runner"
     cir = sorted(s for s in L.launch_scope_slugs() if s != "nursery-nesting-baskets")
     ev = _depth(_db_with(cir + ["market-basket-small-copy"])).evidence
-    assert ev["certified_patterns"] + len(ev["legacy_counted_zero"]["slugs"]) >= 7, ev
+    assert ev["certified_patterns"] + len(ev["legacy_counted_zero"]["slugs"]) >= 10, ev
     assert ev["products_counted"] <= len(L.LAUNCH0_SLUGS) + 1, ev
 
 

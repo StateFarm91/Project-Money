@@ -417,6 +417,9 @@ ENGINEERED: dict[str, str] = {
     "market-basket-medium": "launch0:basket_medium",
     "market-basket-large": "launch0:basket_large",
     "hexagon-coaster-set": "launch0:hexagon_coasters",
+    # W4-LAUNCHREADY (branch only): the Nordic Forest baby size is a Launch-0 product under
+    # its own size slug; the throw stays the concept slug above.
+    "nordic-forest-mosaic-throw-baby": "launch0:nordic_forest_baby",
     # And three more named for techniques their patterns could not contain: a cable throw
     # with no crossing, a bobble pillow with no bobble, a ribbed scarf with no rib. All three
     # were plain sc/dc colourwork (B-080).
