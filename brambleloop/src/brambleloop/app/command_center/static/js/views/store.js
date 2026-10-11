@@ -52,11 +52,55 @@ function observationCard(drift, stale, rerender) {
     h("label", { class: "field", for: "obs-statement" }, "How you read it"), statement, btn);
 }
 
+// W4-ETSYCOMM: the two Etsy-connection steps only the owner can take, from a phone. Re-check
+// queues a read-only ping of the app key; Connect (step-up) starts the shop authorization and
+// opens Etsy's own consent page. Neither changes scopes, credentials or the Etsy app.
+const ETSY_CONSENT_HOST = "www.etsy.com";
+
+function etsyCard(etsy, stale, rerender) {
+  if (!etsy) return null;
+  const probe = etsy.api_key_probe || {};
+  const grant = etsy.grant || {};
+  const auth = etsy.authorise || {};
+  const lines = [];
+  if (probe.state === "OK") lines.push(h("p", { class: "callout callout-info" }, `Etsy accepts the app key (last check ${probe.at || "?"}).`));
+  else if (probe.state === "FAILING") lines.push(h("p", { class: "callout callout-bad" },
+    `Etsy is refusing the app key (last check ${probe.at || "?"})${probe.etsy_error ? `: "${probe.etsy_error}"` : ""}. Check the app at etsy.com/developers/your-apps, then re-check.`));
+  else lines.push(h("p", { class: "callout callout-warn" }, "The app key has not been checked yet."));
+  lines.push(h("p", { class: "muted" }, grant.stored
+    ? `Shop authorised for: ${(grant.scopes || []).join(", ") || "none"}.` + ((grant.missing_scopes || []).length ? ` Still needed: ${grant.missing_scopes.join(", ")}.` : "")
+    : "The shop has not been authorised for this app yet."));
+  for (const p of auth.problems || []) lines.push(h("p", { class: "callout callout-warn" }, p));
+  const recheck = h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
+    const r = await guardedAction({ title: "Re-check the Etsy connection?",
+      lines: ["Sends one read-only test request to Etsy. Nothing is written or published."],
+      confirmLabel: "Re-check", run: () => api.etsyRecheck(), success: "Re-check queued." });
+    if (r) rerender();
+  } }, "Re-check Etsy connection");
+  const connect = h("button", { class: "btn btn-primary", type: "button", disabled: stale || !etsy.can_connect, onclick: async () => {
+    const r = await guardedAction({ title: "Connect the Etsy shop?",
+      lines: ["Opens Etsy's own page asking you to approve this app's access to your shop, including reading orders (transactions_r).",
+        "Sign in as the account that owns the shop and press Allow. Nothing is published."],
+      confirmLabel: "Continue to Etsy", requiresStepUp: true,
+      run: () => api.etsyConnect(), success: "Opening Etsy..." });
+    // Navigate only to Etsy's own consent host: the URL is built server-side, but the phone
+    // checks it anyway rather than following whatever a response says.
+    const url = r && safeUrl(r.authorize_url);
+    let host = "";
+    try { host = url ? new URL(url).hostname : ""; } catch (_) { host = ""; }
+    if (host === ETSY_CONSENT_HOST) window.location.assign(url);
+  } }, "Connect Etsy shop");
+  return card({ title: "Etsy connection", subtitle: "Only you can fix the app key or authorise the shop. These buttons are safe to press." },
+    ...lines, h("div", { class: "btn-row" }, recheck, connect));
+}
+
 export async function render({ rerender } = {}) {
   const result = await api.store();
   const data = result.data || {};
   const s = sectionsOf(data);
   const preview = findPreview(data, s);
+  let etsy = null;
+  try { etsy = (await api.etsy()).data; } catch (_) { etsy = null; }
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     card({ title: "Customer-view preview", subtitle: "See the shop the way a buyer would, before anything goes live." },
@@ -64,6 +108,7 @@ export async function render({ rerender } = {}) {
         icon("external", 18), "Open store preview")
         : h("p", { class: "callout callout-warn" }, "Store preview is not available yet: the store foundation has not reported a preview page."),
       h("p", { class: "muted" }, "Preview only. Nothing is published or activated from this screen.")),
+    etsyCard(etsy, result.stale, rerender || (() => {})),
     observationCard(s.live_drift, result.stale, rerender || (() => {})),
     ...renderAll(data, ORDER, { result, required: ["store_foundation", "products"], skip: ["preview_url", "preview_path"] }));
 }
