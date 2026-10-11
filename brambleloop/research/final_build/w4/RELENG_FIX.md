@@ -285,3 +285,75 @@ After O1 to O4, the integrator (Railway writes, with the owner's go-ahead) does 
 4. Deploy once and require `BK RESULT OK` and `BK OFFSITE OK` in the log.
 5. Optionally set `BRAMBLELOOP_ARCHIVE_*` on brambleloop-os so the continuity archive goes to
    the same bucket.
+
+## 6. `core/offsite.py`: the archive now encrypts its own uploads (RELENG defect, 2026-10-11)
+
+### What the defect report got right, and what it got wrong
+
+`archive()` never called `seal()` itself. It passed the gzipped export to its transport and
+compared the read-back against the plaintext.
+
+- **Default transport (production).** That transport was `put`/`get`, and **`put` does
+  seal**. With no key, `put` raises before it sends anything.
+  - Production has had all four `BRAMBLELOOP_ARCHIVE_*` variables since today: Backblaze
+    `s3.us-east-005`, bucket `brambleloop-private-archive`.
+  - It has **no** `BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY`.
+  - So the next daily run would have failed at stage `upload` without writing anything.
+  - **No plaintext has been uploaded.** `/api/offsite` shows only the 00:01Z run, which failed
+    at configuration because no URL was set then.
+- **Injected transports (tests).** These stored plaintext, because encryption depended on the
+  transport rather than on `archive`.
+- **The read-back check.** It compared the decrypted plaintext, never the bytes actually stored
+  in the bucket.
+- **`state()`.** It said "a reader who obtains the bucket gets ciphertext" unconditionally.
+
+### What changed
+
+1. **`archive()` refuses before export and upload when there is no key.** It records stage
+   `configuration` and a reason naming `BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY`. It fails closed
+   and never writes plaintext.
+2. **`archive()` now does every step itself:**
+   1. seal, and refuse if the output is not `BLOOP1` ciphertext
+   2. upload through the new byte-only `put_raw`
+   3. read back with `get_raw`
+   4. compare the **stored ciphertext's sha256** with what was sent
+   5. unseal, check the plaintext digest, then restore into a scratch database
+
+   The record gains `encrypted: true` and `ciphertext_sha256`.
+3. **`state()` is truthful.** It adds `will_archive` and `archives_refused_without_key`. When
+   the key is absent, `encryption` reads "NOT ACTIVE … every archive is refused before upload".
+   It also adds a `retention` note.
+4. **`prune()` reports when deletes are refused.**
+   - It now returns `delete_refused` and an explanation when the bucket key cannot delete.
+   - Behaviour: each 401/403 is caught, nothing is deleted, the job still succeeds, and archives
+     accumulate. About one object per day.
+   - B2 keeps every version by default, so even a permitted S3 DELETE only **hides** a file;
+     storage is not freed until a lifecycle rule runs.
+   - Recommended, and **not enabled**: give the key no `deleteFiles` permission, and set a B2
+     lifecycle rule on `continuity/` (hide after 15 days, delete 1 day later). Optionally add
+     Object Lock in governance mode for 14 days. With that in place, `prune()`'s refused deletes
+     are expected and harmless.
+
+### Tests
+
+`tests/test_offsite.py` adds 6 checks; all 20 pass. The new checks cover:
+- the bucket receives `BLOOP1` ciphertext that does not contain a planted plaintext marker and
+  does not gunzip
+- the default `_call` path puts ciphertext on the wire
+- with no key, nothing is sent and the reason names the variable
+- a flipped stored byte is caught at `read_back`
+- `state()` is truthful without a key
+- a key that cannot delete makes `delete_refused` 3 and deletes nothing
+
+Also green: `test_intake`, `test_w4_gatesi`, `test_w3_k7_ops_truth`, `test_cert_growth_ops`.
+
+### Owner action required
+
+Set `BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY` on brambleloop-os yourself, as a long passphrase, and
+keep a copy offline. Without that copy, the archives cannot be decrypted.
+
+- Cost: CA$0. Time: 3 minutes.
+- If you wait: every daily run is refused, which opens a high-severity `offsite_archive_failed`
+  incident, and no offsite copy exists.
+
+This also needs this fix deployed.
