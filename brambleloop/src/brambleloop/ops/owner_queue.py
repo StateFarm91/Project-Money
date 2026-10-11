@@ -535,7 +535,7 @@ DECISIONS: tuple[dict, ...] = (
      "max_cost_cad": 25.0, "cost_basis": "stated (smallest useful top-up)",
      "minutes": 5,
      "consequence_of_yes": ("judging, vision and text calls run again: identity "
-                            "measurement, asset-truth checks, gallery analysis, #94"),
+                            "measurement, asset-truth checks, gallery analysis"),
      "consequence_of_no": "every check that needs a model stays refused before spending"},
     {"id": "acceptance_ruling", "batch": "rulings", "kind": "decision",
      "gates": ("acceptance_ruling",), "keys": (),

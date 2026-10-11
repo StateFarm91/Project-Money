@@ -6584,6 +6584,7 @@ def handle_capability_probes(ctx: JobContext) -> dict:
     from ..culture import feeds
     from ..gateway import anthropic as gw
     from ..gateway import images
+    from ..growth import owned_surface
     from ..intel import browser
 
     results = {
@@ -6596,6 +6597,10 @@ def handle_capability_probes(ctx: JobContext) -> dict:
         # recorded nowhere, and twelve requirements stayed parked on the absence of a row
         # nobody was writing. A gate that reads evidence needs something that produces it.
         "image_generation": images.probe(ctx.db, job_id=ctx.job.id),
+        # W4-B2GATES: the `owned_surfaces` gate read `owned_surface.probe` rows and nothing
+        # wrote one, so seven rows could never un-park however many surfaces the owner opened.
+        # Reads only: the site's owner-published verification file, a Pinterest board list.
+        "owned_surfaces": owned_surface.probe(ctx.db),
     }
     opened = sorted(k for k, v in results.items() if v.get("ok"))
     ctx.audit("ops.capability_probes", detail={

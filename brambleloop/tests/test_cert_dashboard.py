@@ -423,18 +423,25 @@ def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplica
     """F-663: owner actions 19/20 were one decision shown twice."""
     from brambleloop.build2 import executor
 
+    # W4-B2GATES: the example gate is image_vision (fund_model; 14 rows truly parked on it).
+    # It was model_provider, whose card existed only because a stale table entry claimed it
+    # unblocked #94, a data-gated row no model call opens; that card is now correctly
+    # suppressed. The merge assertions below are unchanged, and the card must also be real:
+    # it unblocks rows, and every one of them is parked on this very gate.
     seeded()
     with main.db.session() as s:
-        row = OwnerAction(requirement_key="model_credits",
-                          action="Top up model credits MERGE-SENTINEL", max_cost_cad=20.0,
+        row = OwnerAction(requirement_key="image_vision",
+                          action="Fund a vision-capable model MERGE-SENTINEL", max_cost_cad=20.0,
                           minutes=5)
         s.add(row)
         s.flush()
         rid = row.id
     inbox = executor.approval_inbox(main.db, env=dict(os.environ))
-    model_cards = [c for c in inbox["cards"] if c["gate"] == "model_provider"]
+    model_cards = [c for c in inbox["cards"] if c["gate"] == "image_vision"]
     assert len(model_cards) == 1
     assert rid in model_cards[0]["merged_owner_action_ids"]
+    assert model_cards[0]["unblocks"] and all(
+        executor.gate_for(u) == "image_vision" for u in model_cards[0]["unblocks"])
     html = seeded().get("/").text
     assert html.count("MERGE-SENTINEL") == 1
     with main.db.session() as s:

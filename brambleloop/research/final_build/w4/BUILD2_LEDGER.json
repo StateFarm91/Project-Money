@@ -1,12 +1,12 @@
 {
- "as_of": "2026-10-10T03:26:33+00:00",
+ "as_of": "2026-10-11T07:05:01+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
   "PROVEN": 215,
-  "OWNER-GATED": 54,
+  "OWNER-GATED": 56,
   "DATA-GATED": 41,
-  "EXTERNAL-GATED": 7,
+  "EXTERNAL-GATED": 5,
   "NOT-APPLICABLE": 3,
   "OPEN-DEFECT": 0
  },
@@ -252,7 +252,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -472,9 +472,9 @@
       "why": "roster is live: API get api_creators -> app/main.py:api_creators",
       "live": [
        "roster",
-       "portfolio",
-       "Relationship.measured",
-       "may_graduate"
+       "check_brief",
+       "_says_what_it_is",
+       "portfolio"
       ]
      },
      {
@@ -509,16 +509,33 @@
    "closure_state": "OWNER-GATED",
    "why": "parked on owner gate owned_surfaces",
    "evidence": {
-    "tests": [],
+    "tests": [
+     "tests/test_free_to_paid.py",
+     "tests/test_w4_b2close.py"
+    ],
     "tested_modules": [
      "growth/free_to_paid.py",
-     "growth/owned.py"
+     "growth/owned.py",
+     "growth/free_assets.py",
+     "runtime/growth_ops.py"
     ],
     "artefacts": [
      "growth/free_to_paid.py",
-     "growth/owned.py"
+     "growth/owned.py",
+     "growth/free_assets.py",
+     "runtime/growth_ops.py"
     ],
     "runtime_consumers": [
+     {
+      "module": "growth/free_to_paid.py",
+      "why": "plan is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> growth/free_assets.py:reading",
+      "live": [
+       "plan",
+       "check_asset",
+       "FreeAsset.__post_init__",
+       "FreeAsset"
+      ]
+     },
      {
       "module": "growth/owned.py",
       "why": "counterparts is live: API get api_owned -> app/main.py:api_owned",
@@ -528,6 +545,16 @@
        "Consent.__post_init__",
        "Consent.expires_on"
       ]
+     },
+     {
+      "module": "growth/free_assets.py",
+      "why": "reading is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution",
+      "live": [
+       "reading",
+       "paid_slugs",
+       "real_assets",
+       "certificate"
+      ]
      }
     ]
    },
@@ -535,11 +562,11 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
-    "remaining_note": "RIFY 2026-10-10 (adversarial re-check at 56d7b38): the company part of the 2026-10-07 split is NOT done -- no free asset exists, /api/free-to-paid still calls free_to_paid.plan([]) and growth/free_to_paid.py has no runtime caller beyond that route. That half is executable without any surface; only publication waits on owned_surfaces. Recorded in research/final_build/w4/BUILD2_VERIFY_2026-10-10.md."
+    "remaining_note": "cadence (reading 'free_to_paid', summary free_assets_with_a_job) now plan over the certified assets instead of plan([]). Nothing is published, no email is captured, no message is sent (CASL); shadow. Remaining and parked: publication waits on an owned surface (owned_surfaces). Evidence research/final_build/w4/evidence_B2CLOSE/free_asset_diamond_lattice_relief_swatch.json; tests/test_w4_b2close.py."
    }
   },
   {
@@ -753,7 +780,7 @@
        "capability",
        "health",
        "probe",
-       "PublicReader.__init__"
+       "ReadFailed.__init__"
       ]
      }
     ]
@@ -1025,9 +1052,9 @@
       "why": "roster is live: API get api_creators -> app/main.py:api_creators",
       "live": [
        "roster",
-       "portfolio",
-       "Relationship.measured",
-       "may_graduate"
+       "check_brief",
+       "_says_what_it_is",
+       "portfolio"
       ]
      }
     ]
@@ -1082,7 +1109,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (commerce/kill_table.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (commerce/kill_table.py); parked on data gate listing_traffic: a listing period with counted visits (live listings and buyers browsing them)",
    "evidence": {
     "tests": [],
     "tested_modules": [
@@ -1103,6 +1130,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "listing_traffic",
+    "kind": "DATA-GATED",
+    "what": "a listing period with counted visits (live listings and buyers browsing them)",
+    "opens_when": "a ListingOutcome row records visits > 0 (commerce.kill_table's input)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "numeric scale/kill framework; thresholds need real baselines Re-audited 2026-09-27 (Build 2 closeout): commerce/kill_table.py routes weak CTR / weak conversion / low traffic / high support load deterministically with every threshold marked UNLEARNED (tests/test_kill_table.py); inputs need traffic and orders."
    }
   },
   {
@@ -1606,9 +1643,9 @@
    "title": "Etsy Creativity / AI Disclosure Gate",
    "section": "Adversarial commercial + policy audit",
    "registry_status": "partial",
-   "state": "EXTERNAL-GATED",
-   "closure_state": "EXTERNAL-BLOCKED",
-   "why": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days).",
+   "state": "OWNER-GATED",
+   "closure_state": "OWNER-GATED",
+   "why": "parked on rendered_pages, opened by a person: the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days",
    "evidence": {
     "tests": [
      "tests/test_cert_parity_copy.py"
@@ -1638,13 +1675,15 @@
    },
    "gate": {
     "key": "rendered_pages",
-    "kind": "EXTERNAL-BLOCKED",
+    "kind": "OWNER-GATED",
     "what": "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for",
-    "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them",
-    "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days).",
+    "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
+    "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
-    "remaining_note": "rbatim -> check_listing(classification) + check_new_class -> listing.classified row; store.publish re-checks via _release_classification and blocks an unclassified release, a refused asset or a class not enabled against a current policy reading. Class enablement needs current Etsy policy readings, which only a person can record (etsy.com answers 403 to automated readers): parked on rendered_pages."
+    "remaining_note": "snapshot (audited by id) within 30 days, with no unreviewed material change. Absent, stale, future-dated, anonymous or un-audited readings keep it closed. Still parked: no such reading has been recorded. The owner card is policy_page_reading (CA$0, 15 min every 30 days); the hosted browser worker card is withdrawn (it would meet the same 403). tests/test_w4_b2close.py, tests/test_policy_intake.py.",
+    "opened_by": "the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days",
+    "gate_kind_of": "EXTERNAL-BLOCKED"
    }
   },
   {
@@ -1786,9 +1825,9 @@
    "title": "Policy Freshness Watch",
    "section": "Adversarial commercial + policy audit",
    "registry_status": "partial",
-   "state": "EXTERNAL-GATED",
-   "closure_state": "EXTERNAL-BLOCKED",
-   "why": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days).",
+   "state": "OWNER-GATED",
+   "closure_state": "OWNER-GATED",
+   "why": "parked on rendered_pages, opened by a person: the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days",
    "evidence": {
     "tests": [
      "tests/test_cert_intel_wave2.py",
@@ -1815,13 +1854,15 @@
    },
    "gate": {
     "key": "rendered_pages",
-    "kind": "EXTERNAL-BLOCKED",
+    "kind": "OWNER-GATED",
     "what": "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for",
-    "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them",
-    "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days).",
+    "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
+    "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
-    "remaining_note": "pped closure's reachability check\n\nRepair wave intel 2026-09-27 (integrated by the lead): policy.watch reads PolicySnapshot rows, platform_policy.unreviewed_changes opens a blocking incident, check_new_class/freshness refuse until review_change records reviewer+tests. Retrieval of the five policy pages is EXTERNAL (Etsy 403; closure EXTERNAL_GATES) \u2014 a person records via POST /api/policy/snapshot."
+    "remaining_note": "snapshot (audited by id) within 30 days, with no unreviewed material change. Absent, stale, future-dated, anonymous or un-audited readings keep it closed. Still parked: no such reading has been recorded. The owner card is policy_page_reading (CA$0, 15 min every 30 days); the hosted browser worker card is withdrawn (it would meet the same 403). tests/test_w4_b2close.py, tests/test_policy_intake.py.",
+    "opened_by": "the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days",
+    "gate_kind_of": "EXTERNAL-BLOCKED"
    }
   },
   {
@@ -3721,7 +3762,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (creative/style_learning.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (creative/style_learning.py); parked on data gate style_outcomes: enough listing impressions for one hero style to be measured",
    "evidence": {
     "tests": [
      "tests/test_style_learning.py"
@@ -3746,6 +3787,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "style_outcomes",
+    "kind": "DATA-GATED",
+    "what": "enough listing impressions for one hero style to be measured",
+    "opens_when": "one hero_style across >= 3 listings with >= 200 ListingOutcome impressions (creative.style_learning MIN_LISTINGS / MIN_IMPRESSIONS)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "xists and runs -- the daily creative.style_learning cadence tags every frame by source/model/shot, records sourced outcomes and reports CTR/first-frame/conversion per style as UNMEASURED below 200 impressions / 3 listings; promotion needs a measured +10% lift and refuses any rule touching Product Truth, policy or identity. Data-gated on customers: no listing, order or season has produced data yet."
    }
   },
   {
@@ -4099,7 +4150,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (creative/outcome_learning.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (creative/outcome_learning.py); parked on data gate concept_outcomes: enough visits and orders to join concepts to outcomes",
    "evidence": {
     "tests": [
      "tests/test_outcome_learning.py"
@@ -4124,6 +4175,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "concept_outcomes",
+    "kind": "DATA-GATED",
+    "what": "enough visits and orders to join concepts to outcomes",
+    "opens_when": ">= 200 ListingOutcome visits and >= 20 countable orders (creative.outcome_learning MIN_VISITS / MIN_ORDERS)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "creativity outcome learning; needs launch data\n\nCertification 2026-09-27 (C-39 repair): machinery now exists and runs -- the daily creative.outcome_learning cadence joins concept attributes and novelty to listing outcomes and orders; UNMEASURED below 3 concepts per value / 200 visits / 20 orders. Data-gated on customers: no listing, order or season has produced data yet."
    }
   },
   {
@@ -4325,7 +4386,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (creative/blinded.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (creative/blinded.py); parked on data gate market_outcomes: live listing traffic and at least one sale",
    "evidence": {
     "tests": [],
     "tested_modules": [
@@ -4346,6 +4407,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "market_outcomes",
+    "kind": "DATA-GATED",
+    "what": "live listing traffic and at least one sale",
+    "opens_when": "a ListingOutcome with visits > 0 AND at least one countable Order",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "rison and has been run live. What remains needs data no engineering here supplies: market CTR, conversion and winner rate need live traffic and a sale. The blinded half also cannot currently return a number -- 0 of 11 concepts share a pod AND a form with an observed listing -- but that is a fact about the catalogue this generator makes, not remaining work on #94, and it moves when generation does."
    }
   },
   {
@@ -4491,7 +4562,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (intel/learning.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (intel/learning.py); parked on data gate learning_sources: a craft-technique source and buyers' complaints observed by the learning radar",
    "evidence": {
     "tests": [
      "tests/test_serp.py"
@@ -4528,6 +4599,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "learning_sources",
+    "kind": "DATA-GATED",
+    "what": "a craft-technique source and buyers' complaints observed by the learning radar",
+    "opens_when": "LearningObservation rows exist for both the 'techniques' and 'customer_pain' domains (intel.learning.record / ingest_complaints)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "vation for search behaviour, a customer for customer pain) and the fourth is owned by ops.policy_watch. No engineering here moves any of them.\n\nCertification 2026-09-27 (C-40 repair): the search-behaviour half is now fed: intel.serp_capture -> learning.ingest_search_behaviour records labelled proxy changes once a query has two snapshots. The craft-source and customer-pain halves remain data-gated."
    }
   },
   {
@@ -6377,7 +6458,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (culture/feeds.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (culture/feeds.py); parked on data gate lead_lag_series: both a culture series and a marketplace series for one signal, built up over time",
    "evidence": {
     "tests": [],
     "tested_modules": [
@@ -6410,6 +6491,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "lead_lag_series",
+    "kind": "DATA-GATED",
+    "what": "both a culture series and a marketplace series for one signal, built up over time",
+    "opens_when": "culture.radar.lead_lag(signal) is measurable for at least one CultureObservation signal (>= 2 culture and >= 2 marketplace readings)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": " measurable' against a database full of measurements. Data-gated rather than partial: the catalogue was observed in one pass, so first_seen is the same date for almost everything the baseline found, and a series needs listings discovered over time. That accumulates by itself as the scanner finds new listings. Four matched listings minimum, because two produce a peak wherever the second one landed."
    }
   },
   {
@@ -9522,7 +9613,7 @@
        "capability",
        "health",
        "probe",
-       "PublicReader.__init__"
+       "ReadFailed.__init__"
       ]
      },
      {
@@ -10255,7 +10346,7 @@
        "capability",
        "health",
        "probe",
-       "PublicReader.__init__"
+       "ReadFailed.__init__"
       ]
      }
     ]
@@ -11154,9 +11245,36 @@
     "tests": [
      "tests/test_cert_growth_ops.py"
     ],
-    "tested_modules": [],
-    "artefacts": [],
-    "runtime_consumers": []
+    "tested_modules": [
+     "commerce/paid_media.py",
+     "runtime/growth_ops.py"
+    ],
+    "artefacts": [
+     "commerce/paid_media.py",
+     "runtime/growth_ops.py"
+    ],
+    "runtime_consumers": [
+     {
+      "module": "commerce/paid_media.py",
+      "why": "CampaignState.refund_rate is live: handler ads.campaign (enqueued by runtime/growth_ops.py:handle_ads_adjust) -> runtime/growth_ops.py:handle_ads_campaign",
+      "live": [
+       "CampaignState.refund_rate",
+       "authorise_spend",
+       "CampaignState.cac_cad",
+       "CampaignState.contribution_ratio"
+      ]
+     },
+     {
+      "module": "runtime/growth_ops.py",
+      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "live": [
+       "benchmarks_reading",
+       "handle_ads_adjust",
+       "record",
+       "handle_growth_steer"
+      ]
+     }
+    ]
    },
    "gate": {
     "key": "customers",
@@ -11166,7 +11284,7 @@
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
-    "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
+    "remaining_note": "ers), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (offsite_ads_forecast), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
   {
@@ -11181,9 +11299,36 @@
     "tests": [
      "tests/test_cert_growth_ops.py"
     ],
-    "tested_modules": [],
-    "artefacts": [],
-    "runtime_consumers": []
+    "tested_modules": [
+     "commerce/paid_media.py",
+     "runtime/growth_ops.py"
+    ],
+    "artefacts": [
+     "commerce/paid_media.py",
+     "runtime/growth_ops.py"
+    ],
+    "runtime_consumers": [
+     {
+      "module": "commerce/paid_media.py",
+      "why": "CampaignState.refund_rate is live: handler ads.campaign (enqueued by runtime/growth_ops.py:handle_ads_adjust) -> runtime/growth_ops.py:handle_ads_campaign",
+      "live": [
+       "CampaignState.refund_rate",
+       "authorise_spend",
+       "CampaignState.cac_cad",
+       "CampaignState.contribution_ratio"
+      ]
+     },
+     {
+      "module": "runtime/growth_ops.py",
+      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "live": [
+       "benchmarks_reading",
+       "handle_ads_adjust",
+       "record",
+       "handle_growth_steer"
+      ]
+     }
+    ]
    },
    "gate": {
     "key": "customers",
@@ -11193,7 +11338,7 @@
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
-    "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
+    "remaining_note": "ed Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (share_and_save), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
   {
@@ -11243,7 +11388,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -11292,6 +11437,16 @@
        "scan_reviews",
        "scan_due"
       ]
+     },
+     {
+      "module": "growth/free_to_paid.py",
+      "why": "plan is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> growth/free_assets.py:reading",
+      "live": [
+       "plan",
+       "check_asset",
+       "FreeAsset.__post_init__",
+       "FreeAsset"
+      ]
      }
     ]
    },
@@ -11299,7 +11454,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -11365,7 +11520,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -11396,9 +11551,9 @@
       "why": "roster is live: API get api_creators -> app/main.py:api_creators",
       "live": [
        "roster",
-       "portfolio",
-       "Relationship.measured",
-       "may_graduate"
+       "check_brief",
+       "_says_what_it_is",
+       "portfolio"
       ]
      }
     ]
@@ -11430,9 +11585,9 @@
       "why": "roster is live: API get api_creators -> app/main.py:api_creators",
       "live": [
        "roster",
-       "portfolio",
-       "Relationship.measured",
-       "may_graduate"
+       "check_brief",
+       "_says_what_it_is",
+       "portfolio"
       ]
      }
     ]
@@ -11507,7 +11662,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -11686,7 +11841,7 @@
     "key": "owned_surfaces",
     "kind": "OWNER-GATED",
     "what": "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
-    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+    "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10",
@@ -13411,7 +13566,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (seasonal/leadtime.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (seasonal/leadtime.py); parked on data gate seasonal_orders: an order attributed to a seasonal event",
    "evidence": {
     "tests": [
      "tests/test_leadtime.py"
@@ -13436,6 +13591,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "seasonal_orders",
+    "kind": "DATA-GATED",
+    "what": "an order attributed to a seasonal event",
+    "opens_when": "a countable Order whose season (order detail, else the product's concept seed) is one of radar.market.SEASONAL_EVENTS (not evergreen or unassigned)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": " What remains is seasonal revenue, run rate and ad learning status, each of which is a reading of commerce that has not happened. Unmeasured is not zero, so the war room reports them absent. Certification 2026-09-27 (C-39): machinery named -- seasonal/leadtime.catalogue_plans behind /api/seasonal and the seasonal.sentinel cadence show days to launch, stages and at-risk rows; only the data remains."
    }
   },
   {
@@ -13493,7 +13658,7 @@
    "registry_status": "data_gated",
    "state": "DATA-GATED",
    "closure_state": "DATA-GATED",
-   "why": "machinery exists (seasonal/harvest.py); needs customers, orders or traffic that cannot exist before launch",
+   "why": "machinery exists (seasonal/harvest.py); parked on data gate season_harvest: a passed seasonal event with enough orders to learn from",
    "evidence": {
     "tests": [
      "tests/test_harvest.py"
@@ -13530,6 +13695,16 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "season_harvest",
+    "kind": "DATA-GATED",
+    "what": "a passed seasonal event with enough orders to learn from",
+    "opens_when": "a SeasonHarvest row with status measured (seasonal.harvest: >= 20 orders in a passed occurrence)",
+    "external_evidence": null,
+    "state": "unchecked",
+    "state_source": "not readable: no live reading of this gate was given",
+    "remaining_note": "tion 2026-09-27 (C-39 repair): machinery now exists and runs -- the daily seasonal.harvest cadence refuses an event that has not passed or has under 20 orders, otherwise breaks the season down and stores a SeasonHarvest; seasonal/leadtime.catalogue_plans applies harvest.adjusted_assumptions, which only ever raises buffers. Data-gated on customers: no listing, order or season has produced data yet."
    }
   },
   {

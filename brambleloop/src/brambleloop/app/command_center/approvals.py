@@ -35,6 +35,18 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
     "owner_action.defer": (False, "note that a decision is deferred (the gate stays computed)"),
+    # W4-B2GATES: two owner gates read a record that no door in the running system could
+    # write, so they could never open. These are those doors; each records only.
+    "acceptance.rule": (True, "record the owner's ruling on the API+vision acceptance wording"),
+    "ads.set_limit": (True, "set the owner's ads SpendLimit (capped at the conservative caps)"),
+}
+
+#: The two answers the `acceptance_ruling` gate asks for (#189/#221/#222/#320). Either opens
+#: the gate: what changes is which remaining work the rows hold.
+ACCEPTANCE_RULINGS = {
+    "api_vision_satisfies": ("an API+vision traversal satisfies the browser/vision wording"),
+    "browser_required": ("a rendered-browser traversal is required; API+vision does not "
+                         "satisfy the wording"),
 }
 
 
@@ -121,6 +133,21 @@ def _gate_card(c: dict) -> dict:
         reason = ("completed outside this app (an account, purchase or credential at the "
                   "provider); the gate re-checks reality and closes this card itself: "
                   + str(c.get("how_it_is_checked") or "")[:300])
+    if key in ("acceptance_ruling", "ad_authority"):
+        reason = ("recorded here by the owner (step-up); the gate re-checks the record: "
+                  + str(c.get("how_it_is_checked") or "")[:300])
+    if key == "acceptance_ruling":
+        for ruling, text in ACCEPTANCE_RULINGS.items():
+            actions.append({"action": "acceptance.rule", "requires_step_up": True,
+                            "label": "Rule: " + text.split(";")[0], "params": {"ruling": ruling}})
+    elif key == "ad_authority":
+        from ...commerce.paid_media import CONSERVATIVE_CAPS as _caps
+
+        actions.append({"action": "ads.set_limit", "requires_step_up": True,
+                        "label": (f"Set ads limit CA${_caps.daily_cad:.2f}/day, "
+                                  f"CA${_caps.campaign_cad:.2f} lifetime"),
+                        "params": {"daily_cap_cad": _caps.daily_cad,
+                                   "lifetime_cap_cad": _caps.campaign_cad}})
     if oa:
         actions.append({"action": "owner_action.defer", "requires_step_up": False,
                         "params": {"owner_action_id": oa}})
@@ -330,6 +357,54 @@ def _require_publication_evidence(db, body: dict) -> None:
                             detail={"not_passing": not_passing})
 
 
+def _record_acceptance_ruling(db, ruling: str, reason: str, *, actor: str) -> dict:
+    """The door the `acceptance_ruling` gate reads: a done OwnerAction under its key."""
+    from ...build2 import executor
+    from ...ops import owner_queue
+
+    if ruling not in ACCEPTANCE_RULINGS:
+        raise ActionRefused(f"ruling must be one of {sorted(ACCEPTANCE_RULINGS)}")
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    with db.session() as s:
+        row = OwnerAction(requirement_key=executor.ACCEPTANCE_RULING_KEY,
+                          action=f"Acceptance ruling ({ruling}): {ACCEPTANCE_RULINGS[ruling]}",
+                          reason=reason[:2000], max_cost_cad=0.0, minutes=2,
+                          blocks="#189 #221 #222 #320")
+        s.add(row)
+        s.flush()
+        owner_queue.transition(s, row, owner_queue.SATISFIED,
+                               f"owner ruled {ruling}: {reason}"[:1000], actor=actor)
+        oid = row.id
+    return {"ruling": ruling, "owner_action_id": oid, "gate": "acceptance_ruling",
+            "note": "the gate re-checks this record; the four rows un-park on its next read"}
+
+
+def _set_ads_limit(db, body: dict, reason: str) -> dict:
+    """The door the `ad_authority` gate reads: SpendLimit('ads'), never above the caps the
+    code already enforces (commerce.paid_media.CONSERVATIVE_CAPS). Sets authority only:
+    nothing is spent here, and SpendGuard still refuses any spend over the cap."""
+    from ...agents.registry import SpendGuard
+    from ...commerce.paid_media import CONSERVATIVE_CAPS as caps
+
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    try:
+        daily = float(body.get("daily_cap_cad"))
+        lifetime = float(body.get("lifetime_cap_cad"))
+    except (TypeError, ValueError):
+        raise ActionRefused("daily_cap_cad and lifetime_cap_cad must be numbers") from None
+    if not (0 < daily <= caps.daily_cad):
+        raise ActionRefused(f"daily_cap_cad must be > 0 and <= CA${caps.daily_cad:.2f} "
+                            "(the conservative cap enforced in code)")
+    if not (daily <= lifetime <= caps.campaign_cad):
+        raise ActionRefused(f"lifetime_cap_cad must be between the daily cap and "
+                            f"CA${caps.campaign_cad:.2f}")
+    SpendGuard(db).set_limit("ads", daily, lifetime)
+    return {"scope": "ads", "daily_cap_cad": daily, "lifetime_cap_cad": lifetime,
+            "spent": 0.0, "note": "authority only; nothing was spent"}
+
+
 def execute(db, action: str, body: dict, *, actor: str) -> dict:
     """Run one owner action through its existing mechanism. Raises ActionRefused."""
     from ...ops import activation_authority as act
@@ -406,6 +481,11 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                     owner_queue.transition(s, row, owner_queue.PARKED,
                                            note or "deferred by the owner", actor=actor)
             result = {"deferred": oid, "note": note, "state": owner_queue.PARKED}
+        elif action == "acceptance.rule":
+            result = _record_acceptance_ruling(db, str(body.get("ruling") or ""), tagged,
+                                               actor=actor)
+        elif action == "ads.set_limit":
+            result = _set_ads_limit(db, body, tagged)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
