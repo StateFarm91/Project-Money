@@ -824,6 +824,29 @@ def store_preview_handler(db):
     return owner_store_preview
 
 
+IMAGE_REVIEW_PATH = "/cc/image-review"
+
+
+def image_review_handler(db):
+    """W4-IMAGES: the owner-only internal image review (`store_foundation.image_review`).
+
+    Every candidate listing image, shown with its status and limitations, including frames
+    withheld from the customer preview. `security.owner_session_route` names this exact path,
+    so `operator_gate` -> `auth.gate` requires a live owner session. It is never a customer
+    surface: no-store, noindex, and nothing on it grants publication.
+    """
+    from fastapi.responses import HTMLResponse
+
+    def owner_image_review(request: Request):
+        from ...store_foundation import image_review
+
+        html = image_review.render_page(db)
+        return HTMLResponse(html, headers={"Cache-Control": "no-store",
+                                           "X-Robots-Tag": "noindex, nofollow"})
+
+    return owner_image_review
+
+
 def live_observation_handler(db):
     """W4-STORE: `POST /api/store/live_observation` -- the owner's dated reading of the live shop.
 

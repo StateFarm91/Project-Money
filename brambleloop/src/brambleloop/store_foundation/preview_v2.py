@@ -491,6 +491,9 @@ def _card(ctx: dict, prod: dict, frame: dict | None, cls: str = "card") -> str:
         img = (lead + f'<div class="ev" style="background-image:var(--r-{_esc(frame["build"])})" '
                f'role="img" aria-label="{_esc(frame.get("alt_text", ""))}"><span class="evl">'
                f'Rendering</span></div>')
+    elif frame is not None and frame.get("pieces_finding"):
+        img = ('<div class="ph"><div class="withheld">Image withheld: the rendering shows fewer '
+               'pieces than the pattern makes, so it would mislead (D-FB-7).</div>')
     else:
         img = ('<div class="ph"><div class="withheld">Image withheld: the rendering did not pass '
                'its checks, and a label cannot make an inaccurate image acceptable (D-FB-7).'
