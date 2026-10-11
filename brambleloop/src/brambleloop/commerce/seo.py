@@ -311,8 +311,8 @@ def build_description(product_title: str, *, size_label: str | None,
                    "rather than retyped for every pass")
     else:
         out.append("- Written instructions for every row, with a stitch count on each")
-    out.append(f"- A colour chart generated from the same data as the written instructions, "
-               f"so the two cannot disagree")
+    out.append("- A chart drawn from the same pattern as the written instructions, so the "
+               "two always agree")
     # What actually ships, named as two files.
     #
     # This line read "{terminology} terms, with the equivalent terms listed in the stitch key"
@@ -363,11 +363,15 @@ def build_description(product_title: str, *, size_label: str | None,
         out.append("TECHNIQUE HELP")
         out.extend(f"- {u}" for u in help_urls)
         out.append("")
+    # W4-COPY 2026-10-11: the gate-owned AI disclosure verbatim (gates.platform_policy), so
+    # the listing always carries the sentence Etsy's AI rule owes, in the shop's own words --
+    # no machinery talk ("automated pattern compiler") and no promise to message every buyer
+    # (no Messages API exists; COPY_CLAIMS.md C-08).
+    from ..gates.platform_policy import DISCLOSURES as _DISCLOSURES
+
     out.append("HOW THIS PATTERN WAS MADE")
-    out.append("The design was developed with AI assistance, and every stitch count was "
-               "verified row by row by an automated pattern compiler before release. If "
-               "anything in it does not add up, tell us: we fix the pattern itself and "
-               "re-issue it, rather than only answering the question.")
+    out.append(f"{_DISCLOSURES['ai_assisted_design']} If anything in it does not add up, "
+               f"tell us: we correct the pattern itself and send you the corrected file.")
     out.append("")
     # Rendered from `commerce.terms`, not written here.
     #

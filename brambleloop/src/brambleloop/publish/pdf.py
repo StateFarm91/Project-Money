@@ -393,10 +393,9 @@ def licence_paragraphs() -> list[str]:
 
 
 AI_DISCLOSURE = (
-    "How this pattern was made: the design was developed with AI assistance and every stitch "
-    "count in it was verified by an automated pattern compiler before release, row by row. "
-    "The charts in this document are generated directly from the same verified data as the "
-    "written instructions, so the two cannot disagree."
+    "How this pattern was made: this design was created with AI assistance, and every row's "
+    "stitch count was checked before release. The charts in this document are drawn from the "
+    "same pattern as the written instructions, so the two agree."
 )
 
 
