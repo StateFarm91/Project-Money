@@ -69,12 +69,19 @@ def hero_frame(build_key: str) -> dict:
         verdict = render_verification.verify(frame.png, cir=cir, view="hero")
         caption = disclosed_listing.caption_in_image(frame.png, cir)
         ok = verdict.get("status") == "PASS" and caption.get("status") == "PASS"
+        # W4-IMAGES: a hero that shows fewer pieces than the CIR makes is reported (owner
+        # review, `image_review.pieces_finding`). Withholding it here changes the preview's
+        # tested contract, so that is an integrator/owner decision, not done in this lane.
+        from .image_review import pieces_finding
+
+        incomplete = pieces_finding(frame.manifest, cir)
         out = {"build": build_key, "cir_slug": cir.slug, "cir_fingerprint": cir.fingerprint,
                "status": "VERIFIED" if ok else "WITHHELD",
                "verifier_status": verdict.get("status"),
                "verifier_version": verdict.get("verifier_version"),
                "failed": list(verdict.get("failed") or [])[:6],
                "caption_status": caption.get("status"),
+               "pieces_finding": incomplete,
                "sha256": hashlib.sha256(frame.png).hexdigest(),
                "alt_text": disclosed_listing.alt_text(frame.manifest, cir),
                "png": frame.png if ok else None}
@@ -172,6 +179,7 @@ def summary(db, *, verify_images: bool = False, now: datetime | None = None) -> 
         "counts": roll["counts"], "owner_actions": roll["owner_actions"],
         "products": len(products), "sizes_counted_as_products": False,
         "preview_path": PREVIEW_PATH, "preview_viewports": sorted(VIEWPORTS),
+        "image_review_path": "/cc/image-review",
         "preview_variants": sorted(VARIANTS),
         "live": False, "published": False,
         "note": ("Readiness of prepared drafts, measured by deterministic checks. Nothing is "
