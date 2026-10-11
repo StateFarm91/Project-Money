@@ -228,6 +228,49 @@ export const DATA = {
       useful_output: null, blocker: null, next_action: null, rows_closed: null, rows_closed_count: null, stale: false }],
     { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }) }),
   // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
+  // W4-STOREFRONT: the owner catalogue (store_foundation.owner_store.catalogue shape).
+  storeCatalogue: () => {
+    const prod = (slug, name, status, priceCad, img, extra = {}) => ({
+      slug, name, summary: `${name}, worked in the round.`, description: `${name}: one pattern, clear instructions, US and UK terms.`,
+      section: extra.section || "home", kind: "basket", launch_status: status,
+      launch_status_note: status === "PROPOSED" ? "catalogue-floor proposal: owner decision D-FB-9" : "in the Launch-0 opening catalogue",
+      price_cad: priceCad, digital_label: "Digital download (PDF pattern)",
+      sizes: [{ key: "one_size", label: "18.3 x 11.1 cm", cir_slug: slug }], variant_count: 1,
+      representative: { build: slug.replace(/-/g, "_"), cir_slug: slug, cir_fingerprint: "abc123def456" },
+      image: img === "VERIFIED" ? { status: "VERIFIED", build: slug.replace(/-/g, "_"), path: `/api/cc/store/image/${slug.replace(/-/g, "_")}`,
+        alt_text: `${name}, digital rendering`, verifier_status: "PASS", caption_status: "PASS", sha256: "0123456789abcdef" }
+        : { status: img, build: slug.replace(/-/g, "_"), path: null, verifier_status: "FAIL", sha256: null },
+      quality: priceCad === null ? { status: "UNKNOWN", basis: "unknown", reason: "not computed" }
+        : { status: "OK", compiles: true, certified: true, release_hash: "a1b2c3d4e5f6", certificate_errors: [], basis: "measured" },
+      listing: { title: `${name} | Crochet Pattern PDF | US and UK Terms`, title_chars: 50, title_max: 140, title_ok: true,
+        title_basis: "derived: commerce.seo.build_title", price_cad: priceCad, price_basis: priceCad === null ? "UNKNOWN" : "products.launch0.price_plan",
+        on_etsy: "UNKNOWN", on_etsy_note: "nothing is entered on Etsy by this system" },
+      readiness: { status: "OWNER_GATED", blockers: status === "PROPOSED"
+        ? [{ what: "Owner decision D-FB-9 (catalogue floor)", clearer: "OWNER" }, { what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }]
+        : [{ what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }], note: "Publication is the owner's authorisation." },
+      pdf: { terms: ["US", "UK"], paths: { US: `/api/cc/store/pdf/${slug}?terms=US`, UK: `/api/cc/store/pdf/${slug}?terms=UK` }, note: "rendered on request" },
+    });
+    const products = [
+      prod("nursery-nesting-baskets", "Nesting Baskets, three sizes", "LAUNCH_0", 6.5, "VERIFIED"),
+      prod("cloudline-baby-blanket", "Cloudline Baby Blanket", "LAUNCH_0", 7.5, "VERIFIED", { section: "baby" }),
+      prod("hexagon-coaster-set", "Hexagon Coaster Set (4)", "LAUNCH_0", 4, "VERIFIED"),
+      prod("nordic-star-ornaments", "Nordic Snowflake Ornament Set (6)", "LAUNCH_0", 4.5, "WITHHELD", { section: "seasonal" }),
+      prod("winter-village-graphghan", "Winter Village Graphghan", "LAUNCH_0", 7.5, "VERIFIED", { section: "blankets" }),
+      prod("nordic-forest-mosaic-throw-baby", "Nordic Forest Relief Baby Blanket", "PROPOSED", 7.5, "VERIFIED", { section: "baby" }),
+      prod("mosaic-placemat-pair", "Diamond Lattice Placemat Pair", "PROPOSED", null, "VERIFIED"),
+      prod("housewarming-key-basket", "Housewarming Key Basket", "PROPOSED", 5.5, "VERIFIED"),
+    ];
+    return { generated_at: now(), products,
+      counts: { collection: 8, launch0: 5, proposed: 3, images_verified: 7, quality_ok: 7 },
+      decision: { key: "D-FB-9", question: "Open with 5, or add the 3 prepared patterns to reach 8?", how: "Owner decision only.", approved: false },
+      etsy: { status: "NOT_CONNECTED", items: [], reason: "no Etsy OAuth credential is recorded" },
+      etsy_controls: { retrieved_on: "2026-10-06", note: "VERIFIED rows quote an Etsy document; UNKNOWN rows carry no number.",
+        surfaces: { shop_title: [{ key: "shop_title_max_chars", what: "shop title (tagline) characters", value: 55, basis: "VERIFIED_HELP_CENTER" }],
+          announcement: [{ key: "announcement_max_chars", what: "shop announcement characters", value: null, basis: "UNKNOWN" }],
+          sections: [{ key: "sections_max", what: "custom shop sections, count", value: 20, basis: "VERIFIED_HELP_CENTER" }] },
+        not_controlled: [{ element: "Page layout, colours, fonts and card design", why: "Etsy draws the shop page in its own design." }] },
+      preview: { path: "/cc/store-preview", default_variant: "storefront", variants: ["storefront", "v2", "compare", "standard", "brand_face"] } };
+  },
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],
