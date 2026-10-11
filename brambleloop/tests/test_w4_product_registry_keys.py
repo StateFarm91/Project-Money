@@ -40,8 +40,11 @@ def check(name, fn):
 
 def test_every_launch0_release_reaches_the_opportunity_it_was_scored_as():
     # trend -> opportunity -> product: every Launch-0 release has a radar concept behind it.
+    assert l0.LAUNCH0_SLUGS
     for slug in l0.LAUNCH0_SLUGS:
-        for v in l0.candidate(slug).variants:
+        variants = l0.candidate(slug).variants
+        assert variants, slug
+        for v in variants:
             cir_slug = l0.cir_for(v.build).slug
             seed = pipeline.product_seed(cir_slug)
             assert seed is not None, cir_slug
@@ -73,6 +76,7 @@ def test_every_retired_alias_is_still_a_radar_concept():
     pool = {s.slug for s in pipeline.POOL}
     for alias, rec in l0.LEGACY_DUPLICATES.items():
         assert alias in pool, alias
+        assert rec["superseded_by"], alias
         for target in rec["superseded_by"]:
             assert target in l0.launch_scope_slugs(), target
             assert l0.radar_concept_for(target) == alias, target

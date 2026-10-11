@@ -66,7 +66,9 @@ def test_briefs_validate_and_survive_only_as_needs_taste():
 
 
 def test_without_the_brief_the_same_jury_rejects():
-    for cand in audit.engineered_candidates():
+    cands = audit.engineered_candidates()
+    assert cands, "no engineered Launch-0 candidate: the loop would prove nothing"
+    for cand in cands:
         literal, why = audit.concept_from_candidate(cand)
         assert literal is not None, why
         v = jury.judge(literal, jury.Context(catalogue=[], techniques=1))
