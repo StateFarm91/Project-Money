@@ -303,6 +303,13 @@ def _act_on_delight(db, slug: str, delight: dict) -> dict | None:
                                               Improvement.state.in_(("proposed",
                                                                      "testing")))):
             return {"improvement": None, "already_open": ref}
+    # W4-LEARN: admission control -- a cooldown after the hypothesis was closed, and a cap on
+    # open delight proposals per cell -- so the backlog is evaluated, not refilled.
+    from ..improve import backlog
+
+    refused = backlog.admit_delight(db, cell=DELIGHT_CELL.get(weakest, "quality"), ref=ref)
+    if refused is not None:
+        return refused
     try:
         iid = cells.propose(
             db, cell=DELIGHT_CELL.get(weakest, "quality"),
@@ -316,6 +323,11 @@ def _act_on_delight(db, slug: str, delight: dict) -> dict | None:
         row = s.get(Improvement, iid)
         row.baseline_ref = ref
         row.baseline_value = float(score)
+        # Said in advance, so the sandbox's ROI order can rank it (#99): the gap to the target.
+        row.evidence = {**(row.evidence or {}),
+                        "expected_gain": round(backlog.DELIGHT_TARGET - float(score), 4),
+                        "delight": {"slug": slug, "driver": weakest,
+                                    "target": backlog.DELIGHT_TARGET}}
     return {"improvement": iid, "ref": ref}
 
 

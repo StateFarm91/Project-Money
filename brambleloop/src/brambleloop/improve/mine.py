@@ -64,6 +64,32 @@ def error_code(text: str) -> str:
     return head[:60] or "unknown"
 
 
+# W4-LEARN (2026-10-11): production's open incidents are 347, of which 300 are
+# `stale-artefact:<kind>:<slug>@<version>#<n>` -- one row per artefact rebuild. Grouped by the
+# raw signature, the miner read 367 rows into 364 groups and published 316 "lessons" in one
+# pass (`improve.mine` job 12071), every one a restatement of a single pattern, so the bus held
+# 369 defect lessons nobody could act on. A lesson is the pattern behind the reports, so an
+# incident is grouped by its *family*: the signature's leading tokens up to the first one that
+# names an instance (a product slug, a version, a sequence number, a content hash).
+_INSTANCE_TOKEN = re.compile(r"(@|#|^[0-9a-f]{8,}$|^\d+$)")
+
+
+def incident_family(signature: str, *, slugs: frozenset[str] = frozenset()) -> str:
+    """The family a signature belongs to: its tokens up to the first instance token.
+
+    `row-94-count` stays `row-94-count`; `stale-artefact:visual_truth:hexie@1.0.0#91` is
+    `stale-artefact:visual_truth`; `seasonal.at_risk:<slug>:Halloween` is `seasonal.at_risk`.
+    A signature whose first token is already an instance keeps its first token.
+    """
+    tokens = (signature or "").split(":")
+    kept: list[str] = []
+    for tok in tokens:
+        if kept and (tok in slugs or _INSTANCE_TOKEN.search(tok)):
+            break
+        kept.append(tok)
+    return ":".join(kept) or (signature or "")
+
+
 def last_watermark(db) -> dict:
     """Where the previous mine stopped reading, so this one reads only what is new."""
     from sqlalchemy import desc, select
@@ -84,12 +110,16 @@ def last_watermark(db) -> dict:
 def _read(db, since: dict) -> dict:
     from sqlalchemy import select
 
-    from ..core.models import AuditLog, Incident, Job, JobStatus
+    from ..core.models import AuditLog, Incident, Job, JobStatus, Product
 
     with db.session() as s:
+        slugs = frozenset(s.scalars(select(Product.slug)))
         incidents = [{"id": i.id, "signature": i.signature, "summary": i.summary or "",
                       "severity": i.severity, "product_slug": i.product_slug,
-                      "reports": int(i.report_count or 1), "detail": dict(i.detail or {})}
+                      "reports": int(i.report_count or 1), "detail": dict(i.detail or {}),
+                      "family": incident_family(
+                          i.signature, slugs=slugs | ({i.product_slug} if i.product_slug
+                                                      else frozenset()))}
                      for i in s.scalars(select(Incident).where(Incident.resolved.is_(False))
                                         .order_by(Incident.id))]
         audits = [{"id": a.id, "action": a.action, "artifact": a.artifact or "",
@@ -135,13 +165,15 @@ def group(read: dict) -> list[dict]:
     groups: dict[tuple, dict] = {}
 
     for inc in read["incidents"]:
-        key = ("incident", inc["signature"])
+        family = inc.get("family") or inc["signature"]
+        key = ("incident", family)
         g = groups.setdefault(key, {
-            "kind": "incident", "code": inc["signature"], "origin": INCIDENT_ORIGIN,
-            "subject": INCIDENT_SUBJECT, "evidence_ref": f"incident:{inc['signature']}",
+            "kind": "incident", "code": family, "origin": INCIDENT_ORIGIN,
+            "subject": INCIDENT_SUBJECT, "evidence_ref": f"incident:{family}",
             "members": [], "reports": 0, "summary": inc["summary"][:200],
-            "severity": inc["severity"], "products": set()})
+            "severity": inc["severity"], "products": set(), "signatures": set()})
         g["members"].append(inc["id"])
+        g["signatures"].add(inc["signature"])
         g["reports"] += inc["reports"]
         if inc["product_slug"]:
             g["products"].add(inc["product_slug"])
@@ -178,6 +210,8 @@ def group(read: dict) -> list[dict]:
     out = []
     for g in groups.values():
         g["products"] = sorted(g["products"])
+        if "signatures" in g:
+            g["signatures"] = sorted(g["signatures"])
         out.append(g)
     out.sort(key=lambda g: (g["severity"], -g["reports"], g["evidence_ref"]))
     return out
@@ -187,6 +221,12 @@ def _statement(g: dict) -> str:
     n = len(g["members"])
     times = f"{g['reports']} report(s) across {n} row(s)"
     products = f" on {', '.join(g['products'][:3])}" if g["products"] else ""
+    if g["kind"] == "incident" and len(g.get("signatures") or ()) > 1:
+        more = f" and {len(g['products']) - 3} more" if len(g["products"]) > 3 else ""
+        return (f"Unresolved {g['severity']} incident family {g['code']!r}{products}{more}: "
+                f"{len(g['signatures'])} distinct signature(s) open, e.g. "
+                f"{g['summary'] or 'no summary'}. {times}; the pattern behind the reports, "
+                f"not the individual report, is what has to change")
     if g["kind"] == "incident":
         return (f"Unresolved {g['severity']} incident {g['code']!r}{products}: "
                 f"{g['summary'] or 'no summary'}. {times}; the pattern behind the reports, "
@@ -248,6 +288,31 @@ def _capture_regressions(db, read: dict, *, fixture_dir: Path | None) -> list[di
     return out
 
 
+def _supersede_instances(db, g: dict, family_lesson: int) -> list[int]:
+    """Point every live per-signature lesson of this family at the family's lesson.
+
+    The bus held one lesson per raw signature before families existed; those rows are not
+    deleted (a superseded lesson is history) but they leave the live inbox, so the backlog a
+    department sees is one lesson per pattern.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Lesson
+
+    refs = [f"incident:{sig}" for sig in g.get("signatures") or ()
+            if f"incident:{sig}" != g["evidence_ref"]]
+    if not refs:
+        return []
+    out = []
+    with db.session() as s:
+        for row in s.scalars(select(Lesson).where(
+                Lesson.evidence_ref.in_(refs), Lesson.subject == g["subject"],
+                Lesson.superseded_by.is_(None), Lesson.id != family_lesson)):
+            row.superseded_by = family_lesson
+            out.append(row.id)
+    return out
+
+
 def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) -> dict:
     """Read every failure since the last mine, group it, and publish each group as a lesson.
 
@@ -268,7 +333,7 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
     with db.session() as s:
         before = {row.id for row in s.scalars(select(Lesson))}
 
-    published, reused = [], []
+    published, reused, superseded = [], [], []
     for g in groups:
         lesson_id = bus.publish(
             db, origin_cell=g["origin"], subject=g["subject"], statement=_statement(g),
@@ -279,6 +344,8 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
                  "reports": g["reports"], "routed_to": list(bus.route_for(g["subject"])),
                  "origin": g["origin"]}
         (published if lesson_id not in before else reused).append(entry)
+        if g["kind"] == "incident":
+            superseded += _supersede_instances(db, g, lesson_id)
 
     fixtures = _capture_regressions(db, read, fixture_dir=fixture_dir)
 
@@ -308,6 +375,7 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         "groups": len(groups),
         "found": len(published),
         "published": published, "reused": reused,
+        "superseded": superseded,
         "regression_fixtures": fixtures,
         "note": (f"read {total_read} failure row(s) in {len(groups)} group(s); "
                  f"{len(published)} new lesson(s), {len(reused)} already on the bus"),

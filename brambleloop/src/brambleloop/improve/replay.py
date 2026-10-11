@@ -337,6 +337,46 @@ def register_challengers(db, incumbent: dict) -> list[dict]:
     return made
 
 
+# W4-LEARN: production replayed 11,958 jobs on 2026-10-11, retired all six neighbours on noise
+# (quality gain 0.000 inside the margin), and -- because `register_challengers` skips every
+# digest it has seen -- would never compare anything again while the job history it is judged
+# on keeps rolling forward. A verdict on one 30-day window is a measurement, not a law: a
+# neighbour retired at least this long ago is re-opened and re-judged on the current window.
+RETRIAL_DAYS = 7
+
+
+def reopen_retired(db, incumbent: dict, *, now: datetime) -> list[dict]:
+    """Re-open the incumbent's retired neighbours whose verdict is older than RETRIAL_DAYS."""
+    from ..core.models import AuditLog, ConfigVersion
+
+    kind, key = _policy_key()
+    wanted = {league.digest_of(payload_for(params)): why
+              for params, why in neighbours(incumbent["params"])}
+    cutoff = now - timedelta(days=RETRIAL_DAYS)
+    out = []
+    with db.session() as s:
+        for c in _configs(db):
+            if c["incumbent"] or not c["retired"] or c["digest"] not in wanted:
+                continue
+            row = s.get(ConfigVersion, c["id"])
+            if row is None or row.retired_at is None or _aware(row.retired_at) > cutoff:
+                continue
+            retired_at = _aware(row.retired_at).isoformat()
+            row.retired_at = None
+            row.detail = {**(row.detail or {}), "retrials": list(
+                (row.detail or {}).get("retrials") or []) + [
+                {"reopened_at": now.isoformat(), "retired_at": retired_at,
+                 "against": incumbent["config_id"]}]}
+            s.add(AuditLog(actor=AUTHOR, action="improve.replay.retrial",
+                           artifact=f"{kind}/{key}",
+                           detail={"config_id": row.id, "version": row.version,
+                                   "why": wanted[c["digest"]], "retired_at": retired_at,
+                                   "against": incumbent["config_id"]}))
+            out.append({"config_id": row.id, "version": row.version,
+                        "why": wanted[c["digest"]], "retired_at": retired_at})
+    return out
+
+
 def _open_improvement_for(db, config_id: int) -> dict | None:
     return league.sandbox_owned(db, config_id)
 
@@ -386,9 +426,11 @@ def cycle(db, *, now: datetime | None = None) -> dict:
     faithful = fidelity(dataset)
     configs = _configs(db)
     open_challengers = [c for c in configs if not c["incumbent"] and not c["retired"]]
-    registered = []
+    registered, reopened = [], []
     if not open_challengers:
         registered = register_challengers(db, incumbent)
+        if not registered:
+            reopened = reopen_retired(db, incumbent, now=now)
         configs = _configs(db)
         open_challengers = [c for c in configs if not c["incumbent"] and not c["retired"]]
 
@@ -478,6 +520,7 @@ def cycle(db, *, now: datetime | None = None) -> dict:
 
     return {"ran": True, "reading": "measured", "incumbent": inc_id, "jobs": len(jobs),
             "days": len(days), "challengers_registered": registered,
+            "challengers_reopened": reopened,
             "runs": [{"config_id": k, "run_ref": v["run_ref"],
                       "shared_days": len(v["tasks"]), "holdout_days": len(v["holdout"])}
                      for k, v in runs.items()],

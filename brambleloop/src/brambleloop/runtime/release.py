@@ -5910,6 +5910,13 @@ def handle_improve_sandbox(ctx: JobContext) -> dict:
                                   "rejected", "executed", "prioritised", "unprioritised",
                                   "discipline")}
     detail["waiting"] = len(out["waiting"])
+    # W4-LEARN: what the bounded backlog decided this pass (verified/expired/deferred counts).
+    bounded = out.get("backlog") or {}
+    detail["backlog"] = ({"error": bounded["error"]} if "error" in bounded else
+                         {k: len(bounded.get(k) or []) for k in
+                          ("verified", "regressed", "expired", "deferred", "waiting")}
+                         | {"open_before": bounded.get("open_before"),
+                            "open_after": bounded.get("open_after")})
     ctx.audit(runner.ACTION, detail=detail)
     return {"ran": True, **detail, "waiting_detail": out["waiting"][:20]}
 
@@ -5954,7 +5961,7 @@ def handle_improve_replay(ctx: JobContext) -> dict:
     out = replay.cycle(ctx.db)
     ctx.audit(replay.ACTION, detail={k: out.get(k) for k in (
         "ran", "reading", "incumbent", "jobs", "days", "runs", "compared", "proposed",
-        "retired", "challengers_registered", "why", "watched")})
+        "retired", "challengers_registered", "challengers_reopened", "why", "watched")})
     return out
 
 
