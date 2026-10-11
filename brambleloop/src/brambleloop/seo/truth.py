@@ -175,6 +175,13 @@ def check_term(term: str, facts: ProductFacts, *, competitors: list[str] | None 
                         f"support")
     for why in _policy_claims(term):
         findings.append(f"TERM_MISLEADING: {why}")
+    # W4-MARKETINTEL: a demand claim ("trending", "in demand") rests on proxies only.
+    from ..store_foundation import lint as sf_lint
+
+    market = next((r for r in sf_lint.TRUTH_RULES if r.code == "TRUTH_MARKET_CLAIM"), None)
+    if market is not None and market.pattern.search(term):
+        findings.append(f"TERM_MISLEADING: {term!r} claims market demand; this company's "
+                        f"demand figures are proxies (intel.market_intel)")
     if role == "tag" and seo_mod._SUBJECTIVE.search(term):
         findings.append(f"TERM_MISLEADING: {term!r} spends a slot on a subjective word")
 

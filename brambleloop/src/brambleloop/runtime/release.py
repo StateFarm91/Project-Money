@@ -3640,6 +3640,23 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
 SERP_THUMBNAIL_SNAPSHOTS_PER_RUN = 2
 
 
+def _market_intel_refresh(ctx: JobContext) -> dict:
+    """W4-MARKETINTEL: label every proxy, route it to SEO/Creative/Engineering/Learning.
+
+    Reads stored rows only (SERP snapshots, owner-recorded Insights); never a network call.
+    A fault here is recorded and never stops the capture's own result.
+    """
+    from ..intel import market_intel
+
+    try:
+        out = market_intel.refresh(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - routing must not break the capture
+        out = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # Recorded inside the capture's own audit row (serp.captured / serp.capture_blocked).
+    return {k: out.get(k) for k in ("measured_queries", "lessons", "engineering_lessons",
+                                    "opportunities", "error") if k in out}
+
+
 @handlers.register("intel.serp_capture")
 def handle_serp_capture(ctx: JobContext) -> dict:
     """Capture the SERP laboratory's target queries from the API search index (#15, #2, #98).
@@ -3660,8 +3677,15 @@ def handle_serp_capture(ctx: JobContext) -> dict:
     inputs = ctx.job.inputs or {}
     outcome = serp.capture_targets(ctx.db)
     if not outcome["ran"]:
-        ctx.audit("serp.capture_blocked", detail={"reason": outcome["reason"][:300]})
-        return {"ran": False, "reason": outcome["reason"][:200]}
+        # W4-MARKETINTEL: the stored snapshots and owner-recorded Insights still route.
+        intel = _market_intel_refresh(ctx)
+        ctx.audit("serp.capture_blocked", detail={
+            "reason": outcome["reason"][:300],
+            "credential_refused": bool(outcome.get("credential_refused")),
+            "market_intel": intel})
+        return {"ran": False, "reason": outcome["reason"][:200],
+                "credential_refused": bool(outcome.get("credential_refused")),
+                "market_intel": intel}
 
     thumbnails: list[dict] = []
     limit = int(inputs.get("thumbnail_snapshots", SERP_THUMBNAIL_SNAPSHOTS_PER_RUN))
@@ -3676,13 +3700,16 @@ def handle_serp_capture(ctx: JobContext) -> dict:
     if learned.get("recorded"):
         ctx.audit("learning.ingested", detail=learned)
 
+    intel = _market_intel_refresh(ctx)
     ctx.audit("serp.captured", detail={
+        "market_intel": intel,
         "captured": [{k: c[k] for k in ("id", "query", "total_count", "ranked")}
                      for c in outcome["captured"]],
         "skipped_recent": len(outcome["skipped_recent"]),
         "failures": outcome["failures"][:20], "thumbnails": thumbnails,
         "basis": outcome["basis"]})
     return {"ran": True, "captured": len(outcome["captured"]),
+            "market_intel": intel,
             "skipped_recent": len(outcome["skipped_recent"]),
             "failures": len(outcome["failures"]),
             "thumbnails_judged": sum(t.get("judged") or 0 for t in thumbnails),
