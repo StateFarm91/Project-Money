@@ -1,0 +1,188 @@
+{
+ "candidate": "7421ef6215588659da314cced213a848ffc8e567",
+ "tag": null,
+ "tag_refused": "final-candidate-7421ef6: tag push refused by the git proxy (403); the freeze ref is a branch",
+ "freeze_ref": {
+  "ref": "refs/heads/claude/final-candidate-7421ef6",
+  "commit": "7421ef6215588659da314cced213a848ffc8e567",
+  "pushed": true
+ },
+ "frozen_at": "2026-10-11T00:40:00Z",
+ "pushed": false,
+ "suite_record": {
+  "path": "brambleloop/release/suite_runs/20261010T062725Z-14513.json",
+  "sha256": "c6e3d9c2421111a0ae6c31672d1caea1dd158fd0aca79fed45b160c81f04cb3e",
+  "binding": "tracked release record RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json: same deployable tree as 7421ef621558, record SHA 3967f405ef73 is an ancestor (deploy guard rule)",
+  "release_record": "brambleloop/release/RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json"
+ },
+ "matrix": {
+  "path": "brambleloop/research/final_build/closure_matrix.json",
+  "at": "7421ef6215588659da314cced213a848ffc8e567",
+  "sha256": "763633a0d6ba63082997565423b86ac86f4922108770d0cff613ec160f4b4986",
+  "basis": {
+   "mapping": {
+    "base": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+    "remaps": {
+     "6f9a2f7": {
+      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+      "rows": 163
+     },
+     "fee1cfe": {
+      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+      "rows": 177
+     },
+     "8b67414": {
+      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+      "rows": 45
+     },
+     "2f36fe0": {
+      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
+      "rows": 9
+     }
+    },
+    "rows_on_base": 523,
+    "per_row": "matrix[].mapped_on"
+   },
+   "reachability": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
+   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+   "registry": "master_registry.json + master_registry_v1_1.json"
+  },
+  "summary": {
+   "rows": 917,
+   "unmapped": [],
+   "problems": [],
+   "maturity": {
+    "DEPLOYED": 185,
+    "INTEGRATED": 497,
+    "MISSING": 109,
+    "IMPLEMENTED": 56,
+    "TESTED": 52,
+    "EXERCISED": 18
+   },
+   "maturity_claimed": {
+    "EXERCISED": 117,
+    "INTEGRATED": 467,
+    "DEPLOYED": 132,
+    "MISSING": 109,
+    "IMPLEMENTED": 45,
+    "TESTED": 47
+   },
+   "launch_class": {
+    "LAUNCH-CRITICAL": 490,
+    "MATURE": 420,
+    "NA": 7
+   },
+   "launch_critical_maturity": {
+    "DEPLOYED": 113,
+    "INTEGRATED": 321,
+    "IMPLEMENTED": 4,
+    "EXERCISED": 18,
+    "TESTED": 29,
+    "MISSING": 5
+   },
+   "gate_kind": {
+    "none": 618,
+    "owner": 176,
+    "data": 84,
+    "external": 39
+   },
+   "launch_critical_gate_kind": {
+    "none": 355,
+    "owner": 89,
+    "external": 29,
+    "data": 17
+   },
+   "coverage": {
+    "FULL": 422,
+    "PARTIAL": 495
+   },
+   "downgraded": 143,
+   "defects": 24,
+   "wave_reported": {
+    "PARTIAL": 50,
+    "DONE": 55,
+    "NOT_STARTED": 1
+   },
+   "completion": {
+    "COMPLETE": 355,
+    "GATED": 126,
+    "POST-LAUNCH": 420,
+    "OPEN": 9,
+    "NOT-APPLICABLE": 7
+   },
+   "launch_critical_completion": {
+    "COMPLETE": 355,
+    "GATED": 126,
+    "OPEN": 9
+   },
+   "launch_critical_open": 9,
+   "launch_critical_open_reasons": {
+    "maturity TESTED": 5,
+    "coverage PARTIAL": 8,
+    "maturity IMPLEMENTED": 3
+   },
+   "protected_action_applicability": {
+    "protected": 578,
+    "unprotected": 339
+   },
+   "capped_by_unwritten_state": 1,
+   "capped_by_proxy_evidence": 0,
+   "mapped_on": {
+    "fee1cfe": 177,
+    "8b67414": 45,
+    "6f9a2f7": 163,
+    "019ebf0": 523,
+    "2f36fe0": 9
+   },
+   "orphaned_partials": [],
+   "structural_target_overrides": [
+    "F-123",
+    "F-170",
+    "F-177",
+    "F-178",
+    "F-205",
+    "F-332",
+    "F-334",
+    "F-340",
+    "F-342",
+    "F-344",
+    "F-345",
+    "F-346",
+    "F-347",
+    "F-348",
+    "F-349",
+    "F-350",
+    "F-836",
+    "F-837",
+    "F-843",
+    "F-847"
+   ]
+  },
+  "launch_critical_open": 9
+ },
+ "rehearsal": {
+  "path": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json",
+  "sha256": "7958f345218c89cb10060ac7bb3a770c731e5266c15de237d72f077446c511a7",
+  "binding": "exact",
+  "complete": false,
+  "outcomes": {
+   "boot": "PASS",
+   "chain.jobs": "PASS",
+   "cir.compile": "PASS",
+   "gate.certify": "PASS",
+   "assets.build": "PASS",
+   "listing.seo": "PASS",
+   "store.publish[shadow]": "REFUSED_AS_EXPECTED",
+   "network[shadow]": "PASS",
+   "owner_publication_grant": "BLOCKED",
+   "store.publish[past-shadow]": "BLOCKED",
+   "network[past-shadow]": "PASS",
+   "orders.ingest": "PASS",
+   "support.case": "PASS",
+   "ledger": "PASS"
+  }
+ },
+ "freeze_check": "brambleloop/research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json (refusals: [])",
+ "defect_ledger": "brambleloop/research/final_build/DEFECT_LEDGER_7421ef6.json",
+ "next": "independent audit of this exact SHA by a different model/session (F-846); repairs land on a successor candidate, never on this ref"
+}

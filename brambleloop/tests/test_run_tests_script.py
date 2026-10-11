@@ -125,6 +125,32 @@ def test_a_json_run_record_and_a_full_log_copy_are_written_where_the_log_says():
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_only_fail_marker_lines_count_as_failing_tests():
+    # W4-PACKETREL: the 3967f40 release run recorded tests_failing_reported 2 from lines like
+    # `FAILS 0`; only `FAIL <name>`, `FAIL: <name>` or a bare `FAIL` is a failing-test marker.
+    repo = _sandbox()
+    try:
+        (repo / "tests" / "test_failwords.py").write_text(
+            'print("OK   test_one")\nprint("FAILS 0")\nprint("FAILED_NOTHING here")\n'
+            'print("FAILURES none")\n')
+        (repo / "tests" / "test_failmarks.py").write_text(
+            'import sys\nprint("OK   test_one")\nprint("FAIL test_two boom")\n'
+            'print("FAIL: test_three (x.Y)")\nprint("FAIL")\nsys.exit(1)\n')
+        _git(repo, "add", "-A")
+        _git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+             "commit", "-q", "-m", "fail words")
+        _run(repo, "tests/test_failwords.py")
+        [rec] = _records(repo)
+        assert rec["status"] == "passed" and rec["tests_passing"] == 1, rec
+        assert rec["tests_failing_reported"] == 0, rec
+        shutil.rmtree(repo / "artifacts")
+        _run(repo, "tests/test_failmarks.py")
+        [rec] = _records(repo)
+        assert rec["tests_failing_reported"] == 3, rec
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_a_filtered_run_executes_only_the_named_suites_and_an_unknown_name_runs_nothing():
     repo = _sandbox()
     try:
