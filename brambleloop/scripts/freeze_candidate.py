@@ -30,12 +30,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]          # brambleloop/
+sys.path.insert(0, str(ROOT.parent / "ops"))
+import deploy_guard as G  # noqa: E402  (the deploy guard's release-record rule, not a fork)
 FB = ROOT / "research" / "final_build"
 CODE_PATHS = ("brambleloop/src/", "brambleloop/scripts/", "brambleloop/tests/",
               "brambleloop/railway.json", "brambleloop/Dockerfile",
@@ -50,8 +53,19 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def suite_refusal(rec: dict, sha: str) -> str | None:
-    """Why this suite record does not make `sha` release-eligible, or None."""
+# A failing-test marker in a run_tests.sh log: the suite's own output line (indented three
+# spaces by the harness) that is `FAIL` followed by whitespace, `:` or the end of the line.
+# `FAILS 0` and the like are not markers (W4-PACKETREL: run_tests.sh counted them before).
+_LOG_FAIL = re.compile(r"^   FAIL(?:[ \t:]|$)", re.M)
+
+
+def suite_refusal(rec: dict, sha: str, log_text: str | None = None) -> str | None:
+    """Why this suite record does not make `sha` release-eligible, or None.
+
+    With `log_text` (the tracked, sha256-pinned log of the same run) failing tests are counted
+    from the log's FAIL marker lines instead of the record's `tests_failing_reported`, which
+    run_tests.sh over-counted before W4-PACKETREL (any line starting `FAIL`, e.g. `FAILS 0`).
+    """
     problems = []
     if rec.get("git_sha") != sha:
         problems.append(f"record is for {str(rec.get('git_sha'))[:12]}, not {sha[:12]}")
@@ -65,7 +79,11 @@ def suite_refusal(rec: dict, sha: str) -> str | None:
         problems.append(f"status {rec.get('status')!r}")
     if rec.get("suites_failing") != 0 or rec.get("failing_suites"):
         problems.append("failing suites")
-    if rec.get("tests_failing_reported") not in (0, None):
+    if log_text is not None:
+        if _LOG_FAIL.search(log_text):
+            problems.append(f"failing tests ({len(_LOG_FAIL.findall(log_text))} FAIL marker "
+                            f"lines in the tracked log)")
+    elif rec.get("tests_failing_reported") not in (0, None):
         problems.append("failing tests")
     if not isinstance(rec.get("tests_passing"), int) or rec["tests_passing"] <= 0:
         problems.append("no passing tests recorded")
@@ -74,7 +92,35 @@ def suite_refusal(rec: dict, sha: str) -> str | None:
     return "; ".join(problems) or None
 
 
-def find_suite_record(sha: str, fb: Path, explicit: Path | None) -> tuple[Path | None, str]:
+def tracked_suite_record(repo: Path, sha: str) -> tuple[dict | None, str]:
+    """The suite record bound to `sha` by the deploy guard's own rule (`G.release_proof`): a
+    tracked release record naming `sha`'s exact deployable-tree digest whose SHA is `sha` or an
+    ancestor, with pinned suite and log copies. Returns ({path, record, binding, ...}, "") or
+    (None, why)."""
+    proof, why = G.release_proof(repo, sha)
+    if proof is None:
+        return None, "; ".join(why)
+    rel_dir = G.LAYOUT["prefix"] + G.LAYOUT["release"]
+    rec = json.loads(G._blobs(repo, sha, [proof["file"]])[proof["file"]] or b"{}")
+    suite_rel = f"{rel_dir}/{rec['suite_record']['path']}"
+    log_rel = f"{rel_dir}/{rec['suite_log']['path']}"
+    log = G._blobs(repo, sha, [log_rel])[log_rel]
+    r = suite_refusal(proof["suite"], proof["sha"],
+                      log.decode(errors="replace") if log is not None else None)
+    if r:
+        return None, f"{proof['file']}: {r}"
+    return {"path": repo / suite_rel, "record": proof["file"], "record_sha": proof["sha"],
+            "tree_sha256": proof["tree_sha256"],
+            "binding": ("exact" if proof["sha"] == sha else
+                        f"tracked release record {proof['file'].rsplit('/', 1)[-1]}: same "
+                        f"deployable tree as {sha[:12]}, record SHA {proof['sha'][:12]} is an "
+                        f"ancestor (deploy guard rule)")}, ""
+
+
+def find_suite_record(sha: str, fb: Path, explicit: Path | None,
+                      repo: Path | None = None) -> tuple[Path | None, str, str | None]:
+    """(path, why, binding). An explicit or untracked record must be for exactly `sha`; failing
+    that, the tracked release record the deploy guard would accept for `sha` binds it."""
     cands = [explicit] if explicit else sorted(
         list(fb.glob("RUN_*_full_suite.json"))
         + list((fb.parents[1] / "artifacts" / "suite_runs").glob("*.json")))
@@ -89,10 +135,15 @@ def find_suite_record(sha: str, fb: Path, explicit: Path | None) -> tuple[Path |
             continue
         r = suite_refusal(rec, sha)
         if r is None:
-            return Path(p), ""
+            return Path(p), "", "exact"
         if explicit or rec.get("git_sha") == sha:
             why.append(f"{Path(p).name}: {r}")
-    return None, ("; ".join(why) or f"no suite record for {sha[:12]}")
+    if repo is not None:
+        tracked, twhy = tracked_suite_record(repo, sha)
+        if tracked:
+            return tracked["path"], "", tracked["binding"]
+        why.append(f"tracked release record: {twhy}")
+    return None, ("; ".join(why) or f"no suite record for {sha[:12]}"), None
 
 
 def _code_changed(repo: Path, a: str, b: str) -> list[str]:
@@ -145,9 +196,10 @@ def check(repo: Path, sha_arg: str, *, fb: Path = FB, suite: Path | None = None,
     dirty = _git(repo, "status", "--porcelain").stdout.strip()
     if dirty:
         refusals.append(f"working tree not clean: {dirty.splitlines()[:5]}")
-    suite_path, why = find_suite_record(sha, fb, suite)
+    suite_path, why, suite_binding = find_suite_record(sha, fb, suite, repo)
     if suite_path is None:
-        refusals.append(f"no release-eligible suite record for exactly {sha7}: {why}")
+        refusals.append(f"no release-eligible suite record for {sha7} (exact SHA, or the "
+                        f"tracked release record of its deployable tree): {why}")
     reh_path, reh, reh_why = find_rehearsal(repo, sha, fb, rehearsal)
     if reh_path is None:
         refusals.append(f"no shadow-rehearsal evidence binding {sha7}: {reh_why}")
@@ -164,7 +216,7 @@ def check(repo: Path, sha_arg: str, *, fb: Path = FB, suite: Path | None = None,
     if _git(repo, "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}").returncode == 0:
         refusals.append(f"tag {tag} already exists")
     return {"sha": sha, "sha7": sha7, "tag": tag, "refusals": refusals,
-            "suite": suite_path, "rehearsal": reh_path, "rehearsal_binding": reh_why
+            "suite": suite_path, "suite_binding": suite_binding, "rehearsal": reh_path, "rehearsal_binding": reh_why
             if reh_path else None, "rehearsal_evidence": reh, "matrix": matrix_p,
             "summary": summary}
 
@@ -187,7 +239,8 @@ def freeze(repo: Path, sha_arg: str, *, fb: Path = FB, suite: Path | None = None
     rel = lambda p: str(Path(p).resolve().relative_to(repo.resolve()))  # noqa: E731
     candidate = {
         "candidate": sha, "tag": tag, "frozen_at": now, "pushed": False,
-        "suite_record": {"path": rel(c["suite"]), "sha256": _sha256(c["suite"])},
+        "suite_record": {"path": rel(c["suite"]), "sha256": _sha256(c["suite"]),
+                         "binding": c["suite_binding"]},
         "matrix": {"path": rel(c["matrix"]), "sha256": _sha256(c["matrix"]),
                    "basis": matrix.get("basis"), "summary": c["summary"],
                    "launch_critical_open": c["summary"].get("launch_critical_open")},

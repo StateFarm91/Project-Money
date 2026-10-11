@@ -45,8 +45,8 @@
    "DEPLOYED": 185,
    "INTEGRATED": 497,
    "MISSING": 109,
-   "IMPLEMENTED": 56,
-   "TESTED": 52,
+   "IMPLEMENTED": 55,
+   "TESTED": 53,
    "EXERCISED": 18
   },
   "maturity_claimed": {
@@ -54,8 +54,8 @@
    "INTEGRATED": 467,
    "DEPLOYED": 132,
    "MISSING": 109,
-   "IMPLEMENTED": 45,
-   "TESTED": 47
+   "IMPLEMENTED": 44,
+   "TESTED": 48
   },
   "launch_class": {
    "LAUNCH-CRITICAL": 490,
@@ -65,9 +65,9 @@
   "launch_critical_maturity": {
    "DEPLOYED": 113,
    "INTEGRATED": 321,
-   "IMPLEMENTED": 4,
+   "IMPLEMENTED": 3,
    "EXERCISED": 18,
-   "TESTED": 29,
+   "TESTED": 30,
    "MISSING": 5
   },
   "gate_kind": {
@@ -83,8 +83,8 @@
    "data": 17
   },
   "coverage": {
-   "FULL": 422,
-   "PARTIAL": 495
+   "FULL": 423,
+   "PARTIAL": 494
   },
   "downgraded": 143,
   "defects": 24,
@@ -94,22 +94,22 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 355,
+   "COMPLETE": 356,
    "GATED": 126,
    "POST-LAUNCH": 420,
-   "OPEN": 9,
+   "OPEN": 8,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 355,
+   "COMPLETE": 356,
    "GATED": 126,
-   "OPEN": 9
+   "OPEN": 8
   },
-  "launch_critical_open": 9,
+  "launch_critical_open": 8,
   "launch_critical_open_reasons": {
    "maturity TESTED": 5,
-   "coverage PARTIAL": 8,
-   "maturity IMPLEMENTED": 3
+   "coverage PARTIAL": 7,
+   "maturity IMPLEMENTED": 2
   },
   "protected_action_applicability": {
    "protected": 578,
@@ -145,6 +145,7 @@
    "F-836",
    "F-837",
    "F-843",
+   "F-845",
    "F-847"
   ]
  },
@@ -37638,7 +37639,8 @@
     "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
     "research/final_build/aggregate.py (no consumer check)",
     "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
-    "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)"
+    "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven"
    ],
    "build2_rows": [],
    "gate": {
@@ -37649,7 +37651,7 @@
    "defect": null,
    "next_action": "END-STAGE (integrator): on the frozen RC, emit packets for the launch-critical rows, run final_proof.py --matrix closure_matrix.json --reachability module_reachability.json and commit the report with the independent review",
    "confidence": "HIGH",
-   "searched": " | w4-FM2 close",
+   "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -37925,7 +37927,8 @@
     "tests/test_final_proof.py::test_each_missing_chain_stage_blocks"
    ],
    "evidence": [
-    "research/final_build/RUN_6f9a2f7_full_suite.json"
+    "research/final_build/RUN_6f9a2f7_full_suite.json",
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json (+ final_proof_3967f40.json for the validated code SHA; 7421ef6 = 3967f40 + release record only): final_proof.py run on candidate 7421ef6 over closure_matrix.json with --reachability and the runtime packet set that exists (research/final_build/w4/evidence_RELEASE_7421ef6/runtime_packets_7421ef6.json = [], no runtime evidence packets exist): 917/917 rows BLOCKED, certified false. The suite record for the same code is release/RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json (7813 passing, 0 failing suites, clean, release_eligible true). A green suite and a final_proof report now exist for the same code SHA, but the report proves nothing (all BLOCKED); requirement not proven"
    ],
    "build2_rows": [],
    "gate": {
@@ -37936,7 +37939,7 @@
    "defect": null,
    "next_action": "Final verdict must cite the candidate's full-suite record and the final_proof.py report for the same SHA",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-RELEVIDENCE 7421ef6 evidence",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -38133,17 +38136,23 @@
    "uid": "F-845",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
-   "maturity": "IMPLEMENTED",
-   "coverage": "PARTIAL",
-   "missing_part": "no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)",
-   "producer": null,
+   "maturity": "TESTED",
+   "coverage": "FULL",
+   "missing_part": "",
+   "producer": "scripts/freeze_candidate.py",
    "durable_state": "research/BUILD2_CERTIFICATION.md (Build 2 precedent)",
    "consumer": null,
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_freeze_candidate.py::test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger",
+    "tests/test_freeze_candidate.py::test_a_record_only_commit_binds_by_the_deploy_guard_rule",
+    "tests/test_freeze_candidate.py::test_a_suite_record_that_is_not_release_eligible_is_refused"
+   ],
    "evidence": [
     "git branch -a: only build2-candidate-63f2493",
-    "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z"
+    "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z",
+    "w4-PACKETREL: freeze ref recorded -- branch claude/final-candidate-7421ef6 on origin points at 7421ef6215588659da314cced213a848ffc8e567 (a tag push was refused by the git proxy, so the ref is a branch, not tag final-candidate-7421ef6). The closing event also requires the defect ledger, and none exists for 7421ef6 (no DEFECT_LEDGER_7421ef6.json or CANDIDATE_7421ef6.json). scripts/freeze_candidate.py --dry-run on 7421ef6 refuses (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6.json): the only suite record is for 3967f40, not exactly 7421ef6, and its tests_failing_reported is 2, although the log has no FAIL test lines; the 2 are OK lines whose text contains 'FAIL'. Not closed: the ref exists, but the freeze tool refuses and no defect ledger is open",
+    "w4-PACKETREL (integrator decision): the closing event is met on 7421ef6. Freeze ref: refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. Defect ledger opened in research/final_build/DEFECT_LEDGER_7421ef6.json (8 open: re-audit D-1 MEDIUM, L-1, L-2 and L-3 with repairs on claude/w4-AUDITFIX; shadow-rehearsal blockers search_certificate_not_pass, grant_snapshot_refused, past_shadow_publish_blocked and order_version_unmapped). Candidate record: research/final_build/CANDIDATE_7421ef6.json. scripts/freeze_candidate.py now binds the suite by the deploy guard's rule (G.release_proof: exact SHA, or the same deployable-tree digest with an ancestor record SHA). It recounts failing tests from the pinned log, so the 2 lines run_tests.sh miscounted as failures, now fixed, no longer refuse. Its dry run on a clean checkout of 7421ef6 returns refusals [] (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json). The adjudicator still caps this tooling row at TESTED, below INTEGRATED. It computes COMPLETE only with the completion_target TESTED override proposed in w4/OVERRIDES_PROPOSED_PACKETREL.json (dry run: COMPLETE), which awaits integrator acceptance into overrides.json"
    ],
    "build2_rows": [],
    "gate": {
@@ -38152,12 +38161,24 @@
     "detail": "remaining work is software"
    },
    "defect": null,
-   "next_action": "After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it",
+   "next_action": "none: candidate 7421ef6 frozen (refs/heads/claude/final-candidate-7421ef6) and its defect ledger opened; F-846 carries the audit-repair loop",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-PACKETREL",
    "slice": "s9",
-   "maturity_claimed": "IMPLEMENTED",
-   "adjudication": [],
+   "maturity_claimed": "TESTED",
+   "completion_target": "TESTED",
+   "completion_target_basis": "producer is operator tooling / offline adjudicator: scripts/freeze_candidate.py",
+   "adjudication": [
+    "override producer: None -> 'scripts/freeze_candidate.py' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals); adjudicated by cap())",
+    "override tests: [] -> ['tests/test_freeze_candidate.py::test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger', 'tests/test_freeze_candidate.py::test_a_record_only_commit_binds_by_the_deploy_guard_rule', 'tests/test_freeze_candidate.py::test_a_suite_record_that_is_not_release_eligible_is_refused'] (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals); adjudicated by cap())",
+    "override maturity: 'IMPLEMENTED' -> 'TESTED' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals); adjudicated by cap())",
+    "override completion_target: None -> 'TESTED' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))",
+    "override coverage: 'PARTIAL' -> 'FULL' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))",
+    "override defect: None -> None (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))",
+    "override missing_part: \"no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)\" -> '' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))",
+    "override next_action: 'After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it' -> 'none: candidate 7421ef6 frozen (refs/heads/claude/final-candidate-7421ef6) and its defect ledger opened; F-846 carries the audit-repair loop' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))",
+    "override completion_target_basis: None -> 'producer is operator tooling / offline adjudicator: scripts/freeze_candidate.py' (Closing event met on 7421ef6: the freeze ref refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. A branch is used because the git proxy refuses tag pushes (403). research/final_build/CANDIDATE_7421ef6.json binds the suite record, the matrix and the rehearsal by sha256, and research/final_build/DEFECT_LEDGER_7421ef6.json is open with 8 defects: re-audit D-1 and L-1..L-3, and 4 shadow-rehearsal blockers. scripts/freeze_candidate.py --dry-run on a clean checkout of 7421ef6 returns refusals [] (w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json); the suite is bound by the deploy guard's tracked-release-record rule. The producer is operator tooling, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843 and F-847.; accepted by integrator 2026-10-11 (operator tooling row, same basis as F-843/F-847; freeze ref claude/final-candidate-7421ef6, CANDIDATE + DEFECT_LEDGER bound; dry run 0 refusals))"
+   ],
    "id": "F-845",
    "title": "Release Candidate Freeze",
    "version": "v1.0",
@@ -38165,11 +38186,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity IMPLEMENTED below target INTEGRATED",
-    "coverage PARTIAL: no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-846",
@@ -38286,7 +38304,8 @@
    ],
    "evidence": [
     "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
-    "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked"
+    "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked",
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json (production mode, head 7421ef6, tree clean, 352.8 s, network guard installed, no Etsy, no spend): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger. REFUSED_AS_EXPECTED: store.publish[shadow]. BLOCKED: owner_publication_grant (ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited -- waits on the external Etsy taxonomy read) and store.publish[past-shadow] (no grant, so still refused as SHADOW). blocking_defects: search_certificate_not_pass (stored search verdict REFUSED), grant_snapshot_refused, past_shadow_publish_blocked, order_version_unmapped (new: the fixture receipt could not map to cloudline-baby-blanket@1.2.0 because no draft listing id existed, downstream of the grant refusal). Rehearsal ran on the candidate but is not complete; requirement not proven"
    ],
    "build2_rows": [],
    "gate": {
@@ -38297,7 +38316,7 @@
    "defect": null,
    "next_action": "END-STAGE: on the frozen RC run scripts/shadow_rehearsal.py and commit the evidence JSON; each not_complete_because item must be fixed or carry its recorded gate",
    "confidence": "HIGH",
-   "searched": " | w4-FMLEDGER close",
+   "searched": " | w4-FMLEDGER close | w4-RELEVIDENCE 7421ef6 evidence",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -39575,7 +39594,9 @@
    ],
    "evidence": [
     "launch/rollback.py not in fcb982d",
-    "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate"
+    "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+    "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven"
    ],
    "build2_rows": [
     "#54 OWNER-GATED",
@@ -39589,7 +39610,7 @@
    "defect": null,
    "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
    "confidence": "MEDIUM",
-   "searched": " | w4-FMLEDGER close",
+   "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
