@@ -1658,7 +1658,7 @@ def api_policy() -> dict:
     dashboard on every other page, and they are opposite states.
     """
     from ..commerce import terms as customer_terms
-    from ..gates import policy_knowledge
+    from ..gates import policy_access, policy_knowledge
     from ..gates.platform_policy import describe, freshness, policy_stamp
 
     return {
@@ -1667,6 +1667,9 @@ def api_policy() -> dict:
         # The dated readings themselves: what was concluded, from which URL, on what basis,
         # and what a page reading recorded through POST /api/policy/snapshot supersedes.
         "knowledge": policy_knowledge.describe(),
+        # W4-B2GATE2 (#35/#39): what software may read of each etsy.com/legal source and what
+        # only a person can, with Etsy's Help Center change signals.
+        "legal_access": policy_access.status(db),
         "rules": describe(),
         "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
         "terms_surfaces": {

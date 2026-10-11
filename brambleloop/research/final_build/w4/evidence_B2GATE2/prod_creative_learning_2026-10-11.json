@@ -1,0 +1,321 @@
+{
+ "style": {
+  "status": "UNMEASURED",
+  "why": "no listing outcome has been recorded: nothing is live, so no style has been shown to anybody. Tags exist; performance does not",
+  "needs": "listing_outcomes rows from a Stats export: per style n >= 200 impressions across >= 3 listings for CTR, >= 200 visits for conversion, >= 200 first-frame views, >= 3 decisive tests",
+  "styles_tagged": [
+   "infographic/product_first/collection",
+   "infographic/product_first/materials",
+   "infographic/product_first/size",
+   "infographic/product_first/whats_included",
+   "pattern_preview/product_first/pattern_preview",
+   "twin_render/product_first/chart",
+   "twin_render/product_first/hero"
+  ],
+  "frames_tagged": 169,
+  "by_style": {},
+  "minimums": {
+   "impressions": 200,
+   "visits": 200,
+   "first_frame_views": 200,
+   "listings": 3,
+   "decisive_tests": 3,
+   "promotion_min_lift": 0.1
+  }
+ },
+ "brand_knowledge": [],
+ "concepts": {
+  "status": "UNMEASURED",
+  "why": "no concept has outcomes above the minimums: nothing is live, so no buyer has told us which originality they want",
+  "concepts": 11,
+  "concepts_with_outcomes": 0,
+  "overall": null,
+  "by_attribute": {
+   "form": {
+    "coaster": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "flat_panel": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "garland": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "ornament": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "rectangle_throw": {
+     "status": "UNMEASURED",
+     "concepts": 3,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "runner": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "wall_hanging": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "construction": {
+    "flat_rows": {
+     "status": "UNMEASURED",
+     "concepts": 11,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "motif": {
+    "basketweave": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "chevron-band": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "diamond-lattice": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "fir-and-star": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "heart-row": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "pumpkin-row": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "snowfall": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "feeling": {
+    "cosy": {
+     "status": "UNMEASURED",
+     "concepts": 11,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "recipient": {
+    "new_parent": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "pet_owner": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "self": {
+     "status": "UNMEASURED",
+     "concepts": 9,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "occasion": {
+    "christmas": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "everyday": {
+     "status": "UNMEASURED",
+     "concepts": 4,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "halloween": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "new_baby": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "thanksgiving": {
+     "status": "UNMEASURED",
+     "concepts": 2,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    },
+    "valentines": {
+     "status": "UNMEASURED",
+     "concepts": 1,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   },
+   "make_lane": {
+    "QUICK": {
+     "status": "UNMEASURED",
+     "concepts": 11,
+     "with_outcomes": 0,
+     "why": "0 concept(s) with outcomes against a floor of 3",
+     "needs": "n >= 3 concepts"
+    }
+   }
+  },
+  "novelty": {
+   "novelty_is_rewarded": false,
+   "rule": "novelty is a measured structural distance and is never a score. This check reports whether the more novel half earned more per visit; the answer is a fact about buyers, in either direction (#89)",
+   "status": "UNMEASURED",
+   "high_novelty_outperforms": null,
+   "why": "0 concept(s) with outcomes against a floor of 6 (3 per half)",
+   "needs": "n >= 6 concepts with outcomes"
+  },
+  "minimums": {
+   "concepts_per_value": 3,
+   "concepts_per_novelty_half": 3,
+   "visits": 200,
+   "orders": 20
+  }
+ },
+ "rules": {
+  "minimums": {
+   "impressions": 200,
+   "visits": 200,
+   "first_frame_views": 200,
+   "listings": 3,
+   "decisive_tests": 3,
+   "promotion_min_lift": 0.1
+  },
+  "protected": {
+   "product_truth": [
+    "colors",
+    "colours",
+    "colourway",
+    "construction",
+    "difficulty",
+    "dimensions",
+    "finished_size",
+    "gauge",
+    "height_cm",
+    "make_time",
+    "materials",
+    "motif_geometry",
+    "pages",
+    "stitch_count",
+    "what_is_included",
+    "width_cm",
+    "yarn",
+    "yarn_weight"
+   ],
+   "policy": [
+    "ai_disclosure",
+    "asset_class",
+    "asset_truth",
+    "claims",
+    "consent_ref",
+    "disclosure",
+    "discount",
+    "listing_policy",
+    "price_claim",
+    "provenance",
+    "reviews"
+   ],
+   "identity": [
+    "brand_palette",
+    "brand_voice",
+    "canonical_model",
+    "face",
+    "house_style_bible",
+    "logo",
+    "model_identity",
+    "typography",
+    "wordmark"
+   ]
+  },
+  "style_fields": [
+   "angle",
+   "background",
+   "composition",
+   "crop",
+   "frame_order",
+   "framing",
+   "lighting",
+   "prop_styling",
+   "shot"
+  ],
+  "proof_roles": [
+   "chart",
+   "materials",
+   "pattern_preview",
+   "size",
+   "whats_included"
+  ],
+  "note": "Styles are tagged from the frame record, deterministically. Performance is measured per style above stated minimums or reported UNMEASURED. A promotion is a preference among honest frames and is refused if it would change Product Truth, policy or identity (#82)."
+ }
+}

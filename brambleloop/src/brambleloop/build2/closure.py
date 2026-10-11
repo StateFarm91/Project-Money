@@ -53,10 +53,13 @@ DATA_GATES = frozenset({"customers",
 #: opens it. `kind_of` (and so the owner queue's listing) is unchanged; see B2_GATES_AUDIT.md.
 PERSON_OPENED_GATES = {
     "rendered_pages": (
-        "the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 "
-        "etsy.com/legal policy pages in their own browser and record each through POST "
-        "/api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then "
-        "opens the gate, and it closes again when a reading is older than 30 days"),
+        "a person -- proposed to the owner, not yet accepted (owner_queue decision "
+        "'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy "
+        "pages in their own browser and record each through POST /api/policy/snapshot with "
+        "read_by; gates.platform_policy.page_readings_status then opens the gate, and it "
+        "closes again when a reading is older than 30 days. Company side "
+        "(gates.policy_access): robots.txt and Etsy Help Center change signals, never a "
+        "legal page"),
 }
 EXTERNAL_GATES = {
     "rendered_pages": (
@@ -391,12 +394,15 @@ def _runtime_path(proof: dict) -> list[dict]:
 @reachability._graph_boundary
 @maturity._with_test_import_snapshot
 def ledger(db=None, *, env=None, gate_open: dict[str, bool] | None = None,
-           gate_source: str = "") -> dict:
+           gate_source: str = "", gate_sources: dict[str, str] | None = None) -> dict:
     """Every requirement -> one ledger state with its evidence and, when gated, its exact gate.
 
     `gate_open` lets a caller supply gate readings taken elsewhere (for example production's
     `/api/build` read-only) when no database is at hand; `gate_source` says where they came
-    from. A gate absent from the readings is unchecked, never assumed open."""
+    from. A gate absent from the readings is unchecked, never assumed open. `gate_sources`
+    (W4-B2GATE2) names a different source for individual gates -- a reading derived from
+    another production endpoint says which one, rather than borrowing `gate_source`."""
+    gate_sources = gate_sources or {}
     if db is not None and gate_open is None:
         gate_open = {k: bool(v.get("open")) for k, v in executor.gate_states(db, env).items()}
         gate_source = gate_source or "executor.gate_states(db)"
@@ -426,7 +432,8 @@ def ledger(db=None, *, env=None, gate_open: dict[str, bool] | None = None,
                 "state": ("open" if (gate_open or {}).get(gate) else
                           "closed" if gate_open is not None and gate in gate_open else
                           "unchecked"),
-                "state_source": gate_source if gate_open is not None and gate in gate_open
+                "state_source": (gate_sources.get(gate) or gate_source)
+                                if gate_open is not None and gate in gate_open
                                 else "not readable: no live reading of this gate was given",
                 "remaining_note": by_req[row["id"]].note[-400:],
             }

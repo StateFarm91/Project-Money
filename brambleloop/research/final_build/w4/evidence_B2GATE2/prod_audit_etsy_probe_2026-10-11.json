@@ -1,0 +1,1322 @@
+{
+ "audit": [
+  {
+   "id": 24560,
+   "at": "2026-10-11T12:00:41.413831+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-11T12:00:41.255897+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 24369,
+   "at": "2026-10-11T06:00:35.746043+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-11T06:00:35.605210+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 24130,
+   "at": "2026-10-11T00:01:41.544747+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-11T00:01:41.411289+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 23919,
+   "at": "2026-10-10T18:00:50.601790+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-10T18:00:50.473063+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 23728,
+   "at": "2026-10-10T12:00:25.220813+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-10T12:00:25.085550+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 23537,
+   "at": "2026-10-10T06:00:54.638468+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-10T06:00:54.504965+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 23275,
+   "at": "2026-10-10T00:01:55.681728+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-10T00:01:55.525877+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 23064,
+   "at": "2026-10-09T18:01:03.329247+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-09T18:01:03.190134+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 22873,
+   "at": "2026-10-09T12:00:16.816664+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-09T12:00:16.694807+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 22682,
+   "at": "2026-10-09T06:00:34.091769+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-09T06:00:33.930827+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 22443,
+   "at": "2026-10-09T00:02:05.108200+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-09T00:02:04.931131+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 22232,
+   "at": "2026-10-08T18:00:07.839629+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-08T18:00:07.674839+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 22041,
+   "at": "2026-10-08T12:00:39.338647+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-08T12:00:39.207962+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 21850,
+   "at": "2026-10-08T06:00:34.936128+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-08T06:00:34.812401+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 21595,
+   "at": "2026-10-08T00:01:27.800876+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-08T00:01:27.683563+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 21380,
+   "at": "2026-10-07T18:00:34.955002+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-07T18:00:34.803213+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 21189,
+   "at": "2026-10-07T12:00:53.107997+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-07T12:00:52.943777+00:00",
+    "endpoint": "ping",
+    "ok": false,
+    "reason": "ReadFailed: ping returned HTTP 403 \u2014 Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET"
+   }
+  },
+  {
+   "id": 20999,
+   "at": "2026-10-07T06:00:28.915336+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-07T06:00:28.766362+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 20760,
+   "at": "2026-10-07T00:02:16.872302+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-07T00:02:16.720088+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 20550,
+   "at": "2026-10-06T18:00:40.483219+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-06T18:00:40.286712+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 20360,
+   "at": "2026-10-06T12:00:24.462243+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-06T12:00:24.296471+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 20170,
+   "at": "2026-10-06T06:00:38.013710+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-06T06:00:37.848800+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 19931,
+   "at": "2026-10-06T00:01:36.356232+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-06T00:01:36.208766+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 19721,
+   "at": "2026-10-05T18:00:24.840493+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-05T18:00:24.687732+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 19531,
+   "at": "2026-10-05T12:00:53.539342+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-05T12:00:53.376695+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 19341,
+   "at": "2026-10-05T06:00:47.876979+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-05T06:00:47.738442+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 19102,
+   "at": "2026-10-05T00:01:45.861780+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-05T00:01:45.685622+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 18892,
+   "at": "2026-10-04T18:00:50.107325+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-04T18:00:49.936980+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 18702,
+   "at": "2026-10-04T12:00:57.815424+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-04T12:00:57.648560+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 18512,
+   "at": "2026-10-04T06:01:40.824211+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-04T06:01:40.678074+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 18271,
+   "at": "2026-10-04T00:02:56.229203+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-04T00:02:56.089021+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 18059,
+   "at": "2026-10-03T18:00:38.419769+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-03T18:00:38.268203+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 17869,
+   "at": "2026-10-03T12:01:04.622369+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-03T12:01:04.478643+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 17679,
+   "at": "2026-10-03T06:01:05.178915+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-03T06:01:05.032238+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 17440,
+   "at": "2026-10-03T00:02:11.760827+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-03T00:02:11.595254+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 17230,
+   "at": "2026-10-02T18:00:58.371645+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-02T18:00:58.192039+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 17040,
+   "at": "2026-10-02T12:00:11.131615+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-02T12:00:10.939859+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 16850,
+   "at": "2026-10-02T06:00:17.082400+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-02T06:00:16.936561+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 16611,
+   "at": "2026-10-02T00:02:04.420497+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-02T00:02:04.252650+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 16401,
+   "at": "2026-10-01T18:00:43.678452+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-01T18:00:43.484314+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 16211,
+   "at": "2026-10-01T12:00:24.179371+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-01T12:00:24.011376+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 16021,
+   "at": "2026-10-01T06:00:42.602084+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-01T06:00:42.460490+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 15768,
+   "at": "2026-10-01T00:01:55.390254+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-10-01T00:01:55.248833+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 15554,
+   "at": "2026-09-30T18:00:52.345985+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-30T18:00:52.147699+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 15364,
+   "at": "2026-09-30T12:00:37.354077+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-30T12:00:37.068560+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 15174,
+   "at": "2026-09-30T06:00:16.589226+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-30T06:00:16.394792+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 14935,
+   "at": "2026-09-30T00:01:18.569306+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-30T00:01:18.416924+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 14725,
+   "at": "2026-09-29T18:00:08.216175+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-29T18:00:08.045147+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 14535,
+   "at": "2026-09-29T12:00:52.103892+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-29T12:00:51.880334+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 14345,
+   "at": "2026-09-29T06:00:58.052542+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-29T06:00:57.918139+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 14106,
+   "at": "2026-09-29T00:01:08.112085+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-29T00:01:07.965072+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 13896,
+   "at": "2026-09-28T18:00:58.138128+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-28T18:00:57.979833+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 13706,
+   "at": "2026-09-28T12:00:42.855480+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-28T12:00:42.691473+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 13516,
+   "at": "2026-09-28T06:00:39.885367+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-28T06:00:39.745316+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 13277,
+   "at": "2026-09-28T00:01:41.960056+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-28T00:01:41.760798+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 13067,
+   "at": "2026-09-27T18:00:49.355482+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-27T18:00:49.154224+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 12877,
+   "at": "2026-09-27T12:00:56.706961+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-27T12:00:56.569330+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 12687,
+   "at": "2026-09-27T06:00:14.298128+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-27T06:00:14.144412+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 12448,
+   "at": "2026-09-27T00:01:19.850767+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-27T00:01:19.671921+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 12238,
+   "at": "2026-09-26T18:00:36.333288+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-26T18:00:36.182314+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 12048,
+   "at": "2026-09-26T12:00:46.948202+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-26T12:00:46.795977+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 11858,
+   "at": "2026-09-26T06:00:59.935911+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-26T06:00:59.774735+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 11619,
+   "at": "2026-09-26T00:01:32.426011+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-26T00:01:32.281252+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 11197,
+   "at": "2026-09-25T18:01:01.653244+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-25T18:01:01.526000+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 10560,
+   "at": "2026-09-25T12:00:13.125393+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-25T12:00:12.948397+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 10316,
+   "at": "2026-09-25T06:00:32.336617+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-25T06:00:32.212807+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 9822,
+   "at": "2026-09-25T00:01:08.241706+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-25T00:01:08.097582+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 9407,
+   "at": "2026-09-24T18:00:57.973878+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-24T18:00:57.811740+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 8859,
+   "at": "2026-09-24T12:00:13.394082+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-24T12:00:13.248648+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 8587,
+   "at": "2026-09-24T06:00:05.868163+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-24T06:00:05.727748+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 7757,
+   "at": "2026-09-24T00:00:49.043080+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-24T00:00:48.885423+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 7418,
+   "at": "2026-09-23T18:00:37.392397+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-23T18:00:37.219576+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 7161,
+   "at": "2026-09-23T12:00:20.362292+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-23T12:00:20.233601+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 6897,
+   "at": "2026-09-23T06:00:10.126474+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-23T06:00:09.989164+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 6569,
+   "at": "2026-09-23T00:01:11.200683+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-23T00:01:11.069478+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 6353,
+   "at": "2026-09-22T18:00:59.190624+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-22T18:00:58.994848+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 6141,
+   "at": "2026-09-22T12:00:20.675932+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-22T12:00:20.515246+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 5831,
+   "at": "2026-09-22T06:00:22.536292+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-22T06:00:22.318589+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 5469,
+   "at": "2026-09-22T00:00:45.742813+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-22T00:00:45.622605+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 5129,
+   "at": "2026-09-21T18:01:58.252421+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-21T18:01:58.092753+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 4827,
+   "at": "2026-09-21T12:00:28.572066+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-21T12:00:28.405685+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 4589,
+   "at": "2026-09-21T06:00:52.840958+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-21T06:00:52.700721+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 4335,
+   "at": "2026-09-21T00:00:38.949637+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-21T00:00:38.826252+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 4146,
+   "at": "2026-09-20T18:00:45.751088+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-20T18:00:45.597749+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 3966,
+   "at": "2026-09-20T12:00:47.376738+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-20T12:00:47.216644+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 3821,
+   "at": "2026-09-20T06:01:01.587918+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-20T06:01:01.459624+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 3348,
+   "at": "2026-09-20T00:01:04.516293+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-20T00:01:04.357094+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 3225,
+   "at": "2026-09-19T18:04:50.771197+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-19T18:04:50.659911+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  },
+  {
+   "id": 3219,
+   "at": "2026-09-19T18:03:25.812975+00:00",
+   "actor": "market_radar",
+   "action": "etsy.probe",
+   "artifact": "ping",
+   "phase": null,
+   "detail": {
+    "at": "2026-09-19T18:03:25.656564+00:00",
+    "endpoint": "ping",
+    "ok": true,
+    "reason": "",
+    "application_id": 1516181443672
+   }
+  }
+ ]
+}

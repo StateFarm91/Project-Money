@@ -557,7 +557,14 @@ DECISIONS: tuple[dict, ...] = (
      "consequence_of_no": "#195 stays parked and production keeps the stale rows"},
     {"id": "transactions_scope", "batch": "etsy_account", "kind": "credentials",
      "gates": ("transactions_r",), "keys": ("reauthorise_transactions_r",),
-     "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen).",
+     # W4-B2GATE2: the gate (commerce.orders_ingest.gate) also needs the LATEST etsy.probe to
+     # have succeeded. Production's probe has been refused (HTTP 403) since 2026-10-07 12:00Z,
+     # so the consent screen alone would leave #11/#12 parked; the card says so.
+     "decision": ("Re-authorise the Etsy app with the transactions_r scope (consent screen). "
+                  "The gate also needs the Etsy API credential to read: if the latest "
+                  "etsy.probe was refused (GET /api/capabilities/probes or /api/audit?action="
+                  "etsy.probe), first check the app is active in Etsy's developer console and "
+                  "that Railway's ETSY_SHARED_SECRET is the app's current shared secret."),
      "why": "the OAuth consent screen is shown only to the signed-in account holder",
      "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 3,
      "consequence_of_yes": "orders can be read (#11, #12)",
@@ -607,21 +614,31 @@ DECISIONS: tuple[dict, ...] = (
     # pages, which now opens `rendered_pages` (platform_policy.page_readings_status).
     {"id": "policy_page_reading", "batch": "etsy_account", "kind": "physical",
      "gates": ("rendered_pages",), "keys": (),
-     "decision": ("Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, "
-                  "creativity_standards, advertising_rules, shilling_and_reviews, "
-                  "children_and_baby) in your own browser and record each through POST "
-                  "/api/policy/snapshot (source, text, version, summary, read_by). No "
-                  "sign-in is needed; no software reads these pages for you."),
-     "why": ("etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this "
-             "company does not bypass bot protection, so a person's reading is the only "
-             "honest source; a hosted browser worker would meet the same 403"),
+     # W4-B2GATE2, 2026-10-11: written as a PROPOSAL for the owner to accept or decline, not
+     # as a duty imposed on them. The company-side half runs without it
+     # (gates.policy_access: robots.txt and Etsy's Help Center change signals, never a legal
+     # page) and only suggests a re-read early; it never opens the gate.
+     "decision": ("PROPOSAL for your approval (not yet accepted): take on a recurring policy "
+                  "reading -- every 30 days, open the 5 etsy.com/legal policy pages "
+                  "(seller_policy, creativity_standards, advertising_rules, "
+                  "shilling_and_reviews, children_and_baby; exact pages at GET /api/policy -> "
+                  "legal_access) in your own browser and record each through POST "
+                  "/api/policy/snapshot (source, text, version, summary, read_by). No sign-in "
+                  "is needed. Between readings the company watches Etsy's Help Center articles "
+                  "that link those pages and flags a source for an earlier re-read when Etsy "
+                  "edits one. Accept, decline, or name a different reader."),
+     "why": ("etsy.com/legal refuses every automated reader (HTTP 403, DataDome; re-proven "
+             "2026-10-11) and robots.txt disallows /legal/handmade/; this company does not "
+             "bypass bot protection, so a person's reading is the only honest source of the "
+             "policy text, and a recurring duty is the owner's to accept"),
      "max_cost_cad": 0.0, "cost_basis": "stated (reading public pages costs nothing)",
      "minutes": 15,
-     "consequence_of_yes": ("#35 and #39 un-park: new product classes and the policy "
-                            "freshness watch rest on current pages, and the gate closes "
-                            "again by itself if a reading passes 30 days"),
-     "consequence_of_no": ("#35 and #39 stay parked; publishing and new classes stay "
-                           "blocked on unread policy, and nothing is published")},
+     "consequence_of_yes": ("#35 and #39 un-park while the readings are current: new product "
+                            "classes and the policy freshness watch rest on current pages, and "
+                            "the gate closes again by itself if a reading passes 30 days"),
+     "consequence_of_no": ("#35 and #39 stay parked (owner-gated) and publishing and new "
+                           "classes stay blocked on unread policy; nothing is published, and "
+                           "the Help Center change signals keep being recorded")},
     {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
      "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
      "decision": ("Buy the 13 approved MJs benchmark patterns (exact list, links and prices: "
