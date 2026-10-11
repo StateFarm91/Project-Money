@@ -45,6 +45,28 @@ class _StrictStatic:
         await self.app(scope, receive, _send)
 
 
+CC_ROOT = "/cc/"
+
+
+async def cc_slash_redirect(request):
+    """`/cc` -> `/cc/` with a *relative* Location (W4-CCUX).
+
+    Starlette's own trailing-slash redirect builds an absolute URL from the scheme the app sees.
+    Behind Railway's TLS-terminating edge that scheme is `http`, so the owner's phone was sent
+    to `http://<host>/cc/` and only then bounced back to https (a plaintext hop, and a mixed-
+    scheme warning on some browsers). A path-only Location is resolved by the browser against
+    the URL it actually requested, so the scheme and host are whatever the trusted edge served
+    -- correct with or without `X-Forwarded-Proto`, and with nothing taken from a client-
+    supplied Host or forwarding header. The query string is kept; the path is fixed, so this
+    cannot be turned into an open redirect.
+    """
+    from starlette.responses import Response
+
+    query = request.url.query
+    location = CC_ROOT + (f"?{query}" if query else "")
+    return Response(status_code=308, headers={"location": location, "cache-control": "no-store"})
+
+
 def install(app, db) -> None:
     from starlette.staticfiles import StaticFiles
 
@@ -75,6 +97,9 @@ def install(app, db) -> None:
 
     app.add_api_route(LOGIN_RECOVERY_PATH, login_recovery_handler(db), methods=["POST"],
                       include_in_schema=False)
+    # W4-CCUX: scheme-correct `/cc` -> `/cc/` (relative Location; see cc_slash_redirect).
+    # A plain Starlette route: it serves no data, like the static mount below.
+    app.add_route("/cc", cc_slash_redirect, methods=["GET", "HEAD"], include_in_schema=False)
     STATIC_DIR.mkdir(exist_ok=True)
     app.mount("/cc", _StrictStatic(StaticFiles(directory=str(STATIC_DIR), html=True)),
               name="command_center_static")

@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { card, freshness, itemRow, sourcesList, toast, errorState, moneyTile, statTile, statusPill } from "../components.js";
 import { formatMoney, relTime, utcStamp } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, sectionDetails, isMoney } from "./_shared.js";
+import { rankDecisions, decideFirstCard } from "./_decisions.js";
 
 const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
@@ -51,7 +52,7 @@ function heroCard(hl, result) {
 }
 
 export async function render({ rerender }) {
-  const [homeR, briefR] = await Promise.allSettled([api.home(), api.morning(12)]);
+  const [homeR, briefR, apprR] = await Promise.allSettled([api.home(), api.morning(12), api.approvals()]);
   if (homeR.status === "rejected") throw homeR.reason;
   const result = homeR.value;
   const data = result.data || {};
@@ -70,6 +71,15 @@ export async function render({ rerender }) {
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     heroCard(hl, result),
+    // W4-CCUX: the top decisions, with cost and consequence, before anything else to read.
+    apprR.status === "fulfilled" ? decideFirstCard(
+      rankDecisions((apprR.value.data || {}).cards, (apprR.value.data || {}).decision_batches),
+      { limit: 3, moreHref: "#/approvals", meta: h("p", { class: "card-meta" }, "Inbox read: ",
+        freshness((apprR.value.data || {}).generated_at || null, { stale: apprR.value.stale, fetchedAt: apprR.value.fetchedAt })) })
+      : card({ title: "Decide first", labelId: "decide-first", actions: statusPill("UNKNOWN") },
+        h("p", { class: "card-meta" }, freshness(null)),
+        h("p", { class: "muted" }, `Unknown: decisions could not be loaded (${(apprR.reason && apprR.reason.message) || "error"}).`),
+        h("a", { class: "btn", href: "#/approvals" }, "Open approvals")),
     h("div", { class: "quick" },
       h("a", { class: "btn btn-primary", href: "#/approvals" }, icon("approvals", 18), "Decisions"),
       h("a", { class: "btn", href: "#/company" }, icon("operations", 18), "Company"),
