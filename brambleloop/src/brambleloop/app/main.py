@@ -4544,6 +4544,20 @@ def api_physical_photo(payload: dict) -> dict:
     return {"enqueued": True, "job_id": job.id if job else None}
 
 
+@app.get("/api/launch/packet")
+def api_launch_packet() -> dict:
+    """F-878 (W4-FMEND): the Launch-0 launch packet for the running build, operator credential.
+
+    The same packet the owner Command Center serves at `/api/cc/launch/packet`
+    (`command_center.launch_packet.view` -> `launch.packet.build(db, sha=build.commit())`),
+    on an operator-gated GET (`security.OPERATOR_GET_ROUTES`) so the operator loop can read
+    it. Read-only and single-flight cached; UNKNOWN is never shown as passing.
+    """
+    from .command_center import launch_packet as cc_launch_packet
+
+    return cc_launch_packet.view(db)
+
+
 @app.get("/api/launch")
 def api_launch() -> dict:
     """What stands between this shop and a live customer, computed on request.
