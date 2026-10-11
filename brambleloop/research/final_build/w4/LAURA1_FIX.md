@@ -222,3 +222,22 @@ as a note and as free prose, and end to end none reaches the owner. New test: "G
 briefing on the store and the decisions you need" keeps both parts (store → first-sale blockers
 section + decisions); "What did you do overnight and what needs me?" keeps both parts. Suite
 14/14. Output allowance fell 1,800 → 600 tokens, so cost estimates in §5 dropped.
+
+## 9. Round-3 review (bd65fc2) fixes
+
+- **HIGH-R3-1 mandatory records** (`briefing.mandatory`): code always renders, first and in code
+  order, regardless of model selection — blockers: open P0/P1 or publication-halting incidents,
+  the "N are on Etsy" product summary, UNKNOWN store/product reads, phase SHADOW, UNKNOWN revenue;
+  last 24 h: the jobs completed/failed summary and any UNKNOWN read; departments: BLOCKED/DEGRADED
+  departments and UNKNOWN reads. Decisions (top N) and the VERIFIED/UNKNOWN listing were already
+  wholly code-rendered. The model may only add and order optional records. The fallback uses the
+  same mandatory set.
+- **MEDIUM-R3-2 note vocabulary**: now neutral connectives only (no not/verified/unknown/open/
+  all/priority/worth/attention/most/key/first/top…); `decisions` and `facts_unknowns` take no
+  model note at all.
+- **LOW-R3-3**: any repeated section fails closed (every occurrence), whatever the count.
+- **LOW-R3-4**: record text is data — sentences that read as instructions to the reader/owner/
+  model are removed before the text reaches the owner or the prompt, and the remainder is shown
+  as `record says: “…” [instruction-like text removed]` (`briefing.neutralise`).
+
+Regression tests for each (suite 18/18).

@@ -157,6 +157,30 @@ def _status(f: dict) -> str:
     return VERIFIED
 
 
+# Record text is data, never instructions (round 3, LOW-R3-4). A sentence in a record that
+# reads as an instruction to the reader, the owner or a model is removed before the text
+# reaches the owner or the model prompt, and the remainder is shown as quoted record text.
+_INJECTION = re.compile(
+    r"\bignore\b[^.]{0,40}\binstructions?\b|\bdisregard\b|\bnote to (the )?(owner|reader|"
+    r"assistant|model|laura|ceo)\b|\b(system|developer) (prompt|message)\b|\bnew instructions?\b|"
+    r"\byou (must|should|need to|are to|have to)\b|\b(assistant|system|user)\s*:|\bact as\b|"
+    r"\bdo not (tell|show|mention|report)\b|\bnothing needs you\b|\b(approve|approved) all\b|"
+    r"\ball decisions (are )?approved\b|\bpretend\b|\bjailbreak\b|<\s*/?\s*(system|instructions?)",
+    re.I)
+INJECTION_MARK = "[instruction-like text removed]"
+
+
+def neutralise(text: str) -> str:
+    text = str(text or "")
+    if not _INJECTION.search(text):
+        return text
+    parts = re.split(r"(?<=[.!?;])\s+", text)
+    kept = [p for p in parts if not _INJECTION.search(p)]
+    if not kept:
+        return f"record text withheld {INJECTION_MARK}"
+    return f"record says: \u201c{' '.join(kept).strip()}\u201d {INJECTION_MARK}"
+
+
 class _Pack:
     def __init__(self):
         self.items: list[dict] = []
@@ -164,7 +188,7 @@ class _Pack:
 
     def add(self, statement: str, source: str, components, *, section: str, as_of=None,
             status: str | None = None, basis: str = "measured", **extra) -> dict:
-        f = ev.fact(statement, source, as_of=as_of, basis=basis)
+        f = ev.fact(neutralise(statement), source, as_of=as_of, basis=basis)
         item = {"id": f"E{len(self.items) + 1}", "components": list(components),
                 "section": section, "statement": f["statement"], "source": f["source"],
                 "as_of": f["as_of"], "link": f["link"], "basis": f["basis"],
@@ -268,7 +292,7 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
             if i.get("halts_publication") or i.get("severity") in ("P0", "P1"):
                 p.add(f"open {i['severity']} incident"
                       + (" (halts publication)" if i.get("halts_publication") else "")
-                      + f": {i['summary'][:160]}", i["source"], ["blockers"],
+                      + f": {neutralise(i['summary'][:300])[:200]}", i["source"], ["blockers"],
                       section="incidents", as_of=i.get("at"))
     except Exception as exc:  # noqa: BLE001
         p.add(f"Incidents: UNKNOWN -- unreadable ({type(exc).__name__})", "incidents",
@@ -392,8 +416,42 @@ _BLOCKER_ORDER = (r"incident", r"0 are on Etsy|on Etsy", r"not certified", r"SHA
                   r"NEEDS_OWNER|FAIL|GATED", r"blocked by", r"Revenue|revenue|sales")
 
 
+def mandatory(pack: dict, comp: str) -> list[dict]:
+    """Records code always shows first in a section, whatever a model selects (round 3,
+    HIGH-R3-1): the model may add and order optional records, never omit these."""
+    items = _for(pack, comp)
+    if comp == "blockers":
+        inc = [i for i in items if i["section"] == "incidents"][:3]
+        etsy = [i for i in items if i["section"] == "products" and "are on Etsy" in
+                i["statement"]][:1]
+        shadow = [i for i in items if i["section"] == "phase" and "SHADOW" in i["statement"]]
+        rev = [i for i in items if i["section"] == "money" and i["status"] == UNKNOWN
+               and i["statement"].startswith("Revenue")][:1]
+        unk = [i for i in items if i["status"] == UNKNOWN and "UNKNOWN --" in i["statement"]
+               and i["section"] in ("products", "store", "incidents")][:2]
+        return _dedupe(inc + etsy + unk + shadow + rev)
+    if comp == "last_window":
+        summary = [i for i in items if "job(s) completed and" in i["statement"]][:1]
+        unk = [i for i in items if i["status"] == UNKNOWN and "UNKNOWN --" in i["statement"]]
+        return _dedupe(summary + unk)
+    if comp == "departments":
+        hot = [i for i in items if re.search(r": (BLOCKED|DEGRADED)\b", i["statement"][:80])]
+        unk = [i for i in items if "UNKNOWN --" in i["statement"]]
+        return _dedupe(hot[:3] + unk[:2])
+    return []
+
+
+def _dedupe(items: list[dict]) -> list[dict]:
+    out, seen = [], set()
+    for i in items:
+        if i["id"] not in seen:
+            seen.add(i["id"])
+            out.append(i)
+    return out
+
+
 def blockers(pack: dict) -> list[dict]:
-    """Blocker evidence, most fundamental first, at most five."""
+    """Blocker evidence: the mandatory records first, then the most fundamental others."""
     items = [i for i in _for(pack, "blockers") if i["section"] != "owner_queue"
              and not re.match(r"(recorded spend|Operating spend|Profit|profit)",
                               i["statement"])]
@@ -405,15 +463,16 @@ def blockers(pack: dict) -> list[dict]:
         return len(_BLOCKER_ORDER)
 
     items.sort(key=key)
-    out, seen = [], set()
+    must = mandatory(pack, "blockers")
+    out, seen = list(must), {i["statement"][:60] for i in must}
     for i in items:
+        if len(out) >= max(MAX_ITEMS, len(must)):
+            break
         k = i["statement"][:60]
         if k in seen or re.search(r"store surfaces: ", i["statement"]) and len(out) >= 4:
             continue
         seen.add(k)
         out.append(i)
-        if len(out) >= MAX_ITEMS:
-            break
     return out
 
 
@@ -538,13 +597,16 @@ def compose(pack: dict, parsed: dict, props: list[dict], *, mode_line: str,
 
 NOTE_MAX_WORDS = 20
 NOTE_MAX_CHARS = 140
+# Neutral connectives only (round 3): no word here can assert, deny or rank status --
+# no "not", "verified", "unknown", "open", "all", "priority", "worth", "attention", "most",
+# "key", "first"... A note can frame the lines below it; it can never characterise them.
 NOTE_VOCABULARY = frozenset("""
-a all also an and are as at below briefly by each first focus for from have here i in is it
-its key line lines main matter matters most my next note of on order our overall picture
-plainly point points priority read record records remain remains short so source sources
-stand stands start still summary that the then these this those to top unknown unknowns
-verified view what where worth yet your attention open known not ranked listed importance
+a also an and are as at below briefly by each for from here in is it its line lines next of
+on our overall picture plainly read record records short so source sources start summary the
+then these this those to view what where your
 """.split())
+# Sections whose content is wholly code-rendered take no model note at all.
+NO_NOTE_SECTIONS = ("decisions", "facts_unknowns")
 
 
 def note_problem(note) -> str | None:
@@ -589,15 +651,20 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
     if not isinstance(sections, list):
         return {}, [{"component": "*", "reason": "no sections list"}]
     n = parsed["decisions_n"]
+    seen_comps: set = set()
+    poisoned: set = set()
     for sec in sections:
         comp = sec.get("component") if isinstance(sec, dict) else None
         if comp not in parsed["components"]:
             rejected.append({"component": str(comp), "reason": "component not requested"})
             continue
-        if comp in accepted:
-            rejected.append({"component": comp, "reason": "component given twice"})
-            accepted.pop(comp)
+        if comp in seen_comps:
+            # every repeat fails the section closed, however many times it is given
+            rejected.append({"component": comp, "reason": "component given more than once"})
+            accepted.pop(comp, None)
+            poisoned.add(comp)
             continue
+        seen_comps.add(comp)
         extra = sorted(set(sec) - {"component", "evidence", "note"})
         if extra:
             rejected.append({"component": comp,
@@ -619,10 +686,16 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
             rejected.append({"component": comp, "reason": "an id is selected twice"})
             continue
         why = note_problem(sec.get("note"))
+        if not why and comp in NO_NOTE_SECTIONS and (sec.get("note") or "").strip():
+            why = f"{comp} is wholly code-rendered and takes no model note"
         if why:
             rejected.append({"component": comp, "reason": why})
             continue
+        if comp in poisoned:
+            continue
         accepted[comp] = {"ids": ids[:MAX_ITEMS + 3], "note": (sec.get("note") or "").strip()}
+    for comp in poisoned:
+        accepted.pop(comp, None)
     return accepted, rejected
 
 
@@ -640,8 +713,10 @@ def model_lines(accepted: dict[str, dict], pack: dict, parsed: dict,
             # queue order / record status are never the model's: note only
             out[comp] = note + _deterministic_lines(pack, comp, props, n)
             continue
-        lines = []
-        for i in sel["ids"][:MAX_ITEMS + (1 if comp == "departments" else 0)]:
+        must = mandatory(pack, comp)
+        lines = [_line(m["statement"], [m["id"]]) for m in must]
+        extras = [i for i in sel["ids"] if i not in {m["id"] for m in must}]
+        for i in extras[:MAX_ITEMS]:
             if i in pmap:
                 p = pmap[i]
                 lines.append(_line(f"{p['title']} ({p['department']}): {p['why']}", [i]))
