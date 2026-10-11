@@ -187,6 +187,8 @@ def status(db) -> dict:
                            "live_grants": grants, "grants_status": grants_status},
             "paused_by_command_center": st["paused_agents"],
             "never_paused": NEVER_PAUSED,
+            # W4-CCGAP: when these controls' state was read (live, on every request).
+            "as_of": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "sources": ["agents", "spend_limits", "audit_log (phase + grants)", "cc_kv"]}
 
 

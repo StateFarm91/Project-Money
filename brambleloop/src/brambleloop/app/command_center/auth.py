@@ -183,25 +183,86 @@ def totp_code(secret_b32: str, at: float | None = None, *, step: int = 30,
     return str(code).zfill(digits)
 
 
+def second_factor_status(env: dict | None = None) -> dict:
+    """Whether the owner's second factor is configured -- a fact, never the secret.
+
+    TOTP stays optional in code (the owner's hosting configuration decides), so the status
+    surfaces say plainly which of the two states production is in (re-audit L-1)."""
+    configured = totp_required(env)
+    return {"configured": configured, "kind": "totp" if configured else None,
+            "replay_protected": configured,
+            "summary": ("passphrase + TOTP (each code accepted once)" if configured else
+                        f"passphrase only: {TOTP_VAR} is not set, so no second factor is "
+                        f"required")}
+
+
+def _totp_step(code: str | None, env: dict | None = None,
+               at: float | None = None) -> int | None:
+    """The RFC 6238 time-step `code` matches inside the +/-1 step window, or None."""
+    e = env if env is not None else os.environ
+    secret = (e.get(TOTP_VAR) or "").strip()
+    code = str(code or "").strip()
+    if not secret or not re.fullmatch(r"\d{6}", code):
+        return None
+    t = at if at is not None else time.time()
+    found = None
+    try:
+        for d in (-1, 0, 1):
+            # Every candidate is compared (no early exit), so timing does not say which matched.
+            if hmac.compare_digest(totp_code(secret, t + d * 30), code):
+                found = int((t + d * 30) // 30)
+    except (ValueError, TypeError):
+        return None
+    return found
+
+
 def verify_totp(code: str | None, env: dict | None = None, at: float | None = None) -> bool:
     e = env if env is not None else os.environ
     secret = (e.get(TOTP_VAR) or "").strip()
     if not secret:
         return True
-    code = str(code or "").strip()
-    if not re.fullmatch(r"\d{6}", code):
-        return False
-    t = at if at is not None else time.time()
+    return _totp_step(code, e, at) is not None
+
+
+# Used TOTP time-steps are recorded as `cc_nonces` rows under this owner key. A ':' cannot
+# appear in a client request nonce (`_NONCE_RE`), so a request nonce can never collide with a
+# step marker, and the unique index makes "accepted once" atomic across workers. Rows are
+# purged after NONCE_RETENTION (10 min), far beyond the 90 s a code can still verify.
+TOTP_OWNER_KEY = "owner-totp"
+if NONCE_RETENTION <= timedelta(seconds=3 * 30):
+    raise RuntimeError("NONCE_RETENTION must outlive the TOTP validity window")
+
+
+def consume_totp_step(db, step: int) -> bool:
+    """Mark `step` used for the owner; False when it was already used (a replay)."""
+    ensure_tables(db)
+    now = _now()
     try:
-        return any(hmac.compare_digest(totp_code(secret, t + d * 30), code) for d in (-1, 0, 1))
-    except (ValueError, TypeError):
+        with db.session() as s:
+            s.add(RequestNonce(nonce=f"totp:{int(step)}", session_public_id=TOTP_OWNER_KEY,
+                               at=now))
+    except IntegrityError:
         return False
+    return True
 
 
-def verify_owner(passphrase, totp, env: dict | None = None) -> bool:
-    ok_pass = verify_passphrase(passphrase, env)
-    ok_totp = verify_totp(totp, env)
-    return ok_pass and ok_totp
+def verify_owner(passphrase, totp, env: dict | None = None, *, db=None) -> bool:
+    """Passphrase and, when configured, TOTP.
+
+    With `db` (every login and step-up route passes it), an accepted TOTP code's time-step is
+    recorded and a second use of the same step is refused (re-audit L-1: a captured
+    passphrase + code pair was replayable for ~90 s). The step is spent only when the
+    passphrase also verified, so a wrong guess cannot burn the owner's current code."""
+    e = env if env is not None else os.environ
+    ok_pass = verify_passphrase(passphrase, e)
+    if not totp_required(e):
+        return ok_pass
+    step = _totp_step(totp, e)
+    if not ok_pass or step is None:
+        return False
+    if db is not None and not consume_totp_step(db, step):
+        return False
+    return True
 
 
 # ---- tokens -----------------------------------------------------------------
@@ -265,19 +326,20 @@ def client_hash(request) -> str:
 # ---- audit ------------------------------------------------------------------
 
 
+def _request_route(request) -> tuple[str, str]:
+    if request is None:
+        return "", ""
+    r = request.scope.get("route")
+    return str(getattr(r, "path", None) or request.url.path), request.method
+
+
 def record(db, *, kind: str, outcome: str, request=None, reason: str = "",
            session_public_id: str = "", detail: dict | None = None) -> None:
     """Append a security event in its own transaction (so it survives the refusal)."""
     try:
         ensure_tables(db)
-        route = ""
-        method = ""
-        ch = ""
-        if request is not None:
-            r = request.scope.get("route")
-            route = getattr(r, "path", None) or request.url.path
-            method = request.method
-            ch = client_key(request)
+        route, method = _request_route(request)
+        ch = client_key(request) if request is not None else ""
         with db.session() as s:
             s.add(SecurityEvent(kind=kind, outcome=outcome, method=method[:8],
                                 route=str(route)[:200], reason=str(reason)[:300],
@@ -420,18 +482,83 @@ def login_throttle(db, request, *, device_id: str | None = None,
     The passphrase (and TOTP) is still required in every case."""
     ensure_tables(db)
     with db.session() as s:
-        if device_id:
-            n = s.scalar(_failed_logins().where(
-                SecurityEvent.session_public_id == device_id)) or 0
-            return "device" if n >= LOGIN_FAILS_PER_DEVICE else None
-        if recovery:
-            return None
-        mine = s.scalar(_failed_logins().where(
-            SecurityEvent.client_hash == client_key(request))) or 0
-        if mine >= LOGIN_FAILS_PER_CLIENT:
-            return "client"
-        total = s.scalar(_failed_logins()) or 0
-    return "global" if total >= LOGIN_FAILS_GLOBAL else None
+        return _limit_hit(s, request, device_id=device_id, recovery=recovery,
+                          including_own=False)
+
+
+def _limit_hit(s, request, *, device_id: str | None, recovery: bool,
+               including_own: bool) -> str | None:
+    """Which limit the counted failures reach. `including_own`: the count already contains
+    this request's own reserved attempt, so the limit is crossed at > N rather than >= N."""
+    def over(n: int, limit: int) -> bool:
+        return n > limit if including_own else n >= limit
+
+    if device_id:
+        n = s.scalar(_failed_logins().where(SecurityEvent.session_public_id == device_id)) or 0
+        return "device" if over(n, LOGIN_FAILS_PER_DEVICE) else None
+    if recovery:
+        return None
+    mine = s.scalar(_failed_logins().where(
+        SecurityEvent.client_hash == client_key(request))) or 0
+    if over(mine, LOGIN_FAILS_PER_CLIENT):
+        return "client"
+    total = s.scalar(_failed_logins()) or 0
+    return "global" if over(total, LOGIN_FAILS_GLOBAL) else None
+
+
+RESERVED_REASON = f"{FAILED_LOGIN_CODE}: attempt reserved, verification in progress"
+
+
+def reserve_login_attempt(db, request, *, device_id: str | None = None,
+                          recovery: bool = False) -> tuple[int | None, str | None]:
+    """Count this login attempt *before* the slow passphrase check (re-audit L-2).
+
+    The attempt is written as a wrong-credential row first and the limit is then counted
+    including it, so N concurrent requests each see every reservation committed before their
+    count: at most the limit's worth can pass, in one process or many. Returns
+    (reservation id, None) to go ahead, or (None, which limit) -- in which case the
+    reservation is already withdrawn, because a rate-limited refusal is not a guess and must
+    not extend a lockout. `settle_login_attempt` withdraws it on success or turns it into the
+    failure record on a wrong credential. Raises on a store failure (fail closed)."""
+    ensure_tables(db)
+    route, method = _request_route(request)
+    with db.session() as s:
+        row = SecurityEvent(kind="login", outcome="refused", method=method[:8],
+                            route=str(route)[:200], reason=RESERVED_REASON,
+                            session_public_id=device_id or "",
+                            client_hash=client_key(request), detail={"reserved": True})
+        s.add(row)
+        s.flush()
+        attempt_id = row.id
+    with db.session() as s:
+        limited = _limit_hit(s, request, device_id=device_id, recovery=recovery,
+                             including_own=True)
+    if limited:
+        _drop_attempt(db, attempt_id)
+        return None, limited
+    return attempt_id, None
+
+
+def _drop_attempt(db, attempt_id: int) -> None:
+    with db.session() as s:
+        s.query(SecurityEvent).filter(SecurityEvent.id == attempt_id).delete()
+
+
+def settle_login_attempt(db, attempt_id: int, *, ok: bool, message: str = "",
+                         detail: dict | None = None) -> None:
+    """Release the reservation (success) or make it the wrong-credential record (failure)."""
+    if ok:
+        _drop_attempt(db, attempt_id)
+        return
+    with db.session() as s:
+        row = s.get(SecurityEvent, attempt_id)
+        if row is None:  # never leave a failure unrecorded
+            s.add(SecurityEvent(kind="login", outcome="refused",
+                                reason=f"{FAILED_LOGIN_CODE}: {message}"[:300],
+                                detail=dict(detail or {})))
+            return
+        row.reason = f"{FAILED_LOGIN_CODE}: {message}"[:300]
+        row.detail = dict(detail or {})
 
 
 def login_rate_limited(db, request) -> bool:

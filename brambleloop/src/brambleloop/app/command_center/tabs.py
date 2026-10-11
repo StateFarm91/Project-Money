@@ -350,6 +350,32 @@ def _changes_since(db, since: datetime | None) -> dict:
                     provider="audit_log", since=since.isoformat(), basis_note=basis)
 
 
+def reconcile_owner_actions(owner: dict, box: dict) -> dict:
+    """W4-CCGAP (CC_VERIFY FU-4): "Your actions" counts gate/owner-action decisions only, while
+    the headline "Decisions for you" and Approvals count the whole inbox (those plus
+    publication approvals). Both numbers are true; the card now says how they relate, so the
+    owner never sees two unexplained counts for "what needs me"."""
+    if not isinstance(owner, dict) or not isinstance(box, dict):
+        return owner
+    n = owner.get("open_actions")
+    total = box.get("open")
+    if not isinstance(n, int) or not isinstance(total, int):
+        return owner
+    pub = sum(1 for c in box.get("cards") or []
+              if isinstance(c, dict) and str(c.get("card_id", "")).startswith("publication:"))
+    other = total - n - pub
+    parts = [f"{n} gate/owner-action decision(s)"]
+    if pub:
+        parts.append(f"{pub} publication approval(s)")
+    if other > 0:
+        parts.append(f"{other} other card(s)")
+    return {**owner, "inbox_open": total, "publication_open": pub,
+            "reason": (f"{' + '.join(parts)} = {total} open on Approvals" if total != n
+                       else owner.get("reason")),
+            "count_note": ("the batch plan on Approvals is a dated snapshot of the owner action "
+                           "list and may list more decisions than are live here")}
+
+
 def home(db) -> dict:
     ensure_tables(db)
     with db.session() as s:
@@ -400,7 +426,7 @@ def home(db) -> dict:
         "changes_since_last_view": _changes_since(db, since),
         "autonomy": autonomy, "store": store_f, "products": prods,
         "money": m["accounting"], "incidents": inc,
-        "owner_actions": readers.owner_actions_summary(db),
+        "owner_actions": reconcile_owner_actions(readers.owner_actions_summary(db), box),
         "work_24h": jw, "launch": launch, "opportunities": opportunities},
         headline=headline, last_seen_at=seen.get("at"))
 
@@ -547,8 +573,97 @@ def store(db) -> dict:
                                   provider="approvals.publication_candidates"))})
 
 
+#: A wake this far past with nothing having run is shown as overdue, not as plain sleep.
+WAKE_GRACE = timedelta(minutes=15)
+
+
+def slo_card(env: dict) -> dict:
+    """W4-CCGAP: the SLO provider reports OK when every *judged* objective is met, even when
+    most objectives (including P1 scheduler freshness) have no evidence at all. On the owner's
+    card that read as "healthy". OK is shown only when every objective was judged; otherwise
+    the card is DEGRADED and names the unjudged ones. The provider's own status is kept."""
+    if not isinstance(env, dict) or env.get("status") != "OK":
+        return env
+    slos = [i for i in env.get("items") or [] if isinstance(i, dict) and i.get("kind") == "slo"]
+    unknown_keys = [str(i.get("key")) for i in slos if str(i.get("state")).upper() == "UNKNOWN"]
+    if not slos or not unknown_keys:
+        return env
+    p1 = [str(i.get("key")) for i in slos if str(i.get("state")).upper() == "UNKNOWN"
+          and str(i.get("breach_severity")).upper() in ("P0", "P1")]
+    judged = len(slos) - len(unknown_keys)
+    return {**env, "status": "DEGRADED", "provider_status": "OK",
+            "reason": (f"only {judged} of {len(slos)} objectives have evidence; the judged ones "
+                       f"are met. UNKNOWN: {', '.join(unknown_keys)}"
+                       + (f" (P1 with no evidence: {', '.join(p1)})" if p1 else "")),
+            "unjudged": unknown_keys}
+
+
+def agents_card(db, env: dict, *, now: datetime | None = None) -> dict:
+    """W4-CCGAP: the autonomy agents provider calls an agent that has never run "sleeping",
+    and keeps a wake that is long past as "sleeping" too. The Company tab (company.agents)
+    already shows the first as UNKNOWN; this makes Autonomy & Learn say the same, flags an
+    overdue wake, and recomputes the counts. Nothing is invented: no job is ever implied."""
+    if not isinstance(env, dict) or not isinstance(env.get("items"), list) or not env["items"]:
+        return env
+    from ...core.models import Job
+
+    now = now or datetime.now(timezone.utc)
+    try:
+        with db.session() as s:
+            ever = {a for a in s.scalars(select(Job.agent).distinct()) if a}
+    except Exception as exc:  # noqa: BLE001 - unreadable jobs: say so, change nothing
+        return {**env, "agents_card_note": f"jobs unreadable ({type(exc).__name__})"}
+    items, changed = [], 0
+    for it in env["items"]:
+        if not isinstance(it, dict):
+            items.append(it)
+            continue
+        it = dict(it)
+        state = str(it.get("state") or "UNKNOWN").lower()
+        never = (it.get("agent") not in ever and not it.get("last_run")
+                 and not it.get("current_job") and not it.get("doing_now"))
+        wake = None
+        try:
+            wake = _aware(datetime.fromisoformat(str(it["next_wake"]))) if it.get(
+                "next_wake") else None
+        except ValueError:
+            wake = None
+        if wake is not None and state in ("sleeping", "unknown") and now - wake > WAKE_GRACE:
+            mins = int((now - wake).total_seconds() // 60)
+            it["overdue_wake_minutes"] = mins
+            it["why"] = (f"next wake was {mins} min ago and nothing has run since: the "
+                         "scheduler or worker may not be running")
+        if state == "sleeping" and never:
+            it["provider_state"] = it.get("state")
+            it["state"] = "UNKNOWN"
+            it["why"] = ("no job has ever been recorded for this agent here, so it is not "
+                         "known to be sleeping" + (f"; {it['why']}" if it.get("why") else ""))
+            changed += 1
+        items.append(it)
+    counts: dict[str, int] = {}
+    for it in items:
+        if isinstance(it, dict):
+            k = str(it.get("state") or "UNKNOWN")
+            k = "UNKNOWN" if k.upper() == "UNKNOWN" else k.lower()
+            counts[k] = counts.get(k, 0) + 1
+    overdue = sum(1 for it in items if isinstance(it, dict) and it.get("overdue_wake_minutes"))
+    status = env.get("status")
+    if counts.get("UNKNOWN") == len(items):
+        status = "UNKNOWN"
+    elif status == "OK" and (counts.get("UNKNOWN") or overdue):
+        status = "DEGRADED"
+    reasons = [r for r in (
+        f"{counts['UNKNOWN']} agent(s) have no recorded job" if counts.get("UNKNOWN") else None,
+        f"{overdue} agent(s) past their wake with nothing run" if overdue else None,
+        env.get("reason") if env.get("reason") not in (None, "provider gave no reason") else None)
+        if r]
+    return {**env, "items": items, "counts": counts, "status": status,
+            "reason": "; ".join(reasons) or env.get("reason"),
+            "never_run_shown_unknown": changed}
+
+
 def operations(db) -> dict:
-    return _tab("OPERATIONS", {"slo": providers.call("slo", db),
+    return _tab("OPERATIONS", {"slo": slo_card(providers.call("slo", db)),
                                "truth": providers.call("ops_truth", db),
                                "autonomy": providers.call("autonomy", db),
                                "queue": readers.queue(db),
@@ -780,7 +895,7 @@ def autonomy(db) -> dict:
     return _tab("AUTONOMY", {"autonomy": providers.call("autonomy", db),
                              # W4-CCFIN: Rule #1 state and per-agent status (read-only).
                              "rule1": providers.call("rule1", db),
-                             "agents": providers.call("agents", db),
+                             "agents": agents_card(db, providers.call("agents", db)),
                              "improvement": providers.call("improvement", db),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
@@ -881,6 +996,7 @@ def account(db, current_session: str) -> dict:
             " + TOTP" if auth.totp_required() else ""),
             "login_configured": auth.login_configured(),
             "totp_required": auth.totp_required(),
+            "second_factor": auth.second_factor_status(),
             "stepup_window_seconds": int(auth.STEPUP_WINDOW.total_seconds())},
         sessions=auth.list_sessions(db, current_session),
         security_events=events, refused_attempts_24h=int(refused_24h),

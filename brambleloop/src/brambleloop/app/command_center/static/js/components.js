@@ -147,6 +147,13 @@ export function itemRow(item, { drill = true } = {}) {
  * Render a provider envelope {status, as_of, basis, items, sources, reason} honestly. UNKNOWN
  * and BLOCKED statuses show their reason prominently instead of an empty list that looks fine.
  */
+/** W4-CCGAP: a release-time artefact says so in words, so it never reads as live. */
+export function releaseNote(env) {
+  const ra = env && env.release_artefact;
+  if (!ra || typeof ra !== "object" || ra.live !== false) return null;
+  return h("p", { class: "callout callout-warn", data: { release: "1" } }, ra.label || "Release artefact, not live.");
+}
+
 export function envelopeCard(title, env, { stale = false, fetchedAt = null, emptyText = "Nothing reported.", limit = 20 } = {}) {
   if (!env || typeof env !== "object") {
     return card({ title, actions: statusPill("UNKNOWN") },
@@ -157,6 +164,7 @@ export function envelopeCard(title, env, { stale = false, fetchedAt = null, empt
   const status = String(env.status || "UNKNOWN").toUpperCase();
   return card({ title, actions: statusPill(status) },
     h("p", { class: "card-meta" }, freshness(env.as_of, { stale, fetchedAt }), ...basisNote(env.basis, status)),
+    releaseNote(env),
     env.reason ? h("p", { class: ["callout", status === "OK" ? "callout-info" : "callout-warn"] }, env.reason) : null,
     shown.length ? h("ul", { class: "rows" }, shown.map((it) => itemRow(it))) : h("p", { class: "muted" }, status === "UNKNOWN" ? "Unknown: no data available yet." : emptyText),
     items.length > limit ? h("p", { class: "muted" }, `${items.length - limit} more not shown here.`) : null,

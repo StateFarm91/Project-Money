@@ -3,7 +3,7 @@
 // evidence and recovery are never paused.
 import { h } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, guardedAction } from "../components.js";
+import { card, statusPill, guardedAction, freshness } from "../components.js";
 import { humanize } from "../format.js";
 import { pageMeta, backLink } from "./_shared.js";
 
@@ -53,13 +53,14 @@ export async function render({ rerender }) {
     } }, "Kill switch: return to shadow");
   return h("div", { class: "stack" }, backLink("#/account", "Account"), ...pageMeta(result, d),
     card({ title: "Company phase", actions: statusPill(phase ? "INFO" : "UNKNOWN", phase ? String(phase).toUpperCase() : "UNKNOWN") },
+      h("p", { class: "card-meta" }, freshness(d.as_of || null)),
       h("p", { class: "muted" }, "Moving the phase up is never done here; it stays on the evidence-bound owner phase route."),
       kill),
-    card({ title: "Publishing & spend", cls: "card-danger" },
+    card({ title: "Publishing & spend", cls: "card-danger" }, h("p", { class: "card-meta" }, freshness(d.as_of || null)),
       control({ label: "Publishing", detail: pub.live_grants && pub.live_grants.length ? `${pub.live_grants.length} live grant(s) will be revoked` : "No live grants", paused: !!pub.paused, scope: "publishing", stale, rerender }),
       control({ label: "All spend", detail: spend.no_scopes_configured ? "No spend scopes configured" : Array.isArray(spend.scopes) ? spend.scopes.map((x) => `${x.scope}${x.paused ? " (paused)" : ""}`).join(", ") : "Scopes unknown", paused: !!spend.all_paused, scope: "spend", stale, rerender }),
       control({ label: "Whole company", detail: "Every pausable department, spend and publishing", paused: depts.length > 0 && depts.every((x) => x.paused || x.pausable === false), scope: "company", stale, rerender })),
-    card({ title: "Departments" },
+    card({ title: "Departments" }, h("p", { class: "card-meta" }, freshness(d.as_of || null)),
       depts.length ? depts.map((x) => control({ label: humanize(x.department),
         detail: x.pausable === false ? (x.never_paused_because || "Never paused") : Array.isArray(x.agents) ? `Agents: ${x.agents.join(", ")}` : null,
         paused: !!x.paused, scope: "department", department: x.department, stale, rerender, pausable: x.pausable !== false }))

@@ -60,7 +60,7 @@ export const DATA = {
         actions: [{ action: "publication.preview", requires_step_up: false, params: { slug: "harbour-throw", version: "1", release: "r3" } },
           { action: "publication.approve", requires_step_up: true, params: { slug: "harbour-throw", version: "1", release: "r3", expected_digest: "sha256:abc123" } }],
         not_executable_reason: null, sources: ["owner_actions:12", "build2.executor.approval_inbox"] },
-      { card_id: "gate:etsy_api", kind: "GATE", title: "Etsy API access", proposed_action: "Connect the Etsy API (owner OAuth).",
+      { card_id: "gate:etsy_api", kind: "GATE", title: "Etsy API access: run `commerce.shop_package.policies()` then reauthorise_transactions_scope", proposed_action: "Connect the Etsy API (owner OAuth); steps in research/final_build/w4/owner_kit/ETSY_OAUTH_REAUTHORISE_TRANSACTIONS_SCOPE.md",
         recommendation: "Required before listing read-back.", uncertainty: null, expected_benefit: "Live read-back of store state.",
         downside: "None known.", max_spend_cad: 0, reversibility: "Disconnect any time.", deadline: null,
         consequence_of_no_action: "Store stays preview-only.", evidence: [], executable: false, actions: [],

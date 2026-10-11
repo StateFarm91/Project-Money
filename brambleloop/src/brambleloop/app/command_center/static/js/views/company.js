@@ -2,7 +2,7 @@
 // when it was read and on what basis; Unknown is shown as Unknown, never as 0.
 import { h, icon } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, freshness, sourcesList, statTile } from "../components.js";
+import { card, statusPill, freshness, sourcesList, statTile, releaseNote } from "../components.js";
 import { relTime, utcStamp, UNKNOWN_TEXT, humanize } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, isEnvelope } from "./_shared.js";
 
@@ -35,7 +35,7 @@ function statusCard(env, result) {
       statTile("Open incidents", num(it.incidents_open), { href: "#/operations" }),
       statTile("Build 2 OPEN rows", num(it.build2_open)),
       statTile("Final Master launch-critical OPEN", num(it.final_master_launch_critical_open)),
-      statTile("Lanes running", num(comp.RUNNING), { href: "#/completion" })),
+      statTile("Claude dev lanes running (board)", num(comp.RUNNING), { href: "#/completion" })),
     it.phase_why ? h("p", { class: "hero-note" }, `Phase: ${it.phase_why}`) : null,
     sourcesList(env && env.sources));
 }
@@ -102,7 +102,8 @@ function finalMasterCard(env, result) {
   const lc = (env && env.launch_critical) || {};
   const gk = (env && env.gated_by_kind) || {};
   return card({ title: "Final Master closure", actions: statusPill(env && env.status) },
-    h("p", { class: "card-meta" }, freshness(env && env.read_at, result), " · ", env && env.as_of_basis ? env.as_of_basis : ""),
+    h("p", { class: "card-meta" }, "Read ", freshness(env && env.read_at, result), " · ", env && env.as_of_basis ? env.as_of_basis : ""),
+    releaseNote(env),
     env && env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
     h("div", { class: "tiles" },
       statTile("Launch-critical", num(env && env.launch_critical_total)),
@@ -130,7 +131,7 @@ export async function render({ params }) {
     finalMasterCard(s.final_master_closure, result),
     ...renderAll(data, [["blockers", "Blockers"], ["owner_actions", "Your actions"], ["approvals", "Approvals"],
       ["finance", "Finance"], ["store", "Store"], ["store_visibility", "Store visibility"], ["product_pipeline", "Product pipeline"],
-      ["autonomy", "Autonomy"], ["learn", "Learn / improvement"], ["learn_outcomes", "Learning: pre-sale and post-launch"], ["visual_stages", "Visual pipeline stages"], ["visual", "Visual R&D"],
+      ["autonomy", "Autonomy"], ["learn", "Learn / improvement"], ["learn_outcomes", "Learning: pre-sale and post-launch"], ["visual_pipeline_live", "Visual pipeline (live: listing frames & certificates)"], ["visual_stages", "Visual R&D milestones A-E (release artefact)"], ["visual", "Visual R&D"],
       ["store_live_drift", "Live shop vs repo drafts"], ["competitor_intel", "Competitor findings"], ["laura", "Laura"],
       ["completion_effort", "Completion effort"]],
     { result, required: ["blockers", "finance", "store", "product_pipeline", "visual", "visual_stages"],

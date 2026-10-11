@@ -5,7 +5,7 @@
 // becomes an owner decision -- never an action she takes herself.
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, sourcesList, loading, toast, guardedAction } from "../components.js";
+import { card, statusPill, sourcesList, loading, toast, guardedAction, freshness } from "../components.js";
 import { relTime, utcStamp } from "../format.js";
 
 const PORTRAIT_LABEL = "Internal — canonical reference, not publication-approved";
@@ -90,7 +90,7 @@ function turnCard(t) {
             String(out.result_ref || "").startsWith("jobs:") ? `#/drill/${out.result_ref}` : "#/approvals", out.result_ref || ""));
         })))) : null,
       done,
-      h("p", { class: "muted small" }, t.at ? `${utcStamp(t.at)} · ` : "", t.method ? `Method: ${t.method}` : "")));
+      h("p", { class: "muted small" }, freshness(t.at || null), t.at ? ` (${utcStamp(t.at)}) · ` : " · ", t.method ? `Method: ${t.method}` : "")));
 }
 
 function headerCard(ov) {
@@ -98,6 +98,7 @@ function headerCard(ov) {
   const idn = ov.identity || {};
   const needs = ov.needs_you || {};
   return card({ title: `${sp.name || "Laura"} · ${sp.role || ""}`, subtitle: sp.public_identity || "", cls: "laura-head" },
+    h("p", { class: "card-meta" }, freshness(ov.generated_at || ov.as_of || null)),
     h("div", { class: "laura-id" }, portrait(sp),
       h("div", null,
         h("p", null, "Talk to me about the business. I answer from the company's records, with links, and I tell you when I don't know."),
@@ -125,6 +126,7 @@ function presenceCard(pres) {
   const vis = (pres && pres.visible_identity) || {};
   const frames = Array.isArray(vis.frames) ? vis.frames.filter((f) => f.displayable_to_owner && typeof f.path === "string" && f.path.startsWith("/api/cc/laura/frame/")) : [];
   return card({ title: "Laura's presence", subtitle: `Modes: ${caps.degradation || "text"}`, cls: "laura-presence" },
+    h("p", { class: "card-meta" }, freshness((pres && (pres.as_of || pres.generated_at)) || null)),
     h("p", { class: "callout callout-warn" }, vis.state || "Visible identity: Unknown"),
     frames.length ? h("details", { class: "laura-frames" }, h("summary", null, `Canonical reference frames (${frames.length}) — internal`),
       h("div", { class: "laura-frame-row" }, frames.map((f) => h("figure", { class: "laura-frame" },
