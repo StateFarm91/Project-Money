@@ -108,7 +108,7 @@ measured flag).
 New `tests/test_w4_finhealth.py` (11). Focused existing suites run one at a time, all green:
 test_rebuild_graph, test_cost_governance_wave2, test_model_spend_paths, test_w4_auditfix_ceiling,
 test_spend_governance, test_v11_accounting_drill, test_v11_accounting_controller, test_cert_cost,
-test_w4_ccfin, plus those listed in the commit. No existing assertion edited.
+test_w4_ccfin, test_w4_cc_company (23/23), test_gateway, test_deploy (32 OK, rc 0). No existing assertion edited.
 
 ## Follow-ups (not done)
 - `ops/health.py` over-ceiling reader still uses `ceiling > 0 and …` (same blind spot as per_agent_today).
