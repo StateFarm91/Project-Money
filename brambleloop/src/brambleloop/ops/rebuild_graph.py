@@ -30,6 +30,7 @@ input to the other by a caller who meant "these go together".
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 
 from .artefacts import ARTEFACT_CLASSES, UNPROVEN, check
@@ -189,6 +190,28 @@ def _topological(keys: set[str], children: dict[str, set[str]]) -> list[str]:
     return order
 
 
+# `jobs.idempotency_key` is VARCHAR(200) (core/models.py). A key built from every moved ref
+# outgrows it as soon as a deploy moves many code fingerprints at once: on Postgres the insert
+# then fails with StringDataRightTruncation and the sentinel dead-letters every hour
+# (production 0417f35, 2026-10-11, W4-FMGATE). SQLite does not enforce the length, so only
+# Postgres ever saw it.
+IDEMPOTENCY_KEY_MAX = 200
+
+
+def job_key(prefix: str, stamp: str) -> str:
+    """`prefix:stamp`, or -- when that would not fit the column -- `prefix:sha256=<digest of
+    stamp>`. Deterministic in the change, so the idempotency property is unchanged: the same
+    change still enqueues once and a different change enqueues again."""
+    key = f"{prefix}:{stamp}"
+    if len(key) <= IDEMPOTENCY_KEY_MAX:
+        return key
+    digest = hashlib.sha256(stamp.encode()).hexdigest()
+    key = f"{prefix}:sha256={digest}"
+    if len(key) <= IDEMPOTENCY_KEY_MAX:
+        return key
+    return "rebuild:sha256=" + hashlib.sha256(f"{prefix}\0{stamp}".encode()).hexdigest()
+
+
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             expected: list[tuple[str, str, str]] | None = None,
             per: str = "artefact", previous: dict[str, str] | None = None) -> dict:
@@ -214,7 +237,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         for row in plan["rebuild"]:
             by_product.setdefault(row["product_slug"], []).append(row)
         for slug, rows in sorted(by_product.items()):
-            key = f"rebuild:product:{slug}:{stamp}"
+            key = job_key(f"rebuild:product:{slug}", stamp)
             try:
                 queue.enqueue("listing", "chain.rebuild",
                               {"product_slug": slug,
@@ -233,7 +256,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                                 "change enqueues once and a different change enqueues again")}
 
     for row in plan["rebuild"]:
-        key = f"rebuild:{row['key']}:{stamp}"
+        key = job_key(f"rebuild:{row['key']}", stamp)
         try:
             queue.enqueue("listing", "chain.rebuild",
                           {"product_slug": row["product_slug"],

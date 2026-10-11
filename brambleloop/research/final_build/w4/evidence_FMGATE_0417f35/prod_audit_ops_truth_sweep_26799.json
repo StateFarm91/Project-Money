@@ -1,0 +1,63 @@
+{
+ "id": 26799,
+ "at": "2026-10-11T14:31:00.462927+00:00",
+ "actor": "orchestrator",
+ "action": "ops.truth.sweep",
+ "artifact": null,
+ "phase": "shadow",
+ "detail": {
+  "owner_actions": {
+   "expired": [],
+   "at": "2026-10-11T14:30:59.845686+00:00"
+  },
+  "systemic": {
+   "systemic": true,
+   "integrity_failures": [],
+   "widespread_families": {
+    "stale-artefact": [
+     "autumn-oak-mosaic-throw",
+     "cloudline-baby-blanket",
+     "harvest-table-runner",
+     "hexie-coaster-set",
+     "market-basket-trio",
+     "mosaic-placemat-pair",
+     "nordic-forest-mosaic-throw",
+     "nordic-star-ornaments",
+     "pet-snuggle-mat",
+     "pressed-flower-motifs",
+     "pumpkin-cluster-set",
+     "spooky-garland",
+     "valentine-heart-garland",
+     "winter-village-graphghan"
+    ]
+   },
+   "products": 16,
+   "rule": "one failure family halting >= 3 products and >= 50% of the catalogue, or any open integrity failure (authority_chain_tamper), escalates to a company-wide publication halt; otherwise halts stay per product",
+   "opened": true,
+   "resolved": []
+  },
+  "incident_hygiene": {
+   "duplicates": [],
+   "cadences_recovered": []
+  },
+  "postconditions": {
+   "violated": [
+    "artefacts_rebuilt"
+   ],
+   "resolved": []
+  },
+  "incident_learning": {
+   "gaps": 26,
+   "recurred": [],
+   "resolved": []
+  },
+  "rollback_baseline": {
+   "missing": [],
+   "recoverable": true,
+   "digest": "2221f2810561986a99c37accb7614a3175691a2cf6c35ca9d68c2e709d991926",
+   "recorded": true
+  },
+  "readiness_reproof": null
+ },
+ "_source": "GET https://brambleloop-os-production.up.railway.app/api/audit at 2026-10-11T14:39Z (W4-FMGATE), row 26799 verbatim"
+}

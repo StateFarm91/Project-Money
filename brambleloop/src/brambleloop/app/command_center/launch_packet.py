@@ -47,9 +47,12 @@ def _build(db) -> dict:
 
     fn = BUILD or packet.build
     research = _REPO / "research" / "final_build"
-    # The deploy image ships src/ only: without research/ the recorded-suite section says
-    # UNKNOWN ("no repository root given") rather than pointing at files that are not there.
-    return fn(db, sha=build_mod.commit(), repo_root=_REPO if research.is_dir() else None)
+    release = _REPO / "release"
+    # The deploy image ships src/ and release/ (the committed release records), not research/:
+    # the recorded-suite section cites the candidate's own release record when one is there and
+    # says UNKNOWN ("no repository root given") when neither directory exists.
+    has = research.is_dir() or release.is_dir()
+    return fn(db, sha=build_mod.commit(), repo_root=_REPO if has else None)
 
 
 def _refresh(db) -> None:

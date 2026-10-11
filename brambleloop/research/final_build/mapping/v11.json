@@ -5,29 +5,30 @@
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)",
   "producer": "src/brambleloop/runtime/worker.py::Worker.run_once (embedded runner + app/scheduler_entry)",
   "durable_state": "jobs, ops_runtime_samples (scheduler/worker heartbeats)",
   "consumer": "app/scheduler_entry.main (runtime loop) and the app's embedded runner",
   "protected_effect": null,
   "tests": [
-   "tests/test_v11_reliability_slo.py::test_a_full_unattended_soak_passes_except_for_unprobed_availability",
    "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects",
+   "tests/test_v11_reliability_slo.py::test_a_full_unattended_soak_passes_except_for_unprobed_availability",
    "tests/test_v11_wiring.py::test_scheduler_and_worker_heartbeats_are_durable_rows_the_slo_reads"
   ],
   "evidence": [
-   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "owner gate production_window: deploy the candidate, run the 24h soak and grade it with ops/slo soak grading",
   "confidence": "medium",
-  "searched": "w4-FM v11_map.py on 8b67414"
+  "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-881",
@@ -35,28 +36,29 @@
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed",
   "producer": "src/brambleloop/ops/slo.py::record_heartbeat (scheduler heartbeats; soak grading)",
   "durable_state": "ops_runtime_samples",
   "consumer": "app/scheduler_entry.main (runtime loop) -> ops/slo",
   "protected_effect": null,
   "tests": [
-   "tests/test_v11_reliability_slo.py::test_an_owner_or_development_session_driving_work_fails_the_soak",
-   "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
+   "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments",
+   "tests/test_v11_reliability_slo.py::test_an_owner_or_development_session_driving_work_fails_the_soak"
   ],
   "evidence": [
-   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "owner gate production_window: deploy, then grade a soak in which no development session drives work",
   "confidence": "medium",
-  "searched": "w4-FM v11_map.py on 8b67414"
+  "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-882",
@@ -451,7 +453,7 @@
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed",
   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (idle_wake, SAFE_GENERATED work)",
   "durable_state": "jobs, company_memory missions",
   "consumer": "executive_orchestrator cadence",
@@ -460,18 +462,19 @@
    "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
   ],
   "evidence": [
-   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "owner gate production_window: deploy, then read one unattended night's useful work per department from ops/slo department useful-work",
   "confidence": "medium",
-  "searched": "w4-FM v11_map.py on 8b67414"
+  "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-896",
@@ -1268,7 +1271,7 @@
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "no availability reading exists: the external probe (watchdog) has never run against the hosted candidate",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: no availability reading exists: the external probe (watchdog) has never run against the hosted candidate",
   "producer": "src/brambleloop/ops/slo.py::availability (external probe rows only)",
   "durable_state": "ops_runtime_samples (probe rows)",
   "consumer": "slo_check cadence (runtime/worker.py, 15 min) -> slo.* incidents; Command Center operations",
@@ -1279,18 +1282,19 @@
    "tests/test_v11_reliability_slo.py::test_watchdog_records_probe_heartbeat_and_runs_the_check"
   ],
   "evidence": [
-   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "owner gate production_window: deploy the candidate with the watchdog probe",
   "confidence": "medium",
-  "searched": "w4-FM v11_map.py on 8b67414"
+  "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-924",
@@ -1298,29 +1302,30 @@
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "the SLOs have no hosted operating history: the v1.1 candidate is not deployed",
+  "missing_part": "deployed: 0417f35 since 2026-10-11T13:59:48Z; the error budgets accrue from its hosted history. Earlier mapping note: the SLOs have no hosted operating history: the v1.1 candidate is not deployed",
   "producer": "src/brambleloop/ops/slo.py::scheduler_freshness / cadence_freshness / queue_latency / recovery_time (check raises slo.* incidents)",
   "durable_state": "ops_runtime_samples, incidents slo.*",
   "consumer": "slo_check cadence (runtime/worker.py, 15 min)",
   "protected_effect": null,
   "tests": [
-   "tests/test_v11_reliability_slo.py::test_stale_scheduler_from_cadence_jobs_raises_and_then_resolves_an_incident",
+   "tests/test_v11_reliability_slo.py::test_department_useful_work_counts_useful_hours_and_alerts_on_breach",
    "tests/test_v11_reliability_slo.py::test_queue_latency_fraction_and_percentiles",
-   "tests/test_v11_reliability_slo.py::test_department_useful_work_counts_useful_hours_and_alerts_on_breach"
+   "tests/test_v11_reliability_slo.py::test_stale_scheduler_from_cadence_jobs_raises_and_then_resolves_an_incident"
   ],
   "evidence": [
-   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+   "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+   "w4-FMGATE on 0417f35: the deploy happened (0417f35); the error budgets need hosted operating history, which only elapsed time produces"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "hosted_operating_history",
-   "detail": "the SLOs are defined and monitored on a cadence; the error budgets need hosted operating history of the deployed candidate"
+   "detail": "hosted operating history of the deployed candidate (0417f35 since 2026-10-11T13:59:48Z); the SLO budgets read from real rows as it accrues"
   },
   "defect": null,
   "next_action": "owner gate hosted_operating_history: deploy; the slo_check cadence then measures real error budgets",
   "confidence": "medium",
-  "searched": "w4-FM v11_map.py on 8b67414"
+  "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-925",

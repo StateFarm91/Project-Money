@@ -1396,7 +1396,8 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
     got = etsy_taxonomy.refresh(ctx.db)
     summary = {k: got.get(k) for k in ("ran", "reading", "network_calls", "snapshot_id",
                                        "new_snapshot", "nodes", "pattern_subtree",
-                                       "properties_read", "truncated", "why")}
+                                       "properties_read", "truncated", "why",
+                                       "credential_refused", "status")}
     summary["gate_missing"] = (got.get("gate") or {}).get("missing", [])
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)

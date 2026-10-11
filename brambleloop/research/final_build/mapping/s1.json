@@ -281,16 +281,18 @@
   "launch_class_reason": "P0-before-launch; search truth/owner visibility",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "The audit is stored (profile row + listing.seo audit detail, readable via /api/audit?action=listing.seo_drafted) but no catalogue/console view presents entered vs lost filters per listing",
+  "missing_part": "real filter values need the Etsy node schema, which is read only once the etsy_api gate opens (production taxonomy read 403); the console view exists and reads UNMEASURED until then",
   "producer": "src/brambleloop/commerce/category.py::filter_audit (via properties_for/for_product)",
   "durable_state": "listing_search_profiles.filters; audit listing.seo_drafted detail.filters",
-  "consumer": "runtime/release.py::handle_listing_seo; app/main.py::api_audit (generic)",
+  "consumer": "runtime/release.py::handle_listing_seo; app/main.py::api_catalogue (per-listing filters)",
   "protected_effect": "shows which Etsy filters a listing enters and which are lost to missing data",
   "tests": [
-   "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost"
+   "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost",
+   "tests/test_w4_fmgate_catalogue_filters.py::test_entered_and_lost_filters_per_listing_and_unmeasured_without_a_schema"
   ],
   "evidence": [
-   "fb1_A F-009 DONE with remaining 'surfacing on /api/catalogue is cluster E' -- not done: app/main.py api_catalogue has no filters field"
+   "fb1_A F-009 DONE with remaining 'surfacing on /api/catalogue is cluster E' -- not done: app/main.py api_catalogue has no filters field",
+   "w4-FMGATE on 0417f35: company half built on this branch: /api/catalogue now shows, per listing version, the filters entered and lost to missing data from ListingSearchProfile.filters (commerce/category.py::filter_audit), and UNMEASURED with the reason while the node schema is unknown (tests/test_w4_fmgate_catalogue_filters.py)"
   ],
   "build2_rows": [],
   "gate": {
@@ -299,9 +301,9 @@
    "detail": "filter-bearing properties come from the real node schema, read only once the Etsy API gate opens"
   },
   "defect": null,
-  "next_action": "Add per-listing filters {entered, lost_to_missing_data} from ListingSearchProfile.filters to app/main.py::api_catalogue (buildable now) with a route test",
+  "next_action": "owner gate etsy_api: a working Etsy credential lets listing.taxonomy_refresh read the node schema",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-010",

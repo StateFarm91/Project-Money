@@ -459,7 +459,10 @@ for t in "${SUITES[@]}"; do
   fi
   n=$(grep -c '^OK' "$outdir/$safe.out" || true)
   total=$((total+n))
-  fail_tests=$((fail_tests + $(grep -c '^FAIL' "$outdir/$safe.out" || true)))
+  # Only a FAIL marker line counts: `FAIL` then whitespace, `:` (unittest's `FAIL: name`) or the
+  # end of the line. A bare `^FAIL` prefix also counted lines such as `FAILS 0`, which put
+  # tests_failing_reported at 2 on the clean 3967f40 release run (W4-PACKETREL).
+  fail_tests=$((fail_tests + $(grep -cE '^FAIL([[:space:]:]|$)' "$outdir/$safe.out" || true)))
   skip_tests=$((skip_tests + $(grep -c '^SKIP' "$outdir/$safe.out" || true)))
   code=$(cat "$outdir/$safe.code" 2>/dev/null || echo 1)
   [ "$code" -ne 0 ] && failed=$((failed+1)) && failing_list+="$t"$'\n'
