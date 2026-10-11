@@ -68,6 +68,7 @@ def test_every_proposed_product_passes_product_truth_and_certifies():
         truth = l0.product_truth(cand)
         assert truth["passes_gates"], (slug, truth["gates"])
         assert truth["aspiration"]["physically_calibrated"] is False   # never claimed
+        assert cand.variants, slug
         for v in cand.variants:
             cir = l0.cir_for(v.build)
             assert cir.slug == slug, (slug, cir.slug)
@@ -90,6 +91,7 @@ def test_the_release_chain_would_build_the_same_pattern_the_registry_does():
 def test_listing_identity_is_a_product_type_the_cir_names():
     for slug in NEW:
         cand = l0.proposed_candidate(slug)
+        assert cand.variants, slug
         for v in cand.variants:
             cir = l0.cir_for(v.build)
             assert cand.listing.kind in fc.product_type_words_in_cir(cir), (
@@ -122,6 +124,7 @@ def test_childrens_audience_is_decided_for_the_baby_blanket():
 def test_documents_pass_the_first_customer_document_areas():
     areas = ("final_pdf", "terminology", "counts_and_construction",
              "licence_and_safety_statements")
+    assert len(areas) == 4
     for slug in NEW:
         cir = l0.cir_for(l0.proposed_candidate(slug).variants[0].build)
         gate = {c.area: c for c in fc.gate_product(cir).checks}
