@@ -95,6 +95,13 @@ def unwrap_paragraphs(text: str) -> str:
 
 
 ABOUT = unwrap_paragraphs(ABOUT)
+# W4-COPY 2026-10-11: the v1 About above ("the way software gets made ... a compiler ...") was
+# rejected by the owner on 2026-10-06 and still sat here, where the Info & appearance owner
+# action told the owner to paste it from. One About, from the one copy source.
+_V1_ABOUT_REJECTED = ABOUT
+from ..store_foundation import copy_v2 as _copy  # noqa: E402
+
+ABOUT = _copy.ABOUT
 
 # The policies are not written here any more.
 #
