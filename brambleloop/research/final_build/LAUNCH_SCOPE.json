@@ -7,25 +7,29 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 163
+     "rows": 145
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
-     "rows": 177
+     "rows": 174
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 45
+     "rows": 38
     },
     "2f36fe0": {
      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
-     "rows": 9
+     "rows": 6
+    },
+    "0417f35": {
+     "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+     "rows": 36
     }
    },
-   "rows_on_base": 523,
+   "rows_on_base": 518,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
+  "reachability": "HEAD 0417f35 (deployed production 0417f3516f30bb7c52926187fc475a0f46536e86 per /health build.commit 2026-10-11T14:39Z; clean detached worktree, W4-FMGATE) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 added",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json + master_registry_v1_1.json"
  },
@@ -1494,7 +1498,7 @@
    "reason": "local tests are not production truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "OPEN"
   },
   {
    "uid": "F-145",
@@ -1634,7 +1638,7 @@
    "reason": "release/supply-chain integrity before deploy",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-159",
@@ -1744,7 +1748,7 @@
    "reason": "F-831..F-850 certification contract: clean-tree full suite on the deploy tree",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-170",
@@ -1764,7 +1768,7 @@
    "reason": "post-deploy truth of critical paths",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "OPEN"
   },
   {
    "uid": "F-172",
@@ -1774,7 +1778,7 @@
    "reason": "safe publication before phase change",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-173",
@@ -1814,7 +1818,7 @@
    "reason": "recovery: a restorable pre-launch baseline",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-177",
@@ -7130,7 +7134,7 @@
    "reason": "runtime durability/provenance: critical state must not live in a conversation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "OPEN"
   },
   {
    "uid": "F-719",
@@ -7280,7 +7284,7 @@
    "reason": "canonical identity must resolve from a durable registry, not memory",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "OPEN"
   },
   {
    "uid": "F-734",
@@ -8350,7 +8354,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-840",
@@ -8360,7 +8364,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-841",
@@ -8370,7 +8374,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-842",

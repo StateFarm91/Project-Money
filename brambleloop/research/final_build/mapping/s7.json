@@ -1139,18 +1139,19 @@
   "launch_class_reason": "Marketplace disclosure compliance (largely not applicable to a self-made digital pattern shop).",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Partners surface is classified NOT_APPLICABLE with reasoning and an UNKNOWN about whether a generative model counts as a partner, but that UNKNOWN is not in coverage()['unknowns'] so readiness never shows it; no re-audit trigger when a fulfilment/imagery provider changes; no guard that production_partner_ids is never sent (it is an accepted listing field).",
+  "missing_part": "the owner reads Etsy's production-partner guidance on whether a generative imagery model is a partner; the UNKNOWN reaches readiness and a provider change re-opens the review",
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (production_partners)",
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [
-   "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
-   "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine"
+   "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine",
+   "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once"
   ],
   "evidence": [
    "coverage()['unknowns'] has no production_partners key (checked live)",
-   "Under D-FB-7 Launch-0 imagery is deterministic disclosed renders (no generative provider), which narrows the open AI-partner question to future V2 work."
+   "Under D-FB-7 Launch-0 imagery is deterministic disclosed renders (no generative provider), which narrows the open AI-partner question to future V2 work.",
+   "w4-FMGATE on 0417f35: missing_part was stale: intel/etsy_surfaces.py::_unknowns now carries every Evidence(UNKNOWN) into coverage()['unknowns'] and a provider-set change re-opens the partners review; what remains is the owner's reading of Etsy's guidance (help.etsy.com 403 to automation)"
   ],
   "build2_rows": [
    "#35 EXTERNAL-BLOCKED"
@@ -1163,7 +1164,7 @@
   "defect": null,
   "next_action": "Surface Evidence(UNKNOWN) entries in coverage()['unknowns'] so the partners question reaches readiness; add a test that a new image/fulfilment provider registered in the gateway re-opens the partners review; record the owner's reading as a policy snapshot when available.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-589",

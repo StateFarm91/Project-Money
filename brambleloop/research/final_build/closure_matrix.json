@@ -5,25 +5,29 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 163
+     "rows": 145
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
-     "rows": 177
+     "rows": 174
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 45
+     "rows": 38
     },
     "2f36fe0": {
      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
-     "rows": 9
+     "rows": 6
+    },
+    "0417f35": {
+     "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+     "rows": 36
     }
    },
-   "rows_on_base": 523,
+   "rows_on_base": 518,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
+  "reachability": "HEAD 0417f35 (deployed production 0417f3516f30bb7c52926187fc475a0f46536e86 per /health build.commit 2026-10-11T14:39Z; clean detached worktree, W4-FMGATE) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 added",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json + master_registry_v1_1.json"
  },
@@ -43,19 +47,19 @@
   "problems": [],
   "maturity": {
    "DEPLOYED": 185,
-   "INTEGRATED": 497,
+   "INTEGRATED": 502,
    "MISSING": 109,
-   "IMPLEMENTED": 55,
-   "TESTED": 53,
+   "IMPLEMENTED": 53,
+   "TESTED": 50,
    "EXERCISED": 18
   },
   "maturity_claimed": {
    "EXERCISED": 117,
-   "INTEGRATED": 467,
+   "INTEGRATED": 472,
    "DEPLOYED": 132,
    "MISSING": 109,
-   "IMPLEMENTED": 44,
-   "TESTED": 48
+   "IMPLEMENTED": 42,
+   "TESTED": 45
   },
   "launch_class": {
    "LAUNCH-CRITICAL": 490,
@@ -64,27 +68,27 @@
   },
   "launch_critical_maturity": {
    "DEPLOYED": 113,
-   "INTEGRATED": 321,
-   "IMPLEMENTED": 3,
+   "INTEGRATED": 326,
+   "IMPLEMENTED": 1,
    "EXERCISED": 18,
-   "TESTED": 30,
+   "TESTED": 27,
    "MISSING": 5
   },
   "gate_kind": {
-   "none": 618,
-   "owner": 176,
-   "data": 84,
+   "none": 625,
+   "owner": 157,
+   "data": 96,
    "external": 39
   },
   "launch_critical_gate_kind": {
-   "none": 355,
-   "owner": 89,
+   "none": 362,
+   "owner": 70,
    "external": 29,
-   "data": 17
+   "data": 29
   },
   "coverage": {
-   "FULL": 423,
-   "PARTIAL": 494
+   "FULL": 430,
+   "PARTIAL": 487
   },
   "downgraded": 143,
   "defects": 24,
@@ -94,35 +98,35 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 356,
-   "GATED": 126,
+   "COMPLETE": 363,
+   "GATED": 119,
    "POST-LAUNCH": 420,
    "OPEN": 8,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 356,
-   "GATED": 126,
+   "COMPLETE": 363,
+   "GATED": 119,
    "OPEN": 8
   },
   "launch_critical_open": 8,
   "launch_critical_open_reasons": {
-   "maturity TESTED": 5,
    "coverage PARTIAL": 7,
-   "maturity IMPLEMENTED": 2
+   "maturity TESTED": 3
   },
   "protected_action_applicability": {
-   "protected": 578,
-   "unprotected": 339
+   "protected": 580,
+   "unprotected": 337
   },
   "capped_by_unwritten_state": 1,
   "capped_by_proxy_evidence": 0,
   "mapped_on": {
-   "fee1cfe": 177,
-   "8b67414": 45,
-   "6f9a2f7": 163,
-   "019ebf0": 523,
-   "2f36fe0": 9
+   "fee1cfe": 174,
+   "8b67414": 38,
+   "6f9a2f7": 145,
+   "0417f35": 36,
+   "019ebf0": 518,
+   "2f36fe0": 6
   },
   "orphaned_partials": [],
   "structural_target_overrides": [
@@ -595,16 +599,18 @@
    "launch_class_reason": "P0-before-launch; search truth/owner visibility",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "The audit is stored (profile row + listing.seo audit detail, readable via /api/audit?action=listing.seo_drafted) but no catalogue/console view presents entered vs lost filters per listing",
+   "missing_part": "real filter values need the Etsy node schema, which is read only once the etsy_api gate opens (production taxonomy read 403); the console view exists and reads UNMEASURED until then",
    "producer": "src/brambleloop/commerce/category.py::filter_audit (via properties_for/for_product)",
    "durable_state": "listing_search_profiles.filters; audit listing.seo_drafted detail.filters",
-   "consumer": "runtime/release.py::handle_listing_seo; app/main.py::api_audit (generic)",
+   "consumer": "runtime/release.py::handle_listing_seo; app/main.py::api_catalogue (per-listing filters)",
    "protected_effect": "shows which Etsy filters a listing enters and which are lost to missing data",
    "tests": [
-    "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost"
+    "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost",
+    "tests/test_w4_fmgate_catalogue_filters.py::test_entered_and_lost_filters_per_listing_and_unmeasured_without_a_schema"
    ],
    "evidence": [
-    "fb1_A F-009 DONE with remaining 'surfacing on /api/catalogue is cluster E' -- not done: app/main.py api_catalogue has no filters field"
+    "fb1_A F-009 DONE with remaining 'surfacing on /api/catalogue is cluster E' -- not done: app/main.py api_catalogue has no filters field",
+    "w4-FMGATE on 0417f35: company half built on this branch: /api/catalogue now shows, per listing version, the filters entered and lost to missing data from ListingSearchProfile.filters (commerce/category.py::filter_audit), and UNMEASURED with the reason while the node schema is unknown (tests/test_w4_fmgate_catalogue_filters.py)"
    ],
    "build2_rows": [],
    "gate": {
@@ -613,9 +619,9 @@
     "detail": "filter-bearing properties come from the real node schema, read only once the Etsy API gate opens"
    },
    "defect": null,
-   "next_action": "Add per-listing filters {entered, lost_to_missing_data} from ListingSearchProfile.filters to app/main.py::api_catalogue (buildable now) with a route test",
+   "next_action": "owner gate etsy_api: a working Etsy credential lets listing.taxonomy_refresh read the node schema",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s1",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -623,13 +629,13 @@
    "title": "Filter-Surface Audit",
    "version": "v0.1",
    "master_priority": "P0-before-launch",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
     "owner gate 'etsy_api'",
-    "coverage PARTIAL: The audit is stored (profile row + listing.seo audit detail, readable via /api/audit?action=listing.seo_drafted) but no catalogue/console view presents entered "
+    "coverage PARTIAL: real filter values need the Etsy node schema, which is read only once the etsy_api gate opens (production taxonomy read 403); the console view exists and reads "
    ],
    "wave": [
     {
@@ -6401,20 +6407,21 @@
    "evidence": [
     "C-11, C-12, C-13 FIXED",
     "queue/durable.py in production fcb982d",
-    "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed"
+    "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed",
+    "w4-FMGATE on 0417f35: production_window opening (24h off-device proof) would not record a lease-recovery drill; the drill needs a controlled kill of the production worker mid-job"
    ],
    "build2_rows": [
     "#184 COMPLETE+PROVEN"
    ],
    "gate": {
     "kind": "owner",
-    "key": "production_window",
-    "detail": "the drill runs on the deployed candidate"
+    "key": "live_restart_drill",
+    "detail": "owner authorises a controlled restart of the production worker during a queued job (Railway restart; disturbs production); the drill then reads lease expiry and no duplicate effect from real rows"
    },
    "defect": null,
    "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -6422,12 +6429,12 @@
    "title": "Lease-Recovery Drill",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
+    "owner gate 'live_restart_drill'",
     "coverage PARTIAL: no lease-recovery drill has been recorded against the deployed production worker"
    ]
   },
@@ -6800,30 +6807,31 @@
    "launch_class_reason": "local tests are not production truth",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "Readback exists (/api/verify, /api/status commit) and is run by the operator loop, but it is not an enforced gate per major feature (no rule that a feature is not 'done' until its deployed readback passes); Build 2 has never been deployed so none of its features has a readback.",
+   "missing_part": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
    "producer": "src/brambleloop/app/main.py::api_verify",
    "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
    "consumer": null,
    "protected_effect": "production behaviour checked after deploy",
    "tests": [
-    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
-    "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running"
+    "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
+    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
    ],
    "evidence": [
-    "four prod_api_verify evidence files 2026-09-27..28"
+    "four prod_api_verify evidence files 2026-09-27..28",
+    "w4-FMGATE on 0417f35: the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "production_deploy",
-    "detail": "Build 2/Final Build is not authorised to merge/deploy to production; readback of its features waits on that"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Now: write a per-feature readback manifest (endpoint + expected field) for launch-critical features; after owner-authorised deploy, run it and store the evidence file.",
+   "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -6833,13 +6841,12 @@
    "title": "Production Readback Gate",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
+   "completion": "OPEN",
    "completion_reasons": [
-    "owner gate 'production_deploy'",
-    "coverage PARTIAL: Readback exists (/api/verify, /api/status commit) and is run by the operator loop, but it is not an enforced gate per major feature (no rule that a feature is n"
+    "coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two "
    ]
   },
   {
@@ -7382,53 +7389,51 @@
    "uid": "F-158",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "release/supply-chain integrity before deploy",
-   "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "the image has never been built from the lock: the Railway build of a candidate is the deploy",
-   "producer": "scripts/lock_requirements.py -> requirements.lock",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/ops/release_record.py::verify_build (requirements.lock is in the deployable-tree digest the hosted build must match; the record's supply_chain is verified by ops/deploy_guard.py record from scripts/lock_requirements.py output)",
    "durable_state": "brambleloop/requirements.lock",
-   "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock",
+   "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock; src/brambleloop/app/main.py::_startup boot guard",
    "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
    "tests": [
     "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
     "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions",
     "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
     "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+    "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+    "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
     "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
     "tests/test_w3_supply_chain.py::test_release_evidence_is_computed_at_the_sha_and_a_bad_lock_refuses_the_record",
     "tests/test_w3_supply_chain.py::test_sbom_and_change_record_are_derived_from_the_lock"
    ],
    "evidence": [
-    "requirements.lock absent from fcb982d",
-    "build/release path, not a runtime root",
-    "w4-FM close on 8b67414 (FOLD): ops/deploy_guard record embeds the lock verification, an SBOM and the change record derived from requirements.lock at the SHA (tests/test_w3_supply_chain.py); the Dockerfile installs only the hash-checked lock. The image has never been built from the lock because no candidate has been deployed"
+    "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json supply_chain",
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json",
+    "w4-FMGATE on 0417f35: the gap was 'the image has never been built from the lock'. 0417f35 is deployed: its Dockerfile installs only requirements.lock with pip --require-hashes --no-deps, the release record's supply_chain is {status verified, 34 distributions, 1375 hashes, SBOM, material change vs fcb982d recorded}, and the hosted boot guard matched the deployed tree digest -- which includes requirements.lock -- to that record (/api/status boot_guard ok)"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
-    "key": "production_window",
-    "detail": "deploying the frozen candidate builds the image from the lock"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "owner gate production_window: deploy the candidate; deploy_guard record then binds the lock verification to the built image",
+   "next_action": "none: every release record carries its supply-chain check",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35",
    "slice": "s2",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-158",
    "title": "Dependency Integrity Audit",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
-   "completion_reasons": [
-    "owner gate 'production_window'",
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: the image has never been built from the lock: the Railway build of a candidate is the deploy"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "F",
@@ -7505,7 +7510,7 @@
    "launch_class_reason": "security: exposed credentials must be rotated before launch",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_API_KEY is still rotation-required",
+   "missing_part": "the chat-exposed ANTHROPIC_API_KEY is still rotation-required: rotating it is an owner act; the register and owner card are wired",
    "producer": "src/brambleloop/ops/credential_register.py::REGISTER/owner_requests",
    "durable_state": "code-held register (no values)",
    "consumer": null,
@@ -7518,7 +7523,8 @@
     "tests/test_fb4_ops.py::test_the_credential_rotation_card_reaches_the_owner_queue_and_the_dashboard"
    ],
    "evidence": [
-    "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner"
+    "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner",
+    "w4-FMGATE on 0417f35: missing_part was stale: ops/credential_register.py is reached on 0417f35 (owner_requests via launch.readiness) and the rotation card reaches the owner queue (tests/test_fb4_ops.py); what remains is the owner's rotation"
    ],
    "build2_rows": [],
    "gate": {
@@ -7529,7 +7535,7 @@
    "defect": null,
    "next_action": "owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (REGATE)",
+   "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -7537,14 +7543,14 @@
    "title": "Credential Rotation Register",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'Credential'",
    "completion": "GATED",
    "completion_reasons": [
     "owner gate 'credential_rotation'",
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_AP"
+    "coverage PARTIAL: the chat-exposed ANTHROPIC_API_KEY is still rotation-required: rotating it is an owner act; the register and owner card are wired"
    ],
    "wave": [
     {
@@ -7922,48 +7928,51 @@
    "uid": "F-169",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract: clean-tree full suite on the deploy tree",
-   "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build without it -- and HEAD (acb6c9f) has moved past 6f9a2f7 by docs-only commits, so the RC SHA is not yet frozen",
-   "producer": "run_tests.sh (REQUIRE_CLEAN, release_eligible run record)",
-   "durable_state": "artifacts/suite_runs/*.json; research/final_build/RUN_6f9a2f7_full_suite.json",
-   "consumer": "ops/deploy_guard.py::check (exact candidate SHA)",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/ops/release_record.py::verify_build (runtime boot guard: the hosted build must carry a committed release-eligible full-suite record naming its exact deployable-tree digest; written by run_tests.sh REQUIRE_CLEAN=1 + ops/deploy_guard.py record)",
+   "durable_state": "release/RELEASE_<sha>.json + release/suite_runs/*.json (tracked, in the image); incidents (release.unproven_build)",
+   "consumer": "src/brambleloop/app/main.py::_startup / release_record.apply_at_import (forces SHADOW + P1 incident on an unproven build); /api/status boot_guard; ops/deploy_guard.py::check (deploy path)",
    "protected_effect": "only a full, clean, unmoved-HEAD, zero-failing run on the exact candidate SHA allows deploy",
    "tests": [
-    "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
-    "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible",
     "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
-    "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused"
+    "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused",
+    "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+    "tests/test_rc1_own_release.py::test_boot_guard_opens_and_resolves_a_p1_incident",
+    "tests/test_rc1_own_release.py::test_boot_guard_rejects_a_red_or_unpinned_suite_record",
+    "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
+    "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
+    "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible"
    ],
    "evidence": [
-    "RUN_6f9a2f7_full_suite.json: release_eligible true, dirty_paths 0, git_sha == git_sha_at_end, 5,653 passing",
-    "release procedure, not a runtime root; not in fcb982d"
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json (boot_guard ok, record RELEASE_5dfd1ac, tree 30a4dc93)",
+    "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json",
+    "research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt (ALLOW)",
+    "w4-FMGATE on 0417f35: the final handoff's full suite ran against the exact deployed tree and the running build proves it: release/RELEASE_5dfd1ac...json is release_eligible (7877 passing, 0 failing suites, tree clean, HEAD unmoved) and names source_tree_sha256 30a4dc93...; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/status boot_guard {enforced:true, ok:true, record RELEASE_5dfd1ac, tree_sha256 30a4dc93} -- the runtime boot guard recomputed the deployed tree digest and matched it; ops/deploy_guard.py check --candidate 0417f35 --deployed fcb982d = ALLOW (research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt). The old gap ('deploy_guard is run by hand, a push builds without it') is closed at runtime: an unproven hosted build is forced to SHADOW with a P1 incident"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": null,
-    "detail": "software work remains or none; nothing external blocks it"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Freeze the RC (6f9a2f7 or re-run REQUIRE_CLEAN=1 ./run_tests.sh on the final HEAD) and run ops/deploy_guard.py check --candidate <RC> --deployed fcb982d, committing the verdict; document/enforce that Railway deploys only that SHA",
+   "next_action": "none: every successor carries its own release record; the boot guard re-checks it on every hosted boot",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s2",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-169",
    "title": "Clean-Tree Full Suite",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build w"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "F",
@@ -8036,30 +8045,31 @@
    "launch_class_reason": "post-deploy truth of critical paths",
    "maturity": "EXERCISED",
    "coverage": "PARTIAL",
-   "missing_part": "/api/verify covers phase, publication refusals, ad/revenue, model spend vs ceiling, agent ceilings, durable DB, worker/scheduler liveness and dead letters; it does not exercise queues end to end, provider probes, continuity or search intelligence, and has not been run on a Final Build deploy.",
+   "missing_part": "the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final Build deploy it is red on two checks",
    "producer": "src/brambleloop/app/main.py::api_verify",
    "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
    "consumer": null,
    "protected_effect": "production smoke of critical invariants",
    "tests": [
-    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
-    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
    ],
    "evidence": [
-    "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)"
+    "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)",
+    "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "production_deploy",
-    "detail": "final deploy is not authorised; the matrix can only run after it"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Extend /api/verify (or a smoke script) with model.probe/vision probe recency, last ops.continuity proof, cadence tick coverage, queue round-trip and intel.serp/etsy probe recency; run after the authorised deploy.",
+   "next_action": "company: extend /api/verify (probe recency, continuity proof, cadence coverage, queue round-trip); deploy the dead-letter fixes (843af70, 4b55f22); integrator decides the 0.0 agent ceilings",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "EXERCISED",
    "adjudication": [],
@@ -8067,13 +8077,12 @@
    "title": "Production Smoke Matrix",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
+   "completion": "OPEN",
    "completion_reasons": [
-    "owner gate 'production_deploy'",
-    "coverage PARTIAL: /api/verify covers phase, publication refusals, ad/revenue, model spend vs ceiling, agent ceilings, durable DB, worker/scheduler liveness and dead letters; it d"
+    "coverage PARTIAL: the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final Build deploy it is red on two checks"
    ]
   },
   {
@@ -8081,30 +8090,32 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "safe publication before phase change",
    "maturity": "EXERCISED",
-   "coverage": "PARTIAL",
-   "missing_part": "Proven on the current production (fcb982d): phase shadow, 0 published, 165 publish refusals counted as expected; must be re-proven on the Final Build deploy before any phase change.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/app/main.py::api_verify",
    "durable_state": "audit_log store.publish_refused",
-   "consumer": null,
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish (refuses in shadow; refusals are what api_verify counts); app/main.py::dashboard (last clean /api/verify)",
    "protected_effect": "no consequential publication in shadow; refusals are non-defects",
    "tests": [
-    "tests/test_shadow.py",
+    "tests/test_deploy.py::test_the_requeue_endpoint_never_re_drives_a_publication_refusal",
     "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-    "tests/test_deploy.py::test_the_requeue_endpoint_never_re_drives_a_publication_refusal"
+    "tests/test_shadow.py"
    ],
    "evidence": [
-    "prod_api_verify_2026-09-28T0816Z.json phase_is_shadow, nothing_published, publication_was_actually_attempted_and_refused (165)"
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_verify_20261011T1439Z.json",
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_queue_dead_20261011T1439Z.json",
+    "w4-FMGATE on 0417f35: re-proven on the Final Build deploy before any phase change: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify phase_is_shadow ok, nothing_published ok, publication_was_actually_attempted_and_refused ok (185 expected refusals; /api/queue/dead store.publish last_seen 2026-10-11T14:26:20Z, after the 13:59Z deploy); the production_deploy gate is cleared"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
-    "key": "production_deploy",
-    "detail": "re-proof requires the authorised Final Build deploy"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "After the authorised deploy, run /api/verify and store the evidence file before any phase-change request.",
+   "next_action": "none: re-run /api/verify after every deploy and before any phase-change request",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "EXERCISED",
    "adjudication": [],
@@ -8112,14 +8123,11 @@
    "title": "Shadow-Mode Publication Proof",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
-   "completion_reasons": [
-    "owner gate 'production_deploy'",
-    "coverage PARTIAL: Proven on the current production (fcb982d): phase shadow, 0 published, 165 publish refusals counted as expected; must be re-proven on the Final Build deploy bef"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-173",
@@ -8268,8 +8276,8 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "recovery: a restorable pre-launch baseline",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=false and names them",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/ops/assurance.py::rollback_baseline / record_baseline",
    "durable_state": "continuity exports; audit_log ops.continuity",
    "consumer": "runtime/release.handle_health_sweep -> ops/truth.sweep (ops.health cadence) -> audit_log",
@@ -8281,23 +8289,22 @@
     "tests/test_w3_k7_ops_truth.py::test_rollback_baseline_names_missing_components"
    ],
    "evidence": [
-    "BUILD_STATE.md ~l.360/4831 continuity proved in production",
-    "launch/rollback.py not in production fcb982d",
-    "w4-FM close on 8b67414 (FOLD): ops/assurance.rollback_baseline binds code SHA, tree digest, schema digest, config names (never values), coverage map, release-record tests, restore proof and rollback target, and names each missing component; record_baseline writes it once per digest on the ops.health sweep (ops/truth.py:353). It reads recoverable=false locally: code SHA, release-record tests and restore proof exist only on a deployed build"
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+    "w4-FMGATE on 0417f35: the deployed candidate's baseline is recorded and recoverable in production: ops.truth.sweep audit row 26799 at 2026-10-11T14:31:00Z on 0417f35 reads rollback_baseline {recoverable:true, recorded:true, missing:[]} (research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json); the production_window gate it waited on was the deploy"
    ],
    "build2_rows": [
     "#51 OWNER-GATED",
     "#54 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "production_window",
-    "detail": "deploy the candidate so the baseline is recorded on it"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "owner gate production_window: deploy the frozen candidate; the ops.health sweep then records a recoverable baseline",
+   "next_action": "none: record_baseline writes once per deployed digest",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35",
    "slice": "s2",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -8305,14 +8312,11 @@
    "title": "Rollback Baseline",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
-   "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=f"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-177",
@@ -15056,7 +15060,7 @@
    "launch_class_reason": "P0 addendum: provider cost truth — per-listing maintenance cost",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be attributed to a listing in production; reads UNMEASURED while nothing is live",
+   "missing_part": "maintenance cost per listing reads UNMEASURED until a listing is live (data gate live_listings); spend rows already carry product_slug at runtime (6d86a8b)",
    "producer": "src/brambleloop/finance/sustainability.py::listing_maintenance_cost",
    "durable_state": "cost_entries (product_slug, purpose)",
    "consumer": "finance/sustainability.py::forecast -> verdict -> launch/readiness.py::assess (sustainable_economics)",
@@ -15069,7 +15073,8 @@
     "research/final_build/waves/fb1_D.json F-321 PARTIAL",
     "grep 'product_slug=' over gateway/, visual/, culture/: no spend_report.record call sets it",
     "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d",
-    "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)"
+    "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)",
+    "w4-FMGATE on 0417f35: missing_part was stale: runtime spend writers carry product attribution since 6d86a8b; what remains is a live listing to attribute recurring cost to"
    ],
    "build2_rows": [],
    "gate": {
@@ -15080,7 +15085,7 @@
    "defect": null,
    "next_action": "data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (REGATE)",
+   "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35",
    "slice": "s3",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -15088,13 +15093,13 @@
    "title": "Per-Listing Maintenance Cost",
    "version": "v0.9",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'Listing'",
    "completion": "GATED",
    "completion_reasons": [
     "data gate 'live_listings'",
-    "coverage PARTIAL: no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be at"
+    "coverage PARTIAL: maintenance cost per listing reads UNMEASURED until a listing is live (data gate live_listings); spend rows already carry product_slug at runtime (6d86a8b)"
    ],
    "wave": [
     {
@@ -17449,19 +17454,20 @@
    "launch_class_reason": "runtime durability: cloud workers/scheduler/queue must run with the owner PC off",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "Build 2 not deployed; off-device proof of this build not passed (production_window); authorized business operations (publishing) not live",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: Build 2 not deployed; off-device proof of this build not passed (production_window); authorized business operations (publishing) not live",
    "producer": "src/brambleloop/runtime/worker.py",
    "durable_state": "jobs/audit_log (Postgres on Railway)",
    "consumer": "src/brambleloop/ops/health.py::verdict",
    "protected_effect": "worker, scheduler and durable queue run on Railway independent of any owner device; health reads progress, not HTTP 200",
    "tests": [
-    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+    "tests/test_cert_improve_autonomy.py::test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item",
     "tests/test_health.py::test_everything_alive_and_nothing_happening_is_idle_rather_than_healthy",
-    "tests/test_cert_improve_autonomy.py::test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item"
+    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it"
    ],
    "evidence": [
     "BUILD_STATE: production /api/verify 12 of 12 repeatedly (e.g. 2026-09-28 08:16Z)",
-    "#195 note: off_device_proof run against production reports four of five met on real rows"
+    "#195 note: off_device_proof run against production reports four of five met on real rows",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN",
@@ -17471,14 +17477,14 @@
     "#195 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "deploying Build 2 and an unattended production window is the owner's decision"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "owner: approve Build 2 deploy; then let build2/autonomy.off_device_proof read PROVEN over a full unattended window",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s5",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -17488,13 +17494,13 @@
    "title": "24/7 Cloud Operation",
    "version": "v0.12",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: Build 2 not deployed; off-device proof of this build not passed (production_window); authorized business operations (publishing) not live"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -17868,7 +17874,7 @@
    "launch_class_reason": "safe deployment/recovery of production code changes",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
    "producer": "src/brambleloop/runtime/release.py",
    "durable_state": "deployed SHA in audit/startup",
    "consumer": "runtime consumer per reachability: runtime root",
@@ -17880,20 +17886,21 @@
    "evidence": [
     "BUILD_STATE heartbeat entries: production /api/verify after deploys",
     "core/build.py in fcb982d",
-    "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |"
+    "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#190 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "w3 claim: (code). Rehearsal GATED (`production_window`)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "add scripts/deploy_gate.sh (or CI workflow) that refuses a Railway deploy unless run_tests.sh passed on the SHA, then records deploy SHA + /api/verify result as an audit row",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']",
+   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS'] | w4-FMGATE 0417f35",
    "slice": "s5",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -17901,13 +17908,13 @@
    "title": "Code Change Governance",
    "version": "v0.12",
    "master_priority": null,
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: lane claim qualifier: (code). Rehearsal GATED (`production_window`)"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -17916,7 +17923,7 @@
    "launch_class_reason": "recovery/rollback for autonomous changes and publications",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
    "producer": "src/brambleloop/runtime/release.py",
    "durable_state": "improvements (rollback_pending), league rollbacks, launch.rollback_rehearsed audit rows",
    "consumer": "runtime consumer per reachability: runtime root",
@@ -17929,21 +17936,22 @@
    ],
    "evidence": [
     "launch/rollback.py reached via dashboard/readiness, not in fcb982d",
-    "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |"
+    "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#93 COMPLETE+PROVEN",
     "#54 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "w3 claim: (code). Rehearsal GATED (`production_window`)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "add a code-deploy rollback runbook check: record previous Railway deployment id at each deploy and a rehearsal that redeploys it to a staging environment",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']",
+   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS'] | w4-FMGATE 0417f35",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -17951,13 +17959,13 @@
    "title": "Rollback First-Class",
    "version": "v0.12",
    "master_priority": null,
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: lane claim qualifier: (code). Rehearsal GATED (`production_window`)"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -18586,11 +18594,12 @@
    "consumer": "src/brambleloop/ops/health.py::verdict",
    "protected_effect": "observation, evidence capture and cadences run in the cloud; no HQ path in production",
    "tests": [
-    "tests/test_persistence.py::test_state_survives_a_full_process_restart_on_disk",
-    "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping"
+    "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping",
+    "tests/test_persistence.py::test_state_survives_a_full_process_restart_on_disk"
    ],
    "evidence": [
-    "BUILD_STATE: Remote Control for HQ is C-class convenience, not a launch blocker; production verified 12/12 with HQ uninvolved"
+    "BUILD_STATE: Remote Control for HQ is C-class convenience, not a launch blocker; production verified 12/12 with HQ uninvolved",
+    "w4-FMGATE on 0417f35: of its two blockers, the off-device proof is now data (see production_window) and the offsite archive destination is the owner's (gates.offsite_storage open:false in production)"
    ],
    "build2_rows": [
     "#182 COMPLETE+PROVEN",
@@ -18599,13 +18608,13 @@
    ],
    "gate": {
     "kind": "owner",
-    "key": "production_window",
-    "detail": "Build 2 deploy + unattended window; offsite_storage for archive"
+    "key": "offsite_storage",
+    "detail": "an object-storage bucket and credential outside this provider; then the 24h off-device proof on the deployed build"
    },
    "defect": null,
    "next_action": "owner: configure offsite storage destination and approve Build 2 deploy",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s5",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -18615,12 +18624,12 @@
    "title": "PC-Off Improvement Continuity",
    "version": "v0.12",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
+    "owner gate 'offsite_storage'",
     "coverage PARTIAL: offsite archive destination not configured (owner); Build 2 off-device proof not passed"
    ]
   },
@@ -22788,7 +22797,7 @@
    "launch_class_reason": "24/7 cloud continuity is runtime durability; off-device proof was declared launch-blocking (#195)",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "the formal 24-hour off-device proof for the current build has not passed (parked on production_window); HQ/other departments' sleep independence is only implied",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: the formal 24-hour off-device proof for the current build has not passed (parked on production_window); HQ/other departments' sleep independence is only implied",
    "producer": "src/brambleloop/build2/autonomy.py::off_device_proof",
    "durable_state": "jobs, audit_log",
    "consumer": "src/brambleloop/build2/autonomy.py::launch_item",
@@ -22798,21 +22807,22 @@
    ],
    "evidence": [
     "BUILD_STATE.md 'Current phase': deployed and running 24/7 on Railway, /api/verify 12 of 12",
-    "requirements #195 note: run against production reports four of five met on real rows"
+    "requirements #195 note: run against production reports four of five met on real rows",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN",
     "#195 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "needs Build 2 deployed and a full unattended window"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "After the owner deploys Build 2, let the 24h window run and read autonomy.launch_item until PROVEN",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s6",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -22822,13 +22832,13 @@
    "title": "24/7 Parallel Continuity",
    "version": "v0.14",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: the formal 24-hour off-device proof for the current build has not passed (parked on production_window); HQ/other departments' sleep independence is only implied"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -23830,7 +23840,8 @@
    "evidence": [
     "launch/rollback.py (C-80 rehearsed dry withdrawal) not in fcb982d",
     "commerce/paid_media.py::should_pause",
-    "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows"
+    "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows",
+    "w4-FMGATE on 0417f35: a live-listing rollback is an Etsy write: it needs a publishing phase and the owner's write grant, not the 24h window"
    ],
    "build2_rows": [
     "#93 COMPLETE+PROVEN",
@@ -23838,13 +23849,13 @@
    ],
    "gate": {
     "kind": "owner",
-    "key": "production_window",
-    "detail": "executing a live-listing rollback is a live Etsy write: it needs a publishing phase and the owner's write grant (OwnerGrant) at execution time; in shadow the plan is computed and shown, never sent"
+    "key": "publication_authority",
+    "detail": "owner write grant (OwnerGrant) in a publishing phase at execution time; in shadow the plan is computed and shown, never sent"
    },
    "defect": null,
    "next_action": "owner: production window + write grant; then the attached plan is executed through listing_rollback.execute",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM2 close",
+   "searched": " | w4-FM2 close | w4-FMGATE 0417f35",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23852,12 +23863,12 @@
    "title": "Safe Rollback",
    "version": "v0.15",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
+    "owner gate 'publication_authority'",
     "coverage PARTIAL: the restore is executed only with the owner's live write grant in a publishing phase"
    ]
   },
@@ -25156,18 +25167,19 @@
    ],
    "evidence": [
     "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'",
-    "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key"
+    "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key",
+    "w4-FMGATE on 0417f35: the remaining proof (refresh-token rotation in production) needs a working Etsy credential: production /api/build gates.etsy_api open:false and Etsy answered 403 at 2026-10-11T14:05Z; the 24h window does not open it"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
-    "key": "production_window",
-    "detail": "credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build"
+    "key": "etsy_api",
+    "detail": "Etsy credential: a recorded successful etsy.probe; then rotation is proven on the deployed build"
    },
    "defect": null,
    "next_action": "owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (REGATE)",
+   "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35",
    "slice": "s6",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -25177,12 +25189,12 @@
    "title": "OAuth Credential Health",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
+    "owner gate 'etsy_api'",
     "coverage PARTIAL: credential health (stored, openable under current sealing key, scopes, rotations, fingerprints) is readable at /api/etsy/oauth/status and was observed on the re"
    ],
    "wave": [
@@ -27365,18 +27377,19 @@
    "launch_class_reason": "Marketplace disclosure compliance (largely not applicable to a self-made digital pattern shop).",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "Partners surface is classified NOT_APPLICABLE with reasoning and an UNKNOWN about whether a generative model counts as a partner, but that UNKNOWN is not in coverage()['unknowns'] so readiness never shows it; no re-audit trigger when a fulfilment/imagery provider changes; no guard that production_partner_ids is never sent (it is an accepted listing field).",
+   "missing_part": "the owner reads Etsy's production-partner guidance on whether a generative imagery model is a partner; the UNKNOWN reaches readiness and a provider change re-opens the review",
    "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (production_partners)",
    "durable_state": null,
    "consumer": null,
    "protected_effect": null,
    "tests": [
-    "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
-    "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine"
+    "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine",
+    "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once"
    ],
    "evidence": [
     "coverage()['unknowns'] has no production_partners key (checked live)",
-    "Under D-FB-7 Launch-0 imagery is deterministic disclosed renders (no generative provider), which narrows the open AI-partner question to future V2 work."
+    "Under D-FB-7 Launch-0 imagery is deterministic disclosed renders (no generative provider), which narrows the open AI-partner question to future V2 work.",
+    "w4-FMGATE on 0417f35: missing_part was stale: intel/etsy_surfaces.py::_unknowns now carries every Evidence(UNKNOWN) into coverage()['unknowns'] and a provider-set change re-opens the partners review; what remains is the owner's reading of Etsy's guidance (help.etsy.com 403 to automation)"
    ],
    "build2_rows": [
     "#35 EXTERNAL-BLOCKED"
@@ -27389,7 +27402,7 @@
    "defect": null,
    "next_action": "Surface Evidence(UNKNOWN) entries in coverage()['unknowns'] so the partners question reaches readiness; add a test that a new image/fulfilment provider registered in the gateway re-opens the partners review; record the owner's reading as a policy snapshot when available.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s7",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -27397,14 +27410,14 @@
    "title": "Partners You Work With",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'etsy'",
    "completion": "GATED",
    "completion_reasons": [
     "owner gate 'etsy_ai_partner_guidance'",
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Partners surface is classified NOT_APPLICABLE with reasoning and an UNKNOWN about whether a generative model counts as a partner, but that UNKNOWN is not in cov"
+    "coverage PARTIAL: the owner reads Etsy's production-partner guidance on whether a generative imagery model is a partner; the UNKNOWN reaches readiness and a provider change re-op"
    ]
   },
   {
@@ -29422,22 +29435,23 @@
    "launch_class_reason": "runtime durability: the company must keep working with every owner device off",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "The 24-hour off-device proof (#195) has never read PROVEN on real rows; autonomy.launch_item (the blocking readiness item) exists only on 019ebf0 and is not deployed; production is fcb982d without the Build 2 swarm/backlog/orders cadences.",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: The 24-hour off-device proof (#195) has never read PROVEN on real rows; autonomy.launch_item (the blocking readiness item) exists only on 019ebf0 and is not deployed; production is fcb982d without the Build 2 swarm/backlog/orders cadences.",
    "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
    "durable_state": "jobs table (Postgres) with cadence:<name>:<window> idempotency keys",
    "consumer": "src/brambleloop/build2/autonomy.py::launch_item",
    "protected_effect": "launch readiness blocks until an unattended production window is proven",
    "tests": [
     "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
-    "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
     "tests/test_cert_improve_autonomy.py::test_a_window_worked_unattended_is_proven_with_recovery_evidence",
     "tests/test_cert_improve_autonomy.py::test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item",
+    "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
     "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
    ],
    "evidence": [
     "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
     "build2 #195 note: off_device_proof against production reported four of five conditions met",
-    "src/brambleloop/build2/autonomy.py::off_device_proof (in fcb982d); launch_item (019ebf0 only)"
+    "src/brambleloop/build2/autonomy.py::off_device_proof (in fcb982d); launch_item (019ebf0 only)",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN",
@@ -29446,14 +29460,14 @@
     "#195 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "owner authorises deploying the certified successor and running a full unattended 24h production window; the proof then reads from real rows"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "Owner action: authorise deployment of the 019ebf0 lineage; then leave devices off 24h and read /api/launch until autonomy.launch_item reports PROVEN.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -29463,13 +29477,13 @@
    "title": "Cloud-Always-On Core",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: The 24-hour off-device proof (#195) has never read PROVEN on real rows; autonomy.launch_item (the blocking readiness item) exists only on 019ebf0 and is not dep"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -31648,18 +31662,19 @@
    "launch_class_reason": "source-stated: autonomy is a launch architecture requirement",
    "maturity": "DEPLOYED",
    "coverage": "PARTIAL",
-   "missing_part": "Production (fcb982d) initiates research, QA, finance, improvement and monitoring work on cadences unattended, but the Build 2 initiative layer (swarm backlog/allocation, orders/support/growth cadences, improvement sandbox) is not deployed and the off-device proof has never read PROVEN.",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: Production (fcb982d) initiates research, QA, finance, improvement and monitoring work on cadences unattended, but the Build 2 initiative layer (swarm backlog/allocation, orders/support/growth cadences, improvement sandbox) is not deployed and the off-device proof has never read PROVEN.",
    "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
    "durable_state": "jobs (cadence keys)",
    "consumer": "src/brambleloop/runtime/worker.py::Worker",
    "protected_effect": "work proceeds without owner prompting",
    "tests": [
+    "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
     "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
-    "tests/test_executor.py::test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation",
-    "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session"
+    "tests/test_executor.py::test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation"
    ],
    "evidence": [
-    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN",
@@ -31667,14 +31682,14 @@
     "#195 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "deployment authorisation and a proven unattended window"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "Owner: authorise deploying the certified successor; software: none beyond F-654 proof read-out.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -31684,13 +31699,13 @@
    "title": "Autonomy Is Core",
    "version": "v0.20",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: Production (fcb982d) initiates research, QA, finance, improvement and monitoring work on cadences unattended, but the Build 2 initiative layer (swarm backlog/al"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -32422,21 +32437,22 @@
    ],
    "evidence": [
     "build2 #198 note: owner aesthetic direction recorded in visual/brief.py as code rather than chat",
-    "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row"
+    "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row",
+    "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1"
    ],
    "build2_rows": [
     "#101 COMPLETE+PROVEN",
     "#198 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "production_window",
-    "detail": "approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Export the production canonical-model approval record and pack fingerprint into the repository manifest after deploy; test the manifest matches the DB row.",
+   "next_action": "company: export the production model.frozen approval record and pack fingerprint into the repository manifest with a test that the manifest matches the DB row (read-only GET suffices)",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)",
+   "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -32446,12 +32462,11 @@
    "title": "No Chat as Source of Truth",
    "version": "v0.20",
    "master_priority": null,
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "GATED",
+   "completion": "OPEN",
    "completion_reasons": [
-    "owner gate 'production_window'",
     "coverage PARTIAL: Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved canonical pack fingerprint exists only "
    ]
   },
@@ -33114,21 +33129,22 @@
    "evidence": [
     "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
     "research/BUILD2_CLOSEOUT_REPORT.md I",
-    "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row"
+    "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row",
+    "w4-FMGATE on 0417f35: as F-718: production_window does not open this; the approval row is readable now (/api/audit?action=model.frozen id 5693)"
    ],
    "build2_rows": [
     "#73 COMPLETE+PROVEN",
     "#200 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "production_window",
-    "detail": "same as F-718: production approval row / OA-CANON-1"
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "owner gate production_window: same as F-718: production approval row / OA-CANON-1",
+   "next_action": "company: record the approved pack fingerprint from the production model.frozen row in the repository manifest; store provider conditioning packages; deploy hash-verified reference_paths",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (REGATE)",
+   "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -33138,12 +33154,11 @@
    "title": "Canonical Asset Registry",
    "version": "v0.21",
    "master_priority": null,
-   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
+   "completion": "OPEN",
    "completion_reasons": [
-    "owner gate 'production_window'",
     "coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are"
    ]
   },
@@ -37625,7 +37640,7 @@
    "launch_class_reason": "F-831..F-850 certification contract",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independent reviewer",
+   "missing_part": "final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a production_producer and failure_test receipt, a suite receipt whose head/run match the packet (the release record names 5dfd1ac, the packet 0417f35), an execution_gate receipt on protected rows, and an independent_review by a reviewer other than the emitter. The rehearsal records job outcomes only, so the emitter can supply producer + live_root receipts and nothing else",
    "producer": "src/brambleloop/build2/final_proof.py::validate",
    "durable_state": null,
    "consumer": null,
@@ -37640,18 +37655,19 @@
     "research/final_build/aggregate.py (no consumer check)",
     "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
     "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
-    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven"
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven",
+    "w4-FMGATE on 0417f35: runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "END-STAGE (integrator): on the frozen RC, emit packets for the launch-critical rows, run final_proof.py --matrix closure_matrix.json --reachability module_reachability.json and commit the report with the independent review",
+   "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
    "confidence": "HIGH",
-   "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence",
+   "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -37659,13 +37675,13 @@
    "title": "Consumption Required",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "OPEN",
    "completion_reasons": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independe"
+    "coverage PARTIAL: final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a p"
    ]
   },
   {
@@ -37868,133 +37884,141 @@
    "uid": "F-839",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
-   "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "no frozen launch candidate (F-845), so the function-level re-audit has not been run on that exact SHA by an independent session",
-   "producer": "src/brambleloop/build2/reachability.py",
-   "durable_state": "research/final_build/module_reachability.json (basis 'HEAD 6f9a2f7')",
-   "consumer": null,
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/build2/reachability.py::reached (per-function trace from the runtime roots)",
+   "durable_state": "research/final_build/module_reachability.json (basis HEAD 0417f35)",
+   "consumer": "research/final_build/aggregate.py::cap (INTEGRATED needs a reached producer); src/brambleloop/build2/closure.py::proof_of (live dashboard)",
    "protected_effect": null,
    "tests": [
     "tests/test_final_proof.py::test_mutations_refused",
-    "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached"
+    "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached",
+    "tests/test_reachability.py::test_the_real_package_still_reaches_its_handlers_libraries"
    ],
    "evidence": [
-    "research/final_build/module_reachability.json basis HEAD 6f9a2f7",
-    "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)",
-    "w4-FM close on w4-FMLEDGER (FMLEDGER): the recorded defect (closure_matrix basis label stale) no longer holds: the basis now records the mapping base, every remap SHA and per-row mapped_on, and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 modules, 560 reached, none lost vs 8b67414). The final-head audit itself still needs a frozen candidate"
+    "research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json",
+    "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+    "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+    "w4-FMGATE on 0417f35: the reachability audit was re-run on the final effective source tree: a clean detached worktree at the deployed 0417f35 (research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json; installed as module_reachability.json): 656 modules, 564 reached from a live root, none lost against 2f36fe0, gained app/command_center/launch_packet.py, launch/packet.py, growth/free_assets.py, growth/free_to_paid.py; aggregate.py re-adjudicated every row on it and final_proof.py ran on 0417f35 with the 0417f35 rehearsal packets (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json). Independent function-level review of the same deployable tree (2c6d775 == 5dfd1ac == 0417f35 src/): research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (NO BLOCKER), on top of INDEPENDENT_REAUDIT_7421ef6.md"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "END-STAGE: freeze the RC (F-845), regenerate reachability on it, re-run aggregate.py and the function-level audit there by an independent session, commit the verdict",
+   "next_action": "none for 0417f35; a material successor re-runs the same audit before it is frozen",
    "confidence": "HIGH",
-   "searched": " | w4-FMLEDGER close",
+   "searched": " | w4-FMLEDGER close | w4-FMGATE 0417f35",
    "slice": "s9",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-839",
    "title": "Final-Head Re-Audit",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: no frozen launch candidate (F-845), so the function-level re-audit has not been run on that exact SHA by an independent session"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-840",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
-   "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), and a green suite exists on 6f9a2f7; the requirement-level runtime proof on the same SHA (final_proof report) does not exist yet",
-   "producer": "research/final_build/aggregate.py::cap",
-   "durable_state": "research/final_build/closure_matrix.json",
-   "consumer": null,
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/build2/final_master.py::summary (live launch gate: ready iff zero launch-critical rows OPEN, whatever the suite says); research/final_build/aggregate.py::cap (a green suite never raises maturity)",
+   "durable_state": "src/brambleloop/build2/final_master_closure.json (in the image)",
+   "consumer": "src/brambleloop/launch/readiness.py::assess (final_master check) -> /api/build final_master; executor report",
    "protected_effect": null,
    "tests": [
-    "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
     "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason",
-    "tests/test_final_proof.py::test_each_missing_chain_stage_blocks"
+    "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+    "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+    "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open",
+    "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure",
+    "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
    ],
    "evidence": [
-    "research/final_build/RUN_6f9a2f7_full_suite.json",
-    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json (+ final_proof_3967f40.json for the validated code SHA; 7421ef6 = 3967f40 + release record only): final_proof.py run on candidate 7421ef6 over closure_matrix.json with --reachability and the runtime packet set that exists (research/final_build/w4/evidence_RELEASE_7421ef6/runtime_packets_7421ef6.json = [], no runtime evidence packets exist): 917/917 rows BLOCKED, certified false. The suite record for the same code is release/RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json (7813 passing, 0 failing suites, clean, release_eligible true). A green suite and a final_proof report now exist for the same code SHA, but the report proves nothing (all BLOCKED); requirement not proven"
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_build_20261011T1439Z.json final_master",
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json boot_guard",
+    "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+    "research/final_build/CANDIDATE_0417f35.json",
+    "w4-FMGATE on 0417f35: in production the green suite is demonstrably not sufficient: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) booted on a release-eligible green full suite (boot_guard ok, 7877 passing) and its live launch gate still reads /api/build final_master {status DEGRADED, launch_ready false, launch_critical COMPLETE 355 / GATED 126 / OPEN 9} -- build2/final_master.py refuses launch while any launch-critical row lacks requirement-level proof. The candidate's full-suite record and the final_proof report for the same SHA are cited together in research/final_build/CANDIDATE_0417f35.json and research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json (917 rows, certified false: a green suite certifies none of them)"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Final verdict must cite the candidate's full-suite record and the final_proof.py report for the same SHA",
+   "next_action": "none: the rule is enforced in the running launch gate",
    "confidence": "MEDIUM",
-   "searched": " | w4-RELEVIDENCE 7421ef6 evidence",
+   "searched": " | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35",
    "slice": "s9",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-840",
    "title": "Green Suite Necessary, Not Sufficient",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), an"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-841",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
-   "maturity": "IMPLEMENTED",
+   "maturity": "INTEGRATED",
    "coverage": "FULL",
    "missing_part": null,
-   "producer": null,
-   "durable_state": "research/final_build/FINAL_BUILD_STATE.md (Fixed facts: 019ebf0 certified baseline)",
-   "consumer": null,
+   "producer": "src/brambleloop/ops/release_record.py::known_good_predecessor (reads the shipped release/DEPLOYED_HISTORY.json: the baseline is the last reviewed, deployed commit)",
+   "durable_state": "release/DEPLOYED_HISTORY.json; audit_log ops.truth.sweep",
+   "consumer": "src/brambleloop/ops/assurance.py::rollback_baseline (ops.health sweep); ops/deploy_guard.py rollback-commit (targets only a listed SHA)",
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_rc1_own_release.py::test_the_real_history_names_production_and_the_runbook_exists",
+    "tests/test_w3_deploy_evidence.py::test_the_history_ships_in_the_image",
+    "tests/test_w3_deploy_evidence.py::test_the_known_good_predecessor_comes_from_the_shipped_deployed_history"
+   ],
    "evidence": [
-    "FINAL_BUILD_STATE.md fixed facts; DECISION_LOG D-FB-1; Final Build commits on claude/visual-investigation after 019ebf0; production branch untouched at fcb982d"
+    "release/DEPLOYED_HISTORY.json (fcb982d, 0417f35)",
+    "research/final_build/CANDIDATE_0417f35.json",
+    "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+    "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+    "w4-FMGATE on 0417f35: an explicitly reviewed successor to 019ebf0 now exists and runs: 0417f35 (release record RELEASE_5dfd1ac, freeze check 0 refusals in CANDIDATE_0417f35.json, independent security review of the identical deployable tree INDEPENDENT_SECREVIEW_2c6d775.md NO BLOCKER, migration/rollback proof MIGRATION_ROLLBACK_2c6d775.md) and is deployed (production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z)); release/DEPLOYED_HISTORY.json records it, and the runtime treats the deployed history as the only sanctioned rollback baseline (known_good_predecessor; ops.truth.sweep rollback_baseline recoverable:true on 0417f35)"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "none — hold 019ebf0 as baseline until the reviewed successor candidate is frozen (F-845)",
+   "next_action": "none: 0417f35 is the reviewed successor baseline; the next one is appended after its own review and verified deploy",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s9",
-   "maturity_claimed": "IMPLEMENTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-841",
    "title": "Build 2 Freeze",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-   "protected_action_applicability": "unprotected",
-   "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity IMPLEMENTED below target INTEGRATED"
-   ]
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
+   "protected_action_applicability": "protected",
+   "protected_action_basis": "title/producer/consumer names 'DEPLOY'",
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-842",
@@ -38193,43 +38217,45 @@
    "uid": "F-846",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
-   "maturity": "IMPLEMENTED",
-   "coverage": "PARTIAL",
-   "missing_part": "the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candidate with an independent re-audit",
-   "producer": null,
+   "maturity": "TESTED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "scripts/freeze_candidate.py (freeze + defect ledger) -> research/final_build/DEFECT_LEDGER_<sha7>.json",
    "durable_state": "research/final_build/codex_reconciliation/*.json; research/final_build/waves/*.json; RUN_6f9a2f7_full_suite.json",
-   "consumer": null,
+   "consumer": "integrator release loop: independent re-audit and successor full suite before deploy (ops/deploy_guard.py check)",
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_freeze_candidate.py::test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger"
+   ],
    "evidence": [
     "research/final_build/codex_reconciliation/build2_assist_reconciliation.json",
     "research/final_build/codex_reconciliation/codex_fb_verification.json",
-    "FINAL_BUILD_STATE.md RESUME 2026-10-05"
+    "FINAL_BUILD_STATE.md RESUME 2026-10-05",
+    "w4-FMGATE on 0417f35: one full loop has run: freeze 7421ef6 (CANDIDATE/DEFECT_LEDGER_7421ef6) -> independent re-audit (INDEPENDENT_REAUDIT_7421ef6.md: D-1, L-1..L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_*) -> full suite on the successor (RELEASE_5dfd1ac: 7877 passing) -> independent re-audit (INDEPENDENT_SECREVIEW_2c6d775.md: all four fixed, NO BLOCKER) -> deployed 0417f35. The next loop is open: DEFECT_LEDGER_0417f35.json (5 rehearsal blockers carrying owner/external gates, 3 production-readback defects; 2 repaired on claude/w4-FMGATE)"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "Run freeze -> independent audit -> defect ledger -> repair -> regression -> full suite -> independent re-audit on the frozen candidate",
+   "next_action": "integrator: the producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction; accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_FMGATE.json (same basis as F-843/F-845/F-847)",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s9",
-   "maturity_claimed": "IMPLEMENTED",
+   "maturity_claimed": "TESTED",
    "adjudication": [],
    "id": "F-846",
    "title": "Audit-Repair Loop",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-   "protected_action_applicability": "unprotected",
-   "protected_action_basis": "no protected_effect and no protected action named",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
+   "protected_action_applicability": "protected",
+   "protected_action_basis": "title/producer/consumer names 'deploy'",
    "completion": "OPEN",
    "completion_reasons": [
-    "maturity IMPLEMENTED below target INTEGRATED",
-    "coverage PARTIAL: the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candid"
+    "maturity TESTED below target INTEGRATED"
    ]
   },
   {
@@ -38292,7 +38318,7 @@
    "launch_class_reason": "F-831..F-850 certification contract",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "no complete recorded rehearsal: the latest run (ddf9c6e) stops at the owner publication grant (search certificate REFUSED; taxonomy UNKNOWN) and none has run on a frozen candidate",
+   "missing_part": "approval -> simulated publish is not exercised. Two blockers carry real gates: the grant needs a certified Etsy taxonomy (owner etsy_api: production listing.taxonomy_refresh got 403 at 2026-10-11T14:05Z) and the phase transition needs launch readiness, whose owner items (seller_identity, etsy_shop, payout, brand_clearance, benchmark_challenge, ...) are open. But the rehearsal evaluates readiness on a FRESH scratch DB holding one product, where findable:catalogue_depth, clickable:storefront_preview and converts_honestly:sustainable_economics can never pass whatever the owner does: as built, the step cannot open",
    "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
    "durable_state": "jobs / audit_log",
    "consumer": null,
@@ -38305,18 +38331,19 @@
    "evidence": [
     "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
     "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked",
-    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json (production mode, head 7421ef6, tree clean, 352.8 s, network guard installed, no Etsy, no spend): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger. REFUSED_AS_EXPECTED: store.publish[shadow]. BLOCKED: owner_publication_grant (ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited -- waits on the external Etsy taxonomy read) and store.publish[past-shadow] (no grant, so still refused as SHADOW). blocking_defects: search_certificate_not_pass (stored search verdict REFUSED), grant_snapshot_refused, past_shadow_publish_blocked, order_version_unmapped (new: the fixture receipt could not map to cloudline-baby-blanket@1.2.0 because no draft listing id existed, downstream of the grant refusal). Rehearsal ran on the candidate but is not complete; requirement not proven"
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json (production mode, head 7421ef6, tree clean, 352.8 s, network guard installed, no Etsy, no spend): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger. REFUSED_AS_EXPECTED: store.publish[shadow]. BLOCKED: owner_publication_grant (ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited -- waits on the external Etsy taxonomy read) and store.publish[past-shadow] (no grant, so still refused as SHADOW). blocking_defects: search_certificate_not_pass (stored search verdict REFUSED), grant_snapshot_refused, past_shadow_publish_blocked, order_version_unmapped (new: the fixture receipt could not map to cloudline-baby-blanket@1.2.0 because no draft listing id existed, downstream of the grant refusal). Rehearsal ran on the candidate but is not complete; requirement not proven",
+    "w4-FMGATE on 0417f35: scripts/shadow_rehearsal.py on a clean detached worktree at the deployed 0417f35, production mode, 457.9 s (research/final_build/w4/evidence_FMGATE_0417f35/shadow_rehearsal_0417f35.json; also research/final_build/evidence/): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger; store.publish[shadow] REFUSED_AS_EXPECTED; BLOCKED: owner_phase_transition (readiness not ready), owner_publication_grant (taxonomy UNKNOWN), store.publish[past-shadow]"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "END-STAGE: on the frozen RC run scripts/shadow_rehearsal.py and commit the evidence JSON; each not_complete_because item must be fixed or carry its recorded gate",
+   "next_action": "company: make owner_phase_transition cite the readiness verdict of a production-shaped state (seed the scratch DB from a continuity export, or read production's live launch.assessed row) instead of a one-product fresh DB; then the remaining blockers are exactly the owner etsy_api / readiness gates",
    "confidence": "HIGH",
-   "searched": " | w4-FMLEDGER close | w4-RELEVIDENCE 7421ef6 evidence",
+   "searched": " | w4-FMLEDGER close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -38324,13 +38351,13 @@
    "title": "Shadow Rehearsal",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "OPEN",
    "completion_reasons": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: no complete recorded rehearsal: the latest run (ddf9c6e) stops at the owner publication grant (search certificate REFUSED; taxonomy UNKNOWN) and none has run on"
+    "coverage PARTIAL: approval -> simulated publish is not exercised. Two blockers carry real gates: the grant needs a certified Etsy taxonomy (owner etsy_api: production listing.tax"
    ]
   },
   {
@@ -38339,31 +38366,32 @@
    "launch_class_reason": "F-831..F-850 certification contract",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
    "producer": "src/brambleloop/app/main.py::_startup (embedded scheduler/worker)",
    "durable_state": "jobs (runtime.started rows)",
    "consumer": null,
    "protected_effect": null,
    "tests": [
     "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
-    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
-    "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state"
+    "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
+    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact"
    ],
    "evidence": [
     "research/final_build/RUN_6f9a2f7_full_suite.json (independence suite passed)",
     "9a5a5a7 stall-based wait fix",
-    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)"
+    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "deploying the candidate and a 24h unattended window is the owner's authorisation"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "Buildable now: re-run tests/test_cert_claude_independence.py on the frozen candidate and commit the evidence; owner: authorise the production_window for the 24h unattended run",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -38371,13 +38399,13 @@
    "title": "Claude/Chat Independence",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; productio"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -38392,23 +38420,24 @@
    "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
    "protected_effect": "no lost or duplicated work across restarts",
    "tests": [
-    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
     "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
-    "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
+    "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts",
+    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it"
    ],
    "evidence": [
-    "module_reachability: queue/durable.py reached, in fcb982d"
+    "module_reachability: queue/durable.py reached, in fcb982d",
+    "w4-FMGATE on 0417f35: same as F-135: a live restart drill, not the 24h window, closes this"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
-    "key": "production_window",
-    "detail": "restarting the live service disturbs production; owner authorises"
+    "key": "live_restart_drill",
+    "detail": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate"
    },
    "defect": null,
    "next_action": "Buildable now: add a restart test that kills the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ingest and asserts exactly one listing/ledger effect; owner: authorise a live restart drill",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -38416,12 +38445,12 @@
    "title": "Restart Recovery",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
+    "owner gate 'live_restart_drill'",
     "coverage PARTIAL: leases, conditional-UPDATE fencing, idempotency keys and dead letters are integrated and proven by SIGKILL/restart tests (basic leases/idempotency also exist in"
    ]
   },
@@ -39583,7 +39612,7 @@
    "launch_class_reason": "owner needs a truthful launch packet",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "the packet is operator tooling only (launch/packet.py not reached from a runtime root) and no packet exists for a frozen candidate",
+   "missing_part": "the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE (launch/packet.py release-record citation + CC builder passes the image's release/ root), not yet released",
    "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
    "durable_state": "audit_log; operating readings",
    "consumer": "app/main.py dashboard",
@@ -39596,7 +39625,8 @@
     "launch/rollback.py not in fcb982d",
     "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
     "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
-    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven"
+    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven",
+    "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)"
    ],
    "build2_rows": [
     "#54 OWNER-GATED",
@@ -39604,13 +39634,13 @@
    ],
    "gate": {
     "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
    },
    "defect": null,
-   "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
+   "next_action": "integrator: full suite + release record + deploy of the successor carrying the PACKETREL packet fix; then read /api/cc/launch/packet recorded_suite with the owner credential and commit it",
    "confidence": "MEDIUM",
-   "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence",
+   "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -39618,12 +39648,12 @@
    "title": "Launch Packet",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: the packet is operator tooling only (launch/packet.py not reached from a runtime root) and no packet exists for a frozen candidate"
+    "coverage PARTIAL: the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE (launch/packet.py release-record cita"
    ]
   },
   {
@@ -39674,29 +39704,30 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)",
    "producer": "src/brambleloop/runtime/worker.py::Worker.run_once (embedded runner + app/scheduler_entry)",
    "durable_state": "jobs, ops_runtime_samples (scheduler/worker heartbeats)",
    "consumer": "app/scheduler_entry.main (runtime loop) and the app's embedded runner",
    "protected_effect": null,
    "tests": [
-    "tests/test_v11_reliability_slo.py::test_a_full_unattended_soak_passes_except_for_unprobed_availability",
     "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects",
+    "tests/test_v11_reliability_slo.py::test_a_full_unattended_soak_passes_except_for_unprobed_availability",
     "tests/test_v11_wiring.py::test_scheduler_and_worker_heartbeats_are_durable_rows_the_slo_reads"
    ],
    "evidence": [
-    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "owner gate production_window: deploy the candidate, run the 24h soak and grade it with ops/slo soak grading",
    "confidence": "medium",
-   "searched": "w4-FM v11_map.py on 8b67414",
+   "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35",
    "slice": "v11",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -39704,13 +39735,13 @@
    "title": "Cloud-Resident Always-On Runtime",
    "version": "v1.1",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -39719,28 +39750,29 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed",
    "producer": "src/brambleloop/ops/slo.py::record_heartbeat (scheduler heartbeats; soak grading)",
    "durable_state": "ops_runtime_samples",
    "consumer": "app/scheduler_entry.main (runtime loop) -> ops/slo",
    "protected_effect": null,
    "tests": [
-    "tests/test_v11_reliability_slo.py::test_an_owner_or_development_session_driving_work_fails_the_soak",
-    "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
+    "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments",
+    "tests/test_v11_reliability_slo.py::test_an_owner_or_development_session_driving_work_fails_the_soak"
    ],
    "evidence": [
-    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "owner gate production_window: deploy, then grade a soak in which no development session drives work",
    "confidence": "medium",
-   "searched": "w4-FM v11_map.py on 8b67414",
+   "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35",
    "slice": "v11",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -39748,13 +39780,13 @@
    "title": "No Development-Chat Dependency",
    "version": "v1.1",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -40306,7 +40338,7 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed",
    "producer": "src/brambleloop/autonomy/orchestrator.py::tick (idle_wake, SAFE_GENERATED work)",
    "durable_state": "jobs, company_memory missions",
    "consumer": "executive_orchestrator cadence",
@@ -40315,18 +40347,19 @@
     "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
    ],
    "evidence": [
-    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "owner gate production_window: deploy, then read one unattended night's useful work per department from ops/slo department useful-work",
    "confidence": "medium",
-   "searched": "w4-FM v11_map.py on 8b67414",
+   "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35",
    "slice": "v11",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -40334,13 +40367,13 @@
    "title": "Overnight Autonomy",
    "version": "v1.1",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -41471,7 +41504,7 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "no availability reading exists: the external probe (watchdog) has never run against the hosted candidate",
+   "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: no availability reading exists: the external probe (watchdog) has never run against the hosted candidate",
    "producer": "src/brambleloop/ops/slo.py::availability (external probe rows only)",
    "durable_state": "ops_runtime_samples (probe rows)",
    "consumer": "slo_check cadence (runtime/worker.py, 15 min) -> slo.* incidents; Command Center operations",
@@ -41482,18 +41515,19 @@
     "tests/test_v11_reliability_slo.py::test_watchdog_records_probe_heartbeat_and_runs_the_check"
    ],
    "evidence": [
-    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+    "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "production_window",
-    "detail": "the v1.1 candidate has never been deployed; hosted evidence needs the owner-approved deploy (§95 24h PC-off soak)"
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
    },
    "defect": null,
    "next_action": "owner gate production_window: deploy the candidate with the watchdog probe",
    "confidence": "medium",
-   "searched": "w4-FM v11_map.py on 8b67414",
+   "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35",
    "slice": "v11",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -41501,13 +41535,13 @@
    "title": "Owner Availability SLO",
    "version": "v1.1",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'Owner'",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'production_window'",
-    "coverage PARTIAL: no availability reading exists: the external probe (watchdog) has never run against the hosted candidate"
+    "data gate 'production_window'",
+    "coverage PARTIAL: deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters f"
    ]
   },
   {
@@ -41516,29 +41550,30 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "the SLOs have no hosted operating history: the v1.1 candidate is not deployed",
+   "missing_part": "deployed: 0417f35 since 2026-10-11T13:59:48Z; the error budgets accrue from its hosted history. Earlier mapping note: the SLOs have no hosted operating history: the v1.1 candidate is not deployed",
    "producer": "src/brambleloop/ops/slo.py::scheduler_freshness / cadence_freshness / queue_latency / recovery_time (check raises slo.* incidents)",
    "durable_state": "ops_runtime_samples, incidents slo.*",
    "consumer": "slo_check cadence (runtime/worker.py, 15 min)",
    "protected_effect": null,
    "tests": [
-    "tests/test_v11_reliability_slo.py::test_stale_scheduler_from_cadence_jobs_raises_and_then_resolves_an_incident",
+    "tests/test_v11_reliability_slo.py::test_department_useful_work_counts_useful_hours_and_alerts_on_breach",
     "tests/test_v11_reliability_slo.py::test_queue_latency_fraction_and_percentiles",
-    "tests/test_v11_reliability_slo.py::test_department_useful_work_counts_useful_hours_and_alerts_on_breach"
+    "tests/test_v11_reliability_slo.py::test_stale_scheduler_from_cadence_jobs_raises_and_then_resolves_an_incident"
    ],
    "evidence": [
-    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
+    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code",
+    "w4-FMGATE on 0417f35: the deploy happened (0417f35); the error budgets need hosted operating history, which only elapsed time produces"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
+    "kind": "data",
     "key": "hosted_operating_history",
-    "detail": "the SLOs are defined and monitored on a cadence; the error budgets need hosted operating history of the deployed candidate"
+    "detail": "hosted operating history of the deployed candidate (0417f35 since 2026-10-11T13:59:48Z); the SLO budgets read from real rows as it accrues"
    },
    "defect": null,
    "next_action": "owner gate hosted_operating_history: deploy; the slo_check cadence then measures real error budgets",
    "confidence": "medium",
-   "searched": "w4-FM v11_map.py on 8b67414",
+   "searched": "w4-FM v11_map.py on 8b67414 | w4-FMGATE 0417f35",
    "slice": "v11",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -41546,13 +41581,13 @@
    "title": "Production Autonomy SLO",
    "version": "v1.1",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "GATED",
    "completion_reasons": [
-    "owner gate 'hosted_operating_history'",
-    "coverage PARTIAL: the SLOs have no hosted operating history: the v1.1 candidate is not deployed"
+    "data gate 'hosted_operating_history'",
+    "coverage PARTIAL: deployed: 0417f35 since 2026-10-11T13:59:48Z; the error budgets accrue from its hosted history. Earlier mapping note: the SLOs have no hosted operating history:"
    ]
   },
   {

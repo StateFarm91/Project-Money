@@ -99,22 +99,23 @@
   "launch_class_reason": "runtime durability: the company must keep working with every owner device off",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "The 24-hour off-device proof (#195) has never read PROVEN on real rows; autonomy.launch_item (the blocking readiness item) exists only on 019ebf0 and is not deployed; production is fcb982d without the Build 2 swarm/backlog/orders cadences.",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: The 24-hour off-device proof (#195) has never read PROVEN on real rows; autonomy.launch_item (the blocking readiness item) exists only on 019ebf0 and is not deployed; production is fcb982d without the Build 2 swarm/backlog/orders cadences.",
   "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
   "durable_state": "jobs table (Postgres) with cadence:<name>:<window> idempotency keys",
   "consumer": "src/brambleloop/build2/autonomy.py::launch_item",
   "protected_effect": "launch readiness blocks until an unattended production window is proven",
   "tests": [
    "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
-   "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
    "tests/test_cert_improve_autonomy.py::test_a_window_worked_unattended_is_proven_with_recovery_evidence",
    "tests/test_cert_improve_autonomy.py::test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item",
+   "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
    "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
   ],
   "evidence": [
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
    "build2 #195 note: off_device_proof against production reported four of five conditions met",
-   "src/brambleloop/build2/autonomy.py::off_device_proof (in fcb982d); launch_item (019ebf0 only)"
+   "src/brambleloop/build2/autonomy.py::off_device_proof (in fcb982d); launch_item (019ebf0 only)",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN",
@@ -123,14 +124,14 @@
    "#195 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "owner authorises deploying the certified successor and running a full unattended 24h production window; the proof then reads from real rows"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "Owner action: authorise deployment of the 019ebf0 lineage; then leave devices off 24h and read /api/launch until autonomy.launch_item reports PROVEN.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-655",
@@ -1662,18 +1663,19 @@
   "launch_class_reason": "source-stated: autonomy is a launch architecture requirement",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "Production (fcb982d) initiates research, QA, finance, improvement and monitoring work on cadences unattended, but the Build 2 initiative layer (swarm backlog/allocation, orders/support/growth cadences, improvement sandbox) is not deployed and the off-device proof has never read PROVEN.",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: Production (fcb982d) initiates research, QA, finance, improvement and monitoring work on cadences unattended, but the Build 2 initiative layer (swarm backlog/allocation, orders/support/growth cadences, improvement sandbox) is not deployed and the off-device proof has never read PROVEN.",
   "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
   "durable_state": "jobs (cadence keys)",
   "consumer": "src/brambleloop/runtime/worker.py::Worker",
   "protected_effect": "work proceeds without owner prompting",
   "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
    "tests/test_deploy.py::test_the_container_runs_the_company_by_itself",
-   "tests/test_executor.py::test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation",
-   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session"
+   "tests/test_executor.py::test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation"
   ],
   "evidence": [
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN",
@@ -1681,14 +1683,14 @@
    "#195 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
+   "kind": "data",
    "key": "production_window",
-   "detail": "deployment authorisation and a proven unattended window"
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
   },
   "defect": null,
   "next_action": "Owner: authorise deploying the certified successor; software: none beyond F-654 proof read-out.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-702",
@@ -2217,21 +2219,22 @@
   ],
   "evidence": [
    "build2 #198 note: owner aesthetic direction recorded in visual/brief.py as code rather than chat",
-   "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row"
+   "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row",
+   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1"
   ],
   "build2_rows": [
    "#101 COMPLETE+PROVEN",
    "#198 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_window",
-   "detail": "approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Export the production canonical-model approval record and pack fingerprint into the repository manifest after deploy; test the manifest matches the DB row.",
+  "next_action": "company: export the production model.frozen approval record and pack fingerprint into the repository manifest with a test that the manifest matches the DB row (read-only GET suffices)",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)"
+  "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-719",
@@ -2700,21 +2703,22 @@
   "evidence": [
    "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
    "research/BUILD2_CLOSEOUT_REPORT.md I",
-   "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row"
+   "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row",
+   "w4-FMGATE on 0417f35: as F-718: production_window does not open this; the approval row is readable now (/api/audit?action=model.frozen id 5693)"
   ],
   "build2_rows": [
    "#73 COMPLETE+PROVEN",
    "#200 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_window",
-   "detail": "same as F-718: production approval row / OA-CANON-1"
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "owner gate production_window: same as F-718: production approval row / OA-CANON-1",
+  "next_action": "company: record the approved pack fingerprint from the production model.frozen row in the repository manifest; store provider conditioning packages; deploy hash-verified reference_paths",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35"
  },
  {
   "uid": "F-734",
