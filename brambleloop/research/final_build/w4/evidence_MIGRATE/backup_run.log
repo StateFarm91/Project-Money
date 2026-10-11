@@ -1,0 +1,11 @@
+BK start 20261011T074055Z
+BK server_version 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+BK pg_dump_version pg_dump (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+BK file $S/backup/brambleloop_prod_20261011T074055Z.dump bytes 255004 sha256 0b903f309c9515e319eb4f997734d61a55d09a10730a3003583d796899382fe1
+BK toc_entries 527
+BK restore_ok
+BK tables 51 restored_rows 3516 tables_changed_since_snapshot 0
+BK volume 252G total 15G free
+BK ls total 252
+BK ls -rw-r--r-- 1 root root 255004 Oct 11 07:40 brambleloop_prod_20261011T074055Z.dump
+BK RESULT OK $S/backup/brambleloop_prod_20261011T074055Z.dump
