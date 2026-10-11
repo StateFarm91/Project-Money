@@ -373,6 +373,13 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
         layout = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom,
                             rows_window=(min(rows), r_last), cols_window=(0, cols - 1))
         extra = K.annotation_lines("detail", "flat", {"rows": r_last, "cols": cols})
+    elif view == "hero" and cir.components[0].make > 1:
+        # W4-MULTIPIECE: a flat component the pattern makes N times (an ornament set of 6, a
+        # placemat pair) is shown as the set the buyer gets: all N copies, upright, in a grid,
+        # exactly as the rounds form draws a coaster set. Drawing one piece of a set is a
+        # truthful drawing of the wrong object. The verifier counts and checks every copy.
+        layout, extra = _flat_set(d, cir, twin, palette, full_w, full_h)
+        px = layout.pop("px")
     elif K.diagonal_deg(full_w, full_h, view) is not None:
         layout, extra = _flat_diagonal(d, cir, twin, palette, view, full_w, full_h)
         px = layout.pop("px")
@@ -395,6 +402,31 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
     layout["scale_bar"] = _scale_bar(d, px)
     layout["caption"] = _caption(d, extra)
     return img, layout
+
+
+def _flat_set(d, cir, twin, palette, full_w: float, full_h: float):
+    """The hero of a flat piece made `make` times: every copy, stitch for stitch, in a grid."""
+    make = cir.components[0].make
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE)
+    zw, zh = zx1 - zx0, zy1 - zy0
+    cols = int(math.ceil(math.sqrt(make)))
+    nrows = int(math.ceil(make / cols))
+    gap_cm = DEFAULT_HERO_GAP_RATIO * min(full_w, full_h)
+    px = min(zw / (cols * full_w + (cols - 1) * gap_cm),
+             zh / (nrows * full_h + (nrows - 1) * gap_cm))
+    total_w = (cols * full_w + (cols - 1) * gap_cm) * px
+    total_h = (nrows * full_h + (nrows - 1) * gap_cm) * px
+    drawn = None
+    for k in range(make):
+        rr, cc = divmod(k, cols)
+        left = zx0 + (zw - total_w) / 2 + cc * (full_w + gap_cm) * px
+        bottom = zy0 + (zh - total_h) / 2 + (rr * (full_h + gap_cm) + full_h) * px
+        one = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom)
+        drawn = drawn or one
+    layout = dict(drawn)
+    layout.update(objects=make, grid={"cols": cols, "rows": nrows, "gap_cm": round(gap_cm, 3)},
+                  px=px)
+    return layout, []
 
 
 def _flat_diagonal(d, cir, twin, palette, view: str, full_w: float, full_h: float):

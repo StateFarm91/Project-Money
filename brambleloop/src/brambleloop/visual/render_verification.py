@@ -378,14 +378,57 @@ def flat_rotation(model, view: str) -> float | None:
     (`render_contract.diagonal_deg`); never read from the producer's manifest."""
     if model["construction"] != "flat_rows":
         return None
+    if view == "hero" and int(model.get("make") or 1) > 1:
+        return None      # W4-MULTIPIECE: a set's hero is drawn upright, every copy
     width = max(len(r["seq"]) for r in model["rows"]) * model["w_cm"]
     height = sum(r["height_cm"] for r in model["rows"])
     return K.diagonal_deg(width, height, view)
 
 
+_STATUS_RANK = {PASS: 0, UNKNOWN: 1, FAIL: 2}
+
+
 def _verify_flat(frame, model, view, u, checks) -> dict:
+    """A flat piece; on the hero of a piece the pattern makes N times, every one of the N.
+
+    W4-MULTIPIECE: the hero of a set must show the set. `object_count` is checked first and
+    a hero with fewer (or more) pieces than `make` FAILS; then every copy is measured on its
+    own region exactly as a single piece is, and each check is the worst over the copies."""
+    make = int(model.get("make") or 1)
+    if view != "hero" or make <= 1:
+        return _verify_flat_one(frame, model, view, u, checks)
+    objs = _objects(frame, make)
+    checks.append(_check("object_count", PASS if len(objs) == make else FAIL,
+                         "every piece the pattern makes is drawn on the hero",
+                         found=len(objs), expected=make))
+    if len(objs) != make:
+        return {"objects": len(objs), "expected_objects": make}
+    per_copy: list[list[dict]] = []
+    measured = []
+    pad = K.GAP_PX + 2
+    for (x0, y0, x1, y1) in objs:
+        sub: list[dict] = []
+        measured.append(_verify_flat_one(frame, model, view, u, sub,
+                                         region=(max(0, x0 - pad), max(0, y0 - pad),
+                                                 min(frame.w, x1 + pad + 1),
+                                                 min(frame.h, y1 + pad + 1))))
+        per_copy.append(sub)
+    names: list[str] = []
+    for sub in per_copy:
+        names += [c["check"] for c in sub if c["check"] not in names]
+    for name in names:
+        got = [next((c for c in sub if c["check"] == name), None) for sub in per_copy]
+        statuses = [c["status"] if c is not None else UNKNOWN for c in got]
+        worst = max(statuses, key=lambda st: _STATUS_RANK.get(st, 1))
+        first = next(c for c in got if c is not None)
+        checks.append(_check(name, worst, f"{first['why']} (each of {make} copies)",
+                             per_copy=statuses))
+    return {"objects": make, "copies": measured}
+
+
+def _verify_flat_one(frame, model, view, u, checks, region=None) -> dict:
     deg = flat_rotation(model, view)
-    comps, _ = _components(frame, unrotate=deg)
+    comps, _ = _components(frame, region=region, unrotate=deg)
     w_px = model["w_cm"] * u
     min_area = 0.25 * w_px * model["unit_cm"] * u
     comps = [c for c in comps if c["area"] >= min_area]
