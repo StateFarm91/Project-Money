@@ -89,7 +89,7 @@ export async function render() {
   const c = env.counts || {};
   const n = (v) => (typeof v === "number" ? v : null);
   return h("div", { class: "stack" }, ...pageMeta(result, data),
-    card({ title: "Completion effort", subtitle: "Parallel lanes finishing the existing build", actions: statusPill(env.status) },
+    card({ title: "Completion effort", subtitle: "Parallel Claude development lanes finishing the build (not company agents; agents are on Company and Autonomy & Learn)", actions: statusPill(env.status) },
       h("p", { class: "card-meta" }, freshness(env.as_of, result), env.updated_by ? ` · updated by ${env.updated_by}` : ""),
       env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
       h("div", { class: "tiles" },
@@ -103,7 +103,7 @@ export async function render() {
       Array.isArray(env.schema_errors) && env.schema_errors.length ? h("p", { class: "callout callout-warn" }, `Board problems: ${env.schema_errors.slice(0, 5).join("; ")}`) : null,
       env.note ? h("p", { class: "muted small" }, env.note) : null),
     packetCard(pk),
-    card({ title: "Lanes" },
+    card({ title: "Claude development lanes" },
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),
       sourcesList(env.sources)));
 }

@@ -78,7 +78,14 @@ function usefulText(r) {
   return `${r.job_type}${made ? ` (${made})` : ""} · ${when(r.at)}`;
 }
 
-/** Per-agent status: agent, department, status, current work, useful output, blockers. */
+function nextWorkText(list) {
+  if (!Array.isArray(list)) return null;
+  if (!list.length) return "Nothing queued";
+  const names = list.slice(0, 3).map((n) => (n && n.job_type) || "job");
+  return `${names.join(", ")}${list.length > 3 ? ` +${list.length - 3} more` : ""}`;
+}
+
+/** Per-agent status: agent, department, status, current work, useful output, next work, blockers. */
 export function agentsCard(env, result) {
   if (!isEnvelope(env)) return renderSection("agents", env, { title: "Agents: status, current work, useful output, blockers", result });
   const [opts, ...head] = envHead("Agents: status, current work, useful output, blockers", env, result, null, "autonomy-agents");
@@ -94,7 +101,9 @@ export function agentsCard(env, result) {
           fact("Last useful output", usefulText(it.last_useful_result) || "None recorded"),
           fact(`Useful / done (${known(it.window_hours) ? it.window_hours : "?"} h)`, known(it.completed) ? `${it.useful} / ${it.completed}` : null),
           fact("Next wake", it.next_wake ? when(it.next_wake) : null),
+          fact("Next work", nextWorkText(it.next_work)),
           fact("As of", when(it.as_of))),
+        it.why ? h("p", { class: "callout callout-warn" }, it.why) : null,
         blockers.length ? h("div", null, blockers.map((b) => h("p", { class: "callout callout-warn" }, blockerText(b))))
           : h("p", { class: "row-meta" }, "No blockers."));
     })) : h("p", { class: "muted" }, String(env.status).toUpperCase() === "UNKNOWN" ? "Unknown: no agent status reported." : "No agents reported."),

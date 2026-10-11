@@ -35,7 +35,7 @@ function statusCard(env, result) {
       statTile("Open incidents", num(it.incidents_open), { href: "#/operations" }),
       statTile("Build 2 OPEN rows", num(it.build2_open)),
       statTile("Final Master launch-critical OPEN", num(it.final_master_launch_critical_open)),
-      statTile("Lanes running", num(comp.RUNNING), { href: "#/completion" })),
+      statTile("Claude dev lanes running (board)", num(comp.RUNNING), { href: "#/completion" })),
     it.phase_why ? h("p", { class: "hero-note" }, `Phase: ${it.phase_why}`) : null,
     sourcesList(env && env.sources));
 }
