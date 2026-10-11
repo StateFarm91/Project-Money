@@ -1280,7 +1280,19 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
     resolves on a later reading that shows it set. UNKNOWN fields open and resolve nothing.
     """
     from ..ops import incident_lifecycle as lifecycle
-    from ..store_foundation import live_state
+    from ..store_foundation import live_state, shop_sync
+
+    # W4-SHOPSYNC: first read what Etsy's API exposes about the shop (GET, api_key only; no
+    # write path exists), so the drift below compares against a fresh live reading instead of
+    # UNKNOWN. A failed or refused read is recorded and the drift still runs on what is held.
+    try:
+        synced = shop_sync.sync(ctx.db)
+    except Exception as e:  # noqa: BLE001 - an unread shop is UNVERIFIED, not a dead job
+        synced = {"ran": False, "reading": "UNMEASURED",
+                  "why": f"{type(e).__name__}: {e}"[:300]}
+    ctx.audit(shop_sync.SYNC_ACTION, detail={k: synced.get(k) for k in (
+        "ran", "reading", "why", "operations", "shop_id_source", "credential_refused",
+        "etsy_error") if k in synced})
 
     report = live_state.drift(ctx.db)
     store_reading(ctx.db, LIVE_DRIFT_READING, report)
@@ -1313,7 +1325,8 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
         "incidents_opened": opened, "incidents_resolved": resolved, "writes_performed": 0})
     return {"counts": report["counts"], "unknown": len(report["unknown"]),
             "proposals": len(report["proposals"]), "findings": len(report["findings"]),
-            "incidents_opened": opened, "writes_performed": 0}
+            "incidents_opened": opened, "writes_performed": 0,
+            "shop_sync": synced.get("reading")}
 
 
 # ---- F-514: the surface classifications re-verified against Etsy's API document --------

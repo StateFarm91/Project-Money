@@ -327,6 +327,51 @@ def make_router(db) -> APIRouter:
                               detail=exc.detail) from None
         return ok({"ok": True, "action": action, **out})
 
+    # ---- W4-SHOPSYNC: live shop settings, CONFIRMED-LIVE / OWNER-CONFIRMED / UNVERIFIED --
+    # Session + CSRF + nonce are enforced by the gate. A confirmation is the owner's dated
+    # statement about their own shop (no authority is granted), so it needs no step-up.
+    # Re-reading queues the daily store.live_drift job, which makes read-only api_key GETs.
+
+    @router.get("/store/settings")
+    def store_settings(request: Request):
+        from ...store_foundation import shop_sync
+
+        return ok(shop_sync.status(db))
+
+    @router.post("/store/settings/sync")
+    async def store_settings_sync(request: Request):
+        from datetime import datetime, timezone
+
+        from ...queue.durable import DuplicateJob, JobQueue
+
+        await body_of(request)
+        key = f"store.live_drift:cc:{datetime.now(timezone.utc):%Y%m%dT%H%M}"
+        try:
+            job = JobQueue(db).enqueue("orchestrator", "store.live_drift", {},
+                                       idempotency_key=key)
+        except DuplicateJob:
+            job = None
+        auth.record(db, kind="action", outcome="ok", request=request,
+                    session_public_id=auth.current_public_id(request),
+                    detail={"action": "store.settings_sync", "enqueued": job is not None})
+        return ok({"ok": True, "enqueued": job is not None,
+                   "job_id": getattr(job, "id", None)})
+
+    @router.post("/store/settings/{key}/confirm")
+    async def store_settings_confirm(key: str, request: Request):
+        from ...store_foundation import shop_sync
+
+        body = await body_of(request)
+        try:
+            out = await run_in_threadpool(
+                lambda: shop_sync.confirm(db, key, actor=actor(request),
+                                          statement=str(body.get("statement") or "")))
+        except shop_sync.ConfirmRefused as exc:
+            raise auth.refuse(db, request, 409, "NOT_OWNER_CONFIRMABLE", str(exc),
+                              kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        return ok({"ok": True, **out})
+
     # ---- emergency -------------------------------------------------------------------
 
     @router.get("/emergency")

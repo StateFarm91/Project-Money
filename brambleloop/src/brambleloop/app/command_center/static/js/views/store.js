@@ -52,11 +52,56 @@ function observationCard(drift, stale, rerender) {
     h("label", { class: "field", for: "obs-statement" }, "How you read it"), statement, btn);
 }
 
+// W4-SHOPSYNC: every live shop setting in one of three states. CONFIRMED-LIVE comes from a
+// read-only Etsy API reading; OWNER-CONFIRMED from the owner's one-tap confirmation (for what
+// the API cannot read), with the evidence already on file shown first; UNVERIFIED otherwise.
+const STATE_CLASS = { "CONFIRMED-LIVE": "callout-info", "OWNER-CONFIRMED": "callout-info", UNVERIFIED: "callout-warn" };
+
+function evidenceLines(ev) {
+  const out = [];
+  if (!ev) return out;
+  for (const [k, v] of Object.entries(ev.api || {})) out.push(`Etsy API ${k}: ${JSON.stringify(v).slice(0, 160)}`);
+  for (const [k, v] of Object.entries(ev.observations || {})) out.push(`Your observation ${k} (${v.observed_at || "?"}): ${JSON.stringify(v.value).slice(0, 160)}`);
+  for (const a of ev.owner_actions || []) out.push(`Owner card ${a.key} (${a.done ? "done" : "open"}): ${a.action}`);
+  return out;
+}
+
+function settingsCard(st, stale, rerender) {
+  if (!st || !Array.isArray(st.settings)) return null;
+  const counts = st.counts || {};
+  const rows = st.settings.map((r) => {
+    const meta = r.state === "UNVERIFIED" ? (r.why || "") : `${r.source || ""} · ${r.observed_at || ""}`;
+    const kids = [h("strong", null, r.label), " ", h("span", { class: `callout ${STATE_CLASS[r.state] || ""}` }, r.state),
+      h("div", { class: "muted" }, meta)];
+    if (r.owner_confirmable && r.state !== "CONFIRMED-LIVE") {
+      kids.push(h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
+        const lines = [r.prefilled_statement || "", ...evidenceLines(r.evidence), `Where: ${r.where}`];
+        const done = await guardedAction({ title: `Confirm: ${r.label}?`, lines,
+          confirmLabel: "Confirm", run: () => api.confirmStoreSetting(r.key, r.prefilled_statement || ""),
+          success: "Recorded as OWNER-CONFIRMED." });
+        if (done) rerender();
+      } }, r.state === "OWNER-CONFIRMED" ? "Re-confirm" : "Confirm"));
+    }
+    return h("div", { class: "stack" }, ...kids);
+  });
+  const sync = h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
+    const r = await guardedAction({ title: "Re-read the shop from Etsy?",
+      lines: ["Read-only. Nothing on Etsy is changed."], confirmLabel: "Re-read",
+      run: () => api.storeSettingsSync(), success: "Re-read queued." });
+    if (r) rerender();
+  } }, "Re-read from Etsy");
+  return card({ title: "Live shop settings",
+    subtitle: `CONFIRMED-LIVE ${counts["CONFIRMED-LIVE"] || 0} · OWNER-CONFIRMED ${counts["OWNER-CONFIRMED"] || 0} · UNVERIFIED ${counts.UNVERIFIED || 0}` },
+    ...rows, h("div", { class: "btn-row" }, sync));
+}
+
 export async function render({ rerender } = {}) {
   const result = await api.store();
   const data = result.data || {};
   const s = sectionsOf(data);
   const preview = findPreview(data, s);
+  let settings = null;
+  try { settings = (await api.storeSettings()).data; } catch (_) { settings = null; }
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     card({ title: "Customer-view preview", subtitle: "See the shop the way a buyer would, before anything goes live." },
@@ -64,6 +109,7 @@ export async function render({ rerender } = {}) {
         icon("external", 18), "Open store preview")
         : h("p", { class: "callout callout-warn" }, "Store preview is not available yet: the store foundation has not reported a preview page."),
       h("p", { class: "muted" }, "Preview only. Nothing is published or activated from this screen.")),
+    settingsCard(settings, result.stale, rerender || (() => {})),
     observationCard(s.live_drift, result.stale, rerender || (() => {})),
     ...renderAll(data, ORDER, { result, required: ["store_foundation", "products"], skip: ["preview_url", "preview_path"] }));
 }

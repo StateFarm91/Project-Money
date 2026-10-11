@@ -42,6 +42,8 @@ OBSERVATION_ACTION = "store.live_observation"
 DRIFT_READING = "store.live_drift"
 #: operating_readings kind `runtime.etsy_ops.handle_shop_snapshot` stores (getShop body).
 SHOP_READING = "etsy.shop_snapshot"
+#: operating_readings kind `store_foundation.shop_sync` stores (getShop + sections + policies).
+SYNC_READING = "store.shop_sync"
 
 #: The date the owner configured the live shop by hand. Recorded from the owner's statement
 #: relayed by the integrator; it establishes *protection*, not the values (those are UNKNOWN
@@ -241,9 +243,12 @@ def _shop_reading(db) -> dict | None:
 
     from ..core.models import OperatingReading
 
+    # W4-SHOPSYNC: `store.shop_sync` reads the same getShop body with the app key alone (no
+    # OAuth, no ETSY_SHOP_ID needed). The fresher of the two readings is the live side.
     with db.session() as s:
-        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == SHOP_READING)
-                       .order_by(desc(OperatingReading.at), desc(OperatingReading.id)).limit(1))
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind.in_((SHOP_READING, SYNC_READING)))
+            .order_by(desc(OperatingReading.at), desc(OperatingReading.id)).limit(1))
         return dict(row.payload or {}) if row is not None else None
 
 
