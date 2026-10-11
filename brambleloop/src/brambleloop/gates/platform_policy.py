@@ -109,8 +109,12 @@ ASSET_ROLES: dict[str, tuple[str, str]] = {
 
 # Disclosure lines. Short, plain, and written to be true rather than to be minimal.
 DISCLOSURES: dict[str, str] = {
-    "ai_assisted_design": ("Parts of this design were developed with AI assistance, directed "
-                           "and edited by the designer."),
+    # W4-COPY 2026-10-11: this said "directed and edited by the designer", which reads as a
+    # human designer this shop does not have (COPY_CLAIMS.md C-01). Etsy asks a seller to
+    # disclose "if an item is created with the use of AI" (policy_knowledge creativity
+    # standards); this says that, plainly, plus the check every release does pass.
+    "ai_assisted_design": ("This design was created with AI assistance, and every row's "
+                           "stitch count is checked before release."),
     "generated_imagery": ("Some listing images are illustrations or renders rather than "
                           "photographs, and are labelled where they appear."),
     "digital_download": ("This is a digital pattern. No physical item is shipped."),

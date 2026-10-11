@@ -809,8 +809,8 @@ def _certify_listing(ctx: JobContext, cir: CIR):
         title=f"{cir.title} | Crochet Pattern PDF with Charts",
         description=(f"{cir.title}. Written pattern with stitch counts for every row, "
                      f"as two PDFs -- one written throughout in US terms and one in UK "
-                     f"terms. Drafted and checked with AI assistance and validated by an "
-                     f"automated pattern compiler before release."),
+                     f"terms. Created with AI assistance; every row's stitch count is "
+                     f"checked before release."),
         # The product's own kind, as a tag (Etsy caps a tag at 20 characters).
         tags=["crochet pattern", kind[:20].strip(), "pdf pattern"],
         price_cad=float(price),

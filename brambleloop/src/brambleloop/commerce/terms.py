@@ -55,6 +55,12 @@ OPTIONS: dict[str, dict[str, str]] = {
     REDISTRIBUTION: {
         "prohibited": ("the pattern file, its charts and its photographs may not be shared, "
                        "resold, uploaded or included in another publication"),
+        # W4-COPY 2026-10-11: the shop has no photographs (every image is a disclosed
+        # rendering), so naming "its photographs" described something that does not exist
+        # (store_foundation.readiness LICENCE_MENTIONS_PHOTOGRAPHS). Same restriction.
+        "prohibited_files_and_images": ("the pattern file, its charts and its images may not "
+                                        "be shared, resold, uploaded or included in another "
+                                        "publication"),
     },
     SUPPORT_POLICY: {
         "version_aware_email": ("questions are answered by email, from the exact version of "
@@ -74,6 +80,14 @@ OPTIONS: dict[str, dict[str, str]] = {
         "free_updates_forever": ("corrections and revisions are free forever, and buyers are "
                                  "told when the version they own changes"),
         "free_updates_one_year": "corrections and revisions are free for one year",
+        # W4-COPY 2026-10-11: "buyers are told when the version they own changes" promised a
+        # notice nothing can send -- Etsy publishes no Messages API ('conversation' 1
+        # occurrence in its OpenAPI, intel.etsy_surfaces), so every notice would be a person
+        # typing in Etsy Messages, and "forever" is a perpetual promise nobody reviewed. This
+        # says what the shop can always do: replace the file, and send it to any buyer who asks.
+        "free_corrections_on_request": ("corrections are free: a corrected pattern replaces "
+                                        "the old file, and anyone who bought an earlier "
+                                        "version can ask for the corrected one at any time"),
     },
 }
 
@@ -162,13 +176,15 @@ BRAMBLELOOP_TERMS = Terms(
     choices={
         PDF_USE: "personal_and_teaching",
         FINISHED_ITEM_SALE: "permitted_small_scale",
-        REDISTRIBUTION: "prohibited",
+        REDISTRIBUTION: "prohibited_files_and_images",
         SUPPORT_POLICY: "version_aware_shop_message",
-        VERSION_POLICY: "free_updates_forever",
+        VERSION_POLICY: "free_corrections_on_request",
     },
     # The five axes were decided on 2026-09-19; the support channel was amended on 2026-09-25
-    # when the PDF began rendering from here and named a mailbox that does not exist.
-    decided_on="2026-09-25",
+    # when the PDF began rendering from here and named a mailbox that does not exist; the
+    # redistribution and version sentences were made exact on 2026-10-11 (W4-COPY,
+    # research/final_build/w4/COPY_CLAIMS.md). Still not legally reviewed.
+    decided_on="2026-10-11",
     decided_by="build",
     legal_review=None,
 )
