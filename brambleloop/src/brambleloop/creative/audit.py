@@ -317,6 +317,22 @@ ENGINEERED_MOTIF: dict[str, str] = {
     "nursery-nesting-baskets": "hexagon",
     "hexagon-coaster-set": "hexagon-contrast-round",
 }
+# W4-PRODUCT: the motifs of the engineered catalogue-floor PROPOSAL products
+# (`products.launch0.PROPOSED_CANDIDATES`). Joined to ENGINEERED_MOTIF only on owner approval.
+PROPOSED_ENGINEERED_MOTIF: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "fir-and-star",
+    "housewarming-key-basket": "basketweave",
+}
+
+
+def _merge_approved_proposal() -> None:
+    from ..products.launch0 import CATALOGUE_FLOOR_APPROVED
+
+    if CATALOGUE_FLOOR_APPROVED:
+        ENGINEERED_MOTIF.update(PROPOSED_ENGINEERED_MOTIF)
+
+
+_merge_approved_proposal()
 _CIR_CONSTRUCTION: dict[str, str] = {
     "joined_rounds": "in_the_round",
     "spiral_rounds": "in_the_round",
@@ -324,14 +340,22 @@ _CIR_CONSTRUCTION: dict[str, str] = {
 }
 
 
-def engineered_candidates() -> list:
-    """Launch-0 candidates none of whose variants is a builder design, in listing order."""
+def engineered_candidates(proposed: bool = False) -> list:
+    """Launch-0 candidates none of whose variants is a builder design, in listing order.
+
+    `proposed=True` lists the catalogue-floor proposal's engineered products instead (not in
+    Launch-0 until the owner approves; `products.launch0.CATALOGUE_FLOOR_APPROVED`).
+    """
     from ..products import launch0 as l0
     from ..products.builder import CATALOGUE
 
+    if proposed:
+        pool = [l0.proposed_candidate(s) for s in l0.PROPOSED_SLUGS
+                if s not in l0.LAUNCH0_SLUGS]
+    else:
+        pool = [l0.candidate(s) for s in l0.LAUNCH0_SLUGS]
     out = []
-    for slug in l0.LAUNCH0_SLUGS:
-        cand = l0.candidate(slug)
+    for cand in pool:
         cir_slugs = {l0.cir_for(v.build).slug for v in cand.variants}
         if not cir_slugs & set(CATALOGUE):
             out.append(cand)
@@ -347,7 +371,7 @@ def concept_from_candidate(cand) -> tuple[Concept | None, list[str]]:
     """
     from ..products import launch0 as l0
 
-    motif = ENGINEERED_MOTIF.get(cand.slug)
+    motif = ENGINEERED_MOTIF.get(cand.slug) or PROPOSED_ENGINEERED_MOTIF.get(cand.slug)
     if motif is None:
         return None, [f"{cand.slug}: no motif is recorded for this engineered product"]
     cir = l0.cir_for(cand.variants[0].build)
@@ -380,7 +404,7 @@ def briefed_engineered(cand) -> tuple[Concept | None, dict]:
     literal, why = concept_from_candidate(cand)
     if literal is None:
         return None, {"state": "unbriefed", "problems": why}
-    brief = EB.ENGINEERED_BRIEFS.get(cand.slug)
+    brief = EB.ENGINEERED_BRIEFS.get(cand.slug) or EB.PROPOSED_ENGINEERED_BRIEFS.get(cand.slug)
     if brief is None:
         return literal, {"state": "unbriefed",
                          "problems": ["no emotional brief has been written for this product"]}
@@ -400,7 +424,7 @@ def briefed_engineered(cand) -> tuple[Concept | None, dict]:
     return concept, {"state": "briefed", "problems": [], "brief": brief.to_dict()}
 
 
-def audit_launch0_engineered() -> dict:
+def audit_launch0_engineered(proposed: bool = False) -> dict:
     """Judge the engineered Launch-0 products with the unchanged jury, as their own cohort.
 
     Context is the briefed builder catalogue plus the other engineered products, so a basket
@@ -412,10 +436,15 @@ def audit_launch0_engineered() -> dict:
     from . import emotional_brief as EB
     from .jury import Context, judge
 
-    cands = engineered_candidates()
+    cands = engineered_candidates(proposed=proposed)
     built = [(c, *briefed_engineered(c)) for c in cands]
     concepts = [con for _c, con, _s in built if con is not None]
     catalogue, _states = briefed_catalogue_concepts()
+    if proposed:
+        # A proposal is judged against everything already in Launch-0 as well, so it cannot
+        # survive by recolouring an engineered product that is already selling.
+        launched = [briefed_engineered(c)[0] for c in engineered_candidates()]
+        catalogue = catalogue + [c for c in launched if c is not None]
     verdicts, states, survivors, variant_slugs = {}, {}, [], []
     for cand, concept, state in built:
         states[cand.slug] = state
@@ -429,7 +458,7 @@ def audit_launch0_engineered() -> dict:
             survivors.append(cand.slug)
             variant_slugs.extend(l0.cir_for(var.build).slug for var in cand.variants)
     return {
-        "cohort": {"name": ENGINEERED_COHORT,
+        "cohort": {"name": ENGINEERED_COHORT + ("_proposed" if proposed else ""),
                    "generator_version": f"launch0+briefs@{EB.engineered_fingerprint()}",
                    "n": len(cands),
                    "why": ("Launch-0 products engineered outside products/builder.py; judged "

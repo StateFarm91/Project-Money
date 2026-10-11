@@ -433,6 +433,23 @@ ENGINEERED: dict[str, str] = {
     "housewarming-key-basket": "brambleloop.products.moment_candidates:housewarming_key_basket",
     "spring-garden-kneeler": "brambleloop.products.moment_candidates:spring_garden_kneeler",
 }
+# W4-PRODUCT: the Nordic Forest baby size is a catalogue-floor PROPOSAL product under its own
+# size slug (the throw stays the concept slug above). It is registered only once the owner
+# approves raising the Launch-0 cap (`products.launch0.CATALOGUE_FLOOR_APPROVED`); until then
+# `products.launch0.cir_for("nordic_forest_baby")` builds it for measurement.
+PROPOSED_ENGINEERED: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "launch0:nordic_forest_baby",
+}
+
+
+def _merge_approved_proposal() -> None:
+    from ..products.launch0 import CATALOGUE_FLOOR_APPROVED
+
+    if CATALOGUE_FLOOR_APPROVED:
+        ENGINEERED.update(PROPOSED_ENGINEERED)
+
+
+_merge_approved_proposal()
 
 
 def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
