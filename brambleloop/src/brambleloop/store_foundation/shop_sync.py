@@ -213,8 +213,22 @@ def _resolve_shop_id(reader: ShopReader, e: dict) -> tuple[int | None, str]:
 def sync(db, *, env: dict | None = None, now: datetime | None = None) -> dict:
     """Read the shop's API-exposed settings and store one dated reading. Never writes.
 
-    Returns `ran`, `reading` (`measured` / `UNMEASURED`), the operations called and why.
+    Returns `ran`, `reading` (`measured` / `UNMEASURED`), the operations called and why. Every
+    outcome is recorded as a `store.shop_sync` audit row (operations and status, never the
+    credential), so "not read, and why" is as visible as a reading.
     """
+    out = _sync(db, env=env, now=now)
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=SYNC_ACTION, artifact="etsy_shop",
+                       detail={k: out.get(k) for k in (
+                           "ran", "reading", "why", "operations", "shop_id_source",
+                           "credential_refused", "etsy_error") if k in out}))
+    return out
+
+
+def _sync(db, *, env: dict | None = None, now: datetime | None = None) -> dict:
     from ..intel import etsy_public
     from ..runtime.etsy_ops import store_reading
 

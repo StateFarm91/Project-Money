@@ -1290,9 +1290,6 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
     except Exception as e:  # noqa: BLE001 - an unread shop is UNVERIFIED, not a dead job
         synced = {"ran": False, "reading": "UNMEASURED",
                   "why": f"{type(e).__name__}: {e}"[:300]}
-    ctx.audit(shop_sync.SYNC_ACTION, detail={k: synced.get(k) for k in (
-        "ran", "reading", "why", "operations", "shop_id_source", "credential_refused",
-        "etsy_error") if k in synced})
 
     report = live_state.drift(ctx.db)
     store_reading(ctx.db, LIVE_DRIFT_READING, report)
@@ -1322,7 +1319,8 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
         "owner_actions": owner_rows,
         "counts": report["counts"], "unknown": report["unknown"],
         "proposals": len(report["proposals"]), "findings": report["findings"][:10],
-        "incidents_opened": opened, "incidents_resolved": resolved, "writes_performed": 0})
+        "incidents_opened": opened, "incidents_resolved": resolved, "writes_performed": 0,
+        "shop_sync": {k: synced.get(k) for k in ("ran", "reading", "why") if k in synced}})
     return {"counts": report["counts"], "unknown": len(report["unknown"]),
             "proposals": len(report["proposals"]), "findings": len(report["findings"]),
             "incidents_opened": opened, "writes_performed": 0,
