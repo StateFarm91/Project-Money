@@ -220,7 +220,8 @@ def make_router(db) -> APIRouter:
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
-                   "sections": {"board": company_mod.completion(db)}})
+                   "sections": {"board": company_mod.completion(db),
+                                "live_work": company_mod.live_company_work(db)}})
 
     @router.get("/insights")
     def insights(request: Request):
