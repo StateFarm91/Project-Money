@@ -144,31 +144,167 @@ def _spend_limits(db) -> list[dict]:
                 for r in s.scalars(select(SpendLimit).order_by(SpendLimit.scope))]
 
 
-def _recorded_suite(repo_root: Path | None) -> dict:
-    """The newest recorded full-suite and closure evidence files, quoted, never re-judged."""
+_SUITE_FIELDS = ("run_id", "git_sha", "status", "scope", "release_eligible", "tree",
+                 "tests_passing", "tests_failing_reported", "suites_total", "suites_failing",
+                 "failing_suites", "finished_utc")
+
+
+def _git(repo_root: Path, *args: str, stdin: bytes | None = None):
+    import subprocess
+
+    try:
+        return subprocess.run(["git", "-C", str(repo_root), *args], input=stdin,
+                              capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _git_tree_digest(repo_root: Path, sha: str) -> tuple[str | None, str]:
+    """The deployable-tree digest of commit `sha`, read from git (same rule as the boot guard
+    and `ops/deploy_guard.py`): `src/**` without bytecode plus `requirements.lock`."""
+    from ..ops import release_record as rr
+
+    top = _git(repo_root, "rev-parse", "--show-toplevel")
+    if top is None or top.returncode != 0:
+        return None, "no git repository at the repository root"
+    try:
+        prefix = repo_root.resolve().relative_to(Path(top.stdout.decode().strip()).resolve())
+    except ValueError:
+        return None, "repository root is outside its git work tree"
+    pre = "" if str(prefix) == "." else prefix.as_posix() + "/"
+    roots = [pre + d.rstrip("/") for d in rr.DEPLOYABLE_DIRS] + [pre + f for f in
+                                                                 rr.DEPLOYABLE_FILES]
+    ls = _git(repo_root, "ls-tree", "-r", "-z", "--full-tree", sha, "--", *roots)
+    if ls is None or ls.returncode != 0:
+        return None, f"commit {sha[:12]} is not in this repository"
+    files = []
+    for item in ls.stdout.split(b"\0"):
+        if not item:
+            continue
+        meta, path = item.split(b"\t", 1)
+        mode, kind, _obj = meta.decode().split()
+        rel = path.decode()[len(pre):]
+        if kind == "blob" and mode in ("100644", "100755") and rr.deployable(rel):
+            files.append((path.decode(), rel))
+    if not files:
+        return None, f"commit {sha[:12]} has no deployable tree"
+    cat = _git(repo_root, "cat-file", "--batch",
+               stdin="".join(f"{sha}:{full}\n" for full, _r in files).encode())
+    if cat is None or cat.returncode != 0:
+        return None, "git cat-file failed"
+    data, pos, entries = cat.stdout, 0, []
+    for _full, rel in files:
+        nl = data.find(b"\n", pos)
+        header = data[pos:nl].decode(errors="replace").split()
+        pos = nl + 1
+        if len(header) != 3 or header[1] != "blob":
+            return None, f"blob for {rel} unreadable at {sha[:12]}"
+        size = int(header[2])
+        entries.append((rel, data[pos:pos + size]))
+        pos += size + 1
+    return rr.tree_digest(entries), "git"
+
+
+def _candidate_digest(repo_root: Path, sha: str) -> tuple[str | None, str]:
+    """The candidate's deployable-tree digest: from git, or -- inside a deploy image, which has
+    no git -- from the filesystem, but only when the running build identity IS the candidate."""
+    digest, how = _git_tree_digest(repo_root, sha)
+    if digest:
+        return digest, how
+    from ..core import build as build_mod
+    from ..ops import release_record as rr
+
+    if build_mod.commit() == sha:
+        got, err = _guard(lambda: rr.filesystem_digest(repo_root))
+        if got:
+            return got, "filesystem of the running build (build identity is the candidate)"
+        how = f"{how}; filesystem unreadable: {err}"
+    return None, how
+
+
+def _release_record(repo_root: Path, sha: str) -> dict:
+    """The candidate's own committed release record (`release/RELEASE_<sha>.json`), quoted.
+
+    A record is the candidate's when it names the candidate's SHA, or when it names the
+    candidate's exact deployable-tree digest and its SHA is the candidate or an ancestor (the
+    record-only commit on top of the suite's commit -- the deploy guard's rule). The record and
+    its pinned suite copy are checked by `ops.release_record.check_record`. No record bound
+    to this SHA is UNKNOWN; a bound record that fails its checks is FAIL. Nothing is invented.
+    """
+    import re
+
+    from ..ops import release_record as rr
+
+    release_dir = repo_root / rr.RELEASE_DIR_NAME
+    out: dict = {"state": UNKNOWN, "candidate_sha": sha, "record_file": None}
+    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""):
+        out["why"] = "candidate is not a full commit SHA; no release record can be bound"
+        return out
+    records = []
+    for p in sorted(release_dir.glob("RELEASE_*.json")) if release_dir.is_dir() else []:
+        rec, _err = _guard(lambda p=p: json.loads(p.read_text()))
+        if isinstance(rec, dict):
+            records.append((p, rec))
+    if not records:
+        out["why"] = f"no release record exists in {rr.RELEASE_DIR_NAME}/"
+        return out
+    digest, how = None, ""
+    bound = [(p, rec, "exact_sha") for p, rec in records if rec.get("sha") == sha]
+    if not bound:
+        digest, how = _candidate_digest(repo_root, sha)
+        for p, rec in records:
+            if not digest or rec.get("source_tree_sha256") != digest:
+                continue
+            if how == "git":
+                anc = _git(repo_root, "merge-base", "--is-ancestor", str(rec.get("sha")), sha)
+                if anc is not None and anc.returncode == 0:
+                    bound.append((p, rec, "tree_digest+ancestor"))
+            else:
+                # no git (deploy image): the boot guard's own rule, digest equality alone
+                bound.append((p, rec, "tree_digest (ancestry not checkable without git)"))
+    if not bound:
+        out["why"] = (f"no release record names {sha[:12]} or its deployable-tree digest "
+                      f"({(digest or 'unread')[:16]}; {how or 'exact SHA only'})")
+        return out
+    best = None
+    for p, rec, binding in bound:
+        problems = rr.check_record(rec, release_dir)
+        suite_ref = (rec.get("suite_record") or {}).get("path")
+        suite, _e = _guard(lambda: json.loads((release_dir / suite_ref).read_text()))
+        entry = {"state": FAIL if problems else PASS, "candidate_sha": sha,
+                 "record_file": f"{rr.RELEASE_DIR_NAME}/{p.name}",
+                 "record_sha": rec.get("sha"), "binding": binding,
+                 "release_eligible": rec.get("release_eligible"),
+                 "tree_sha256": rec.get("source_tree_sha256"),
+                 "recorded_at": rec.get("recorded_at"),
+                 "suite_record": f"{rr.RELEASE_DIR_NAME}/{suite_ref}" if suite_ref else None,
+                 "suite": ({k: suite.get(k) for k in _SUITE_FIELDS if k in suite}
+                           if isinstance(suite, dict) else {}),
+                 "record_problems": problems}
+        if not problems:
+            return entry
+        best = best or entry
+    return best
+
+
+def _recorded_suite(repo_root: Path | None, sha: str = "") -> dict:
+    """The candidate's own release record and the closure matrix, quoted, never re-judged."""
     if repo_root is None:
         return {"state": UNKNOWN, "why": "no repository root given; suite evidence not read"}
-    base = repo_root / "research" / "final_build"
-    runs = sorted(base.glob("RUN_*_full_suite.json"), key=lambda p: p.stat().st_mtime)
-    out: dict = {"state": UNKNOWN, "suite_file": None, "closure_file": None}
-    if runs:
-        data, err = _guard(lambda: json.loads(runs[-1].read_text()))
-        out["suite_file"] = str(runs[-1].relative_to(repo_root))
-        if isinstance(data, dict):
-            out["suite"] = {k: data.get(k) for k in ("commit", "sha", "passed", "failed",
-                                                     "errors", "total", "verdict", "at")
-                            if k in data}
-        else:
-            out["suite_error"] = err
-    closure = base / "closure_matrix.json"
+    out, err = _guard(lambda: _release_record(repo_root, sha))
+    if not isinstance(out, dict):
+        out = {"state": UNKNOWN, "candidate_sha": sha, "record_file": None,
+               "why": f"release record unreadable: {err}"}
+    out.setdefault("why", "release record committed for this candidate's SHA or its exact "
+                          "deployable tree, checked by ops.release_record.check_record")
+    out["closure_file"] = None
+    closure = repo_root / "research" / "final_build" / "closure_matrix.json"
     if closure.exists():
         out["closure_file"] = str(closure.relative_to(repo_root))
         data, _err = _guard(lambda: json.loads(closure.read_text()))
         if isinstance(data, dict):
             out["closure"] = {k: data.get(k) for k in ("commit", "summary", "counts", "at")
                               if k in data}
-    out["why"] = ("recorded evidence quoted as found; it was produced for the commit it names, "
-                  "which may not be this candidate -- re-run the suite for this SHA")
     return out
 
 
@@ -227,7 +363,7 @@ def build(db, *, sha: str, repo_root: Path | None = None, env: dict | None = Non
         "products_blocked": blocked, "products_with_unknowns": unknown,
         "owner_queue": queue, "owner_queue_error": queue_err,
         "spend_limits": limits, "spend_limits_error": limits_err,
-        "recorded_suite": _recorded_suite(repo_root),
+        "recorded_suite": _recorded_suite(repo_root, sha),
         "rollback_path": dict(pa.ROLLBACK_PATH),
         "activation_steps": list(ACTIVATION_STEPS),
     }
@@ -313,7 +449,17 @@ def render_markdown(p: dict) -> str:
     rs = p["recorded_suite"]
     L += ["", "## Recorded suite / closure evidence", "",
           f"- State: {rs.get('state')} -- {rs.get('why')}",
-          f"- Suite file: {rs.get('suite_file')}; closure file: {rs.get('closure_file')}"]
+          f"- Release record: {rs.get('record_file')} (record SHA {rs.get('record_sha')}, "
+          f"binding {rs.get('binding')}, release_eligible {rs.get('release_eligible')}, "
+          f"tree_sha256 {rs.get('tree_sha256')})"]
+    st = rs.get("suite") or {}
+    if st:
+        L.append(f"- Suite run {st.get('run_id')}: {st.get('tests_passing')} tests passing, "
+                 f"{st.get('suites_failing')} failing suites of {st.get('suites_total')}, "
+                 f"tree {st.get('tree')}, release_eligible {st.get('release_eligible')}")
+    if rs.get("record_problems"):
+        L.append("- Record problems: " + "; ".join(rs["record_problems"]))
+    L.append(f"- Closure file: {rs.get('closure_file')}")
     L += ["", "## Rollback path", ""] + [f"- **{k}**: {v}" for k, v in
                                           p["rollback_path"].items()]
     L += ["", "## Activation steps", ""] + [f"{i}. {s}" for i, s in

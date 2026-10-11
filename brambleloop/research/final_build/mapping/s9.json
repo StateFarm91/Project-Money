@@ -3002,7 +3002,8 @@
   "tests": [],
   "evidence": [
    "git branch -a: only build2-candidate-63f2493",
-   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z"
+   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z",
+   "w4-PACKETREL: freeze ref recorded -- branch claude/final-candidate-7421ef6 on origin points at 7421ef6215588659da314cced213a848ffc8e567 (a tag push was refused by the git proxy, so the ref is a branch, not tag final-candidate-7421ef6). The closing event also requires the defect ledger, and none exists for 7421ef6 (no DEFECT_LEDGER_7421ef6.json or CANDIDATE_7421ef6.json). scripts/freeze_candidate.py --dry-run on 7421ef6 refuses (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6.json): the only suite record is for 3967f40, not exactly 7421ef6, and its tests_failing_reported is 2, although the log has no FAIL test lines; the 2 are OK lines whose text contains 'FAIL'. Not closed: the ref exists, but the freeze tool refuses and no defect ledger is open"
   ],
   "build2_rows": [],
   "gate": {
@@ -3013,7 +3014,7 @@
   "defect": null,
   "next_action": "After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-PACKETREL"
  },
  {
   "uid": "F-846",
@@ -3996,7 +3997,8 @@
   ],
   "evidence": [
    "launch/rollback.py not in fcb982d",
-   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate"
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+   "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)"
   ],
   "build2_rows": [
    "#54 OWNER-GATED",
@@ -4010,7 +4012,7 @@
   "defect": null,
   "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
   "confidence": "MEDIUM",
-  "searched": " | w4-FMLEDGER close"
+  "searched": " | w4-FMLEDGER close | w4-PACKETREL"
  },
  {
   "uid": "F-879",
