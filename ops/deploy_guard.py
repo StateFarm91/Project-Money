@@ -469,6 +469,31 @@ def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
     }
 
 
+# The tracked log is copied into the image (the Dockerfile copies release/), and
+# tests/test_cert_claude_independence.py refuses any release file naming a Claude session
+# marker -- including the bare word "heartbeat", which many runtime test names contain (job,
+# worker and scheduler heartbeats). So the copy in release/ is the suite-level summary (every
+# unindented line: run id, SHA, scope, one `== tests/...` line per suite, totals, exit), which
+# is all either guard reads. The full per-test log goes to research/release_evidence/ (not in
+# the image) and is pinned by sha256 in the record. Absolute checkout paths become `<repo>`.
+SESSION_MARKERS = (".claude", "claude.ai/code", "claude-session", "heartbeat")
+FULL_LOG_DIR = "research/release_evidence"
+
+
+def portable_log(data: bytes, repo: Path) -> bytes:
+    text = data.decode("utf-8", errors="replace")
+    roots = {str(repo), str(repo.resolve())}
+    for root in sorted(roots, key=len, reverse=True):
+        text = text.replace(root.rstrip("/") + "/", "<repo>/")
+    return text.encode("utf-8")
+
+
+def summary_log(data: bytes) -> bytes:
+    keep = [ln for ln in data.decode("utf-8", errors="replace").splitlines(keepends=True)
+            if ln.strip() and not ln[:1].isspace()]
+    return "".join(keep).encode("utf-8")
+
+
 def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR,
                    log_base: Path | None = None, layout: dict = LAYOUT,
                    now: str = "") -> dict:
@@ -498,10 +523,20 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
     rel_dir = repo / (layout["prefix"] + layout["release"])
     (rel_dir / "suite_runs").mkdir(parents=True, exist_ok=True)
     rec_bytes = Path(rec["_path"]).read_bytes()
-    log_bytes = log_path.read_bytes()
+    full_bytes = portable_log(log_path.read_bytes(), repo)
+    log_bytes = summary_log(full_bytes)
+    leaked = [m for m in SESSION_MARKERS
+              if m in rec_bytes.decode(errors="replace").lower()
+              or m in log_bytes.decode(errors="replace").lower()]
+    if leaked:
+        return {"ok": False, "reasons": [f"the run record or log summary still names {leaked}; "
+                                         "it ships in the image and must not"]}
     rid = re.sub(r"[^A-Za-z0-9_.-]", "_", str(rec.get("run_id") or full[:12]))
     (rel_dir / "suite_runs" / f"{rid}.json").write_bytes(rec_bytes)
     (rel_dir / "suite_runs" / f"{rid}.log").write_bytes(log_bytes)
+    full_rel = f"{FULL_LOG_DIR}/{rid}.full.log"
+    (repo / layout["prefix"] / full_rel).parent.mkdir(parents=True, exist_ok=True)
+    (repo / layout["prefix"] / full_rel).write_bytes(full_bytes)
     record = {
         "kind": "brambleloop.release_record", "version": 1, "sha": full,
         "source_tree_sha256": git_tree_digest(repo, full, layout),
@@ -512,11 +547,14 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
                          "sha256": hashlib.sha256(rec_bytes).hexdigest()},
         "suite_log": {"path": f"suite_runs/{rid}.log",
                       "sha256": hashlib.sha256(log_bytes).hexdigest()},
+        "full_log": {"path": full_rel, "relative_to": layout["prefix"],
+                     "sha256": hashlib.sha256(full_bytes).hexdigest(),
+                     "note": "per-test log, outside the image; release/ holds its summary"},
         "release_eligible": True, "recorded_at": now or rec.get("finished_utc"),
         # F-158 / F-416: lock verification, SBOM digest and the change record against the
         # last deployed SHA, for the tree at `sha` (scripts/supply_chain.py as of `sha`).
         "supply_chain": supply,
-        "note": "commit this file and suite_runs/ on top of `sha`; the deploy guard and the "
+        "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard and the "
                 "runtime boot guard read it from git / the image, never from artifacts/",
     }
     out = rel_dir / f"RELEASE_{full}.json"
