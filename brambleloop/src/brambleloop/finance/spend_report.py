@@ -468,7 +468,10 @@ def per_agent_today(db, *, now: datetime | None = None) -> dict:
         entry = {"agent": name, "spent_today_cad": today_cad, "daily_ceiling_cad": ceiling,
                  "share": round(today_cad / ceiling, 4) if ceiling else None}
         rows.append(entry)
-        if ceiling > 0 and today_cad > ceiling:
+        # W4-FINHEALTH: a CA$0 ceiling is a permission of zero (learn, coo, laura), so any
+        # spend by such an agent is over it. `ceiling > 0 and ...` made those agents
+        # invisible here exactly when their refusal had failed.
+        if today_cad > ceiling:
             over.append(entry)
     # Spend attributed to a name that is not a registered agent has no ceiling at all, and
     # it is reported rather than dropped for the same reason `unattributed` is: the dollars
@@ -634,7 +637,9 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
     outside = {k: b for k, b in v["by_purpose"].items()
                if b["calls"] >= DRIFT_MIN_CALLS and not b["within_tolerance"]}
     unreserved = v["calls_with_no_reservation"]
-    unreserved_share = round(unreserved / len(token_rows), 4) if token_rows else 0.0
+    # W4-FINHEALTH: with no token-priced call there is no share to report -- None, not 0.0,
+    # which read as "every call was reserved" in /api/spend-report.
+    unreserved_share = round(unreserved / len(token_rows), 4) if token_rows else None
     too_many_unreserved = token_rows and unreserved_share > UNRESERVED_SHARE_TOLERANCE
 
     reasons = []

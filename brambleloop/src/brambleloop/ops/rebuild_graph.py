@@ -189,6 +189,26 @@ def _topological(keys: set[str], children: dict[str, set[str]]) -> list[str]:
     return order
 
 
+# `jobs.idempotency_key` is VARCHAR(200). SQLite never enforces that; Postgres does, and on
+# 2026-10-11 every hourly `ops.sentinel` dead-lettered with StringDataRightTruncation because
+# `stamp` names every changed ref and grows with the estate. A key that fits is kept verbatim
+# (so every job already queued keeps its key); a longer one keeps its prefix and replaces the
+# stamp with the sha256 of the whole key, still a function of exactly the refs and fingerprints that
+# moved -- same change, same key; different change, different key.
+IDEMPOTENCY_KEY_MAX = 200
+
+
+def _bounded_key(prefix: str, stamp: str) -> str:
+    key = f"{prefix}{stamp}"
+    if len(key) <= IDEMPOTENCY_KEY_MAX:
+        return key
+    import hashlib
+
+    digest = "sha256=" + hashlib.sha256(key.encode()).hexdigest()
+    head = prefix[: IDEMPOTENCY_KEY_MAX - len(digest)]
+    return f"{head}{digest}"
+
+
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             expected: list[tuple[str, str, str]] | None = None,
             per: str = "artefact", previous: dict[str, str] | None = None) -> dict:
@@ -214,7 +234,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         for row in plan["rebuild"]:
             by_product.setdefault(row["product_slug"], []).append(row)
         for slug, rows in sorted(by_product.items()):
-            key = f"rebuild:product:{slug}:{stamp}"
+            key = _bounded_key(f"rebuild:product:{slug}:", stamp)
             try:
                 queue.enqueue("listing", "chain.rebuild",
                               {"product_slug": slug,
@@ -233,7 +253,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                                 "change enqueues once and a different change enqueues again")}
 
     for row in plan["rebuild"]:
-        key = f"rebuild:{row['key']}:{stamp}"
+        key = _bounded_key(f"rebuild:{row['key']}:", stamp)
         try:
             queue.enqueue("listing", "chain.rebuild",
                           {"product_slug": row["product_slug"],
