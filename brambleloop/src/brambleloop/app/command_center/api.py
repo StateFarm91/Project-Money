@@ -359,6 +359,38 @@ def make_router(db) -> APIRouter:
                               detail=exc.detail) from None
         return ok({"ok": True, **out})
 
+    # ---- W4-ONDEMAND: "Run checks now" -------------------------------------------------
+    # Session + CSRF + nonce + timestamp are enforced by the gate before these run. A check
+    # that calls a third party (model, Etsy, bucket) also needs a fresh step-up. Each run only
+    # enqueues the existing scheduled job type; the worker re-authorises and budget-checks it.
+
+    @router.get("/checks")
+    def checks_status(request: Request):
+        from ...ops import on_demand
+
+        return ok(on_demand.status(db))
+
+    @router.post("/checks/{key}/run")
+    async def checks_run(key: str, request: Request):
+        from ...ops import on_demand
+
+        await body_of(request)
+        pid = auth.current_public_id(request)
+        check = on_demand.CHECKS.get(key)
+        if check is None:
+            raise auth.refuse(db, request, 404, "NOT_FOUND", f"unknown check {key!r}",
+                              kind="action", session_public_id=pid)
+        if check.external:
+            auth.require_stepup(db, request, f"checks.{key}")
+        try:
+            out = await run_in_threadpool(on_demand.run_check, db, key, actor=actor(request))
+        except on_demand.CheckRefused as exc:
+            status = 429 if exc.code == "RATE_LIMITED" else 409
+            raise auth.refuse(db, request, status, exc.code, str(exc), kind="action",
+                              session_public_id=pid,
+                              detail={"retry_after_s": exc.retry_after_s}) from None
+        return ok({"ok": True, **out})
+
     # ---- emergency -------------------------------------------------------------------
 
     @router.get("/emergency")

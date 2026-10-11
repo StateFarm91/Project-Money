@@ -5123,6 +5123,15 @@ def api_etsy_oauth_callback(request: Request) -> Response:
                                   if k != "tokens"},
                                **({"tokens": result.detail["tokens"]}
                                   if "tokens" in result.detail else {})})
+    if result.ok:
+        # W4-ONDEMAND: a fresh grant is the moment the taxonomy and market-intel reads can
+        # succeed; queue them now (idempotent per hour) rather than at the next cadence.
+        try:
+            from ..ops import on_demand
+
+            on_demand.after_etsy_ok(db, trigger="oauth_callback")
+        except Exception:  # noqa: BLE001 - follow-on work never changes the callback page
+            pass
     return _oauth_page(result.http_status, result.headline, result.explanation,
                        result.what_to_do,
                        {"outcome": result.outcome, **result.detail})
