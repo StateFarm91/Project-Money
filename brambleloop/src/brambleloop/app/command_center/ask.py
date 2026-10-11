@@ -34,7 +34,9 @@ def _result(question, intent, facts, answer, *, status=None, next_action=None) -
         answer = "UNKNOWN: " + answer
     return {"question": question, "intent": intent, "status": status, "answer": answer,
             "facts": facts, "next_action": next_action,
-            "sources": sorted({f["source"] for f in facts}), "method": METHOD}
+            "sources": sorted({f["source"] for f in facts}), "method": METHOD,
+            # W4-CCGAP: when this answer was read from durable state.
+            "answered_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
 
 
 # ---- intent classification -------------------------------------------------------

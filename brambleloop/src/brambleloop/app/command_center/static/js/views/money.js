@@ -90,7 +90,9 @@ function sourceHealthCard(sh) {
   return card({ title: "Source health", actions: statusPill(measured ? "OK" : "DEGRADED", measured ? "CONNECTED" : "NOT CONNECTED") },
     sh.warning ? h("p", { class: "callout callout-warn" }, sh.warning) : null,
     sh.why ? h("p", { class: "muted" }, sh.why) : null,
-    h("p", { class: "card-meta" }, sh.last_read_at ? `Last read ${relTime(sh.last_read_at)} (${utcStamp(sh.last_read_at)})` : "Never read"));
+    // W4-CCGAP: a real timestamp element (or "as of: unknown"), never a bare phrase.
+    h("p", { class: "card-meta" }, "Order source last read: ", freshness(sh.last_read_at || null),
+      sh.last_read_at ? ` (${utcStamp(sh.last_read_at)})` : " (never read)"));
 }
 
 // W4-CCFIN: estimate drift is a status envelope with its drift detail beside it; a status card
@@ -142,10 +144,11 @@ export async function render({ params, query }) {
     ...pageMeta(result, data),
     tabStatus(data),
     headline.length ? card({ title: "Headline", subtitle: "Tap a figure to see the records behind it." },
+      h("p", { class: "card-meta" }, freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })),
       h("div", { class: "tiles" }, headline.map(([k, label]) => moneyTile(headLabel(k, label),
         isMoney(data[k]) ? data[k] : null, { drillHref: `#/money/drill/${k}${q}` })))) : null,
     sourceHealthCard(data.source_health),
-    card({ title: "Period" }, seg,
+    card({ title: "Period" }, h("p", { class: "card-meta" }, freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })), seg,
       h("p", { class: "muted" }, echoed ? `Showing: ${echoed}` : period ? "The server did not confirm this period filter, so figures may be for its default period." : "Server default period.")),
     ...MONEY_SECTIONS.filter(([k]) => s[k] !== undefined || k === "accounting").map(([k, t]) => moneySection(k, t, s[k], result, period)),
     s.estimate_drift !== undefined ? driftCard(s.estimate_drift, result) : null,

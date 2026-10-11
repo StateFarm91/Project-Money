@@ -54,6 +54,8 @@ JSON shipped in the image (`app/command_center/snapshots/`), shown with its own 
 | F4 | "Your actions" said 13 while "Decisions for you" and Approvals said 14, and the batch plan said 26 (FU-4). | `tabs.reconcile_owner_actions` (Home and Company): "13 gate/owner-action decision(s) + 1 publication approval(s) = 14 open on Approvals", plus a note that the batch plan is a dated snapshot. | test_w4_ccgap_views |
 | F5 | Claude development lanes were not distinguished from company agents (FU-9). | Company tile: "Claude dev lanes running (board)". Completion: "Claude development lanes … (not company agents)". | test_w4_ccgap_views |
 | F6 | **Phone:** Approvals was 413 px wide at 390 px because a repo path in a proposal did not wrap. | `.card { overflow-wrap: break-word; }` | The cc_mock proposal now carries a long path. check.mjs fails before the fix ("scrollWidth 773 > 390") and passes 123/0 after. Also test_w4_ccgap_views. |
+| F7 | **Phone (second case, found on Postgres-seeded data):** Approvals was 465 px at 390 px. A long token in a flex card title (`` `commerce.shop_package.policies()` ``) pushed the status pill off screen. | `.card-head > :first-child { min-width: 0 }` and `.card-title { overflow-wrap: anywhere }` | The cc_mock card title now carries such a token. check.mjs fails before the fix (122/1, "scrollWidth 465 > 390") and passes 123/0 after. Also test_w4_ccgap_views. |
+| F8 | **Missing per-card timestamps (FU-6).** | Every data card now renders `freshness()`: a `<time>` element, or "as of: unknown" when the source has no time. This covers Money Headline/Period/Source health (order source last read, "never read"); Home "Since you last looked"; each Approvals card ("Inbox read"), the batch plan and Not yet askable; each Notification (last seen); the Laura header, presence and each answer; Account signed-in devices; Emergency phase, publishing and departments (`emergency.status` now returns `as_of`); Completion lanes; Ask answers (`answered_at`). | test_w4_ccgap_views (2 tests) |
 
 After the fixes, the re-drive (`drive_ccgap_after.json`) found no JS errors on any page. Every
 phone page measured scrollWidth = 390. The server stayed up through the drive and the extra
@@ -68,17 +70,19 @@ Tests run, one process at a time with a private TMPDIR:
 
 ## 4. What remains (not fixed here)
 
-1. **Cold start (FU-8).** The Build 2 closure reads UNKNOWN "computing" for over a minute after
-   boot. In the warm drive it was still computing about 90 s in. The launch packet took about
-   2 min to generate its first copy. Both are honest UNKNOWN, but slow.
+1. **Build 2 closure warm-up (FU-8).** It takes 67–101 s after boot and the launch packet about
+   2 min (see §6). Both run off the request path, show honest UNKNOWN until ready, and never delay
+   `/health`. Not a deploy risk; left as is.
 2. **Snapshot-backed sections are only as fresh as the last release.** These are
    COMPLETION_BOARD, OWNER_ACTIONS (the batch plan), VISUAL_STATUS stages and Final Master. Each
    shows its own date ("1 d ago", "4 d ago"), but none of them updates live. Making them live
    needs a DB-backed writer, which is out of scope here.
-3. **Missing per-card timestamps (FU-6).** These have none: Money "Headline", "Source health" and
-   "Period"; Home "Since you last looked"; each Approvals card and each Notifications alert; the
-   Laura cards; Account "Phase"/"Authentication"; Emergency. These show "as of: unknown": Learn
-   "Improvement loops" and "Visual R&D"; Insights/Store "Search & SEO"; Store "Launch verdict".
+3. **Timestamps.** Fixed (F8). After F8 the only cards without a timestamp are forms, controls
+   and static policy: Ask box, Laura Ask/Private, Store preview link and observation form,
+   Account Authentication/Appearance/Sign out/Emergency link, Emergency "Never paused", More,
+   drill reference and the Money legend. Account "Phase" sits inside "Live authorities & grants",
+   which is timestamped. "As of: unknown" stays, honestly, where the source never ran: Learn
+   "Improvement loops" and "Visual R&D", Insights/Store "Search & SEO", Store "Launch verdict".
 4. **"provider gave no reason" (FU-7)** still appears on DEGRADED cards for store_foundation,
    autonomy, search_evidence and Operations departments. It is honest but not actionable.
 5. **Laura's "Needs you" count** is still a separate number (10 in CC_VERIFY). F4 reconciles
@@ -94,4 +98,43 @@ Tests run, one process at a time with a private TMPDIR:
 |---|---|---|
 | Matrix rows 1–17 render with real or dated-snapshot data, honest UNKNOWN and per-card freshness (with the FU-6 exceptions above) | **yes** (driven at 1280 and 390 px) | |
 | PDFium serialization (F1) | no: the process crashes under concurrency | yes |
-| SLO honesty (F2), agent never-run/overdue/next work (F3), owner-count reconcile (F4), dev-lane labels (F5), Approvals phone wrap (F6) | no | yes |
+| SLO honesty (F2), agent never-run/overdue/next work (F3), owner-count reconcile (F4), dev-lane labels (F5), Approvals phone wrap (F6, F7), per-card timestamps (F8) | no | yes |
+
+## 6. Cold start: measured (follow-up task)
+
+Method: `uvicorn` in a fresh process via the same harness (`serve.py` marks; the timer starts
+the moment the process is spawned).
+- Health: `/health` polled every 0.1 s.
+- Owner pages: TEST login, then `GET /cc/`, `/api/cc/home` and `/api/cc/company`.
+- Build 2 readiness: `/api/cc/company` polled until `build2_closure` is no longer UNKNOWN, timing
+  `/health` on each poll.
+- Database: a throwaway local **PostgreSQL 16**.
+- Hosting: `RAILWAY_ENVIRONMENT` was set, so the hosted boot guard is enforced and forces shadow,
+  and the SQLite refusal applies.
+- Worker: embedded worker on, the production default.
+- Load: the host was also running another lane's full suite (load average 5–6 on 4 cores), so
+  these are pessimistic.
+
+| Scenario | Build | App import (incl. boot-guard tree digest) | Startup hooks done (create_all, seeds, boot enqueues) | **First 200 /health** | /cc/ shell | First CC page (`/api/cc/home`) | `/api/cc/company` | Build 2 closure ready | Max /health latency while it computes |
+|---|---|---|---|---|---|---|---|---|---|
+| SQLite, fresh, worker off | c131f07 | 1.60 s | 4.19 s | **4.45 s** | 4.46 s | 6.8 s | 10.2 s | 66.9 s | — |
+| PG fresh DB, hosted, worker on | c131f07 (run 1) | 1.37 s | 4.84 s | **5.03 s** | 5.04 s | 7.1 s | 13.1 s | 96.4 s | — |
+| PG fresh DB, hosted, worker on | c131f07 (run 2) | 1.30 s | 2.97 s | **3.09 s** | 3.10 s | 5.1 s | 12.1 s | 101.2 s | 0.13 s |
+| PG fresh DB, hosted, worker on | CCGAP branch | 1.34 s | 4.78 s | **5.00 s** | 5.01 s | 7.4 s | 14.9 s | 97.4 s | 0.23 s |
+| PG restart (populated DB) | c131f07 | 1.21 s | 1.79 s | **1.95 s** | 1.96 s | 4.3 s | 9.2 s | 90.4 s | 0.19 s |
+| PG restart (populated DB) | CCGAP branch | 1.14 s | 1.83 s | **2.02 s** | 2.02 s | 4.0 s | 7.9 s | 94.3 s | 0.14 s |
+
+`railway.json` has `healthcheckPath: /health` and `healthcheckTimeout: 300`. The worst `/health`
+was 5.0 s, about 60× inside the timeout.
+- What runs before `/health` can answer: the boot guard's tree digest at import, about 1.3 s.
+  Then the synchronous startup hook: `create_all` (migration), the release incident record,
+  registry/benchmark seeding and the boot enqueues, 0.5–3.5 s.
+- None of these is skipped or deferred.
+- Nothing heavy is on the health path. The Build 2 closure (67–101 s) and the launch packet are
+  already computed in background threads. `/health` stayed at or under 0.23 s while they ran,
+  and every poll returned 200.
+- The ">1 min" in CC_VERIFY is that background warm-up, not boot.
+- Conclusion: **no root-cause fix is needed**, so none was made.
+- Not measured: production-scale Postgres, where the audit log holds thousands of rows a day.
+  `create_all` there is schema introspection, not data-proportional, but the real Railway boot
+  time was not observed here.

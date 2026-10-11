@@ -165,6 +165,45 @@ def test_card_text_wraps_long_tokens_on_a_phone():
     css = (ROOT / "src/brambleloop/app/command_center/static/css/app.css").read_text()
     rules = re.findall(r"\.card\s*\{([^}]*)\}", css)
     assert any(re.search(r"overflow-wrap:\s*(break-word|anywhere)", r) for r in rules), rules
+    # a long token in a flex card title must not push the status pill off a 390px screen
+    assert re.search(r"\.card-head > :first-child\s*\{\s*min-width:\s*0", css)
+    assert re.search(r"\.card-title\s*\{[^}]*overflow-wrap:\s*anywhere", css)
+
+
+def test_data_cards_carry_a_timestamp_element_or_unknown():
+    """FU-6: the cards CC_VERIFY / CCGAP listed without a timestamp now render `freshness()`
+    (a <time> element, "as of: unknown" when the source has none), never a bare phrase."""
+    want = {
+        "money.js": ['card({ title: "Headline"', 'card({ title: "Period" }, h("p", { class: "card-meta" }, freshness(',
+                     '"Order source last read: ", freshness(sh.last_read_at || null)'],
+        "home.js": ['freshness((changes && changes.as_of) || null'],
+        "approvals.js": ['"Inbox read: ", freshness(c.as_of || readAt || null)',
+                         "readAt: data.generated_at || null", "freshness(env.as_of || null)"],
+        "notifications.js": ['"Last seen: ", freshness(n.last_seen_at || n.first_seen_at || null)'],
+        "laura.js": ["freshness(ov.generated_at || ov.as_of || null)", "freshness(t.at || null)"],
+        "account.js": ["sessionsCard(sess, rerender, data.generated_at || null)"],
+        "emergency.js": ["freshness(d.as_of || null)"],
+        "completion.js": ['card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness('],
+        "ask.js": ["freshness(a.answered_at || null)"],
+    }
+    for name, needles in want.items():
+        src = (STATIC / name).read_text()
+        for n in needles:
+            assert n in src, (name, n)
+    money = (STATIC / "money.js").read_text()
+    i = money.index('card({ title: "Headline"')
+    assert "freshness(data.generated_at" in money[i:i + 300]
+    assert (STATIC / "emergency.js").read_text().count("freshness(d.as_of || null)") == 3
+
+
+def test_emergency_status_and_ask_answers_are_stamped():
+    from brambleloop.app.command_center import ask, emergency
+
+    db = _db()
+    st = emergency.status(db)
+    assert datetime.fromisoformat(st["as_of"]).tzinfo is not None, st.get("as_of")
+    out = ask._result("q", "x", [], "nothing")
+    assert out["status"] == "UNKNOWN" and datetime.fromisoformat(out["answered_at"]).tzinfo
 
 
 if __name__ == "__main__":

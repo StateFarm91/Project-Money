@@ -77,6 +77,7 @@ export async function render({ rerender }) {
       h("a", { class: "btn", href: "#/ask" }, icon("ask", 18), "Ask")),
     card({ title: "Since you last looked", subtitle: data.last_seen_at ? `Last viewed ${relTime(data.last_seen_at)} (${utcStamp(data.last_seen_at)})`
       : (changes && changes.basis_note) || null, actions: seenBtn },
+    h("p", { class: "card-meta" }, freshness((changes && changes.as_of) || null, { stale: result.stale, fetchedAt: result.fetchedAt })),
     changes ? null : h("p", { class: "muted" }, "Unknown: not reported."),
     changeItems.length ? h("ul", { class: "rows" }, changeItems.slice(0, 10).map((it) => itemRow(it))) : changes ? h("p", { class: "muted" }, "No meaningful changes.") : null,
     changes && changes.status && changes.status !== "OK" ? statusPill(changes.status) : null,

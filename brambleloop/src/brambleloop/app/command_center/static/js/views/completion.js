@@ -103,7 +103,7 @@ export async function render() {
       Array.isArray(env.schema_errors) && env.schema_errors.length ? h("p", { class: "callout callout-warn" }, `Board problems: ${env.schema_errors.slice(0, 5).join("; ")}`) : null,
       env.note ? h("p", { class: "muted small" }, env.note) : null),
     packetCard(pk),
-    card({ title: "Claude development lanes" },
+    card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),
       sourcesList(env.sources)));
 }

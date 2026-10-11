@@ -11,12 +11,13 @@ const ORDER = [["owner", "Owner"], ["security_events", "Refused & suspicious att
   ["connected_services", "Connected services & OAuth scopes"], ["model_providers", "Model providers"], ["budgets", "Budgets & spend limits"],
   ["authorities", "Live authorities & grants"], ["notification_policy", "Notification policy"]];
 
-function sessionsCard(result, rerender) {
+function sessionsCard(result, rerender, readAt = null) {
   if (result.status === "rejected") return errorState(result.reason);
   const r = result.value;
   const list = Array.isArray(r.data) ? r.data : (r.data && Array.isArray(r.data.sessions)) ? r.data.sessions : [];
   const active = list.filter((s) => !s.revoked_at);
   return card({ title: "Signed-in devices", subtitle: "Revoke anything you do not recognise." },
+    h("p", { class: "card-meta" }, freshness(readAt || (r.data && r.data.generated_at) || null)),
     active.length ? h("ul", { class: "rows" }, active.map((s) => h("li", { class: "row" },
       h("div", { class: "row-head" }, h("p", { class: "row-title" }, s.device_label || "Unnamed device"),
         s.current ? statusPill("OK", "THIS DEVICE") : null),
@@ -117,7 +118,7 @@ export async function render({ rerender }) {
     card({ title: "Emergency controls", cls: "card-danger", subtitle: "Pause publishing, spend or departments immediately. Monitoring, evidence and recovery keep running." },
       h("a", { class: "btn btn-danger btn-block", href: "#/emergency" }, icon("shield", 18), "Open emergency controls")),
     securityCard(),
-    sessionsCard(sess, rerender),
+    sessionsCard(sess, rerender, data.generated_at || null),
     ...renderAll(data, ORDER, { result, required: ["connected_services", "budgets"], skip: ["sessions", "emergency", "authority_policy", "authority_dag"] }),
     authorityPolicyCard(sectionsOf(data).authority_policy, result),
     authorityDagCard(sectionsOf(data).authority_dag, result),
