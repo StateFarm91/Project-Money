@@ -477,6 +477,22 @@ LEGACY_DUPLICATES: dict[str, dict] = {
 }
 
 
+def radar_concept_for(cir_slug: str) -> str | None:
+    """The retired radar concept a Launch-0 product was scored as, or None (D-W5-7).
+
+    Measures: LEGACY_DUPLICATES, exactly (no prefix match: PT-01). Why: the radar scores the
+    baskets and the coaster set as `market-basket-trio` / `hexie-coaster-set`, Launch-0 sells
+    them as `market-basket-*` / `hexagon-coaster-set`. PT-11 routed the radar to the Launch-0
+    slugs; this is the way back, so a reader keyed on the product (the teardown product class,
+    the #168 benchmark challenge, a storefront tile's prior strength) finds the opportunity
+    the product was promoted on instead of reading it as uncategorised or unscored.
+    """
+    for alias, rec in LEGACY_DUPLICATES.items():
+        if cir_slug == rec["candidate"] or cir_slug in rec["superseded_by"]:
+            return alias
+    return None
+
+
 # The observed price evidence, from `radar/market.py`, which recorded it on 2026-09-17 against
 # named shops. Quoted rather than re-derived so that the source of a band is one hop away.
 _BLANKET_BAND = (8.47, 11.65)

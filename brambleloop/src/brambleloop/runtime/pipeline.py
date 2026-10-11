@@ -184,6 +184,22 @@ def _seed_for(slug: str) -> ConceptSeed | None:
     return next((s for s in POOL if s.slug == slug), None)
 
 
+def product_seed(slug: str) -> ConceptSeed | None:
+    """The radar concept a PRODUCT slug was scored as: its own, or its retired alias (D-W5-7).
+
+    For readers keyed on a certified product (teardown class, benchmark challenge, storefront
+    strength). `_seed_for` stays exact for the drafting path, where a seed decides whether a
+    payload is a new concept for the pre-engineering gate.
+    """
+    seed = _seed_for(slug)
+    if seed is None:
+        from ..products import launch0 as l0
+
+        alias = l0.radar_concept_for(slug)
+        seed = _seed_for(alias) if alias else None
+    return seed
+
+
 # ---- job handlers --------------------------------------------------------
 
 
@@ -916,7 +932,7 @@ def handle_certify(ctx: JobContext) -> dict:
         # the reason audited, before anything downstream is built for it.
         from ..teardown import lab as teardown_lab
 
-        seed = _seed_for(cir.slug)
+        seed = product_seed(cir.slug)
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))

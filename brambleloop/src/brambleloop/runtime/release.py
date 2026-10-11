@@ -215,7 +215,12 @@ def _released_on(ctx: JobContext, slug: str, version: str):
 
 
 def _seed_for(slug: str):
-    return next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+    seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+    if seed is None:
+        # D-W5-7: a Launch-0 product the radar scored under a retired alias.
+        alias = products_launch0.radar_concept_for(slug)
+        seed = next((s for s in POOL if s.slug == alias), None) if alias else None
+    return seed
 
 
 UNKNOWN_PRODUCT = "UNKNOWN_PRODUCT"
