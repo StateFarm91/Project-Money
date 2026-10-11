@@ -10,6 +10,14 @@
 #        guard checks it like any candidate (see ops/ROLLBACK_RUNBOOK.md).
 #   DRY_RUN=1 ops/deploy.sh ...             (check only; never pushes)
 #   REMOTE=origin (default)
+#   VERIFY_DEPLOY=0                          (skip the post-push wait; default 1)
+#   DEPLOY_VERIFY_TIMEOUT=900 DEPLOY_VERIFY_INTERVAL=15   (seconds)
+#
+# RELENG (2026-10-11): after pushing, ops/verify_deploy.py polls production /health until
+# build.commit is the pushed sha. A push that the host never turns into a deployment (the
+# 0417f35 push at 13:34Z did exactly that) now ends in exit 3 with a NO DEPLOY message instead
+# of a silent success. Exit 4 = production never answered with a commit. The branch is NOT
+# rewound on 3/4: the commit passed the guard; the host has to be made to deploy it.
 #
 # The candidate must carry a TRACKED release record (A3-05): `ops/deploy_guard.py record`
 # after a clean full run, committed on top. Untracked suite records are not believed.
@@ -53,4 +61,17 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 # The pre-push hook (if installed) checks the same push again; that is deliberate.
-git -C "$top" push "$remote" "$candidate:refs/heads/$branch"
+sha=$(git -C "$top" rev-parse "$candidate^{commit}")
+git -C "$top" push "$remote" "$sha:refs/heads/$branch"
+if [ "${VERIFY_DEPLOY:-1}" = "0" ]; then
+  echo "deploy.sh: pushed $sha; VERIFY_DEPLOY=0, production NOT checked" >&2
+  exit 0
+fi
+echo "deploy.sh: pushed $sha; waiting for production /health to report it" >&2
+rc=0
+python3 "$top/ops/verify_deploy.py" "$sha" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  echo "deploy.sh: pushed $sha but production is NOT running it (verify_deploy exit $rc)" >&2
+  exit "$rc"
+fi
+echo "deploy.sh: DEPLOYED $sha"
