@@ -162,6 +162,15 @@ TRUTH_RULES: tuple[Rule, ...] = (
             r"|\bsafety[- ]tested\b|\bdermatologi(st|cally)[- ]tested\b|\bbpa[- ]free\b"),
          "a safety or certification claim about a finished object this shop does not make; "
          "it needs evidence the shop does not hold", negatable=True),
+    # W4-MARKETINTEL: everything this company knows about demand is a proxy (API listing
+    # counts, favourites growth, reference reading; `intel.market_intel`). A proxy is evidence
+    # for a decision, never a claim to a buyer, so copy that asserts demand is refused.
+    Rule("TRUTH_MARKET_CLAIM", TRUTH,
+         _r(r"\btrending\b|\bon[- ]trend\b|\bin[- ]demand\b|\bhigh[- ]demand\b"
+            r"|\bhot right now\b|\b(going )?viral\b|\bmost[- ]searched\b"
+            r"|\btop[- ]searched\b|\beveryone'?s? (making|searching)\b"),
+         "a market-demand claim; this company's demand figures are proxies (intel.market_intel), "
+         "and a proxy is not something to tell a buyer"),
 )
 
 # The bible's banned filler words (`brand.bible._BANNED_IN_NAMES`) applied to prose, plus the

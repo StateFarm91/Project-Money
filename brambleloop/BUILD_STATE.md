@@ -1,3 +1,14 @@
+> **2026-10-11 — W4-MARKETINTEL: market intelligence from sanctioned sources, labelled and routed (branch `claude/w4-MARKETINTEL`, not deployed).**
+> Etsy Open API v3 (oas 3.0.0 read 2026-10-11, sha256 b993d52f...) has NO Marketplace Insights / search-volume / shop-stats
+> operation ('insight' 0, 'stats' 0, 'search volume' 0); only findAllListingsActive `{count, results}`. `intel.market_intel`
+> (run inside the daily `intel.serp_capture`) labels competition / favourite velocity / recent-entrant share as PROXY with
+> source+timestamp (UNKNOWN never 0), routes them to SEO (search_language + SEO evidence store), Creative briefs, Pattern
+> Engineering (construction_preference), gated growth experiments, and Product Truth (lint TRUTH_MARKET_CLAIM + SEO tag
+> validator). Owner step: paste the Insights view at /ops/insights (-> /ops/teardown#insights), parsed deterministically,
+> recorded on confirm. Production has 0 SERP snapshots: the Etsy credential is refused (403) -- owner fix first.
+> `serp.capture_targets` now stops at the first 401/403. Finding: #237 waits on the Stats CSV export, not insights_access.
+> Report: `research/final_build/w4/MARKETINTEL.md`. Tests: test_w4_marketintel 7/7 + focused suites green.
+
 > **2026-10-11 — W4-B2GATE2: all 102 gated Build 2 rows read against production 0417f35 (branch `claude/w4-B2GATE2`, not deployed).**
 > Ledger regenerated from production `/api/build` + 8 data gates derived from production GETs (`evidence_B2GATE2/`);
 > counts unchanged 215/56/41/5/3/0, every gate now has a production reading. Fixes: (F1) #140 `radar.lead_lag` refuses a

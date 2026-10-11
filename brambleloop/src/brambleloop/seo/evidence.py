@@ -7,6 +7,7 @@ Sources read (all existing tables; nothing here makes a network call):
 | Etsy Stats export (owner)   | operating_readings kind attribution.stats | measured | shop-level term outcome |
 | Marketplace Insights (owner)| insights_snapshots                     | measured   | demand (owner-read)    |
 | API marketplace search      | serp_snapshots.total_count             | measured   | proxy:competition      |
+| market_intel (API counters) | operating_readings kind market_intel   | observed   | proxy:demand_interest / proxy:market_entry |
 | Benchmark listing titles    | benchmark_listings.title               | observed   | buyer language present |
 | keywords table              | keywords (est_demand/est_competition)  | modelled   | planning estimate      |
 | query templates             | commerce.search.build_query_set        | modelled   | planning estimate      |
@@ -112,6 +113,38 @@ def _collect_serp(s) -> list[dict]:
     return out
 
 
+def _collect_market_intel(s) -> list[dict]:
+    """W4-MARKETINTEL: the proxies `intel.market_intel` derives from the API search index.
+
+    Favourite velocity and recent-entrant share are computed from Etsy's own counters
+    (num_favorers, original_creation_timestamp) across two snapshots, so they are `observed`
+    and carry their use as a proxy. An UNKNOWN figure is absent here, never zero.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    out = []
+    row = s.scalar(select(OperatingReading).where(OperatingReading.kind == "market_intel")
+                   .order_by(OperatingReading.id.desc()).limit(1))
+    if row is None:
+        return out
+    ref = f"operating_readings:{row.id}:{row.period_key}"
+    for q in (row.payload or {}).get("queries") or []:
+        for key, use in (("favourite_velocity", "proxy:demand_interest"),
+                         ("recent_entrant_share", "proxy:market_entry")):
+            m = (q.get("metrics") or {}).get(key) or {}
+            if m.get("value") is None:
+                continue
+            at = m.get("observed_at") or None
+            out.append(_row(q["query"], f"market_{key}", m["value"], OBSERVED, use,
+                            "intel.market_intel", ref,
+                            datetime.fromisoformat(at) if at else row.at,
+                            {"label": m.get("label"), "source": m.get("source"),
+                             "kind": m.get("kind")}))
+    return out
+
+
 def _collect_benchmark_language(s, phrases: list[str]) -> list[dict]:
     from sqlalchemy import select
 
@@ -164,7 +197,8 @@ def collect(db, *, queries_by_slug: dict[str, list] | None = None) -> list[dict]
     queries_by_slug = queries_by_slug or {}
     rows: list[dict] = []
     phrases = sorted({q.phrase for qs in queries_by_slug.values() for q in qs})
-    collectors = [_collect_stats, _collect_insights, _collect_serp, _collect_keyword_table,
+    collectors = [_collect_stats, _collect_insights, _collect_serp, _collect_market_intel,
+                  _collect_keyword_table,
                   lambda s: _collect_benchmark_language(s, phrases)]
     for fn in collectors:
         try:

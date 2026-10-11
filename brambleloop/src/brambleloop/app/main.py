@@ -13,7 +13,7 @@ import os
 from datetime import timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, RedirectResponse
 from sqlalchemy import func, select
 
 from ..agents.registry import Registry
@@ -3129,6 +3129,62 @@ async def api_insights_snapshot(request: Request,
     return JSONResponse(result)
 
 
+@app.post("/api/insights/paste")
+async def api_insights_paste(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """W4-MARKETINTEL: the owner pastes what Marketplace Insights shows; parsed, then recorded.
+
+    JSON body `{text, recorded_by, observed_on?, confirm?}`. Without `confirm: true` it only
+    parses and returns the readings and every line it could not parse, so the owner sees
+    exactly what would be recorded. With it, each reading is recorded through the same
+    `intel.insights.record` as POST /api/insights/snapshot, and the paste's sha256 is audited
+    as provenance (the text itself is not stored). Operator credential, default-deny.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..intel import insights, market_intel
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict) or not str(body.get("text") or "").strip():
+        return JSONResponse({"error": "paste the Insights text in `text`"}, status_code=400)
+    confirm = body.get("confirm") is True
+    try:
+        out = market_intel.record_paste(
+            db, str(body["text"])[:20000], recorded_by=str(body.get("recorded_by") or ""),
+            observed_on=str(body.get("observed_on") or ""), confirm=confirm)
+    except insights.InsightsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    if confirm:
+        Registry(db).audit("orchestrator", "insights.paste_recorded", detail={
+            "paste_sha256": out["digest"], "ids": [r["id"] for r in out["recorded"]],
+            "unparsed_lines": len(out["unparsed"]),
+            "recorded_by": str(body.get("recorded_by") or "")[:80]})
+    return JSONResponse(out)
+
+
+@app.get("/api/market-intel")
+def api_market_intel() -> dict:
+    """W4-MARKETINTEL: the latest labelled market proxies and where they were routed."""
+    from ..intel import market_intel
+
+    return {"latest": market_intel.latest(db), "etsy_limit": market_intel.ETSY_LIMIT}
+
+
+@app.get("/ops/insights")
+def ops_insights_page() -> RedirectResponse:
+    """W4-MARKETINTEL: the Insights paste lives on the one owner phone page (/ops/teardown),
+    whose script is the only one the page security policy allows (A3-01)."""
+    return RedirectResponse("/ops/teardown#insights", status_code=307)
+
+
 @app.get("/api/seasonal/cycle")
 def api_seasonal_cycle() -> dict:
     """One seasonal cycle end to end, with every link's evidence (#300, release-blocking).
@@ -6054,7 +6110,7 @@ _TEARDOWN_PAGE = """<!doctype html>
  .meta{font-size:.8rem;opacity:.75;margin:0 0 8px}
  .done{opacity:.55}
  .badge{font-size:.72rem;border-radius:999px;padding:2px 8px;border:1px solid currentColor}
- input[type=password],input[type=file]{width:100%;box-sizing:border-box;padding:10px;
+ input[type=password],input[type=file],#ins-who,#ins-text{width:100%;box-sizing:border-box;padding:10px;
    border-radius:8px;border:1px solid rgba(128,128,128,.5);background:transparent;color:inherit}
  button{padding:10px 14px;border-radius:8px;border:0;background:#3c5a3f;color:#fff;
    font-size:.9rem;width:100%;margin-top:8px}
@@ -6070,6 +6126,16 @@ forgotten when the page is closed or reloaded):</p>
 <button id="load" type="button">Load</button></div>
 <div id="status" class="msg"></div>
 <div id="picks"></div>
+<h1 id="insights" style="margin-top:24px">Marketplace Insights</h1>
+<p class="sub">The only market figure the company cannot collect itself: Etsy publishes no
+API for it. In Shop Manager &gt; Marketing &gt; Marketplace Insights, search a term, copy the
+view, paste it here (start each term with a line <b>Search term: ...</b>). Nothing is recorded
+until you check the parse and tap Record.</p>
+<input id="ins-who" placeholder="Your name (recorded_by)">
+<textarea id="ins-text" rows="8" placeholder="Search term: crochet blanket pattern&#10;Searches 12.4K&#10;Listings 85,321&#10;Trend: up&#10;Related searches&#10;granny square blanket 3.1K"></textarea>
+<button id="ins-parse" type="button">Check the parse</button>
+<button id="ins-record" type="button">Record</button>
+<div id="ins-out" class="msg"></div>
 <script src="/ops/teardown.js"></script></body></html>
 """
 
@@ -6129,5 +6195,24 @@ function card(p){
   el.appendChild(b); el.appendChild(out); return el;
 }
 document.getElementById('load').addEventListener('click',save);
+// W4-MARKETINTEL: Marketplace Insights paste -> deterministic parse -> confirm.
+async function insights(confirm){
+  const out=document.getElementById('ins-out');
+  if(!T()){out.textContent='Enter the operator token above first.';return;}
+  let r; try{ r=await fetch('/api/insights/paste',{method:'POST',
+    headers:Object.assign({'Content-Type':'application/json'},H()),
+    body:JSON.stringify({text:document.getElementById('ins-text').value,
+      recorded_by:document.getElementById('ins-who').value,confirm:confirm})}); }
+  catch(e){ out.textContent='Could not reach the server: '+e; return; }
+  const d=await r.json();
+  if(!r.ok){ out.textContent='Refused: '+(d.error||r.status); return; }
+  const rows=(d.readings||[]).map(x=>x.keyword+': searches '+(x.search_count??'UNKNOWN')+
+    ', listings '+(x.listing_count??'UNKNOWN')+', trend '+x.trend_direction+
+    (x.related_terms.length?', related: '+x.related_terms.join(' / '):'')).join('\n');
+  out.textContent=(confirm?'Recorded '+(d.recorded||[]).length+' reading(s).\n':'Parsed (not yet recorded):\n')+
+    (rows||'nothing recognised')+((d.unparsed||[]).length?'\n\nNot understood (will not be recorded):\n'+d.unparsed.join('\n'):'');
+}
+document.getElementById('ins-parse').addEventListener('click',()=>insights(false));
+document.getElementById('ins-record').addEventListener('click',()=>insights(true));
 """
 

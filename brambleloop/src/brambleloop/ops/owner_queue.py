@@ -571,10 +571,17 @@ DECISIONS: tuple[dict, ...] = (
      "consequence_of_no": "the order source stays closed"},
     {"id": "insights_reading", "batch": "etsy_account", "kind": "credentials",
      "gates": ("insights_access",), "keys": (),
+     # W4-MARKETINTEL: the smallest owner step. Everything sanctioned (API search index
+     # counts, favourites growth, benchmark scans, culture feeds) is collected by the
+     # company; only Etsy's own search volume needs the signed-in owner.
      "decision": ("Record one Marketplace Insights reading from Shop Manager "
-                  "(POST the reading; no API exists)."),
-     "why": "Shop Manager Insights has no authorised API; only the signed-in owner can read it",
-     "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 10,
+                  "(POST the reading; no API exists). On a phone: open /ops/insights, "
+                  "search a term in Shop Manager > Marketing > Marketplace Insights, copy "
+                  "the view, paste it, check the parse, tap Record."),
+     "why": ("Shop Manager Insights has no authorised API (Etsy Open API v3: 'insight' 0 "
+             "occurrences); only the signed-in owner can read it. Everything else in market "
+             "intelligence is collected by the company"),
+     "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 5,
      "consequence_of_yes": "search-demand requirements (#1, #37, #236) get real readings",
      "consequence_of_no": "they stay parked on proxies"},
     {"id": "storage_durable", "batch": "storage", "kind": "spend",

@@ -139,6 +139,13 @@ def _has_sale(listing: dict) -> bool | None:
     return None
 
 
+def _epoch(value) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
             depth: int = RANK_DEPTH, detail_top: int = DETAIL_TOP,
             now: datetime | None = None) -> dict:
@@ -176,7 +183,12 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
                  "terms_stated": ((facts or {}).get("stated") or {}).get("terms"),
                  "sizes": (sizes or {}).get("sizes") if (sizes or {}).get("stated") else (
                      0 if sizes is not None else None),
-                 "has_video": None}
+                 "has_video": None,
+                 # W4-MARKETINTEL: when the listing was first created (Etsy's
+                 # original_creation_timestamp, epoch seconds), so the share of recent
+                 # entrants in a query's results can be measured over time. Absent stays None.
+                 "created_ts": _epoch(listing.get("original_creation_timestamp")
+                                      or listing.get("creation_timestamp"))}
         if position <= detail_top and listing.get("listing_id") is not None:
             try:
                 images = reader.images(listing["listing_id"])
@@ -386,6 +398,15 @@ def capture_targets(db, *, reader=None, transport=None, env: dict | None = None,
         except Exception as exc:  # noqa: BLE001 - one failed query does not end the run
             failures.append({"query": target["query"], "why": f"{type(exc).__name__}: "
                                                               f"{str(exc)[:200]}"})
+            # W4-MARKETINTEL: Etsy refusing the credential itself (401/403) is the same
+            # answer for every query. Production 2026-10-11 sent all target queries and got
+            # 403 for each; asking again with the same key only adds refused requests.
+            if getattr(exc, "status", None) in etsy_public.AUTH_REFUSED:
+                return {"ran": False, "captured": captured, "queries": len(queries),
+                        "credential_refused": True, "failures": failures,
+                        "reason": (f"Etsy refused the API credential (HTTP {exc.status}) on "
+                                   f"{target['query']!r}; the remaining queries were not "
+                                   f"sent. No snapshot is guessed")}
     return {"ran": True, "captured": captured, "skipped_recent": skipped,
             "failures": failures, "queries": len(queries), "basis": BASIS,
             "note": ("rank is the API index's sort_on=score order and is directional; "
