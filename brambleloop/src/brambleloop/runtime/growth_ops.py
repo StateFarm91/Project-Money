@@ -43,6 +43,7 @@ listings or traffic most readings are UNMEASURED with the reason, which is the c
 """
 from __future__ import annotations
 
+import math
 from datetime import date, datetime, timedelta, timezone
 
 from .worker import CapabilityNotEnabled, JobContext, handlers
@@ -525,7 +526,9 @@ def handle_ads_campaign(ctx: JobContext) -> dict:
     lifetime = authority["lifetime_cap_cad"] or daily_cap * 30
     headroom = min(daily_cap - authority["spent_today_cad"],
                    lifetime - authority["spent_lifetime_cad"])
-    if amount <= 0 or amount > headroom:
+    # Re-audit D-1 note: NaN compares False against the headroom, so it is refused here too.
+    if not math.isfinite(amount) or not math.isfinite(headroom) or amount <= 0 \
+            or amount > headroom:
         ctx.audit("ads.refused", artifact=slug,
                   detail={"gate": "budget_ceiling", "amount_cad": amount,
                           "headroom_cad": round(headroom, 2)})

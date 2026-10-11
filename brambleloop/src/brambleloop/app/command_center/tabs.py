@@ -881,6 +881,7 @@ def account(db, current_session: str) -> dict:
             " + TOTP" if auth.totp_required() else ""),
             "login_configured": auth.login_configured(),
             "totp_required": auth.totp_required(),
+            "second_factor": auth.second_factor_status(),
             "stepup_window_seconds": int(auth.STEPUP_WINDOW.total_seconds())},
         sessions=auth.list_sessions(db, current_session),
         security_events=events, refused_attempts_24h=int(refused_24h),

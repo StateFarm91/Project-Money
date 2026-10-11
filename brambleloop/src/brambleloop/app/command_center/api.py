@@ -39,7 +39,11 @@ def make_router(db) -> APIRouter:
     def auth_status(request: Request):
         row, why, token = auth.session_from_request(db, request)
         base = {"authenticated": False, "login_configured": auth.login_configured(),
-                "totp_required": auth.totp_required(), "csrf_token": None, "session": None,
+                "totp_required": auth.totp_required(),
+                # Re-audit L-1: plainly whether a second factor is configured (never the
+                # secret), so the owner can see a passphrase-only production at a glance.
+                "second_factor": auth.second_factor_status(),
+                "csrf_token": None, "session": None,
                 "stepup_valid_until": None,
                 "stepup_window_seconds": int(auth.STEPUP_WINDOW.total_seconds()),
                 "server_time": int(__import__("time").time())}
@@ -70,8 +74,17 @@ def make_router(db) -> APIRouter:
         if device_id is None and body.get("recovery_code") is not None:
             recovery = await run_in_threadpool(auth.consume_recovery_code, db,
                                                body.get("recovery_code"))
-        limited = await run_in_threadpool(
-            lambda: auth.login_throttle(db, request, device_id=device_id, recovery=recovery))
+        # Re-audit L-2: the attempt is counted (reserved) atomically *before* the slow
+        # PBKDF2 check, so a concurrent burst cannot all pass the limit; it is withdrawn on
+        # success and becomes the wrong-credential record on failure.
+        try:
+            attempt_id, limited = await run_in_threadpool(
+                lambda: auth.reserve_login_attempt(db, request, device_id=device_id,
+                                                   recovery=recovery))
+        except Exception:  # noqa: BLE001 - an uncountable attempt is not verified
+            raise auth.refuse(db, request, 503, "AUTH_STORE_UNAVAILABLE",
+                              "login attempts cannot be counted right now; try again",
+                              kind="login") from None
         if limited:
             message = "too many failed logins; wait 15 minutes"
             if limited == "global":
@@ -79,13 +92,20 @@ def make_router(db) -> APIRouter:
                             "operator can mint a one-time recovery code)")
             raise auth.refuse(db, request, 429, "RATE_LIMITED", message, kind="login",
                               session_public_id=device_id or "", detail={"limit": limited})
-        good = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
-                                       body.get("totp"))
+        try:
+            good = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
+                                           body.get("totp"), db=db)
+        except Exception:  # noqa: BLE001 - fail closed; the reservation stays counted
+            good = False
         if not good:
-            raise auth.refuse(db, request, 401, auth.FAILED_LOGIN_CODE,
-                              "passphrase or code not accepted", kind="login",
-                              session_public_id=device_id or "",
-                              detail={"recovery_code": recovery} if recovery else None)
+            message = "passphrase or code not accepted"
+            await run_in_threadpool(
+                lambda: auth.settle_login_attempt(
+                    db, attempt_id, ok=False, message=message,
+                    detail={"recovery_code": recovery} if recovery else None))
+            # The reservation row is the audit record of this failure (not a second row).
+            raise auth.CCRefused(401, message, auth.FAILED_LOGIN_CODE)
+        await run_in_threadpool(auth.settle_login_attempt, db, attempt_id, ok=True)
         token, view = await run_in_threadpool(auth.create_session, db, request,
                                               device_label=str(body.get("device_label") or ""))
         auth.record(db, kind="login", outcome="ok", request=request,
@@ -118,7 +138,7 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         pid = auth.current_public_id(request)
         good = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
-                                       body.get("totp"))
+                                       body.get("totp"), db=db)
         if not good:
             revoked = auth.failed_stepup(db, pid)
             raise auth.refuse(db, request, 401, "BAD_CREDENTIALS",

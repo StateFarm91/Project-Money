@@ -28,6 +28,7 @@ They are not a measurement of this account's billing, so every ledger row carrie
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 import time
@@ -155,12 +156,24 @@ def provider_for(task_key: str, **kw) -> "AnthropicProvider":
 
 
 def monthly_ceiling_cad() -> float:
-    """The ceiling in force. Environment may lower it; nothing may raise it."""
+    """The ceiling in force. Environment may lower it; nothing may raise it.
+
+    Re-audit D-1: `float("nan")` parses and `min(nan, authorised)` is `nan`, against which
+    every comparison is False -- a NaN in the environment removed the ceiling altogether.
+    A value that is not a finite, positive amount is not a lowering anyone can have meant,
+    so it falls back to the authorised ceiling rather than disabling it.
+    """
+    import math
+
     authorised = _policy_ceiling()
     raw = (os.environ.get("BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD") or "").strip()
+    if not raw:
+        return authorised
     try:
-        value = float(raw) if raw else authorised
+        value = float(raw)
     except ValueError:
+        return authorised
+    if not math.isfinite(value) or value <= 0:
         return authorised
     return min(value, authorised)
 
@@ -221,6 +234,12 @@ def agent_daily_ceiling(db, agent: str, *, now: datetime | None = None) -> dict 
     except PermissionDenied:
         return None
     ceiling = float(row.daily_cost_ceiling_cad or 0.0)
+    if not math.isfinite(ceiling):
+        # Re-audit D-1 (same pattern): a NaN or infinite permission compares False against
+        # every spend, which would grant unlimited spend. Nobody authorised that, so the
+        # permission reads as zero and every call from this agent is refused.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
     if ceiling <= 0:
         return None
     return {"agent": agent, "daily_ceiling_cad": ceiling,
@@ -476,6 +495,14 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
         return _refusal(BudgetExceeded, "invalid_estimate", message, estimate=0.0,
                         raw_estimate=repr(estimate_cad)[:40])
     estimate = round(raw_estimate, 6)
+    # Re-audit D-1: a ceiling that is not a finite, positive number compares False against
+    # every committed amount. `monthly_ceiling_cad` already falls back to the authorised
+    # figure; this refuses outright should anything else ever hand this check a bad ceiling.
+    if not isinstance(ceiling, (int, float)) or not math.isfinite(ceiling) or ceiling <= 0:
+        return _refusal(BudgetExceeded, "invalid_ceiling",
+                        f"the monthly ceiling {ceiling!r} is not a finite, positive amount, so "
+                        f"no call can be checked against it. Refused rather than read as no "
+                        f"ceiling", estimate=estimate, ceiling=0.0)
     # Other holders' live claims, by the dimension each ceiling is about (C-32/C-33). The
     # monthly step already counted them; the agent and provider steps read only billed rows
     # plus this caller's own, so two concurrent holders each fit and together overshot.
