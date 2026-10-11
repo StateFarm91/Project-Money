@@ -1,7 +1,7 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-11T15:15:20+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
-Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z).
+Generated 2026-10-11T18:31:01+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z.
 
 ## Reconciliation of the owner dashboard figure
 
@@ -10,11 +10,11 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 | state | rows |
 |---|---|
 | PROVEN | 215 |
-| OWNER-GATED | 56 |
+| OWNER-GATED | 42 |
 | DATA-GATED | 41 |
 | EXTERNAL-GATED | 5 |
 | NOT-APPLICABLE | 3 |
-| OPEN-DEFECT | 0 |
+| OPEN-DEFECT | 14 |
 
 ## Gated rows by exact gate
 
@@ -25,7 +25,6 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 | benchmark_purchases | OWNER-GATED | closed | #163 #165 #168 #315 #317 |
 | concept_outcomes | DATA-GATED | closed | #89 |
 | customers | DATA-GATED | closed | #8 #18 #19 #20 #21 #25 #28 #31 #33 #41 #45 #48 #120 #147 #169 #226 #229 #235 #242 #243 #244 #245 #252 #253 #256 #257 #258 #260 #265 #270 #272 #280 #292 |
-| image_vision | OWNER-GATED | closed | #15 #44 #61 #67 #86 #88 #116 #126 #218 #277 #281 #304 #308 #309 |
 | insights_access | OWNER-GATED | closed | #1 #37 #54 #236 #237 |
 | lead_lag_series | DATA-GATED | closed | #140 |
 | learning_sources | DATA-GATED | closed | #98 |
@@ -46,4 +45,4 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 NOT-APPLICABLE (process directives to the auditor, followed): #32, #56, #197
 
-OPEN-DEFECT: 0
+OPEN-DEFECT: 14 -- #15 gate image_vision has opened; the remaining work is no longer parked, #44 gate image_vision has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked, #67 gate image_vision has opened; the remaining work is no longer parked, #86 gate image_vision has opened; the remaining work is no longer parked, #88 gate image_vision has opened; the remaining work is no longer parked, #116 gate image_vision has opened; the remaining work is no longer parked, #126 gate image_vision has opened; the remaining work is no longer parked, #218 gate image_vision has opened; the remaining work is no longer parked, #277 gate image_vision has opened; the remaining work is no longer parked, #281 gate image_vision has opened; the remaining work is no longer parked, #304 gate image_vision has opened; the remaining work is no longer parked, #308 gate image_vision has opened; the remaining work is no longer parked, #309 gate image_vision has opened; the remaining work is no longer parked

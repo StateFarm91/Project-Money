@@ -241,6 +241,7 @@ def make_router(db) -> APIRouter:
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
                    "sections": {"board": company_mod.completion(db),
+                                "finish_line": company_mod.finish_line(),
                                 "live_work": company_mod.live_company_work(db)}})
 
     @router.get("/insights")
