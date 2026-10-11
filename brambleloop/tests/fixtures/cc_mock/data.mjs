@@ -68,6 +68,15 @@ export const DATA = {
     ],
     waiting_on_data: env("OK", [{ title: "Bank feed for reconciliation", status: "BLOCKED" }]),
     external_capability_unavailable: env("OK", []),
+    // W4-CCUX: the live owner queue, batch first (shape of company.owner_decision_batches).
+    decision_batches: env("OK", [
+      { id: "kyc", title: "Accounts and identity", why_batched: "one sitting at a desk", decisions: 2, minutes_total: 35,
+        max_cost: "UNKNOWN (at least one item is not costed)", items: [
+          { id: "etsy_payouts", decision: "Open Etsy payouts (KYC)", why: "payouts need identity verification", evidence: "gates:etsy_kyc",
+            max_cost: "CA$25.00", consequence_of_yes: "listings can take payment", consequence_of_no: "no listing can go live", minutes: 20 },
+          { id: "bank_feed", decision: "Connect the bank feed", why: "reconciliation", evidence: "gates:bank_feed",
+            max_cost: null, consequence_of_yes: "money becomes measured", consequence_of_no: "revenue stays Unknown", minutes: 15 }] },
+    ], { live: true, batches: 1, decisions: 2, note: "answer batch by batch" }),
   }),
   store: () => tab("STORE", {
     store_foundation: env("DEGRADED", [{ title: "Banner", status: "OK" }, { title: "Policies", status: "DEGRADED", detail: "Refund wording under review" }],
