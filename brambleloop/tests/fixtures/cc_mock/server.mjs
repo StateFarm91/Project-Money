@@ -15,6 +15,8 @@ import { DATA } from "./data.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const STATIC_DIR = path.resolve(HERE, "../../../src/brambleloop/app/command_center/static");
 export const PASSPHRASE = "fixture-owner-passphrase";
+// 1x1 sage PNG standing in for a verified listing rendering (fixture only).
+const MOCK_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYvn8lAARQAiBKQyW7AAAAAElFTkSuQmCC", "base64");
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
   + "font-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; base-uri 'none'; "
   + "frame-ancestors 'none'; object-src 'none'";
@@ -80,6 +82,19 @@ export function createMock() {
         company: "company", completion: "completion", "launch/packet": "launchPacket", etsy: "etsy",
         checks: "checks", "store/settings": "storeSettings" };
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
+      if (route === "store/catalogue") return send(res, 200, DATA.storeCatalogue());
+      if (route.startsWith("store/image/")) {
+        const build = decodeURIComponent(route.slice("store/image/".length));
+        const ok = DATA.storeCatalogue().products.some((x) => x.image.status === "VERIFIED" && x.representative.build === build);
+        if (!ok) return send(res, 404, { error: "no verified image for this product", code: "NOT_FOUND" });
+        st.log.push({ path: `/api/cc/${route}`, method: "GET" });
+        res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
+        return res.end(MOCK_PNG);
+      }
+      if (route.startsWith("store/pdf/")) {
+        res.writeHead(200, { "Content-Type": "application/pdf", "Cache-Control": "no-store", "Content-Disposition": "inline; filename=\"pattern.pdf\"" });
+        return res.end(Buffer.from("%PDF-1.4\n% mock pattern pdf\n%%EOF\n"));
+      }
       if (route === "money") return send(res, 200, DATA.money(url.searchParams.get("period")));
       if (route === "money/drill") return send(res, 200, DATA.moneyDrill(url.searchParams.get("metric") || ""));
       if (route.startsWith("approvals/")) {

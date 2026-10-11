@@ -178,6 +178,51 @@ def make_router(db) -> APIRouter:
     def store(request: Request):
         return ok(tabs.store(db))
 
+    # ---- W4-STOREFRONT: owner Store area (read-only; owner session via the /api/cc/ gate) --
+
+    @router.get("/store/catalogue")
+    def store_catalogue(request: Request):
+        from ...store_foundation import owner_store
+
+        return ok(owner_store.catalogue(db))
+
+    @router.get("/store/image/{build}")
+    def store_image(build: str, request: Request):
+        """The verified listing rendering of one collection product. A frame that does not
+        verify is 404 -- never the unverified asset, never a substitute."""
+        from fastapi.responses import Response
+
+        from ...store_foundation import owner_store
+
+        png = owner_store.image_png(str(build)[:60])
+        if png is None:
+            return ok({"error": "no verified image for this product", "code": "NOT_FOUND"}, 404)
+        return Response(png, media_type="image/png", headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Image-Status": "VERIFIED; disclosed rendering, not a photograph"})
+
+    @router.get("/store/pdf/{slug}")
+    def store_pdf(slug: str, request: Request, terms: str = "US"):
+        """The pattern PDF for one collection product, rendered now from its CIR (owner
+        review copy; the sold file is the released, hashed PDF)."""
+        from fastapi.responses import Response
+
+        from ...store_foundation import owner_store
+
+        try:
+            out = owner_store.pattern_pdf(str(slug)[:80], str(terms)[:4])
+        except Exception as exc:  # noqa: BLE001 - a refusal is reported, not a crash
+            return ok({"error": f"pattern PDF refused: {type(exc).__name__}",
+                       "code": "PDF_REFUSED"}, 409)
+        if out is None:
+            return ok({"error": "no such product or terminology", "code": "NOT_FOUND"}, 404)
+        data, name = out
+        safe = "".join(ch for ch in name if ch.isalnum() or ch in "._-")[:80] or "pattern.pdf"
+        return Response(data, media_type="application/pdf", headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "Content-Disposition": f'inline; filename="{safe}"',
+            "X-Content-Type-Options": "nosniff"})
+
     @router.get("/money")
     def money(request: Request, period: str = "", window: str = ""):
         # F-914: a period (PWA `period`, or `window`) reaches the accounting summary.
@@ -917,9 +962,12 @@ def store_preview_handler(db):
     from fastapi.responses import HTMLResponse
 
     def owner_store_preview(request: Request, viewport: str = "mobile",
-                            variant: str = "standard"):
+                            variant: str = ""):
         from ...store_foundation import preview as store_preview_mod
 
+        # W4-STOREFRONT: with no variant named, the owner sees the customer storefront view
+        # (customer page + folded owner evidence panel); every earlier variant stays reachable.
+        variant = variant or getattr(store_preview_mod, "DEFAULT_OWNER_VARIANT", "standard")
         # `variant` is passed through; the preview module validates it against its own
         # VARIANTS (an unknown name renders the standard variant), so lane B owns the names.
         variant = str(variant or "standard")[:40]

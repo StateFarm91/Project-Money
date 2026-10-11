@@ -281,6 +281,51 @@ export const DATA = {
         critical_path: [{ step: 1, title: "Release not deployed", who: "engineering", unblocks_rows: 16, estimate: { figure: "release cycle + 24h" } }],
         production_commit: "0417f3516f30" }) }),
   // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
+  // W4-STOREFRONT: the owner catalogue (store_foundation.owner_store.catalogue shape).
+  storeCatalogue: () => {
+    const prod = (slug, name, status, priceCad, img, extra = {}) => ({
+      slug, name, summary: `${name}, worked in the round.`, description: `${name}: one pattern, clear instructions, US and UK terms.`,
+      section: extra.section || "home", kind: "basket", launch_status: status,
+      launch_status_note: status === "CAP1_SCOPE" ? "in Launch-0 scope (CAP-1); not approved: gates pending" : "in the Launch-0 opening catalogue",
+      on_customer_page: status === "LAUNCH_0",
+      price_cad: priceCad, digital_label: "Digital download (PDF pattern)",
+      sizes: [{ key: "one_size", label: "18.3 x 11.1 cm", cir_slug: slug }], variant_count: 1,
+      representative: { build: slug.replace(/-/g, "_"), cir_slug: slug, cir_fingerprint: "abc123def456" },
+      image: img === "VERIFIED" ? { status: "VERIFIED", build: slug.replace(/-/g, "_"), path: `/api/cc/store/image/${slug.replace(/-/g, "_")}`,
+        alt_text: `${name}, digital rendering`, verifier_status: "PASS", caption_status: "PASS", sha256: "0123456789abcdef" }
+        : { status: img, build: slug.replace(/-/g, "_"), path: null, verifier_status: "FAIL", sha256: null },
+      quality: priceCad === null ? { status: "UNKNOWN", basis: "unknown", reason: "not computed" }
+        : { status: "OK", compiles: true, certified: true, release_hash: "a1b2c3d4e5f6", certificate_errors: [], basis: "measured" },
+      listing: { title: `${name} | Crochet Pattern PDF | US and UK Terms`, title_chars: 50, title_max: 140, title_ok: true,
+        title_basis: "derived: commerce.seo.build_title", price_cad: priceCad, price_basis: priceCad === null ? "UNKNOWN" : "products.launch0.price_plan",
+        on_etsy: "UNKNOWN", on_etsy_note: "nothing is entered on Etsy by this system" },
+      readiness: { status: "OWNER_GATED", blockers: status === "CAP1_SCOPE"
+        ? [{ what: "Product not approved: gates pending (CAP-1 is configuration only)", clearer: "OWNER" }, { what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }]
+        : [{ what: "Shop open and listing entered on Etsy (owner sign-in)", clearer: "OWNER" }], note: "Publication is the owner's authorisation." },
+      pdf: { terms: ["US", "UK"], paths: { US: `/api/cc/store/pdf/${slug}?terms=US`, UK: `/api/cc/store/pdf/${slug}?terms=UK` }, note: "rendered on request" },
+    });
+    const products = [
+      prod("nursery-nesting-baskets", "Nesting Baskets, three sizes", "LAUNCH_0", 6.5, "VERIFIED"),
+      prod("cloudline-baby-blanket", "Cloudline Baby Blanket", "LAUNCH_0", 7.5, "VERIFIED", { section: "baby" }),
+      prod("hexagon-coaster-set", "Hexagon Coaster Set (4)", "LAUNCH_0", 4, "VERIFIED"),
+      prod("nordic-star-ornaments", "Nordic Snowflake Ornament Set (6)", "LAUNCH_0", 4.5, "WITHHELD", { section: "seasonal" }),
+      prod("winter-village-graphghan", "Winter Village Graphghan", "LAUNCH_0", 7.5, "VERIFIED", { section: "blankets" }),
+      prod("nordic-forest-mosaic-throw-baby", "Nordic Forest Relief Baby Blanket", "CAP1_SCOPE", 7.5, "VERIFIED", { section: "baby" }),
+      prod("mosaic-placemat-pair", "Diamond Lattice Placemat Pair", "CAP1_SCOPE", 5, "VERIFIED"),
+      prod("housewarming-key-basket", "Housewarming Key Basket", "CAP1_SCOPE", null, "VERIFIED"),
+    ];
+    return { generated_at: now(), products,
+      counts: { collection: 8, launch0: 5, proposed: 0, cap1: 3, cap1_approved: 0, images_verified: 7, quality_ok: 7 },
+      decision: { key: "CAP-1", question: "Approve the 3 products CAP-1 brought into Launch-0 scope? The cap change was configuration only.",
+        how: "Each product still has to pass its gates and receive your publication approval.", cap_approved: true, approved: false },
+      etsy: { status: "NOT_CONNECTED", items: [], reason: "no Etsy OAuth credential is recorded" },
+      etsy_controls: { retrieved_on: "2026-10-06", note: "VERIFIED rows quote an Etsy document; UNKNOWN rows carry no number.",
+        surfaces: { shop_title: [{ key: "shop_title_max_chars", what: "shop title (tagline) characters", value: 55, basis: "VERIFIED_HELP_CENTER" }],
+          announcement: [{ key: "announcement_max_chars", what: "shop announcement characters", value: null, basis: "UNKNOWN" }],
+          sections: [{ key: "sections_max", what: "custom shop sections, count", value: 20, basis: "VERIFIED_HELP_CENTER" }] },
+        not_controlled: [{ element: "Page layout, colours, fonts and card design", why: "Etsy draws the shop page in its own design." }] },
+      preview: { path: "/cc/store-preview", default_variant: "storefront", variants: ["storefront", "v2", "compare", "standard", "brand_face"] } };
+  },
   // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
   // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
   // transactions_r -- so the card renders its refused state and Connect stays disabled.

@@ -463,6 +463,92 @@ try {
   check(!(await page.isVisible("#main nav.crumb")) && (await page.isVisible("#sidenav a[data-tab=company][aria-current=page]")), "ccux nav: desktop uses the sidebar, breadcrumb hidden");
   await page.setViewportSize({ width: 390, height: 844 });
 
+  // ---- W4-STOREFRONT: owner Store area on a phone (390 px) ---------------------------------
+  const reqs = [];
+  const onReq = (r) => reqs.push(new URL(r.url()).pathname);
+  page.on("request", onReq);
+  await page.goto(`${BASE}/cc/#/store`);
+  await settle();
+  await page.waitForFunction(() => [...document.querySelectorAll(".pimg img")].every((i) => i.complete), null, { timeout: 10000 });
+  const sov = await page.evaluate(() => ({
+    nav: [...document.querySelectorAll(".store-nav a")].map((a) => a.textContent),
+    readiness: document.querySelector("section[aria-labelledby='store-readiness']")?.textContent || "",
+    decisions: document.querySelector("section[aria-labelledby='store-decisions']")?.textContent || "",
+    tiles: [...document.querySelectorAll("section[aria-labelledby='store-catalogue'] .ptile")].map((t) => ({ slug: t.dataset.product,
+      img: t.querySelector("img")?.getAttribute("src") || null, loaded: (t.querySelector("img")?.naturalWidth || 0) > 0,
+      none: t.querySelector(".pimg-none")?.textContent || null })),
+    preview: document.querySelector("section[aria-labelledby='store-preview'] a.btn-primary")?.getAttribute("href") || "",
+    evidence: (() => { const d = document.querySelector("#store-evidence"); return d ? { open: d.open, sections: d.querySelectorAll(".card").length } : null; })(),
+    obs: !!document.getElementById("obs-field"),
+  }));
+  check(JSON.stringify(sov.nav) === JSON.stringify(["Overview", "Collection", "Listings & prices", "Storefront"]), "storefront cc: store sub-navigation", JSON.stringify(sov.nav));
+  check(/Launch collection\s*8/.test(sov.readiness) && /Pictures verified\s*7 \/ 8/.test(sov.readiness) && /Etsy connection\s*Not connected/.test(sov.readiness),
+    "storefront cc: launch readiness shows collection, verified pictures and Etsy connection", sov.readiness.slice(0, 240));
+  check(/CAP-1: products in Launch-0 scope/.test(sov.decisions) && /NOT APPROVED: GATES PENDING/.test(sov.decisions) && !/D-FB-9/.test(sov.decisions),
+    "storefront cc: CAP-1 products shown as not approved (gates pending)", sov.decisions.slice(0, 200));
+  const etsyCardText = await page.evaluate(() => [...document.querySelectorAll("#main section.card")].find((c) => c.querySelector(".card-title")?.textContent === "Etsy connection")?.textContent || "");
+  check(/refusing the app key/.test(etsyCardText) && (await page.isDisabled("button:has-text('Connect Etsy shop')")), "storefront cc: Etsy connection card kept on the Store overview", etsyCardText.slice(0, 160));
+  const verifiedTiles = sov.tiles.filter((t) => t.img);
+  const withheld = sov.tiles.filter((t) => !t.img);
+  check(sov.tiles.length === 5 && verifiedTiles.length === 4 && verifiedTiles.every((t) => t.img.startsWith("/api/cc/store/image/") && t.loaded),
+    "storefront cc: visual catalogue loads verified pictures through the owner session", JSON.stringify(sov.tiles));
+  check(withheld.length === 1 && /withheld/i.test(withheld[0].none || "") && !reqs.some((p) => p.endsWith("/store/image/nordic_star_ornaments")),
+    "storefront cc: a withheld picture shows a placeholder and is never requested", JSON.stringify({ withheld, reqs: reqs.filter((p) => p.includes("/store/image/")) }));
+  check(/variant=storefront/.test(sov.preview), "storefront cc: preview opens the customer storefront view", sov.preview);
+  check(!!sov.evidence && sov.evidence.open === false && sov.evidence.sections >= 2 && sov.obs,
+    "storefront cc: technical evidence folded; live-shop observation kept", JSON.stringify(sov.evidence));
+  await noHScroll("storefront store overview");
+
+  await page.goto(`${BASE}/cc/#/store/collection`);
+  await settle();
+  const coll = await page.$$eval(".pgrid", (gs) => gs.map((g) => g.querySelectorAll(".ptile").length));
+  const collText = await page.textContent("section[aria-labelledby='store-collection']");
+  check(JSON.stringify(coll) === JSON.stringify([5, 3]) && /In Launch-0 scope \(CAP-1\); not approved: gates pending \(3\)/.test(collText) && !/awaiting your decision/.test(collText),
+    "storefront cc: 8-product launch collection, 5 Launch-0 + 3 CAP-1 not approved", JSON.stringify(coll));
+  check(/Unknown/.test(collText) && !/CA\$0\.00/.test(collText), "storefront cc: an unknown price reads Unknown, never CA$0.00");
+  await noHScroll("storefront collection");
+  const smallC = await page.$$eval("#main button, #main a.btn", (els) => els.filter((e) => e.offsetParent !== null).map((e) => Math.round(e.getBoundingClientRect().height)).filter((x) => x < 40));
+  check(smallC.length === 0, "storefront collection: tap-size floor", JSON.stringify(smallC));
+
+  await page.click(".ptile[data-product='nursery-nesting-baskets']");
+  await settle();
+  const pd = await page.evaluate(() => ({ url: location.hash, title: document.querySelector(".product-head .card-title")?.textContent,
+    img: document.querySelector(".product-head img")?.getAttribute("src"), dl: document.querySelector(".dl-label")?.textContent,
+    pdf: [...document.querySelectorAll("a[data-pdf]")].map((a) => a.getAttribute("href")),
+    readiness: document.querySelector("section[aria-labelledby='product-readiness']")?.textContent || "",
+    listing: document.querySelector("section[aria-labelledby='product-listing']")?.textContent || "",
+    evidenceOpen: document.querySelector("details.evidence-group")?.open }));
+  check(/#\/store\/product\/nursery-nesting-baskets/.test(pd.url) && pd.title === "Nesting Baskets, three sizes" && pd.img === "/api/cc/store/image/nursery_nesting_baskets"
+    && pd.dl === "Digital download (PDF pattern)", "storefront cc: product page with verified picture and digital-download label", JSON.stringify(pd).slice(0, 300));
+  check(JSON.stringify(pd.pdf) === JSON.stringify(["/api/cc/store/pdf/nursery-nesting-baskets?terms=US", "/api/cc/store/pdf/nursery-nesting-baskets?terms=UK"]),
+    "storefront cc: US and UK PDF previews linked", JSON.stringify(pd.pdf));
+  const pdfRes = await page.evaluate(async (u) => { const r = await fetch(u, { credentials: "same-origin" }); return { s: r.status, t: r.headers.get("content-type") }; }, pd.pdf[0]);
+  check(pdfRes.s === 200 && /application\/pdf/.test(pdfRes.t || ""), "storefront cc: PDF preview served as application/pdf", JSON.stringify(pdfRes));
+  check(/OWNER/.test(pd.readiness) && /Listing title/.test(pd.listing) && /On Etsy\s*UNKNOWN/.test(pd.listing) && pd.evidenceOpen === false,
+    "storefront cc: readiness, read-only listing (on Etsy UNKNOWN) and folded evidence", (pd.readiness + pd.listing).slice(0, 300));
+  check((await page.$$("section[aria-labelledby='product-listing'] button")).length === 0, "storefront cc: listing view is read-only");
+  await noHScroll("storefront product");
+  await page.goto(`${BASE}/cc/#/store/product/housewarming-key-basket`);
+  await settle();
+  const pd2 = await page.textContent("#main");
+  check(/CAP-1 · NOT APPROVED/.test(pd2) && /not approved: gates pending/.test(pd2) && /Not shown on the customer preview/.test(pd2)
+    && /Price\s*Unknown/.test(pd2) && !/CA\$0\.00/.test(pd2), "storefront cc: CAP-1 product labelled not approved, off the customer page; unknown price Unknown", pd2.slice(0, 240));
+
+  await page.goto(`${BASE}/cc/#/store/listings`);
+  await settle();
+  const lrows = await page.$$eval("li[data-listing]", (els) => els.length);
+  check(lrows === 8 && (await page.$$("#main section[aria-labelledby='store-listings'] button")).length === 0, "storefront cc: listings & prices for all 8, read-only", String(lrows));
+  await noHScroll("storefront listings");
+
+  await page.goto(`${BASE}/cc/#/store/storefront`);
+  await settle();
+  const ctl = await page.textContent("section[aria-labelledby='store-etsy-controls']");
+  check(/shop title/.test(ctl) && /Unknown · UNKNOWN/.test(ctl) && /Drawn by Etsy/.test(ctl), "storefront cc: what Etsy lets the shop control, UNKNOWN never a number", ctl.slice(0, 200));
+  await noHScroll("storefront review");
+  page.off("request", onReq);
+  await page.goto(`${BASE}/cc/#/ask`);
+  await settle();
+
   // ---- deep link from a notification ----------------------------------------------------
   await page.goto(`${BASE}/cc/#/notifications`);
   await settle();

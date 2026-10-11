@@ -383,6 +383,25 @@ details.card[open] > summary { margin-bottom: 8px; }
 .card-expand .icon { transform: rotate(90deg); }
 .card-title[tabindex="-1"]:focus { outline: none; }
 
+/* ---- W4-STOREFRONT: owner Store area on a phone ---- */
+.store-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.store-nav .btn { flex: none; white-space: nowrap; }
+.store-nav .btn[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.pgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 640px) { .pgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ptile { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--text); text-decoration: none; }
+.ptile-name { font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.ptile-price { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ptile-price.big { font-size: 20px; margin: 8px 0 0; }
+.ptile-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pimg { position: relative; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background: var(--surface-2, var(--accent-soft)); }
+.pimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pimg-lg { max-width: 420px; }
+.pimg-tag { position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: var(--surface); color: var(--text-2); }
+.pimg-none { display: grid; place-items: center; text-align: center; padding: 10px; color: var(--text-2); font-size: 13px; border: 1px dashed var(--border); }
+.dl-label { font-weight: 650; color: var(--accent); margin: 4px 0 8px; }
+.evidence-group > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.evidence-group[open] > summary { margin-bottom: 10px; }
 /* W4-OWNERHOME: six-block owner overview on Home -- compact, phone first, evidence on demand. */
 .ov-headline { margin: 0 0 8px; font-weight: 650; overflow-wrap: anywhere; }
 .ov-rows { list-style: none; margin: 0 0 8px; padding: 0; }
