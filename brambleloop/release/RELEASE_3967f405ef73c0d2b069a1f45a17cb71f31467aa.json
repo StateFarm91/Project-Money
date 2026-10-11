@@ -14,6 +14,12 @@
     ],
     "prefix_stripped": "brambleloop/"
   },
+  "full_log": {
+    "note": "per-test log, outside the image; release/ holds its summary",
+    "path": "research/release_evidence/20261010T062725Z-14513.full.log",
+    "relative_to": "brambleloop/",
+    "sha256": "c1f1f81437f9d5e007c13fd570ad0bcaa020fe4c3d2608774334e0bdbafeec41"
+  },
   "kind": "brambleloop.release_record",
   "note": "commit this file and suite_runs/ on top of `sha`; the deploy guard and the runtime boot guard read it from git / the image, never from artifacts/",
   "recorded_at": "2026-10-10T08:01:30Z",
@@ -22,7 +28,7 @@
   "source_tree_sha256": "4bdd487b80f09fa8b44a133a48e80df4d0dfe1ed36f20c359c4c52a42dcacb45",
   "suite_log": {
     "path": "suite_runs/20261010T062725Z-14513.log",
-    "sha256": "c1f1f81437f9d5e007c13fd570ad0bcaa020fe4c3d2608774334e0bdbafeec41"
+    "sha256": "4d398baccdd3d0ff27669aeadd0184b6b05f8d6ceb0f771e20dcc6a298f3c79c"
   },
   "suite_record": {
     "path": "suite_runs/20261010T062725Z-14513.json",

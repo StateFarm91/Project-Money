@@ -320,6 +320,23 @@ def _record_problems(rec: dict, read) -> list[str]:
     return reasons
 
 
+def _full_log_problems(repo: Path, cand: str, rec: dict, layout: dict) -> list[str]:
+    """The per-test log kept outside the image must exist at `cand` and match its pin."""
+    ref = rec.get("full_log")
+    if ref is None:
+        return []
+    rel = str((ref or {}).get("path") or "") if isinstance(ref, dict) else ""
+    if not rel or ".." in rel.split("/") or rel.startswith("/"):
+        return ["tracked release record names no usable full_log path"]
+    path = f"{layout['prefix']}{rel}"
+    data = _blobs(repo, cand, [path]).get(path)
+    if data is None:
+        return [f"tracked full log {rel!r} is gone from the commit"]
+    if hashlib.sha256(data).hexdigest() != ref.get("sha256"):
+        return [f"tracked full log {rel!r} does not match its pinned sha256"]
+    return []
+
+
 def release_proof(repo: Path, cand: str, layout: dict = LAYOUT) -> tuple[dict | None, list[str]]:
     """The tracked release record at `cand` that proves `cand`'s deployable tree, or why not."""
     rel_dir = layout["prefix"] + layout["release"]
@@ -344,7 +361,7 @@ def release_proof(repo: Path, cand: str, layout: dict = LAYOUT) -> tuple[dict | 
         def read(rel: str) -> bytes | None:
             return _blobs(repo, cand, [f"{rel_dir}/{rel}"]).get(f"{rel_dir}/{rel}")
 
-        why = _record_problems(rec, read)
+        why = _record_problems(rec, read) + _full_log_problems(repo, cand, rec, layout)
         sha = str(rec.get("sha") or "")
         if not why:
             code, _ = _git(repo, "merge-base", "--is-ancestor", sha, cand)
@@ -554,8 +571,8 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
         # F-158 / F-416: lock verification, SBOM digest and the change record against the
         # last deployed SHA, for the tree at `sha` (scripts/supply_chain.py as of `sha`).
         "supply_chain": supply,
-        "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard and the "
-                "runtime boot guard read it from git / the image, never from artifacts/",
+        "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard "
+                "and the runtime boot guard read it from git / the image, never from artifacts/",
     }
     out = rel_dir / f"RELEASE_{full}.json"
     out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
