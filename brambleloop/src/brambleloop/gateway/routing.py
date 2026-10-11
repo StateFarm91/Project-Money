@@ -202,6 +202,17 @@ TASKS: dict[str, Task] = {
         "laura.business_phrase", CHEAP, 220, 700, True,
         "reword a decided business statement in Laura's voice; facts are supplied, so this "
         "is rephrasing against fixed content rather than judgement", stronger_fallback=False),
+    # Laura's CEO briefing (W4-LAURA1): the owner asks a multi-part question and the model
+    # writes the briefing from a deterministic evidence pack -- every line must cite evidence
+    # ids, and `laura.agency.briefing.validate` strips any claim that does not map to one.
+    # Standard tier because the question is grounded synthesis and prioritised writing for the
+    # owner (judgement over supplied facts), not extraction and not a release-blocking verdict:
+    # the ranking of owner decisions and every figure stay deterministic. No stronger fallback:
+    # when the model is down or unaffordable the deterministic briefing answers in full.
+    "laura.ceo_briefing": Task(
+        "laura.ceo_briefing", STANDARD, 1800, 6000, False,
+        "write Laura's owner briefing from a supplied evidence pack, citing evidence ids; "
+        "unsupported claims are stripped deterministically", stronger_fallback=False),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "
