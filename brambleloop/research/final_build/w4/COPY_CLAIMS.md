@@ -109,3 +109,21 @@ wording it replaced.
 CASL: the privacy addendum's email sentence is unchanged ("only to people who have expressly
 agreed … unsubscribe that works"). No email list exists, so nothing is sent. Whether that
 sentence is complete under CASL is an open **legal** item, alongside C-07 and C-10.
+
+## Tests run
+
+All focused, one process at a time, each with a private TMPDIR.
+
+**Passed (exit 0):**
+- test_w4_copy 5/5 (new)
+- test_w3_store_copy_surfaces, test_w3_store_copy_routing, test_v11_store_foundation,
+  test_v11_store_preview
+- test_shop_package, test_brand, test_storefront_fb4
+- test_platform_policy, test_gates, test_r2_product_store_lint
+- test_cert_commerce 14/14
+- test_deliverable_qa
+- test_policy_knowledge 20/20
+
+**Not completed:** test_product_run hit the 30-minute timeout on the shared CPU. It had 3
+tests OK and 0 failures when it was stopped, and it was not re-run. The integrator should
+re-run it.
