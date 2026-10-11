@@ -121,6 +121,27 @@ def redrivable(job_type: str, last_error: str = "") -> bool:
     return classify_dead_letter(job_type, last_error) != REFUSED
 
 
+def dead_letter_digest(jobs) -> list[dict]:
+    """Group dead letters by job type: count, latest time and the latest error's first line.
+
+    W4-FINHEALTH: `/api/verify` listed only the job types, so a type that died once and one
+    that died seventeen times read the same. The error head is the first line only, cut at
+    200 characters -- enough to name the defect, short of carrying a full SQL statement or
+    provider body into a public reading.
+    """
+    groups: dict[str, dict] = {}
+    for job in jobs:
+        at = _aware(getattr(job, "finished_at", None) or getattr(job, "created_at", None))
+        g = groups.setdefault(job.job_type, {"job_type": job.job_type, "count": 0,
+                                             "last_at": None, "last_error": ""})
+        g["count"] += 1
+        if g["last_at"] is None or (at is not None and at >= g["last_at"]):
+            g["last_at"] = at
+            g["last_error"] = ((job.last_error or "").strip().splitlines() or [""])[0][:200]
+    return [{**g, "last_at": g["last_at"].isoformat() if g["last_at"] else None}
+            for g in sorted(groups.values(), key=lambda g: (-g["count"], g["job_type"]))]
+
+
 class DuplicateJob(Exception):
     """Raised when an idempotency key already exists. Not an error -- a guarantee working."""
 

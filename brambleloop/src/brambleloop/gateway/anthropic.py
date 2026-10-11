@@ -241,7 +241,16 @@ def agent_daily_ceiling(db, agent: str, *, now: datetime | None = None) -> dict 
         return {"agent": agent, "daily_ceiling_cad": 0.0,
                 "spent_today_cad": registry.spend_today(agent, now=now)}
     if ceiling <= 0:
-        return None
+        # W4-FINHEALTH: a registered agent declared at CA$0 (`learn`, `coo`, `laura`) holds a
+        # permission of zero, not no permission. This returned `None` -- the "never heard of
+        # this agent" answer -- so `check_budget` skipped the agent check entirely and a
+        # zero-ceiling agent's first call was made and billed, refused only afterwards by
+        # `ModelGateway`'s post-hoc check (and not at all on `spend_report.record` paths).
+        # `/api/verify` calls a CA$0 ceiling "refused, safe"; this is what makes that true:
+        # any call with a positive estimate is refused before it is made. Not a ceiling
+        # change -- the declared value is unchanged; only its enforcement now matches it.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
     return {"agent": agent, "daily_ceiling_cad": ceiling,
             "spent_today_cad": registry.spend_today(agent, now=now)}
 
