@@ -3070,7 +3070,10 @@ def api_serp() -> dict:
 
 @app.get("/api/insights")
 def api_insights() -> dict:
-    """Owner-recorded Marketplace Insights snapshots (#236). Etsy's figures as read, labelled."""
+    """Owner-recorded Marketplace Insights snapshots (#236). Etsy's figures as read, labelled.
+
+    Operator credential (`security.OPERATOR_GET_ROUTES`, W4-SECFIX): these are the owner's own
+    Shop Manager figures and the name of who recorded them, not a public aggregate."""
     from ..intel import insights
 
     rows = insights.snapshots(db)
@@ -3124,8 +3127,10 @@ async def api_insights_snapshot(request: Request,
     except insights.InsightsRefused as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
+    # W4-SECFIX (review e3747c5 LOW-2): the audit log is publicly readable (/api/audit), so it
+    # names the row, never the owner's keyword, figures or name; the row itself holds those.
     Registry(db).audit("orchestrator", "insights.snapshot_recorded", detail={
-        k: result[k] for k in ("id", "keyword", "observed_on", "recorded_by", "basis")})
+        k: result[k] for k in ("id", "observed_on", "basis")})
     return JSONResponse(result)
 
 
@@ -3165,14 +3170,17 @@ async def api_insights_paste(request: Request,
     if confirm:
         Registry(db).audit("orchestrator", "insights.paste_recorded", detail={
             "paste_sha256": out["digest"], "ids": [r["id"] for r in out["recorded"]],
-            "unparsed_lines": len(out["unparsed"]),
-            "recorded_by": str(body.get("recorded_by") or "")[:80]})
+            "unparsed_lines": len(out["unparsed"])})  # W4-SECFIX: no name in the public log
     return JSONResponse(out)
 
 
 @app.get("/api/market-intel")
 def api_market_intel() -> dict:
-    """W4-MARKETINTEL: the latest labelled market proxies and where they were routed."""
+    """W4-MARKETINTEL: the latest labelled market proxies and where they were routed.
+
+    Operator credential (`security.OPERATOR_GET_ROUTES`, W4-SECFIX): the payload carries the
+    owner's own Marketplace Insights readings, which are the shop's private demand research.
+    """
     from ..intel import market_intel
 
     return {"latest": market_intel.latest(db), "etsy_limit": market_intel.ETSY_LIMIT}

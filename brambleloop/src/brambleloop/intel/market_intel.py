@@ -235,9 +235,11 @@ def _statement(r: dict) -> str:
          f"(demand-interest proxy, not searches or sales); recent-entrant share "
          f"{_fmt(m['recent_entrant_share'])}.")
     if m["insights_search_count"]["value"] is not None:
-        s += (f" Etsy Marketplace Insights (owner-recorded "
-              f"{m['insights_search_count']['observed_at']}): "
-              f"{m['insights_search_count']['value']} searches.")
+        # W4-SECFIX (review e3747c5 LOW-2): lesson statements are served publicly by
+        # /api/improve, so the owner's Insights figure stays out of the text; consumers that
+        # need it read `query_signals` (and the operator reads /api/market-intel).
+        s += (f" An Etsy Marketplace Insights reading is on record (owner-recorded "
+              f"{m['insights_search_count']['observed_at']}; the figure is operator-only).")
     vocab = r.get("vocabulary") or []
     if vocab:
         s += f" Pod {r['pod'] or 'unrouted'} vocabulary: {', '.join(vocab)}."
