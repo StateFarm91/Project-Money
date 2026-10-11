@@ -14,7 +14,12 @@ Launch-0 scope. The products themselves are **not approved, drafted or published
 - **Prices.** They come from what the store grid reports (`content.launch0_products`). The placemat shows its plan price, CA$5.00.
 - **Store overview.** The ETSYREL "Etsy connection" card (re-check / connect, with step-up) is kept on the Store overview as its own section, next to the live-shop observation. Each overview section is a separate, commented function, so the SHOPSYNC "Live shop settings" card can be added cleanly.
 - **First load never blocks the phone.** On a cold server process, rendering and checking eight pictures takes about 20–30 s. That was enough to time out the real-backend check on the Store tab. The full catalogue is now computed once in a background thread and cached for 120 s. A request waits at most 4 s for it, then gets the quick catalogue: the same products, prices and listings, with pictures marked NOT_CHECKED and quality UNKNOWN (never a pass), plus a "Still checking" note. The phone also stops waiting on the catalogue after 8 s and shows a "PREPARING" card. With this, the real-backend check passes cold (44 OK).
-- **Pre-existing failure fixed.** `test_w4_images::test_candidates_cover_the_preview_products_and_the_proposals` was already failing on a5b889b, because the opening grid grew to 8 under CAP-1. `image_review.candidates()` now marks as customer-shown exactly the storefront view's set, so the test passes with its assertion unchanged.
+- **One rule for which products reach the customer page (after merging INTEG2 @ 4860c4d, IMGCAP1).** Image review keeps IMGCAP1's two separate facts:
+  - `in_owner_store_preview`: whether the product is in the owner Store Preview grid. All 8 are.
+  - `customer_page_eligible`: the 5 core Launch-0 products; a CAP-1 product only once every gate passes.
+
+  My earlier change to `image_review.candidates()` is reverted. The storefront's customer product set must now equal image review's `customer_page_eligible` set (`test_customer_page_rule_matches_image_review`).
+- **"Release" in the customer view is the Etsy AI disclosure.** After COPY v3, the customer view shows `gates.platform_policy.DISCLOSURES["ai_assisted_design"]` verbatim: "This design was created with AI assistance, and every row's stitch count is checked before release." It is a required customer disclosure, and "before release" is plain English for "before publication", so it is not a leak. The jargon guard excuses exactly that sentence: it must be present verbatim, and is removed before the check. Any other "release" still fails.
 - **Merge conflicts.** In app.css, api.js and cc_mock/data.mjs I kept both sides. In store.js I kept this branch's layout and added the ETSYREL card.
 
 ## A. Customer storefront preview

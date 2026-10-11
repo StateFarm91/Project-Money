@@ -83,6 +83,18 @@ def test_customer_view_has_no_internal_material():
     cust = SF.customer_html(page())
     assert cust, "customer section not found"
     text = V2.visible_text(cust).lower()
+    # The one allowance: Etsy's required AI disclosure, verbatim from its owner
+    # (gates.platform_policy.DISCLOSURES["ai_assisted_design"], COPY v3). "Checked before
+    # release" there is plain English for "before it is published" and the sentence must not be
+    # reworded on the shop page, so exactly that sentence -- and nothing else -- is excused from
+    # the jargon guard. It must actually be present (an allowance for an absent sentence is a
+    # silent hole), and any other "release" still fails.
+    from brambleloop.gates.platform_policy import DISCLOSURES
+
+    allowed = re.sub(r"\s+", " ", DISCLOSURES["ai_assisted_design"]).lower()
+    flat = re.sub(r"\s+", " ", text)
+    assert allowed in flat, "the Etsy AI disclosure is missing from the customer view"
+    text = flat.replace(allowed, " ")
     assert V2.jargon_hits(text) == [], V2.jargon_hits(text)
     banned = [t for t in copy_v2.BANNED_TECHNICAL_TERMS
               if re.search(rf"(?<![a-z]){re.escape(t)}(?![a-z])", text)]
@@ -157,6 +169,19 @@ def test_categories_are_populated_only_and_disclosures_stay_customer_facing():
         assert f'#c-{s["slug"]}"' not in cust
     assert 'data-disclosure="shop"' in cust and cust.count('data-disclosure="listing"') == len(re.findall(r'<a class="card"', cust))
     assert "not a photograph" in cust and "AI" in V2.visible_text(cust)
+
+
+def test_customer_page_rule_matches_image_review():
+    """One rule for "may reach the customer page": the storefront's product set equals the
+    image review's `customer_page_eligible` set (core Launch-0; CAP-1 only once every gate
+    passes). `in_owner_store_preview` is a different fact (the owner preview grid, 8)."""
+    from brambleloop.store_foundation import image_review as IR
+
+    cands = IR.candidates()
+    assert cands
+    eligible = {c["slug"] for c in cands if c["customer_page_eligible"]}
+    cards = set(re.findall(r'<a class="card"[^>]*data-product="([^"]+)"', SF.customer_html(page())))
+    assert eligible and cards == eligible, (sorted(cards), sorted(eligible))
 
 
 def test_copy_keys_and_placeholder_fallback():

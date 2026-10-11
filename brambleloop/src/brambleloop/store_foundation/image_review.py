@@ -85,15 +85,11 @@ def candidates() -> list[dict]:
     Preview grid (`/cc/store-preview`, an owner page, not the customer page)."""
     from ..products import launch0 as L
 
-    try:
-        # W4-STOREFRONT: the customer preview is the storefront view, which shows the Launch-0
-        # products and a CAP-1 product only once every gate passes (CAP-1 changed the cap as
-        # configuration only), so "shown" is that set, not the whole opening grid.
-        from . import storefront as SF
+    from . import content as C
 
-        shown = {p["representative"]["build"] for p in SF.collection(None)
-                 if p["launch_status"] == "LAUNCH_0"
-                 or (p["launch_status"] == SF.CAP1_SCOPE and SF.customer_gates_pass(p)[0])}
+    try:
+        shown = {p["representative"]["build"]
+                 for p in (C.build(None)["opening_grid"].value or [])}
     except Exception:  # noqa: BLE001 - an unreadable grid marks nothing as shown
         shown = set()
     cap_raised = bool(getattr(L, "CATALOGUE_FLOOR_APPROVED", False))
