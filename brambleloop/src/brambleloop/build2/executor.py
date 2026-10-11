@@ -734,7 +734,10 @@ GATES: tuple[Gate, ...] = (
          _owned_surface_probed,
          (),
          "the latest owned_surface.probe audit row records ok: true -- a real publish-path "
-         "check, not a site URL or token variable being set"),
+         "check, not a site URL or token variable being set. Written six-hourly by "
+         "ops.capability_probes (growth.owned_surface.probe): the site at "
+         "BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing "
+         "'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board"),
     Gate("live_listings",
          "a listing that exists on the marketplace: company work first (a product clears the "
          "final publication gate), then the owner's per-listing publication grant",
