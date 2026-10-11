@@ -522,6 +522,84 @@ def record_chain(rec: Recorder, db, cir, ctx: dict) -> dict:
 
 # ---- phase 2: past-shadow simulated publish ---------------------------------------------
 
+PAST_SHADOW_PATH = ("staging", "limited_production")
+
+
+def record_owner_phase(rec: Recorder, db, *, authorization: str = REHEARSAL_OPS_TOKEN,
+                       readiness_verdict=None) -> dict:
+    """W4-FMEND: record the owner's phase transition shadow -> staging -> limited_production
+    in the rehearsal's scratch database, through the path the runtime uses.
+
+    `store.publish` runs under `protected_phase`: the more restrictive of the worker's phase,
+    the environment and the owner's *recorded*, sealed transition (`core.phase.effective`).
+    Setting only BRAMBLELOOP_PHASE therefore left the simulated past-shadow publish refused as
+    SHADOW whatever else held. The fix does not touch that rule. It runs:
+
+    * the real `launch.readiness` job (writes `launch.assessed` and, per listed release, the
+      `launch.rollback_rehearsed` rows the transition must cite);
+    * `core.phase.record_transition` (the function behind POST /api/owner/phase/transition)
+      under the rehearsal's fixture ops credential, citing those rows, one step at a time.
+
+    record_transition still checks the credential, the cited evidence (passing from
+    limited_production up) and the launch readiness verdict evaluated now. Any refusal is
+    recorded as BLOCKED with its reason and the phase stays where it is. Nothing is forced, and
+    `readiness_verdict` is None (the live verdict) in every rehearsal run; tests use it only to
+    reach the success path.
+    """
+    from brambleloop.core import phase as phase_mod
+    from brambleloop.core.models import Phase
+    from brambleloop.runtime import pipeline, release  # noqa: F401 - registers launch.readiness
+
+    expected = ("owner transition shadow -> staging -> limited_production recorded via "
+                "core.phase.record_transition, citing launch.readiness evidence")
+    job = _run_job(db, "orchestrator", "launch.readiness", {}, Phase.SHADOW)
+    assessed = _audits(db, "launch.assessed")
+    rehearsed = _audits(db, "launch.rollback_rehearsed")
+    refs = {}
+    if assessed:
+        refs["readiness"] = str(assessed[-1]["id"])
+    if rehearsed:
+        refs["rollback"] = str(rehearsed[-1]["id"])
+    proof = {"launch.readiness_job": job,
+             "launch.assessed": {"id": assessed[-1]["id"],
+                                 "ready": assessed[-1]["detail"].get("ready"),
+                                 "blocked_on_owner": assessed[-1]["detail"].get(
+                                     "blocked_on_owner"),
+                                 "blocked_on_integration": assessed[-1]["detail"].get(
+                                     "blocked_on_integration")} if assessed else None,
+             "launch.rollback_rehearsed": [{"id": a["id"], "artifact": a["artifact"],
+                                            "ok": a["detail"].get("ok")}
+                                           for a in rehearsed[-8:]],
+             "evidence_refs": refs}
+    recorded = []
+    try:
+        for to in PAST_SHADOW_PATH:
+            t = phase_mod.record_transition(
+                db, authorization=authorization, to=to,
+                reason="shadow rehearsal: simulated owner phase decision (F-848), scratch DB",
+                evidence_refs=refs, readiness_verdict=readiness_verdict)
+            recorded.append({"to": to, "transition_id": t["transition_id"],
+                             "effective_now": t["effective_now"]})
+    except Exception as e:  # noqa: BLE001 - a refused transition is the blocker, recorded
+        why = f"{type(e).__name__}: {str(e)[:700]}"
+        proof["transitions_recorded"] = recorded
+        proof["phase_effective"] = phase_mod.effective(db, record_incident=False)
+        rec.step("owner_phase_transition", BLOCKED, expected=expected,
+                 observed={"refused_at": PAST_SHADOW_PATH[len(recorded)], "why": why,
+                           "recorded": recorded}, proof=proof)
+        rec.defect("owner_phase_transition_refused", "core/phase.py::record_transition", why)
+        return {"ok": False, "why": why, "recorded": recorded}
+    proof["transitions_recorded"] = recorded
+    proof["phase_effective"] = phase_mod.effective(db, record_incident=False)
+    ok = proof["phase_effective"] == "limited_production"
+    rec.step("owner_phase_transition", PASS if ok else BLOCKED, expected=expected,
+             observed={"recorded": recorded, "phase_effective": proof["phase_effective"]},
+             proof=proof)
+    if not ok:
+        rec.defect("owner_phase_transition_refused", "core/phase.py::effective",
+                   f"transitions recorded but effective phase is {proof['phase_effective']!r}")
+    return {"ok": ok, "recorded": recorded}
+
 
 def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
     from sqlalchemy import select
@@ -539,6 +617,8 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
     slug, version, release = state["slug"], state["version"], state.get("release")
     out = {"draft_listing_id": None}
     if not release or not state.get("publish_inputs"):
+        rec.step("owner_phase_transition", SKIPPED, expected="owner transition recorded",
+                 observed="no certified release reached store.publish in shadow")
         rec.step("owner_publication_grant", SKIPPED, expected="sealed grant recorded",
                  observed="no certified release reached store.publish in shadow")
         rec.step("store.publish[past-shadow]", SKIPPED, expected="one draft on fake Etsy",
@@ -564,6 +644,8 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
                                "ETSY_SHARED_SECRET": fake.shared_secret})
             # The production client is pointed at the local fake for this simulated phase only.
             etsy_mod.EtsyClient.BASE = fake.base
+            # W4-FMEND: the owner's recorded phase, through record_transition (never forced).
+            record_owner_phase(rec, db)
             grant = None
             try:
                 content = pa.snapshot(db, slug, version, release)
@@ -842,7 +924,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
                  proof={"traceback": traceback.format_exc()[-3000:]})
     finished = _utc()
     required = ["boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
-                "store.publish[shadow]", "owner_publication_grant",
+                "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
                 "store.publish[past-shadow]", "orders.ingest", "support.case", "ledger"]
     by = {s["step"]: s["outcome"] for s in rec.steps}
     evidence = {
@@ -857,6 +939,9 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
             "production stays SHADOW",
             "Etsy is tests/fake_etsy.py on loopback; EtsyClient.BASE pointed at it for the "
             "simulated phase only",
+            "owner phase transition shadow -> staging -> limited_production attempted through "
+            "core.phase.record_transition under a fixture ops credential, citing the real "
+            "launch.readiness evidence and the live readiness verdict (refused = BLOCKED)",
             "owner publication grant recorded through approve() under a fixture ops credential",
             "receipt feed is a fixture via commerce.orders_ingest.reader_factory; receipts gate "
             "rows (etsy.probe ok, transactions_r scope) seeded as a simulated owner grant",
