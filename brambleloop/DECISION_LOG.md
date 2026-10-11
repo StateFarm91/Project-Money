@@ -1753,12 +1753,12 @@ is never resurrected in a future week. D-FB-20 (strongest model only) is otherwi
    (`claude-sonnet-5`), `stronger_fallback=False`: grounded synthesis over a supplied evidence pack, not extraction and
    not a release verdict. No new model, provider or tier; billed to agent `laura` under her own daily permission and
    the monthly ceiling. While Laura's permission is CA$0.00 no call is made (refused before reservation, audited).
-2. Deterministic wins (prompt `laura.ceo_briefing@2`, after two independent reviews): the model only SELECTS and
-   ORDERS evidence ids per section and may add one closed-vocabulary note (no numbers, events or action verbs); code
-   renders every factual line from the records' own statements. Decision ranking and card text (owner queue),
-   VERIFIED/UNKNOWN labels, the authority boundary and each section's mandatory records (halting incidents, Etsy
-   state, SHADOW, UNKNOWN headline facts) are code-rendered first; notes are neutral connectives only; record text is
-   shown as quoted data with instruction-like sentences removed. Any deviation → that section falls back to the
-   deterministic briefing, which is the complete fallback.
+2. Deterministic wins (prompt `laura.ceo_briefing@3`, after four independent reviews): the model writes no text; it
+   only SELECTS and ORDERS optional evidence ids per section. Code renders every line: each section's mandatory
+   records first (every P0/P1 and every publication-halting incident, never capped; Etsy state; SHADOW; UNKNOWN
+   headline facts), then the model's picks, each record verbatim as quoted data with its id. Decision ranking and card
+   text (owner queue), the authority boundary, and VERIFIED/ESTIMATE/UNKNOWN labels (from the reader's declared basis,
+   never from record text) are code-rendered. Records reach the model only inside delimited data blocks. Any
+   deviation → that section falls back to the deterministic briefing, which is the complete fallback.
 3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
    `research/final_build/w4/LAURA1_FIX.md`.

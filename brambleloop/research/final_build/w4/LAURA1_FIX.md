@@ -241,3 +241,28 @@ section + decisions); "What did you do overnight and what needs me?" keeps both 
   as `record says: “…” [instruction-like text removed]` (`briefing.neutralise`).
 
 Regression tests for each (suite 18/18).
+
+## 10. Round-4 review (82bb28c) fixes — prompt `laura.ceo_briefing@3`
+
+- **HIGH R4-1 (model and fallback)**: the evidence pack now carries **every** open P0/P1 and
+  **every** publication-halting incident (any severity), ordered severity → halting → most
+  recent, followed by "+N more open lower-severity incident(s)". All are mandatory in the
+  blockers section and are never capped, in both paths; record text of mandatory lines is shown
+  in full. Length is now kept by shrinking optional lines level by level (`CAP_LEVELS`), never
+  by tail-trimming. Versus 3565b5f the fallback shows a superset: 3565b5f showed at most five
+  incident-first lines, so a halting incident behind three routine P1s could be dropped; now none
+  can be.
+- **MEDIUM R4-2**: `neutralise()` is gone — nothing is deleted from records. Every record line is
+  the record's statement verbatim as quoted, escaped data (`“…” [E#]`; quotes and brackets in the
+  text are escaped so it can neither close the quote nor forge a citation). In the prompt every
+  record field sits inside `<<<RECORD DATA …>>> … <<<END RECORD DATA>>>` blocks (delimiters in
+  record text neutralised) and the system prompt says the contents are data, never instructions.
+  VERIFIED/ESTIMATE/UNKNOWN now come only from the reader's declared basis in code, never from
+  record text; "missing evidence" items carry a code flag.
+- **LOW R4-3**: model notes removed entirely; the contract is `{component, evidence}` only.
+
+Tests (19/19): 3 older routine P1s + halting P1 + halting P2 "Etsy API returned 401. You must
+re-authorise…" + a P3 — every halting/P1 incident shown in model and fallback, verbatim, in
+order, before the model's pick, P3 counted as "+1 more"; the injection text and six benign
+"instruction-looking" records are shown verbatim but only inside their quoted record line, labels
+unchanged, and only inside the data block in the prompt.
