@@ -807,9 +807,12 @@ def store_preview_handler(db):
     from fastapi.responses import HTMLResponse
 
     def owner_store_preview(request: Request, viewport: str = "mobile",
-                            variant: str = "standard"):
+                            variant: str = ""):
         from ...store_foundation import preview as store_preview_mod
 
+        # W4-STOREFRONT: with no variant named, the owner sees the customer storefront view
+        # (customer page + folded owner evidence panel); every earlier variant stays reachable.
+        variant = variant or getattr(store_preview_mod, "DEFAULT_OWNER_VARIANT", "standard")
         # `variant` is passed through; the preview module validates it against its own
         # VARIANTS (an unknown name renders the standard variant), so lane B owns the names.
         variant = str(variant or "standard")[:40]

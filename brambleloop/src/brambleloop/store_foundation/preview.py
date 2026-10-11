@@ -33,7 +33,12 @@ PREVIEW_LABEL = "Preview — not live"
 # Owner preview alternatives. `brand_face` shows the shop designed around Laura using only her
 # approved canonical portrait (D-FB-11/D-FB-12), every use labelled; it is never publishable.
 VARIANTS = {"standard": "Standard", "brand_face": "With brand face (Laura)",
-            "v2": "v2 proposal (wave 3)", "compare": "v2 vs v1"}
+            "v2": "v2 proposal (wave 3)", "compare": "v2 vs v1",
+            "storefront": "Storefront (customer view)"}
+#: W4-STOREFRONT: the customer view with an owner evidence panel (`storefront.render`). The
+#: Command Center opens it by default (`app.command_center.api.store_preview_handler`); this
+#: module's own default stays "standard" so existing callers see the baseline.
+DEFAULT_OWNER_VARIANT = "storefront"
 # Wave 3 (lane B): "standard" and "brand_face" are the owner-rejected v1 design, kept unchanged
 # as the baseline; "v2" is the proposed storefront and "compare" puts the two side by side
 # (`preview_v2`).
@@ -513,6 +518,10 @@ def render_preview(db, viewport: str = "mobile", *, now: datetime | None = None,
     viewport = viewport if viewport in VIEWPORTS else "mobile"
     variant = variant if variant in VARIANTS else "standard"
     now = _now(now)
+    if variant == "storefront":
+        from . import storefront
+
+        return storefront.render(db, viewport, now=now, today=today, variants=VARIANTS)
     if variant in ("v2", "compare"):
         from . import preview_v2
 
