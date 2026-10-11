@@ -1398,6 +1398,10 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
                                        "new_snapshot", "nodes", "pattern_subtree",
                                        "properties_read", "truncated", "why",
                                        "credential_refused", "status")}
+    # W4-ETSYCOMM: a refused credential is a reported stand-aside, never a dead letter.
+    summary["credential_refused"] = bool(got.get("credential_refused"))
+    if got.get("etsy_error"):
+        summary["etsy_error"] = got["etsy_error"]
     summary["gate_missing"] = (got.get("gate") or {}).get("missing", [])
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)
@@ -3361,6 +3365,20 @@ def handle_etsy_probe(ctx: JobContext) -> dict:
     record = etsy_public.probe(ctx.db)
     ctx.audit("etsy.probe.ok" if record["ok"] else "etsy.probe.unavailable",
               detail=record)
+    # W4-ETSYCOMM: the search certificate waits on a taxonomy snapshot, and the daily refresh
+    # stands aside while the key is refused. When a probe succeeds and no snapshot exists, the
+    # refresh is queued now rather than up to a day later. One per day at most (short key:
+    # jobs.idempotency_key is varchar(200)); read-only, api_key-only, CA$0.
+    if record.get("ok"):
+        from ..integrations import etsy_taxonomy
+
+        if etsy_taxonomy.latest(ctx.db) is None:
+            from datetime import datetime as _dt, timezone as _tz
+
+            day = _dt.now(_tz.utc).strftime("%Y%m%d")
+            queued = ctx.enqueue("listing", etsy_taxonomy.JOB_TYPE, {},
+                                 idempotency_key=f"tax-after-probe-{day}")
+            record = dict(record, taxonomy_refresh_queued=queued is not None)
     return record
 
 

@@ -87,9 +87,11 @@ class EndpointRefused(RuntimeError):
 class ReadFailed(RuntimeError):
     """Etsy refused or could not answer. Carries the status, never the credential."""
 
-    def __init__(self, message: str = "", *, status: int | None = None):
+    def __init__(self, message: str = "", *, status: int | None = None,
+                 etsy_error: str = ""):
         super().__init__(message)
         self.status = status
+        self.etsy_error = etsy_error
 
     @property
     def credential_refused(self) -> bool:
@@ -100,6 +102,46 @@ class ReadFailed(RuntimeError):
 # W4-PRODDIAG: the HTTP statuses with which Etsy refuses the credential itself. Not transient:
 # the same key gets the same answer, so a scan must not keep knocking (see `auth_refused`).
 AUTH_REFUSED = (401, 403)
+
+# W4-ETSYCOMM: Etsy's own refusal text, kept (redacted, capped) instead of discarded. Production
+# probed `ping` successfully every six hours from 2026-09-19 to 2026-10-07T06:00Z and has been
+# refused with HTTP 403 since 12:00Z that day, with no deploy in between -- and the record said
+# only "HTTP 403", because the body was thrown away. Etsy distinguishes the causes in that body
+# ("Invalid API key: should be in the format 'keystring:shared_secret'." versus "API key not
+# found or not active, or incorrect shared secret for API key."), which is the difference
+# between a configuration defect here and an owner/Etsy action. The text is Etsy's fixed
+# message, not data; it still passes the redactor so a credential echoed back cannot be stored.
+ETSY_ERROR_CHARS = 200
+
+
+def etsy_error_text(body: Any, secrets: tuple[str, ...] = ()) -> str:
+    """Etsy's `error` (or `error_description`) from a refusal body, redacted and capped."""
+    if not isinstance(body, dict):
+        return ""
+    text = body.get("error") or body.get("error_description") or ""
+    if not isinstance(text, str):
+        text = json.dumps(text, default=str)
+    text = " ".join(text.split())
+    if not text:
+        return ""
+    from ..integrations.http import Redactor
+
+    return Redactor(secrets).string(text)[:ETSY_ERROR_CHARS]
+
+
+def refusal_hint(status: int | None, etsy_error: str = "") -> str:
+    """What a 401/403 on the API-key path can mean, without guessing which one it is.
+
+    The old hint ("check ETSY_SHARED_SECRET") assumed a configuration typo, which a credential
+    that worked for eighteen days and then stopped is not: Etsy's own text is what decides.
+    """
+    if status not in AUTH_REFUSED:
+        return ""
+    said = f" Etsy said: \"{etsy_error}\"" if etsy_error else " Etsy gave no reason text"
+    return (f" —{said}. Either the keystring is no longer active on Etsy's side or the "
+            f"shared secret no longer matches {SECRET_VAR} (Etsy v3 needs x-api-key as "
+            f"keystring:shared_secret); the app's status is visible only to the owner at "
+            f"etsy.com/developers/your-apps")
 
 
 class Transport(Protocol):
@@ -224,9 +266,12 @@ class PublicReader:
                 return body or {}
 
             kind = classify_http(status)
-            hint = (f" — Etsy v3 requires x-api-key as keystring:shared_secret; check "
-                    f"{SECRET_VAR}" if status in (401, 403) else "")
-            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}", status=status)
+            secrets = ((self.credential.keystring, self.credential.shared_secret)
+                       if self.credential else ())
+            etsy_error = etsy_error_text(body, secrets)
+            hint = refusal_hint(status, etsy_error)
+            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}", status=status,
+                              etsy_error=etsy_error)
             if kind is not TransientError:
                 raise last
             self.throttled += status == 429
@@ -454,6 +499,8 @@ def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
             record["reason"] = f"{type(exc).__name__}: {exc}"[:400]
             if getattr(exc, "status", None) is not None:
                 record["status"] = exc.status
+            if getattr(exc, "etsy_error", ""):
+                record["etsy_error"] = exc.etsy_error
         else:
             record["ok"] = True
             # The application id identifies the developer application, not the credential,

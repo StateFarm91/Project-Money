@@ -327,6 +327,38 @@ def make_router(db) -> APIRouter:
                               detail=exc.detail) from None
         return ok({"ok": True, "action": action, **out})
 
+    # ---- W4-ETSYCOMM: the Etsy connection, from the owner's phone ----------------------
+    # Session + CSRF + nonce are enforced by the gate before these run. Re-check is a
+    # read-only ping (no step-up); Connect starts a grant of shop authority (step-up).
+
+    @router.get("/etsy")
+    def etsy_status(request: Request):
+        from . import etsy_connect
+
+        return ok(etsy_connect.status(db))
+
+    @router.post("/etsy/recheck")
+    async def etsy_recheck(request: Request):
+        from . import etsy_connect
+
+        await body_of(request)
+        out = await run_in_threadpool(etsy_connect.recheck, db, actor=actor(request))
+        return ok({"ok": True, **out})
+
+    @router.post("/etsy/connect")
+    async def etsy_connect_start(request: Request):
+        from . import etsy_connect
+
+        await body_of(request)
+        auth.require_stepup(db, request, "etsy.connect")
+        try:
+            out = await run_in_threadpool(etsy_connect.connect, db, actor=actor(request))
+        except etsy_connect.ConnectRefused as exc:
+            raise auth.refuse(db, request, 409, exc.code, str(exc), kind="action",
+                              session_public_id=auth.current_public_id(request),
+                              detail=exc.detail) from None
+        return ok({"ok": True, **out})
+
     # ---- emergency -------------------------------------------------------------------
 
     @router.get("/emergency")

@@ -49,6 +49,21 @@ class TaxonomyReadFailed(RuntimeError):
     """Etsy answered, but not with a tree this module can read."""
 
 
+class CredentialRefused(RuntimeError):
+    """W4-ETSYCOMM: Etsy refused the app credential itself (HTTP 401/403).
+
+    Not a defect in the request and not transient: the same key gets the same answer. The
+    refresh reports it as UNMEASURED instead of raising, because raising turned an external
+    refusal into a dead letter (production job 11847, 2026-10-11, failing /api/verify's
+    no_unexpected_dead_letters_in_24h)."""
+
+    def __init__(self, message: str = "", *, status: int | None = None,
+                 etsy_error: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.etsy_error = etsy_error
+
+
 # ---------------------------------------------------------------------------
 # The gate
 
@@ -79,6 +94,7 @@ class ApiKeyTaxonomyClient:
             raise ValueError("an API-key client needs a keystring")
         self.transport = transport
         self._header = f"{api_key}:{shared_secret}" if shared_secret else api_key
+        self._secrets = (api_key, shared_secret)
         self.calls: list[dict] = []
 
     def _call(self, method: str, path: str, *, operation: str, authority: Any = None,
@@ -93,11 +109,17 @@ class ApiKeyTaxonomyClient:
         self.calls.append({"operation": operation, "method": "GET", "path": path,
                            "status": response.status, "auth": "api_key_only"})
         if response.status >= 400:
+            from ..intel.etsy_public import AUTH_REFUSED, etsy_error_text, refusal_hint
+
             kind = classify_http(response.status)
+            etsy_error = etsy_error_text(getattr(response, "body", None), self._secrets)
             message = (f"Etsy returned {response.status} for GET {path} ({operation}) on the "
-                       f"API-key-only path")
+                       f"API-key-only path{refusal_hint(response.status, etsy_error)}")
             if kind is TransientError:
                 raise TransientError(message)
+            if response.status in AUTH_REFUSED:
+                raise CredentialRefused(message, status=response.status,
+                                        etsy_error=etsy_error)
             raise EtsyRejected(message)
         return response
 
@@ -138,10 +160,18 @@ def gate(db, *, env: dict | None = None) -> dict:
 
     missing: list[str] = []
     via = None
-    if etsy_public.usable(db):
-        via = "shop_credential"
-    elif _api_key(env)[0]:
+    # W4-ETSYCOMM: the keystring path is preferred whenever a keystring exists, not only while
+    # the probe is failing. It used to be the other way round: a successful probe switched the
+    # read to the shop (OAuth) client, which `Credentials.from_env` builds only when
+    # ETSY_SHOP_ID is set -- and production has no ETSY_SHOP_ID (/api/dependencies
+    # `etsy_account.configured: false`). So the day the API key worked, the refresh would have
+    # answered "no client could be built" every day, and the search certificate would have
+    # waited forever on a snapshot two api_key-only reads can take. These reads need no scope
+    # and no shop; the least-privileged client is also the one that works.
+    if _api_key(env)[0]:
         via = "api_key_only"
+    elif etsy_public.usable(db):
+        via = "shop_credential"
     else:
         missing.append("etsy_api: no recorded successful etsy.probe, so no working Etsy "
                        "credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY "
@@ -272,6 +302,20 @@ def refresh(db, *, now: datetime | None = None) -> dict:
         return {"ran": False, "reading": "UNMEASURED", "network_calls": 0, "gate": g,
                 "why": ("the etsy_api gate is closed, so the taxonomy was not read and no "
                         "client was constructed; every category reads UNKNOWN until it is")}
+    # W4-ETSYCOMM: the taxonomy reads use the same app key the probe uses. When Etsy refused
+    # that key at the last probe, a refresh is the same refusal again: stand aside with no
+    # network call. The six-hourly etsy.probe re-tests the key, and a probe that succeeds
+    # while no snapshot exists queues this refresh straight away (`handle_etsy_probe`).
+    from ..intel import etsy_public
+
+    probe = etsy_public.last_probe(db)
+    if etsy_public.auth_refused(probe):
+        return {"ran": False, "reading": "UNMEASURED", "network_calls": 0, "gate": g,
+                "credential_refused": True,
+                "why": ("Etsy refused the app credential at the last etsy.probe "
+                        f"({str(probe.get('at') or '')[:19]}): "
+                        f"{str(probe.get('reason') or '')[:240]}. The taxonomy is not read "
+                        "with a refused key; it is read as soon as a probe succeeds")}
     if client_factory is not None:
         client = client_factory(db)
     elif g.get("via") == "api_key_only":
@@ -286,6 +330,12 @@ def refresh(db, *, now: datetime | None = None) -> dict:
     calls = 0
     try:
         results = read_tree(client)
+    except CredentialRefused as e:
+        return {"ran": False, "reading": "UNMEASURED", "network_calls": 1, "gate": g,
+                "credential_refused": True, "etsy_error": e.etsy_error,
+                "status": getattr(e, "status", None),
+                "why": (f"Etsy refused the app credential: {str(e)[:300]}. The taxonomy was not read; "
+                        "every category reads UNKNOWN until a read succeeds")}
     except Exception as exc:  # noqa: BLE001 - only a credential refusal is caught below
         status = credential_refusal_status(exc)
         if status is None:
@@ -310,9 +360,16 @@ def refresh(db, *, now: datetime | None = None) -> dict:
         if calls - 1 >= MAX_PROPERTY_READS:
             truncated = True
             break
-        body = client._call("GET", f"/seller-taxonomy/nodes/{n['id']}/properties",
-                            operation=PROPERTIES_OPERATION,
-                            authority=_read_authority()).body
+        try:
+            body = client._call("GET", f"/seller-taxonomy/nodes/{n['id']}/properties",
+                                operation=PROPERTIES_OPERATION,
+                                authority=_read_authority()).body
+        except CredentialRefused as e:
+            # Refused between the tree and a schema read: nothing partial is stored.
+            return {"ran": False, "reading": "UNMEASURED", "network_calls": calls + 1,
+                    "gate": g, "credential_refused": True, "etsy_error": e.etsy_error,
+                    "why": (f"Etsy refused the app credential: {str(e)[:300]}. The taxonomy was not read; "
+                        "every category reads UNKNOWN until a read succeeds")}
         calls += 1
         got = body.get("results") if isinstance(body, dict) else None
         properties[str(n["id"])] = list(got) if isinstance(got, list) else []
