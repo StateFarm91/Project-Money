@@ -107,7 +107,7 @@ the release packet, where the live-first Approvals view shows it under "not trac
 **Proposed fix (needs your decision, since it changes those two pinned tests):** in
 `approval_inbox`, raise a card for a PERSON_OPENED gate instead of listing it as external.
 
-### D1. #94 and the model_provider owner card (for your decision; nothing changed)
+### D1. #94 and the model_provider owner card (applied; see below)
 
 **What the live card says** (`approval_inbox`, fresh DB at this head):
 
@@ -150,6 +150,24 @@ model_provider.
 #140 has the same table drift: `culture_feed` holds `(140, 147)`. It is already listed as
 `company_opened_not_owner`, so it is never shown to the owner as an ask. The same one-line
 cleanup applies.
+
+**Applied (coordinator decision, 2026-10-11):**
+- `model_provider`'s tuple is now `(277, 281)`.
+- `executor.gated_requirements()` and `gate_for()` ignore table entries for rows the registry
+  calls data_gated or covered. That covers #94 and #140, and stops the same drift recurring.
+- The legacy `model_credits` owner-action alias now points at `image_vision`. Credits are what a
+  vision call needs, and that keeps the production "top up credits" row merged into fund_model,
+  as tests/test_w4_owner_actions.py requires.
+- fund_model's consequence_of_yes no longer says "#94".
+- `model_provider` now sits under `suppressed_unblocks_nothing`.
+
+**New invariant** (`test_every_owner_card_unblocks_only_rows_parked_on_its_own_gate`): every
+owner card's `unblocks`, and every decision-batch claim, must name only ledger rows whose gate key
+is that card's gate. Without the fix the test fails on `('model_provider', 94, 'market_outcomes')`.
+
+**test_cert_dashboard:** the legacy-merge example now uses `image_vision`. All its original
+assertions are kept: one card, the row merged, and the sentinel rendered once. It adds one more:
+the card unblocks rows, and every one is parked on that gate.
 
 ## Per-row table (102 rows)
 

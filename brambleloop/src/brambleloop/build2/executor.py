@@ -671,7 +671,10 @@ GATES: tuple[Gate, ...] = (
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
-         (94, 277, 281),
+         # W4-B2GATES: #94 removed. It is registry data_gated (market CTR, conversion and
+         # winner rate need live traffic and a sale; DATA_GATE_FOR -> market_outcomes), so
+         # no model call opens it, yet this tuple made the owner card claim it did.
+         (277, 281),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
     # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
     # deleted, and carrying no requirements rather than the four it used to. Those four --
@@ -1001,6 +1004,18 @@ DATA_GATE_FOR: dict[int, str] = {
 }
 
 
+def _table_applies(requirement_id: int) -> bool:
+    """W4-B2GATES: the hand-written table may park only rows that can wait on an owner gate.
+    A row the registry calls data_gated or covered is not waiting on any owner act, so a
+    stale table entry for it (as #94 and #140 were) must not make a card claim it."""
+    st = _registry_status().get(requirement_id)
+    return st not in (reg.DATA_GATED, reg.COVERED)
+
+
+def _registry_status() -> dict[int, str]:
+    return {r.id: r.status for r in reg.load()}
+
+
 def gate_for(requirement_id: int) -> str | None:
     """Which owner gate this requirement waits on, if any.
 
@@ -1011,12 +1026,17 @@ def gate_for(requirement_id: int) -> str | None:
     declared = _registry_gates().get(requirement_id)
     if declared:
         return declared
+    if not _table_applies(requirement_id):
+        return None
     return _GATE_FOR_REQUIREMENT.get(requirement_id)
 
 
 def gated_requirements() -> dict[int, str]:
     """Every requirement parked on a gate, from both halves. Registry wins on a conflict."""
-    return {**_GATE_FOR_REQUIREMENT, **_registry_gates()}
+    status = _registry_status()
+    table = {rid: k for rid, k in _GATE_FOR_REQUIREMENT.items()
+             if status.get(rid) not in (reg.DATA_GATED, reg.COVERED)}
+    return {**table, **_registry_gates()}
 
 
 def gate_states(db, env=None) -> dict:
@@ -1669,7 +1689,9 @@ def _urgency(card: dict) -> tuple:
 # nothing is a genuine standalone decision (a budget, a retirement review) and is presented as
 # its own card, keyed on its requirement.
 OWNER_ACTION_GATE_ALIASES: dict[str, str] = {
-    "model_credits": "model_provider",
+    # W4-B2GATES: credits are what a vision call needs, and image_vision is the gate with
+    # real rows (14) behind it; model_provider no longer parks any (see its tuple).
+    "model_credits": "image_vision",
     "reauthorise_transactions_r": "transactions_r",
     "canonical_model_selection": "canonical_model",
     "canonical_model_approval": "canonical_model",

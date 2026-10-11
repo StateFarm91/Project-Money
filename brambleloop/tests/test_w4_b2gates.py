@@ -384,6 +384,43 @@ def test_35_39_are_owner_gated_by_a_person_reading_the_policy_pages():
         "POST /api/policy/snapshot" in executor.GATE_BY_KEY["rendered_pages"].how
 
 
+# ---- invariant: an owner card claims only rows its action can actually open ---------------
+
+def test_every_owner_card_unblocks_only_rows_parked_on_its_own_gate():
+    """W4-B2GATES (#94). The model_provider card said it unblocked #94; the ledger parks #94
+    on the data gate market_outcomes (a sale), which no API key opens. For every owner card,
+    each row in `unblocks` must be a ledger row whose gate key IS the card's gate, and the
+    decision batches built from the cards must make the same claim."""
+    from brambleloop.build2 import closure, executor
+
+    db = _db()
+    rows = {r["id"]: r for r in closure.ledger(db)["rows"]}
+    inbox = executor.approval_inbox(db, env={})
+    cards = [c for c in inbox["cards"] if c.get("gate")]
+    assert cards, "expected owner cards on a fresh database"
+    for c in cards:
+        assert c["unblocks"], c["gate"]
+        for rid in c["unblocks"]:
+            g = (rows[rid].get("gate") or {}).get("key")
+            assert g == c["gate"], (c["gate"], rid, g, rows[rid]["state"])
+    card_gate = {c["gate"]: set(c["unblocks"]) for c in cards}
+    for b in inbox["batches"]["batches"]:
+        for item in b["items"]:
+            for rid in item["unblocks"]:
+                if not isinstance(rid, int):
+                    continue  # a merged legacy row's requirement key, not a ledger row
+                g = (rows[rid].get("gate") or {}).get("key")
+                assert g in item["gates"] and rid in card_gate.get(g, set()), (item["id"], rid, g)
+    # the specific defect: #94 is claimed by nothing an owner act opens
+    assert all(94 not in c["unblocks"] for c in cards)
+    assert executor.gate_for(94) is None and 94 not in executor.gated_requirements()
+    assert rows[94]["gate"]["key"] == "market_outcomes"
+    # and model_provider, which now unblocks nothing, is listed as such, not asked
+    assert "model_provider" not in card_gate
+    assert "model_provider" in {s["gate"] for s in inbox.get("suppressed_unblocks_nothing")
+                                or []}, sorted(inbox)
+
+
 if __name__ == "__main__":
     import time
 
