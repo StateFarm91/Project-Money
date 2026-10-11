@@ -37,13 +37,26 @@ const browser = await pw.chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
   colorScheme: "light", isMobile: true, hasTouch: true, serviceWorkers: "allow" });
 const page = await context.newPage();
+// Opt-in fault injection (W4-CCUX): CC_HASHCHANGE_DELAY_MS=200 runs every hashchange handler
+// late, as a busy event loop does under CPU contention. settle() must still wait for the new
+// view (render-complete signal), so the whole check passes with or without it.
+const HC_DELAY = Number(process.env.CC_HASHCHANGE_DELAY_MS || 0);
+if (HC_DELAY > 0) {
+  await page.addInitScript((d) => {
+    const add = window.addEventListener.bind(window);
+    window.addEventListener = (t, fn, o) => add(t, t === "hashchange" ? (e) => setTimeout(() => fn(e), d) : fn, o);
+  }, HC_DELAY);
+}
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 const postLog = async () => (await (await fetch(`${BASE}/__mock/log`)).json());
 
 async function settle() {
-  await page.waitForFunction(() => !document.querySelector("#main .loading"), null, { timeout: 10000 });
+  // Settled = the app's render-complete signal names the current URL (app.js route()) and
+  // nothing is loading. "No spinner" alone was also true of the previous view in the gap
+  // between a hash change and its hashchange handler, which made the deep-link check flaky.
+  await page.waitForFunction(() => { const m = document.getElementById("main"); return m.dataset.rendered === location.hash && !m.querySelector(".loading"); }, null, { timeout: 10000 });
   await page.waitForTimeout(150);
 }
 async function noHScroll(name) {
@@ -415,8 +428,6 @@ try {
   await settle();
   check(!(await page.isVisible("#main nav.crumb")) && (await page.isVisible("#sidenav a[data-tab=company][aria-current=page]")), "ccux nav: desktop uses the sidebar, breadcrumb hidden");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${BASE}/cc/#/ask`); // leave the page as the next block expects it
-  await settle();
 
   // ---- deep link from a notification ----------------------------------------------------
   await page.goto(`${BASE}/cc/#/notifications`);

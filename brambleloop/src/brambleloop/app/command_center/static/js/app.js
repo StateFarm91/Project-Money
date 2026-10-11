@@ -129,6 +129,12 @@ function parseHash() {
 
 async function route() {
   if (!state.session || !state.session.authenticated) return showLogin();
+  // Render-complete signal: `#main[data-rendered]` names the hash whose view is on screen. It is
+  // cleared as soon as a new route starts and set only when that route's view (or its error
+  // state) is in place, so "settled" can mean "this URL's view finished", not merely "nothing
+  // is loading" (which an old, already-rendered view also satisfies).
+  const hash = location.hash;
+  delete root.dataset.rendered;
   const r = parseHash();
   const def = TABS.find((t) => t.id === r.name) || (Object.hasOwn(EXTRA_ROUTES, r.name) ? EXTRA_ROUTES[r.name] : null);
   const seq = ++state.renderSeq;
@@ -160,6 +166,7 @@ async function route() {
     root.focus({ preventScroll: true });
   }
   state.route = location.hash;
+  if (seq === state.renderSeq) root.dataset.rendered = hash;
 }
 
 // ---- login ----------------------------------------------------------------------------------
@@ -203,6 +210,7 @@ function showLogin(message) {
   });
   root.append(form);
   input.focus();
+  root.dataset.rendered = location.hash; // the sign-in screen is this URL's settled view
 }
 
 export async function signOut() {
@@ -228,6 +236,7 @@ async function boot() {
   } catch (err) {
     clear(root);
     root.append(errorState(err, () => boot()));
+    root.dataset.rendered = location.hash; // settled: an honest error, nothing loading
     return;
   }
   if (!state.session || !state.session.authenticated) return showLogin();

@@ -61,3 +61,26 @@ queue because the 0417f35 mock had none.
   read as visible, so folding is the owner's choice and is kept for the session.
 - Production still serves 0417f35. None of this is deployed. There were no Railway or Etsy
   writes and no spend.
+
+## Follow-up: root cause of the "notifications: deep link" flake
+
+**Cause.** `settle()` treated "no `.loading` in #main" as settled. When `page.goto(#/x)` or a
+link click causes a same-document hash change, the URL changes immediately. The `hashchange`
+handler, though, runs as a later task. In that gap the *previous* view is still on screen with
+no spinner, so `settle()` returned early. Under CPU contention the new route then took longer
+than the 150 ms that follows `settle()`, so the deep-link check saw 0 `article.approval`.
+
+**Fix (no assertion loosened, no sleep added).** `app.js` now emits a render-complete signal.
+`#main[data-rendered]` is cleared when a route starts. It is set to that route's hash only
+once its view (or error state) is in place, and only if no newer navigation superseded it.
+The sign-in screen and the boot error state also set it. `settle()` in `check.mjs` and
+`real_backend_check.mjs` now waits for `data-rendered === location.hash` and no `.loading`.
+The `#/ask` reset from d4e9d45 is removed because it is no longer needed. There is an opt-in
+fault injection, `CC_HASHCHANGE_DELAY_MS`, that delays every hashchange handler.
+
+**Evidence.**
+- Before: the deep-link sequence with the old settle and a 200 ms hashchange delay failed
+  **8/10**. Unforced runs failed 2/6 under load.
+- After: **0/10** for the same deep-link sequence with the new settle and the delay. The full
+  `check.mjs` run 10 times with screenshots gave **158/0 each time**, and 10 times with
+  `CC_HASHCHANGE_DELAY_MS=200` also gave **158/0 each time**.

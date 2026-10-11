@@ -23,7 +23,7 @@ const page = await context.newPage();
 const errors = [];
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
-const settle = async () => { await page.waitForFunction(() => !document.querySelector("#main .loading"), null, { timeout: 15000 }); await page.waitForTimeout(150); };
+const settle = async () => { await page.waitForFunction(() => { const m = document.getElementById("main"); return m.dataset.rendered === location.hash && !m.querySelector(".loading"); }, null, { timeout: 15000 }); await page.waitForTimeout(150); };
 
 try {
   const resp = await page.goto(`${BASE}/cc/`);
