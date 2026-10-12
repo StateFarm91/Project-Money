@@ -152,6 +152,7 @@ def test_f512_validation_refuses_every_unprovable_delivery_before_writing():
         ("unsupported_event", {}, *_delivery(event="listing.updated"), 422),
         ("foreign_shop", dict(shop_id="999"), h, body, 403),
     ]
+    assert len(cases) == 7
     for reason, kw, headers, raw, status in cases:
         got_status, got = wh.receive(db, headers, raw, **{"secret": SECRET, "shop_id": None,
                                                           **kw})
@@ -209,20 +210,53 @@ def test_f512_a_storage_failure_answers_5xx_so_etsy_retries():
     assert status == 202 and got["duplicate"] is False, got
 
 
+_APP: dict = {}
+
+
+def _app():
+    """The real FastAPI app on its own temp database (imported once per process)."""
+    if "c" not in _APP:
+        os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_TMP}/route.sqlite"
+        os.environ["BRAMBLELOOP_EMBEDDED_WORKER"] = "0"
+        from fastapi.testclient import TestClient
+
+        from brambleloop.app import main
+
+        main.db.create_all()
+        Registry(main.db).seed_defaults()
+        _APP.update(c=TestClient(main.app), main=main)
+    return _APP["c"], _APP["main"]
+
+
+def test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows():
+    c, main = _app()
+    _listing(main.db)
+    _open_gate(main.db)
+    orders_ingest.ingest(main.db, reader=Feed([_receipt(77, 577, "222", 900, days_ago=5)]))
+    token = "fmclose-operator-token-0123456789abcdef"
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = token
+    url = "/api/orders/attribution"
+    body = {"external_ref": "etsy:77:770", "source": "etsy_ads",
+            "evidence": "owner: Etsy Ads order report 2026-10-12"}
+    assert c.post(url, json=body).status_code in (401, 403), "operator credential required"
+    auth = {"authorization": f"Bearer {token}"}
+    r = c.post(url, json={**body, "evidence": ""}, headers=auth)
+    assert r.status_code == 400 and "guess" in r.json()["error"], r.text
+    r = c.post(url, json=body, headers=auth)
+    assert r.status_code == 200, r.text
+    first = r.json()["first_sale"]
+    assert first["acquisition_source"] == "etsy_ads" and first["channel"] == "etsy_ads"
+    assert "possibility, not scale" in first["note"] and "Ads order report" in first["evidence"]
+
+
 def test_f512_route_is_public_signed_and_reported_on_api_etsy():
-    os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_TMP}/route.sqlite"
-    os.environ["BRAMBLELOOP_EMBEDDED_WORKER"] = "0"
     os.environ[wh.SECRET_ENV] = SECRET
     os.environ["ETSY_SHOP_ID"] = "555"
     try:
-        from fastapi.testclient import TestClient
-
-        from brambleloop.app import main, security
+        from brambleloop.app import security
 
         assert ("POST", "/api/etsy/webhook") in security.PUBLIC_MUTATING_ROUTES
-        main.db.create_all()
-        Registry(main.db).seed_defaults()
-        c = TestClient(main.app)
+        c, _main = _app()
         h, body = _delivery(wid="msg_route")
         r = c.post("/api/etsy/webhook", content=body,
                    headers={**h, "content-type": "application/json"})
@@ -544,6 +578,49 @@ def test_f657_the_orchestrate_tick_runs_the_event_scan():
     src = (ROOT / "src/brambleloop/autonomy/handlers.py").read_text()
     body = src.split("def handle_orchestrate", 1)[1].split("\ndef ", 1)[0]
     assert "event_wakes import scan" in body and "scan(ctx.db, ctx.queue" in body
+
+
+# ---------------------------------------------------------------------------
+# F-558 Order Operations Ledger
+
+
+def test_f558_every_order_reconciles_six_parts_and_names_what_does_not():
+    from brambleloop.commerce import order_ledger
+    from brambleloop.core.models import SupportCase
+
+    db = _db()
+    _listing(db)
+    _open_gate(db)
+    _verify_mapping(db)
+    digital = _receipt(1, 501, "222", 900)
+    digital["transactions"][0]["is_digital"] = True
+    refunded = _receipt(2, 502, "222", 900,
+                        refunds=[{"amount": {"amount": 900, "divisor": 100,
+                                             "currency_code": "CAD"},
+                                  "transaction_id": 20, "reason": "wrong size"}])
+    refunded["transactions"][0]["is_digital"] = True
+    silent = _receipt(3, 503, "222", 900)          # no is_digital: UNKNOWN, never assumed
+    entries = [_entry(1, "transaction", "transaction", 10, -59),
+               _entry(2, "processing_fee", "receipt", 1, -60)]
+    orders_ingest.ingest(db, reader=LedgerFeed([digital, refunded, silent], entries))
+    with db.session() as s:
+        s.add(SupportCase(customer_ref="etsy-user-502", question="refund please"))
+    got = order_ledger.ledger(db)
+    rows = {r["order"]: r for r in got["rows"]}
+    assert got["orders"] == 3 and set(rows) == {"etsy:1:10", "etsy:2:20", "etsy:3:30"}
+    for r in rows.values():
+        assert set(r) >= {"payment", "item", "delivery", "buyer_issue", "refund_case",
+                          "accounting", "problems", "reconciled"}
+    a = rows["etsy:1:10"]
+    assert a["delivery"]["state"] == "available_on_payment" and a["reconciled"], a["problems"]
+    assert a["accounting"]["fees_basis"] == "measured"
+    b = rows["etsy:2:20"]
+    assert b["refund_case"]["refunded"] is True and b["refund_case"]["reasons"] == ["wrong size"]
+    assert b["buyer_issue"] == {"cases": 1, "open": 1, "escalated": 0}
+    c = rows["etsy:3:30"]
+    assert c["delivery"]["state"] == "UNKNOWN" and not c["reconciled"]
+    assert "delivery: UNKNOWN" in c["problems"]
+    assert got["with_problems"] >= 1 and got["reconciled"] == got["orders"] - got["with_problems"]
 
 
 if __name__ == "__main__":

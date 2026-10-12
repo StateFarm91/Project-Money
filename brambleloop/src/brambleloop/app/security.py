@@ -136,6 +136,7 @@ PUBLIC_MUTATING_ROUTES: dict[tuple[str, str], str] = {
 # operator-only material. Each also performs its own check; the gate makes it default.
 OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/support",
+    "/api/orders/ledger",
     "/api/continuity/export",
     "/api/etsy/oauth/start",
     "/api/etsy/oauth/status",

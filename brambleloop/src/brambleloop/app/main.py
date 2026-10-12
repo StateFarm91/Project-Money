@@ -806,6 +806,7 @@ def api_finance() -> dict:
 CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
     "/api/support",
     "/api/cx/workspace",          # W3 K8 (commerce.estate_api), operator credential
+    "/api/orders/ledger",         # F-558 per-order operations ledger, operator credential
 })
 
 
@@ -4036,6 +4037,53 @@ async def api_listing_outcomes(request: Request, period_start: str = "", period_
     except listing_outcomes.OutcomeRefused as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     return JSONResponse(out)
+
+
+@app.get("/api/orders/ledger")
+def api_orders_ledger(authorization: str = Header(default="")):
+    """F-558: every order's payment, item/version, delivery, buyer issue, refund/case and
+    accounting evidence, with what does not reconcile named. Operator credential required."""
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..commerce import order_ledger
+
+    return order_ledger.ledger(db)
+
+
+@app.post("/api/orders/attribution")
+async def api_order_attribution(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """F-283: the owner (or a Stats export reader) attributes one order's acquisition source.
+
+    Body: {"external_ref": "etsy:<receipt>:<transaction>", "source": one of
+    `finance.sources.ATTRIBUTABLE`, "evidence": what shows it}. Operator credential required.
+    A source without evidence is refused (an attribution is a measurement, not a guess); the
+    first-sale record is refreshed so evidence that arrives after the sale reaches it.
+    """
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..finance import sources
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        got = sources.attribute(db, str(body.get("external_ref") or ""),
+                                str(body.get("source") or ""),
+                                evidence=str(body.get("evidence") or ""), by="owner")
+    except sources.AttributionRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    first = sources.record_first_sale(db)
+    Registry(db).audit("orchestrator", "order.attributed",
+                       detail={"source": got["source"], "changed": got["changed"]})
+    return JSONResponse({**got, "first_sale": ({k: first.get(k) for k in (
+        "external_ref", "acquisition_source", "channel", "evidence", "note")}
+        if first else None)})
 
 
 @app.post("/api/attribution/stats")

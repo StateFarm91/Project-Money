@@ -467,6 +467,9 @@ def lines(receipt: dict) -> list[dict]:
             # F-590: which Etsy sales channel the receipt came through (ShopReceipt.
             # receipt_type); None when the receipt does not say -- never assumed Etsy.com.
             "receipt_type": receipt.get("receipt_type"),
+            # F-558: digital-delivery evidence as Etsy states it (ShopReceiptTransaction.
+            # is_digital, ShopReceipt.is_shipped); None when absent, never assumed.
+            "is_digital": t.get("is_digital"), "is_shipped": receipt.get("is_shipped"),
             # Kept for readers of the old shape; the state is the truth.
             "refunded": line_state == FULLY_REFUNDED,
         })
@@ -932,6 +935,8 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
                   "season": season, "state": line["state"], "state_why": line["state_why"],
                   "receipt_status": line.get("status", ""),
                   "receipt_type": line.get("receipt_type"),
+                  "delivery": {"is_digital": line.get("is_digital"),
+                               "is_shipped": line.get("is_shipped")},
                   "fees_model": ("commerce.pricing.fees (transaction + payment processing + "
                                  "amortised listing; offsite/regulatory/conversion "
                                  "unmodelled)"),
