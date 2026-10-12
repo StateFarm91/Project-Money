@@ -121,12 +121,14 @@ def test_deadlines_from_incidents_and_owner_actions_are_attached_and_escalate():
     assert _has(soon) and _has(later), dl
     assert not _has(beyond), dl
     assert "Far future" not in titles and "Already done" not in titles, titles
+    assert dl, keys  # INTEG3 (test_vacuity): the loop below must have something to check
     for n in dl.values():
         due = datetime.fromisoformat(n["deadline"])
         if due - _now() <= timedelta(hours=N.DEADLINE_SOON_HOURS):
             assert N.RANK[n["severity"]] <= N.RANK["high"], n
     # Within one severity the nearest deadline comes first.
     act = out["notifications"]
+    assert len(act) >= 2, act  # INTEG3 (test_vacuity): an ordering needs two to compare
     for a, b in zip(act, act[1:]):
         if a["severity"] == b["severity"] and a["acked_at"] is None and b["acked_at"] is None \
                 and a["deadline"] and b["deadline"]:
