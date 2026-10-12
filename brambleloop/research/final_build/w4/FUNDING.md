@@ -70,3 +70,15 @@ owner-approved list of providers. Owner decision needed: whether an explicit app
 list should gate routing.
 
 The funding decision itself remains the owner's (gate `model_provider`).
+
+## Status at the owner pause (2026-10-12)
+
+**DONE.** Pushed before the pause; no change since.
+
+- **Rows:** F-871, F-100 advanced (none closed).
+- **Tests:** test_w4_funding 5/5; test_funding 10/10, test_spend_governance 36/36, test_customer_data_auth 9/9, test_route_auth_default_deny 7/7, test_vacuity 8/8.
+- **Required regression set** (test_launch, test_cost_governance_wave2, test_search_hero_publish,
+  test_cert_listing_frames, test_v11_autonomy_timeline): not run on this branch. That set was
+  added after this branch was pushed.
+- **Known defects:** none.
+- **Next step:** integrator merge, deploy, read back /api/funding/packets; owner decides whether an approved-provider list should gate routing.
