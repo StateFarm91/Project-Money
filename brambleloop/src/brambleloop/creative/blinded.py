@@ -1046,26 +1046,25 @@ def grid_tournament(db, ours: list[dict], *, pod: str, provider, seed: int = 0,
     panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
     judged = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key,
                          judgements=panel["judgements"])
-<<<<<<< HEAD
     # F-278: each of our cells' scores by its candidate ref, read through the key after
     # judging (the judges never saw it), so a product's candidates can be compared.
     judged["candidate_scores"] = {
         k["ref"]: {f: (panel["judgements"].get(cell) or {}).get(f) for f in GRID_JUDGE_FIELDS}
         for cell, k in (judged.get("key") or {}).items() if k["side"] == OURS}
-=======
     # W4-B2VISION: our cells' scores by product, and each judge's own reading of them, so
     # the #218 challenge can read desirability, distinctiveness and (from the gift-buyer
-    # judge) giftability for the product itself rather than for the pod.
+    # judge) giftability for the product itself rather than for the pod. With F-278
+    # candidates in the grid, only the cell that counts for the verdict (the hero on file)
+    # speaks for the product.
     key = grid["key"]
     by_product: dict[str, dict] = {}
     for cell, k in key.items():
-        if k["side"] != OURS:
+        if k["side"] != OURS or not k.get("counts", True):
             continue
-        by_product[k["ref"]] = {
+        by_product[k["ref"].split("#", 1)[0]] = {
             "scores": dict(panel["judgements"].get(cell) or {}),
             "by_judge": {j: dict((panel.get("per_judge") or {}).get(j, {}).get(cell) or {})
                          for j in panel.get("judges") or []}}
->>>>>>> origin/claude/w4-IMGFIX
     judged.pop("key", None)
     judged["panel"] = {k: v for k, v in panel.items() if k not in ("judgements", "per_judge")}
     judged["by_product"] = by_product

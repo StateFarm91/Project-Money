@@ -61,3 +61,16 @@ no spend.
   - IMGFIX is merged in.
 - Next step: run test_w4_herotourney, test_blinded and test_cost_governance_wave2, plus the
   required set.
+
+### Correction (same checkpoint)
+
+- Commit f40c7f9 was pushed with merge-conflict markers in `runtime/release.py` and
+  `creative/blinded.py`. They came from the IMGFIX/INTEG2 merge, where W4-B2VISION had added
+  `resolve_image`, `unresolvable` and `by_product`.
+- The next commit resolves both files and keeps both behaviours:
+  - candidates plus `unresolvable` for products with no showable candidate;
+  - `candidate_scores` plus `by_product`, where only the hero on file speaks for the product,
+    so #218 is unchanged.
+- An import check passes. **Tests are NOT re-run.**
+- Next step: run test_w4_herotourney, test_blinded, test_w4_b2vision (if present),
+  test_cost_governance_wave2 and the required set.
