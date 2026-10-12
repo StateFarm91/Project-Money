@@ -360,6 +360,13 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     "finance.governor", "finance.escalation_check", "ops.retention", "support.triage",
     # v1.1 lane I W-4: the SLO watchdog must never be backed off.
     "ops.slo",
+    # W4-CADENCE (prod 2026-10-11): a probe whose result is unchanged *because* a credential
+    # or configuration is wrong is exactly the loop that must keep looking -- its job is to
+    # notice the owner's fix. Backed off, etsy.probe went silent for 12 h (escalating to 8
+    # days at factor 32) while ETSY_SHARED_SECRET was being corrected. The daily off-site
+    # archive is a backup, not a poll: backing it off is skipping backups. All are free.
+    "etsy.probe", "model.probe", "ops.capability_probes", "ops.offsite_archive",
+    "ops.continuity",
 })
 _VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
                   "allocation_id", "reading_id", "job_id", "audit_id", "id")
