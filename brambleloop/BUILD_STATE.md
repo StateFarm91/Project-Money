@@ -1,3 +1,14 @@
+> **2026-10-12 — HOTFIX 7bbbe72 DEPLOYED (owner-approved; Laura briefing truncation fix + Etsy shop binding).**
+> Fresh backup before deploy: `brambleloop_prod_20261012T173525Z.dump` (309,580,486 B, sha256 9eec5294...1774), restore_ok,
+> 130 tables / 65,135 rows, 680M free; the 3 earlier dumps kept. Railway deployment b02e9241; /health build.commit 7bbbe72 known=true.
+> Verified: SHADOW (env+recorded agree), nothing published (185 refusals, 0 listings with an Etsy id), TOTP owner auth,
+> model spend CA$9.86/100, every agent has a ceiling, Laura CA$0.137/0.50 today (the failed @3 call only).
+> /api/verify ok=false ONLY on no_unexpected_dead_letters_in_24h: radar.score KeyError 'slug' (x2), ops.policy_watch
+> varchar(40) overflow, ops.offsite_archive no Postgres URL — all 15:01-15:16Z under c498888, pre-hotfix; next release.
+> NOT YET VERIFIED: Etsy shop binding/reads/refresh (lazy; runs on the ~00:26Z daily Etsy cycle) and the Laura briefing
+> (needs the owner to re-run it; expect laura.ceo_briefing@4). Private Laura: trace PRIVATE_LAURA_TRACE.md merged; worker
+> W4-PRIVLAURA building on claude/w4-PRIVLAURA. Private Laura is NOT complete until its production soak passes.
+
 > **2026-10-11 — W4-COPY: store copy v3 + customer-claim register (branch `claude/w4-COPY`, not deployed).**
 > One content source (`store_foundation/copy_v2.py`, VERSION copy_v3; `brand.storefront.ABOUT` now reads it -- the
 > rejected v1 "compiler" About had survived there). AI disclosure no longer implies a human designer ("This design was
