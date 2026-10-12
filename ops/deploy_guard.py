@@ -5,6 +5,7 @@ Usage:
   python3 ops/deploy_guard.py check --candidate <rev> --deployed <sha>   -> exit 0 ALLOW, 1 REFUSE
   python3 ops/deploy_guard.py latest-suite [--sha <rev>] [--eligible]    -> the newest run record
   python3 ops/deploy_guard.py pre-push <remote> <url>  (stdin: git pre-push lines) -> 0 / 1
+  python3 ops/deploy_guard.py rehearse-rollback --candidate <rev> --deployed <sha>  -> 0 / 1
 
 ON THE DEPLOY PATH (F-461, wired). Production deploys on a push to the production branch
 (`PRODUCTION_BRANCH`; Railway builds it). Two doors lead there and both pass through `check`:
@@ -597,6 +598,36 @@ def rollback_commit(to: str, reason: str, *, deployed: str, repo: Path = REPO,
     return {"ok": verdict["verdict"] == "ALLOW", "commit": sha, "check": verdict}
 
 
+def rehearse_rollback(candidate: str, deployed: str | None, *, repo: Path = REPO,
+                      layout: dict = LAYOUT) -> dict:
+    """F-381 (W4-ROLLBACK): before a forward deploy, prove its rollback is executable.
+
+    Builds -- without pushing, as an unreferenced object -- the rollback commit that would
+    return production from `candidate` to the commit running now (`deployed`), and runs it
+    through the same `check` a real rollback gets: `deployed` must be in the candidate's
+    tracked DEPLOYED_HISTORY (the known-good predecessor is preserved), the rollback must carry
+    exactly its tree, and sit on top of the candidate. A deploy whose way back would be
+    REFUSED is refused before it happens, not discovered during an incident."""
+    if not deployed:
+        return {"ok": False, "verdict": "REFUSE",
+                "reasons": ["deployed commit unknown: no predecessor to rehearse a rollback to"]}
+    cand = resolve(repo, candidate)
+    dep = resolve(repo, deployed)
+    if cand is None or dep is None:
+        return {"ok": False, "verdict": "REFUSE",
+                "reasons": ["candidate and deployed must both be commits here"]}
+    if cand == dep:
+        return {"ok": True, "verdict": "ALLOW", "note": "candidate is the deployed commit"}
+    out = rollback_commit(dep, f"pre-deploy rollback rehearsal for {cand[:12]}: return to "
+                               f"the commit production runs now ({dep[:12]})",
+                          deployed=cand, repo=repo, layout=layout)
+    chk = out.get("check") or {}
+    return {"ok": bool(out.get("ok")), "verdict": "ALLOW" if out.get("ok") else "REFUSE",
+            "rehearsal_commit": out.get("commit"), "pushed": False,
+            "to": dep, "from": cand,
+            "reasons": list(chk.get("reasons") or out.get("reasons") or [])}
+
+
 def deployed_from(explicit: str | None = None, env: dict | None = None) -> tuple[str | None, str]:
     """The deployed commit the caller supplied: `--deployed`, else `BRAMBLELOOP_DEPLOYED_SHA`.
 
@@ -671,6 +702,10 @@ def main(argv: list[str] | None = None) -> int:
     rb.add_argument("--reason", required=True)
     rb.add_argument("--deployed", default="")
     rb.add_argument("--repo", default=str(REPO))
+    rh = sub.add_parser("rehearse-rollback")
+    rh.add_argument("--candidate", default="HEAD")
+    rh.add_argument("--deployed", default="")
+    rh.add_argument("--repo", default=str(REPO))
     pp = sub.add_parser("pre-push")
     pp.add_argument("remote", nargs="?", default="")
     pp.add_argument("url", nargs="?", default="")
@@ -699,6 +734,11 @@ def main(argv: list[str] | None = None) -> int:
         if out.get("ok"):
             print(out["commit"])
         return 0 if out.get("ok") else 1
+    if a.cmd == "rehearse-rollback":
+        out = rehearse_rollback(a.candidate, deployed_from(a.deployed or None)[0],
+                                repo=Path(a.repo))
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0 if out["ok"] else 1
     if a.cmd == "pre-push":
         out = pre_push(sys.stdin.read().splitlines(), deployed=a.deployed or None,
                        repo=Path(a.repo), record_dir=Path(a.records))
