@@ -167,6 +167,8 @@ PUBLIC_GET_NOTES: dict[str, str] = {
                                  "header; guarded by a single-use state this service minted"),
     "/api/verify": ("standing verification read by the operator loop; read-only apart from "
                     "stamping its own verdict"),
+    "/api/verify/smoke": ("F-171 smoke matrix: row counts and timestamps only, no customer or "
+                          "credential data; read by ops/readback.py after each deploy"),
     "/ops/teardown": "static page with no data; every request it makes carries the token",
 }
 

@@ -4977,9 +4977,29 @@ def api_verify() -> JSONResponse:
         drift = estimate_drift_reading(db)
     except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
         drift = {"state": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+    # F-171 (W4-SMOKE): the smoke matrix -- probes ran, continuity proven, cadences covered,
+    # queue round-trip, search intelligence captured -- read from rows. A readback beside the
+    # safety checks (its own verdict is served at /api/verify/smoke); it never makes this
+    # endpoint green, and an unreadable matrix is UNKNOWN.
+    try:
+        from ..ops.smoke import smoke_matrix
+
+        smoke = smoke_matrix(db)
+    except Exception as exc:  # noqa: BLE001
+        smoke = {"verdict": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
     return JSONResponse({"ok": passed, "checks": checks,
-                         "readbacks": {"estimate_drift": drift}},
+                         "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
+
+
+@app.get("/api/verify/smoke")
+def api_verify_smoke() -> JSONResponse:
+    """F-171: the production smoke matrix on its own (ops/smoke.py). 200 only on PASS; FAIL
+    and UNKNOWN are 503, so a post-deploy readback cannot read "not judged yet" as healthy."""
+    from ..ops.smoke import smoke_matrix
+
+    m = smoke_matrix(db)
+    return JSONResponse(m, status_code=200 if m["verdict"] == "PASS" else 503)
 
 
 @app.post("/api/dead-letters/requeue")
