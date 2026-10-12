@@ -4786,7 +4786,8 @@ def api_launch() -> dict:
     except Exception:  # noqa: BLE001
         providers = []
     readiness = assess(db, phase=os.environ.get("BRAMBLELOOP_PHASE", "shadow"),
-                       providers=providers, storage_durable=ArtifactStore().durable)
+                       providers=providers, storage_durable=ArtifactStore().durable,
+                       measure_vision=False)
     payload = readiness.to_dict()
     payload["report_markdown"] = render(readiness)
     return payload
@@ -5464,7 +5465,7 @@ def dashboard() -> str:
 
         readiness = assess(db, phase=os.environ.get("BRAMBLELOOP_PHASE", "shadow"),
                            providers=st["model_providers"],
-                           storage_durable=ArtifactStore().durable)
+                           storage_durable=ArtifactStore().durable, measure_vision=False)
         launch_html = "<h2>Launch readiness</h2>" + rows(
             [(r.description, "ready" if r.ready else "no", r.blocked_by or "-")
              for r in readiness.requirements],

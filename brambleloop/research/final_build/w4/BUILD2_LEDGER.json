@@ -1,14 +1,14 @@
 {
- "as_of": "2026-10-12T04:20:00+00:00",
+ "as_of": "2026-10-12T09:16:58+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 224,
+  "PROVEN": 227,
   "OWNER-GATED": 42,
   "DATA-GATED": 41,
   "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 4
+  "OPEN-DEFECT": 1
  },
  "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
  "rows": [
@@ -312,8 +312,8 @@
       "live": [
        "size_run",
        "_design_of",
-       "grading_problems",
-       "GradedDesign.__post_init__"
+       "_table",
+       "grading_problems"
       ]
      }
     ]
@@ -374,7 +374,7 @@
     "runtime_consumers": [
      {
       "module": "publish/substitution.py",
-      "why": "guidance is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:build_pattern_pdf -> publish/pdf.py:_render",
+      "why": "guidance is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> publish/pdf.py:build_pattern_pdf -> publish/pdf.py:_render",
       "live": [
        "guidance",
        "substitutes",
@@ -394,7 +394,7 @@
      },
      {
       "module": "quality/physical.py",
-      "why": "calibration_from_db is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:_twin",
+      "why": "calibration_from_db is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish",
       "live": [
        "calibration_from_db",
        "calibration_for",
@@ -743,10 +743,10 @@
    "id": 15,
    "title": "First-Page SERP Laboratory",
    "section": "Core commercial upgrades",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/serp.py exists and is tested",
    "evidence": {
     "tests": [
      "tests/test_cert_intel_wave.py",
@@ -861,12 +861,12 @@
     "runtime_consumers": [
      {
       "module": "commerce/trust.py",
-      "why": "shop_complete_problems is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+      "why": "may_scale_ads is live: handler launch.readiness (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_launch_readiness",
       "live": [
-       "shop_complete_problems",
        "may_scale_ads",
        "accelerator",
-       "record_proof"
+       "record_proof",
+       "shop_complete_problems"
       ]
      }
     ]
@@ -1716,8 +1716,8 @@
       "live": [
        "on_certified",
        "record_gallery",
-       "listing_disclosure_finding",
-       "records_for_generated"
+       "records_for_generated",
+       "_correction_relation"
       ]
      }
     ]
@@ -1950,8 +1950,8 @@
       "live": [
        "on_certified",
        "record_gallery",
-       "listing_disclosure_finding",
-       "records_for_generated"
+       "records_for_generated",
+       "_correction_relation"
       ]
      },
      {
@@ -2006,8 +2006,8 @@
       "live": [
        "on_certified",
        "record_gallery",
-       "listing_disclosure_finding",
-       "records_for_generated"
+       "records_for_generated",
+       "_correction_relation"
       ]
      },
      {
@@ -2059,9 +2059,9 @@
       "why": "plan is live: handler gate.lanes (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_lane_routing",
       "live": [
        "plan",
-       "forecast",
-       "capacity",
-       "assign"
+       "Tester.reliability",
+       "Tester.reliable",
+       "Tester.to_dict"
       ]
      }
     ]
@@ -2081,19 +2081,22 @@
    "id": 44,
    "title": "Brand Moat Beyond the Model",
    "section": "Adversarial commercial + policy audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module brand/moat.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_rebuild_chain.py"
+     "tests/test_cert_rebuild_chain.py",
+     "tests/test_w4_b2moat.py"
     ],
     "tested_modules": [
-     "brand/moat.py"
+     "brand/moat.py",
+     "launch/readiness.py"
     ],
     "artefacts": [
-     "brand/moat.py"
+     "brand/moat.py",
+     "launch/readiness.py"
     ],
     "runtime_consumers": [
      {
@@ -2104,6 +2107,16 @@
        "evidence",
        "Signature.__post_init__",
        "Signature.to_dict"
+      ]
+     },
+     {
+      "module": "launch/readiness.py",
+      "why": "assess is live: API get dashboard -> app/main.py:dashboard",
+      "live": [
+       "assess",
+       "etsy_first_sale_surfaces",
+       "render",
+       "_count"
       ]
      }
     ]
@@ -2508,9 +2521,9 @@
       "why": "assess is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "assess",
+       "etsy_first_sale_surfaces",
        "render",
-       "_count",
-       "_launch_scope_counts"
+       "_count"
       ]
      }
     ]
@@ -2596,12 +2609,12 @@
     "runtime_consumers": [
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
@@ -2643,12 +2656,12 @@
     "runtime_consumers": [
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
@@ -2685,12 +2698,12 @@
     "runtime_consumers": [
      {
       "module": "publish/layout_qa.py",
-      "why": "check_layout is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish -> publish/eligibility.py:product_publication -> gates/first_customer.py:blocking -> gates/first_customer.py:gate_product -> gates/first_customer.py:check_imagery -> publish/listing_assets.py:check_frame_plan",
+      "why": "inspect is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/rnd/loop.py:generate -> visual/rnd/loop.py:run_arm -> visual/rnd/gates.py:judge_frame -> visual/rnd/gates.py:_inspect",
       "live": [
-       "check_layout",
-       "_intersection",
-       "_ink_mask",
-       "_dominant"
+       "inspect",
+       "_inspect",
+       "report",
+       "check_frames"
       ]
      }
     ]
@@ -2724,7 +2737,7 @@
     "runtime_consumers": [
      {
       "module": "publish/dimensions.py",
-      "why": "Canonical.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:dimension_audit",
+      "why": "Canonical.__post_init__ is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:dimension_audit",
       "live": [
        "Canonical.__post_init__",
        "Displayed.__post_init__",
@@ -2782,22 +2795,22 @@
     "runtime_consumers": [
      {
       "module": "publish/layout_qa.py",
-      "why": "check_layout is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish -> publish/eligibility.py:product_publication -> gates/first_customer.py:blocking -> gates/first_customer.py:gate_product -> gates/first_customer.py:check_imagery -> publish/listing_assets.py:check_frame_plan",
+      "why": "inspect is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/rnd/loop.py:generate -> visual/rnd/loop.py:run_arm -> visual/rnd/gates.py:judge_frame -> visual/rnd/gates.py:_inspect",
       "live": [
-       "check_layout",
-       "_intersection",
-       "_ink_mask",
-       "_dominant"
+       "inspect",
+       "_inspect",
+       "report",
+       "check_frames"
       ]
      },
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
@@ -2805,9 +2818,9 @@
       "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
       "live": [
        "calibrate",
-       "gate",
+       "product_families",
        "inspect_image",
-       "marks_found"
+       "gate"
       ]
      }
     ]
@@ -2832,12 +2845,12 @@
     "runtime_consumers": [
      {
       "module": "publish/layout_qa.py",
-      "why": "check_layout is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish -> publish/eligibility.py:product_publication -> gates/first_customer.py:blocking -> gates/first_customer.py:gate_product -> gates/first_customer.py:check_imagery -> publish/listing_assets.py:check_frame_plan",
+      "why": "inspect is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/rnd/loop.py:generate -> visual/rnd/loop.py:run_arm -> visual/rnd/gates.py:judge_frame -> visual/rnd/gates.py:_inspect",
       "live": [
-       "check_layout",
-       "_intersection",
-       "_ink_mask",
-       "_dominant"
+       "inspect",
+       "_inspect",
+       "report",
+       "check_frames"
       ]
      }
     ]
@@ -2901,17 +2914,17 @@
     "runtime_consumers": [
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
       "module": "publish/listing_set.py",
-      "why": "CertifiedFrame.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:certificate_step",
+      "why": "CertifiedFrame.__post_init__ is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:certificate_step",
       "live": [
        "CertifiedFrame.__post_init__",
        "CertifiedFrame.to_dict",
@@ -2957,12 +2970,12 @@
     "runtime_consumers": [
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
@@ -3009,12 +3022,12 @@
     "runtime_consumers": [
      {
       "module": "publish/mobile.py",
-      "why": "ContextRender.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:mobile_contexts",
+      "why": "title_safe_ink is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.py:refresh -> visual/launch_imagery.py:assemble -> publish/disclosed_listing.py:build -> publish/disclosed_listing.py:listing_qa",
       "live": [
+       "title_safe_ink",
        "ContextRender.__post_init__",
        "ContextRender.outcome",
-       "ContextRender.to_dict",
-       "title_safe_ink"
+       "ContextRender.to_dict"
       ]
      },
      {
@@ -3081,12 +3094,12 @@
      },
      {
       "module": "creative/blind_review.py",
-      "why": "current_review is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
-       "current_review",
        "run",
        "pod_for",
-       "catalogue_slugs"
+       "catalogue_slugs",
+       "review"
       ]
      },
      {
@@ -3167,12 +3180,12 @@
     "runtime_consumers": [
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      }
     ]
@@ -3208,7 +3221,7 @@
     "runtime_consumers": [
      {
       "module": "publish/listing_set.py",
-      "why": "CertifiedFrame.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:certificate_step",
+      "why": "CertifiedFrame.__post_init__ is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:certificate_step",
       "live": [
        "CertifiedFrame.__post_init__",
        "CertifiedFrame.to_dict",
@@ -3218,12 +3231,12 @@
      },
      {
       "module": "gates/certificate.py",
-      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
+      "why": "certify is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run",
       "live": [
-       "bind_physical_evidence",
-       "twin_summary",
-       "primitive_findings",
-       "certify"
+       "certify",
+       "claims_fingerprint",
+       "ReleaseCertificate.__str__",
+       "ReleaseCertificate.errors"
       ]
      },
      {
@@ -3233,7 +3246,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      }
     ]
@@ -3264,22 +3277,22 @@
     "runtime_consumers": [
      {
       "module": "creative/blind_review.py",
-      "why": "current_review is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
-       "current_review",
        "run",
        "pod_for",
-       "catalogue_slugs"
+       "catalogue_slugs",
+       "review"
       ]
      },
      {
       "module": "visual/parity.py",
-      "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "assess is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "assess",
+       "_deterministic_available",
        "_verdict",
-       "_realism_of",
-       "presentation_quality"
+       "_realism_of"
       ]
      }
     ]
@@ -3417,12 +3430,12 @@
      },
      {
       "module": "publish/listing_asset.py",
-      "why": "frames_for is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "make is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof",
       "live": [
-       "frames_for",
        "make",
-       "last",
-       "has_render_authority"
+       "has_render_authority",
+       "needs_the_model",
+       "_in_launch_scope"
       ]
      }
     ]
@@ -3454,22 +3467,22 @@
     "runtime_consumers": [
      {
       "module": "visual/parity.py",
-      "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "assess is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "assess",
+       "_deterministic_available",
        "_verdict",
-       "_realism_of",
-       "presentation_quality"
+       "_realism_of"
       ]
      },
      {
       "module": "creative/blind_review.py",
-      "why": "current_review is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
-       "current_review",
        "run",
        "pod_for",
-       "catalogue_slugs"
+       "catalogue_slugs",
+       "review"
       ]
      }
     ]
@@ -3508,12 +3521,12 @@
      },
      {
       "module": "creative/blind_review.py",
-      "why": "current_review is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
-       "current_review",
        "run",
        "pod_for",
-       "catalogue_slugs"
+       "catalogue_slugs",
+       "review"
       ]
      }
     ]
@@ -3543,22 +3556,22 @@
     "runtime_consumers": [
      {
       "module": "visual/parity.py",
-      "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "assess is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "assess",
+       "_deterministic_available",
        "_verdict",
-       "_realism_of",
-       "presentation_quality"
+       "_realism_of"
       ]
      },
      {
       "module": "visual/gallery.py",
-      "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "gates_now is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "gates_now",
+       "escalation_progress",
        "escalation_plan",
-       "escalate",
-       "escalation_progress"
+       "minimum_quality"
       ]
      }
     ]
@@ -3591,32 +3604,32 @@
     "runtime_consumers": [
      {
       "module": "visual/gallery.py",
-      "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "gates_now is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "gates_now",
+       "escalation_progress",
        "escalation_plan",
-       "escalate",
-       "escalation_progress"
+       "minimum_quality"
       ]
      },
      {
       "module": "publish/eligibility.py",
-      "why": "legacy_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "product_publication is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish",
       "live": [
-       "legacy_status",
        "product_publication",
-       "name_truth",
-       "gallery_architecture"
+       "gallery_jobs_for",
+       "legacy_status",
+       "name_truth"
       ]
      },
      {
       "module": "publish/mobile.py",
-      "why": "ContextRender.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:_round -> integrations/etsy.py:EtsyClient.activate -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_listing_set -> publish/release_gates.py:listing_set -> publish/release_gates.py:mobile_contexts",
+      "why": "title_safe_ink is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.py:refresh -> visual/launch_imagery.py:assemble -> publish/disclosed_listing.py:build -> publish/disclosed_listing.py:listing_qa",
       "live": [
+       "title_safe_ink",
        "ContextRender.__post_init__",
        "ContextRender.outcome",
-       "ContextRender.to_dict",
-       "title_safe_ink"
+       "ContextRender.to_dict"
       ]
      }
     ]
@@ -3643,12 +3656,12 @@
     "runtime_consumers": [
      {
       "module": "visual/gallery.py",
-      "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "gates_now is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "gates_now",
+       "escalation_progress",
        "escalation_plan",
-       "escalate",
-       "escalation_progress"
+       "minimum_quality"
       ]
      },
      {
@@ -3656,9 +3669,9 @@
       "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
       "live": [
        "calibrate",
-       "gate",
+       "product_families",
        "inspect_image",
-       "marks_found"
+       "gate"
       ]
      }
     ]
@@ -3689,12 +3702,12 @@
     "runtime_consumers": [
      {
       "module": "visual/gallery.py",
-      "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "gates_now is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "gates_now",
+       "escalation_progress",
        "escalation_plan",
-       "escalate",
-       "escalation_progress"
+       "minimum_quality"
       ]
      },
      {
@@ -3735,22 +3748,22 @@
     "runtime_consumers": [
      {
       "module": "visual/gallery.py",
-      "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "gates_now is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "gates_now",
+       "escalation_progress",
        "escalation_plan",
-       "escalate",
-       "escalation_progress"
+       "minimum_quality"
       ]
      },
      {
       "module": "visual/parity.py",
-      "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "assess is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_publish_guarded -> runtime/pipeline.py:_publish_and_read_back -> integrations/etsy.py:OwnerGrant.refusal -> ops/publication_authority.py:validate -> ops/publication_authority.py:resolve -> ops/publication_authority.py:snapshot -> ops/publication_authority.py:evidence -> ops/publication_authority.py:_parity",
       "live": [
        "assess",
+       "_deterministic_available",
        "_verdict",
-       "_realism_of",
-       "presentation_quality"
+       "_realism_of"
       ]
      }
     ]
@@ -3968,10 +3981,10 @@
    "id": 86,
    "title": "Creativity Benchmark Memory",
    "section": "Creativity engine + continuous improvement",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/vision.py exists and is tested",
    "evidence": {
     "tests": [
      "tests/test_cert_intel_wave2.py"
@@ -3993,8 +4006,8 @@
       "live": [
        "plan",
        "pending",
-       "coverage",
-       "attributes_for"
+       "pending_count",
+       "forecast"
       ]
      },
      {
@@ -4012,9 +4025,9 @@
       "why": "observations is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "observations",
-       "radar",
        "_aware",
-       "ingest_benchmark"
+       "ingest_benchmark",
+       "ingest_complaints"
       ]
      }
     ]
@@ -4131,9 +4144,9 @@
       "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
       "live": [
        "verify_funnel",
-       "intake_rows",
        "regate_held",
-       "board_for"
+       "board_for",
+       "judge_held"
       ]
      }
     ]
@@ -4245,7 +4258,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      },
      {
@@ -4305,7 +4318,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      },
      {
@@ -4359,7 +4372,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      },
      {
@@ -4513,7 +4526,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      }
     ]
@@ -4579,9 +4592,9 @@
       "why": "observations is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "observations",
-       "radar",
        "_aware",
-       "ingest_benchmark"
+       "ingest_benchmark",
+       "ingest_complaints"
       ]
      },
      {
@@ -4671,7 +4684,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      },
      {
@@ -4798,7 +4811,7 @@
     "runtime_consumers": [
      {
       "module": "cir/geometry.py",
-      "why": "measure_all is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:build_pattern_pdf -> cir/writer.py:write_pattern -> cir/writer.py:finishing_lines",
+      "why": "measure_all is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> publish/pdf.py:build_pattern_pdf -> cir/writer.py:write_pattern -> cir/writer.py:finishing_lines",
       "live": [
        "measure_all",
        "measure",
@@ -4861,7 +4874,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      },
      {
@@ -6024,22 +6037,22 @@
     "runtime_consumers": [
      {
       "module": "brand/takeover.py",
-      "why": "active is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items -> brand/storefront.py:opening_grid",
+      "why": "check is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run -> seasonal/daily.py:takeovers",
       "live": [
-       "active",
        "check",
        "plan",
-       "execute"
+       "execute",
+       "schedule"
       ]
      },
      {
       "module": "brand/storefront.py",
-      "why": "check_storefront is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+      "why": "opening_grid is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_storefront_items",
       "live": [
-       "check_storefront",
-       "build_storefront",
-       "Storefront.ok",
-       "Storefront.to_dict"
+       "opening_grid",
+       "price_tier",
+       "_palette_of",
+       "build_storefront"
       ]
      },
      {
@@ -6689,7 +6702,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      }
     ]
@@ -6970,7 +6983,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      },
      {
@@ -7478,7 +7491,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      },
      {
@@ -7580,12 +7593,12 @@
     "runtime_consumers": [
      {
       "module": "gates/certificate.py",
-      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
+      "why": "certify is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run",
       "live": [
-       "bind_physical_evidence",
-       "twin_summary",
-       "primitive_findings",
-       "certify"
+       "certify",
+       "claims_fingerprint",
+       "ReleaseCertificate.__str__",
+       "ReleaseCertificate.errors"
       ]
      },
      {
@@ -7661,9 +7674,9 @@
       "why": "status is live: API get api_teardown -> app/main.py:api_teardown",
       "live": [
        "status",
-       "challenge",
-       "_best_by_dimension",
-       "check_tradeoff"
+       "promote",
+       "cells_model",
+       "challenge"
       ]
      },
      {
@@ -7824,9 +7837,9 @@
       "why": "assess is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "assess",
+       "etsy_first_sale_surfaces",
        "render",
-       "_count",
-       "_launch_scope_counts"
+       "_count"
       ]
      },
      {
@@ -7834,9 +7847,9 @@
       "why": "status is live: API get api_teardown -> app/main.py:api_teardown",
       "live": [
        "status",
-       "challenge",
-       "_best_by_dimension",
-       "check_tradeoff"
+       "promote",
+       "cells_model",
+       "challenge"
       ]
      }
     ]
@@ -8303,7 +8316,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      }
     ]
@@ -8536,7 +8549,7 @@
        "JobQueue.__init__",
        "JobQueue.restore",
        "JobQueue.get",
-       "JobQueue.claim"
+       "JobQueue.counts"
       ]
      }
     ]
@@ -8566,7 +8579,7 @@
        "verdict",
        "read",
        "container_starts",
-       "Reading.__post_init__"
+       "_evidence"
       ]
      }
     ]
@@ -8646,7 +8659,7 @@
        "JobQueue.__init__",
        "JobQueue.restore",
        "JobQueue.get",
-       "JobQueue.claim"
+       "JobQueue.counts"
       ]
      }
     ]
@@ -9447,12 +9460,12 @@
      },
      {
       "module": "publish/listing_asset.py",
-      "why": "frames_for is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "make is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof",
       "live": [
-       "frames_for",
        "make",
-       "last",
-       "has_render_authority"
+       "has_render_authority",
+       "needs_the_model",
+       "_in_launch_scope"
       ]
      }
     ]
@@ -9494,7 +9507,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      }
     ]
@@ -9628,8 +9641,8 @@
       "live": [
        "plan",
        "pending",
-       "coverage",
-       "attributes_for"
+       "pending_count",
+       "forecast"
       ]
      }
     ]
@@ -9658,8 +9671,8 @@
       "live": [
        "plan",
        "pending",
-       "coverage",
-       "attributes_for"
+       "pending_count",
+       "forecast"
       ]
      }
     ]
@@ -9688,12 +9701,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
-       "Pod._first",
-       "Pod.matches",
-       "Pod.matches_signals",
-       "Pod.matches_motifs"
+       "route",
+       "counts_its_own_patterns",
+       "Director.position",
+       "Director.standing"
       ]
      },
      {
@@ -9734,12 +9747,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
-       "Pod._first",
-       "Pod.matches",
-       "Pod.matches_signals",
-       "Pod.matches_motifs"
+       "route",
+       "counts_its_own_patterns",
+       "Director.position",
+       "Director.standing"
       ]
      },
      {
@@ -9789,12 +9802,12 @@
      },
      {
       "module": "intel/pods.py",
-      "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
-       "Pod._first",
-       "Pod.matches",
-       "Pod.matches_signals",
-       "Pod.matches_motifs"
+       "route",
+       "counts_its_own_patterns",
+       "Director.position",
+       "Director.standing"
       ]
      }
     ]
@@ -10023,12 +10036,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
-       "Pod._first",
-       "Pod.matches",
-       "Pod.matches_signals",
-       "Pod.matches_motifs"
+       "route",
+       "counts_its_own_patterns",
+       "Director.position",
+       "Director.standing"
       ]
      },
      {
@@ -10072,12 +10085,12 @@
     "runtime_consumers": [
      {
       "module": "creative/blind_review.py",
-      "why": "current_review is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
+      "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
-       "current_review",
        "run",
        "pod_for",
-       "catalogue_slugs"
+       "catalogue_slugs",
+       "review"
       ]
      },
      {
@@ -10096,8 +10109,8 @@
       "live": [
        "plan",
        "pending",
-       "coverage",
-       "attributes_for"
+       "pending_count",
+       "forecast"
       ]
      }
     ]
@@ -10326,8 +10339,8 @@
       "live": [
        "available",
        "statuses",
-       "pending_requests",
-       "_model_env"
+       "owner_requests",
+       "pending_requests"
       ]
      }
     ]
@@ -10445,7 +10458,7 @@
        "retrospective",
        "record_owner_approval",
        "capability_plateau",
-       "raise_plateau_defect"
+       "learning_health"
       ]
      }
     ]
@@ -11838,7 +11851,7 @@
      },
      {
       "module": "publish/substitution.py",
-      "why": "guidance is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:build_pattern_pdf -> publish/pdf.py:_render",
+      "why": "guidance is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> publish/pdf.py:build_pattern_pdf -> publish/pdf.py:_render",
       "live": [
        "guidance",
        "substitutes",
@@ -11965,8 +11978,8 @@
       "live": [
        "on_certified",
        "record_gallery",
-       "listing_disclosure_finding",
-       "records_for_generated"
+       "records_for_generated",
+       "_correction_relation"
       ]
      }
     ]
@@ -12009,8 +12022,8 @@
       "live": [
        "on_certified",
        "record_gallery",
-       "listing_disclosure_finding",
-       "records_for_generated"
+       "records_for_generated",
+       "_correction_relation"
       ]
      },
      {
@@ -12464,7 +12477,7 @@
     "runtime_consumers": [
      {
       "module": "finance/currency.py",
-      "why": "contribution is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> finance/sustainability.py:break_even -> finance/sustainability.py:_modelled_contribution",
+      "why": "contribution is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish -> publish/release_gates.py:launch_price_check -> products/launch0.py:launch_price -> products/launch0.py:price_plan -> commerce/pricing.py:decide_price -> commerce/pricing.py:net_contribution",
       "live": [
        "contribution",
        "Money.__post_init__",
@@ -12786,9 +12799,9 @@
       "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
       "live": [
        "verify_funnel",
-       "intake_rows",
        "regate_held",
-       "board_for"
+       "board_for",
+       "judge_held"
       ]
      },
      {
@@ -12969,9 +12982,9 @@
       "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
       "live": [
        "verify_funnel",
-       "intake_rows",
        "regate_held",
-       "board_for"
+       "board_for",
+       "judge_held"
       ]
      },
      {
@@ -13226,7 +13239,7 @@
        "LedgerEntry.net_cad",
        "Job.__repr__",
        "Agent.may_run",
-       "OAuthHandshake.__repr__"
+       "utcnow"
       ]
      }
     ]
@@ -13387,12 +13400,12 @@
      },
      {
       "module": "gates/certificate.py",
-      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
+      "why": "certify is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run",
       "live": [
-       "bind_physical_evidence",
-       "twin_summary",
-       "primitive_findings",
-       "certify"
+       "certify",
+       "claims_fingerprint",
+       "ReleaseCertificate.__str__",
+       "ReleaseCertificate.errors"
       ]
      },
      {
@@ -13832,9 +13845,9 @@
       "why": "mission_report is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "mission_report",
+       "snapshot",
        "mission_status",
-       "check_report",
-       "record"
+       "check_report"
       ]
      }
     ]
@@ -13956,8 +13969,8 @@
       "live": [
        "plan",
        "pending",
-       "coverage",
-       "attributes_for"
+       "pending_count",
+       "forecast"
       ]
      },
      {
@@ -14331,12 +14344,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
-       "Pod._first",
-       "Pod.matches",
-       "Pod.matches_signals",
-       "Pod.matches_motifs"
+       "route",
+       "counts_its_own_patterns",
+       "Director.position",
+       "Director.standing"
       ]
      }
     ]
@@ -14416,7 +14429,7 @@
     "runtime_consumers": [
      {
       "module": "intel/coverage.py",
-      "why": "summary is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report",
+      "why": "summary is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/mission.py:snapshot",
       "live": [
        "summary",
        "queue",
@@ -14615,9 +14628,9 @@
       "why": "mission_report is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "mission_report",
+       "snapshot",
        "mission_status",
-       "check_report",
-       "record"
+       "check_report"
       ]
      }
     ]
@@ -14645,9 +14658,9 @@
       "why": "mission_report is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "mission_report",
+       "snapshot",
        "mission_status",
-       "check_report",
-       "record"
+       "check_report"
       ]
      }
     ]
