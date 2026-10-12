@@ -155,6 +155,17 @@ export const DATA = {
         { metric: "runway", label: "Safe discretionary budget", value: money(40, "MODELLED") },
       ], { reason: "Accounting sources incomplete: payouts and bank feed missing." }),
       spend_limits: env("OK", [{ scope: "llm", limit_cad: 50, paused: false, source: "spend_limits:1" }]),
+      // W4-CCFINST (F-620): MTD beside YTD; unknown sales stay Unknown, never CA$0.00.
+      finance_statement: env("DEGRADED", [
+        { metric: "gross_sales", label: "Sales (gross)", kind: "money", mtd: { value_cad: null, state: "UNKNOWN", why: "order source not read" }, ytd: { value_cad: null, state: "UNKNOWN", why: "order source not read" } },
+        { metric: "etsy_fees", label: "Etsy fees", kind: "money", mtd: { value_cad: null, state: "UNKNOWN", why: "order source not read" }, ytd: { value_cad: null, state: "UNKNOWN", why: "order source not read" } },
+        { metric: "free_ad_credit", label: "Free ad credit left", kind: "money", mtd: { value_cad: null, state: "UNKNOWN", why: "no ad credit is recorded" }, ytd: { value_cad: null, state: "UNKNOWN", why: "no ad credit is recorded" } },
+        { metric: "cash_ad_spend", label: "Cash ad spend", kind: "money", mtd: { value_cad: 0, state: "RECORDED", why: "recorded advertising spend" }, ytd: { value_cad: 0, state: "RECORDED", why: "recorded advertising spend" } },
+        { metric: "ai_spend", label: "AI & image spend", kind: "money", mtd: { value_cad: 14.2, state: "RECORDED" }, ytd: { value_cad: 61.75, state: "RECORDED" } },
+        { metric: "margin", label: "Contribution margin", kind: "ratio", mtd: { value: null, state: "UNKNOWN", why: "net sales not known" }, ytd: { value: null, state: "UNKNOWN", why: "net sales not known" } },
+        { metric: "unreconciled", label: "Unreconciled items", kind: "count", mtd: { value: 2, state: "MEASURED" }, ytd: { value: 2, state: "MEASURED" } },
+        { metric: "monthly_close", label: "Monthly close", kind: "status", value: "2026-09 not closed", state: "MEASURED", last_locked: null },
+      ], { columns: { mtd: "month to date 2026-10", ytd: "year to date 2026" }, sources: ["finance.accounting.dashboard.summary(mtd,ytd)", "finance.credits.wallet"] }),
       spend_trend: env("OK", Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, value_cad: i % 5 === 0 ? 0 : i / 10 })),
         { total_cad: 34.5, days: 30, sources: ["cost_entries"], note: "recorded spend (not reconciled), per UTC day" }),
       estimate_drift: env("UNKNOWN", [], { reason: "no token-priced model call is recorded this month, so estimate drift has not been measured",

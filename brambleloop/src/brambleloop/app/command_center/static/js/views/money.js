@@ -20,6 +20,42 @@ function spendTrendCard(env, result) {
     sourcesList(env.sources));
 }
 
+// W4-CCFINST (F-620): the owner statement -- every required line, month-to-date beside
+// year-to-date. A cell the source cannot give reads "Unknown" with its reason, never CA$0.00.
+function statementCell(row, cell) {
+  const c = cell && typeof cell === "object" ? cell : {};
+  let text = UNKNOWN_TEXT;
+  if (row.kind === "money") text = formatMoney(c);
+  else if (row.kind === "ratio") text = typeof c.value === "number" ? `${(c.value * 100).toFixed(1)}%` : UNKNOWN_TEXT;
+  else if (row.kind === "count") text = Number.isInteger(c.value) ? String(c.value) : UNKNOWN_TEXT;
+  const state = String(c.state || "UNKNOWN").toUpperCase();
+  const tag = text !== UNKNOWN_TEXT && state !== "MEASURED" ? h("span", { class: "muted small" }, ` ${humanize(state.toLowerCase())}`) : null;
+  return h("td", { class: "num", title: c.why || "", data: { state } }, text, tag);
+}
+
+function financeStatementCard(env, result) {
+  if (!isEnvelope(env) || env.status === "UNKNOWN") return renderSection("finance_statement", env, { title: "Finance statement (MTD / YTD)", result });
+  const items = Array.isArray(env.items) ? env.items : [];
+  const cols = env.columns || {};
+  const rows = items.filter((r) => r && r.kind !== "status");
+  const close = items.find((r) => r && r.kind === "status");
+  const reasons = rows.flatMap((r) => ["mtd", "ytd"].map((w) => (r[w] && r[w].state === "UNKNOWN" && r[w].why ? `${r.label}: ${r[w].why}` : null))).filter(Boolean);
+  return card({ title: "Finance statement", subtitle: "Month to date beside year to date.", labelId: "money-finance-statement", actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, result)),
+    h("div", { class: "table-wrap" },
+      h("table", { class: "fin-statement" },
+        h("thead", null, h("tr", null, h("th", { scope: "col" }, "Line"),
+          h("th", { scope: "col", class: "num", title: cols.mtd || "" }, "MTD"),
+          h("th", { scope: "col", class: "num", title: cols.ytd || "" }, "YTD"))),
+        h("tbody", null, rows.map((r) => h("tr", { data: { metric: r.metric } },
+          h("th", { scope: "row" }, r.label || humanize(r.metric)), statementCell(r, r.mtd), statementCell(r, r.ytd)))))),
+    close ? h("p", { class: "card-meta", data: { close: close.state } }, `Monthly close: ${close.value || UNKNOWN_TEXT}${close.last_locked ? ` · last closed ${close.last_locked}` : ""}`) : null,
+    reasons.length ? h("details", null, h("summary", null, `Why ${reasons.length} cell(s) read Unknown`),
+      h("ul", { class: "plain" }, reasons.slice(0, 30).map((t) => h("li", { class: "small" }, t)))) : null,
+    env.reason ? h("p", { class: "muted small" }, env.reason) : null,
+    sourcesList(env.sources));
+}
+
 const PERIODS = [["month", "This month"], ["last_month", "Last month"], ["ytd", "Year to date"], ["all", "All time"]];
 const MONEY_SECTIONS = [["accounting", "Accounting (controller)"], ["revenue", "Revenue"], ["recorded_spend", "Recorded spend"]];
 
@@ -165,8 +201,9 @@ export async function render({ params, query }) {
       h("p", { class: "muted" }, echoed ? `Showing: ${echoed}` : period ? "The server did not confirm this period filter, so figures may be for its default period." : "Server default period.")),
     ...MONEY_SECTIONS.filter(([k]) => s[k] !== undefined || k === "accounting").map(([k, t]) => moneySection(k, t, s[k], result, period)),
     s.estimate_drift !== undefined ? driftCard(s.estimate_drift, result) : null,
+    s.finance_statement !== undefined ? financeStatementCard(s.finance_statement, result) : null,
     s.spend_trend !== undefined ? spendTrendCard(s.spend_trend, result) : null,
     ...renderAll(data, [["spend_limits", "Spend limits"]], { result,
-      skip: [...MONEY_SECTIONS.map(([k]) => k), "estimate_drift", "spend_trend", "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
+      skip: [...MONEY_SECTIONS.map(([k]) => k), "estimate_drift", "spend_trend", "finance_statement", "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
     legend());
 }

@@ -252,6 +252,12 @@ def estimate_drift_reading(db) -> dict:
         settlement_why=SETTLEMENT_GATE)
 
 
+def _finance_statement(db) -> dict:
+    from . import finance_statement
+
+    return finance_statement.statement(db)
+
+
 def money(db, window: str | None = None) -> dict:
     m = money_section(db, window)
     acct = m["accounting"] if isinstance(m["accounting"], dict) else {}
@@ -268,7 +274,10 @@ def money(db, window: str | None = None) -> dict:
     return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
                           "estimate_drift": drift,
                           # F-652: the recorded-spend trend the Money tab charts.
-                          "spend_trend": guard("spend_trend", lambda: spend_trend(db))},
+                          "spend_trend": guard("spend_trend", lambda: spend_trend(db)),
+                          # F-620: the owner statement, month-to-date beside year-to-date.
+                          "finance_statement": guard("finance_statement",
+                                                     lambda: _finance_statement(db))},
                 status=m["status"], revenue=all_time(m["revenue"]), profit=m["profit"],
                 recorded_spend=all_time(m["recorded_spend"]), source_health=m["source_health"],
                 reason=m["reason"], window=window,

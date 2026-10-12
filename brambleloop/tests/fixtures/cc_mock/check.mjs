@@ -652,6 +652,19 @@ try {
   check(!!trend && trend.bars === 30 && trend.zero === 6 && trend.rows === 30 && /Recorded spend per day: 30 points/.test(trend.label) && /Revenue is not charted while it is Unknown/.test(trend.text),
     "ccfm1 money: 30-day recorded spend chart with its values table; revenue not charted while Unknown", JSON.stringify(trend).slice(0, 300));
   await noHScroll("ccfm1 money");
+  // W4-CCFINST (F-620): the finance statement, MTD beside YTD, Unknown never CA$0.00.
+  const fin = await page.evaluate(() => { const c = document.querySelector("section[aria-labelledby='money-finance-statement']");
+    if (!c) return null;
+    const row = (m) => Array.from(c.querySelectorAll(`tr[data-metric='${m}'] td`)).map((td) => td.textContent.trim());
+    return { head: Array.from(c.querySelectorAll("thead th")).map((t) => t.textContent.trim()), sales: row("gross_sales"), ai: row("ai_spend"),
+      credit: row("free_ad_credit"), margin: row("margin"), unrec: row("unreconciled"), close: c.querySelector("[data-close]")?.textContent || "",
+      why: !!c.querySelector("details"), wide: c.querySelector("table").scrollWidth > c.querySelector(".table-wrap").clientWidth + 1 }; });
+  check(!!fin && fin.head.join("|") === "Line|MTD|YTD" && fin.sales.join("|") === "Unknown|Unknown" && fin.credit.join("|") === "Unknown|Unknown"
+    && /^CA\$14\.20/.test(fin.ai[0]) && /^CA\$61\.75/.test(fin.ai[1]) && fin.margin.join("|") === "Unknown|Unknown" && fin.unrec.join("|") === "2|2"
+    && /2026-09 not closed/.test(fin.close) && fin.why,
+    "ccfinst money: finance statement MTD beside YTD; unknown sales and credit read Unknown, never CA$0.00", JSON.stringify(fin).slice(0, 400));
+  check(!!fin && !fin.wide, "ccfinst money: statement fits a 390 px phone", JSON.stringify(fin && fin.wide));
+  await noHScroll("ccfinst money");
   await page.goto(`${BASE}/cc/#/insights`);
   await settle();
   const custText = await page.textContent("#main");
