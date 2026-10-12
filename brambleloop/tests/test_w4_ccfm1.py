@@ -194,6 +194,21 @@ def test_bar_chart_draws_unknown_as_a_gap_and_uses_no_html_sink():
     assert "barChart(" in money and "barChart(" in company_js
 
 
+def test_f670_light_dark_tokens_chart_and_drill_down():
+    """F-670: one shared stylesheet with light/dark tokens (system preference and an explicit
+    choice), the chart component, and drill-down routes from cards to source rows."""
+    css = (STATIC / "css" / "app.css").read_text(encoding="utf-8")
+    assert "@media (prefers-color-scheme: dark)" in css
+    assert ':root:not([data-theme="light"])' in css and ':root[data-theme="dark"]' in css
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert 'href="css/app.css"' in html and "<style" not in html     # shared, not inline
+    app = (STATIC / "js" / "app.js").read_text(encoding="utf-8")
+    assert 'drill: { id: "drill"' in app and (STATIC / "js" / "views" / "drill.js").is_file()
+    comps = (STATIC / "js" / "components.js").read_text(encoding="utf-8")
+    assert "#/drill/${encodeURIComponent(ref)}" in comps            # every source list drills
+    assert "export function barChart" in comps
+
+
 if __name__ == "__main__":
     import time
 
