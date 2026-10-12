@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-11T18:35:11Z",
- "branch_head": "61ddc18",
+ "generated_at": "2026-10-12T14:03:13Z",
+ "branch_head": "c76be4c",
  "production": {
   "commit": "0417f3516f30bb7c52926187fc475a0f46536e86",
   "known": true,
@@ -96,41 +96,41 @@
   "build2": {
    "total": 320,
    "verified_complete": 215,
-   "implemented_unverified": 0,
+   "implemented_unverified": 12,
    "in_progress": 0,
-   "blocked_engineering": 15,
+   "blocked_engineering": 2,
    "blocked_owner": 39,
-   "blocked_external": 48,
+   "blocked_external": 49,
    "not_applicable": 3
   },
   "final_master_launch_critical": {
    "total": 490,
    "verified_complete": 362,
    "implemented_unverified": 1,
-   "in_progress": 0,
-   "blocked_engineering": 27,
-   "blocked_owner": 70,
-   "blocked_external": 30,
+   "in_progress": 3,
+   "blocked_engineering": 26,
+   "blocked_owner": 69,
+   "blocked_external": 29,
    "not_applicable": 0
   },
   "final_master_total": {
    "total": 917,
    "verified_complete": 385,
    "implemented_unverified": 1,
-   "in_progress": 0,
-   "blocked_engineering": 269,
-   "blocked_owner": 164,
-   "blocked_external": 91,
+   "in_progress": 17,
+   "blocked_engineering": 255,
+   "blocked_owner": 162,
+   "blocked_external": 90,
    "not_applicable": 7
   },
   "ledger_native": {
    "build2": {
-    "PROVEN": 215,
+    "PROVEN": 227,
     "OWNER-GATED": 42,
     "DATA-GATED": 41,
-    "EXTERNAL-GATED": 5,
+    "EXTERNAL-GATED": 6,
     "NOT-APPLICABLE": 3,
-    "OPEN-DEFECT": 14
+    "OPEN-DEFECT": 1
    },
    "final_master_launch_critical": {
     "COMPLETE": 363,
@@ -252,47 +252,6 @@
    }
   },
   {
-   "root": "gate_open_reverify",
-   "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 23,
-   "build2": 14,
-   "fm_launch_critical": 8,
-   "fm_post_launch": 1,
-   "classes": {
-    "blocked_engineering": 23
-   },
-   "owner_actions": [],
-   "ids": [
-    "B2#15",
-    "B2#44",
-    "B2#61",
-    "B2#67",
-    "B2#86",
-    "B2#88",
-    "B2#116",
-    "B2#126",
-    "B2#218",
-    "B2#277",
-    "B2#281",
-    "B2#304",
-    "B2#308",
-    "B2#309",
-    "F-027",
-    "F-031",
-    "F-041",
-    "F-100",
-    "F-226",
-    "F-252",
-    "F-253",
-    "F-278",
-    "F-871"
-   ],
-   "estimate": {
-    "figure": "one engineering pass over the unparked rows",
-    "basis": "gates read OPEN at the board's production GET; each row's own tests/evidence decide"
-   }
-  },
-  {
    "root": "live_listings",
    "title": "No live listings (go-live not authorised)",
    "rows": 38,
@@ -365,12 +324,13 @@
   {
    "root": "image_provider_capability",
    "title": "Image/vision provider capability",
-   "rows": 23,
-   "build2": 5,
+   "rows": 24,
+   "build2": 6,
    "fm_launch_critical": 15,
    "fm_post_launch": 3,
    "classes": {
-    "blocked_external": 23
+    "blocked_external": 23,
+    "in_progress": 1
    },
    "owner_actions": [],
    "ids": [
@@ -379,6 +339,7 @@
     "B2#202",
     "B2#203",
     "B2#300",
+    "B2#308",
     "F-214",
     "F-221",
     "F-222",
@@ -508,6 +469,37 @@
    }
   },
   {
+   "root": "release_undeployed_code",
+   "title": "Proven only on the integration branch (release + production evidence needed)",
+   "rows": 13,
+   "build2": 12,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 0,
+   "classes": {
+    "implemented_unverified": 13
+   },
+   "owner_actions": [],
+   "ids": [
+    "B2#15",
+    "B2#44",
+    "B2#67",
+    "B2#86",
+    "B2#88",
+    "B2#116",
+    "B2#126",
+    "B2#218",
+    "B2#277",
+    "B2#281",
+    "B2#304",
+    "B2#309",
+    "F-845"
+   ],
+   "estimate": {
+    "figure": "one release cycle",
+    "basis": "same release evidence: ~78 min suite + ~4 h observed record-to-deploy"
+   }
+  },
+  {
    "root": "oauth_transactions_r",
    "title": "Etsy OAuth missing transactions_r",
    "rows": 18,
@@ -605,103 +597,19 @@
    }
   },
   {
-   "root": "owned_surfaces",
-   "title": "Owned channels (site / Pinterest)",
-   "rows": 18,
-   "build2": 7,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 10,
-   "classes": {
-    "blocked_owner": 18
-   },
-   "owner_actions": [
-    {
-     "id": "owned_surfaces",
-     "batch": "channels",
-     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
-     "max_cost_cad": 25.0,
-     "minutes": 65
-    }
-   ],
-   "ids": [
-    "B2#4",
-    "B2#10",
-    "B2#246",
-    "B2#247",
-    "B2#248",
-    "B2#251",
-    "B2#255",
-    "F-572",
-    "F-613",
-    "F-767",
-    "F-771",
-    "F-772",
-    "F-773",
-    "F-808",
-    "F-810",
-    "F-811",
-    "F-812",
-    "F-819"
-   ],
-   "estimate": {
-    "figure": "owner ~65 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_actions": [
-    {
-     "id": "tester_outreach",
-     "batch": "go_live",
-     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
-     "max_cost_cad": 185.0,
-     "minutes": 25
-    }
-   ],
-   "ids": [
-    "B2#9",
-    "B2#43",
-    "B2#64",
-    "B2#250",
-    "F-075",
-    "F-076",
-    "F-077",
-    "F-081",
-    "F-082",
-    "F-083",
-    "F-085",
-    "F-118",
-    "F-360",
-    "F-363",
-    "F-385",
-    "F-876"
-   ],
-   "estimate": {
-    "figure": "owner ~25 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 245,
-   "build2": 0,
+   "rows": 246,
+   "build2": 1,
    "fm_launch_critical": 7,
    "fm_post_launch": 238,
    "classes": {
-    "blocked_engineering": 245
+    "blocked_engineering": 233,
+    "in_progress": 13
    },
    "owner_actions": [],
    "ids": [
+    "B2#61",
     "F-016",
     "F-017",
     "F-018",
@@ -951,6 +859,118 @@
    "estimate": null
   },
   {
+   "root": "owned_surfaces",
+   "title": "Owned channels (site / Pinterest)",
+   "rows": 18,
+   "build2": 7,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 10,
+   "classes": {
+    "blocked_owner": 18
+   },
+   "owner_actions": [
+    {
+     "id": "owned_surfaces",
+     "batch": "channels",
+     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+     "max_cost_cad": 25.0,
+     "minutes": 65
+    }
+   ],
+   "ids": [
+    "B2#4",
+    "B2#10",
+    "B2#246",
+    "B2#247",
+    "B2#248",
+    "B2#251",
+    "B2#255",
+    "F-572",
+    "F-613",
+    "F-767",
+    "F-771",
+    "F-772",
+    "F-773",
+    "F-808",
+    "F-810",
+    "F-811",
+    "F-812",
+    "F-819"
+   ],
+   "estimate": {
+    "figure": "owner ~65 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "testers_physical_proof",
+   "title": "Testers and physical samples",
+   "rows": 16,
+   "build2": 4,
+   "fm_launch_critical": 4,
+   "fm_post_launch": 8,
+   "classes": {
+    "blocked_owner": 16
+   },
+   "owner_actions": [
+    {
+     "id": "tester_outreach",
+     "batch": "go_live",
+     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+     "max_cost_cad": 185.0,
+     "minutes": 25
+    }
+   ],
+   "ids": [
+    "B2#9",
+    "B2#43",
+    "B2#64",
+    "B2#250",
+    "F-075",
+    "F-076",
+    "F-077",
+    "F-081",
+    "F-082",
+    "F-083",
+    "F-085",
+    "F-118",
+    "F-360",
+    "F-363",
+    "F-385",
+    "F-876"
+   ],
+   "estimate": {
+    "figure": "owner ~25 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "gate_open_reverify",
+   "title": "Gate now OPEN in production: unparked, re-verify",
+   "rows": 8,
+   "build2": 0,
+   "fm_launch_critical": 7,
+   "fm_post_launch": 1,
+   "classes": {
+    "blocked_engineering": 8
+   },
+   "owner_actions": [],
+   "ids": [
+    "F-027",
+    "F-031",
+    "F-041",
+    "F-100",
+    "F-226",
+    "F-252",
+    "F-253",
+    "F-871"
+   ],
+   "estimate": {
+    "figure": "one engineering pass over the unparked rows",
+    "basis": "gates read OPEN at the board's production GET; each row's own tests/evidence decide"
+   }
+  },
+  {
    "root": "owner_other",
    "title": "Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings)",
    "rows": 7,
@@ -958,7 +978,8 @@
    "fm_launch_critical": 7,
    "fm_post_launch": 0,
    "classes": {
-    "blocked_owner": 7
+    "blocked_owner": 6,
+    "in_progress": 1
    },
    "owner_actions": [
     {
@@ -994,12 +1015,6 @@
     {
      "id": "spend_policy numbers",
      "action": "provider/department ceilings need owner figures; mechanism exists",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "casl_notification_authority",
-     "action": "external email/SMS/push needs a CASL review and the owner's authority",
      "max_cost_cad": null,
      "minutes": null
     }
@@ -1220,7 +1235,8 @@
    "fm_launch_critical": 1,
    "fm_post_launch": 20,
    "classes": {
-    "blocked_owner": 23
+    "blocked_owner": 22,
+    "in_progress": 1
    },
    "owner_actions": [
     {
@@ -1361,22 +1377,31 @@
    "estimate": null
   },
   {
-   "root": "release_undeployed_code",
-   "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 1,
+   "root": "model_credits",
+   "title": "Model / vision provider credit",
+   "rows": 2,
    "build2": 0,
    "fm_launch_critical": 1,
-   "fm_post_launch": 0,
+   "fm_post_launch": 1,
    "classes": {
-    "implemented_unverified": 1
+    "blocked_owner": 1,
+    "in_progress": 1
    },
-   "owner_actions": [],
+   "owner_actions": [
+    {
+     "id": "model_provider_fallback",
+     "action": "a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100)",
+     "max_cost_cad": null,
+     "minutes": null
+    }
+   ],
    "ids": [
-    "F-845"
+    "F-097",
+    "F-278"
    ],
    "estimate": {
-    "figure": "one release cycle",
-    "basis": "same release evidence: ~78 min suite + ~4 h observed record-to-deploy"
+    "figure": "already OPEN for model_provider/image_vision in production",
+    "basis": "gates read at the board's production GET"
    }
   },
   {
@@ -1403,32 +1428,6 @@
    "estimate": {
     "figure": "owner ~5 min, then the gate's own reading",
     "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "model_credits",
-   "title": "Model / vision provider credit",
-   "rows": 1,
-   "build2": 0,
-   "fm_launch_critical": 0,
-   "fm_post_launch": 1,
-   "classes": {
-    "blocked_owner": 1
-   },
-   "owner_actions": [
-    {
-     "id": "model_provider_fallback",
-     "action": "a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100)",
-     "max_cost_cad": null,
-     "minutes": null
-    }
-   ],
-   "ids": [
-    "F-097"
-   ],
-   "estimate": {
-    "figure": "already OPEN for model_provider/image_vision in production",
-    "basis": "gates read at the board's production GET"
    }
   },
   {
@@ -1466,9 +1465,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 1,
+   "unblocks_rows": 13,
    "unblocks_fm_launch_critical": 1,
-   "unblocks_build2": 0,
+   "unblocks_build2": 12,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -1479,9 +1478,9 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 23,
-   "unblocks_fm_launch_critical": 8,
-   "unblocks_build2": 14,
+   "unblocks_rows": 8,
+   "unblocks_fm_launch_critical": 7,
+   "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
     "figure": "one engineering pass over the unparked rows",
@@ -1555,25 +1554,63 @@
   }
  ],
  "active_worker_branches": {
-  "claude/w4-CATALOG": {
-   "head": "d23c537",
-   "last_commit": "2026-10-11T18:29:40+00:00",
+  "claude/w4-B2ASSETS": {
+   "head": "cf42b23",
+   "last_commit": "2026-10-12T13:57:21+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-527"
+   ],
+   "b2": []
+  },
+  "claude/w4-B2MOAT": {
+   "head": "4625075",
+   "last_commit": "2026-10-12T13:57:09+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-CCFINST": {
+   "head": "450a468",
+   "last_commit": "2026-10-12T14:02:18+00:00",
    "commits_ahead": 3,
+   "fm": [
+    "F-620"
+   ],
+   "b2": []
+  },
+  "claude/w4-CCMKTLAB": {
+   "head": "d51df29",
+   "last_commit": "2026-10-12T14:02:20+00:00",
+   "commits_ahead": 2,
+   "fm": [
+    "F-684"
+   ],
+   "b2": []
+  },
+  "claude/w4-CCNOTIFY": {
+   "head": "9e1aeec",
+   "last_commit": "2026-10-12T14:02:16+00:00",
+   "commits_ahead": 3,
+   "fm": [
+    "F-897"
+   ],
+   "b2": []
+  },
+  "claude/w4-DISCLOSEDQA": {
+   "head": "9df29d3",
+   "last_commit": "2026-10-12T13:59:12+00:00",
+   "commits_ahead": 7,
    "fm": [],
    "b2": []
   },
-  "claude/w4-CCVERIFY": {
-   "head": "ace97d0",
-   "last_commit": "2026-10-11T00:35:22+00:00",
+  "claude/w4-DRIFTMARGIN": {
+   "head": "a9fb6de",
+   "last_commit": "2026-10-12T09:11:08+00:00",
    "commits_ahead": 1,
-   "fm": [],
-   "b2": []
-  },
-  "claude/w4-COPY": {
-   "head": "adf588b",
-   "last_commit": "2026-10-11T18:26:08+00:00",
-   "commits_ahead": 1,
-   "fm": [],
+   "fm": [
+    "F-218"
+   ],
    "b2": []
   },
   "claude/w4-ETSYREV": {
@@ -1583,24 +1620,51 @@
    "fm": [],
    "b2": []
   },
-  "claude/w4-FMEND": {
-   "head": "8cef206",
-   "last_commit": "2026-10-11T05:55:55+00:00",
+  "claude/w4-ETSYREVIEW": {
+   "head": "8df180c",
+   "last_commit": "2026-10-12T13:58:30+00:00",
    "commits_ahead": 1,
    "fm": [],
    "b2": []
   },
-  "claude/w4-IMAGES": {
-   "head": "9356896",
-   "last_commit": "2026-10-11T18:28:09+00:00",
+  "claude/w4-FUNDING": {
+   "head": "58a56b3",
+   "last_commit": "2026-10-12T14:00:29+00:00",
    "commits_ahead": 1,
    "fm": [],
    "b2": []
   },
-  "claude/w4-LAUNCHREADY": {
-   "head": "22a1e3e",
-   "last_commit": "2026-10-11T07:55:05+00:00",
-   "commits_ahead": 3,
+  "claude/w4-HEROTOURNEY": {
+   "head": "9814b80",
+   "last_commit": "2026-10-12T14:00:45+00:00",
+   "commits_ahead": 5,
+   "fm": [
+    "F-278"
+   ],
+   "b2": []
+  },
+  "claude/w4-HYGIENE": {
+   "head": "c977f6d",
+   "last_commit": "2026-10-12T14:00:10+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-146",
+    "F-149",
+    "F-150"
+   ],
+   "b2": []
+  },
+  "claude/w4-IMGFIX": {
+   "head": "35ff340",
+   "last_commit": "2026-10-12T13:59:09+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-LAURAREL": {
+   "head": "c498888",
+   "last_commit": "2026-10-12T04:01:04+00:00",
+   "commits_ahead": 2,
    "fm": [],
    "b2": []
   },
@@ -1611,25 +1675,66 @@
    "fm": [],
    "b2": []
   },
-  "claude/w4-REAUDIT": {
-   "head": "d33c43c",
-   "last_commit": "2026-10-11T00:13:19+00:00",
+  "claude/w4-ROLLBACK": {
+   "head": "572105b",
+   "last_commit": "2026-10-12T14:00:25+00:00",
    "commits_ahead": 1,
    "fm": [],
    "b2": []
   },
-  "claude/w4-SHOPSYNC": {
-   "head": "7309a39",
-   "last_commit": "2026-10-11T18:24:22+00:00",
-   "commits_ahead": 1,
-   "fm": [],
-   "b2": []
-  },
-  "claude/w4-STOREFRONT": {
-   "head": "e362aa8",
-   "last_commit": "2026-10-11T18:32:28+00:00",
+  "claude/w4-SECREVIEW": {
+   "head": "b2181bb",
+   "last_commit": "2026-10-11T18:50:34+00:00",
    "commits_ahead": 2,
    "fm": [],
+   "b2": []
+  },
+  "claude/w4-SETCONSIST": {
+   "head": "41f72ee",
+   "last_commit": "2026-10-12T08:36:27+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-746"
+   ],
+   "b2": []
+  },
+  "claude/w4-STITCHFAM": {
+   "head": "c8f1602",
+   "last_commit": "2026-10-12T13:59:16+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-759"
+   ],
+   "b2": []
+  },
+  "claude/w4-SWARMCONTROL": {
+   "head": "b352b34",
+   "last_commit": "2026-10-12T13:58:09+00:00",
+   "commits_ahead": 2,
+   "fm": [
+    "F-457",
+    "F-470",
+    "F-473"
+   ],
+   "b2": []
+  },
+  "claude/w4-SWARMQUEUES": {
+   "head": "aab7a55",
+   "last_commit": "2026-10-12T13:58:23+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-630",
+    "F-656"
+   ],
+   "b2": []
+  },
+  "claude/w4-UPGRADECMP": {
+   "head": "8b24bbc",
+   "last_commit": "2026-10-12T09:11:11+00:00",
+   "commits_ahead": 1,
+   "fm": [
+    "F-738"
+   ],
    "b2": []
   }
  },
@@ -1947,7 +2052,7 @@
     "source": "build2",
     "scope": "build2",
     "title": "First-Page SERP Laboratory",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "intel/etsy_public.py",
      "intel/serp.py",
@@ -1955,12 +2060,11 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "ds image_vision, which is CLOSED, so marking the row COMPLETE overstates it\n\nRepair wave intel 2026-09-27 (integrated by the lead): Pattern+video positioning, category diversity and differentiation are scored on the serp_capture cadence and"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 16,
@@ -2485,18 +2589,18 @@
     "source": "build2",
     "scope": "build2",
     "title": "Brand Moat Beyond the Model",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
-     "brand/moat.py"
+     "brand/moat.py",
+     "launch/readiness.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "nt should be labelled a proxy.\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: moat inventory from artefact evidence; recognisability carries its basis -- the signature count is labelled recognisability_proxy and the real "
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 45,
@@ -2798,10 +2902,10 @@
     "deployed": true,
     "remaining": "gate image_vision has opened; the remaining work is no longer parked",
     "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "odex P06).\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: every frame role has a registered claim (unregistered = UNCLAIMED, blocking); unjudged stays unjudged; a review counts only when non-empty, all clear and bound to "
+    "root": "engineering_open",
+    "blocked_by": "engineering",
+    "responsible": "next engineering lane (publish)",
+    "missing_evidence": "gate image_vision has opened; the remaining work is no longer parked"
    },
    {
     "id": 62,
@@ -2901,20 +3005,21 @@
     "source": "build2",
     "scope": "build2",
     "title": "Competitive Creative Benchmark",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "creative/blind_review.py",
+     "creative/blinded.py",
      "intel/benchmark_set.py",
+     "intel/vision.py",
      "runtime/release.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "cy, polish), no currency check, and hits the limit(10) bug.\n\nCertification repair 2026-09-27: blind_review cadence -> handle_blind_review -> review over ten dimensions (incl. information density, consistency, polish) plus compare_listing_se"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 68,
@@ -3229,7 +3334,7 @@
     "source": "build2",
     "scope": "build2",
     "title": "Creativity Benchmark Memory",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "intel/learning.py",
      "intel/mechanisms.py",
@@ -3237,12 +3342,11 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "Repair wave intel 2026-09-27 (integrated by the lead): NEW: creative.benchmark_memory runs daily, folds the #86 attribute vocabulary from judged gallery observations with favourites and Brambleloop outcomes, stores an OperatingReading; idea"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 87,
@@ -3267,20 +3371,21 @@
     "source": "build2",
     "scope": "build2",
     "title": "Idea-to-Thumbnail Test",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
+     "creative/blinded.py",
      "creative/concept.py",
+     "creative/intake.py",
      "creative/preengineering.py",
      "runtime/pipeline.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_visi"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 89,
@@ -3738,18 +3843,17 @@
     "source": "build2",
     "scope": "build2",
     "title": "Creative Reference Decomposition",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "creative/reference.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "eference.read_listing and record_reading are still uncalled even once the gate opens, and the decomposition is computed at read time, not stored as the body requires.\n\nRepair wave intel 2026-09-27 (integrated by the lead): creative.referenc"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 117,
@@ -3914,22 +4018,22 @@
     "source": "build2",
     "scope": "build2",
     "title": "Search-Grid Blind Tournament",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
+     "creative/blind_review.py",
      "creative/blinded.py",
      "creative/board.py",
      "creative/preengineering.py",
-     "runtime/pipeline.py",
-     "runtime/release.py"
+     "intel/vision.py",
+     "runtime/pipeline.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_visi"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 127,
@@ -5519,19 +5623,20 @@
     "source": "build2",
     "scope": "build2",
     "title": "MJs Challenge Gate",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "creative/blind_review.py",
+     "creative/blinded.py",
+     "intel/vision.py",
      "runtime/release.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "ns (desirability, giftability, etc.); limit(10) bug; nothing returns a failure to creative development.\n\nCertification repair 2026-09-27: blind_review cadence -> the eight named challenge dimensions -> an inferior product is re-queued to it"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 219,
@@ -6672,20 +6777,20 @@
     "source": "build2",
     "scope": "build2",
     "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
+     "creative/blinded.py",
      "creative/intake.py",
      "runtime/pipeline.py",
      "runtime/release.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_visi"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 278,
@@ -6743,20 +6848,20 @@
     "source": "build2",
     "scope": "build2",
     "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
+     "creative/blinded.py",
      "creative/intake.py",
      "runtime/pipeline.py",
      "runtime/release.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_visi"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 282,
@@ -7146,19 +7251,18 @@
     "source": "build2",
     "scope": "build2",
     "title": "MJs Listing Photos Must Be Visually Studied",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
      "intel/observe.py",
      "intel/vision.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "09-26) shows image_vision closed in production; the executor lists 304 under the image_vision gate, yet the row is COMPLETE\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.gallery_analysis 2-hourly traverses galleries and judg"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 305,
@@ -7214,8 +7318,9 @@
     "source": "build2",
     "scope": "build2",
     "title": "Owner Example - Christmas Cardigan Response",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "EXTERNAL-GATED",
     "modules": [
+     "build2/closure.py",
      "creative/family.py",
      "creative/prospecting.py",
      "intel/mission_runtime.py",
@@ -7224,32 +7329,32 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "wned listing asset has been filed'), which is imagery on model_bearing_render (external). No collection.assemble is enqueued for a single product.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: in production the chain stops f"
+    "remaining": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the ",
+    "cls": "blocked_external",
+    "root": "image_provider_capability",
+    "blocked_by": "external: image provider capability",
+    "responsible": "image provider capability",
+    "missing_evidence": "tion, and the intake judgement it waited on is now resolved from the board's stored bytes (see #277). Per the 15c5d1b audit the next binding gate on this chain is model_bearing_render (Brambleloop-owned model-bearing imagery for a garment),"
    },
    {
     "id": 309,
     "source": "build2",
     "scope": "build2",
     "title": "MJs Trend-to-Season Mission Pipeline",
-    "ledger_state": "OPEN-DEFECT",
+    "ledger_state": "PROVEN",
     "modules": [
+     "creative/blinded.py",
      "intel/mission_runtime.py",
      "intel/response.py",
      "runtime/release.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_visi"
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)"
    },
    {
     "id": 310,
@@ -10034,10 +10139,10 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Add a test asserting run_tests.sh contains exactly one `trap` line and that it covers EXIT INT TERM.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-HYGIENE",
     "missing_evidence": "One cleanup function and trap exist, but no lint/test fails when a second `trap ... EXIT` is added."
    },
    {
@@ -10086,10 +10191,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Persist disk_facts samples per sweep and alarm on growth rate of temp/cache file counts; test with synthetic series.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (ops)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-HYGIENE",
     "missing_evidence": "Free space and leftover temp-dir counts are monitored; cache growth, file-count growth trend and growth-rate alarms are not."
    },
    {
@@ -10104,10 +10209,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a failure classifier to run_tests.sh output (grep suite logs for ENOSPC/EACCES/network/provider markers and print an ENVIRONMENT FAILURE line distinct from assertion failures).",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (ops)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-HYGIENE",
     "missing_evidence": "Runtime classifies failures (PermanentError vs TransientError, funding markers, capability refusals) but nothing classifies build/test failures (ENOSPC/permissions/network/provider) before a revert; practice recorded in BUILD_STATE only."
    },
    {
@@ -11172,10 +11277,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Record a graded drift margin per dimension in compare_identity and trend near-threshold passes in drift_series; deploy",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (visual)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-DRIFTMARGIN",
     "missing_evidence": "series tracks drift share per batch and opens an incident on a rising trend, but verdicts are ternary so 'near-threshold' passes are not measured"
    },
    {
@@ -12300,10 +12405,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Owner: fund the vision provider account (image_vision gate). Software: none beyond keeping candidates per product >=2 at the tournament.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "model_credits",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-HEROTOURNEY",
     "missing_evidence": "The blinded search-grid tournament renders our heroes among competitors at grid scale (weekly creative.grid_tournament) and an unjudged grid blocks publish; the judgement itself needs a funded vision provider."
    },
    {
@@ -15375,10 +15480,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a lane ownership manifest (paths per lane) to ops/registry.py and a pre-dispatch check that refuses two live lanes claiming overlapping paths",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (swarm)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SWARMCONTROL",
     "missing_evidence": "module ownership for build lanes is a written rule (ORG_BOARD), not enforced by code; runtime has work ownership (swarm.orphans) but not code/data ownership leases"
    },
    {
@@ -15599,10 +15704,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a resource signal (process RSS/CPU from /proc, DB connection count, Railway metrics if available) to ops/health.py and let capacity.worker_target scale down on saturation",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (swarm)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SWARMCONTROL",
     "missing_evidence": "concurrency bounded by fixed pool size, lane limits, provider circuit breakers and DB lock handling; CPU, memory, storage, Railway and DB capacity are not measured or used to size concurrency"
    },
    {
@@ -15647,10 +15752,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add cooperative preemption: long handlers check a preempt flag between steps (lease renewal thread) and requeue with a checkpoint when higher-band work is waiting and the pool is full",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (swarm)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SWARMCONTROL",
     "missing_evidence": "priority bands order claiming and lane holds return over-share jobs to PENDING, but running lower-value work is never preempted/checkpointed"
    },
    {
@@ -16830,10 +16935,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Extend the F-515 shop snapshot to fetch icon/banner URLs and dimensions and flag missing/low-resolution assets",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (brand)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-B2ASSETS",
     "missing_evidence": "banner/icon briefs and brand bible checks exist; no detection of stale, missing, low-resolution or off-brand assets on the live Etsy shop"
    },
    {
@@ -18697,10 +18802,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add MTD/YTD windows, credit vs cash spend, unreconciled count and close status to api_finance once F-610/F-614 exist; mark sales UNMEASURED when gated.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (app)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CCFINST",
     "missing_evidence": "Missing free ad credit, cash ad spend split, payout/cash position, unreconciled items and monthly-close status; MTD/YTD not separate (rolling 30 days)."
    },
    {
@@ -18878,10 +18983,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a pre-launch scope check in swarm.backlog/build.tick that deprioritises work not linked to an open launch.readiness item while phase is shadow.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (improve)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SWARMQUEUES",
     "missing_evidence": "Nothing enforces the prohibition on endless pre-launch expansion (no rule that pre-launch work must serve an open launch-readiness item)."
    },
    {
@@ -18986,10 +19091,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Model per-department queues: tag each job type with department + RUN/GROW/IMPROVE class in swarm/orchestrate BAND table; implement pull order RUN->GROW->IMPROVE->WATCHING in feed_idle; record WATCHING spans; test the pull order and zero-token WATCHING.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (swarm)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SWARMQUEUES",
     "missing_evidence": "No per-department RUN/GROW/IMPROVE queues and no WATCHING state: idle feeding is one global GREEN-only STANDING_BACKLOG of seven items (swarm.backlog), and free-poll backoff suspends unchanged polling job types; departments do not pull GROW"
    },
    {
@@ -19484,17 +19589,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Build the Marketing Laboratory view over registered experiments and paid-media status; no spend path changes.",
-    "cls": "blocked_owner",
+    "cls": "in_progress",
     "root": "paid_media_authority",
-    "blocked_by": "owner: ad budget authority",
-    "responsible": "owner",
-    "owner_action": {
-     "id": "ad_budget",
-     "batch": "paid_media",
-     "action": "Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the recommended CA$3/day, CA$25 campaign, CA$60/month (paid_media.CONSERVATIVE_CAPS) or decline.",
-     "max_cost_cad": null,
-     "minutes": 5
-    },
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CCMKTLAB",
     "missing_evidence": "Experiment registry (write-once hypothesis/thresholds), paid-media caps/economics, Share & Save and Offsite Ads economics exist; no live campaigns, social channels or attribution data; Marketing Laboratory workspace absent."
    },
    {
@@ -20428,10 +20526,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Build an identity-preserving upgrade comparator (retention >= incumbent, realism up) feeding an owner card; test a realism win with identity loss is refused.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (visual)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-UPGRADECMP",
     "missing_evidence": "replace_canonical requires an owner redesign approval, retires rather than deletes and increments version; no evidence comparator requiring equal-or-better identity retention plus improved realism, and replace_canonical has no runtime calle"
    },
    {
@@ -20570,10 +20668,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a pairwise set-consistency check (product attributes and identity observations compared across frames) to parity; test a set with one mismatched colour is refused.",
-    "cls": "blocked_external",
+    "cls": "in_progress",
     "root": "image_provider_capability",
-    "blocked_by": "external: image provider capability",
-    "responsible": "image provider capability",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-SETCONSIST",
     "missing_evidence": "Parity's brand dimension requires one identity across the set and sequences take the worst floor across frames; frames are compared to the pack/chart individually, not pairwise with each other for garment construction or colour consistency."
    },
    {
@@ -20785,10 +20883,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a stitch-family support registry (visual/stitch_families.py) with per-family positive/negative fixtures, mark a family supported only when diagnose rejects every negative, and have disclosed_render/certify refuse CIRs using an unsupported distinctive family; tests.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (visual)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-STITCHFAM",
     "missing_evidence": "visual/stitch_identity.py carries star-family positive truth plus negative controls (hdc, seed, knit, Bench1 waffle reference) and a self-test; the test asserts star passes and hdc fails. No other families, no maintained benchmark-set regis"
    },
    {
@@ -23125,16 +23223,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "owner gate casl_notification_authority: approve one external channel; the deduplicated severity-ranked queue then feeds it",
-    "cls": "blocked_owner",
+    "cls": "in_progress",
     "root": "owner_other",
-    "blocked_by": "owner: casl_notification_authority",
-    "responsible": "owner",
-    "owner_action": {
-     "id": "casl_notification_authority",
-     "action": "external email/SMS/push needs a CASL review and the owner's authority",
-     "max_cost_cad": null,
-     "minutes": null
-    },
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CCNOTIFY",
     "missing_evidence": "notifications are in-app only; an external channel (email/SMS/push) that reaches the owner away from the page needs CASL review and owner authority"
    },
    {
