@@ -5,7 +5,7 @@ production write, no spend. Official docs consulted (F-437): developers.etsy.com
 3.0.0 (ShopReceipt.receipt_type / is_shipped, ShopReceiptTransaction.is_digital), read 2026-10-12.
 
 Test file: `tests/test_w4_fmclose_etsy.py` **20/20 pass** (testslot, 532 s).
-Regression set: NOT YET RUN at handback (slot gate saturated by other workers; lanes A/B queued). Integrator must
+Regression set: see "Re-verification after INTEG2 056398c merge" below. (Earlier note: NOT YET RUN at first handback (slot gate saturated by other workers; lanes A/B queued). Integrator must
 run test_vacuity, test_launch, test_cost_governance_wave2, test_search_hero_publish, test_cert_listing_frames,
 test_v11_autonomy_timeline + test_route_auth_default_deny, test_customer_data_auth, test_money_truth,
 test_cert_orders, test_v11_accounting_*, test_v11_autonomy_orchestrator, test_v11_seo_proposals before merge.
@@ -24,8 +24,8 @@ test_cert_orders, test_v11_accounting_*, test_v11_autonomy_orchestrator, test_v1
 | F-682 | "show last reconciliation, discrepancies, close status, tax/threshold alerts and evidence; never silently force mismatches to zero." | partial | met in tests | finance/accounting/activity.py:54; dashboard.py:242; test_f682_* (2) | A | none |
 | F-283 | "Record first-sale source honestly (organic Etsy, Etsy Ads, Offsite Ads, owned/direct, unknown). One sale proves possibility, not scale." | no evidence route | met in tests | POST /api/orders/attribution app/main.py; test_f283_* | A | none (first real sale is data) |
 | F-558 | "For every order, reconcile payment, item/version, digital delivery state, buyer issue, refund/cancellation/case state and downstream accounting evidence." | no delivery state, no per-order ledger | met in tests | commerce/order_ledger.py; GET /api/orders/ledger (operator); test_f558_* | A | prod: first real receipt |
-| F-575 | "Reconcile Etsy Payment Account entries to orders, fees, refunds, credits, ads, subscription charges and payouts. Unexplained balance movements create finance incidents." | ledger never reached accounting | advanced | orders_ingest._reconcile_fees -> accounting import_etsy_ledger; test_f575_* | A/B | credits/ads/subscription/payout ledger_type strings unverified: first real ledger read + owner mapping verification |
-| F-538 | "Reconcile Etsy orders, fees, taxes/remittances, refunds, credits, ads/subscription charges and payouts against Brambleloop's ledger. Unknown fee behavior remains explicit until proven by a real settlement." | partial | advanced (via F-575) | as F-575 | B | real settlement |
+| F-575 | "Reconcile Etsy Payment Account entries to orders, fees, refunds, credits, ads, subscription charges and payouts. Unexplained balance movements create finance incidents." | partial | unchanged in code (an ingest->statement-lines wiring was tried and REVERTED: it fed the Accountant's external statement set from the same read that sets order fees and broke test_v11_accounting_reconciliation); unexplained movements -> incidents shown in F-682 view | test_f575_unexplained_ledger_movements_are_incidents_and_shown_to_the_owner | A/B | payout reconciliation needs a separate statement source (Etsy payments/payout read) + real ledger read to verify ledger_type mapping |
+| F-538 | "Reconcile Etsy orders, fees, taxes/remittances, refunds, credits, ads/subscription charges and payouts against Brambleloop's ledger. Unknown fee behavior remains explicit until proven by a real settlement." | partial | open (F-575 wiring reverted) | as F-575 | B | real settlement |
 | F-273, F-507, F-535, F-872, F-437, F-540 | (see FM_LEDGER) | existing code | not re-run (lane B queued) | existing tests listed in FM_LEDGER | A/B | F-872: authenticated receipt readback; F-437: POST /api/etsy/exercise authenticated; F-540: production rotation (rotations>=1) |
 
 ## Launch-critical rows
@@ -36,3 +36,11 @@ approved deploy (ops/readback.py exit 0; /api/verify/smoke 200; /api/model-ident
 visual.hero_review rows identified=True per Launch-0 hero; 24 h off-device proof PROVEN for F-371/495/654/701/849/880/881/895/923/924).
 F-834/F-845/F-846/F-878: integrator decisions (see PROVENANCE.md, OVERRIDES_PROPOSED_FMGATE.json). F-278/F-746/F-897: owned by
 HEROTOURNEY/SETCONSIST/CCNOTIFY. F-848: owner CAP1.
+
+## Re-verification after INTEG2 056398c merge (4776ba8)
+Root cause of the integrator's test_v11_accounting_reconciliation failure: my ingest->`import_etsy_ledger` wiring
+filled the Accountant's external Etsy statement set from the same ledger read that sets order fees (extra lines
+70001-70004). Reverted; test unchanged. Results (testslot, N=1): v11_accounting_reconciliation 7/7, _controller 9/9,
+_drill 5/5, _ledger 10/10, _money 9/9; fmclose_etsy 20/20; cert_orders 23/23; finance 21/21; vacuity 8/8; launch 28/28;
+cost_governance_wave2 39/39; search_hero_publish 4/4; cert_listing_frames 6/6; v11_autonomy_timeline pass (rc 0);
+money_truth: see handback.
