@@ -62,7 +62,7 @@ def test_our_own_vocabulary_is_never_an_aesthetic():
 
 def test_the_fallback_facet_map_carries_it_and_still_maps():
     orn = l0.candidate("nordic-star-ornaments")
-    got = intent.listing_language(_db(), slug=orn.slug, category="ornament", season=None,
+    got = intent.listing_language(_db(), slug=orn.slug, category="ornament", season="Christmas",
                                   difficulty="beginner", techniques=["texture"],
                                   motifs=list(orn.listing.qualifiers), title=orn.title)
     assert got["mapped"] is True, got
