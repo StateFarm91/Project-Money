@@ -481,8 +481,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # what the frame's role claims. It runs when the vision gate is open; otherwise every
     # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
     # review blocks stops the chain here.
+    from ..visual.inspect import product_families
+
     review = _review_frames(ctx, slug, version, frames, frame_paths,
-                            shas={f["position"]: f["sha256"] for f in stored_frames})
+                            shas={f["position"]: f["sha256"] for f in stored_frames},
+                            families=product_families(cir))
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -1508,7 +1511,7 @@ ROLE_CLAIMS: dict[str, dict] = {
 
 
 def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
-                   shas: dict[int, str] | None = None) -> dict:
+                   shas: dict[int, str] | None = None, families=None) -> dict:
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
@@ -1530,6 +1533,10 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                                         "why": "image_vision gate closed: no model has "
                                                "been proven to look at a picture"}
             continue
+        if frame.role == "hero":
+            # F-027: the first image must clearly show what is sold. The hero's claim names
+            # the product families the certified CIR makes; the describer never sees them.
+            claim = {**claim, "identifies_as": list(families or ())}
         try:
             got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db, claim=claim)
             verdict = inspection_mod.gate(got)
@@ -1544,6 +1551,30 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                                     "why": verdict.get("why"),
                                     "unmade": verdict.get("unmade"),
                                     "semantic": (got.get("semantic") or {}).get("problems")}
+        if frame.role == "hero":
+            # F-027 / F-031: identification needs a family to compare against, and the hero
+            # must still read as that product at search-grid size. Either missing is
+            # unjudged, which the publish path reads as not reviewed; a failure blocks.
+            identity = inspection_mod.identification(got.get("description") or {}, families)
+            try:
+                grid = inspection_mod.identify_at_grid(paths[frame.position],
+                                                       families=families, db=ctx.db)
+            except Exception as exc:  # noqa: BLE001 - unmade, never passed
+                grid = {"verdict": "unjudged", "why": f"{type(exc).__name__}: {exc}"[:200]}
+            verdicts[frame.position]["identification"] = identity
+            verdicts[frame.position]["grid"] = {k: grid.get(k) for k in
+                                                ("verdict", "why", "grid_px", "clarity",
+                                                 "problems", "families")}
+            if grid.get("verdict") == "blocked":
+                verdicts[frame.position]["verdict"] = "blocked"
+                blocking.append(f"FRAME_REVIEW_HERO_NOT_IDENTIFIABLE: frame "
+                                f"{frame.position} at grid size: {grid.get('why')}"[:400])
+            elif verdict["verdict"] == "clear" and (identity["identified"] is not True
+                                                    or grid.get("verdict") != "clear"):
+                verdicts[frame.position]["verdict"] = "unjudged"
+                verdicts[frame.position]["why"] = (
+                    "the hero's product identification was not made: "
+                    f"{identity['why']}; grid {grid.get('verdict')}: {grid.get('why')}")[:300]
         if verdict["verdict"] == "blocked":
             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
                             f"does not communicate what it claims: "
