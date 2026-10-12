@@ -6928,9 +6928,16 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                                 "the cadence is sized to fit the authorised ceiling. The "
                                 "backlog is unchanged and the next run takes it")}
 
+    # W4-B2VISION: the pods our own catalogue is judged in are drained breadth-first, so the
+    # blind review (#67/#218) reaches its per-pod floor in days rather than months.
+    from ..creative import blind_review
+
+    catalogue_pods = frozenset(blind_review.pod_for(slug, title)
+                               for slug, title in blind_review.catalogue_slugs())
     result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=fit["units"],
-                            job_id=ctx.job.id)
+                            job_id=ctx.job.id, prefer_pods=catalogue_pods)
     ctx.audit("intel.gallery_analysis", detail={
+        "prefer_pods": sorted(catalogue_pods),
         "judged": result["judged"], "attempted": result["attempted"],
         "remaining": result["remaining"], "cost_cad": result["cost_cad"],
         "batch_derived_from": fit["binding_ceiling"],
@@ -7038,6 +7045,7 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
     pod_of: dict[str, str] = {}
+<<<<<<< HEAD
     offered: dict[str, dict] = {}
     # F-278: every verified hero candidate of each product enters the blinded grid as a file
     # a judge can be shown (a disclosed hero's `sha256:` address is not one). Only the hero
@@ -7049,6 +7057,23 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
         for c in got["candidates"]:
             by_pod.setdefault(pod_of[slug], []).append(
                 dict(c, counts_for_verdict=(c["candidate"] == "hero")))
+=======
+    unresolvable: dict[str, str] = {}
+    for slug, title in blind_review.catalogue_slugs():
+        pod_of[slug] = blind_review.pod_for(slug, title)
+        frames = listing_asset.frames_for(ctx.db, slug=slug)
+        hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
+        if hero:
+            # W4-B2VISION: the hero is shown to judges only if a judge can be shown it. The
+            # 2026-10-11 production run sent a dead /tmp path to all three judges and paid
+            # CA$0.93 for no reading; now the render resolves from the artifact store by its
+            # digest, or the product is recorded as unresolvable and never sent.
+            ref, why = blinded.resolve_image(ctx.db, hero[0])
+            if not ref:
+                unresolvable[slug] = why
+                continue
+            by_pod.setdefault(pod_of[slug], []).append(dict(hero[0], image_ref=ref))
+>>>>>>> origin/claude/w4-IMGFIX
     results = {}
     stopped = False
     for pod, ours in sorted(by_pod.items()):
@@ -7058,7 +7083,11 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
             results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
                                                   "benchmark_cells", "our_cells")}
             results[pod]["panel"] = out["panel"]
+<<<<<<< HEAD
             results[pod]["candidate_scores"] = out.get("candidate_scores") or {}
+=======
+            results[pod]["by_product"] = out.get("by_product") or {}
+>>>>>>> origin/claude/w4-IMGFIX
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
         if (results[pod].get("panel") or {}).get("stopped_by"):
@@ -7078,6 +7107,12 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
                              "ceiling before this concept was gridded"}
             continue
         ours = [{"slug": key, "image_ref": str(board.get("board_image") or "")}]
+        ref, why = blinded.resolve_image(ctx.db, ours[0])
+        if not ref:
+            concepts[key] = {"verdict": "refused", "why": f"the concept board could not be "
+                                                          f"shown to a judge: {why}"}
+            continue
+        ours = [{"slug": key, "image_ref": ref}]
         try:
             out = blinded.grid_tournament(ctx.db, ours, pod=str(board.get("pod") or ""),
                                           provider=provider, seed=ctx.job.id or 0,
@@ -7095,8 +7130,11 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
     # cleared -- never as cleared by default.
     products = {slug: {"pod": pod, "verdict": (results.get(pod) or {}).get("verdict"),
                        "why": (results.get(pod) or {}).get("why", "no render of ours in "
-                                                                  "this pod was gridded")}
+                                                                  "this pod was gridded"),
+                       # W4-B2VISION: this product's own cell scores, read by #218.
+                       **(((results.get(pod) or {}).get("by_product") or {}).get(slug) or {})}
                 for slug, pod in pod_of.items()}
+<<<<<<< HEAD
     # F-278: the product's own hero tournament, from the same blinded panel.
     for slug, pod in pod_of.items():
         scores = (results.get(pod) or {}).get("candidate_scores") or {}
@@ -7107,8 +7145,14 @@ def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
         products[slug]["hero_tournament"] = {
             **hero_candidates.winner(mine),
             "refused": (offered.get(slug) or {}).get("refused") or {}}
+=======
+    for slug, why in unresolvable.items():
+        products[slug].update(verdict=None, why=f"our render could not be shown to a judge: "
+                                                f"{why}", unresolvable=True)
+>>>>>>> origin/claude/w4-IMGFIX
     ctx.audit("creative.grid_tournament", detail={"pods": results, "concepts": concepts,
-                                                   "products": products})
+                                                   "products": products,
+                                                   "unresolvable": unresolvable})
     return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()},
             "concepts": {k: v["verdict"] for k, v in concepts.items()}}
 

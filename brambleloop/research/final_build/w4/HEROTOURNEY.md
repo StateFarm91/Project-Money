@@ -50,3 +50,14 @@ no spend.
 - The judgement still waits on a funded vision provider (owner).
 - Flat single-piece products have one truthful hero. A second needs a new verified
   deterministic view or an owned photograph. This is recorded, not padded.
+
+## Checkpoint (2026-10-12, controlled pause)
+
+- Status: **DONE (code); the re-test after the last change is not run.**
+- Since the tests above:
+  - `handle_grid_tournament` wraps `_grid_tournament_in` in
+    `core.workspace.work_dir(prefix="grid-tournament-")`, which is removed on return or on
+    raise. The prefix is added to `TEMP_PREFIXES`.
+  - IMGFIX is merged in.
+- Next step: run test_w4_herotourney, test_blinded and test_cost_governance_wave2, plus the
+  required set.

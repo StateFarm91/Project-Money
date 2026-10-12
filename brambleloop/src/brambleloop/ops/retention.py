@@ -113,6 +113,13 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W4-RETENTIONFIX: two readers merged in W4 without an entry. F-399's "repeated failures
+    # avoided" counts refusals inside the retrospective window (days); the owner overview
+    # reads the newest production self-check only.
+    "improve.repeat_refused": ("windowed",
+                               "improve.cells.learning_health counts the retrospective "
+                               "window (default 7 days)"),
+    "verify.completed": ("latest", "command_center.overview reads the newest self-check"),
     # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as
     # the newest row only (assurance, owner_queue, command_center.tabs, launch.visibility,
     # core.phase readiness evidence), so pruning older rows changes nothing they show.

@@ -732,6 +732,48 @@ def _grid_cell_id(seed: int, index: int) -> str:
     return "c" + hashlib.sha256(f"{seed}:{index}".encode()).hexdigest()[:8]
 
 
+def resolve_image(db, frame: dict) -> tuple[str, str]:
+    """(reference a judge can be shown, "") or ("", why) for one of OUR frames.
+
+    W4-B2VISION, 2026-10-12: production's first judged grid (2026-10-11T18:05Z) sent each
+    judge `/tmp/owned-asset-.../gpt-image-2-....png` -- the render's path in the container
+    that made it, gone by the time the weekly tournament ran -- so every judge call failed
+    and CA$0.93 bought no reading. A frame is resolved, in order: a URL as given; a file that
+    is still on this disk; the bytes the artifact store kept under the frame's sha256
+    (`frame.image.sha256` or an `image_ref` of the form `sha256:<hex>`), restored to the
+    store's own path. Nothing resolvable is reported, never sent.
+    """
+    from pathlib import Path
+
+    ref = str(frame.get("image_ref") or frame.get("image") or "")
+    if isinstance(frame.get("image"), dict):
+        ref = str(frame.get("image_ref") or "")
+    import re as _re
+
+    if _re.match(r"^[a-z][a-z0-9+.-]*://", ref):
+        # A URI is the provider's to accept or refuse (an https gallery URL; a fixture
+        # scheme in tests). Only bare paths and digests are resolved here.
+        return ref, ""
+    if ref and not ref.startswith("sha256:") and Path(ref).is_file():
+        return ref, ""
+    sha = ""
+    if ref.startswith("sha256:"):
+        sha = ref.split(":", 1)[1]
+    elif isinstance(frame.get("image"), dict):
+        sha = str(frame["image"].get("sha256") or "")
+    if sha:
+        from ..core.artifacts import ArtifactStore
+
+        store = ArtifactStore()
+        try:
+            store.get(sha, db=db)
+        except Exception as exc:  # noqa: BLE001 - missing bytes are reported, not sent
+            return "", f"render {sha[:12]} is recorded but its bytes are gone ({str(exc)[:120]})"
+        return str(store.root / sha[:2] / sha), ""
+    return "", (f"{ref!r} is not a URL, not a file on this disk and carries no artifact "
+                f"digest" if ref else "the frame carries no image")
+
+
 def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
                 benchmark_key: str = "", columns: int = GRID_COLUMNS,
                 judgements: dict[str, dict] | None = None) -> dict:
@@ -986,7 +1028,8 @@ def judge_grid(db, grid: dict, *, provider, judges: tuple[tuple[str, str], ...] 
             # is a smaller panel wearing the full panel's name.
             row[field_name] = round(median(got), 4) if len(got) == len(judges) else None
         judgements[cell] = row
-    return {"judgements": judgements, "judges": [j for j, _ in judges],
+    return {"judgements": judgements, "per_judge": per_judge,
+            "judges": [j for j, _ in judges],
             "judged_by": sorted(per_judge), "problems": problems, "stopped_by": stopped_by,
             "cost_cad": round(spent, 6), "method": "median of independent judges, each "
             "seeing its own shuffled order, blinded to side and seller"}
@@ -1003,11 +1046,27 @@ def grid_tournament(db, ours: list[dict], *, pod: str, provider, seed: int = 0,
     panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
     judged = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key,
                          judgements=panel["judgements"])
+<<<<<<< HEAD
     # F-278: each of our cells' scores by its candidate ref, read through the key after
     # judging (the judges never saw it), so a product's candidates can be compared.
     judged["candidate_scores"] = {
         k["ref"]: {f: (panel["judgements"].get(cell) or {}).get(f) for f in GRID_JUDGE_FIELDS}
         for cell, k in (judged.get("key") or {}).items() if k["side"] == OURS}
+=======
+    # W4-B2VISION: our cells' scores by product, and each judge's own reading of them, so
+    # the #218 challenge can read desirability, distinctiveness and (from the gift-buyer
+    # judge) giftability for the product itself rather than for the pod.
+    key = grid["key"]
+    by_product: dict[str, dict] = {}
+    for cell, k in key.items():
+        if k["side"] != OURS:
+            continue
+        by_product[k["ref"]] = {
+            "scores": dict(panel["judgements"].get(cell) or {}),
+            "by_judge": {j: dict((panel.get("per_judge") or {}).get(j, {}).get(cell) or {})
+                         for j in panel.get("judges") or []}}
+>>>>>>> origin/claude/w4-IMGFIX
     judged.pop("key", None)
-    judged["panel"] = {k: v for k, v in panel.items() if k != "judgements"}
+    judged["panel"] = {k: v for k, v in panel.items() if k not in ("judgements", "per_judge")}
+    judged["by_product"] = by_product
     return judged

@@ -59,6 +59,9 @@ export function createMock() {
     const url = new URL(req.url, "http://localhost");
     const p = url.pathname;
     if (p === "/__mock/log") return send(res, 200, st.log);
+    // W4-CCREL: fixture switch for the Etsy Connect flow (ready = key accepted, grant missing
+    // transactions_r, Connect enabled; evil = the server answers a non-Etsy authorize URL).
+    if (p === "/__mock/etsy") { st.etsy = { ready: url.searchParams.get("ready") === "1", evil: url.searchParams.get("evil") === "1" }; return send(res, 200, st.etsy); }
     if (p === "/" ) { res.writeHead(302, { Location: "/cc/" }); return res.end(); }
     if (p.startsWith("/cc/") || p === "/cc") {
       let rel = p === "/cc" || p === "/cc/" ? "index.html" : decodeURIComponent(p.slice(4));
@@ -79,9 +82,17 @@ export function createMock() {
       const simple = { home: "home", "brief/morning": "morning", approvals: "approvals", store: "store", operations: "operations",
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
         account: "account", "account/sessions": "sessions", emergency: "emergency",
-        company: "company", completion: "completion", "launch/packet": "launchPacket", etsy: "etsy",
+        company: "company", completion: "completion", "launch/packet": "launchPacket",
         checks: "checks", "store/settings": "storeSettings" };
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
+      if (route === "laura") return send(res, 200, DATA.laura());
+      if (route === "laura/conversation") return send(res, 200, DATA.lauraConversation());
+      if (route === "laura/presence" || route === "private/status") return send(res, 200, null); // not part of this fixture
+      if (route === "etsy") {
+        const base = DATA.etsy();
+        if (!st.etsy || !st.etsy.ready) return send(res, 200, base);
+        return send(res, 200, { ...base, api_key_probe: { state: "OK", ok: true, at: new Date().toISOString(), endpoint: "ping" }, can_connect: true });
+      }
       if (route === "store/catalogue") return send(res, 200, DATA.storeCatalogue());
       if (route.startsWith("store/image/")) {
         const build = decodeURIComponent(route.slice("store/image/".length));
@@ -137,6 +148,13 @@ export function createMock() {
     if (route === "emergency/resume" && st.stepupUntil <= Date.now()) return send(res, 403, { error: "step-up required", code: "STEP_UP_REQUIRED" });
     if (route.startsWith("emergency/")) return send(res, 200, { ok: true });
     if (route === "ask") return send(res, 200, DATA.ask(String((body && body.question) || "")));
+    if (route === "laura/ask") return send(res, 200, DATA.lauraBriefing(String((body && body.question) || "")));
+    if (route === "etsy/recheck") return send(res, 200, { ok: true, queued: true, job_type: "etsy.probe" });
+    if (route === "etsy/connect") {
+      if (st.stepupUntil <= Date.now()) return send(res, 403, { error: "step-up required", code: "STEP_UP_REQUIRED" });
+      const host = st.etsy && st.etsy.evil ? "https://evil.example/oauth" : "https://www.etsy.com/oauth/connect";
+      return send(res, 200, { ok: true, authorize_url: `${host}?response_type=code&client_id=fixture&state=fixture-state`, state_expires_at: new Date(Date.now() + 600000).toISOString() });
+    }
     if (route === "home/seen") return send(res, 200, { seen_at: new Date().toISOString() });
     if (/^notifications\/[^/]+\/ack$/.test(route)) return send(res, 200, { acked: route.split("/")[1] });
     if (route === "notifications/refresh") return send(res, 200, { created: 0, deduplicated: 2, suppressed: 37 });

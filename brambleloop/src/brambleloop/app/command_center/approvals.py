@@ -272,11 +272,29 @@ def inbox(db) -> dict:
             f"publication candidates unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
+    # W4-CCREL: the release approval card. The deploy decision (gate production_window)
+    # carries the candidate SHA, suite result, security review and rollback target; with no
+    # deploy decision open, a pending candidate gets its own read-only card.
+    from . import release_card as release_mod
+
+    try:
+        rc = release_mod.candidate()
+    except Exception as exc:  # noqa: BLE001 - unreadable release evidence is UNKNOWN
+        rc = {"pending": False, "why": f"release evidence unreadable: {type(exc).__name__}"}
+    deploy = next((c for c in cards if c.get("card_id") == f"gate:{release_mod.DEPLOY_GATE}"),
+                  None)
+    if rc.get("pending") and deploy is not None:
+        deploy.update(release_mod.card_fields(rc))
+        deploy["evidence"] = list(deploy.get("evidence") or []) + release_mod.evidence(rc)
+        deploy["sources"] = list(deploy.get("sources") or []) + [rc["record"]]
+    elif rc.get("pending"):
+        cards = cards + [release_mod.standalone_card(rc)]
     from . import company as company_mod
     from .providers import guard
 
     batches = guard("decision_batches", lambda: company_mod.owner_decision_batches(raw))
     return {"status": status, "reason": reason, "cards": cards, "open": len(cards),
+            "release": release_mod.envelope_for(rc),
             # W4-OWNER: the consolidated decision packet, batch first.
             "decision_batches": batches,
             # F-204 (K7): an empty queue is proven only by a fresh assessment + live gates.
