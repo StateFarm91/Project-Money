@@ -124,6 +124,12 @@ PUBLIC_MUTATING_ROUTES: dict[tuple[str, str], str] = {
         "the owner command-center login itself: verifies the owner passphrase hash (and TOTP "
         "when configured), rate limited, same-origin and JSON only, every failure audited in "
         "cc_security_events (app.command_center.auth)"),
+    ("POST", "/api/etsy/webhook"): (
+        "Etsy cannot present the operator credential; each delivery is verified against its "
+        "own HMAC-SHA256 signature (whsec_ secret in ETSY_WEBHOOK_SECRET, 300 s skew limit) "
+        "before the body is parsed, refused with 503 while no secret is set, and a verified "
+        "delivery only enqueues the authenticated receipt read (integrations.etsy_webhooks, "
+        "F-512)"),
 }
 
 # GET routes that trigger work, or return customer/order/support content, or return

@@ -2948,9 +2948,26 @@ def api_etsy() -> dict:
     the last real read rather than whether two variables exist. It never reports the
     credential itself.
     """
+    from ..integrations import etsy_webhooks
     from ..intel import etsy_public
 
-    return etsy_public.capability(db)
+    out = etsy_public.capability(db)
+    # F-512: webhook deliveries, what they woke and what was refused (counts only).
+    out["webhooks"] = etsy_webhooks.summary(db)
+    return out
+
+
+@app.post("/api/etsy/webhook")
+async def api_etsy_webhook(request: Request):
+    """F-512/F-501: Etsy's signed order events. Public by necessity (Etsy cannot present the
+    operator credential); every delivery is verified against its own HMAC signature before a
+    byte of the body is parsed, and a verified one only wakes the authenticated receipt read.
+    2xx = stored or already stored; 4xx = refused (not retried usefully); 5xx = Etsy retries."""
+    from ..integrations import etsy_webhooks
+
+    body = await request.body()
+    status, payload = etsy_webhooks.receive(db, dict(request.headers), body)
+    return JSONResponse(payload, status_code=status)
 
 
 @app.post("/api/etsy/probe")

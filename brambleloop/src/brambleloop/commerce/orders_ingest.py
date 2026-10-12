@@ -464,6 +464,9 @@ def lines(receipt: dict) -> list[dict]:
             "at": at, "paid_at": _ts(t.get("paid_timestamp")) or at,
             "revision": rev, "status": str(receipt.get("status") or "").strip().lower(),
             "refund_reasons": reasons.get(tid, []) + reasons.get("*", []),
+            # F-590: which Etsy sales channel the receipt came through (ShopReceipt.
+            # receipt_type); None when the receipt does not say -- never assumed Etsy.com.
+            "receipt_type": receipt.get("receipt_type"),
             # Kept for readers of the old shape; the state is the truth.
             "refunded": line_state == FULLY_REFUNDED,
         })
@@ -928,6 +931,7 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
                   "matched_listing": listed["matched"], "version_basis": listed["basis"],
                   "season": season, "state": line["state"], "state_why": line["state_why"],
                   "receipt_status": line.get("status", ""),
+                  "receipt_type": line.get("receipt_type"),
                   "fees_model": ("commerce.pricing.fees (transaction + payment processing + "
                                  "amortised listing; offsite/regulatory/conversion "
                                  "unmodelled)"),
@@ -1129,7 +1133,23 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
     from ..finance import sources
 
     first = sources.record_first_sale(db)
+    # F-590: every sale's channel against the readied inventory; an unreadied one is raised.
+    from . import sales_channels
+
+    try:
+        channels = sales_channels.observe(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - the inventory never sinks an ingest
+        channels = {"reading": "UNKNOWN", "why": type(exc).__name__}
+    # F-595: the first-ten-sales learning cohort reviews each new sale as it lands.
+    from . import first_ten
+
+    try:
+        cohort = first_ten.review(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        cohort = {"reading": "UNKNOWN", "why": type(exc).__name__}
     return {
+        "sales_channels": channels,
+        "first_ten": cohort,
         "ran": True, "reading": "measured", "gate": state,
         "network_calls": getattr(reader, "calls", None),
         "since": read_since.isoformat() if read_since else None, "read_mode": mode,
