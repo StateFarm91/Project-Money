@@ -163,6 +163,17 @@ def fit_idempotency_key(key: str | None) -> str | None:
     return f"{key[:IDEMPOTENCY_KEY_MAX - len(digest) - 1]}#{digest}"
 
 
+# F-489: duplicate work avoided -- enqueues refused by the idempotency key, per job type, since
+# this process started. Process-local and labelled so; a duplicate refused is work not done
+# twice, which is the parallelism efficiency the counter exists to show.
+DEDUPE_HITS: dict[str, int] = {}
+DEDUPE_SINCE = datetime.now(timezone.utc)
+
+
+def note_dedupe(job_type: str) -> None:
+    DEDUPE_HITS[job_type] = DEDUPE_HITS.get(job_type, 0) + 1
+
+
 class DuplicateJob(Exception):
     """Raised when an idempotency key already exists. Not an error -- a guarantee working."""
 
@@ -241,6 +252,7 @@ class JobQueue:
                     select(Job).where(Job.idempotency_key == idempotency_key)
                 )
                 if existing:
+                    note_dedupe(job_type)
                     raise DuplicateJob(idempotency_key, existing.id)
             job = Job(
                 agent=agent,
@@ -259,6 +271,7 @@ class JobQueue:
                 existing = s.scalar(
                     select(Job).where(Job.idempotency_key == idempotency_key)
                 )
+                note_dedupe(job_type)
                 raise DuplicateJob(idempotency_key or "", existing.id if existing else -1)
             return job
 
