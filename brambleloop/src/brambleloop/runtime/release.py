@@ -592,6 +592,16 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
         return {"made": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
     if rec.get("made"):
         disclosed_listing.record(ctx.db, rec)
+        # W4-HEROVISION (F-253): with image_vision open, the usable hero is described blind
+        # (budgeted) so parity HERO can be judged; closed, nothing is called.
+        try:
+            from ..visual import hero_review
+
+            reviewed = hero_review.review_disclosed_hero(ctx.db, slug, store=store)
+        except Exception as exc:  # noqa: BLE001 - an unmade review leaves HERO unjudged
+            reviewed = {"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+        ctx.audit("assets.disclosed_hero_review", artifact=f"{slug}@{version}",
+                  detail={k: reviewed.get(k) for k in ("reviewed", "why", "sha256")})
     return {"made": rec.get("made"), "usable": rec.get("usable_as_listing_asset"),
             "launch_blocked": rec.get("launch_blocked", [])[:5],
             "frames": [{"view": f["view"], "sha256": f["image"]["sha256"],
