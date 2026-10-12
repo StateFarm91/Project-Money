@@ -210,8 +210,12 @@ TASKS: dict[str, Task] = {
     # owner (judgement over supplied facts), not extraction and not a release-blocking verdict:
     # the ranking of owner decisions and every figure stay deterministic. No stronger fallback:
     # when the model is down or unaffordable the deterministic briefing answers in full.
+    # W4-LAURAFIX: 600 was a guess and production hit it exactly (v3 asked for an unbounded
+    # id list; the reply was cut off and refused). 1472 is computed, not guessed:
+    # `gateway.laura_briefing.output_token_bound(briefing.PICK_LIMITS)` -- the worst compliant
+    # v4 reply's UTF-8 byte length (an upper bound on its tokens) x 1.25, rounded up to 64.
     "laura.ceo_briefing": Task(
-        "laura.ceo_briefing", STANDARD, 600, 6000, False,
+        "laura.ceo_briefing", STANDARD, 1472, 6000, False,
         "select and order optional evidence ids per briefing section (no model text); "
         "code renders every line from the records", stronger_fallback=False),
     "benchmark_challenge": Task(
