@@ -306,7 +306,11 @@ def incident_root(signature, summary, detail) -> str:
     jt = d.get("job_type")
     err = d.get("error") or d.get("error_class") or d.get("last_error")
     if jt and err:
-        return f"job:{jt}|{_err_class(err)}"
+        # INTEG3 (security review L1 of aa1e76d): the masked signature is part of the key, so
+        # two different incidents that share a job type and an error class (two unrelated
+        # TimeoutErrors in one job) are two records with their own headlines; repeats of one
+        # incident (same signature up to instance parts) still group.
+        return f"job:{jt}|{_err_class(err)}|sig:{_norm_key(signature)}"
     return f"sig:{_norm_key(signature)}|msg:{_norm_key(summary)}"
 
 

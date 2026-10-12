@@ -1,0 +1,46 @@
+{
+ "source": "GET https://brambleloop-os-production.up.railway.app/api/verify",
+ "read_at": "2026-10-12T18:3xZ",
+ "http_status": 503,
+ "check": {
+  "check": "no_unexpected_dead_letters_in_24h",
+  "ok": false,
+  "evidence": {
+   "recent": [
+    "ops.offsite_archive",
+    "ops.policy_watch",
+    "radar.score"
+   ],
+   "recent_by_type": [
+    {
+     "job_type": "radar.score",
+     "count": 2,
+     "last_at": "2026-10-12T18:06:08.491491+00:00",
+     "last_error": "KeyError: 'slug'"
+    },
+    {
+     "job_type": "ops.offsite_archive",
+     "count": 1,
+     "last_at": "2026-10-12T18:08:45.595145+00:00",
+     "last_error": "EphemeralStorageRefused: BRAMBLELOOP_REQUIRE_POSTGRES=1, but no Postgres URL is bound. Refusing to start on ephemeral SQLite: the container would look healthy and lose every job, audit record and rele"
+    },
+    {
+     "job_type": "ops.policy_watch",
+     "count": 1,
+     "last_at": "2026-10-12T18:01:46.471890+00:00",
+     "last_error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(40)"
+    }
+   ],
+   "recent_total": 4,
+   "historical_total": 4,
+   "historical_types": [
+    "ops.offsite_archive",
+    "ops.policy_watch",
+    "radar.score"
+   ],
+   "expected_publish_refusals": 185,
+   "expected_stand_asides": 0,
+   "what_counts_as_expected": "shadow mode refusing to publish, and a job standing aside for the build that can run it. Both are refusals working; neither is a death to explain"
+  }
+ }
+}

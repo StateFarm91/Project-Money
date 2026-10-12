@@ -30,6 +30,17 @@ log = logging.getLogger(__name__)
 
 INCIDENT_SIGNATURE = "etsy.shop_binding:mismatch"
 
+# INTEG3 (security review L2 of aa1e76d): with a token, no ETSY_SHOP_ID and no binding, every
+# client build ran `resolve` (1-2 Etsy GETs, and an audit row on the mismatch path). Unresolved
+# attempts now back off: after n consecutive unresolved attempts the next one waits
+# min(BACKOFF_BASE_S * 2**(n-1), BACKOFF_MAX_S). A success ends the run of failures. The cap
+# is an hour so an owner who re-authorises from the right account is bound within the hour.
+BACKOFF_BASE_S = 60
+BACKOFF_MAX_S = 3600
+FAILED_ACTION = "etsy.shop_resolution_failed"
+REFUSED_ACTION = "etsy.shop_resolution_refused"
+RESOLVED_ACTION = "etsy.shop_resolved"
+
 
 def expected_shop_name() -> str:
     from ..store_foundation.content import ETSY_HANDLE
@@ -108,7 +119,7 @@ def _refuse(db, detail: dict) -> dict:
                      f"authenticated Etsy work stays off until the owner re-authorises from "
                      f"the {detail.get('expected')} account."),
             detail=detail)
-    _audit(db, "etsy.shop_resolution_refused", detail)
+    _audit(db, REFUSED_ACTION, detail)
     return {"status": "refused", **detail}
 
 
@@ -154,7 +165,7 @@ def resolve(db, credentials: Any, *, transport: Any, phase: str = "shadow") -> d
 
     oauth_store.save_shop_binding(db, shop_id=shop_id, shop_name=shop_name,
                                   user_id=user_id, how=detail["how"])
-    _audit(db, "etsy.shop_resolved", detail)
+    _audit(db, RESOLVED_ACTION, detail)
     from ..ops import incident_lifecycle as lifecycle
 
     with db.session() as s:
@@ -163,6 +174,36 @@ def resolve(db, credentials: Any, *, transport: Any, phase: str = "shadow") -> d
             resolution=f"grant resolved to {shop_name} ({shop_id})")
     log.info("etsy shop bound from the owner's grant: %s (%s)", shop_name, shop_id)
     return {"status": "resolved", **detail}
+
+
+def backoff_remaining(db, *, now=None) -> float:
+    """Seconds until the next resolution attempt is allowed (0 = attempt now). Reads this
+    module's own audit rows, so every worker process shares one backoff."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        rows = list(s.execute(select(AuditLog.action, AuditLog.at).where(
+            AuditLog.actor == "etsy_shop_binding",
+            AuditLog.action.in_((FAILED_ACTION, REFUSED_ACTION, RESOLVED_ACTION)))
+            .order_by(AuditLog.id.desc()).limit(16)).all())
+    failures = 0
+    for action, _at in rows:
+        if action == RESOLVED_ACTION:
+            break
+        failures += 1
+    if not failures:
+        return 0.0
+    last = rows[0][1]
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    wait = min(BACKOFF_BASE_S * 2 ** (failures - 1), BACKOFF_MAX_S)
+    # Elapsed is clamped at 0 so a row stamped ahead of this clock never extends the wait.
+    return max(0.0, wait - max(0.0, (now - last).total_seconds()))
 
 
 def ensure_credentials(db, *, transport: Any, phase: str = "shadow",
@@ -182,13 +223,22 @@ def ensure_credentials(db, *, transport: Any, phase: str = "shadow",
     unbound = Credentials.from_env(env, transport=transport, db=db, require_shop=False)
     if unbound is None or unbound.token_provider is None or unbound.shop_id:
         return None
+    wait = backoff_remaining(db)
+    if wait > 0:
+        log.info("etsy shop resolution backing off %.0fs after unresolved attempts", wait)
+        return None
     try:
         report = resolve(db, unbound, transport=transport, phase=phase)
     except Exception as e:  # noqa: BLE001 - resolution failing must not crash a client build
         log.warning("etsy shop could not be resolved from the grant: %s: %s",
                     type(e).__name__, str(e)[:200])
+        _audit(db, FAILED_ACTION, {"status": "error", "error": type(e).__name__})
         return None
     if report.get("status") != "resolved":
+        if report.get("status") not in ("refused", "no_token"):
+            # `refused` already wrote REFUSED_ACTION; no_token made no request.
+            _audit(db, FAILED_ACTION, {"status": report.get("status"),
+                                       "reason": str(report.get("reason", ""))[:200]})
         return None
     from dataclasses import replace
 
