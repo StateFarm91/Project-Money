@@ -331,6 +331,23 @@ def test_c_truncation_is_reported_as_truncation():
         assert r["synthesis"]["truncated"] is True
 
 
+def test_c2_the_provider_exposes_its_stop_reason():
+    """The real provider reads `stop_reason` from the Messages API body, and a replayed
+    answer keeps it, so the gateway can name a cut-off reply on the production path."""
+    import time
+
+    from brambleloop.gateway import anthropic as gw
+
+    prov = gw.AnthropicProvider(model=routing.TIERS[routing.STANDARD].model)
+    body = {"content": [{"type": "text", "text": '{"sections": [{"comp'}],
+            "stop_reason": "max_tokens", "model": prov.model,
+            "usage": {"input_tokens": 29629, "output_tokens": 600}}
+    r = prov._read(body, time.time())
+    assert r.stop_reason == "max_tokens" and r.output_tokens == 600, r
+    assert gw._decode_response(gw._encode_response(r)).stop_reason == "max_tokens"
+    assert prov._read({"content": [], "usage": {}}, time.time()).stop_reason == ""
+
+
 def test_d_fallback_groups_repeats_and_keeps_every_mandatory_incident():
     r = talk.converse(DB, Q, session_public_id="s_fix_d")      # CA$0.00: no model call
     assert r["synthesis"]["source"] == "unavailable"
