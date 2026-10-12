@@ -2710,6 +2710,7 @@ def api_improve() -> dict:
     from ..improve import director, loops, roi
     from ..improve.bus import compounding
     from ..improve.cells import CELLS, capability_history, retrospective
+    from ..improve.cells import history as cells_history
     from ..improve.governance import describe
 
     return {
@@ -2727,6 +2728,8 @@ def api_improve() -> dict:
         # W4-LEARN: each learning loop's producer, store, metric, baseline, decision rule,
         # consumer and status (MEASURED / WAITING / UNKNOWN), read from rows.
         "loops": loops.scoreboard(db),
+        # F-398: the audit trail -- each improvement's spend and the build it shipped on.
+        "history": cells_history(db, limit=50),
     }
 
 

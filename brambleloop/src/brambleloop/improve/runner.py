@@ -432,8 +432,18 @@ def order(db, rows: list[dict]) -> dict:
     """
     from . import roi
 
+    from . import tiers
+
+    def _tier(r):  # F-394: reversibility from what the change touches
+        touches = tuple(r["evidence"].get("touches") or ())
+        try:
+            return tiers.classify(touches).key if touches else None
+        except Exception:  # noqa: BLE001 - ungradeable is unranked, never guessed
+            return None
+
     said = [{"key": r["id"], "expected_impact": r["evidence"].get("expected_gain"),
-             "cost_cad": r.get("cost", 0.0)}
+             "cost_cad": r.get("cost", 0.0), "tier": _tier(r),
+             "blocks_launch": (r["evidence"].get("blocks_launch") or None)}
             for r in rows if r["evidence"].get("expected_gain") is not None]
     ranked = [c["key"] for c in roi.prioritise(said)["ranked"]] if said else []
     unsaid = [r["id"] for r in rows if r["evidence"].get("expected_gain") is None]
