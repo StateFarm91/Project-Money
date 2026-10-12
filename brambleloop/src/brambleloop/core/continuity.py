@@ -62,6 +62,8 @@ NON_REDERIVABLE = (
     "benchmark_products",
     "teardown_findings",
     "improvements",
+    # F-431: research questions, sources and labelled findings; a record of what was asked.
+    "research_tasks",
     "lessons",
     "capability_history",
     "growth_loops",
