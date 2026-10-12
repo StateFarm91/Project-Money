@@ -1,7 +1,7 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-11T18:31:01+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
-Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z.
+Generated 2026-10-12T08:49:23+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z.
 
 ## Reconciliation of the owner dashboard figure
 
@@ -9,12 +9,12 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 | state | rows |
 |---|---|
-| PROVEN | 215 |
+| PROVEN | 218 |
 | OWNER-GATED | 42 |
 | DATA-GATED | 41 |
 | EXTERNAL-GATED | 5 |
 | NOT-APPLICABLE | 3 |
-| OPEN-DEFECT | 14 |
+| OPEN-DEFECT | 11 |
 
 ## Gated rows by exact gate
 
@@ -45,4 +45,4 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 NOT-APPLICABLE (process directives to the auditor, followed): #32, #56, #197
 
-OPEN-DEFECT: 14 -- #15 gate image_vision has opened; the remaining work is no longer parked, #44 gate image_vision has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked, #67 gate image_vision has opened; the remaining work is no longer parked, #86 gate image_vision has opened; the remaining work is no longer parked, #88 gate image_vision has opened; the remaining work is no longer parked, #116 gate image_vision has opened; the remaining work is no longer parked, #126 gate image_vision has opened; the remaining work is no longer parked, #218 gate image_vision has opened; the remaining work is no longer parked, #277 gate image_vision has opened; the remaining work is no longer parked, #281 gate image_vision has opened; the remaining work is no longer parked, #304 gate image_vision has opened; the remaining work is no longer parked, #308 gate image_vision has opened; the remaining work is no longer parked, #309 gate image_vision has opened; the remaining work is no longer parked
+OPEN-DEFECT: 11 -- #61 gate image_vision has opened; the remaining work is no longer parked, #67 gate image_vision has opened; the remaining work is no longer parked, #88 gate image_vision has opened; the remaining work is no longer parked, #116 gate image_vision has opened; the remaining work is no longer parked, #126 gate image_vision has opened; the remaining work is no longer parked, #218 gate image_vision has opened; the remaining work is no longer parked, #277 gate image_vision has opened; the remaining work is no longer parked, #281 gate image_vision has opened; the remaining work is no longer parked, #304 gate image_vision has opened; the remaining work is no longer parked, #308 gate image_vision has opened; the remaining work is no longer parked, #309 gate image_vision has opened; the remaining work is no longer parked

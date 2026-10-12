@@ -213,6 +213,20 @@ def measure_recognisability(db, slug: str, version: str | None = None) -> dict:
                     "frame_sha256": sha, "version": hero_version,
                     "why": f"{type(exc).__name__}: {exc}"[:200]}
     description = dict(got.get("description") or {})
+    result = _judged(description, got, sha, hero_version)
+    # W4-B2MOAT: the measurement is a record, so a read path can show it without paying for
+    # it again (`recorded_recognisability`).
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=MEASURED_ACTION, artifact=slug,
+                       detail={**result, "slug": slug}))
+    return result
+
+
+def _judged(description: dict, got: dict, sha: str, hero_version) -> dict:
+    from ..visual import inspect as inspection_mod
+
     colours = str(description.get("dominant_colours") or "").lower()
     named = sorted(k for k, words in PALETTE_WORDS.items() if any(w in colours for w in words))
     marks = inspection_mod.marks_found(description)
@@ -232,8 +246,42 @@ def measure_recognisability(db, slug: str, version: str | None = None) -> dict:
                     f"product_first={product_first}, marks={marks}")}
 
 
-def evidence(db) -> dict:
-    """Per signature: exists (from rows), and per listed product: which signatures it shows."""
+def recorded_recognisability(db, slug: str) -> dict:
+    """The newest recorded measurement for this listing's CURRENT hero frame, or UNMEASURED.
+
+    W4-B2MOAT, 2026-10-12: `GET /api/launch` and the dashboard assess readiness on every
+    request, and with image_vision open each request would have paid a vision judge per
+    listing -- an unauthenticated read path spending money. Read paths read the record; the
+    daily `launch.readiness` job measures. A record for a different (older) frame is not
+    this frame's measurement.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, ListingAsset
+
+    with db.session() as s:
+        hero = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                   ListingAsset.role == "hero")
+                        .order_by(desc(ListingAsset.id)).limit(1))
+        sha = hero.sha256 if hero is not None else None
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == MEASURED_ACTION,
+                                                     AuditLog.artifact == slug)
+                              .order_by(desc(AuditLog.id)).limit(5)))
+        for row in rows:
+            d = dict(row.detail or {})
+            if sha and d.get("frame_sha256") == sha and d.get("status") == "MEASURED":
+                return {**d, "recorded_at": row.at.isoformat() if row.at else None}
+    return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+            "frame_sha256": sha,
+            "why": ("no recorded measurement of this listing's current hero frame; read paths "
+                    "do not pay for one -- the daily launch.readiness job measures")}
+
+
+def evidence(db, *, measure: bool = True) -> dict:
+    """Per signature: exists (from rows), and per listed product: which signatures it shows.
+
+    `measure=False` (read paths) reads recorded measurements instead of paying for new ones.
+    """
     from sqlalchemy import select
 
     from ..core.models import (ArtefactProvenance, AuditLog, Collection, Listing,
@@ -291,7 +339,8 @@ def evidence(db) -> dict:
             ("deterministic_validation", validated(slug)),
             ("version_aware_support", passed("support_knowledge", slug)),
             ("photography_language", slug in photos)) if ok]
-        measured = measure_recognisability(db, slug)
+        measured = (measure_recognisability(db, slug) if measure
+                    else recorded_recognisability(db, slug))
         proxy = len(shown) >= RECOGNISABLE_MIN
         per_listing[slug] = {
             "signatures": shown,
@@ -305,7 +354,7 @@ def evidence(db) -> dict:
     return {"exists": exists, "per_listing": per_listing}
 
 
-def inventory(db=None) -> dict:
+def inventory(db=None, *, measure: bool = True) -> dict:
     """The moat as it actually stands, separating what exists from what is planned.
 
     An asset nobody has built is not a moat, and listing it beside the real ones produces a
@@ -313,7 +362,7 @@ def inventory(db=None) -> dict:
     read from evidence (`evidence`), and recognisability on product-first listings -- the
     requirement's own test -- is measured per listing.
     """
-    measured = evidence(db) if db is not None else None
+    measured = evidence(db, measure=measure) if db is not None else None
     signatures = (tuple(Signature(s.key, s.what, s.replication, s.why,
                                   exists=bool(measured["exists"].get(s.key)))
                         for s in SIGNATURES) if measured else SIGNATURES)
