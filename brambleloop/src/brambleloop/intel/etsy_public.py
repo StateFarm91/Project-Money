@@ -33,6 +33,7 @@ cross-sell placement. That gap is reported, never papered over (#224).
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 import urllib.parse
@@ -142,6 +143,39 @@ def refusal_hint(status: int | None, etsy_error: str = "") -> str:
             f"shared secret no longer matches {SECRET_VAR} (Etsy v3 needs x-api-key as "
             f"keystring:shared_secret); the app's status is visible only to the owner at "
             f"etsy.com/developers/your-apps")
+
+
+# W4-ETSY403: whether the configured values are *shaped* like an Etsy keystring and shared
+# secret, reported as booleans only -- never a value, length, prefix or fingerprint. Etsy
+# answers the same 403 ("API key not found or not active, or incorrect shared secret") for a
+# deactivated app and for a mistyped value, so the only way to tell a paste error (quotes,
+# an inner space or newline, "keystring:secret" pasted into one variable, a second keystring
+# also set) from an Etsy-side state is to check the shape here.
+_TOKEN = re.compile(r"^[A-Za-z0-9]+$")
+
+
+def credential_shape(env: dict[str, str] | None = None) -> dict:
+    e = env if env is not None else os.environ
+    key = (e.get(KEYSTRING_VAR) or "").strip()
+    secret = (e.get(SECRET_VAR) or "").strip()
+    alt = (e.get("ETSY_KEYSTRING") or "").strip()
+    raw_key, raw_secret = e.get(KEYSTRING_VAR) or "", e.get(SECRET_VAR) or ""
+
+    def odd(v: str) -> bool:
+        return bool(v) and not _TOKEN.match(v)
+
+    return {
+        "keystring_alphanumeric": bool(key) and not odd(key),
+        "secret_alphanumeric": bool(secret) and not odd(secret),
+        "colon_inside_a_value": ":" in key or ":" in secret,
+        "quotes_inside_a_value": any(q in key + secret for q in "\"'`"),
+        "inner_whitespace": any(c.isspace() for c in key + secret),
+        "outer_whitespace_trimmed": raw_key != raw_key.strip() or raw_secret != raw_secret.strip(),
+        # Two modules once read different names; a second keystring that disagrees is a
+        # configuration the integrations would resolve differently.
+        "etsy_keystring_also_set": bool(alt),
+        "etsy_keystring_differs": bool(alt) and alt != key,
+    }
 
 
 class Transport(Protocol):
@@ -501,6 +535,8 @@ def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
                 record["status"] = exc.status
             if getattr(exc, "etsy_error", ""):
                 record["etsy_error"] = exc.etsy_error
+            if getattr(exc, "credential_refused", False):
+                record["credential_shape"] = credential_shape(env)
         else:
             record["ok"] = True
             # The application id identifies the developer application, not the credential,
