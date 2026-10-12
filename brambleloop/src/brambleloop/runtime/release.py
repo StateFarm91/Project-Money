@@ -7023,15 +7023,26 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     from ..gateway import anthropic as gw
     from ..publish import listing_asset
 
+    import shutil
+    import tempfile
+
+    from ..visual import hero_candidates
+
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
     pod_of: dict[str, str] = {}
+    offered: dict[str, dict] = {}
+    # F-278: every verified hero candidate of each product enters the blinded grid as a file
+    # a judge can be shown (a disclosed hero's `sha256:` address is not one). Only the hero
+    # on file counts toward the pod's #126 verdict.
+    work_dir = tempfile.mkdtemp(prefix="grid_tournament_")
     for slug, title in blind_review.catalogue_slugs():
         pod_of[slug] = blind_review.pod_for(slug, title)
-        frames = listing_asset.frames_for(ctx.db, slug=slug)
-        hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
-        if hero:
-            by_pod.setdefault(pod_of[slug], []).extend(hero)
+        got = hero_candidates.candidates(ctx.db, slug, work_dir=work_dir)
+        offered[slug] = got
+        for c in got["candidates"]:
+            by_pod.setdefault(pod_of[slug], []).append(
+                dict(c, counts_for_verdict=(c["candidate"] == "hero")))
     results = {}
     stopped = False
     for pod, ours in sorted(by_pod.items()):
@@ -7041,6 +7052,7 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
             results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
                                                   "benchmark_cells", "our_cells")}
             results[pod]["panel"] = out["panel"]
+            results[pod]["candidate_scores"] = out.get("candidate_scores") or {}
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
         if (results[pod].get("panel") or {}).get("stopped_by"):
@@ -7079,6 +7091,17 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
                        "why": (results.get(pod) or {}).get("why", "no render of ours in "
                                                                   "this pod was gridded")}
                 for slug, pod in pod_of.items()}
+    # F-278: the product's own hero tournament, from the same blinded panel.
+    for slug, pod in pod_of.items():
+        scores = (results.get(pod) or {}).get("candidate_scores") or {}
+        mine = {ref.split("#", 1)[1]: v for ref, v in scores.items()
+                if ref.split("#", 1)[0] == slug and "#" in ref}
+        for c in (offered.get(slug) or {}).get("candidates") or []:
+            mine.setdefault(c["candidate"], {})
+        products[slug]["hero_tournament"] = {
+            **hero_candidates.winner(mine),
+            "refused": (offered.get(slug) or {}).get("refused") or {}}
+    shutil.rmtree(work_dir, ignore_errors=True)
     ctx.audit("creative.grid_tournament", detail={"pods": results, "concepts": concepts,
                                                    "products": products})
     return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()},
