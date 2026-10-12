@@ -549,6 +549,35 @@ try {
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();
 
+  // ---- W4-CCFM1: departments (F-621), spend trend chart (F-652/F-670), customers (F-619) -----
+  await page.goto(`${BASE}/cc/#/company`);
+  await settle();
+  const deptsF = await page.$$eval("section[aria-labelledby='company-departments'] li.row", (els) => els.map((e) => ({
+    t: e.textContent, bars: e.querySelectorAll("svg.chart rect").length })));
+  const exe = deptsF.find((d) => /^Executive/.test(d.t)) || {};
+  const vis = deptsF.find((d) => /^Visual/.test(d.t)) || {};
+  check(/Objective\s*Prioritise company work/.test(exe.t || "") && /Spend \(30 d, recorded\)\s*CA\$1\.25/.test(exe.t || "") && exe.bars === 7,
+    "ccfm1 company: department objective, recorded spend and a 7-day completed-work chart", JSON.stringify(exe).slice(0, 300));
+  check(/Spend \(30 d, recorded\)\s*Unknown/.test(vis.t || "") && /Completed work trend: Unknown/.test(vis.t || "") && vis.bars === 0,
+    "ccfm1 company: unknown spend and trend read Unknown, no bars drawn", JSON.stringify(vis).slice(0, 300));
+  await noHScroll("ccfm1 company");
+  await page.goto(`${BASE}/cc/#/money`);
+  await settle();
+  const trend = await page.evaluate(() => { const c = document.querySelector("section[aria-labelledby='money-spend-trend']");
+    return c ? { bars: c.querySelectorAll("svg.chart rect").length, zero: c.querySelectorAll("svg.chart rect.is-zero").length,
+      label: c.querySelector("svg.chart")?.getAttribute("aria-label") || "", rows: c.querySelectorAll(".chart-data tr").length, text: c.textContent } : null; });
+  check(!!trend && trend.bars === 30 && trend.zero === 6 && trend.rows === 30 && /Recorded spend per day: 30 points/.test(trend.label) && /Revenue is not charted while it is Unknown/.test(trend.text),
+    "ccfm1 money: 30-day recorded spend chart with its values table; revenue not charted while Unknown", JSON.stringify(trend).slice(0, 300));
+  await noHScroll("ccfm1 money");
+  await page.goto(`${BASE}/cc/#/insights`);
+  await settle();
+  const custText = await page.textContent("#main");
+  check(/Customers: orders/.test(custText) && /Customers: support/.test(custText) && /Customers: reviews/.test(custText) && !/Orders\s*0\b/.test(custText),
+    "ccfm1 insights: customers shown as aggregates; unknown orders never 0", custText.slice(0, 200));
+  await noHScroll("ccfm1 insights");
+  await page.goto(`${BASE}/cc/#/ask`);
+  await settle();
+
   // ---- deep link from a notification ----------------------------------------------------
   await page.goto(`${BASE}/cc/#/notifications`);
   await settle();

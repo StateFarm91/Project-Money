@@ -178,6 +178,11 @@ def make_router(db) -> APIRouter:
     def store(request: Request):
         return ok(tabs.store(db))
 
+    @router.get("/customers")
+    def customers(request: Request):
+        """W4-CCFM1 (F-619): customer aggregates only; content stays at /api/support."""
+        return ok(tabs.customers(db))
+
     # ---- W4-STOREFRONT: owner Store area (read-only; owner session via the /api/cc/ gate) --
 
     @router.get("/store/catalogue")

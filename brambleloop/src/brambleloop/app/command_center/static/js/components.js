@@ -283,3 +283,44 @@ export async function guardedAction({ title, lines, confirmLabel, danger, requir
 }
 
 export { h, icon, clear };
+
+// ---- W4-CCFM1 (F-652 / F-670): a small, dependency-free bar chart ----------------------------
+const SVG = "http://www.w3.org/2000/svg";
+
+/**
+ * Bar chart of a numeric series as inline SVG (no library, no innerHTML), with the exact
+ * values in a folded table beneath it. `null` values are drawn as a gap and listed as Unknown,
+ * never as 0. Colours come from the theme tokens, so light and dark both work.
+ */
+export function barChart(values, { labels = [], label = "Chart", format = (v) => String(v), height = 64 } = {}) {
+  const vals = Array.isArray(values) ? values : [];
+  const known = vals.filter((v) => typeof v === "number" && Number.isFinite(v));
+  const max = known.length ? Math.max(...known, 0) : 0;
+  const n = Math.max(vals.length, 1);
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${n * 10} ${height}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("class", "chart");
+  svg.setAttribute("role", "img");
+  const total = known.reduce((a, b) => a + b, 0);
+  svg.setAttribute("aria-label", `${label}: ${vals.length} points, total ${format(total)}${known.length < vals.length ? `, ${vals.length - known.length} unknown` : ""}`);
+  vals.forEach((v, i) => {
+    if (typeof v !== "number" || !Number.isFinite(v)) return; // unknown: a gap, never a 0 bar
+    const hgt = max > 0 ? Math.max(1, Math.round((v / max) * (height - 2))) : 1;
+    const r = document.createElementNS(SVG, "rect");
+    r.setAttribute("x", String(i * 10 + 1));
+    r.setAttribute("y", String(height - hgt));
+    r.setAttribute("width", "8");
+    r.setAttribute("height", String(hgt));
+    r.setAttribute("class", v > 0 ? "chart-bar" : "chart-bar is-zero");
+    const t = document.createElementNS(SVG, "title");
+    t.textContent = `${labels[i] || i + 1}: ${format(v)}`;
+    r.append(t);
+    svg.append(r);
+  });
+  const rows = vals.map((v, i) => h("tr", null, h("td", null, labels[i] || String(i + 1)),
+    h("td", null, typeof v === "number" && Number.isFinite(v) ? format(v) : UNKNOWN_TEXT)));
+  return h("figure", { class: "chart-fig" }, svg,
+    h("details", { class: "chart-data" }, h("summary", null, `${label}: values`),
+      h("table", null, h("tbody", null, rows))));
+}

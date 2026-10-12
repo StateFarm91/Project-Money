@@ -266,7 +266,9 @@ def money(db, window: str | None = None) -> dict:
         return {**v, "scope": "all_time"} if isinstance(v, dict) else v
 
     return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
-                          "estimate_drift": drift},
+                          "estimate_drift": drift,
+                          # F-652: the recorded-spend trend the Money tab charts.
+                          "spend_trend": guard("spend_trend", lambda: spend_trend(db))},
                 status=m["status"], revenue=all_time(m["revenue"]), profit=m["profit"],
                 recorded_spend=all_time(m["recorded_spend"]), source_health=m["source_health"],
                 reason=m["reason"], window=window,
@@ -922,7 +924,18 @@ def insights(db) -> dict:
                              "ads": providers.call("ads", db),
                              "experiments": readers.experiments(db),
                              "lessons": readers.lessons(db),
-                             "improvements": readers.improvements(db)})
+                             "improvements": readers.improvements(db),
+                             # W4-CCFM1 (F-619 "Customers", with Marketing): aggregates only.
+                             **_customer_sections(db)})
+
+
+def _customer_sections(db) -> dict:
+    c = guard("customers", lambda: customers(db))
+    sec = (c or {}).get("sections") if isinstance(c, dict) else None
+    if not isinstance(sec, dict):
+        return {"customer_orders": c, "customer_support": c, "customer_reviews": c}
+    return {"customer_orders": sec.get("orders"), "customer_support": sec.get("support"),
+            "customer_reviews": sec.get("reviews")}
 
 
 def timeline(db, limit: int = 50) -> dict:
@@ -1014,3 +1027,114 @@ def account(db, current_session: str) -> dict:
                                      if isinstance(emerg, dict) else None)},
         notification_policy=notifications.get_policy(db),
         emergency=emerg)
+
+
+# ---- W4-CCFM1: Customers view (F-619), workspace map (F-619 / F-651), spend trend (F-652) -----
+
+def _count(s, stmt) -> int:
+    return int(s.scalar(stmt) or 0)
+
+
+def customers(db) -> dict:
+    """F-619 "Customers": aggregates only -- never a buyer's name, reference or message text.
+
+    Orders, repeat buyers, refunds and reviews are counted only when the order source is
+    connected and read (`dashboard_truth._order_source`); otherwise each is UNKNOWN, never 0.
+    Support cases are the owner-recorded conversations (Etsy has no messages API), counted
+    from `support_cases` and labelled owner-recorded. Customer content stays behind the
+    operator credential at /api/support (F-696)."""
+    from ...core.models import Order, SupportCase
+    from .. import dashboard_truth
+
+    src = dashboard_truth._order_source(db)
+    measured = bool(src.get("measured"))
+    with db.session() as s:
+        orders = {
+            "orders": _count(s, select(func.count()).select_from(Order)),
+            "repeat_orders": _count(s, select(func.count()).select_from(Order)
+                                    .where(Order.is_repeat == True)),  # noqa: E712
+            "refunded_orders": _count(s, select(func.count()).select_from(Order)
+                                      .where(Order.refunded == True)),  # noqa: E712
+            "reviewed_orders": _count(s, select(func.count()).select_from(Order)
+                                      .where(Order.reviewed == True)),  # noqa: E712
+            "buyers": _count(s, select(func.count(func.distinct(Order.customer_id)))),
+        }
+        support = {
+            "cases": _count(s, select(func.count()).select_from(SupportCase)),
+            "awaiting_reply": _count(s, select(func.count()).select_from(SupportCase)
+                                     .where(SupportCase.sent == False)),  # noqa: E712
+            "escalated": _count(s, select(func.count()).select_from(SupportCase)
+                                .where(SupportCase.escalated == True)),  # noqa: E712
+            "resolved": _count(s, select(func.count()).select_from(SupportCase)
+                               .where(SupportCase.resolved == True)),  # noqa: E712
+        }
+    why = src.get("why") or "order source not connected and read"
+    order_items = [{"metric": k, "value": (v if measured else None),
+                    "state": "MEASURED" if measured else "UNKNOWN",
+                    "why": None if measured else why} for k, v in orders.items()]
+    support_items = [{"metric": k, "value": v, "state": "OWNER_RECORDED",
+                      "why": "counted from what the owner recorded from Etsy Messages"}
+                     for k, v in support.items()]
+    return _tab("CUSTOMERS", {
+        "orders": envelope("OK" if measured else "UNKNOWN", order_items,
+                           ["orders", "commerce.orders_ingest.source_state"],
+                           basis="measured" if measured else "unknown",
+                           provider="tabs.customers.orders",
+                           reason=None if measured else why,
+                           last_read_at=src.get("last_read_at")),
+        "support": envelope("OK", support_items, ["support_cases (owner-recorded)"],
+                            provider="tabs.customers.support",
+                            note=("aggregates only; buyer messages are customer content and "
+                                  "stay behind the operator credential (F-696)")),
+        "reviews": unknown("no review source is connected: Etsy reviews are not read by this "
+                           "system", "tabs.customers.reviews", ["etsy reviews (not read)"]),
+    })
+
+
+#: F-619 / F-651: every owner area the Final Master names, mapped to the Command Center route
+#: that serves it and the API it reads. One source of truth per area; no new store.
+WORKSPACES: tuple[dict, ...] = (
+    {"area": "Today", "route": "home", "api": "/api/cc/home", "rows": ["F-619", "F-661"]},
+    {"area": "Owner inbox / Owner actions", "route": "approvals", "api": "/api/cc/approvals",
+     "rows": ["F-619", "F-651"]},
+    {"area": "Month / Finance", "route": "money", "api": "/api/cc/money", "rows": ["F-619", "F-620"]},
+    {"area": "Products", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-619", "F-651"]},
+    {"area": "Listings", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-619"]},
+    {"area": "Etsy", "route": "store", "api": "/api/cc/etsy", "rows": ["F-651"]},
+    {"area": "Marketing", "route": "insights", "api": "/api/cc/insights", "rows": ["F-619", "F-651"]},
+    {"area": "Customers", "route": "insights", "api": "/api/cc/customers", "rows": ["F-619", "F-651"]},
+    {"area": "Experiments", "route": "insights", "api": "/api/cc/insights", "rows": ["F-619"]},
+    {"area": "Research", "route": "insights", "api": "/api/cc/insights", "rows": ["F-651"]},
+    {"area": "Departments", "route": "company", "api": "/api/cc/company", "rows": ["F-619", "F-621"]},
+    {"area": "Agent activity / Agents", "route": "learn", "api": "/api/cc/learn", "rows": ["F-619", "F-668"]},
+    {"area": "System health / Reliability", "route": "operations", "api": "/api/cc/operations",
+     "rows": ["F-619", "F-651", "F-729"]},
+    {"area": "QA (pattern quality)", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-651"]},
+    {"area": "Visual", "route": "store", "api": "/cc/image-review", "rows": ["F-651"]},
+    {"area": "Command Center (company status)", "route": "company", "api": "/api/cc/company",
+     "rows": ["F-651"]},
+)
+
+
+def spend_trend(db, *, days: int = 30, now: datetime | None = None) -> dict:
+    """F-652: recorded spend per UTC day over `days` days (cost_entries). Recorded, not
+    reconciled; a day with no cost row reads 0.0 because the table was read and held none."""
+    from ...core.models import CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    labels = [(start + timedelta(days=i)).date().isoformat() for i in range(days)]
+    vals = [0.0] * days
+    with db.session() as s:
+        for at, amt in s.execute(select(CostEntry.at, CostEntry.amount_cad)
+                                 .where(CostEntry.at >= start)).all():
+            if at is None:
+                continue
+            at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+            i = (at.date() - start.date()).days
+            if 0 <= i < days:
+                vals[i] = round(vals[i] + float(amt or 0.0), 6)
+    return envelope("OK", [{"date": d, "value_cad": v} for d, v in zip(labels, vals)],
+                    ["cost_entries"], basis="measured", provider="tabs.spend_trend", days=days,
+                    total_cad=round(sum(vals), 6),
+                    note="recorded spend (not reconciled), per UTC day")

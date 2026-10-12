@@ -420,3 +420,12 @@ details.card[open] > summary { margin-bottom: 8px; }
 .home-more > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 650; color: var(--accent); padding: 0 var(--gutter); }
 .home-more[open] > summary { margin-bottom: 8px; }
 .home-more > .card, .home-more > .quick { margin-bottom: 12px; }
+
+/* ---- W4-CCFM1: bar chart (F-652 / F-670); theme tokens, light and dark ---- */
+.chart-fig { margin: 6px 0 0; }
+.chart { display: block; width: 100%; height: 64px; }
+.chart-bar { fill: var(--accent); }
+.chart-bar.is-zero { fill: var(--border); }
+.chart-data > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--text-2); font-size: 13px; font-weight: 600; }
+.chart-data table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.chart-data td { padding: 2px 4px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
