@@ -63,6 +63,7 @@ INVENTORY_READING = "etsy.surface_inventory"
 LIFECYCLE_READING = "etsy.listing_lifecycle"
 OPENAPI_READING = "etsy.openapi_reverification"
 OPENAPI_DRIFT = "etsy.openapi_drift"
+OPENAPI_CHANGED = "etsy.openapi_document_changed"
 #: How long one re-verification of the surface classifications stands (F-514).
 OPENAPI_REVERIFY_DAYS = 7
 
@@ -1364,6 +1365,12 @@ def reverify_openapi(db, *, transport=None, now: datetime | None = None,
                   "why": f"Etsy's OpenAPI document could not be read: "
                          f"{type(e).__name__}: {str(e)[:200]}"}
     result = {**result, "checked_at": now.isoformat(), "source": etsy_surfaces.OPENAPI_URL}
+    # F-546: whether the document changed since the last reading, by fingerprint -- a change
+    # that moved no verdict is still a change worth knowing about (None when either side is
+    # unknown, never False by default).
+    prev_fp = (previous or {}).get("fingerprint")
+    result["document_changed"] = (None if not prev_fp or not result.get("fingerprint")
+                                  else prev_fp != result["fingerprint"])
     store_reading(db, OPENAPI_READING, result, now=now)
     with db.session() as s:
         if result["status"] == etsy_surfaces.OPENAPI_DRIFTED:
@@ -1378,6 +1385,19 @@ def reverify_openapi(db, *, transport=None, now: datetime | None = None,
         elif result["status"] == etsy_surfaces.OPENAPI_CURRENT:
             lifecycle.resolve_signatures(
                 s, [OPENAPI_DRIFT], resolution=f"re-verified CURRENT at {now.isoformat()}")
+        # F-546: Etsy changed its document without moving any verdict (prose, schemas, a
+        # feature described before it has an operation). Not a drift -- the registry still
+        # holds -- but a change somebody should read, so it is an incident (P3) naming both
+        # fingerprints. It stays open until a reader resolves it.
+        if result.get("document_changed") and result["status"] == etsy_surfaces.OPENAPI_CURRENT:
+            lifecycle.open_or_restate(
+                s, signature=OPENAPI_CHANGED, severity="P3",
+                summary=(f"Etsy's API document changed ({str(prev_fp)[:12]} -> "
+                         f"{str(result.get('fingerprint'))[:12]}) without moving a surface "
+                         f"verdict; read what changed (new features appear here first)"),
+                detail={"previous_fingerprint": prev_fp,
+                        "fingerprint": result.get("fingerprint"),
+                        "version": result.get("version")})
     return result
 
 

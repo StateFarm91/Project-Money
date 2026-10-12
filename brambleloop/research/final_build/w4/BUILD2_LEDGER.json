@@ -1,16 +1,16 @@
 {
- "as_of": "2026-10-11T18:31:01+00:00",
+ "as_of": "2026-10-12T04:20:00+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 215,
+  "PROVEN": 224,
   "OWNER-GATED": 42,
   "DATA-GATED": 41,
-  "EXTERNAL-GATED": 5,
+  "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 14
+  "OPEN-DEFECT": 4
  },
- "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+ "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
  "rows": [
   {
    "id": 1,
@@ -35,12 +35,12 @@
     "runtime_consumers": [
      {
       "module": "intel/insights.py",
-      "why": "snapshots is live: API get api_insights -> app/main.py:api_insights",
+      "why": "record is live: API post api_insights_paste -> app/main.py:api_insights_paste -> intel/market_intel.py:record_paste",
       "live": [
-       "snapshots",
        "record",
        "_norm",
-       "_count"
+       "_count",
+       "queried_keywords"
       ]
      },
      {
@@ -50,7 +50,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -62,7 +62,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "owser_vision gate. Parked there rather than released into the ready queue as work nothing can start, which is the third time today that distinction has mattered.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -98,9 +98,9 @@
       "why": "state is live: API get api_arbitrage -> app/main.py:api_arbitrage",
       "live": [
        "state",
-       "steering",
        "steer_concepts",
-       "score_observed"
+       "pod_of_concept",
+       "steering"
       ]
      },
      {
@@ -109,8 +109,8 @@
       "live": [
        "read",
        "size_range",
-       "summarise",
-       "unclear"
+       "is_digital",
+       "_clean"
       ]
      },
      {
@@ -164,12 +164,12 @@
      },
      {
       "module": "creative/prototype.py",
-      "why": "author is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+      "why": "author is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run",
       "live": [
        "author",
+       "prototype",
        "source_provenance",
-       "geometry_for",
-       "_provenance"
+       "geometry_for"
       ]
      },
      {
@@ -232,18 +232,18 @@
       "live": [
        "ceiling_audit",
        "declared_daily_ceiling",
-       "stewardship",
-       "Registry.__init__"
+       "Registry.__init__",
+       "Registry.get"
       ]
      },
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -255,7 +255,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " it into every generator brief (constraints_text) of the next tournament. /api/preproduction now reports the last cycle from rows. Five retention entries added. Test runs through Worker.run_once with sockets refused, including idempotency across four runs and the injected observation. Real-gated half: publishing (no site/Pinterest account) and the interest ingest that only an owned surface brings."
    }
   },
@@ -288,12 +288,12 @@
     "runtime_consumers": [
      {
       "module": "commerce/lanes.py",
-      "why": "observe is live: API get api_lanes -> app/main.py:api_lanes",
+      "why": "route_certified is live: handler gate.lanes (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_lane_routing",
       "live": [
-       "observe",
+       "route_certified",
+       "_launch0_seed",
        "qa_stable",
-       "_regression_state",
-       "route_certified"
+       "observe"
       ]
      },
      {
@@ -308,12 +308,12 @@
      },
      {
       "module": "cir/graded.py",
-      "why": "grading_problems is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:grading_findings",
+      "why": "size_run is live: API post api_teardown_qa -> app/main.py:api_teardown_qa -> teardown/lab.py:product_qa_all -> teardown/lab.py:product_qa -> teardown/lab.py:measured_self_scores",
       "live": [
+       "size_run",
+       "_design_of",
        "grading_problems",
-       "GradedDesign.__post_init__",
-       "GradedDesign.size_names",
-       "GradedDesign.sourced_sizes"
+       "GradedDesign.__post_init__"
       ]
      }
     ]
@@ -338,10 +338,10 @@
     "runtime_consumers": [
      {
       "module": "seasonal/compression.py",
-      "why": "programme is live: API get api_seasonal_compression -> app/main.py:api_seasonal_compression",
+      "why": "programme is live: handler seasonal.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_sentinel",
       "live": [
        "programme",
-       "lane_states",
+       "preparation_started",
        "mix",
        "arenas"
       ]
@@ -424,7 +424,7 @@
     "runtime_consumers": [
      {
       "module": "quality/proof.py",
-      "why": "check_claim is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/policy.py:check_listing -> gates/policy.py:check_proof_claims",
+      "why": "check_claim is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/release_gates.py:for_publish -> publish/eligibility.py:product_publication -> gates/first_customer.py:blocking -> gates/first_customer.py:gate_product -> gates/first_customer.py:check_listing_claims -> gates/policy.py:check_listing -> gates/policy.py:check_proof_claims",
       "live": [
        "check_claim",
        "reached",
@@ -441,7 +441,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ef is ASSET_CONSENT_MISSING. A reference rather than a boolean, because somebody has to be able to go and look, and absent consent is not implied consent. Remaining and parked on the customers gate: rungs four and five read False until orders exist, and the key is present rather than absent because a missing key and an unreached rung look identical to a caller and mean completely different things."
    }
   },
@@ -469,12 +469,12 @@
     "runtime_consumers": [
      {
       "module": "growth/creators.py",
-      "why": "roster is live: API get api_creators -> app/main.py:api_creators",
+      "why": "check_brief is live: API post api_tester_agreement -> app/main.py:api_tester_agreement -> quality/tester_programme.py:record_agreement",
       "live": [
-       "roster",
        "check_brief",
        "_says_what_it_is",
-       "portfolio"
+       "portfolio",
+       "Relationship.measured"
       ]
      },
      {
@@ -496,7 +496,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "bility is zero. Re-parked from browser_vision on 2026-09-20 when that gate was split; this is the rendered-page half of it, not the photograph half. Re-parked 2026-09-26 (Build 2 closeout): the roster needs real people to join it, not a browser to read a page; rendered_pages was the wrong gate and would have released this into the ready queue the day a page fetch worked, with nobody on the roster."
    }
   },
@@ -565,7 +565,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "cadence (reading 'free_to_paid', summary free_assets_with_a_job) now plan over the certified assets instead of plan([]). Nothing is published, no email is captured, no message is sent (CASL); shadow. Remaining and parked: publication waits on an owned surface (owned_surfaces). Evidence research/final_build/w4/evidence_B2CLOSE/free_asset_diamond_lattice_relief_swatch.json; tests/test_w4_b2close.py."
    }
   },
@@ -607,7 +607,7 @@
     "opens_when": "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ork calls; open -> EtsyClient.get_shop_receipts pages receipts into cohorts.record_customer/record_order (Etsy user id only, no PII) and sale LedgerEntry rows, then enqueues commerce.order_readings. cohort_block computes cohorts.metrics per axis and validation-cohort lifetime contribution, which is the reward ceiling referral.check reads. Real gate: only the owner can grant the scope in a browser."
    }
   },
@@ -661,7 +661,7 @@
     "opens_when": "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "s #11: nothing writes Order/Customer rows\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on transactions_r): Customer and Order rows are written by the ingest on cadence (idempotent on etsy:<receipt>:<transaction>; 44 orders/43 customers from the fake feed, second run adds nothing; refused line recorded not fatal). With no orders the readings say UNMEASURED, never zero-as-measured."
    }
   },
@@ -718,7 +718,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/benchmarks.py",
-      "why": "cells is live: API get api_benchmarks -> app/main.py:api_benchmarks -> runtime/growth_ops.py:benchmarks_reading",
+      "why": "cells is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:benchmarks_reading",
       "live": [
        "cells",
        "opportunities",
@@ -735,7 +735,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " its context on these price bands and this maturity scale, since a memory keyed on 'under_10' against a benchmark saying '6_to_10' matches nothing and lets every closed question quietly reopen. /api/benchmarks. Remaining and parked: every cell is empty because this company has no listings, no impressions and no orders, and that is reported as no baseline anywhere rather than as a baseline of zero."
    }
   },
@@ -836,7 +836,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ever forgets is a way to stop learning, which is the same failure as no memory arriving from the other side. 'Things feel different now' is refused, because it reopens every question ever closed. /api/listing-tests. Remaining and parked: running one needs a live listing and its impressions, so nothing has been established yet and an empty memory says so rather than reporting that nothing is known."
    }
   },
@@ -861,12 +861,12 @@
     "runtime_consumers": [
      {
       "module": "commerce/trust.py",
-      "why": "may_scale_ads is live: API get api_trust -> app/main.py:api_trust",
+      "why": "shop_complete_problems is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
       "live": [
-       "may_scale_ads",
        "shop_complete_problems",
+       "may_scale_ads",
        "accelerator",
-       "proof_count"
+       "record_proof"
       ]
      }
     ]
@@ -893,11 +893,11 @@
     "runtime_consumers": [
      {
       "module": "support/service.py",
-      "why": "service_level is live: API get api_trust -> app/main.py:api_trust",
+      "why": "refund_impact is live: API get api_trust -> app/main.py:api_trust",
       "live": [
-       "service_level",
        "refund_impact",
        "record_response",
+       "service_level",
        "ServiceRefused"
       ]
      }
@@ -910,7 +910,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "reply never records timings), so service_level can only ever read 'untimed'. This can be wired now\n\nRepair wave growth 2026-09-27 (integrated by the lead): support.reply records service.record_response on the case as draft_ready (shadow holds replies) and service_level keeps drafts apart from delivered responses, feeding the #17 trust rung; whether fast support reduces refunds/repeat needs orders."
    }
   },
@@ -935,7 +935,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/promotion.py",
-      "why": "dependence is live: API get api_promotion -> app/main.py:api_promotion",
+      "why": "dependence is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:promotion_reading",
       "live": [
        "dependence",
        "window",
@@ -952,7 +952,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "mers): incrementality/control checks never run and no cadence reads them. No promotion path exists, so parking them is plausible\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.journey reads every promotion Experiment against its organic control via promotion.incrementality daily, marks a non-paying one not_repeatable and opens promotion:catalogue_conditioned; no promotion has run."
    }
   },
@@ -1016,7 +1016,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "rage report is not full coverage. owned_share() feeds the traffic_source axis of the anti-fragility rule (#29). Remaining and data-gated: assisted conversions and the owned share itself need visits, and are reported unmeasurable with the reason rather than as zero, because a company with no traffic has no marketplace dependence either and that is not the finding anybody wants recorded. /api/owned."
    }
   },
@@ -1039,12 +1039,12 @@
     "runtime_consumers": [
      {
       "module": "growth/creators.py",
-      "why": "roster is live: API get api_creators -> app/main.py:api_creators",
+      "why": "check_brief is live: API post api_tester_agreement -> app/main.py:api_tester_agreement -> quality/tester_programme.py:record_agreement",
       "live": [
-       "roster",
        "check_brief",
        "_says_what_it_is",
-       "portfolio"
+       "portfolio",
+       "Relationship.measured"
       ]
      }
     ]
@@ -1056,7 +1056,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ne: a null averages as a zero to anything that averages it, so an unmeasured outcome is named and blocks, because a roster scaled on no bad news is a release passed by the absence of a complaint. Remaining and parked on the customers gate: attributable traffic and conversion need a live listing and real orders. The protocol and its refusals run today, so they are tested before the day they matter."
    }
   },
@@ -1157,12 +1157,12 @@
     "runtime_consumers": [
      {
       "module": "scale/runrate.py",
-      "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+      "why": "observe is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
       "live": [
+       "observe",
        "constraint",
-       "Observed.conversion",
-       "Observed.to_dict",
-       "Observed.ctr"
+       "decompose",
+       "reading"
       ]
      },
      {
@@ -1204,12 +1204,12 @@
     "runtime_consumers": [
      {
       "module": "scale/runrate.py",
-      "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+      "why": "observe is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
       "live": [
+       "observe",
        "constraint",
-       "Observed.conversion",
-       "Observed.to_dict",
-       "Observed.ctr"
+       "decompose",
+       "reading"
       ]
      },
      {
@@ -1231,7 +1231,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "t C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: capacity review feeds runrate.constraint an empty Observed(); no constraint can be found. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> runrate.observe(db) (C-48: no longer an empty Observed) -> decompose + constraint -> binding term recorded weekly. Parked on customers."
    }
   },
@@ -1256,7 +1256,7 @@
     "runtime_consumers": [
      {
       "module": "scale/trajectory.py",
-      "why": "nightly is live: API get api_trajectory -> app/main.py:api_trajectory",
+      "why": "nightly is live: handler scale.trajectory (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_trajectory",
       "live": [
        "nightly",
        "observed_terms",
@@ -1338,12 +1338,12 @@
     "runtime_consumers": [
      {
       "module": "scale/runrate.py",
-      "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+      "why": "observe is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
       "live": [
+       "observe",
        "constraint",
-       "Observed.conversion",
-       "Observed.to_dict",
-       "Observed.ctr"
+       "decompose",
+       "reading"
       ]
      },
      {
@@ -1373,7 +1373,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the rule table only ever receives an empty observation; no rule can fire. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> constraint fires a scale rule -> the allocation tilts toward it, or the readiness gate refuses the tilt. Parked on customers."
    }
   },
@@ -1398,12 +1398,12 @@
     "runtime_consumers": [
      {
       "module": "scale/dependency.py",
-      "why": "report is live: API get api_dependency -> app/main.py:api_dependency",
+      "why": "act is live: handler ops.dependencies (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_dependency_sweep",
       "live": [
+       "act",
        "report",
        "assess",
-       "_concentration",
-       "act"
+       "_concentration"
       ]
      }
     ]
@@ -1432,7 +1432,7 @@
     "runtime_consumers": [
      {
       "module": "scale/allocation.py",
-      "why": "allocate is live: API get api_allocation -> app/main.py:api_allocation",
+      "why": "allocate is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve",
       "live": [
        "allocate",
        "_tilt",
@@ -1442,12 +1442,12 @@
      },
      {
       "module": "scale/runrate.py",
-      "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+      "why": "observe is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
       "live": [
+       "observe",
        "constraint",
-       "Observed.conversion",
-       "Observed.to_dict",
-       "Observed.ctr"
+       "decompose",
+       "reading"
       ]
      }
     ]
@@ -1501,7 +1501,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "to 1 specialist. Below the floor it records measurable=False. Only the zero case acts; a falling ratio and contribution/dollar are reported, not acted on.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: only the validated==0 case acts; a falling ratio and contribution per operating dollar are reported, not acted on, and contribution needs revenue -- parked on customers for that half."
    }
   },
@@ -1588,7 +1588,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "n repair 2026-09-27: daily seasonal_engine -> seasonal.engine -> engine.allocate / squad_state / breakout. Competitive weakness is now measured from the API search index's listing count per occasion (certification: 'no source' was no longer true); expected demand waits on Insights readings, visibility and contribution on listings and orders -- unscored occasions stay labelled. Parked on customers."
    }
   },
@@ -1617,12 +1617,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -1683,7 +1683,7 @@
     "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
     "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "sts a legal page and never opens the gate. Evidence (research/final_build/w4/evidence_B2GATE2): /legal/sellers/ 403 (DataDome) re-proven; robots.txt disallows /*handmade/ (the watched Creativity Standards URL); children_and_baby has no Help Center companion. The recurring 30-day reading is now a PROPOSAL to the owner (owner_queue policy_page_reading), not an imposed duty. tests/test_w4_b2gate2.py.",
     "opened_by": "a person -- proposed to the owner, not yet accepted (owner_queue decision 'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days. Company side (gates.policy_access): robots.txt and Etsy Help Center change signals, never a legal page",
     "gate_kind_of": "EXTERNAL-BLOCKED"
@@ -1761,7 +1761,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -1773,7 +1773,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "arithmetic this note called owed exists (intel/insights_budget.py) and runs on the commerce.readings cadence; the row waits on the owner's Insights reading only.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -1875,7 +1875,7 @@
     "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
     "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "sts a legal page and never opens the gate. Evidence (research/final_build/w4/evidence_B2GATE2): /legal/sellers/ 403 (DataDome) re-proven; robots.txt disallows /*handmade/ (the watched Creativity Standards URL); children_and_baby has no Help Center companion. The recurring 30-day reading is now a PROPOSAL to the owner (owner_queue policy_page_reading), not an imposed duty. tests/test_w4_b2gate2.py.",
     "opened_by": "a person -- proposed to the owner, not yet accepted (owner_queue decision 'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days. Company side (gates.policy_access): robots.txt and Etsy Help Center change signals, never a legal page",
     "gate_kind_of": "EXTERNAL-BLOCKED"
@@ -1973,7 +1973,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " listing.seo measures the disclosure on the persisted copy and store.publish re-checks it. Support half (C-42): hourly support_triage -> support.triage triages stored cases, enqueues support.reply drafts (never sent in shadow) and computes the confusion reading (C-56 fixed); the rate is UNMEASURED with no orders and the case window UNKNOWN until a policy reading states it. Data-gated on customers."
    }
   },
@@ -2073,7 +2073,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ": REOPENED -- the library exists and is tested but is not reachable from the running system: tester forecast/capacity/assign uncalled. Executable Build 2 work.\n\nCertification repair 2026-09-27: gate.lanes -> testers.plan forecasts demand, capacity and in-specialty assignment, written as quality.tester_plan; with no recorded testers every B/C demand is unassigned. Remainder parked on tester_roster."
    }
   },
@@ -2171,7 +2171,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: attribution checks reachable only from unreachable bundles/promotion. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> bundles.attribution_from_db -> bundle_effect / amplification_check -> declarable winners recorded. Parked on customers."
    }
   },
@@ -2215,7 +2215,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: elasticity.record never called; price history always empty. Executable Build 2 work.\n\nCertification repair 2026-09-27: every pricing.position in the chain -> elasticity.record_price_set writes the price point (deduplicated); elasticity itself is UNMEASURED until sales. Parked on live_listings."
    }
   },
@@ -2311,7 +2311,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "only one arm Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: holdout reachable only from unreachable promotion. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> holdout_from_db -> holdout recorded and fed to the readiness gate's attribution condition. Parked on customers."
    }
   },
@@ -2368,12 +2368,12 @@
     "runtime_consumers": [
      {
       "module": "ops/dependencies.py",
-      "why": "map_state is live: API get api_dependencies -> app/main.py:api_dependencies",
+      "why": "sweep is live: handler ops.dependencies (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_dependency_sweep",
       "live": [
-       "map_state",
-       "_capability",
        "sweep",
-       "Dependency.__post_init__"
+       "map_state",
+       "probe",
+       "_railway_probe"
       ]
      }
     ]
@@ -2417,7 +2417,7 @@
     "opens_when": "a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "acement, a redeploy and a crash; exports exclude the archive table itself so backups do not carry the previous backups. Remaining and gated: a copy outside this provider, which is what '#51 reconstructable if a SaaS provider disappears' actually asks for and needs a bucket and credential the owner must create. Rendered PDFs/charts are re-derivable from CIR + code and are deliberately not archived."
    }
   },
@@ -2522,7 +2522,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " owner exports Etsy Stats (insights_access) -- parked for that half only.\n\nW4-GATESB 2026-10-07 split: company part PROVEN -- the pre-Etsy readiness gate is launch.readiness.assess (tests/test_launch.py, tests/test_cert_rebuild_chain.py). Owner part: one Marketplace Insights reading recorded from Shop Manager (decision insights_reading); the Insights input stays UNKNOWN until recorded, never zero."
    }
   },
@@ -2606,11 +2606,11 @@
      },
      {
       "module": "gates/asset_truth.py",
-      "why": "check_shape_claims is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+      "why": "check_assets is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.py:refresh -> visual/launch_imagery.py:assemble -> publish/disclosed_listing.py:build -> publish/disclosed_listing.py:listing_qa",
       "live": [
-       "check_shape_claims",
-       "check_technique_claims",
        "check_assets",
+       "check_shape_claims",
+       "Provenance.is_complete",
        "check_asset"
       ]
      }
@@ -2928,7 +2928,7 @@
     "opens_when": "at least one PhysicalTest row has a completion date -- the intake being built is not the same as a finished object existing, and nothing here says whose hands finished it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "l.record, not the cadences) creates an upgrade task when physical photography arrives. No CTR/conversion comparison. That trigger is buildable now\n\nRepair wave intel 2026-09-27 (integrated by the lead): physical.photo intake -> assets.physical_upgrade task -> physical.upgrade_impact daily (CTR/conversion before/after, UNMEASURED until live listings). Only a finished physical object is owner-gated."
    }
   },
@@ -3044,24 +3044,29 @@
    "id": 67,
    "title": "Competitive Creative Benchmark",
    "section": "Visual asset production audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/benchmark_set.py exists and is tested",
    "evidence": {
     "tests": [
      "tests/test_blind_review.py",
-     "tests/test_cert_parity_copy.py"
+     "tests/test_cert_parity_copy.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/benchmark_set.py",
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "intel/benchmark_set.py",
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -3080,8 +3085,18 @@
       "live": [
        "current_review",
        "run",
-       "catalogue_slugs",
-       "pod_for"
+       "pod_for",
+       "catalogue_slugs"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -3122,12 +3137,12 @@
      },
      {
       "module": "gates/regression.py",
-      "why": "load_all is live: API get api_lanes -> app/main.py:api_lanes -> commerce/lanes.py:observe -> commerce/lanes.py:_regression_state",
+      "why": "capture_from_incident is live: handler improve.mine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_failure_mine -> improve/mine.py:mine -> improve/mine.py:_capture_regressions",
       "live": [
+       "capture_from_incident",
        "load_all",
        "run",
-       "RegressionRun.ok",
-       "RegressionRun.to_dict"
+       "RegressionRun.ok"
       ]
      }
     ]
@@ -3203,12 +3218,12 @@
      },
      {
       "module": "gates/certificate.py",
-      "why": "certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
       "live": [
-       "certify",
        "bind_physical_evidence",
-       "ReleaseCertificate.__str__",
-       "ReleaseCertificate.errors"
+       "twin_summary",
+       "primitive_findings",
+       "certify"
       ]
      },
      {
@@ -3216,9 +3231,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      }
     ]
@@ -3253,8 +3268,8 @@
       "live": [
        "current_review",
        "run",
-       "catalogue_slugs",
-       "pod_for"
+       "pod_for",
+       "catalogue_slugs"
       ]
      },
      {
@@ -3321,7 +3336,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -3453,8 +3468,8 @@
       "live": [
        "current_review",
        "run",
-       "catalogue_slugs",
-       "pod_for"
+       "pod_for",
+       "catalogue_slugs"
       ]
      }
     ]
@@ -3497,8 +3512,8 @@
       "live": [
        "current_review",
        "run",
-       "catalogue_slugs",
-       "pod_for"
+       "pod_for",
+       "catalogue_slugs"
       ]
      }
     ]
@@ -4045,9 +4060,9 @@
       "why": "history is live: API get api_creative_prospects -> app/main.py:api_creative_prospects",
       "live": [
        "history",
-       "arenas",
-       "choose",
-       "slots"
+       "discovered",
+       "tournament",
+       "expedition"
       ]
      },
      {
@@ -4067,23 +4082,28 @@
    "id": 88,
    "title": "Idea-to-Thumbnail Test",
    "section": "Creativity engine + continuous improvement",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/concept.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/concept.py",
      "creative/preengineering.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/intake.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/concept.py",
      "creative/preengineering.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/intake.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -4104,6 +4124,16 @@
        "established",
        "wave_skill_portfolio",
        "missing_skill_levels"
+      ]
+     },
+     {
+      "module": "creative/intake.py",
+      "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
+      "live": [
+       "verify_funnel",
+       "intake_rows",
+       "regate_held",
+       "board_for"
       ]
      }
     ]
@@ -4214,8 +4244,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      },
      {
@@ -4274,8 +4304,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      },
      {
@@ -4328,8 +4358,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      },
      {
@@ -4481,9 +4511,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      }
     ]
@@ -4598,12 +4628,12 @@
     "runtime_consumers": [
      {
       "module": "improve/roi.py",
-      "why": "realised_benefit is live: API get api_roi -> app/main.py:api_roi",
+      "why": "compounding_report is live: API get api_roi -> app/main.py:api_roi",
       "live": [
-       "realised_benefit",
        "compounding_report",
-       "Realised.verdict",
-       "Realised.to_dict"
+       "realised_benefit",
+       "Realised.measurable",
+       "Realised.verdict"
       ]
      }
     ]
@@ -4640,8 +4670,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      },
      {
@@ -4706,12 +4736,12 @@
      },
      {
       "module": "improve/roi.py",
-      "why": "realised_benefit is live: API get api_roi -> app/main.py:api_roi",
+      "why": "compounding_report is live: API get api_roi -> app/main.py:api_roi",
       "live": [
-       "realised_benefit",
        "compounding_report",
-       "Realised.verdict",
-       "Realised.to_dict"
+       "realised_benefit",
+       "Realised.measurable",
+       "Realised.verdict"
       ]
      }
     ]
@@ -4778,11 +4808,11 @@
      },
      {
       "module": "gates/asset_truth.py",
-      "why": "check_shape_claims is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+      "why": "check_assets is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.py:refresh -> visual/launch_imagery.py:assemble -> publish/disclosed_listing.py:build -> publish/disclosed_listing.py:listing_qa",
       "live": [
-       "check_shape_claims",
-       "check_technique_claims",
        "check_assets",
+       "check_shape_claims",
+       "Provenance.is_complete",
        "check_asset"
       ]
      }
@@ -4830,8 +4860,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      },
      {
@@ -4916,8 +4946,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      }
     ]
@@ -4946,8 +4976,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      }
     ]
@@ -4982,8 +5012,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      },
      {
@@ -5024,8 +5054,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      }
     ]
@@ -5060,8 +5090,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      },
      {
@@ -5133,9 +5163,9 @@
       "why": "history is live: API get api_creative_prospects -> app/main.py:api_creative_prospects",
       "live": [
        "history",
-       "arenas",
-       "choose",
-       "slots"
+       "discovered",
+       "tournament",
+       "expedition"
       ]
      },
      {
@@ -5257,8 +5287,8 @@
       "live": [
        "silhouette",
        "motifs",
-       "cross",
-       "wow"
+       "wow",
+       "Wow.ok"
       ]
      },
      {
@@ -5278,13 +5308,14 @@
    "id": 116,
    "title": "Creative Reference Decomposition",
    "section": "Deep seasonal creativity audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/reference.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_intel_wave2.py"
+     "tests/test_cert_intel_wave2.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/reference.py"
@@ -5346,9 +5377,9 @@
       "why": "history is live: API get api_creative_prospects -> app/main.py:api_creative_prospects",
       "live": [
        "history",
-       "arenas",
-       "choose",
-       "slots"
+       "discovered",
+       "tournament",
+       "expedition"
       ]
      },
      {
@@ -5510,7 +5541,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "library exists and is tested but is not reachable from the running system: no mechanism transfer occurs. Executable Build 2 work.\n\nCertification repair 2026-09-27: discovery.transfer carries a mechanism detected in prior survivors at other holidays into the brief with a new theme; evidence is gauntlet survival, and conversion-based transfer is UNMEASURED until sales exist. Data-gated on customers."
    }
   },
@@ -5627,12 +5658,12 @@
     "runtime_consumers": [
      {
       "module": "seasonal/calendar.py",
-      "why": "heaviest_launchable_lane is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+      "why": "milestone_evidence is live: handler seasonal.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_sentinel",
       "live": [
-       "heaviest_launchable_lane",
-       "coverage_matrix",
        "milestone_evidence",
-       "collection_calendar"
+       "collection_calendar",
+       "check_half_life",
+       "coverage_matrix"
       ]
      }
     ]
@@ -5745,27 +5776,32 @@
    "id": 126,
    "title": "Search-Grid Blind Tournament",
    "section": "Deep seasonal creativity audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/board.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_intel_wave2.py"
+     "tests/test_cert_intel_wave2.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/board.py",
      "creative/blinded.py",
      "creative/preengineering.py",
      "runtime/release.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/blind_review.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "creative/board.py",
      "creative/blinded.py",
      "creative/preengineering.py",
      "runtime/release.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/blind_review.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -5957,7 +5993,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -6651,9 +6687,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      }
     ]
@@ -6826,7 +6862,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ttaches each cultural lesson naming an occasion to that occasion's plan, and Content (marketing.schedule -> growth/content.apply_cultural_timing, cell growth) attaches matching cultural_timing lessons to the pre-launch pieces; both record bus.acted_on (tests/test_w4_b2_culture_consumers.py). Remaining and parked on customers: the post-launch weight update needs sales from culture-derived products."
    }
   },
@@ -6932,9 +6968,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      },
      {
@@ -7440,9 +7476,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      },
      {
@@ -7544,12 +7580,12 @@
     "runtime_consumers": [
      {
       "module": "gates/certificate.py",
-      "why": "certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
       "live": [
-       "certify",
        "bind_physical_evidence",
-       "ReleaseCertificate.__str__",
-       "ReleaseCertificate.errors"
+       "twin_summary",
+       "primitive_findings",
+       "certify"
       ]
      },
      {
@@ -7581,7 +7617,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ility presence, not a measured product score.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: compare_advantages labels an advantage 'beyond' on capability presence against the benchmark's score (Codex P04); our own measured score on the same dimension needs an audited purchased benchmark -- parked on benchmark_purchases for the measured half; UNMEASURED is non-blocking and recorded."
    }
   },
@@ -7682,7 +7718,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "g competitor, format/market shift) runs weekly in intel.benchmark_refresh and raises bounded purchase recommendations (tests/test_cert_intel_wave.py). Owner part: buying the set (benchmark_purchases; exact 13-pick list, links and CA$ total in research/final_build/w4/GATE_CLEARANCE_BUSINESS.md, delivered through /ops/teardown). The row stays parked on benchmark_purchases for the purchase half only."
    }
   },
@@ -7812,7 +7848,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ess now challenges one certified representative per category, using the concept seed's category (not a slug family nobody files benchmarks under), and scores our side from audits recorded against brambleloop:<slug>; an unaudited critical dimension blocks. What remains is data only this gate can supply: purchased benchmarks intaken and torn down in the category. Stays parked on benchmark_purchases."
    }
   },
@@ -7868,7 +7904,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " (provenance filtered slug@version); customization from the real size run; nothing-to-read stays unscored, never neutral.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: driver scores are constants keyed on this version's artefacts (labelled measured_from_artefacts, a proxy); 'after paying, does this feel better than expected' is a buyer's answer -- parked on customers for that half."
    }
   },
@@ -7953,12 +7989,12 @@
     "runtime_consumers": [
      {
       "module": "ops/artefacts.py",
-      "why": "expected_from_db is live: API get api_provenance -> app/main.py:api_provenance",
+      "why": "assert_instrumented is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "expected_from_db",
-       "graduation",
-       "summary",
-       "assert_instrumented"
+       "assert_instrumented",
+       "may_enforce_unproven",
+       "lineage_gaps",
+       "design_inputs"
       ]
      }
     ]
@@ -8003,12 +8039,12 @@
      },
      {
       "module": "ops/artefacts.py",
-      "why": "expected_from_db is live: API get api_provenance -> app/main.py:api_provenance",
+      "why": "assert_instrumented is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "expected_from_db",
-       "graduation",
-       "summary",
-       "assert_instrumented"
+       "assert_instrumented",
+       "may_enforce_unproven",
+       "lineage_gaps",
+       "design_inputs"
       ]
      },
      {
@@ -8052,12 +8088,12 @@
     "runtime_consumers": [
      {
       "module": "ops/artefacts.py",
-      "why": "expected_from_db is live: API get api_provenance -> app/main.py:api_provenance",
+      "why": "assert_instrumented is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "expected_from_db",
-       "graduation",
-       "summary",
-       "assert_instrumented"
+       "assert_instrumented",
+       "may_enforce_unproven",
+       "lineage_gaps",
+       "design_inputs"
       ]
      },
      {
@@ -8098,12 +8134,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      },
      {
@@ -8112,8 +8148,8 @@
       "live": [
        "ceiling_audit",
        "declared_daily_ceiling",
-       "stewardship",
-       "Registry.__init__"
+       "Registry.__init__",
+       "Registry.get"
       ]
      }
     ]
@@ -8146,12 +8182,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      },
      {
@@ -8190,12 +8226,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -8220,12 +8256,12 @@
     "runtime_consumers": [
      {
       "module": "improve/profiles.py",
-      "why": "review_all is live: API get api_profiles -> app/main.py:api_profiles",
+      "why": "queue_proposals is live: handler improve.nightly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_nightly_improvement",
       "live": [
+       "queue_proposals",
        "review_all",
-       "self_review",
-       "profile",
-       "_aware"
+       "_remedy",
+       "self_review"
       ]
      }
     ]
@@ -8255,9 +8291,9 @@
       "why": "state is live: API get api_tiers -> app/main.py:api_tiers",
       "live": [
        "state",
-       "recent_promotions",
-       "_aware",
-       "classify"
+       "classify",
+       "record_promotion",
+       "check_promotion"
       ]
      },
      {
@@ -8266,8 +8302,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      }
     ]
@@ -8312,8 +8348,8 @@
       "live": [
        "ceiling_audit",
        "declared_daily_ceiling",
-       "stewardship",
-       "Registry.__init__"
+       "Registry.__init__",
+       "Registry.get"
       ]
      }
     ]
@@ -8530,7 +8566,7 @@
        "verdict",
        "read",
        "container_starts",
-       "remediation"
+       "Reading.__post_init__"
       ]
      }
     ]
@@ -8559,12 +8595,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -8595,12 +8631,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      },
      {
@@ -8653,12 +8689,12 @@
      },
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -8702,7 +8738,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -8714,7 +8750,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "cloud browser/vision worker pool -- the MJs mission gate\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -8764,9 +8800,9 @@
       "why": "state is live: API get api_tiers -> app/main.py:api_tiers",
       "live": [
        "state",
-       "recent_promotions",
-       "_aware",
-       "classify"
+       "classify",
+       "record_promotion",
+       "check_promotion"
       ]
      },
      {
@@ -8815,12 +8851,12 @@
      },
      {
       "module": "improve/profiles.py",
-      "why": "review_all is live: API get api_profiles -> app/main.py:api_profiles",
+      "why": "queue_proposals is live: handler improve.nightly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_nightly_improvement",
       "live": [
+       "queue_proposals",
        "review_all",
-       "self_review",
-       "profile",
-       "_aware"
+       "_remedy",
+       "self_review"
       ]
      },
      {
@@ -8864,12 +8900,12 @@
     "runtime_consumers": [
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      },
      {
@@ -9029,7 +9065,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -9041,7 +9077,7 @@
     "opens_when": "autonomy.launch_item reads PROVEN from the rows a full production window left",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "brary-only via app/main. Gap: off_device_proof is not wired into launch.readiness, so it is not launch-blocking.\n\nCertification repair 2026-09-27: launch_readiness -> autonomy.launch_item: the off-device proof is a blocking readiness item and reads NOT PROVEN until a full unattended production window of this build has passed. Parked on production_window (deploying Build 2 is the owner's decision)."
    }
   },
@@ -9069,7 +9105,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -9305,7 +9341,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -9341,7 +9377,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      },
      {
@@ -9373,7 +9409,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ned. The real blocker is model_bearing_render, which is EXTERNAL, as for #202.\n\nRepair wave intel 2026-09-27 (integrated by the lead): EXTERNAL: shot plan is recorded on every model_photography cadence run and the sequence renders only planned model jobs; the frames themselves need a faithful model-bearing render no provider has produced. Not image_generation (gate carries nothing and has opened)."
    }
   },
@@ -9456,9 +9492,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      }
     ]
@@ -9506,8 +9542,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -9712,8 +9748,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -9850,8 +9886,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -9896,8 +9932,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -9931,12 +9967,12 @@
     "runtime_consumers": [
      {
       "module": "creative/breakthrough.py",
-      "why": "diverge is live: API get api_breakthrough -> app/main.py:api_breakthrough",
+      "why": "state is live: API get api_breakthrough -> app/main.py:api_breakthrough",
       "live": [
-       "diverge",
        "state",
+       "release_brief",
        "observed_market",
-       "Brief.to_dict"
+       "diverge"
       ]
      },
      {
@@ -9955,8 +9991,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10001,8 +10037,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10012,21 +10048,26 @@
    "id": 218,
    "title": "MJs Challenge Gate",
    "section": "Voice session reconciliation (model + MJs)",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/blind_review.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_parity_copy.py"
+     "tests/test_cert_parity_copy.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -10035,8 +10076,28 @@
       "live": [
        "current_review",
        "run",
-       "catalogue_slugs",
-       "pod_for"
+       "pod_for",
+       "catalogue_slugs"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
+      ]
+     },
+     {
+      "module": "intel/vision.py",
+      "why": "plan is live: API get dashboard -> app/main.py:dashboard",
+      "live": [
+       "plan",
+       "pending",
+       "coverage",
+       "attributes_for"
       ]
      }
     ]
@@ -10081,8 +10142,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10127,8 +10188,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10172,7 +10233,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -10184,7 +10245,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "d browser/vision capability is the thing being requested, so it cannot be built without it; parked on the browser_vision gate rather than counted as executable\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10226,7 +10287,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -10238,7 +10299,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "step offline (intel/acceptance.py); whether it satisfies the 'browser/vision' wording needs a recorded owner decision, and the production run needs deployment.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10373,8 +10434,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      },
      {
@@ -10383,8 +10444,8 @@
       "live": [
        "retrospective",
        "record_owner_approval",
-       "trial_direction",
-       "is_trial_metric"
+       "capability_plateau",
+       "raise_plateau_defect"
       ]
      }
     ]
@@ -10396,7 +10457,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "gated, yet the row is closed COMPLETE.\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.pod_learning daily computes discernment/creativity from rows and stores PodCapabilityReading; NEW: a measured precision weights the pod's lane in _pod_priority. 'Measurably more discerning' and successful/failed responses need settled outcomes (VALIDATED_WINNER needs sales) \u2014 UNMEASURED until then."
    }
   },
@@ -10439,8 +10500,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10485,8 +10546,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -10545,7 +10606,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "erences.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: binding_constraint has zero callers; ops.capacity uses an empty Observed().\n\nCertification repair 2026-09-27: ops.capacity -> target.binding_constraint on database inputs (None is UNMEASURED) -> recorded weekly. Parked on customers."
    }
   },
@@ -10690,7 +10751,7 @@
      },
      {
       "module": "commerce/promotion.py",
-      "why": "dependence is live: API get api_promotion -> app/main.py:api_promotion",
+      "why": "dependence is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:promotion_reading",
       "live": [
        "dependence",
        "window",
@@ -10746,7 +10807,7 @@
      },
      {
       "module": "commerce/promotion.py",
-      "why": "dependence is live: API get api_promotion -> app/main.py:api_promotion",
+      "why": "dependence is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:promotion_reading",
       "live": [
        "dependence",
        "window",
@@ -10778,7 +10839,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/promotion.py",
-      "why": "dependence is live: API get api_promotion -> app/main.py:api_promotion",
+      "why": "dependence is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:promotion_reading",
       "live": [
        "dependence",
        "window",
@@ -10795,7 +10856,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ", nothing will run it.\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on customers): promotion_block runs daily: sale-window PriceObservation rows paired with Cohort organic/promoted arms through promotion.incrementality; do_not_repeat verdicts are read by handle_pricing_position (full price only). With no arms it records UNMEASURED and lists which promotions lack a full-price arm."
    }
   },
@@ -10826,12 +10887,12 @@
     "runtime_consumers": [
      {
       "module": "intel/insights.py",
-      "why": "snapshots is live: API get api_insights -> app/main.py:api_insights",
+      "why": "record is live: API post api_insights_paste -> app/main.py:api_insights_paste -> intel/market_intel.py:record_paste",
       "live": [
-       "snapshots",
        "record",
        "_norm",
-       "_count"
+       "_count",
+       "queried_keywords"
       ]
      },
      {
@@ -10851,7 +10912,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -10863,7 +10924,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ights_budget.allocate plans the keywords per pod skipping ones already read. Owner-gated on insights_access: the readings themselves come only from Shop Manager.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10917,7 +10978,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "scale/leading.py). The owner-exported CSV cannot be ingested when it exists.\n\nRepair wave growth 2026-09-27 (integrated by the lead): POST /api/attribution/stats (ops-token) parses the owner's Etsy Stats CSV, joins to orders (contribution rate, support/repeat per term), stores attribution.stats; listing.seo reads it and swaps vanity tags for earning terms. Real gate: the owner must export the CSV."
    }
   },
@@ -10944,7 +11005,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/benchmarks.py",
-      "why": "cells is live: API get api_benchmarks -> app/main.py:api_benchmarks -> runtime/growth_ops.py:benchmarks_reading",
+      "why": "cells is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:benchmarks_reading",
       "live": [
        "cells",
        "opportunities",
@@ -10961,7 +11022,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "nchmarks), so the built half never reads DB observations, even after data exists.\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.journey and /api/benchmarks build cells from ListingOutcome/Order/SupportCase rows, diagnose each listing against its own cell and open/reconcile benchmark:<slug>:below_cohort incidents naming factors to test; UNMEASURED until live listings have traffic."
    }
   },
@@ -10988,7 +11049,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/benchmarks.py",
-      "why": "cells is live: API get api_benchmarks -> app/main.py:api_benchmarks -> runtime/growth_ops.py:benchmarks_reading",
+      "why": "cells is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:benchmarks_reading",
       "live": [
        "cells",
        "opportunities",
@@ -11001,9 +11062,9 @@
       "why": "state is live: API get api_arbitrage -> app/main.py:api_arbitrage",
       "live": [
        "state",
-       "steering",
        "steer_concepts",
-       "score_observed"
+       "pod_of_concept",
+       "steering"
       ]
      }
     ]
@@ -11015,7 +11076,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "lid; was data_gated): commerce/benchmarks.opportunities has zero callers. Only arbitrage.state/score_observed are served.\n\nRepair wave growth 2026-09-27 (integrated by the lead): benchmarks.opportunities now called daily from growth.journey with markets from arbitrage.score_observed demand plus our impressions/CTR/conversion per department; ranked list in the reading; needs our traffic to rank on."
    }
   },
@@ -11042,7 +11103,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/portfolio.py",
-      "why": "diversification is live: API get api_portfolio -> app/main.py:api_portfolio",
+      "why": "diversification is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
       "live": [
        "diversification",
        "listing_facets",
@@ -11095,7 +11156,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "launch -> launch_pack. Gap: No hero variants, title strategy or confounder record; runs after drafting, not at launch.\n\nCertification repair 2026-09-27: launch.plan -> register_at_launch: the pack with hero variants, title/tag strategy and a confounder log, write-once (growth.experiments is the backstop); a confounded experiment is never causal. Results need live listings: parked on live_listings."
    }
   },
@@ -11137,7 +11198,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
    }
   },
@@ -11162,12 +11223,12 @@
     "runtime_consumers": [
      {
       "module": "scale/runrate.py",
-      "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+      "why": "observe is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
       "live": [
+       "observe",
        "constraint",
-       "Observed.conversion",
-       "Observed.to_dict",
-       "Observed.ctr"
+       "decompose",
+       "reading"
       ]
      }
     ]
@@ -11179,7 +11240,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
    }
   },
@@ -11216,12 +11277,12 @@
      },
      {
       "module": "runtime/growth_ops.py",
-      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "why": "handle_ads_adjust is live: handler ads.adjust (cadence in runtime/worker.py:module constant)",
       "live": [
-       "benchmarks_reading",
        "handle_ads_adjust",
-       "record",
-       "handle_growth_steer"
+       "handle_growth_steer",
+       "handle_growth_journey",
+       "handle_growth_distribution"
       ]
      }
     ]
@@ -11233,7 +11294,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ers), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (offsite_ads_forecast), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
@@ -11270,12 +11331,12 @@
      },
      {
       "module": "runtime/growth_ops.py",
-      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "why": "handle_ads_adjust is live: handler ads.adjust (cadence in runtime/worker.py:module constant)",
       "live": [
-       "benchmarks_reading",
        "handle_ads_adjust",
-       "record",
-       "handle_growth_steer"
+       "handle_growth_steer",
+       "handle_growth_journey",
+       "handle_growth_distribution"
       ]
      }
     ]
@@ -11287,7 +11348,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ed Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (share_and_save), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
@@ -11324,12 +11385,12 @@
      },
      {
       "module": "seasonal/calendar.py",
-      "why": "heaviest_launchable_lane is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+      "why": "milestone_evidence is live: handler seasonal.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_sentinel",
       "live": [
-       "heaviest_launchable_lane",
-       "coverage_matrix",
        "milestone_evidence",
-       "collection_calendar"
+       "collection_calendar",
+       "check_half_life",
+       "coverage_matrix"
       ]
      }
     ]
@@ -11341,7 +11402,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "mputed at runtime; seasonal pin planning from calendar milestones could run now without a surface\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.distribution plans a pin set per certified product from calendar milestones (pins.schedule/check_set), destination = published listing, and grows a war-room winner by one new angle via pins.amplify; no Pinterest surface exists to post to."
    }
   },
@@ -11407,7 +11468,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "c53 (C-60, verdict invalid; was partial parked on owned_surfaces): clusters are never built from observed complaint themes at runtime; that part needs no surface\n\nRepair wave growth 2026-09-27 (integrated by the lead): clusters built daily per department from counted complaint themes (LearningObservation customer_pain + SupportCase themes) ending on a certified product; no owned site to host them."
    }
   },
@@ -11446,12 +11507,12 @@
      },
      {
       "module": "ops/artefacts.py",
-      "why": "expected_from_db is live: API get api_provenance -> app/main.py:api_provenance",
+      "why": "assert_instrumented is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "expected_from_db",
-       "graduation",
-       "summary",
-       "assert_instrumented"
+       "assert_instrumented",
+       "may_enforce_unproven",
+       "lineage_gaps",
+       "design_inputs"
       ]
      },
      {
@@ -11473,7 +11534,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "4c53 (C-60, verdict invalid; was partial parked on owned_surfaces): video.plan/record have no runtime caller; module plans and ops/artefacts staleness never happen\n\nRepair wave growth 2026-09-27 (integrated by the lead): video.plan per flagship (>=20 maker hours) with troubleshooting seeded from themes; when release_hash moves every module is re-planned as stale. Recording/hosting needs a surface."
    }
   },
@@ -11498,12 +11559,12 @@
     "runtime_consumers": [
      {
       "module": "growth/creators.py",
-      "why": "roster is live: API get api_creators -> app/main.py:api_creators",
+      "why": "check_brief is live: API post api_tester_agreement -> app/main.py:api_tester_agreement -> quality/tester_programme.py:record_agreement",
       "live": [
-       "roster",
        "check_brief",
        "_says_what_it_is",
-       "portfolio"
+       "portfolio",
+       "Relationship.measured"
       ]
      }
     ]
@@ -11532,12 +11593,12 @@
     "runtime_consumers": [
      {
       "module": "growth/creators.py",
-      "why": "roster is live: API get api_creators -> app/main.py:api_creators",
+      "why": "check_brief is live: API post api_tester_agreement -> app/main.py:api_tester_agreement -> quality/tester_programme.py:record_agreement",
       "live": [
-       "roster",
        "check_brief",
        "_says_what_it_is",
-       "portfolio"
+       "portfolio",
+       "Relationship.measured"
       ]
      }
     ]
@@ -11549,7 +11610,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "s partial parked on tester_roster): no tester exists, so the park is plausible, but no route or handler invokes the graduation check\n\nRepair wave growth 2026-09-27 (integrated by the lead): may_graduate runs daily per tester on PhysicalTest reliability and CreatorProfile advocate consent; a cleared tester becomes one zero-cost OwnerAction creators.graduate:<ref> (not duplicated). No tester exists."
    }
   },
@@ -11615,7 +11676,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on owned_surfaces): tools.check_flow/frequency have zero callers; parking plausible, but opening the gate enables nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): tools.check_flow for every FLOW and tools.frequency cap over CASL-consenting customers run daily; sends=0 with the reason. No sending capability."
    }
   },
@@ -11657,7 +11718,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "e; no lifetime-contribution metric wired\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on customers): repeat_block runs daily: repeat.windows (30/60/90/180) per first_product/first_category/first_season cohort from Order rows, lifetime contribution per buyer per cohort, repeat.recommend next projects; cohort lifetime contribution also feeds referral.check. UNMEASURED with no rows."
    }
   },
@@ -11699,7 +11760,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ever read answers; check_cadence (answerable today, per the note) has zero callers, so it is falsely parked\n\nRepair wave growth 2026-09-27 (integrated by the lead): commerce.readings answers cadence today from median gap between certified releases (club.check_cadence), demand/support from Customer/SupportCase when >=20 customers; club.may_launch reads those answers and a yes becomes an owner card."
    }
   },
@@ -11740,7 +11801,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " to whoever writes the listing: a presentation choice costs nothing per order and charging for it is charging for the listing rather than for work, while a construction choice costs a full chain run per order and giving it away is exactly the expensive complexity the requirement says not to give away. Remaining and parked on live_listings: no customisation can be offered until something is listed."
    }
   },
@@ -11794,7 +11855,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on owned_surfaces): tools.check_tool has zero callers; hosting needs a surface, but the built check is unreached\n\nRepair wave growth 2026-09-27 (integrated by the lead): tools.check_tool runs daily for every TOOL against the certified product it leads to; hostable list in the reading; hosting needs a surface."
    }
   },
@@ -11851,7 +11912,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "d customers (acquisition_source in REFERRAL_SOURCES) and their contribution from Order rows, reward spend from referral_reward LedgerEntry rows, gates measurability on runrate.orders_source_live; referral.check runs over referral.DECLARED mechanics against the measured lifetime contribution per buyer (may_run list). Also wired into runtime/commerce_readings.py replacing the hard-coded None inputs."
    }
   },
@@ -11917,7 +11978,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "iews.check_support_copy (the anti-gating guard) has zero callers and support.triage/support.reply drafts are never checked\n\nRepair wave growth 2026-09-27 (integrated by the lead): stars read from Order.reviewed detail; listing-routed themes open review_route:<theme> incidents; reviews.check_support_copy runs on every support.reply draft and a gating phrase empties the answer, escalates and audits."
    }
   },
@@ -11971,7 +12032,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": " independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on customers): parking plausible, but the gallery and proof-lift machinery is unreached\n\nRepair wave growth 2026-09-27 (integrated by the lead): gallery built daily from stored image-provenance rows per product and proof_lift measured across gallery/no-gallery outcome arms; no permissioned customer project exists."
    }
   },
@@ -11996,7 +12057,7 @@
     "runtime_consumers": [
      {
       "module": "commerce/first_hundred.py",
-      "why": "before_the_first_customer is live: API get api_trust -> app/main.py:api_trust -> commerce/trust.py:may_scale_ads -> commerce/search_evidence.py:supremacy_gate -> commerce/search_evidence.py:_collect -> commerce/ranking_readiness.py:shop_wide",
+      "why": "before_the_first_customer is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> commerce/ranking_readiness.py:profile -> commerce/ranking_readiness.py:shop_wide",
       "live": [
        "before_the_first_customer",
        "readiness_from_evidence",
@@ -12045,7 +12106,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "sters alone answers a question about testers.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on customers): invite_gate/may_open have zero callers; parking plausible\n\nRepair wave growth 2026-09-27 (integrated by the lead): interviews.may_open and invite_gate with CASL consent basis run daily over customers/first orders; sent=0."
    }
   },
@@ -12149,7 +12210,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "han reading the phase flag, because a phase is a statement of intent and a listing id is a listing. Re-audited 2026-09-27 (Build 2 closeout): scale/leading.py reports all ten indicators, each measured with its source or UNMEASURED with its reason, and refuses success without orders; /api/leading (tests/test_leading.py). Impressions, CTR and favourites need a live listing (parked on live_listings)."
    }
   },
@@ -12243,7 +12304,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "irement is not met end to end. Runtime path found: growth.experiments -> persist. Gap: expected_value is always None, record_persisted has no caller (no results), and there is no quick/long balance.\n\nCertification repair 2026-09-27: daily growth_conclude -> growth.conclude -> conclude_all: expected value estimated or the experiment killed, record_persisted, quick/long balance. Parked on customers."
    }
   },
@@ -12289,7 +12350,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "roof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only. Gap: Experiments never conclude at runtime, so the causal discipline never applies.\n\nCertification repair 2026-09-27: growth.conclude -> control_present: a result without a control is recorded as association, never causal. Parked on live_listings."
    }
   },
@@ -12318,10 +12379,10 @@
     "runtime_consumers": [
      {
       "module": "seasonal/compression.py",
-      "why": "programme is live: API get api_seasonal_compression -> app/main.py:api_seasonal_compression",
+      "why": "programme is live: handler seasonal.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_sentinel",
       "live": [
        "programme",
-       "lane_states",
+       "preparation_started",
        "mix",
        "arenas"
       ]
@@ -12476,7 +12537,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": ".\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only via /api/growth. Gap: stress_test does not feed the confidence score.\n\nCertification repair 2026-09-27: ops.capacity -> stress_test -> the resilience rung of the confidence probability -> recorded. Parked on customers."
    }
   },
@@ -12560,7 +12621,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "atever is already true.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: scale_readiness has zero callers.\n\nCertification repair 2026-09-27: ops.capacity -> readiness.gate refuses a scale tilt unless the six conditions hold; gate() is exposed for launch and paid media. Parked on customers."
    }
   },
@@ -12698,23 +12759,26 @@
    "id": 277,
    "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
    "section": "Proven-trend seasonal capture & lead-time engine",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/intake.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -12725,6 +12789,16 @@
        "intake_rows",
        "regate_held",
        "board_for"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -12798,12 +12872,12 @@
      },
      {
       "module": "seasonal/remerchandising.py",
-      "why": "plan is live: API get api_seasonal_remerchandising -> app/main.py:api_seasonal_remerchandising",
+      "why": "derived_children is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament",
       "live": [
-       "plan",
-       "capabilities",
-       "candidates",
-       "moves_for"
+       "derived_children",
+       "review",
+       "transformations",
+       "capabilities"
       ]
      }
     ]
@@ -12860,7 +12934,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "d Interior_design through the same sanctioned Wikimedia feed (seasonal/colour.sweep_colour_signals, keys colour:<name>), and colour.forecast reports each colour's direction from sourced CultureObservation rows, labelled a reference-reading proxy, not fashion sales or a forecast (tests/test_w4_b2_build2_ledger.py). Remaining and parked on customers: Brambleloop's own colour performance needs sales."
    }
   },
@@ -12868,23 +12942,26 @@
    "id": 281,
    "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
    "section": "Proven-trend seasonal capture & lead-time engine",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/intake.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -12895,6 +12972,16 @@
        "intake_rows",
        "regate_held",
        "board_for"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -12953,7 +13040,7 @@
     "runtime_consumers": [
      {
       "module": "seasonal/uncertainty.py",
-      "why": "sample_count is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+      "why": "sample_count is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> runtime/release.py:_winner_intake -> creative/intake.py:intake -> creative/intake.py:brief_for -> creative/intake.py:make_time_for",
       "live": [
        "sample_count",
        "interval",
@@ -12998,7 +13085,7 @@
      },
      {
       "module": "seasonal/uncertainty.py",
-      "why": "sample_count is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+      "why": "sample_count is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> runtime/release.py:_winner_intake -> creative/intake.py:intake -> creative/intake.py:brief_for -> creative/intake.py:make_time_for",
       "live": [
        "sample_count",
        "interval",
@@ -13068,12 +13155,12 @@
     "runtime_consumers": [
      {
       "module": "seasonal/calendar.py",
-      "why": "heaviest_launchable_lane is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+      "why": "milestone_evidence is live: handler seasonal.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_sentinel",
       "live": [
-       "heaviest_launchable_lane",
-       "coverage_matrix",
        "milestone_evidence",
-       "collection_calendar"
+       "collection_calendar",
+       "check_half_life",
+       "coverage_matrix"
       ]
      },
      {
@@ -13114,7 +13201,7 @@
     "runtime_consumers": [
      {
       "module": "seasonal/teams.py",
-      "why": "allocate is live: API get api_seasonal_teams -> app/main.py:api_seasonal_teams",
+      "why": "allocate is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run",
       "live": [
        "allocate",
        "check",
@@ -13137,9 +13224,9 @@
       "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:spend_reading",
       "live": [
        "LedgerEntry.net_cad",
-       "OAuthHandshake.__repr__",
        "Job.__repr__",
-       "Agent.may_run"
+       "Agent.may_run",
+       "OAuthHandshake.__repr__"
       ]
      }
     ]
@@ -13168,8 +13255,8 @@
       "live": [
        "depth_plan",
        "department_brief",
-       "implied_lane",
-       "_roles_for"
+       "_roles_for",
+       "implied_lane"
       ]
      }
     ]
@@ -13300,12 +13387,12 @@
      },
      {
       "module": "gates/certificate.py",
-      "why": "certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+      "why": "bind_physical_evidence is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> gates/risk_matrix.py:catalogue_status",
       "live": [
-       "certify",
        "bind_physical_evidence",
-       "ReleaseCertificate.__str__",
-       "ReleaseCertificate.errors"
+       "twin_summary",
+       "primitive_findings",
+       "certify"
       ]
      },
      {
@@ -13340,12 +13427,12 @@
     "runtime_consumers": [
      {
       "module": "seasonal/remerchandising.py",
-      "why": "plan is live: API get api_seasonal_remerchandising -> app/main.py:api_seasonal_remerchandising",
+      "why": "derived_children is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament",
       "live": [
-       "plan",
-       "capabilities",
-       "candidates",
-       "moves_for"
+       "derived_children",
+       "review",
+       "transformations",
+       "capabilities"
       ]
      }
     ]
@@ -13357,7 +13444,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "e, so the inspection runs on eligible candidates and every row says which. The park moved from `image_generation` to `customers` because the gate it named had opened while the requirement still could not be finished -- a park pointing at a satisfied condition puts work in the ready queue that nobody can start, which is the one number the executor exists to get right. /api/seasonal/remerchandising."
    }
   },
@@ -13384,12 +13471,12 @@
     "runtime_consumers": [
      {
       "module": "commerce/intent.py",
-      "why": "strategy is live: API get api_search_intent -> app/main.py:api_search_intent",
+      "why": "arena_language is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run",
       "live": [
-       "strategy",
-       "phrases",
-       "observed_phrases",
-       "arena_language"
+       "arena_language",
+       "listing_language",
+       "map_product",
+       "strategy"
       ]
      },
      {
@@ -13426,12 +13513,12 @@
     "runtime_consumers": [
      {
       "module": "runtime/growth_ops.py",
-      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "why": "handle_ads_adjust is live: handler ads.adjust (cadence in runtime/worker.py:module constant)",
       "live": [
-       "benchmarks_reading",
        "handle_ads_adjust",
-       "record",
-       "handle_growth_steer"
+       "handle_growth_steer",
+       "handle_growth_journey",
+       "handle_growth_distribution"
       ]
      }
     ]
@@ -13443,7 +13530,7 @@
     "opens_when": "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "D 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): no ads handler exists, so the gate opening enables nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust computes each seasonal product's pre-season learning window from calendar milestones (opens at indexing, must be running by promotional ramp) and blocks outside it."
    }
   },
@@ -13468,12 +13555,12 @@
     "runtime_consumers": [
      {
       "module": "runtime/growth_ops.py",
-      "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+      "why": "handle_ads_adjust is live: handler ads.adjust (cadence in runtime/worker.py:module constant)",
       "live": [
-       "benchmarks_reading",
        "handle_ads_adjust",
-       "record",
-       "handle_growth_steer"
+       "handle_growth_steer",
+       "handle_growth_journey",
+       "handle_growth_distribution"
       ]
      }
     ]
@@ -13485,7 +13572,7 @@
     "opens_when": "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ion-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 294; winner scaling of pins/content/cross-sell (non-ad) is also unwired\n\nRepair wave growth 2026-09-27 (integrated by the lead): non-ad scaling runs: winners get a new pin angle and queue priority; a budget increase beyond the 25% band becomes an OwnerAction ads.scale:<slug> with exact economics. Spend itself is the owner's."
    }
   },
@@ -13658,7 +13745,7 @@
     "runtime_consumers": [
      {
       "module": "seasonal/benchmark_matrix.py",
-      "why": "matrix is live: API get api_seasonal_benchmark_matrix -> app/main.py:api_seasonal_benchmark_matrix",
+      "why": "matrix is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> seasonal/cycle.py:run -> creative/prospecting.py:arenas",
       "live": [
        "matrix",
        "benchmark_depth",
@@ -13692,7 +13779,7 @@
     "runtime_consumers": [
      {
       "module": "seasonal/cycle.py",
-      "why": "run is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle",
+      "why": "run is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof",
       "live": [
        "run",
        "Step.to_dict",
@@ -13707,7 +13794,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -13719,7 +13806,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "the link reads FAILED not GATED \u2014 left for the lead (GATED would let complete:true report with no asset). W4-B2VERIFY 2026-10-10: the FAILED-not-GATED gap this note leaves for the lead is closed in code: seasonal/cycle.EXTERNAL_BLOCKS maps model_bearing_render_path to the model_bearing_render gate and the assets link reads BLOCKED (tests/test_seasonal_cycle.py); complete stays false while it does."
    }
   },
@@ -13787,12 +13874,12 @@
      },
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -13844,13 +13931,15 @@
    "id": 304,
    "title": "MJs Listing Photos Must Be Visually Studied",
    "section": "MJsOffTheHookDesigns priority mission",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/vision.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_serp.py"
+     "tests/test_intel.py",
+     "tests/test_serp.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/vision.py",
@@ -13903,11 +13992,11 @@
     "runtime_consumers": [
      {
       "module": "gates/asset_truth.py",
-      "why": "check_shape_claims is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+      "why": "check_assets is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.py:refresh -> visual/launch_imagery.py:assemble -> publish/disclosed_listing.py:build -> publish/disclosed_listing.py:listing_qa",
       "live": [
-       "check_shape_claims",
-       "check_technique_claims",
        "check_assets",
+       "check_shape_claims",
+       "Provenance.is_complete",
        "check_asset"
       ]
      }
@@ -13953,8 +14042,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -13999,8 +14088,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -14011,9 +14100,9 @@
    "title": "Owner Example - Christmas Cardigan Response",
    "section": "MJsOffTheHookDesigns priority mission",
    "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "state": "EXTERNAL-GATED",
+   "closure_state": "EXTERNAL-BLOCKED",
+   "why": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
    "evidence": {
     "tests": [
      "tests/test_cert_design_pipeline.py",
@@ -14024,14 +14113,16 @@
      "intel/response.py",
      "intel/mission_runtime.py",
      "runtime/release.py",
-     "creative/prospecting.py"
+     "creative/prospecting.py",
+     "build2/closure.py"
     ],
     "artefacts": [
      "creative/family.py",
      "intel/response.py",
      "intel/mission_runtime.py",
      "runtime/release.py",
-     "creative/prospecting.py"
+     "creative/prospecting.py",
+     "build2/closure.py"
     ],
     "runtime_consumers": [
      {
@@ -14060,34 +14151,47 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "model_bearing_render",
+    "kind": "EXTERNAL-BLOCKED",
+    "what": "a model-bearing listing frame that clears every floor -- identity, morphology, product truth, photographic realism, asset truth and styling -- which no image provider has yet rendered",
+    "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
+    "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
+    "state": "closed",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
+    "remaining_note": "tion, and the intake judgement it waited on is now resolved from the board's stored bytes (see #277). Per the 15c5d1b audit the next binding gate on this chain is model_bearing_render (Brambleloop-owned model-bearing imagery for a garment), which is external: no provider has rendered a certified structure faithfully enough (closure.EXTERNAL_GATES). Re-parked there, on the gate that actually binds."
    }
   },
   {
    "id": 309,
    "title": "MJs Trend-to-Season Mission Pipeline",
    "section": "MJsOffTheHookDesigns priority mission",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/response.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/response.py",
      "intel/mission_runtime.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "intel/response.py",
      "intel/mission_runtime.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -14106,8 +14210,18 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -14178,8 +14292,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      },
      {
@@ -14264,12 +14378,12 @@
      },
      {
       "module": "swarm/orchestrate.py",
-      "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+      "why": "lane_hold is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once",
       "live": [
-       "work_items",
-       "agent_quality",
-       "orphans",
-       "latest_allocation"
+       "lane_hold",
+       "priority_for",
+       "retry_allowed",
+       "_admission_session"
       ]
      }
     ]
@@ -14326,8 +14440,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -14371,7 +14485,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ted 2026-09-27 (Build 2 closeout): the visual, merchandising and desirability half is built (blind_review + judged grid, #218). The deliverable half -- pattern deliverables, clarity, value and trust against MJs's actual patterns -- needs purchased MJs patterns recorded through teardown intake (observations only, never the text); the purchases and their intake are the owner's (benchmark_purchases)."
    }
   },
@@ -14414,8 +14528,8 @@
       "live": [
        "record_veto",
        "veto_state",
-       "season_lenses",
-       "response_outcomes"
+       "response_outcomes",
+       "pod_capability"
       ]
      }
     ]
@@ -14471,7 +14585,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "ten-pattern benchmark laboratory; owner purchases the patterns"
    }
   },
@@ -14577,7 +14691,7 @@
        "approval_inbox",
        "report",
        "reconciliation",
-       "watchdog"
+       "_final_master_brief"
       ]
      }
     ]
@@ -14589,7 +14703,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
     "remaining_note": "de this closeout's authority), and whether an API+vision traversal satisfies the 'browser/vision' wording needs a recorded decision (B-105 does not decide it).\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   }

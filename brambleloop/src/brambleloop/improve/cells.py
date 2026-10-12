@@ -865,7 +865,7 @@ def retrospective(db, *, days: int = 7) -> dict:
         # when queried does not exist.
         "creative_plateau": capability_plateau(db, cell=CREATIVE_CELL),
         # F-399: whether learning is working, not only how much happened.
-        "learning_health": learning_health(db, improvements),
+        "learning_health": learning_health(db, improvements, since=cutoff),
         "bottleneck": (regressed[0] if regressed else
                        (unmeasured[0] if unmeasured else None)),
         "honest_note": (
@@ -876,7 +876,7 @@ def retrospective(db, *, days: int = 7) -> dict:
     }
 
 
-def learning_health(db, improvements: list) -> dict:
+def learning_health(db, improvements: list, *, since=None) -> dict:
     """F-399: adoption and rejection rates, regressions caught, repeats avoided, cost/adopted.
 
     Rates are over improvements that reached a verdict in the window (promoted, rejected,
@@ -900,10 +900,18 @@ def learning_health(db, improvements: list) -> dict:
     if importlib.util.find_spec("brambleloop.improve.failure_memory") is None:
         avoided, avoided_why = None, "failure memory (F-378) is not built in this tree"
     else:
+        # Windowed like the rest of the retrospective, never a lifetime count: the audit
+        # table is pruned after the retention horizon (ops.retention.KNOWN_READ_ACTIONS),
+        # and a lifetime total over a pruned table silently shrinks.
+        q = select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "improve.repeat_refused")
+        if since is not None:
+            q = q.where(AuditLog.at >= since)
         with db.session() as s:
-            avoided = int(s.scalar(select(func.count()).select_from(AuditLog).where(
-                AuditLog.action == "improve.repeat_refused")) or 0)
-        avoided_why = "audit rows improve.repeat_refused (all time)"
+            avoided = int(s.scalar(q) or 0)
+        avoided_why = ("audit rows improve.repeat_refused in the retrospective window"
+                       if since is not None else
+                       "audit rows improve.repeat_refused (no window given)")
     return {
         "decided": decided,
         "adoption_rate": round(adopted / decided, 4) if decided else None,
