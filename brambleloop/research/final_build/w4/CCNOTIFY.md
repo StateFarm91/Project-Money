@@ -91,3 +91,23 @@ All runs went through `/home/user/bl-runs/testslot.sh` with N=3, on 2026-10-12.
 | test_cert_dashboard | 18/18 |
 
 **Browser:** cc_mock `check.mjs` at 390 px: see below.
+- cc_mock `check.mjs` at 390 px (pre-merge, on `083c9fc`): passes=217, failures=0.
+
+## Checkpoint (2026-10-12, controlled pause)
+
+**Status:** DONE in code. The run on the current head is not finished.
+
+**Rows:** F-897 advanced. The in-app criterion is met. The external channel stays owner-gated (`casl_notification_authority`).
+
+**Tests:**
+
+- All results above are from the pre-merge commit on `083c9fc`.
+- After INTEG2 `16e36ae` was merged in, the rerun of the new test plus the required regression set was stopped by the pause and has not run on this head.
+
+**Known defects:** none.
+
+**Next step:** run the following through the gate on this head:
+
+1. `test_w4_ccnotify`;
+2. the required set: test_vacuity, test_launch, test_cost_governance_wave2, test_search_hero_publish, test_cert_listing_frames, test_v11_autonomy_timeline;
+3. the cc_mock check.
