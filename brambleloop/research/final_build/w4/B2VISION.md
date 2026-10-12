@@ -59,3 +59,14 @@ Counts are appended below.
 **Production evidence still to come after the next approved deploy.** The fixed handlers record
 the first judged grid, the first `concept.judged`, and the first non-UNKNOWN blind review on
 their normal cadences. Until then an UNKNOWN still blocks release; that is unchanged.
+
+## Results (appended 2026-10-12)
+
+- **Final regression:** test_closure 27/27, test_w4_b2gates 12/12, test_w4_b2_build2_ledger ALL
+  OK, test_cert_design_pipeline 17/17, test_w4_b2vision 7/7, test_w4_pipe2_candidates OK. All
+  exit 0, all run through testslot.
+- **Ledger** (`BUILD2_LEDGER.json`, as_of 2026-10-12T04:20Z, production reading 03:35Z): PROVEN
+  224 (was 215), OWNER-GATED 42, DATA-GATED 41, EXTERNAL-GATED 6 (+#308), NOT-APPLICABLE 3,
+  OPEN-DEFECT 4. The 4 remaining OPEN-DEFECT rows:
+  - #61 belongs to the image worker, not this lane.
+  - #15, #44 and #86 are closed on branch `claude/w4-B2MOAT`.
