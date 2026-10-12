@@ -1,3 +1,13 @@
+> **2026-10-12 — W4-B2CLOSE (second pass): #61 closed in the ledger; #195's three production dead letters fixed (branch `claude/w4-B2CLOSE`, NOT deployed).**
+> Read-only GETs of production 7bbbe72: `/api/verify` fails only `no_unexpected_dead_letters_in_24h`, on radar.score KeyError 'slug'
+> (CoverageGap handoff enqueues it slug-less), ops.policy_watch VARCHAR(40) overflow (seed version label 49 chars) and ops.offsite_archive
+> EphemeralStorageRefused (restore-proof scratch SQLite not marked scratch) -- all recurred AFTER the hotfix. Fixed with regression tests
+> that reproduce each production error on clean INTEG2. #61: production runs the independent frame review with vision open
+> (assets.frame_review x4; heroes blocked as chart-like); size-card scale clause made explicit (legible label + drawn scale) and the review
+> records why a frame blocked. Ledger PROVEN 228 / OPEN-DEFECT 0. The 12 implemented_unverified rows are green on INTEG2 and wait only on a
+> release + deploy. Finding for the visual lane: infographic frames stay `unjudged` on photographic realism checks the model cannot answer.
+> Report: `research/final_build/w4/B2CLOSE.md`. Tests: test_w4_b2close2 11/11 + focused suites.
+
 > **2026-10-12 — HOTFIX 7bbbe72 DEPLOYED (owner-approved; Laura briefing truncation fix + Etsy shop binding).**
 > Fresh backup before deploy: `brambleloop_prod_20261012T173525Z.dump` (309,580,486 B, sha256 9eec5294...1774), restore_ok,
 > 130 tables / 65,135 rows, 680M free; the 3 earlier dumps kept. Railway deployment b02e9241; /health build.commit 7bbbe72 known=true.

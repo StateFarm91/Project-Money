@@ -151,6 +151,32 @@ class Snapshot:
                 "version": self.version, "digest": self.digest, "summary": self.summary}
 
 
+def fit_version(version: str) -> str:
+    """A version label that fits `policy_snapshots.version` (VARCHAR(40)).
+
+    The repository seed labels its readings `<read_on>:<basis>`, and the excerpt basis alone
+    is 38 characters, so the label was 49. SQLite never enforces a VARCHAR length; Postgres
+    does, and production 7bbbe72 dead-lettered `ops.policy_watch` on it
+    (StringDataRightTruncation, 2026-10-12T18:01Z) -- one of the dead letters that keeps the
+    #195 off-device window red. A label that fits is stored as given; a longer one keeps its
+    head and a digest of the whole, so two different long labels never collide, and the full
+    label is kept in the snapshot's `detail`.
+    """
+    from ..core.models import PolicySnapshot
+
+    limit = PolicySnapshot.__table__.c.version.type.length or 40
+    if len(version) <= limit:
+        return version
+    tag = hashlib.sha256(version.encode("utf-8")).hexdigest()[:8]
+    return f"{version[:limit - len(tag) - 1]}~{tag}"
+
+
+def version_of(row) -> str:
+    """The snapshot's version label as recorded: the whole label when `fit_version` had to
+    shorten the column value, so a certificate stamp still names the reading's basis."""
+    return str((row.detail or {}).get("version") or row.version)
+
+
 def digest_of(text: str) -> str:
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
@@ -195,11 +221,16 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
                 PolicySnapshot.source == source).order_by(PolicySnapshot.id.desc()))
                 if (r.detail or {}).get("basis") == compare_basis), None)
         changed = previous is not None and previous.digest != new_digest
+        version = version or date.today().isoformat()
+        detail = {"read_by": read_by, "basis": basis, "text_length": len(text)}
+        stored_version = fit_version(version)
+        if stored_version != version:
+            detail["version"] = version  # the whole label, kept where it fits
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),
-            version=version or date.today().isoformat(), digest=new_digest,
+            version=stored_version, digest=new_digest,
             summary=summary, material_change=changed, affects=list(affects),
-            detail={"read_by": read_by, "basis": basis, "text_length": len(text)})
+            detail=detail)
         s.add(row)
         s.flush()
         snapshot_id = row.id
@@ -235,7 +266,7 @@ def unreviewed_changes(db) -> list[dict]:
                 PolicySnapshot.material_change.is_(True)).order_by(PolicySnapshot.id)):
             latest_change[r.source] = r
         return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
-                 "version": r.version, "affects": list(r.affects or POLICY_SOURCES[src][1])}
+                 "version": version_of(r), "affects": list(r.affects or POLICY_SOURCES[src][1])}
                 for src, r in latest_change.items()
                 if not (r.detail or {}).get("reviewed_at")]
 
@@ -347,7 +378,7 @@ def freshness(db, *, today: date | None = None) -> dict:
             continue
         age = (today - date.fromisoformat(row.checked_on)).days
         entry = {"source": source, "checked_on": row.checked_on, "age_days": age,
-                 "version": row.version, "material_change": row.material_change}
+                 "version": version_of(row), "material_change": row.material_change}
         (stale if age > MAX_AGE_DAYS else current).append(entry)
 
     changed = unreviewed_changes(db)

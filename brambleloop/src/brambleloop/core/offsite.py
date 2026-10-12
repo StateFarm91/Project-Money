@@ -468,7 +468,13 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
 
                 restored_path = root / "restored.jsonl"
                 restored_path.write_bytes(gzip.decompress(opened))
-                scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}")
+                # A deliberate throwaway, said at the call site (`db.resolve_url`). Without
+                # it the hosted container's BRAMBLELOOP_REQUIRE_POSTGRES guard -- correctly
+                # refusing ephemeral SQLite for the company's own database -- refused the
+                # restore proof's scratch file too, and production 7bbbe72 dead-lettered
+                # ops.offsite_archive on it (2026-10-12T18:08Z), which keeps the #195
+                # off-device window red. `continuity.restore_proof` already does this.
+                scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}", scratch=True)
                 scratch.create_all()
                 counts = continuity.restore(restored_path, scratch)
 

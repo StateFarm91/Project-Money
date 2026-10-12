@@ -59,6 +59,12 @@ class Frame:
     # Hero only: the fabric render had no internal contrast, so the image is blank whatever
     # the typography drawn over it might suggest to a check that measures the whole frame.
     fabric_is_flat: bool = False
+    # Size card only (#61 "a size card must communicate scale clearly"): what the card drew
+    # to give the size a scale -- "reference" (the piece to scale beside a named reference
+    # object, with its measured label), "circumference" (the measured round, stated) -- or
+    # "" when it drew no measurement at all. Set by `_size_frame`; read by
+    # `check_frame_plan`, which refuses a rendered size card that shows no scale.
+    scale_shown: str = ""
 
     @property
     def is_hero(self) -> bool:
@@ -364,8 +370,11 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
                                      "stuffing and tension set the final shape")],
               y + int(size * 0.06), size)
     claims = Claims(finished_width_cm=twin.width_cm, finished_height_cm=twin.height_cm)
+    scale_shown = ("reference" if (twin.width_cm and twin.height_cm) else
+                   "circumference" if twin.circumference_cm else "")
     return Frame(position=3, role="size", asset_class=AssetClass.INFOGRAPHIC,
-                 caption="finished size to scale", image=img, claims=claims)
+                 caption="finished size to scale", image=img, claims=claims,
+                 scale_shown=scale_shown)
 
 
 def _materials_frame(cir: CIR, twin: TwinModel, difficulty: str) -> Frame:
@@ -655,6 +664,15 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
                     f"frame this empty says nothing at any size")
         for problem in _lq.check_layout(f.image, position=f.position):
             problems.append(f"LISTING_{problem}")
+    # #61: "A size card must communicate scale clearly." Deterministic half: the card the
+    # renderer drew must carry a measurement -- the piece to scale beside a named reference,
+    # or the stated circumference. A rendered card titled "Finished size" with nothing under
+    # it communicates no scale, whatever an independent reviewer later says it looks like.
+    for f in rendered:
+        if f.role == "size" and not f.scale_shown:
+            problems.append(
+                f"LISTING_SIZE_CARD_NO_SCALE: frame {f.position} is a size card that draws no "
+                f"measurement and no scale reference (#61)")
     ratios = {round(f.image.size[0] / f.image.size[1], 2) for f in rendered if f.image.size[1]}
     if len(ratios) > 1:
         problems.append(f"LISTING_FRAME_RATIOS_DISAGREE: {sorted(ratios)}")

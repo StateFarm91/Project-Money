@@ -35,7 +35,8 @@ def _snapshots(db, source: str) -> list:
         rows = list(s.scalars(select(PolicySnapshot).where(PolicySnapshot.source == source)
                               .order_by(PolicySnapshot.id)))
         return [{"id": r.id, "digest": r.digest, "checked_on": r.checked_on,
-                 "version": r.version, "material_change": bool(r.material_change),
+                 "version": str((r.detail or {}).get("version") or r.version),
+                 "material_change": bool(r.material_change),
                  "reviewed_at": (r.detail or {}).get("reviewed_at")} for r in rows]
 
 

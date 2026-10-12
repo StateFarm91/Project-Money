@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-11T18:59:43.767055+00:00",
+ "generated_at": "2026-10-12T19:18:37.658147+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 114,
   "handlers": 132,
   "agents": 29,
-  "follow_on_edges": 57
+  "follow_on_edges": 59
  },
  "departments": [
   {
@@ -386,7 +386,8 @@
      "owner/API route api_mjs_scan",
      "plan.cycle",
      "portfolio.review",
-     "radar.scan"
+     "radar.scan",
+     "runtime/pipeline.py:_score_gap_queue"
     ]
    },
    "cadence": [
@@ -1227,6 +1228,7 @@
      "pricing.position",
      "runtime/pipeline.py:_publish_and_read_back",
      "runtime/release.py:_price_launch0",
+     "runtime/release.py:_reprice_on_plan_drift",
      "runtime/release.py:_targeted_rebuild"
     ]
    },

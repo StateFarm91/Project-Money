@@ -274,6 +274,44 @@ def _scan_date(ctx: JobContext) -> date:
     return date.fromisoformat(raw) if raw else date.today()
 
 
+def _score_gap_queue(ctx: JobContext, inputs: dict) -> dict:
+    """radar.score without a slug: score the open coverage-gap queue (#314) by concept.
+
+    Each open gap (uncovered / concepting) that names a product the radar pool knows is
+    re-scored as that concept, through the ordinary per-slug radar.score -- the same steering,
+    evidence discount, lesson nudge and pre-engineering gate, not a second scorer. A gap the
+    pool has no concept for is reported, never scored as zero.
+    """
+    from ..intel import coverage
+
+    today = _scan_date(ctx)
+    open_gaps = coverage.queue(ctx.db, states=(coverage.UNCOVERED, coverage.CONCEPTING),
+                               limit=200)
+    queued: list[str] = []
+    unmapped: list[int] = []
+    for gap in open_gaps:
+        slug = gap.get("product_slug") or ""
+        seed = _seed_for(slug) if slug else None
+        if seed is None:
+            unmapped.append(gap["id"])
+            continue
+        if slug in queued:
+            continue
+        ctx.enqueue("market_radar", "radar.score", score_concept(seed, today).to_dict(),
+                    idempotency_key=f"score:{slug}:{today.isoformat()}")
+        queued.append(slug)
+    detail = {"source": sorted(k for k in inputs if k != "slug") or ["no inputs"],
+              "open_gaps": len(open_gaps), "queued": queued,
+              "without_a_pool_concept": unmapped[:50], "as_of": today.isoformat()}
+    ctx.audit("radar.gap_queue_scored", detail=detail)
+    return {"slug": None, "score": None, "promoted": False, "queued": queued,
+            "open_gaps": len(open_gaps), "without_a_pool_concept": len(unmapped),
+            "reason": ("coverage-gap queue: each open gap with a pool concept re-scored by "
+                       "slug" if queued else
+                       "no open coverage gap names a concept in the radar pool; nothing to "
+                       "score (UNKNOWN, not zero)")}
+
+
 @handlers.register("radar.score")
 def handle_radar_score(ctx: JobContext) -> dict:
     """Re-score the candidate on its own and promote it only if it still clears the bar.
@@ -283,6 +321,14 @@ def handle_radar_score(ctx: JobContext) -> dict:
     can sit in the queue for days and a seasonal window can close underneath it.
     """
     c = dict(ctx.job.inputs)
+    if not c.get("slug"):
+        # A mission rather than a concept: the Intelligence charter generates radar.score
+        # from its CoverageGap handoff ("scores the coverage gap queue",
+        # autonomy/charters.py), and Laura's follow-on proposals do the same, so the inputs
+        # name a handoff, not a slug. This read `c["slug"]` and production 7bbbe72
+        # dead-lettered two of them (KeyError 'slug', 2026-10-12T18:06Z), one of the dead
+        # letters that keeps the #195 off-device window red.
+        return _score_gap_queue(ctx, c)
     seed = _seed_for(c["slug"])
     if seed is None:
         ctx.audit("radar.unknown_concept", artifact=c.get("slug"))
@@ -2441,7 +2487,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "portfolio.review": ("actions",),
     "pricing.position": ("price_cad",),
     "radar.scan": ("selected",),
-    "radar.score": ("score",),
+    "radar.score": ("score", "queued"),  # W4-B2CLOSE: a gap-queue run (no slug) fans out
     "scale.trajectory": ("constraint_changed",),
     "seasonal.engine": ("breakouts", "takeovers_planned", "fast_lane_admitted",
                         "trend_rows_stamped", "teams_disbanded", "scored_events"),
