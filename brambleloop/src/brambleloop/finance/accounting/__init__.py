@@ -28,6 +28,7 @@ Module map:
 * `handoff`         -- human accountant export (F-916).
 * `dashboard`       -- owner Money provider: summary / drill / next_work (F-914, F-915).
 * `controller`      -- the Accountant agent's cycle (F-901).
+* `activity`        -- last reconciliation, discrepancies, close, tax/threshold alerts (F-682).
 * `guardrails`      -- what this package must never be able to do (F-917).
 * `exceptions`      -- accounting exceptions: opened idempotently, resolved with a note.
 * `schema`          -- table registration and the Database/Session adapter.
