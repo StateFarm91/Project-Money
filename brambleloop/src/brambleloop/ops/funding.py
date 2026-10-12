@@ -78,6 +78,23 @@ def note(db, text: str) -> dict:
     from ..core.models import OwnerAction
 
     provider = provider_in(text)
+    # F-871 (W4-FUNDING): the ask carries its prepared packet -- what the credit buys, the
+    # ceiling the gateway enforces whatever the balance, and the measured run rate -- so the
+    # owner funds a bounded experiment, not an open account. Unreadable stays unsaid, never 0.
+    prepared = ""
+    try:
+        from ..finance.funding_packet import credit_packet
+
+        pk = credit_packet(db, next((n for n, nm in PROVIDERS if nm == provider), "anthropic"))
+        ms = pk["max_spend"]
+        rate = pk["measured_run_rate_cad_per_day"]
+        prepared = (f" Prepared packet (finance.funding_packet, GET /api/funding/packets): "
+                    f"monthly ceiling CA${ms['monthly_ceiling_cad']:.2f}, spent this month "
+                    f"CA${ms['spent_this_month_cad']:.2f}, headroom "
+                    f"CA${ms['headroom_cad']:.2f}; measured run rate "
+                    + (f"CA${rate:.2f}/day." if rate is not None else "unmeasured."))
+    except Exception:  # noqa: BLE001 - the action is raised regardless; the packet is extra
+        prepared = ""
     with db.session() as s:
         open_row = s.scalar(select(OwnerAction).where(
             OwnerAction.requirement_key == REQUIREMENT_KEY,
@@ -92,7 +109,7 @@ def note(db, text: str) -> dict:
             reason=(f"{provider} refused a call because the account balance is spent. This "
                     f"is not the monthly ceiling -- that is a policy this system enforces on "
                     f"itself and it is not breached. It is money in the account, which only "
-                    f"you can add."),
+                    f"you can add." + prepared),
             max_cost_cad=25.0,
             minutes=5,
             consequence_of_delay=(
