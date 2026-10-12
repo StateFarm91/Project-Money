@@ -386,6 +386,69 @@ def credential_health(db, *, provider: str = "etsy",
     return detail
 
 
+def stored_scopes(db, *, provider: str = "etsy") -> tuple[str, ...]:
+    """The scopes Etsy said it granted when the stored credential was obtained.
+
+    A refresh grant carries "the same scope as the token granted by the initial
+    Authorization Code grant" (Etsy), so this is the scope of every token the stored refresh
+    token can mint. Read so a provider built from the store knows its scope rather than
+    treating "unknown" as "none".
+    """
+    with db.session() as s:
+        row = s.get(OAuthCredential, provider)
+        return tuple(x for x in ((row.scopes or "") if row else "").split() if x)
+
+
+# ---------------------------------------------------------------------------
+# The shop the grant belongs to (W4-ETSYSHOPID)
+#
+# A shop id is not a secret -- Etsy prints it in public URLs -- but it is what every shop
+# path in the client is built from, so it is stored only after it was read from the owner's
+# own grant and its shop name matched the expected shop (integrations.etsy_shop_binding).
+# Kept in `operating_readings` under one fixed period key: a durable, unpruned row, and no
+# schema change. `ETSY_SHOP_ID` in the environment still wins wherever both exist.
+
+SHOP_BINDING_KIND = "etsy.shop_binding"
+SHOP_BINDING_PERIOD = "bound"
+
+
+def save_shop_binding(db, *, shop_id: str, shop_name: str, user_id: str = "",
+                      how: str = "") -> dict:
+    from .models import OperatingReading
+
+    payload = {"shop_id": str(shop_id), "shop_name": str(shop_name),
+               "user_id": str(user_id or ""), "how": how,
+               "resolved_at": utcnow().isoformat()}
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == SHOP_BINDING_KIND,
+            OperatingReading.period_key == SHOP_BINDING_PERIOD))
+        if row is None:
+            s.add(OperatingReading(kind=SHOP_BINDING_KIND, period_key=SHOP_BINDING_PERIOD,
+                                   payload=payload, at=utcnow()))
+        else:
+            row.payload = payload
+            row.at = utcnow()
+    return payload
+
+
+def load_shop_binding(db) -> dict | None:
+    """The stored binding, or None. Raises nothing: an unreadable row is an absent one."""
+    from .models import OperatingReading
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(OperatingReading).where(
+                OperatingReading.kind == SHOP_BINDING_KIND,
+                OperatingReading.period_key == SHOP_BINDING_PERIOD))
+            payload = dict(row.payload or {}) if row is not None else None
+    except Exception:  # noqa: BLE001 - no table yet is "no binding", never a crash
+        return None
+    if not payload or not str(payload.get("shop_id") or "").strip():
+        return None
+    return payload
+
+
 def prune_handshakes(db, *, now: datetime | None = None, dry_run: bool = False,
                      days: int = REPLAY_MEMORY_DAYS) -> dict:
     """Forget spent handshakes once a replay of them is no longer worth distinguishing.
