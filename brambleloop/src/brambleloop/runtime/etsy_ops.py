@@ -64,6 +64,11 @@ LIFECYCLE_READING = "etsy.listing_lifecycle"
 OPENAPI_READING = "etsy.openapi_reverification"
 OPENAPI_DRIFT = "etsy.openapi_drift"
 OPENAPI_CHANGED = "etsy.openapi_document_changed"
+# F-599 (coordinator ruling 2026-10-12): the review of an Etsy API document change is a
+# batched, non-interrupting owner-action card in the existing queue -- `store:` keys batch
+# with the Etsy-account decisions -- carrying the exact action, reason, cost, minutes and
+# consequence CLAUDE.md requires. One open card at a time; a later change restates it.
+OPENAPI_REVIEW_KEY = "store:etsy.openapi_review"
 #: How long one re-verification of the surface classifications stands (F-514).
 OPENAPI_REVERIFY_DAYS = 7
 
@@ -1389,6 +1394,8 @@ def reverify_openapi(db, *, transport=None, now: datetime | None = None,
         # feature described before it has an operation). Not a drift -- the registry still
         # holds -- but a change somebody should read, so it is an incident (P3) naming both
         # fingerprints. It stays open until a reader resolves it.
+        if result["status"] == etsy_surfaces.OPENAPI_DRIFTED or result.get("document_changed"):
+            _queue_openapi_review(s, result, prev_fp)
         if result.get("document_changed") and result["status"] == etsy_surfaces.OPENAPI_CURRENT:
             lifecycle.open_or_restate(
                 s, signature=OPENAPI_CHANGED, severity="P3",
@@ -1399,6 +1406,35 @@ def reverify_openapi(db, *, transport=None, now: datetime | None = None,
                         "fingerprint": result.get("fingerprint"),
                         "version": result.get("version")})
     return result
+
+
+def _queue_openapi_review(s, result: dict, prev_fp) -> None:
+    """F-599: one open, batched owner-action card to review what Etsy changed."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    affected = [a["surface"] for a in result.get("affected") or []]
+    action = ("Review the change in Etsy's published API document and confirm the surface "
+              "registry still describes your shop (or say what to change): open the "
+              "'etsy.openapi' incident, read the listed surfaces, then mark this done.")
+    reason = (f"Etsy's API document {'moved under ' + ', '.join(affected[:6]) if affected else 'changed'} "
+              f"(fingerprint {str(prev_fp)[:12]} -> {str(result.get('fingerprint'))[:12]}, "
+              f"status {result['status']}). New Etsy features and removed capabilities appear "
+              f"here first; software re-verified what it can, a person decides what it means "
+              f"for the shop.")
+    row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == OPENAPI_REVIEW_KEY,
+                                             OwnerAction.done.is_(False)))
+    if row is None:
+        s.add(OwnerAction(requirement_key=OPENAPI_REVIEW_KEY, action=action, reason=reason,
+                          max_cost_cad=0.0, minutes=15,
+                          consequence_of_delay=("the registry may describe an Etsy that no "
+                                                "longer exists; nothing breaks immediately, "
+                                                "but a new or removed feature goes unused or "
+                                                "unnoticed"),
+                          blocks="Etsy surface registry review (not a first-sale blocker)"))
+    else:
+        row.reason = reason
 
 
 @handlers.register("etsy.openapi_reverify")
