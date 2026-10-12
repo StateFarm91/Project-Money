@@ -202,6 +202,15 @@ def compare(description: dict, claim: dict) -> dict:
         problems.append({"check": "size_reference", "claim": "a scale reference",
                          "seen": description.get("object_count"),
                          "why": "a size card that cannot be counted communicates no size"})
+    if claim.get("shows_size_reference") and description.get("text_present") is not True:
+        # #61 "a size card must communicate scale clearly": the scale is the measured label
+        # and the named reference object, both type. A describer that saw no legible text
+        # on a size card saw no scale (W4-B2CLOSE).
+        problems.append({"check": "size_label", "claim": "a measured scale",
+                         "seen": "no legible text" if description.get("text_present") is False
+                         else description.get("text_present"),
+                         "why": "a size card whose measurement cannot be read communicates "
+                                "no scale (#61)"})
     if claim.get("shows_chart_preview") and description.get("chart_or_diagram") is not True:
         problems.append({"check": "chart_preview", "claim": "a chart preview",
                          "seen": description.get("object_shown"),

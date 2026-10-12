@@ -90,6 +90,7 @@ def test_a_coverage_handoff_radar_score_completes_and_fans_out_per_concept():
     assert out["mode"] == "coverage_handoff" and out["promoted"] is False
     assert out["queued"] == ["nordic-forest-stocking"], out
     assert [u["pod"] for u in out["unanswered"]] == ["kitchen_bath"]
+    assert out["without_a_pool_concept"] == 1 and out["score"] is None
     with db.session() as s:
         child = s.scalars(select(Job).where(Job.job_type == "radar.score",
                                             Job.id != job.id)).one()
@@ -97,21 +98,29 @@ def test_a_coverage_handoff_radar_score_completes_and_fans_out_per_concept():
         assert child.inputs["coverage_gaps"] == [gid]
         assert child.idempotency_key.startswith("score:nordic-forest-stocking:")
         assert s.scalars(select(AuditLog).where(
-            AuditLog.action == "radar.coverage_scored")).first() is not None
+            AuditLog.action == "radar.gap_queue_scored")).first() is not None
 
 
-def test_a_closed_gap_and_a_gap_past_max_id_are_not_scored():
+def test_a_closed_gap_is_not_scored_and_a_named_product_wins_over_pod_routing():
+    """The handoff scores the whole open queue (gaps above its max_id included: the queue,
+    not the delta, is what the charter names); a launched gap is closed and skipped; a gap
+    that names its product is answered by that concept, not by everything its pod routes."""
     db = _db()
     _gap(db, "hats", "Hats", state="launched")
     gid = _gap(db, "garments", "Garments")
-    late = _gap(db, "bags", "Bags")
+    _gap(db, "bags", "Bags")
+    with db.session() as s:
+        s.get(CoverageGap, gid).product_slug = "cropped-cardigan"
     JobQueue(db).enqueue("market_radar", "radar.score",
                          {"handoff": {"table": "coverage_gaps", "max_id": gid, "rows": 1}},
                          idempotency_key="m:2")
     job = _run(db, "radar.score")
     assert job.status == JobStatus.DONE, job.last_error
-    assert job.outputs["gaps"] == 1 and late > gid
-    assert set(job.outputs["queued"]) == {"lattice-triangle-shawl", "cropped-cardigan"}
+    assert job.outputs["open_gaps"] == 2
+    queued = set(job.outputs["queued"])
+    assert "cropped-cardigan" in queued and "lattice-triangle-shawl" not in queued
+    assert {"nordic-forest-basket", "market-basket-trio"} <= queued
+    assert not queued & {"cloudline-baby-hat", "alpine-slouch-beanie"}
 
 
 def test_a_concept_already_queued_today_is_not_queued_twice():

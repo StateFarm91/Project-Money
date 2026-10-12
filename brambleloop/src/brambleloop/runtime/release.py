@@ -1529,6 +1529,8 @@ FRAME_REVIEW_ACTION = "assets.frame_review"
 ROLE_CLAIMS: dict[str, dict] = {
     "hero": {"shows_finished_object": True},
     "whats_included": {"shows_text": True},
+    # #61 "a size card must communicate scale clearly": a countable piece AND legible text
+    # (the measured label and the named reference), read by a describer that never sees them.
     "size": {"shows_size_reference": True},
     "materials": {"shows_text": True},
     "pattern_preview": {"shows_text": True},
@@ -1577,7 +1579,13 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
         verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
                                     "why": verdict.get("why"),
                                     "unmade": verdict.get("unmade"),
-                                    "semantic": (got.get("semantic") or {}).get("problems")}
+                                    "semantic": (got.get("semantic") or {}).get("problems"),
+                                    # W4-B2CLOSE: production 7bbbe72 recorded a size card
+                                    # `blocked` with no semantic problem and no way to tell
+                                    # which of the other two reasons blocked it.
+                                    "failed_realism": verdict.get("failed_realism") or [],
+                                    "third_party_marks": verdict.get("third_party_marks")
+                                    or []}
         if frame.role == "hero":
             # F-027 / F-031: identification needs a family to compare against, and the hero
             # must still read as that product at search-grid size. Either missing is

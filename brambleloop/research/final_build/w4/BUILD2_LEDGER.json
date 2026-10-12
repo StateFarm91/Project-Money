@@ -1,14 +1,14 @@
 {
- "as_of": "2026-10-12T09:16:58+00:00",
+ "as_of": "2026-10-12T19:43:10+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 227,
+  "PROVEN": 228,
   "OWNER-GATED": 42,
   "DATA-GATED": 41,
   "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 1
+  "OPEN-DEFECT": 0
  },
  "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
  "rows": [
@@ -2772,25 +2772,28 @@
    "id": 61,
    "title": "Visual Semantic QA",
    "section": "Visual asset production audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module publish/layout_qa.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_listing_frames.py"
+     "tests/test_cert_listing_frames.py",
+     "tests/test_w4_b2close2.py"
     ],
     "tested_modules": [
      "publish/layout_qa.py",
      "publish/eligibility.py",
      "visual/inspect.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "publish/listing_assets.py"
     ],
     "artefacts": [
      "publish/layout_qa.py",
      "publish/eligibility.py",
      "visual/inspect.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "publish/listing_assets.py"
     ],
     "runtime_consumers": [
      {
@@ -9091,7 +9094,7 @@
     "external_evidence": null,
     "state": "closed",
     "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
-    "remaining_note": "brary-only via app/main. Gap: off_device_proof is not wired into launch.readiness, so it is not launch-blocking.\n\nCertification repair 2026-09-27: launch_readiness -> autonomy.launch_item: the off-device proof is a blocking readiness item and reads NOT PROVEN until a full unattended production window of this build has passed. Parked on production_window (deploying Build 2 is the owner's decision)."
+    "remaining_note": "'<read_on>:<basis>', 49 chars), ops.offsite_archive EphemeralStorageRefused (18:08Z: the restore proof's scratch SQLite was not marked scratch). All three fixed with regression tests (tests/test_w4_b2close2.py test_195_*). Still parked on production_window: the proof is a 24 h unattended production window of a build carrying these fixes, read from real rows (autonomy.off_device_proof passed=true)."
    }
   },
   {
@@ -13494,12 +13497,12 @@
      },
      {
       "module": "commerce/search.py",
-      "why": "score_coverage is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
+      "why": "shape_of is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
       "live": [
+       "shape_of",
        "score_coverage",
        "intent_coverage",
-       "structured_duplicates",
-       "search_certificate"
+       "structured_duplicates"
       ]
      }
     ]
