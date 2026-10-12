@@ -270,8 +270,10 @@ def test_failed_or_baseline_less_experiments_cannot_promote():
     worse = cells.propose(db, cell="seo_search", hypothesis=H, expected_effect="x",
                           rollback_ref="w:v1", touches=("weights",), proposed_by="listing")
     assert cells.test_result(db, worse, 4.0) == cells.REJECTED
+    # W4-FAILMEM (F-706): a re-proposal of a measured failure must cite new evidence.
     equal = cells.propose(db, cell="seo_search", hypothesis=H, expected_effect="x",
-                          rollback_ref="w:v1", touches=("weights",), proposed_by="listing")
+                          rollback_ref="w:v1", touches=("weights",), proposed_by="listing",
+                          evidence_ids=("holdout:2",))
     assert cells.test_result(db, equal, 5.0) == cells.REJECTED
     fresh = cells.propose(db, cell="growth", hypothesis=H, expected_effect="x",
                           rollback_ref="w:v1", touches=("weights",), proposed_by="growth")
