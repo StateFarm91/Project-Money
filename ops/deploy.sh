@@ -57,6 +57,16 @@ if ! python3 "$top/ops/deploy_guard.py" check --candidate "$candidate" --repo "$
   echo "deploy.sh: deploy_guard REFUSED; nothing pushed to $branch" >&2
   exit 1
 fi
+# W4-ROLLBACK (F-381): a forward deploy must leave an executable way back. Rehearse the
+# rollback from the candidate to the commit production runs now (built locally, never pushed,
+# checked like a real rollback: the deployed sha must be in the candidate's DEPLOYED_HISTORY).
+if [ -z "$rollback_to" ]; then
+  if ! python3 "$top/ops/deploy_guard.py" rehearse-rollback --candidate "$candidate" \
+        --deployed "$deployed" --repo "$top"; then
+    echo "deploy.sh: no executable rollback from $candidate to $deployed (append it to brambleloop/release/DEPLOYED_HISTORY.json); nothing pushed to $branch" >&2
+    exit 1
+  fi
+fi
 if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "deploy.sh: ALLOW $candidate (dry run; nothing pushed)"
   exit 0
