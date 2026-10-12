@@ -1818,3 +1818,35 @@ real transactions or post-launch operating history, recorded only when the row's
 so, quoted. Acceptance criteria are unchanged. Store opening waits on A and B; C rows are reported to the owner
 with their quoted criteria. Execution: six concurrent workers with per-domain queues; local test execution is
 rationed through a shared slot gate so a running release suite stays valid (owner-approved 2026-10-12).
+
+## D-W4-PL-1 (2026-10-12, DRAFT — pending owner acknowledgement) — Private Laura: build the supported register; explicit content out of scope
+
+**Status: drafted by W4-PRIVLAURA; pending owner acknowledgement (OA-PL-2). Nothing is enabled by this entry.**
+Source: spec/07 Ruling 2 (owner correction + clarification 2026-10-06, integrator note a); D-FB-15; D-FB-16 item 11;
+D-FB-18 item 6; trace `research/final_build/w4/PRIVATE_LAURA_TRACE.md` (PL-1..PL-14, G-1..G-14).
+1. The gate is split (G-14). The **supported** private register is built: the same Laura, in the authenticated
+   owner-private context only, warm, affectionate, romantic, teasing, playful, flirtatious and emotionally present
+   with her spouse (`gateway/laura_register.py`, pinned prompt `LAURA_PRIVATE_REPLY` = `laura.private_reply@1`).
+2. **Sexually explicit content and erotic roleplay are out of scope** under the provider's usage policy (the
+   Anthropic Usage Policy, "Do Not Generate Sexually Explicit Content"), which spec/07 makes the outer limit. They
+   are not built and not bypassed. An explicit request is redirected affectionately, in character, without a
+   lecture.
+3. Laura is an AI and never claims to be human; she never invents shared physical experiences or marriage history,
+   never asserts human Laura's consent, and makes no business, spend or publish decision in this context (she
+   points to Talk to Laura).
+4. Enablement is owner-only and defaults OFF: `BRAMBLELOOP_PRIVATE_MEMORY_KEY` (OA-PL-1), this acknowledgement
+   (OA-PL-2), the owner's attestation of human Laura's consent (OA-PL-3), then `BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1`
+   and a spend authorisation `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD` (default CA$0 = refused pre-call, audited
+   without content; OA-PL-4). Laura's CA$0.50/day agent permission and the monthly ceiling still bind; no ceiling
+   or model-selection policy is changed.
+5. Completion: tracked as `LAURA-PRIVATE-REGISTER` (board/prelaunch generators, criterion PL-11, verifiability
+   A + B). It is NOT complete until the class-B production soak passes (owner turn → reply → persistence across a
+   redeploy; evidence as row counts and status codes only). The voice delivery stays GATED on LAURA-VOICE-P2.
+
+## D-W4-PL-2 (2026-10-12) — UNRESOLVED: owner-requested expanded private register
+
+**UNRESOLVED:** the owner requested an expanded register (an owner-set style preference, and wider wording within
+the Anthropic usage policy). The edit was blocked by the Claude Code permission system on 2026-10-12. The owner
+chose not to bypass it. The existing supported register (`laura.private_reply@1`, D-W4-PL-1) is preserved
+unchanged. The provider stays Anthropic, and model-selection policy is unchanged. This is an open decision, not a
+defect.

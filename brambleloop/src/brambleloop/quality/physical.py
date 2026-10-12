@@ -241,6 +241,10 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
     followed. A sample that fails still gets stored, because a disagreement is the most
     valuable thing a sample can produce.
     """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((assessment, content_hash, evidence_class), context="product_truth")
     from ..core.models import PhysicalTest
 
     measured = assessment.to_dict()

@@ -52,6 +52,7 @@ PURPOSES: dict[str, tuple[str, str | None]] = {
     "swarm.lane": (DEVELOPMENT, None),
     "laura.business_phrase": (SUPPORT, None),
     "laura.ceo_briefing": (SUPPORT, None),
+    "laura.private_reply": (SUPPORT, None),
 }
 _KIND_CLASS = {"ads": ADS, "paid_media": ADS, "support": SUPPORT}
 

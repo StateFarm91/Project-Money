@@ -164,7 +164,10 @@ def capabilities() -> dict:
             "invariants": ["one Laura: identity, memory, authority and history are the same "
                            "in every mode (talk.converse is the only conversation path)",
                            "no paid provider is called without owner spend authority",
-                           "private register stays GATED in every mode"]}
+                           "private register: TEXT only, only in the owner-private context and only when the "
+                           "owner enables it (gateway.laura_register.enablement); voice and "
+                           "live delivery of it stay GATED (LAURA-VOICE-P2); never on a "
+                           "business, public or customer surface"]}
 
 
 def negotiate(requested: list[str] | None) -> dict:

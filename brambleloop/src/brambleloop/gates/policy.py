@@ -132,6 +132,10 @@ class ListingDraft:
 
 
 def check_text(text: str, where: str) -> list[Finding]:
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((text, where), context="legal")
     out: list[Finding] = []
     low = text.lower()
 

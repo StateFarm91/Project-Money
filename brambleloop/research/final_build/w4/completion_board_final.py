@@ -77,6 +77,11 @@ ROOT = {
                           "engineering: deploy successor + 24h unattended window"),
     "hosted_operating_history": ("release_not_deployed", "blocked_engineering",
                                  "engineering: deployed release + hosted history"),
+    # Tracked requirement outside the FM/Build 2 ledgers (PRIVATE_LAURA_TRACE G-12).
+    "laura_private_register": ("private_laura_owner_gates", "blocked_owner",
+                               "owner: OA-PL-1..4 (private key, D-W4-PL-1 acknowledgement, "
+                               "human Laura's consent, spend authorisation), then the "
+                               "class-B production soak"),
     "model_bearing_render": ("image_provider_capability", "blocked_external",
                              "external: image provider capability"),
     "visual_v1_provider_capability": ("image_provider_capability", "blocked_external",
@@ -139,6 +144,7 @@ ROOT_TITLES = {
     "data_accrual": "Data that only accrues with time / seasons",
     "session_environment": "Session environment",
     "gate_open_reverify": "Gate now OPEN in production: unparked, re-verify",
+    "private_laura_owner_gates": "Private Laura register: owner gates, then production soak",
     "engineering_open": "Open engineering work",
     "release_undeployed_code": "Proven only on the integration branch (release + production "
                                "evidence needed)",
@@ -333,8 +339,9 @@ def classify(rows_in, prod, in_prod, changed, branches, owner_by_gate):
                                                      "products (research/final_build/w4/"
                                                      "PRODUCT_FIX.md, CAP-1)"),
                           "max_cost_cad": 0.0, "minutes": 5}
-                rec["owner_action"] = oa or {"id": gate_key, "action": r["gate_detail"][:240],
-                                             "max_cost_cad": None, "minutes": None}
+                rec["owner_action"] = oa or r.get("owner_action") or {
+                    "id": gate_key, "action": r["gate_detail"][:240], "max_cost_cad": None,
+                    "minutes": None}
         elif cap1:
             rec.update(cls="blocked_owner", root="launch0_cap_CAP1",
                        blocked_by="owner: CAP-1 decision", responsible="owner",
@@ -437,6 +444,51 @@ def _rows_fm(commit):
     return rows, m
 
 
+# Required components tracked by no FM / Build 2 row (PRIVATE_LAURA_TRACE §1.1, G-12). The
+# criterion is quoted verbatim from its source; it is not a new acceptance criterion.
+TRACKED_ROWS = (
+    {"id": "LAURA-PRIVATE-REGISTER",
+     "title": "Private Laura: owner-private conversational register (text; voice on "
+              "LAURA-VOICE-P2)",
+     "criterion": ("PL-11 (DECISION_LOG.md D-FB-15; D-FB-16 item 11): \"Private Laura layer: "
+                   "remains a required Final Master component; completion of business "
+                   "memory/Talk-to-Laura does not close it; the private conversation register "
+                   "stays GATED until implementable within execution constraints.\" / \"11. "
+                   "PRIVATE LAURA remains required (PRIV infrastructure accepted); unsupported "
+                   "private behaviour stays OPEN/GATED.\""),
+     "verifiability": ("A", "B"),
+     "modules": ["gateway/laura_register.py", "app/command_center/private_context.py",
+                 "laura/private/store.py"],
+     "gate_key": "laura_private_register", "gate_kind": "owner",
+     "gate_detail": ("code + tests built (W4-PRIVLAURA); enablement is owner-only: "
+                     "BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, human Laura's "
+                     "consent attestation, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and "
+                     "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD; then an approved deploy and the "
+                     "class-B soak (one turn, a reply, persistence across a redeploy)"),
+     "owner_action": {"id": "OA-PL-1..4",
+                      "action": ("PRIVATE_LAURA_TRACE §5 owner actions: OA-PL-1 set "
+                                 "BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge "
+                                 "D-W4-PL-1; OA-PL-3 attest human Laura's consent; OA-PL-4 "
+                                 "authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD and set "
+                                 "BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1"),
+                      "max_cost_cad": None, "minutes": 11},
+     "source_ref": "research/final_build/w4/PRIVATE_LAURA_TRACE.md; spec/07 Ruling 2"},
+)
+
+
+def _rows_tracked():
+    """The tracked rows in the board's row shape: always open until their own evidence (the
+    production soak) exists -- never closed by this board."""
+    return [{"id": t["id"], "source": "tracked", "scope": "required_component",
+             "title": t["title"], "ledger_state": "TRACKED-OPEN", "done_at_deployed": False,
+             "state": "open", "modules": list(t["modules"]), "gate_key": t["gate_key"],
+             "gate_kind": t["gate_kind"], "gate_detail": t["gate_detail"],
+             "remaining": t["gate_detail"], "missing": t["gate_detail"][:240],
+             "criterion": t["criterion"], "verifiability": list(t["verifiability"]),
+             "owner_action": t["owner_action"], "text": json.dumps(t)[:4000]}
+            for t in TRACKED_ROWS]
+
+
 ESTIMATES = {
     "release_not_deployed": ("release cycle + 24h", "suite 4693 s (RELEASE_5dfd1ac run "
                              "20261011T083839Z-21062); record 09:56Z -> deployed worker "
@@ -463,21 +515,28 @@ def main() -> int:
     fm_rows, matrix = _rows_fm(prod["commit"])
     b2 = classify(b2_rows, prod, in_prod, changed, branches, owner_by_gate)
     fm = classify(fm_rows, prod, in_prod, changed, branches, owner_by_gate)
+    tr_in = _rows_tracked()
+    tracked = classify(tr_in, prod, in_prod, changed, branches, owner_by_gate)
+    for rec, src in zip(tracked, tr_in):
+        rec.update(criterion=src["criterion"], verifiability=src["verifiability"])
 
     def counts(rows):
         return {c: sum(1 for x in rows if x["cls"] == c) for c in CLASSES + ("not_applicable",)}
 
     fm_lc = [x for x in fm if x["scope"] == "launch_critical"]
-    unfinished = [x for x in b2 + fm if x["cls"] not in ("verified_complete", "not_applicable")]
+    unfinished = [x for x in b2 + fm + tracked
+                  if x["cls"] not in ("verified_complete", "not_applicable")]
     groups: dict[str, dict] = {}
     for x in unfinished:
         g = groups.setdefault(x["root"], {"root": x["root"],
                                           "title": ROOT_TITLES.get(x["root"], x["root"]),
                                           "rows": 0, "build2": 0, "fm_launch_critical": 0,
-                                          "fm_post_launch": 0, "classes": Counter(),
+                                          "fm_post_launch": 0, "tracked": 0,
+                                          "classes": Counter(),
                                           "owner_actions": {}, "ids": []})
         g["rows"] += 1
         g["build2" if x["source"] == "build2" else
+          "tracked" if x["source"] == "tracked" else
           "fm_launch_critical" if x["scope"] == "launch_critical" else "fm_post_launch"] += 1
         g["classes"][x["cls"]] += 1
         g["ids"].append(f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}")
@@ -529,13 +588,14 @@ def main() -> int:
             "build2": {"total": len(b2), **counts(b2)},
             "final_master_launch_critical": {"total": len(fm_lc), **counts(fm_lc)},
             "final_master_total": {"total": len(fm), **counts(fm)},
+            "tracked_requirements": {"total": len(tracked), **counts(tracked)},
             "ledger_native": {"build2": led["counts"],
                               "final_master_launch_critical":
                                   matrix["summary"]["launch_critical_completion"]}},
         "root_causes": ranked,
         "critical_path": critical,
         "active_worker_branches": branches,
-        "rows": {"build2": b2, "final_master": fm},
+        "rows": {"build2": b2, "final_master": fm, "tracked": tracked},
     }
     OUT_JSON.write_text(json.dumps(board, indent=1, default=str) + "\n")
     card = {"kind": "brambleloop.completion_board_final_card", "schema": 1,
@@ -569,7 +629,9 @@ def _markdown(b):
          "|---|---|---|---|---|---|---|---|---|"]
     for name, c in (("Build 2", h["build2"]),
                     ("Final Master launch-critical", h["final_master_launch_critical"]),
-                    ("Final Master total", h["final_master_total"])):
+                    ("Final Master total", h["final_master_total"]),
+                    ("Tracked requirements", h.get("tracked_requirements") or
+                     {"total": 0, "not_applicable": 0, **{k: 0 for k in CLASSES}})):
         L.append(f"| {name} | {c['total']} | " + " | ".join(str(c[k]) for k in CLASSES)
                  + f" | {c['not_applicable']} |")
     L += ["", f"Ledger-native counts: Build 2 {h['ledger_native']['build2']}; Final Master "
@@ -594,7 +656,7 @@ def _markdown(b):
                  f"rows named {br['fm'] + [f'B2#{x}' for x in br['b2']] or 'none'}")
     L += ["", "## Unfinished launch-critical / Build 2 rows", "",
           "| row | class | blocked by | code | deployed | remaining |", "|---|---|---|---|---|---|"]
-    for x in b["rows"]["build2"] + b["rows"]["final_master"]:
+    for x in b["rows"]["build2"] + b["rows"]["final_master"] + b["rows"].get("tracked", []):
         if x["cls"] in ("verified_complete", "not_applicable") or x["scope"] == "post_launch":
             continue
         rid = f"B2#{x['id']}" if x["source"] == "build2" else x["id"]

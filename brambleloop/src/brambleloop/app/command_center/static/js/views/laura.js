@@ -224,23 +224,36 @@ function voiceBlock(voice, roadmap) {
 }
 
 // Owner-private context: opened only with a fresh step-up; content is fetched by POST and
-// shown only here. Laura's private reply register is GATED -- nothing is generated.
+// shown only here. Laura replies in her private register only when the owner has enabled it
+// (private key + register switch + spend authorisation); otherwise nothing is generated.
+function privateGates(en) {
+  const e = en || {};
+  const yes = (b) => (b ? "on" : "off");
+  return `Key ${yes(e.key_configured)} · register switch ${yes(e.register_switch)} · spend authorised CA$${Number(e.spend_authorised_cad_per_day || 0).toFixed(2)}/day · provider ${yes(e.provider_configured)}.`;
+}
+
 function privateCard(status) {
   const st = status || {};
   const body = h("div", { class: "stack" });
   const show = (v) => {
     clear(body);
     const rows = [...(v.facts || []), ...(v.conversation || [])];
-    body.append(h("p", { class: "muted small" }, `${(v.facts || []).length} note(s) · ${(v.conversation || []).length} message(s). Laura's private replies: ${v.reply_register || "GATED"}.`));
+    const enabled = (v.reply_register || "GATED") === "ENABLED";
+    body.append(h("p", { class: "muted small" }, `${(v.facts || []).length} note(s) · ${(v.conversation || []).length} message(s). Laura's private replies: ${enabled ? "enabled" : "off (gated)"}.`));
     if (rows.length) body.append(h("ul", { class: "rows" }, rows.map((r) => h("li", { class: "row" },
       h("p", { class: "row-title" }, r.key ? `${r.key}: ` : (r.role ? `${r.role}: ` : ""), r.text || ""),
       h("div", { class: "row-actions" }, h("button", { class: "btn", type: "button", onclick: async () => {
         await api.privateForget(r.id); show(await api.privateView()); } }, "Forget"))))));
-    const note = h("input", { type: "text", maxLength: 2000, autocomplete: "off", placeholder: "Write to Laura (stored encrypted; no reply is generated)" });
+    const note = h("input", { type: "text", maxLength: 2000, autocomplete: "off", placeholder: enabled ? "Write to Laura (stored encrypted)" : "Write to Laura (stored encrypted; replies are off)" });
     const send = h("button", { class: "btn btn-primary", type: "button", onclick: async () => {
       const t = note.value.trim(); if (!t) return;
-      try { const out = await api.privateTurn(t); note.value = ""; toast(out.why || "Stored.", "info"); show(await api.privateView()); }
-      catch (e) { toast(e.message, "bad"); } } }, "Store");
+      try {
+        const out = await api.privateTurn(t); note.value = "";
+        const data = (out && out.data) || out || {};
+        if (data.reply_status === "REPLIED") toast("Laura replied.", "info");
+        else toast(data.why || "Stored. No reply.", "info");
+        show(await api.privateView());
+      } catch (e) { toast(e.message, "bad"); } } }, enabled ? "Send" : "Store");
     body.append(h("div", { class: "ask-form" }, note, send),
       h("button", { class: "btn", type: "button", onclick: async () => { await api.privateClose(); clear(body); toast("Private context closed.", "info"); } }, "Close private context"));
   };
@@ -249,12 +262,13 @@ function privateCard(status) {
     const out = await guardedAction({ title: "Open the private context",
       lines: ["Owner-only, encrypted, never shown to customers, the store, departments or Ask Company.",
         "Needs a fresh re-authentication; closes on sign-out or after 30 minutes.",
-        "Laura's private reply register is not implemented (gated)."],
+        st.reply_register === "ENABLED" ? "Laura replies in her private register (never sexually explicit)." : "Laura's private replies are off until you enable them."],
       confirmLabel: "Open", requiresStepUp: true, run: () => api.privateOpen(), success: "Private context open." });
     if (out) { try { show(await api.privateView()); } catch (e) { toast(e.message, "bad"); } }
   });
   return card({ title: "Private", subtitle: st.configured ? "Configured · closed by default" : "Not configured on this server", cls: "laura-private" },
     h("p", { class: "muted small" }, st.reply_why || "Laura's private register: gated."),
+    st.enablement ? h("p", { class: "muted small" }, privateGates(st.enablement)) : null,
     st.configured ? openBtn : h("p", { class: "callout callout-warn" }, "The private store has no key here, so it refuses everything. Nothing else is affected."),
     body);
 }

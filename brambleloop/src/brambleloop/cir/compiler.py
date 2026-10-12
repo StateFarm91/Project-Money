@@ -520,6 +520,12 @@ def check_holds(cir: CIR, rows: list, findings: list[Finding]) -> None:
 
 def compile_cir(cir: CIR) -> CompileResult:
     """Compile and validate a CIR. Never raises on pattern problems -- it reports them."""
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private(tuple(getattr(cir, f, None) for f in (
+        "slug", "title", "version", "designer_notes", "finished_size_note", "colors")),
+        context="product_truth")
     result = CompileResult(cir=cir)
     for comp in cir.components:
         result.rows.extend(compile_component(comp, cir, result.findings))

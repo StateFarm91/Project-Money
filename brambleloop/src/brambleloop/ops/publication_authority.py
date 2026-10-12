@@ -390,6 +390,11 @@ def display(evidence_: dict) -> list[dict]:
 
 def approve(db, *, authorization, slug, version, release, expected_digest, reason):
     """Record a sealed owner grant for exactly the previewed content."""
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((authorization, slug, version, release, expected_digest, reason),
+                   context="publication")
     opsauth.check(authorization)
     if not isinstance(reason, str) or not reason.strip():
         raise ValueError("owner decision reason required")

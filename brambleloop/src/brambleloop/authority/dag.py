@@ -144,6 +144,10 @@ def record_mission(db, *, key: str, department: str, job_type: str, job_id: int,
 def approve(db, key: str, *, approved_by: str, step_up_verified: bool, approval_ref: str = "",
             now: datetime | None = None) -> dict:
     """The owner approves one awaiting item (behind the Command Center step-up)."""
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((key, approved_by, approval_ref), context="authorization")
     from ..agents.registry import DEFAULT_AGENTS, Registry
 
     actor = " ".join((approved_by or "").split()).casefold()

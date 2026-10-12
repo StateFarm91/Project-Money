@@ -100,6 +100,10 @@ def _authority(s, proposal: dict) -> tuple[bool, str]:
 
 
 def check_spend(db, proposal: dict, *, now: datetime | None = None) -> dict:
+    from ...laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private(proposal, context="spend")
     from ...commerce.paid_media import CONSERVATIVE_CAPS
     from ...core import phase as phase_mod
     from . import accounts as A

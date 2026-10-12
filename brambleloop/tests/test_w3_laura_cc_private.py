@@ -2,8 +2,10 @@
 
 * the only way in is `app.command_center.private_context` behind /api/cc/private/*: a live
   owner session, CSRF/nonce, and a FRESH step-up to open; the grant id never reaches the client;
-* values are revealed only in the private POST responses (no-store); Laura's private reply
-  register stays GATED -- an owner message is stored, no reply is generated;
+* values are revealed only in the private POST responses (no-store); Laura replies in her
+  private register ONLY when the owner has enabled it (W4-PRIVLAURA, D-W4-PL-1): with the
+  default switch OFF an owner message is stored and no reply is generated
+  (`test_w4_pl_reply` covers the enabled path);
 * logout / session revoke ends private access; another session cannot use the grant; no key
   configured -> 503 and nothing else is affected;
 * refusals are security events of kind `private_context` carrying the class name only;
@@ -72,14 +74,16 @@ def test_opening_needs_a_fresh_step_up_and_status_is_non_content():
     assert anon.get("/api/cc/private/status").status_code in (401, 403)
 
 
-def test_owner_notes_and_messages_round_trip_and_no_reply_is_generated():
+def test_owner_notes_and_messages_round_trip_and_a_reply_only_when_enabled():
     c, csrf = H.session()
     _open(c, csrf)
     r = H.post(c, csrf, "/api/cc/private/remember", {"key": "PRIV-LABEL-A", "text": S[0]})
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store", r.text
     r = H.post(c, csrf, "/api/cc/private/turn", {"text": S[1]})
     out = r.json()
-    assert r.status_code == 200 and out["reply"] is None and out["reply_status"] == "GATED", out
+    assert r.status_code == 200 and out["reply"] is None, out             # switch OFF: no reply
+    assert out["reply_status"] == "UNAVAILABLE" and out["reason"] == "REGISTER_OFF", out
+    assert c.get("/api/cc/private/status").json()["reply_register"] == "GATED"
     v = H.post(c, csrf, "/api/cc/private/view", {})
     assert v.status_code == 200 and v.headers["cache-control"] == "no-store", (v.status_code,
                                                                                 v.text[:300])

@@ -158,6 +158,10 @@ def _last_hash(session) -> str:
 def post_in(session, entry: dict, lines: list[dict], *, locks: set[str] | None = None
             ) -> AcctJournalEntry:
     """Write one balanced entry inside a session that holds the journal lock."""
+    from ...laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((entry, lines), context="accounting")
     validate(lines)
     existing = session.scalar(select(AcctJournalEntry).where(
         AcctJournalEntry.entry_key == entry["entry_key"]))

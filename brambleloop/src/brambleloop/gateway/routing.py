@@ -218,6 +218,17 @@ TASKS: dict[str, Task] = {
         "laura.ceo_briefing", STANDARD, 1472, 6000, False,
         "select and order optional evidence ids per briefing section (no model text); "
         "code renders every line from the records", stronger_fallback=False),
+    # Laura's private-register reply to her owner (spec/07 Ruling 2; D-W4-PL-1). Standard
+    # tier because the question is conversation in her own voice over supplied private notes
+    # -- judgement about tone, not extraction -- and no stronger fallback: when the model is
+    # down or unaffordable the owner is told the reply is unavailable, never handed a canned
+    # or stronger-tier substitute. Never cacheable: a content-keyed cache would store the
+    # private text in a business table (`gateway.laura_register` calls the provider directly).
+    # Small output budget: a reply, not an essay.
+    "laura.private_reply": Task(
+        "laura.private_reply", STANDARD, 400, 2500, False,
+        "Laura's reply in the owner-private register over the owner's own private notes; "
+        "conversation judgement, never cached, never escalated", stronger_fallback=False),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "

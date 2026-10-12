@@ -425,6 +425,10 @@ def _set_ads_limit(db, body: dict, reason: str) -> dict:
 
 def execute(db, action: str, body: dict, *, actor: str) -> dict:
     """Run one owner action through its existing mechanism. Raises ActionRefused."""
+    from ...laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((action, body, actor), context="security")
     from ...ops import activation_authority as act
     from ...ops import publication_authority as pub
 

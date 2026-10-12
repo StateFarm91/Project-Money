@@ -78,6 +78,10 @@ def evaluate(db, action: dict, *, now: datetime | None = None,
     customer_harm, expected_revenue_cad, hypothesis, success_metric, falsified_if,
     fingerprint, addresses_failure, skip_validation, audit_ref.
     """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private(action, context="authorization")
     now = now or _now()
     violations: list[dict] = []
 
