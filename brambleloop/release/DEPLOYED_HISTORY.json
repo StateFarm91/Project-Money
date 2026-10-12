@@ -6,6 +6,11 @@
       "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
       "observed": "2026-10-06",
       "evidence": "brambleloop/research/final_build/CANDIDATE_3be3096.json matrix.basis.production; research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (production fcb982d schema)"
+    },
+    {
+      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+      "observed": "2026-10-11",
+      "evidence": "owner-approved deploy 2026-10-11 ~14:00Z (Railway deployment 69b50565; same-commit redeploy 7eb3fc08 at 16:25Z); production /health build.commit 0417f3516f30bb7c52926187fc475a0f46536e86 known=true, re-read 2026-10-12"
     }
   ]
 }
