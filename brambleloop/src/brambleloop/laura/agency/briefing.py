@@ -306,11 +306,7 @@ def incident_root(signature, summary, detail) -> str:
     jt = d.get("job_type")
     err = d.get("error") or d.get("error_class") or d.get("last_error")
     if jt and err:
-        # INTEG3 (security review L1 of aa1e76d): the masked signature is part of the key, so
-        # two different incidents that share a job type and an error class (two unrelated
-        # TimeoutErrors in one job) are two records with their own headlines; repeats of one
-        # incident (same signature up to instance parts) still group.
-        return f"job:{jt}|{_err_class(err)}|sig:{_norm_key(signature)}"
+        return f"job:{jt}|{_err_class(err)}"
     return f"sig:{_norm_key(signature)}|msg:{_norm_key(summary)}"
 
 
@@ -352,6 +348,11 @@ def incident_groups(db) -> dict:
     for g in groups.values():
         rs = sorted(g["rows"], key=lambda r: (_aware(r.at) or datetime.min.replace(
             tzinfo=timezone.utc), r.id), reverse=True)
+        # INTEG3 (security review L1 of aa1e76d): a job-type + error-class group can hold
+        # different incidents. Grouping is kept (LAURAFIX's bound depends on it), but the
+        # rendered record says how many distinct signatures it merges, so a second root cause
+        # is never hidden behind the latest row's headline.
+        g["signatures"] = len({_norm_key(r.signature) for r in rs})
         g.update(latest=rs[0], count=len(rs), first_seen=_aware(rs[-1].at),
                  last_seen=_aware(rs[0].at),
                  examples=[{"source": f"incidents:{r.id}", "at": ev._iso(r.at),
@@ -367,7 +368,10 @@ def _add_incidents_grouped(db, p: "_Pack") -> dict:
     got = incident_groups(db)
     for g in got["groups"]:
         n = g["count"]
-        seen = (f" ({n} occurrences, first at {_short_ts(g['first_seen'])}, last at "
+        k = g.get("signatures") or 1
+        seen = (f" ({n} occurrences"
+                + (f" across {k} distinct incident signatures" if k > 1 else "")
+                + f", first at {_short_ts(g['first_seen'])}, last at "
                 f"{_short_ts(g['last_seen'])})" if n > 1 else "")
         p.add(f"open {g['severity']} incident"
               + (" (halts publication)" if g["halts"] else "") + seen

@@ -267,7 +267,7 @@ def test_a_configured_archive_failure_opens_one_incident_instead_of_dead_letteri
 # --- (d) security review follow-ups ------------------------------------------------------
 
 
-def test_l1_different_incidents_sharing_job_type_and_error_class_keep_their_headlines():
+def test_l1_a_group_that_merges_different_incidents_says_so():
     from brambleloop.laura.agency import briefing
 
     db = _db(seed=False)
@@ -280,9 +280,16 @@ def test_l1_different_incidents_sharing_job_type_and_error_class_keep_their_head
                                    "error": "TimeoutError: timed out"}))
     got = briefing.incident_groups(db)
     assert got["raw"] == 3
-    assert sorted(g["count"] for g in got["groups"]) == [1, 2]
-    heads = {str(g["latest"].summary) for g in got["groups"]}
-    assert "render timed out" in heads
+    # LAURAFIX's grouping (job type + error class) is kept -- its 1,000-incident bound relies
+    # on it -- but the group now counts the distinct signatures it merges and says so.
+    [g] = got["groups"]
+    assert g["count"] == 3 and g["signatures"] == 2, g
+    assert {e["summary"] for e in g["examples"]} >= {"render timed out", "etsy read timed out"}
+    pack = briefing._Pack()
+    briefing._add_incidents_grouped(db, pack)
+    assert pack.items, "the mandatory incident record was not rendered"
+    text = " ".join(str(i) for i in pack.items)
+    assert "across 2 distinct incident signatures" in text, text
 
 
 def test_l2_an_unresolved_shop_binding_backs_off_and_a_success_resets_it():
