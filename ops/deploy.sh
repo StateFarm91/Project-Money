@@ -11,6 +11,7 @@
 #   DRY_RUN=1 ops/deploy.sh ...             (check only; never pushes)
 #   REMOTE=origin (default)
 #   VERIFY_DEPLOY=0                          (skip the post-push wait; default 1)
+#   READBACK=0                               (skip the per-feature readback; default 1, exit 5 on fail)
 #   DEPLOY_VERIFY_TIMEOUT=900 DEPLOY_VERIFY_INTERVAL=15   (seconds)
 #
 # RELENG (2026-10-11): after pushing, ops/verify_deploy.py polls production /health until
@@ -74,4 +75,22 @@ if [ "$rc" -ne 0 ]; then
   echo "deploy.sh: pushed $sha but production is NOT running it (verify_deploy exit $rc)" >&2
   exit "$rc"
 fi
-echo "deploy.sh: DEPLOYED $sha"
+# W4-SMOKE (F-144): per-feature production readback. A deploy whose features do not read back
+# is not done: exit 5 names them (the commit stays deployed; fix forward or roll back per
+# ops/ROLLBACK_RUNBOOK.md). READBACK=0 skips it and says so.
+if [ "${READBACK:-1}" = "0" ]; then
+  echo "deploy.sh: DEPLOYED $sha; READBACK=0, features NOT read back" >&2
+  exit 0
+fi
+if [ ! -f "$top/ops/readback.py" ]; then
+  echo "deploy.sh: DEPLOYED $sha; ops/readback.py is absent from this checkout, features NOT read back" >&2
+  echo "deploy.sh: DEPLOYED $sha"
+  exit 0
+fi
+rb=0
+python3 "$top/ops/readback.py" --sha "$sha" || rb=$?
+if [ "$rb" -ne 0 ]; then
+  echo "deploy.sh: DEPLOYED $sha but the production readback did not pass (readback exit $rb)" >&2
+  exit 5
+fi
+echo "deploy.sh: DEPLOYED $sha (readback PASS)"
