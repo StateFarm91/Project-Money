@@ -566,8 +566,22 @@ def frames_with_presentation(db, rec: dict) -> list[dict]:
 
     Copies, never the filed record: the audit row stays what `build` wrote."""
     description = listing_copy(db, slug=rec.get("slug", ""), version=rec.get("version", ""))
-    return [dict(f, presentation_qa=presentation_qa(rec, f, description=description))
-            for f in rec.get("frames") or []]
+    out = [dict(f, presentation_qa=presentation_qa(rec, f, description=description))
+           for f in rec.get("frames") or []]
+    # W4-HEROVISION (F-253): parity HERO is read off a blind description of the hero's exact
+    # bytes (`visual.hero_review`). Attached only when one exists for these bytes.
+    try:
+        from ..visual import hero_review
+
+        for f in out:
+            if f.get("role") == "hero":
+                got = hero_review.latest_for(db, rec.get("slug", ""),
+                                             (f.get("image") or {}).get("sha256", ""))
+                if got:
+                    f["inspection"] = got
+    except Exception:  # noqa: BLE001 - an unreadable review is no review (unjudged)
+        pass
+    return out
 
 
 def usable_set(db, *, slug: str, version: str) -> dict | None:

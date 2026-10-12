@@ -222,9 +222,18 @@ def compare(description: dict, claim: dict) -> dict:
                          "seen": "unreadable",
                          "why": "an unreadable frame communicates nothing whatever it shows"})
 
+    finished = description.get("finished_or_in_progress")
     return {
         "communicates": not problems,
         "problems": problems,
+        # W4-HEROVISION (F-253): the two readings `visual.parity` HERO is defined on, made
+        # here from the blind description. None when nothing was claimed or the answer was
+        # unclear -- never True by default.
+        "finished_or_in_progress_agrees": (
+            None if not claim.get("shows_finished_object") else
+            True if finished == "finished" else
+            False if finished == "in_progress" else None),
+        "identified": identity["identified"],
         "description": description,
         "claim": claim,
         "method": ("the model described the picture without being shown the caption, and "
@@ -475,6 +484,60 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     out["note"] = ("an unmade check is unjudged, never a pass. That was true before anything "
                    "could look at a picture and it stays true now: a call that failed leaves "
                    "the checks unmade rather than leaving them green")
+    return out
+
+
+def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None = None) -> dict:
+    """One blind description of a picture, compared against its claim; no realism judgement.
+
+    For a disclosed deterministic render (D-FB-7/D-FB-9) the photography realism checks do
+    not apply -- the frame says it is not a photograph -- so `inspect_image`'s second call
+    would buy a judgement nobody reads. The description is the half parity HERO and #61 need.
+    Budgeted exactly as `inspect_image`'s calls are.
+    """
+    from ..gateway import anthropic as gw
+
+    provider = provider or gw.provider_for(TASK)
+    out: dict = {"image": image_ref, "described": False, "realism_judged": False,
+                 "model": provider.model, "realism_not_applicable": True}
+    billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+
+    def _call(system, prompt, max_tokens):
+        held = None
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=max_tokens,
+                uncommitted_cad=max(billed["actual"], billed["reserved"]),
+                agent=AGENT, purpose=TASK)
+            billed["reserved"] += budget["estimate_cad"]
+            held = budget["reservation_id"]
+        try:
+            response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+        except BaseException:
+            if db is not None:
+                gw.release_reservation(db, held)
+            raise
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        billed["actual"] += cost
+        billed["tokens_in"] += response.input_tokens
+        billed["tokens_out"] += response.output_tokens
+        if db is not None:
+            gw.release_reservation(db, held, actual_cad=cost)
+        return response
+
+    try:
+        described = _call(DESCRIBE_SYSTEM, describe_prompt(), DESCRIBE_MAX_TOKENS)
+        out["description"] = parse_description(described.text)
+        out["described"] = True
+    except (PermanentError, TransientError, InspectionRefused) as exc:
+        out["description_error"] = str(exc)[:300]
+    if out["described"] and claim:
+        out["semantic"] = compare(out["description"], claim)
+    _bill(db, provider, billed, image_ref)
     return out
 
 

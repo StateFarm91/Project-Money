@@ -211,13 +211,22 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
         described = ((hero.get("inspection") or {}).get("described"))
         description = ((hero.get("inspection") or {}).get("semantic") or {})
         finished = description.get("finished_or_in_progress_agrees")
+        # W4-HEROVISION (F-027/F-253): where the review recorded whether the product was
+        # identified, "understands the finished result" also needs it to be the product sold.
+        identified = description.get("identified", True)
         if described is not True:
             results[HERO] = _verdict(None, "the hero frame was never described")
         elif finished is False:
             results[HERO] = _verdict(
                 False, "the hero frame does not read as a finished object")
-        elif finished is True:
+        elif identified is False:
+            results[HERO] = _verdict(
+                False, "the hero frame does not show the product that is sold")
+        elif finished is True and identified is True:
             results[HERO] = _verdict(True, "the hero frame reads as the finished object")
+        elif finished is True:
+            results[HERO] = _verdict(
+                None, "whether the hero shows the product sold was not established")
         else:
             results[HERO] = _verdict(
                 None, "whether the hero shows a finished object was not established")
