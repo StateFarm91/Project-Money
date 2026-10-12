@@ -82,7 +82,9 @@ def test_the_contract_palettes_clear_the_exposure_floors():
               "snowflake_ornaments")
     assert builds
     for b in builds:
-        for name, hexv in L.cir_for(b).colors.items():
+        colors = L.cir_for(b).colors
+        assert colors, b
+        for name, hexv in colors.items():
             img = _square(2000, K.BACKGROUND, K.hex_rgb(hexv))
             out = T.quality_floors(img)
             assert out["ok"], (b, name, out["problems"])
