@@ -1257,6 +1257,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # certified image set is judged and the completed certificate written back with its
     # evidence -- the stored verdict reaches PASS on the merits or stays PENDING/REFUSED.
     hero_reading = _judge_search_hero(ctx, slug, version)
+    # W4-DISCLOSEDQA (#61): with image_vision open, the frames this listing will upload (the
+    # certified disclosed set + supplements) are described blind and filed bound to their
+    # bytes; closed, nothing is called and publication reads them as unreviewed.
+    try:
+        from ..visual import exported_review
+
+        if exported_review.applies(ctx.db, slug, version):
+            got = exported_review.review(ctx.db, slug, version)
+            ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
+                      detail={k: got.get(k) for k in ("reviewed", "why", "not_clear")})
+    except Exception as exc:  # noqa: BLE001 - an unmade review leaves the frames unreviewed
+        ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
+                  detail={"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]})
     # W4-SEO: the listing's Etsy search package (intents, title, 13 tags, attributes,
     # category, description, price context, seasonality, evidence, certificate, readiness)
     # is assembled from what this handler just stored and persisted as a durable record.
