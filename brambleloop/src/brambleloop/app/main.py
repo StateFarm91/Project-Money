@@ -2577,9 +2577,17 @@ def api_model_identity() -> dict:
     callers anywhere in the codebase, so a correct gate sat unconsulted while the first
     model-bearing listing would have shipped past it.
     """
-    from ..visual import model_registry
+    from ..visual import approval_record, model_registry
 
-    return model_registry.state(db)
+    out = model_registry.state(db)
+    # F-718 (W4-PROVENANCE): the owner's approval of this identity is held by the repository
+    # (visual/approval_record.json) and compared with the database's own freeze row here.
+    try:
+        out = {**out, "approval_record": approval_record.compare(db)}
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never a match
+        out = {**out, "approval_record": {"state": "UNREADABLE",
+                                          "why": type(exc).__name__}}
+    return out
 
 
 @app.get("/api/image-benchmark")
