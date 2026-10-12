@@ -6998,7 +6998,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
     catalogue_pods = frozenset(blind_review.pod_for(slug, title)
                                for slug, title in blind_review.catalogue_slugs())
     result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=fit["units"],
-                            job_id=ctx.job.id, prefer_pods=catalogue_pods)
+                            job_id=ctx.job.id, prefer_pods=catalogue_pods,
+                            should_stop=ctx.should_yield)
     ctx.audit("intel.gallery_analysis", detail={
         "prefer_pods": sorted(catalogue_pods),
         "judged": result["judged"], "attempted": result["attempted"],
@@ -7006,6 +7007,12 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
         "batch_derived_from": fit["binding_ceiling"],
         "batch_units": fit["units"], "stopped_by": result.get("stopped_by", ""),
         "failures": result["failures"][:5]})
+    if result.get("stopped_by") == "preempted":
+        # F-473: what was judged is recorded; the job goes back to the queue (un-counted)
+        # and resumes the backlog once the higher-band work has run.
+        ctx.yield_now(f"gallery analysis yielded after {result['judged']} image(s) to "
+                      f"higher-band work", key="gallery_progress",
+                      state={"judged": result["judged"], "remaining": result["remaining"]})
     return {"ran": True, "judged": result["judged"], "attempted": result["attempted"],
             "remaining": result["remaining"], "cost_cad": result["cost_cad"],
             "batch_units": fit["units"], "binding_ceiling": fit["binding_ceiling"],
