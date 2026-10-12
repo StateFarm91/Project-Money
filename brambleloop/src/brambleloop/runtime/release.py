@@ -973,8 +973,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     techniques = (list(record["techniques"]) if record["techniques"] is not None else
                   (["mosaic"] if colourwork_fabric and "mosaic" in (category + " " + cir.slug)
                    else ["texture"]))
+    shape = search_mod.shape_of(twin)            # F-056: the measured shape, or None
     queries = search_mod.build_query_set(category, motifs, season, techniques,
-                                         difficulty=difficulty)
+                                         difficulty=difficulty, shape=shape,
+                                         sizes=len(i.get("sizes") or []) or 1)
     # #293: the phrases buyers were observed using for this product's facets join the query
     # set, and the ones that fit a tag are spent first -- the search strategy starts from
     # what buyers already type, and stays accurate because the facets are the product's own.
@@ -992,7 +994,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                              read_at=read_at, family="buyer_language")
                          for q in buyer["queries"]
                          # F-008: observed is not the same as true of this product.
-                         if not search_mod.tag_truth(q.phrase, difficulty=difficulty)]
+                         if not search_mod.tag_truth(q.phrase, difficulty=difficulty,
+                                                     shape=shape)]
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
     # F-022: the differentiator build_title placed first, checked by the copy gate below.
@@ -1021,7 +1024,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     must = must[:len(buyer["tags"]) + 2]
     # F-008: an observed or lesson phrase is still a claim; one this pattern cannot support
     # ("easy" on an intermediate pattern, finished-item phrasing) never takes a slot.
-    untrue_must = [m for m in must if search_mod.tag_truth(m, difficulty=difficulty)]
+    untrue_must = [m for m in must
+                   if search_mod.tag_truth(m, difficulty=difficulty, shape=shape)]
     must = [m for m in must if m not in untrue_must]
     tags = search_mod.choose_tags(queries, must_include=must, exclude=structured)
     lesson_slots = [m for m in must if m not in buyer["tags"]]
@@ -1163,7 +1167,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     copy_gate["blocking"] = list(copy_gate["blocking"]) + architecture
     copy_gate["ok"] = not copy_gate["blocking"]
     # F-013: semantically duplicate tags block like lexical ones; intent coverage is read.
-    tag_problems = (search_mod.tags_truth(copy.tags, difficulty=difficulty)
+    tag_problems = (search_mod.tags_truth(copy.tags, difficulty=difficulty, shape=shape)
                     + search_mod.tag_diversity_problems(copy.tags))
     intent_reading = search_mod.intent_coverage(copy.tags, queries)
     attribute_problems = search_mod.attribute_truth(attributes, difficulty=difficulty,
