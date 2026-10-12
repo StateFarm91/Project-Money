@@ -33,9 +33,30 @@ class Stitch:
     height: float
     row_height: float = 0.0
     counts_in_total: bool = True
+    # Cable stitches only: which side of the fabric the held stitches cross on -- "front"
+    # (cable needle held in front, a left-leaning cross) or "back" (held behind, a
+    # right-leaning cross). None means the definition does not say, which is the honest value
+    # for a cable whose written definition names no side, and is never allowed to be read as
+    # either. A non-cable stitch has no crossing at all.
+    crossing: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.crossing not in CROSSINGS + (None,):
+            raise ValueError(f"{self.code}: crossing must be one of {CROSSINGS} or None, "
+                             f"not {self.crossing!r}")
+        if self.crossing is not None and not self.code.startswith(CABLE_PREFIX):
+            raise ValueError(f"{self.code}: only a cable stitch has a crossing side")
+
+    @property
+    def is_cable(self) -> bool:
+        return self.code.startswith(CABLE_PREFIX)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.code
+
+
+CROSSINGS: tuple[str, ...] = ("front", "back")
+CABLE_PREFIX = "cable"
 
 
 # Canonical registry. `height` is in "sc units" and drives row-height geometry.
@@ -59,6 +80,7 @@ UK_TERMS: dict[str, str] = {
     # because "absent from the table" and "identical in both" are different facts and only
     # one of them is safe to print.
     "bob": "bob", "cable2x2": "cable2x2", "cable1x1": "cable1x1",
+    "beg_star_st": "beg star st", "star_st": "star st", "end_star_st": "end star st", "hdc_inc": "htr inc", "hdc3": "3 htr in next st",
 }
 
 
@@ -133,10 +155,36 @@ BOBBLE = _register(Stitch("bob", "bobble", "bobble", consumes=1, produces=1,
 # Instead a crossing is one composite stitch: it consumes four and produces four, the
 # arithmetic the compiler checks stays exact, and which two cross in front is a property of
 # the stitch rather than prose nobody validated.
+#
+# `crossing` is None on both: the written definitions (`publish.abbreviations`) say the held
+# stitches are worked after the next ones but not whether the cable needle is held in front
+# or behind, so the side is unstated rather than assumed. A directional variant sets it.
 CABLE_2X2 = _register(Stitch("cable2x2", "2-over-2 cable crossing", "2-over-2 cable crossing",
-                             consumes=4, produces=4, height=3.0, row_height=2.0))
+                             consumes=4, produces=4, height=3.0, row_height=2.0,
+                             crossing=None))
 CABLE_1X1 = _register(Stitch("cable1x1", "1-over-1 cable crossing", "1-over-1 cable crossing",
-                             consumes=2, produces=2, height=3.0, row_height=2.0))
+                             consumes=2, produces=2, height=3.0, row_height=2.0,
+                             crossing=None))
+
+# The star-stitch family (added 2026-09-26 for commercial benchmark 2, a purchased children's
+# cardigan whose body fabric is star stitch). A star row is worked as a beginning star, a run
+# of stars and an end star; each star closes six loops into one "eye" (a chain), and the return
+# row works two half doubles into every eye. Modelled by what each op consumes from the row
+# below and produces for the row above, which is the only arithmetic the compiler checks:
+#   beg_star  consumes 3 (the sts under the first five loops after the turning chains), makes 1 eye
+#   star      consumes 2 (the eye, leg and base are re-used anchors, then two new sts), makes 1 eye
+#   end_star  consumes 1 (the last st), makes 2 anchors: its eye and its top
+#   hdc_inc   consumes 1 eye, produces 2 (the return row's "2 hdc in each eye")
+# so 42 sts -> beg + 19 stars + end = 21 stars producing 22 anchors -> hdc, 20 hdc_inc, hdc = 42.
+# `height` is the star row's height in sc units (a star row sits between sc and hdc).
+BEG_STAR = _register(Stitch("beg_star_st", "beginning star stitch", "beginning star stitch", consumes=3, produces=1, height=1.5, row_height=1.4))
+STAR = _register(Stitch("star_st", "star stitch", "star stitch", consumes=2, produces=1, height=1.5, row_height=1.4))
+END_STAR = _register(Stitch("end_star_st", "end star stitch", "end star stitch", consumes=1, produces=2, height=1.5, row_height=1.4))
+HDC_INC = _register(Stitch("hdc_inc", "half double crochet increase", "half treble crochet increase", consumes=1, produces=2, height=2.0, row_height=1.5))
+# Three half doubles worked into one anchor: the star-stitch pattern's neck and hood shaping
+# works one hdc into a star's eye and one into its top and two into the next eye -- five
+# stitches from two stars, which the eye-per-star model counts as a 3-into-1 at the edge.
+HDC_INC3 = _register(Stitch("hdc3", "three half double crochet in one stitch", "three half treble crochet in one stitch", consumes=1, produces=3, height=2.0, row_height=1.5))
 
 
 def get(code: str) -> Stitch:
@@ -163,3 +211,126 @@ class UnknownStitch(KeyError):
 
     def __str__(self) -> str:
         return f"unknown stitch {self.code!r}; known: {', '.join(known_codes())}"
+
+
+# ---- per-primitive calibration status (F-074) ----------------------------------------------
+#
+# Every primitive is in exactly one of three states, and the second is not the first:
+#
+#   CALIBRATED   -- a passed physical sample has measured it. Nothing is, today; the state
+#                   exists so that the table cannot be read as "calibrated" by omission. It is
+#                   granted by evidence at certification time (`gates.certificate.certify`'s
+#                   `calibrated_primitives`), never by editing this table.
+#   CONVENTION   -- a basic stitch whose height and yarn behaviour are published craft
+#                   conventions the twin already carries inside its stated tolerance. Its
+#                   figures are estimates, which the documents say, but they are not new.
+#   UNCALIBRATED -- a new stitch or construction primitive: post stitches, bobbles, cable
+#                   crossings, the star family. Its real height and yarn draw decide size and
+#                   yardage claims, and no sample has measured them, so a pattern using one
+#                   is not released for unrestricted use until a physical test of it passes.
+#
+# A code absent from CONVENTION is UNCALIBRATED. Failing closed is the point: a primitive
+# added to the registry tomorrow starts restricted, and someone has to bring evidence -- not
+# an edit -- to lift it.
+CALIBRATED = "calibrated"
+CONVENTION = "convention"
+UNCALIBRATED = "uncalibrated"
+
+CONVENTION_PRIMITIVES: frozenset[str] = frozenset({
+    "ch", "slst", "sc", "hdc", "dc", "tr", "inc", "dec", "dc_inc", "dc_dec", "sk",
+})
+
+
+def calibration_status(code: str) -> str:
+    """CONVENTION for a basic stitch, UNCALIBRATED for anything new. Never CALIBRATED here."""
+    return CONVENTION if code in CONVENTION_PRIMITIVES else UNCALIBRATED
+
+
+def calibration_table() -> dict[str, str]:
+    """Every registered primitive and its status from the table alone (no evidence applied)."""
+    return {code: calibration_status(code) for code in known_codes()}
+
+
+# ---- structural semantics (F-751) ----------------------------------------------------------
+#
+# A texture label is not a stitch. For every stitch whose appearance depends on where its
+# loops come from -- the star family's eyes, legs and bases, a post stitch's post, a cable's
+# crossing order, a cluster's loops in one stitch -- the registry states that structure, and
+# the arithmetic the compiler checks is derived from it rather than asserted beside it:
+# the anchors that are NEW stitches of the row below must equal `consumes`, and what the
+# stitch makes must equal `produces`. The basic stitches (CONVENTION_PRIMITIVES) are worked
+# into the top of the stitch below, through the loop `Op.loop` names, and need nothing more.
+
+ANCHOR_KINDS: tuple[str, ...] = (
+    "st",           # a new stitch of the row below (consumed)
+    "turning_ch",   # a chain of this row's own turning chain (not consumed)
+    "prev_eye",     # the eye (closing chain) of the star just made (not consumed)
+    "prev_leg",     # the leg of the last loop of the star just made (not consumed)
+    "prev_base",    # the stitch the star just made had its last loop in (not consumed)
+)
+PLACEMENTS: tuple[str, ...] = ("top", "post_front", "post_back", "crossed", "cluster",
+                               "star")
+
+
+@dataclass(frozen=True)
+class Anatomy:
+    """Where a stitch's loops are pulled up from, how it closes and what it leaves."""
+
+    placement: str
+    anchors: tuple[str, ...]
+    loops_closed: int = 0          # loops on the hook drawn through at the close (0 = n/a)
+    makes: tuple[str, ...] = ("top",)
+    order: tuple[int, ...] = ()    # crossed stitches: the order the consumed sts are worked
+
+    @property
+    def new_stitches(self) -> int:
+        return sum(1 for a in self.anchors if a == "st")
+
+
+ANATOMY: dict[str, Anatomy] = {
+    "beg_star_st": Anatomy("star", ("turning_ch", "turning_ch", "st", "st", "st"),
+                           loops_closed=6, makes=("eye",)),
+    "star_st": Anatomy("star", ("prev_eye", "prev_leg", "prev_base", "st", "st"),
+                       loops_closed=6, makes=("eye",)),
+    "end_star_st": Anatomy("star", ("prev_eye", "prev_leg", "prev_base", "st"),
+                           loops_closed=5, makes=("eye", "top")),
+    "hdc_inc": Anatomy("top", ("st",), makes=("top", "top")),
+    "hdc3": Anatomy("top", ("st",), makes=("top", "top", "top")),
+    "bob": Anatomy("cluster", ("st",), loops_closed=6, makes=("top",)),
+    "fpdc": Anatomy("post_front", ("st",)),
+    "bpdc": Anatomy("post_back", ("st",)),
+    "cable2x2": Anatomy("crossed", ("st", "st", "st", "st"), makes=("top",) * 4,
+                        order=(3, 4, 1, 2)),
+    "cable1x1": Anatomy("crossed", ("st", "st"), makes=("top",) * 2, order=(2, 1)),
+}
+
+
+def anatomy(code: str) -> Anatomy | None:
+    """The stated structure of `code`; None for a basic stitch worked into the top."""
+    get(code)
+    return ANATOMY.get(code)
+
+
+def structure_problems() -> tuple[str, ...]:
+    """Every registered stitch whose structure is unstated or disagrees with its counts."""
+    out: list[str] = []
+    for code in known_codes():
+        st = get(code)
+        a = ANATOMY.get(code)
+        if a is None:
+            if code not in CONVENTION_PRIMITIVES:
+                out.append(f"{code}: no structural semantics (anchors, placement) stated")
+            continue
+        if a.placement not in PLACEMENTS:
+            out.append(f"{code}: placement {a.placement!r} not in {PLACEMENTS}")
+        bad = [k for k in a.anchors if k not in ANCHOR_KINDS]
+        if bad:
+            out.append(f"{code}: anchors {bad} not in {ANCHOR_KINDS}")
+        if a.new_stitches != st.consumes:
+            out.append(f"{code}: {a.new_stitches} new-stitch anchors but consumes "
+                       f"{st.consumes}")
+        if len(a.makes) != st.produces:
+            out.append(f"{code}: makes {a.makes} but produces {st.produces}")
+        if a.placement == "crossed" and sorted(a.order) != list(range(1, st.consumes + 1)):
+            out.append(f"{code}: crossing order {a.order} is not a permutation of its sts")
+    return tuple(out)

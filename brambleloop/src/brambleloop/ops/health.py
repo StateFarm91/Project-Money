@@ -74,6 +74,18 @@ SIGNALS: dict[str, str] = {
               "ceiling, with what each one is actually at"),
     "disk": ("free space where this system writes, and the temporary directories its own "
              "handlers left behind"),
+    # F-337 / F-338 / F-343 (wave-3 K7): running jobs against their rolling duration
+    # envelope, diagnosed non-destructively, plus the five-state activity reading.
+    # F-655 (W4-SWARMMETRICS): READY work past its band SLA while the pool had idle
+    # capacity -- valuable work untouched because nothing claimed it, not because all
+    # workers were busy.
+    "starved_ready": ("runnable jobs older than their band's READY SLA while the pool had "
+                      "idle capacity"),
+    # F-470 (W4-SWARMCONTROL): memory, load and database connections against the
+    # container's own limits; `swarm.capacity.worker_target` scales down while saturated.
+    "resources": "memory, CPU load and database connections against the container's limits",
+    "job_durations": ("running jobs against 3x their job type's rolling median duration, "
+                      "each over-envelope job diagnosed from records and never restarted"),
 }
 
 # A worker that has not ticked in this long is not alive.
@@ -88,6 +100,17 @@ QUEUE_STALLED_AFTER_S = 60 * 60
 # identical daily results is normal and twelve is not. Chosen so a system producing
 # nothing new across two full cycles of its fastest meaningful work is visible as stalled.
 EVIDENCE_WINDOW_S = 12 * 60 * 60
+
+# Job types whose results are readings of the system itself -- counters, ages, timestamps --
+# and therefore differ on every run whether or not anything was learned. `ops.heartbeat`
+# reports live queue counts and `ops.health` reports this sweep's own readings, so both
+# looked "fresh" every fifteen minutes and kept `evidence_freshness` green on a system that
+# had produced nothing new. They are excluded from the comparison, not from `progress`:
+# they are real completed work, and none of it is evidence about the business.
+# `ops.slo` (v1.1, F-924) evaluates objectives over a moving window, so its result differs
+# on every run for the same reason and is excluded for the same reason.
+SELF_OBSERVING_JOB_TYPES: frozenset[str] = frozenset({"ops.heartbeat", "ops.health",
+                                                      "ops.slo"})
 
 # Completed jobs below this in the window means nothing is being achieved.
 PROGRESS_WINDOW_S = 6 * 60 * 60
@@ -283,17 +306,7 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
         readings.append(Reading("database", DOWN, {"error": str(exc)[:200]},
                                 "the company's memory did not answer"))
 
-    for signal, keys in (("integrations", ("ETSY_API_KEY", "ETSY_SHOP_NAME")),
-                         ("rendered_pages", ("BRAMBLELOOP_BROWSER_URL",)),
-                         ("model_gateway", ("ANTHROPIC_API_KEY",))):
-        present = sorted(k for k in keys if str(env.get(k, "")).strip())
-        readings.append(Reading(
-            signal, HEALTHY if present else UNKNOWN,
-            {"configured": present},
-            "" if present else
-            "not configured, which is a gate rather than a fault: an absent capability is "
-            "not a broken one, and reporting it as down would make the dashboard red for a "
-            "decision nobody has made yet"))
+    readings.extend(capability_readings(db, env))
 
     newest = db.scalar(select(func.max(PatternVersion.created_at))
                        .where(PatternVersion.certified.is_(True)))
@@ -315,7 +328,182 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
 
     readings.append(_disk(runner_state))
 
+    readings.append(_job_durations(db, now))
+
+    readings.append(_starved_ready(db, runner_state, now))
+    readings.append(_resources_reading(db))
+
     return readings
+
+
+def _resources_reading(db) -> "Reading":
+    """F-470: the container's capacity, read from the kernel (swarm.resources)."""
+    try:
+        from ..swarm.resources import read as read_resources
+
+        bind = db if hasattr(db, "engine") else None
+        if bind is None:
+            try:
+                eng = db.get_bind()
+                bind = type("_B", (), {"engine": eng})()
+            except Exception:  # noqa: BLE001
+                bind = None
+        r = read_resources(bind)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("resources", UNKNOWN, {}, f"unreadable: {type(exc).__name__}")
+    state = (UNKNOWN if r["saturated"] is None else DEGRADED if r["saturated"] else HEALTHY)
+    return Reading("resources", state,
+                   {k: r[k] for k in ("memory_share", "cpu_pressure_avg60", "load_per_cpu",
+                                      "rss_bytes",
+                                      "memory_limit_source", "usable_cpus", "cpu_seconds")}
+                   | {"db_connections": r["db_connections"]},
+                   "" if state == HEALTHY else r["why"])
+
+
+def _starved_ready(db, runner_state: dict, now: datetime) -> "Reading":
+    """F-655: READY jobs past their band SLA while capacity sat idle (swarm.metrics)."""
+    try:
+        from ..swarm.metrics import starved_ready
+
+        if hasattr(db, "execute") and not hasattr(db, "engine"):
+            from .slo import _SessionDb
+
+            dbx = _SessionDb(db)
+        else:
+            dbx = db
+        target = runner_state.get("worker_target")
+        r = starved_ready(dbx, worker_target=target if isinstance(target, int) else None,
+                          now=now)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("starved_ready", UNKNOWN, {}, f"unreadable: {type(exc).__name__}")
+    state = (DEGRADED if r["reading"] == "starved" else
+             UNKNOWN if r["reading"] == "UNKNOWN" else HEALTHY)
+    return Reading("starved_ready", state,
+                   {k: r[k] for k in ("starved", "late_ready", "late_by_band",
+                                      "capacity_idle", "running", "worker_target")},
+                   "" if state == HEALTHY else r["why"])
+
+
+def _job_durations(db, now: datetime) -> Reading:
+    """F-337/F-338/F-343: the duration watchdog and the activity state, read from job rows."""
+    from . import job_watch
+
+    try:
+        w = job_watch.watch(db, now=now)
+        act = job_watch.activity(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("job_durations", UNKNOWN, {"error": type(exc).__name__},
+                       "the jobs table could not be read for the duration watchdog")
+    over = w["over_envelope"]
+    evidence = {"running": w["running"], "over_envelope": over,
+                "unassessable": len(w["unassessable"]),
+                "threshold_multiple": w["threshold_multiple"], "activity": act}
+    if over:
+        return Reading("job_durations", DEGRADED, evidence,
+                       f"{len(over)} running job(s) exceed {w['threshold_multiple']}x their "
+                       f"rolling median; each is diagnosed (alive/advancing/completed-but-"
+                       f"unobserved/blocked/duplicated) and none was restarted")
+    return Reading("job_durations", HEALTHY, evidence,
+                   "no running job is past its envelope" if w["running"] else
+                   "no job is running")
+
+
+# F-128 / F-131: a capability signal reads the *probe*, never the variable.
+#
+# These three signals used to report HEALTHY when an environment variable was non-empty. That
+# is a label grading itself: the owner's Anthropic key authenticated on 2026-09-19 and could
+# not serve one request (credit balance too low), an Etsy keystring without its shared secret
+# is refused by v3, and a browser-worker URL is a string that Etsy answers 403 to. The
+# executor's gates stopped trusting variables for exactly these reasons; health reading the
+# variable anyway meant the dashboard said HEALTHY for a capability the executor knew was
+# closed. So each signal now reads the same recorded probe the matching executor gate reads
+# (`build2.executor._model_usable`, `_etsy_usable`, `_rendered_pages_usable`), and a
+# configured-but-unproven or configured-and-failing credential reads UNKNOWN with the probe's
+# own words -- a gate rather than a fault, because an absent capability is not a broken one.
+#
+# Which variables are set is still reported, as `configured`, because it answers "has anybody
+# supplied anything"; it is never what decides the state.
+CAPABILITY_SIGNALS: dict[str, dict] = {
+    "integrations": {
+        "keys": ("ETSY_API_KEY", "ETSY_SHOP_NAME"),
+        "probe": "etsy.probe",
+        "gate": "etsy_api",
+    },
+    "rendered_pages": {
+        "keys": ("BRAMBLELOOP_BROWSER_URL",),
+        "probe": "browser.probe",
+        "gate": "rendered_pages",
+    },
+    "model_gateway": {
+        "keys": ("ANTHROPIC_API_KEY",),
+        "probe": "model.probe",
+        "gate": "model_provider",
+    },
+}
+
+
+class _SessionDb:
+    """Lets a probe reader that expects a `Database` read through the caller's session.
+
+    `read` is handed an open session; the probe readers (`gateway.anthropic.last_probe` and
+    friends) open `db.session()` themselves. Yielding the same session -- without committing
+    or closing it, because it is not ours -- keeps this one transaction and one connection.
+    """
+
+    def __init__(self, session):
+        self._s = session
+
+    def session(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _cm():
+            yield self._s
+        return _cm()
+
+
+def _last_probe(signal: str, dbish) -> dict | None:
+    if signal == "model_gateway":
+        from ..gateway.anthropic import last_probe
+    elif signal == "integrations":
+        from ..intel.etsy_public import last_probe
+    else:
+        from ..intel.browser import last_probe
+    return last_probe(dbish)
+
+
+def capability_readings(db, env: dict[str, str] | None = None) -> list[Reading]:
+    """The three capability signals, each read from its recorded probe."""
+    env = env or {}
+    dbish = db if hasattr(db, "session") else _SessionDb(db)
+    out: list[Reading] = []
+    for signal, spec in CAPABILITY_SIGNALS.items():
+        present = sorted(k for k in spec["keys"] if str(env.get(k, "")).strip())
+        try:
+            probe = _last_probe(signal, dbish)
+        except Exception as exc:  # noqa: BLE001 -- unreadable evidence is not evidence
+            probe = {"ok": False, "reason": f"probe record unreadable: {str(exc)[:120]}"}
+        proven = bool(probe and probe.get("ok"))
+        evidence = {"configured": present, "source": f"latest {spec['probe']} audit row",
+                    "executor_gate": spec["gate"], "probe_ok": proven,
+                    "probe_ever_run": probe is not None}
+        if proven:
+            out.append(Reading(signal, HEALTHY, evidence, ""))
+            continue
+        if probe is None:
+            detail = ("no probe has ever been recorded, so whether it can serve a request is "
+                      "unknown" + (" -- a variable is set, and a variable is a label, not a "
+                                   "capability" if present else ""))
+        else:
+            detail = ("the last recorded probe failed: "
+                      f"{str(probe.get('reason') or probe.get('error') or '')[:160]}")
+            evidence["probe_reason"] = str(probe.get("reason") or probe.get("error") or "")[:160]
+        out.append(Reading(
+            signal, UNKNOWN, evidence,
+            f"not proven usable ({detail}), which is a gate rather than a fault: an absent "
+            f"capability is not a broken one, and reporting it as down would make the "
+            f"dashboard red for a decision nobody has made yet"))
+    return out
 
 
 def _spend(db, now: datetime) -> Reading:
@@ -356,7 +544,7 @@ def _spend(db, now: datetime) -> Reading:
     paused = [limit.scope for limit in limits if limit.paused]
 
     from ..finance.spend_policy import ceiling_cad
-    from ..gateway.routing import COST_KIND
+    from ..gateway.routing import counts_against_monthly_ceiling
 
     month_spend = 0.0
     today_by_agent: dict[str, float] = {}
@@ -364,7 +552,8 @@ def _spend(db, now: datetime) -> Reading:
     for row in db.scalars(_select(CostEntry)):
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
         amount = float(row.amount_cad or 0.0)
-        if row.kind == COST_KIND and (at.year, at.month) == (now.year, now.month):
+        # Same rule as the enforced monthly ceiling (rc1-SPEND B2): image and other spend counts.
+        if counts_against_monthly_ceiling(row.kind) and (at.year, at.month) == (now.year, now.month):
             month_spend += amount
         if at.date() == today:
             today_by_agent[row.agent or ""] = today_by_agent.get(row.agent or "", 0.0) + amount
@@ -497,11 +686,26 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-",
     "model-frame-", "cycle-proof-", "portrait-repair-", "provider-trial-",
     "teardown-proof-", "reader-selftest-",
+    # C-80: the #81 rung render's work directory and the moat's blind hero-frame check; both
+    # are scoped to the call and removed with it, so one left behind is a died call.
+    "owned-rung-", "moat-hero-",
     # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
     # removed with the render, so a leftover one means the render died -- which is exactly
     # the case the disk signal exists to show. A prefix used in `src/` and absent here is
     # invisible to that signal, and a test refuses the combination.
-    "brambleloop-render-")
+    "brambleloop-render-",
+    # v1.1 autonomy proof harness: a TemporaryDirectory scoped to one in-process run.
+    "bl-proof-",
+    # v1.1 accounting runtime proof: a TemporaryDirectory removed when the proof returns.
+    "acct-proof-",
+    # `visual.milestone_d`'s plied curve file, written to check the render's geometry and
+    # removed with the check. The registry test caught this one the day it was written --
+    # the guard working as recorded in the 2026-09-25 wave verification.
+    "brambleloop-d-",
+    # Laura executive runtime proof (`laura.executive.proof`): a TemporaryDirectory scoped to
+    # one proof run. Added by W3-HYG (2026-10-06) -- it was in `src/` and not counted, which
+    # `test_cost_governance_wave2` refuses.
+    "bl-laura-proof-")
 
 
 def disk_facts() -> dict:
@@ -622,7 +826,12 @@ def verdict(readings: list[Reading]) -> dict:
     else:
         state, why = HEALTHY, "work is being completed and no signal is bad"
 
+    # F-343: executing / completed / observer-waiting / blocked / unknown, from job rows.
+    jd = by_signal.get("job_durations")
+    activity = ((jd.evidence or {}).get("activity") if jd is not None else None) or {
+        "state": "unknown", "why": "the job_durations signal was not read"}
     return {"state": state, "why": why, "down": down, "degraded": degraded,
+            "activity": activity,
             "readings": [r.to_dict() for r in readings]}
 
 
@@ -644,13 +853,13 @@ def remediation(db, readings: list[Reading]) -> dict:
     # and every one of them is a publication refused by shadow mode -- the system working.
     # Reporting those as a repair backlog would put a permanent false number on the console,
     # and a number that is always there is a number nobody reads.
-    # `deliberate_refusal`, not `JobQueue.REFUSAL_MARKERS`. They answer different questions
-    # and this is the first one: *is this dead letter a defect somebody has to explain?*
-    # The markers answer the second -- *may this be re-driven?* -- and the two differ on a
-    # real row. A job that stood aside for the build that can run it is not a defect (the
-    # refusal worked) and IS re-drivable (the right build should take it). Reading the
-    # re-drive rule as the defect rule put that row on this console as a repair backlog and
-    # on `/api/verify` as nothing to explain, at the same moment, on 2026-09-24.
+    # `deliberate_refusal` is read from `durable.classify_dead_letter`, the one classifier
+    # `requeue_dead` also uses (C-14). There are still two questions -- *is this a defect
+    # somebody has to explain?* here, *may it be re-driven?* there -- because they differ on
+    # one real row: a job that stood aside for the build that can run it is not a defect
+    # and IS re-drivable. But both answers now come from one function, so a capability
+    # refusal on any job type can no longer be "never re-drive" to one reader and a defect
+    # to this one, which is what the two separate marker lists produced.
     from ..queue.durable import deliberate_refusal
 
     dead = list(db.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
@@ -773,10 +982,15 @@ def _evidence(db, now) -> tuple[set[str], set[str]]:
         select(Job).where(Job.status == JobStatus.DONE)
         .where(Job.finished_at.is_not(None))
         .where(Job.finished_at >= since)
+        # Excluded in SQL as well, so ninety-six sweeps a day cannot fill the row limit
+        # and push the cadences that do carry evidence out of the sample.
+        .where(Job.job_type.not_in(sorted(SELF_OBSERVING_JOB_TYPES)))
         .order_by(desc(Job.finished_at)).limit(400)))
 
     latest: dict[str, list[str]] = {}
     for job in rows:
+        if job.job_type in SELF_OBSERVING_JOB_TYPES:
+            continue
         seen = latest.setdefault(job.job_type, [])
         if len(seen) < 2:
             seen.append(json.dumps(job.outputs or {}, sort_keys=True, default=str))

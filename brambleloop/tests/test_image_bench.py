@@ -7,6 +7,7 @@ a budget, or by scoring a partial rubric and averaging the gaps away.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import sys
 from pathlib import Path
@@ -77,8 +78,11 @@ def test_a_plan_over_the_ceiling_refuses_rather_than_trimming_samples():
 
 def test_every_rubric_line_cites_a_requirement():
     """A rubric line with no requirement behind it is somebody's taste."""
+    _vac_81 = 0
     for dimension in B.RUBRIC + (B.IDENTITY_DIMENSION,):
+        _vac_81 += 1
         assert isinstance(dimension.requirement, int) and dimension.requirement > 0
+    assert _vac_81, "B.RUBRIC + (B.IDENTITY_DIMENSION,) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_judge_is_never_told_which_model_rendered_the_image():

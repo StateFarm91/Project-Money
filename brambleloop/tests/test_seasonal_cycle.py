@@ -408,9 +408,13 @@ def test_our_own_unfinished_work_fails_the_cycle_instead_of_gating_it():
         images.usable = was_usable
 
     step = next(s for s in out["steps"] if s["step"] == "assets")
-    assert step["state"] == cycle.FAILED, step
-    assert step["gated_on"] == ""
-    assert out["complete"] is False, "an unbuilt render path let the cycle report complete"
+    # C-86: the render path is not our unfinished work any more -- no provider produced a
+    # faithful model-bearing render in 23 draws (D-B2C-1), so it is reported BLOCKED on the
+    # external gate closure parks on. What B-611 forbade still holds: it is never a pass.
+    assert step["state"] == cycle.BLOCKED, step
+    assert step["gated_on"] == "model_bearing_render"
+    assert out["blocked"] == {"assets": "model_bearing_render"}
+    assert out["complete"] is False, "an external block let the cycle report complete"
     assert out["weakest_link"] == "assets"
     assert "model_bearing_render_path" not in cycle.EXTERNAL_WAITS
 

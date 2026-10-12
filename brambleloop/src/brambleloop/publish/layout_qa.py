@@ -94,51 +94,54 @@ def _dominant(image) -> tuple[tuple[int, int, int], float]:
     subject that bleeds to the corners would otherwise be classified as the background and
     the frame would read as empty -- which is what the first version of this did.
     """
+    import numpy as np
+
     rgb = image.convert("RGB")
-    counts: dict[tuple[int, int, int], int] = {}
-    for pixel in rgb.getdata():
-        counts[pixel] = counts.get(pixel, 0) + 1
-    colour = max(counts, key=counts.get)
     total = rgb.size[0] * rgb.size[1]
-    return colour, (counts[colour] / total if total else 0.0)
+    # Pack each pixel into one integer and count in C. The pure-Python loop this replaces
+    # was correct and cost ~1 s per frame -- seconds per product on every assets.build and
+    # the bulk of the acceptance gates' wall time (W3-HANG). Ties go to the colour seen first
+    # in scan order, exactly as the dict-insertion-order `max` did.
+    a = np.asarray(rgb, dtype=np.uint32).reshape(-1, 3)
+    packed = (a[:, 0] << 16) | (a[:, 1] << 8) | a[:, 2]
+    values, first, counts = np.unique(packed, return_index=True, return_counts=True)
+    best = counts.max()
+    winner = int(values[counts == best][np.argmin(first[counts == best])])
+    colour = ((winner >> 16) & 0xFF, (winner >> 8) & 0xFF, winner & 0xFF)
+    return colour, float(best) / total
+
+
+def _mask_array(mask):
+    import numpy as np
+
+    return np.asarray(mask) != 0
 
 
 def _ink_mask(image, background: tuple[int, int, int]):
     """A 1-bit image: white where the frame carries content, black where it is background."""
+    import numpy as np
     from PIL import Image
 
     rgb = image.convert("RGB")
-    r, g, b = rgb.split()
-    br, bg, bb = background
-    mask = Image.new("L", rgb.size, 0)
-    pixels = mask.load()
-    data = list(rgb.getdata())
-    w, _ = rgb.size
-    for index, (pr, pg, pb) in enumerate(data):
-        if (abs(pr - br) > INK_THRESHOLD or abs(pg - bg) > INK_THRESHOLD
-                or abs(pb - bb) > INK_THRESHOLD):
-            pixels[index % w, index // w] = 255
-    return mask
+    a = np.asarray(rgb, dtype=np.int16)
+    diff = np.abs(a - np.asarray(background, dtype=np.int16))
+    inked = (diff > INK_THRESHOLD).any(axis=2)
+    return Image.fromarray(np.where(inked, 255, 0).astype(np.uint8))
 
 
 def _share(mask) -> float:
     total = mask.size[0] * mask.size[1]
-    return (sum(1 for v in mask.getdata() if v) / total) if total else 0.0
+    return (int(_mask_array(mask).sum()) / total) if total else 0.0
 
 
 def _edge_ink(mask) -> float:
     """How much of the safe-area band carries content. Badges land here."""
     w, h = mask.size
     band_x, band_y = max(1, int(w * SAFE_MARGIN)), max(1, int(h * SAFE_MARGIN))
-    data = mask.load()
-    inked = 0
-    counted = 0
-    for x in range(w):
-        for y in range(h):
-            if x < band_x or x >= w - band_x or y < band_y or y >= h - band_y:
-                counted += 1
-                if data[x, y]:
-                    inked += 1
+    m = _mask_array(mask)  # shape (h, w)
+    inner = m[band_y:max(band_y, h - band_y), band_x:max(band_x, w - band_x)]
+    counted = w * h - inner.size
+    inked = int(m.sum()) - int(inner.sum())
     return (inked / counted) if counted else 0.0
 
 
@@ -150,11 +153,10 @@ def _tallest_text_band(mask) -> int:
     the font-fallback defect destroyed.
     """
     w, h = mask.size
-    data = mask.load()
+    rows = _mask_array(mask).sum(axis=1) if h else []
     best = run = 0
-    for y in range(h):
-        row = sum(1 for x in range(w) if data[x, y])
-        density = row / w if w else 0.0
+    for row in rows:
+        density = int(row) / w if w else 0.0
         if 0.01 < density < 0.45:
             run += 1
             best = max(best, run)
@@ -166,17 +168,41 @@ def _tallest_text_band(mask) -> int:
 def _crop_survival(mask) -> float:
     """How much of the content survives the square centre crop a mobile grid applies."""
     w, h = mask.size
-    total = sum(1 for v in mask.getdata() if v)
+    m = _mask_array(mask)
+    total = int(m.sum())
     if not total:
         return 0.0
     side = min(w, h)
     left, top = (w - side) // 2, (h - side) // 2
-    cropped = mask.crop((left, top, left + side, top + side))
-    return sum(1 for v in cropped.getdata() if v) / total
+    return int(m[top:top + side, left:left + side].sum()) / total
+
+
+# Content-addressed memo: every measurement below reads the frame through
+# `image.convert("RGB")`, so the report is a pure function of those pixels, the size, the
+# position and `expect_text`. The same certified frame is inspected by assets.build, the
+# listing.seo search hero, launch.plan's listing-set QA and store.publish's gate read; it is
+# measured once per process. `FrameReport` is frozen, so a shared report cannot be altered.
+_INSPECTED: dict[tuple, "FrameReport"] = {}
+_INSPECTED_MAX = 512
 
 
 def inspect(image, *, position: int, expect_text: bool = False) -> FrameReport:
     """Measure one rendered frame, at listing scale and at the size a shopper sees first."""
+    import hashlib
+
+    key = (hashlib.sha256(image.convert("RGB").tobytes()).hexdigest(), image.size,
+           position, bool(expect_text))
+    hit = _INSPECTED.get(key)
+    if hit is not None:
+        return hit
+    report = _inspect(image, position=position, expect_text=expect_text)
+    if len(_INSPECTED) >= _INSPECTED_MAX:
+        _INSPECTED.pop(next(iter(_INSPECTED)), None)
+    _INSPECTED[key] = report
+    return report
+
+
+def _inspect(image, *, position: int, expect_text: bool = False) -> FrameReport:
     background, dominant_share = _dominant(image)
     mask = _ink_mask(image, background)
     ink = _share(mask)
@@ -279,3 +305,71 @@ def report(frames, *, text_positions: tuple[int, ...] = ()) -> dict:
                  "dominant colour rather than assumed from the palette. Every rule here is a "
                  "statement about the picture rather than about the code that drew it (#59)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Bounding boxes (C-69, #59): the rules only the renderer's own boxes can decide.
+#
+# `listing_assets` records every line of type and every pasted graphic as it draws them
+# (`image.info["layout"]`). These rules read those boxes: a line of type outside the safe
+# area is truncated or clipped, type that overlaps a chart or a fabric render is a collision,
+# the lowest line (the footer) overlapping anything above it is a footer overlap, and a line
+# set in a face smaller than the minimum is too small to read at listing scale. An image with
+# no recorded layout is reported, never passed.
+
+MIN_TEXT_PT = 16
+# Overlap below this many square pixels is anti-aliasing touching, not a collision.
+MIN_OVERLAP_PX = 60
+
+
+def _intersection(a, b) -> int:
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    return max(0, w) * max(0, h)
+
+
+def check_layout(image, *, position: int, safe_margin: float = SAFE_MARGIN) -> list[str]:
+    layout = list((getattr(image, "info", None) or {}).get("layout") or [])
+    if not layout:
+        return [f"LAYOUT_UNRECORDED: frame {position} carries no recorded layout, so title "
+                f"truncation, collisions and footer overlap cannot be measured on it"]
+    w, h = image.size
+    m_x, m_y = int(w * safe_margin), int(h * safe_margin)
+    problems: list[str] = []
+    texts = [e for e in layout if e.get("kind") == "text" and str(e.get("text", "")).strip()]
+    graphics = [e for e in layout if e.get("kind") != "text"]
+    for e in texts:
+        x0, y0, x1, y1 = e["box"]
+        if x0 < m_x or y0 < m_y or x1 > w - m_x or y1 > h - m_y:
+            problems.append(
+                f"LAYOUT_TEXT_OUTSIDE_SAFE_AREA: frame {position}: {e['text']!r} spans "
+                f"{e['box']} against a safe area of {m_x}..{w - m_x} x {m_y}..{h - m_y}; a "
+                f"title past the edge is a truncated title")
+        if e.get("pt") is not None and e["pt"] < MIN_TEXT_PT:
+            problems.append(
+                f"LAYOUT_TEXT_TOO_SMALL: frame {position}: {e['text']!r} is set at "
+                f"{e['pt']}pt against a minimum of {MIN_TEXT_PT}")
+        for g in graphics:
+            if _intersection(e["box"], g["box"]) > MIN_OVERLAP_PX:
+                problems.append(
+                    f"LAYOUT_TEXT_GRAPHIC_COLLISION: frame {position}: {e['text']!r} "
+                    f"overlaps the {g['kind']} at {g['box']}")
+    for i, a in enumerate(texts):
+        for b in texts[i + 1:]:
+            if _intersection(a["box"], b["box"]) > MIN_OVERLAP_PX:
+                footer = max((a, b), key=lambda e: e["box"][3])
+                code = ("LAYOUT_FOOTER_OVERLAP" if footer is max(texts, key=lambda e: e["box"][3])
+                        else "LAYOUT_TEXT_COLLISION")
+                problems.append(f"{code}: frame {position}: {a['text']!r} and {b['text']!r} "
+                                f"overlap")
+    return problems
+
+
+def check_listing_frames(frames, *, text_positions: tuple[int, ...] = ()) -> list[str]:
+    """#59 on every listing frame: pixel rules plus the box rules, each frame by position."""
+    problems = check_frames(frames, text_positions=text_positions)
+    for frame in frames:
+        image = getattr(frame, "image", None)
+        if image is not None:
+            problems.extend(check_layout(image, position=getattr(frame, "position", 0)))
+    return problems

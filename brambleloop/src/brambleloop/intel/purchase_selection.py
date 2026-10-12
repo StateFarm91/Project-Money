@@ -425,4 +425,81 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
                                "competitor text in any table (teardown/library.py)"),
         "not_a_purchase": ("this is a list and a cost. Buying is consequential spend and is "
                            "the owner's"),
+        # F-070: what the benchmarks already bought have taught, beside what the next ones
+        # would cost -- so the ceiling is argued with information value, not only price.
+        "post_purchase_information_value": information_value(db),
+    }
+
+
+def information_value(db) -> dict:
+    """F-070: per purchased benchmark, what it cost and what it has taught since.
+
+    Information value is counted, never scored: findings recorded against the benchmark,
+    findings promoted into improvement hypotheses, improvements those promotions created
+    (`Improvement.rollback_ref == "teardown-finding:<id>"`) and how many of them were promoted
+    or reverted, and floors adopted on our own requirements. A benchmark whose price was not
+    recorded has an UNKNOWN cost (None), never CA$0, and no cost-per-finding ratio.
+    """
+    from sqlalchemy import select as _select
+
+    from ..core.models import BenchmarkProduct, Improvement, TeardownFinding
+
+    with db.session() as s:
+        products = list(s.scalars(_select(BenchmarkProduct).order_by(BenchmarkProduct.id)))
+        findings = list(s.scalars(_select(TeardownFinding)))
+        refs = {f"teardown-finding:{f.id}" for f in findings}
+        improvements = (list(s.scalars(_select(Improvement).where(
+            Improvement.rollback_ref.in_(refs)))) if refs else [])
+        rows_out = []
+        by_ref: dict[str, list] = {}
+        for f in findings:
+            by_ref.setdefault(f.benchmark_ref, []).append(f)
+        imp_by_ref = {i.rollback_ref: i for i in improvements}
+        for p in products:
+            mine = by_ref.get(p.ref, [])
+            imps = [imp_by_ref[f"teardown-finding:{f.id}"] for f in mine
+                    if f"teardown-finding:{f.id}" in imp_by_ref]
+            paid = float(p.paid_cad) if p.paid_cad and p.paid_cad > 0 else None
+            promoted = sum(1 for f in mine if f.promoted)
+            floors = sum(1 for f in mine if (f.detail or {}).get("adopted"))
+            improved = sum(1 for i in imps if i.state == "promoted")
+            reverted = sum(1 for i in imps if i.reverted_at is not None)
+            rows_out.append({
+                "ref": p.ref, "title": p.title, "pod": p.pod,
+                "purchased_on": p.purchased_on or None,
+                "paid_cad": paid,
+                "paid_basis": "recorded" if paid is not None else "UNKNOWN",
+                "teardown_state": p.teardown_state,
+                "findings": len(mine),
+                "findings_promoted": promoted,
+                "improvements_created": len(imps),
+                "improvements_promoted": improved,
+                "improvements_reverted": reverted,
+                "floors_adopted": floors,
+                "cad_per_finding": (round(paid / len(mine), 4)
+                                    if paid is not None and mine else None),
+                "cad_per_improvement_promoted": (round(paid / improved, 4)
+                                                 if paid is not None and improved else None),
+                "taught_nothing_yet": (not mine and p.teardown_state not in ("queued", "in_teardown")),
+            })
+    known = [r["paid_cad"] for r in rows_out if r["paid_cad"] is not None]
+    total_findings = sum(r["findings"] for r in rows_out)
+    total_promoted = sum(r["improvements_promoted"] for r in rows_out)
+    return {
+        "purchased": len(rows_out),
+        "benchmarks": rows_out,
+        "paid_cad_known": round(sum(known), 2) if known else None,
+        "paid_unknown_for": [r["ref"] for r in rows_out if r["paid_cad"] is None],
+        "findings": total_findings,
+        "improvements_promoted": total_promoted,
+        "cad_per_finding": (round(sum(known) / total_findings, 4)
+                            if known and total_findings and len(known) == len(rows_out)
+                            else None),
+        "taught_nothing_yet": [r["ref"] for r in rows_out if r["taught_nothing_yet"]],
+        "basis": ("counts from teardown_findings and improvements; a benchmark is valued by "
+                  "what it changed, not by a score. A ratio is shown only where every price "
+                  "is recorded"),
+        "why_empty": ("" if rows_out else
+                      "no benchmark has been purchased: purchasing is the owner's "
+                      "consequential spend, so there is no information value to count yet"),
     }

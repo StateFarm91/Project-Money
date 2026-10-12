@@ -45,10 +45,45 @@ class ArtifactStore:
         self.durable = False
 
     def put(self, key: str, payload: bytes, content_type: str, *,
-            db=None, keep: str = "") -> StoredArtifact:
+            db=None, keep: str = "", artefact_class: str | None = None,
+            lineage=None) -> StoredArtifact:
         """Store the bytes. With `db` and `keep`, also store them where a restart cannot
-        reach them, and say in `keep` why this one is worth a database row."""
+        reach them, and say in `keep` why this one is worth a database row.
+
+        With `artefact_class`, the bytes are a derived artefact the provenance sentinel
+        watches, and the store refuses to write one without its `lineage`. The refusal is
+        here rather than only in the handler because this is the one call every rendered
+        PDF, chart and frame goes through: a handler that forgets lineage cannot get a file
+        on disk to forget it about. The caller still records the row, with the hash this
+        returns, because the store knows the bytes and not what they were made from.
+        """
+        if artefact_class is not None:
+            from ..ops import artefacts as provenance
+
+            if artefact_class not in provenance.ARTEFACT_CLASSES:
+                raise provenance.ProvenanceRefused(
+                    f"{artefact_class!r} is not an artefact class: "
+                    f"{sorted(provenance.ARTEFACT_CLASSES)}")
+            if lineage is None:
+                raise provenance.ProvenanceRefused(
+                    f"refusing to store {key!r} as a {artefact_class} with no lineage. A "
+                    f"file on disk with no record of the job, commit and authority that "
+                    f"made it is exactly the artefact the sentinel can only call unproven")
         digest = hashlib.sha256(payload).hexdigest()
+        if artefact_class is not None:
+            # Certification C-28: absent is not the only way to lack a lineage. The same
+            # validation `record_lineage` applies runs here, before any byte reaches disk,
+            # against the hash of the bytes being stored (a lineage that names a different
+            # file is refused rather than corrected).
+            if isinstance(lineage, provenance.Lineage) and lineage.sha256 and \
+                    lineage.sha256 != digest:
+                raise provenance.ProvenanceRefused(
+                    f"refusing to store {key!r}: its lineage names file "
+                    f"{lineage.sha256[:12]} and these bytes hash to {digest[:12]}")
+            provenance._check_lineage(
+                artefact_class,
+                lineage.for_file(digest) if isinstance(lineage, provenance.Lineage)
+                and not lineage.sha256 else lineage)
         path = self.root / digest[:2] / digest
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():

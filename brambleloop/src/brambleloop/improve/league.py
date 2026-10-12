@@ -56,7 +56,10 @@ from datetime import datetime, timezone
 
 from . import governance
 
-KINDS: tuple[str, ...] = ("prompt", "model", "tool", "policy")
+# `scoring` is a decision policy whose change is a weight or a priority inside an existing
+# tolerance (the job-priority policy, #187): graded by `improve.tiers` as the scoring surface it
+# touches, where `policy` names the gate-tier decision policies (#96).
+KINDS: tuple[str, ...] = ("prompt", "model", "tool", "policy", "scoring")
 
 # The axes a configuration is judged on. All three, always: a league reporting one of them
 # picks the trade nobody agreed to.
@@ -101,10 +104,17 @@ def digest_of(payload: str) -> str:
 
 
 def register(db, *, kind: str, key: str, payload: str, why_changed: str,
-             tests_run: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
+             tests_declared: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
              affected_departments: tuple[str, ...] = (),
-             incumbent: bool = False) -> dict:
-    """Record a configuration version with the reason it exists (#96)."""
+             incumbent: bool = False, tests_run: tuple = ()) -> dict:
+    """Record a configuration version with the reason it exists (#96).
+
+    `tests_declared` is the coverage the registering code names -- the test files that
+    exercise this configuration. It is a claim about what could be run, and it is stored as
+    that. `tests_run` is *never* populated here: a run is something that happened, recorded
+    by `record_test_run` with its run id and the digest it ran against, and registering a
+    version does not run anything (C-82). A caller passing test names as runs is refused.
+    """
     from sqlalchemy import select
 
     from ..core.models import ConfigVersion
@@ -120,6 +130,11 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
         raise LeagueRefused(
             f"{key}: name the departments this touches, or a regression here is discovered "
             f"by whichever one notices first")
+    if tests_run:
+        raise LeagueRefused(
+            f"{key}: `tests_run` is observed evidence and registration observes nothing. Name "
+            f"the coverage as `tests_declared`; a run is recorded by `record_test_run` when "
+            f"it has actually happened, with its run id and source digest (C-82)")
 
     digest = digest_of(payload)
     with db.session() as s:
@@ -136,13 +151,52 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
                 p.incumbent = False
         row = ConfigVersion(
             kind=kind, key=key, version=version, digest=digest,
-            why_changed=why_changed.strip(), tests_run=list(tests_run),
-            cost_per_call_cad=float(cost_per_call_cad),
-            affected_departments=list(affected_departments), incumbent=incumbent)
+            why_changed=why_changed.strip(), tests_declared=[str(t) for t in tests_declared],
+            tests_run=[], cost_per_call_cad=float(cost_per_call_cad),
+            affected_departments=list(affected_departments), incumbent=incumbent,
+            # The payload itself, so a configuration the runtime reads (a scoring policy's
+            # parameters) can be read back from the registry that versions it (#96).
+            detail={"payload": payload})
         s.add(row)
         s.flush()
         return {"id": row.id, "version": version, "unchanged": False,
                 "incumbent": incumbent}
+
+
+def record_test_run(db, config_id: int, *, test: str, run_id: str, source_sha256: str,
+                    passed: bool, recorded_by: str, detail: dict | None = None) -> dict:
+    """Attach an *observed* test run to the configuration version it ran against (C-82).
+
+    The record names the run (`run_id`: the runner's reference for that execution) and the
+    digest of what it ran against, which has to be this version's own digest -- a run of some
+    other payload proves nothing about this one. A failed run is recorded too, and says so.
+    Idempotent on (test, run_id). Nothing else writes `tests_run`.
+    """
+    from ..core.models import ConfigVersion
+
+    who = governance.normalise_actor(recorded_by)
+    if not (test or "").strip() or not (run_id or "").strip() or not who:
+        raise LeagueRefused("a test run names the test, the run and who recorded it")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        if (source_sha256 or "").strip() != (row.digest or ""):
+            raise LeagueRefused(
+                f"run {run_id!r} ran against source {str(source_sha256)[:12]!r}, not version "
+                f"{config_id}'s digest {str(row.digest)[:12]!r}; a run of something else is "
+                f"not evidence about this version")
+        runs = list(row.tests_run or [])
+        if any(r.get("test") == test.strip() and r.get("run_id") == run_id.strip()
+               for r in runs if isinstance(r, dict)):
+            return {"config_id": config_id, "recorded": False, "run_id": run_id.strip(),
+                    "why": "this run is already on the row"}
+        record = {"test": test.strip(), "run_id": run_id.strip(),
+                  "source_sha256": row.digest, "passed": bool(passed), "by": who,
+                  "at": datetime.now(timezone.utc).isoformat(), **(detail or {})}
+        row.tests_run = runs + [record]
+        return {"config_id": config_id, "recorded": True, "run_id": run_id.strip(),
+                "passed": bool(passed), "runs": len(runs) + 1}
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +391,37 @@ def promote(db, config_id: int, *, outcome: dict, evidence_ref: str) -> dict:
                 "version": row.version, "incumbent": True}
 
 
+def record_measured_outcome(db, config_id: int, *, outcome: dict, evidence_ref: str) -> dict:
+    """Attach what a configuration was measured to do, without changing what is running.
+
+    Promotion records a measured outcome as a side effect of switching; this records one for
+    a configuration that is *not* switching -- an incumbent that was first and has now been
+    put to a trial, or a challenger whose trial recommended against it. Idempotent on the
+    evidence reference: the same trial re-read tomorrow adds nothing, so a standings row
+    carries one line per run rather than one per night the run was noticed.
+    """
+    from ..core.models import ConfigVersion
+
+    ref = evidence_ref.strip()
+    if not ref:
+        raise LeagueRefused("a measured outcome names the run that measured it")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        current = dict(row.measured_outcome or {})
+        refs = list(current.get("evidence_refs") or [])
+        if ref in refs:
+            return {"config_id": config_id, "recorded": False, "evidence_ref": ref,
+                    "why": "this run's outcome is already on the row"}
+        refs.append(ref)
+        row.measured_outcome = {**current, **dict(outcome), "evidence_ref": ref,
+                                "evidence_refs": refs}
+        return {"config_id": config_id, "recorded": True, "evidence_ref": ref,
+                "kind": row.kind, "key": row.key, "version": row.version,
+                "incumbent": row.incumbent}
+
+
 def rollback(db, *, kind: str, key: str, to_config_id: int, why: str) -> dict:
     """Put a previous version back, and record why (#180).
 
@@ -427,6 +512,7 @@ def standings(db, *, kind: str = "", key: str = "") -> dict:
             query = query.where(ConfigVersion.key == key)
         rows = [{"id": r.id, "kind": r.kind, "key": r.key, "version": r.version,
                  "incumbent": r.incumbent, "why_changed": r.why_changed,
+                 "tests_declared": list(r.tests_declared or []),
                  "tests_run": list(r.tests_run or []),
                  "cost_per_call_cad": r.cost_per_call_cad,
                  "affected_departments": list(r.affected_departments or []),
@@ -445,3 +531,434 @@ def standings(db, *, kind: str = "", key: str = "") -> dict:
                  f"commonest reason anything runs (#96)."
                  if unmeasured else "every incumbent carries a measured outcome"),
     }
+
+
+# ---------------------------------------------------------------------------
+# The league in the runtime (#95, #180)
+#
+# `compare`, `promote` and `rollback` had no caller: incumbents were registered nightly and no
+# challenger was ever created, compared, promoted or rolled back. `cycle` is the cadence's
+# pass. Three rules keep it honest.
+#
+# **A comparison reads recorded runs, never runs a model.** A run is one configuration's
+# measured showing on named tasks, recorded with `record_run` under the reference of whatever
+# produced it. Producing a run is a spending decision taken elsewhere, and while the model
+# provider is closed the challengers registered here wait, saying so, rather than being judged
+# on nothing. The incumbent's run defines the fixed shared task set, so a challenger that
+# brings its own tasks is refused by `compare` exactly as the library already does.
+#
+# **Promotion goes through the same authority as every other self-change.** The configuration
+# kind names the surface it touches, `improve.tiers` grades that surface, and #190's split
+# decides: a pre-authorised tier promotes when `upgrades.may_auto_promote` allows it, anything
+# else becomes an owner card and promotes only once the owner's decision is recorded on the
+# challenger by `record_owner_decision`, which only the owner's identity satisfies. A
+# configuration mirrored from running code (the routing table, the image provider) never
+# promotes in the registry at all: flipping the row would make the registry describe a
+# configuration the code is not running, so the card asks for the code change and
+# `bootstrap` moves the registry when the code has moved.
+#
+# **Rollback is automatic and names its target.** A configuration the league promoted whose
+# next recorded run falls below the incumbent it replaced -- on quality beyond the margin, or
+# on reliability at all -- is rolled back to that incumbent with the reason recorded.
+
+RUN_ACTION = "improve.league.run"
+COMPARE_ACTION = "improve.league.compared"
+LEAGUE = "improve.league"
+CARD_PREFIX = "improve.league:"
+CHALLENGER_AUTHOR = "prompt_tool_challenger"
+
+# The risk surface each configuration kind touches, in `improve.tiers`' vocabulary.
+KIND_SURFACE: dict[str, str] = {"prompt": "prompt", "model": "model_routing", "tool": "tool",
+                                "policy": "policy", "scoring": "priority"}
+
+
+def incumbent_payload(db, *, kind: str, key: str) -> dict | None:
+    """The running version's payload, as the runtime reads it, or None when none is recorded."""
+    from sqlalchemy import select
+
+    from ..core.models import ConfigVersion
+
+    with db.session() as s:
+        row = s.scalar(select(ConfigVersion).where(
+            ConfigVersion.kind == kind, ConfigVersion.key == key,
+            ConfigVersion.incumbent == True).order_by(ConfigVersion.id.desc()))  # noqa: E712
+        if row is None:
+            return None
+        return {"config_id": row.id, "version": row.version,
+                "payload": (row.detail or {}).get("payload")}
+
+
+# Configuration kinds whose promotions run only through the improvement sandbox: their
+# challengers are produced and proposed by `improve.replay`, one hypothesis at a time.
+SANDBOX_KINDS: tuple[str, ...] = ("scoring",)
+
+
+def sandbox_owned(db, config_id: int) -> dict | None:
+    """The improvement that owns this challenger's promotion, when the sandbox does (#92).
+
+    A replayable configuration is proposed into the Improvement Department as a hypothesis
+    and promoted there -- sandbox, tests, an independent judge, the tier -- so the league
+    records its comparison and does not promote it a second time by its own route.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        for row in s.scalars(select(Improvement).where(
+                Improvement.state.in_(("proposed", "testing", "promoted")))):
+            change = (row.evidence or {}).get("change") or {}
+            if int(change.get("config_id") or 0) == int(config_id):
+                return {"improvement": row.id, "state": row.state}
+    return None
+
+
+def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability: float,
+               run_ref: str, recorded_by: str, latency_s: float | None = None,
+               holdout: dict | None = None, dataset: dict | None = None,
+               simulator: dict | None = None) -> dict:
+    """Record one configuration's measured showing on named tasks. Idempotent on `run_ref`.
+
+    `dataset` names what the run was scored on -- a content fingerprint of the tasks and the
+    bounds of when they were observed -- and `simulator` the versioned assumptions that
+    produced the scores (C-63 / Codex M02, M03). Both travel with the run so that a later
+    reader can tell a repeated evaluation from new evidence, and two runs of different
+    simulators from one comparison.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, ConfigVersion
+
+    ref = (run_ref or "").strip()
+    who = governance.normalise_actor(recorded_by)
+    if not ref or not who:
+        raise LeagueRefused("a run names what produced it and who recorded it")
+    if not tasks:
+        raise LeagueRefused("a run with no tasks measured nothing")
+    scores = {str(k): float(v) for k, v in tasks.items()}
+    held = {str(k): float(v) for k, v in (holdout or {}).items()}
+    overlap = sorted(set(scores) & set(held))
+    if overlap:
+        raise LeagueRefused(f"holdout tasks {overlap} are also scored tasks; a holdout that "
+                            f"leaks is the same evidence twice")
+    if not 0.0 <= float(reliability) <= 1.0 or float(cost_cad) < 0 or (
+            latency_s is not None and float(latency_s) < 0):
+        raise LeagueRefused("reliability is a share, and cost and latency are not negative")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        for prior in s.scalars(select(AuditLog).where(AuditLog.action == RUN_ACTION)):
+            if (prior.detail or {}).get("run_ref") == ref and \
+                    (prior.detail or {}).get("config_id") == config_id:
+                return {"run_id": prior.id, "recorded": False, "run_ref": ref}
+        audit = AuditLog(actor=who, action=RUN_ACTION, artifact=f"{row.kind}/{row.key}",
+                         detail={"config_id": config_id, "kind": row.kind, "key": row.key,
+                                 "version": row.version, "tasks": scores, "holdout": held,
+                                 "cost_cad": float(cost_cad),
+                                 "reliability": float(reliability),
+                                 "latency_s": None if latency_s is None else float(latency_s),
+                                 "run_ref": ref,
+                                 **({"dataset": dict(dataset)} if dataset else {}),
+                                 **({"simulator": dict(simulator)} if simulator else {})})
+        s.add(audit)
+        s.flush()
+        return {"run_id": audit.id, "recorded": True, "run_ref": ref}
+
+
+def _runs(db) -> dict[int, list[dict]]:
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    out: dict[int, list[dict]] = {}
+    with db.session() as s:
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == RUN_ACTION)
+                           .order_by(AuditLog.id)):
+            d = dict(a.detail or {})
+            at = a.at if a.at.tzinfo else a.at.replace(tzinfo=timezone.utc)
+            out.setdefault(int(d["config_id"]), []).append({**d, "run_id": a.id, "at": at})
+    return out
+
+
+def result_of(config_id: int, run: dict) -> Result:
+    """A recorded run as the `Result` `compare` judges."""
+    tasks = dict(run["tasks"])
+    held = dict(run.get("holdout") or {})
+    return Result(config_id=config_id, tasks=tuple(sorted(tasks)),
+                  quality=sum(tasks.values()) / len(tasks),
+                  cost_cad=float(run["cost_cad"]), reliability=float(run["reliability"]),
+                  latency_s=run.get("latency_s"),
+                  holdout_tasks=tuple(sorted(held)),
+                  holdout_quality=(sum(held.values()) / len(held)) if held else None)
+
+
+def record_owner_decision(db, config_id: int, *, approved_by: str, why: str) -> dict:
+    """The owner's approval of a challenger's promotion, recorded on the challenger's row."""
+    from ..core.models import ConfigVersion
+
+    if governance.normalise_actor(approved_by) != "owner":
+        raise LeagueRefused(f"{approved_by!r} is not the owner; this decision is the owner's")
+    if len((why or "").split()) < 3:
+        raise LeagueRefused("an owner decision says why; this is a label")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        row.measured_outcome = {**dict(row.measured_outcome or {}), "owner_approval": {
+            "by": "owner", "because": why, "at": datetime.now(timezone.utc).isoformat()}}
+    return {"config_id": config_id, "owner_approved": True}
+
+
+def _code_mirrored(kind: str, key: str) -> bool:
+    from . import bootstrap
+
+    return ((kind == bootstrap.ROUTING_KIND and key.startswith(bootstrap.ROUTING_KEY_PREFIX))
+            or (kind == bootstrap.IMAGE_KIND and key == bootstrap.IMAGE_KEY))
+
+
+def _configs(db) -> list[dict]:
+    from sqlalchemy import select
+
+    from ..core.models import ConfigVersion
+
+    with db.session() as s:
+        return [{"id": r.id, "kind": r.kind, "key": r.key, "version": r.version,
+                 "digest": r.digest, "incumbent": r.incumbent, "why": r.why_changed,
+                 "retired": r.retired_at is not None,
+                 "outcome": dict(r.measured_outcome or {})}
+                for r in s.scalars(select(ConfigVersion).order_by(ConfigVersion.id))]
+
+
+def _authorise(db, inc: dict, ch: dict, verdict: dict, runs: dict, ref: str, *,
+               now: datetime) -> dict:
+    """Promote, card or hold a challenger that won, by the tier its kind's surface grades."""
+    from . import tiers, upgrades
+
+    surface = KIND_SURFACE.get(ch["kind"], "code")
+    tier = tiers.classify((surface,))
+    card_key = f"{CARD_PREFIX}{ch['id']}"
+    proposal = upgrades.Proposal(
+        key=f"config:{ch['id']}", author_role=CHALLENGER_AUTHOR,
+        hypothesis=(f"replace {ch['kind']}/{ch['key']} version {inc['version']} with version "
+                    f"{ch['version']}, which beat it on the shared task set: {ch['why']}"),
+        scope=(surface,), content=ch["digest"], rollback_to=f"config:{inc['id']}")
+    fp = proposal.fingerprint
+    evidence = [upgrades.Evidence(tiers.BASELINE, runs["incumbent"]["run_ref"], fp),
+                upgrades.Evidence(tiers.SANDBOX_RESULT, runs["challenger"]["run_ref"], fp),
+                upgrades.Evidence(tiers.ROLLBACK, f"config:{inc['id']}", fp)]
+    if verdict.get("holdout") == "held":
+        # The holdout is the league's regression evidence: the untuned tasks did not get worse.
+        evidence.append(upgrades.Evidence(tiers.REGRESSION_TEST,
+                                          f"{runs['challenger']['run_ref']}:holdout", fp))
+    owner = (ch["outcome"].get("owner_approval") or {})
+    owner_decided = governance.normalise_actor(owner.get("by")) == "owner"
+    if owner_decided:
+        evidence.append(upgrades.Evidence(tiers.OWNER_APPROVAL, f"owner:{card_key}", fp))
+    for item in evidence:
+        upgrades.attach(proposal, item, touched=proposal.scope)
+
+    mirrored = _code_mirrored(ch["kind"], ch["key"])
+    if not mirrored and (tier.key in upgrades.PRE_AUTHORISED or owner_decided):
+        if owner_decided:
+            try:
+                tiers.check_promotion(db, touches=proposal.scope,
+                                      evidence=tuple(e.kind for e in proposal.current_evidence()),
+                                      now=now)
+                allowed = {"may_auto_promote": True}
+            except tiers.TierRefused as exc:
+                allowed = {"may_auto_promote": False, "why": str(exc)}
+        else:
+            allowed = upgrades.may_auto_promote(db, proposal, now=now)
+        if not allowed["may_auto_promote"]:
+            return {"route": "held", "config_id": ch["id"], "tier": tier.key,
+                    "why": allowed.get("why", "")[:300]}
+        promote(db, ch["id"], evidence_ref=ref, outcome={
+            **ch["outcome"], "league_verdict": {k: verdict.get(k) for k in (
+                "quality_gain", "required_margin", "holdout", "evidence", "cost_ratio",
+                "reliability_delta")},
+            "promoted_by": LEAGUE, "previous_incumbent": inc["id"],
+            "promoted_at": now.isoformat(), "tier": tier.key,
+            "replaced_quality": verdict["incumbent"]["quality"],
+            "replaced_reliability": verdict["incumbent"]["reliability"]})
+        tiers.record_promotion(db, tier=tier.key,
+                               summary=f"configuration {ch['kind']}/{ch['key']} v{ch['version']}",
+                               detail={"config_id": ch["id"], "replaced": inc["id"]})
+        upgrades.close_owner_card(db, card_key)
+        return {"route": "promoted", "config_id": ch["id"], "tier": tier.key,
+                "replaced": inc["id"], "owner_approved": owner_decided}
+
+    try:
+        card = upgrades.owner_card(proposal)
+    except upgrades.UpgradeRefused as exc:
+        return {"route": "held", "config_id": ch["id"], "tier": tier.key,
+                "why": str(exc)[:300]}
+    if not card.get("queued"):
+        return {"route": "held", "config_id": ch["id"], "tier": tier.key,
+                "why": card.get("why", "")[:300]}
+    action = (f"Decide whether {ch['kind']}/{ch['key']} version {ch['version']} replaces "
+              f"version {inc['version']}: it beat it on the shared task set "
+              f"(quality {verdict['quality_gain']:+.3f}, holdout {verdict['holdout']}). ")
+    action += ("This configuration is defined in code, so approving means changing that code; "
+               "the registry follows the code on the next nightly sweep"
+               if mirrored else
+               f"Approve with improve.league.record_owner_decision({ch['id']}, "
+               f"approved_by='owner', why=...), or decline it")
+    queued = upgrades.queue_owner_card(db, card_key, card, action=action, minutes=5,
+                                       blocks=f"config:{ch['id']}")
+    return {"route": "carded", "config_id": ch["id"], "tier": tier.key,
+            "code_mirrored": mirrored, **queued}
+
+
+def cycle(db, *, now: datetime | None = None) -> dict:
+    """Register challengers, compare them on recorded runs, promote or card the winners, and
+    roll back a promotion its next run shows was worse than what it replaced."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from . import bootstrap, upgrades
+
+    now = now or datetime.now(timezone.utc)
+    booted = bootstrap.ensure(db)
+    challengers_registered = bootstrap.register_routing_challengers(db)
+    runs = _runs(db)
+    configs = _configs(db)
+
+    compared, waiting, promoted, carded, held, refused = [], [], [], [], [], []
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for c in configs:
+        groups.setdefault((c["kind"], c["key"]), []).append(c)
+
+    for (kind, key), rows in groups.items():
+        inc = next((r for r in rows if r["incumbent"]), None)
+        if inc is None:
+            continue
+        for ch in [r for r in rows if not r["incumbent"] and not r["retired"]]:
+            ir = (runs.get(inc["id"]) or [None])[-1]
+            cr = (runs.get(ch["id"]) or [None])[-1]
+            if ir is None or cr is None:
+                waiting.append({"config_id": ch["id"], "kind": kind, "key": key,
+                                "why": ("no recorded run of the "
+                                        + ("incumbent" if ir is None else "challenger")
+                                        + " on the shared task set. A run is a measured "
+                                        "showing somebody produced and recorded; producing "
+                                        "one for a model configuration is a model call, "
+                                        "and nothing here makes one")})
+                continue
+            ref = f"league:{ir['run_ref']}|{cr['run_ref']}"
+            already = ref in (ch["outcome"].get("evidence_refs") or [])
+            if already:
+                verdict = dict(ch["outcome"].get("league_verdict_full") or {})
+            else:
+                try:
+                    verdict = compare(result_of(inc["id"], ir), result_of(ch["id"], cr),
+                                      shared_tasks=tuple(sorted(ir["tasks"])),
+                                      touches=(KIND_SURFACE.get(kind, "code"),),
+                                      hypothesis=ch["why"])
+                except LeagueRefused as exc:
+                    verdict = {"promote": False, "reason": "refused",
+                               "blockers": [str(exc)[:400]]}
+                record_measured_outcome(db, ch["id"], evidence_ref=ref, outcome={
+                    "league_verdict_full": verdict, "against": inc["id"],
+                    "role": "challenger"})
+                with db.session() as s:
+                    s.add(AuditLog(actor="orchestrator", action=COMPARE_ACTION,
+                                   artifact=f"{kind}/{key}",
+                                   detail={"incumbent": inc["id"], "challenger": ch["id"],
+                                           "promote": verdict.get("promote"),
+                                           "reason": verdict.get("reason"),
+                                           "blockers": verdict.get("blockers", [])[:5],
+                                           "holdout": verdict.get("holdout"),
+                                           "evidence": verdict.get("evidence"),
+                                           "ref": ref}))
+                ch["outcome"] = _configs_one(db, ch["id"])
+            entry = {"config_id": ch["id"], "kind": kind, "key": key,
+                     "promote": bool(verdict.get("promote")),
+                     "reason": verdict.get("reason"), "holdout": verdict.get("holdout"),
+                     "blockers": verdict.get("blockers", [])[:3], "rejudged": not already}
+            compared.append(entry)
+            if verdict.get("reason") == "refused":
+                refused.append(entry)
+            if not verdict.get("promote"):
+                continue
+            owned = sandbox_owned(db, ch["id"])
+            if owned is None and kind in SANDBOX_KINDS:
+                owned = {"improvement": None, "state": "awaiting_replay_proposal"}
+            if owned is not None:
+                held.append({"route": "sandbox", "config_id": ch["id"], **owned,
+                             "why": ("promotion runs through the improvement sandbox that "
+                                     "owns this challenger, not a second time here")})
+                continue
+            out = _authorise(db, inc, ch, verdict, {"incumbent": ir, "challenger": cr}, ref,
+                             now=now)
+            {"promoted": promoted, "carded": carded}.get(out["route"], held).append(out)
+            if out["route"] == "promoted":
+                break                  # the group's incumbent changed; judge the rest next run
+
+    rolled_back = _rollbacks(db, _runs(db), now=now)
+
+    # Close cards whose challenger is no longer waiting on the owner.
+    closed = []
+    open_challengers = {c["id"] for c in _configs(db) if not c["incumbent"] and not c["retired"]}
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        keys = [a.requirement_key for a in s.scalars(select(OwnerAction).where(
+            OwnerAction.done == False)) if (a.requirement_key or "").startswith(  # noqa: E712
+                CARD_PREFIX)]
+    for k in keys:
+        try:
+            cid = int(k.split(":", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        if cid not in open_challengers and upgrades.close_owner_card(db, k):
+            closed.append(k)
+
+    return {"at": now.isoformat(), "bootstrap": booted,
+            "challengers_registered": challengers_registered,
+            "compared": compared, "waiting": waiting, "refused": refused,
+            "promoted": promoted, "owner_cards": carded, "held": held,
+            "rolled_back": rolled_back, "cards_closed": closed,
+            "note": (f"{len(compared)} comparison(s) on recorded runs, {len(waiting)} "
+                     f"challenger(s) waiting for a run, {len(promoted)} promoted, "
+                     f"{len(carded)} routed to the owner, {len(rolled_back)} rolled back")}
+
+
+def _configs_one(db, config_id: int) -> dict:
+    from ..core.models import ConfigVersion
+
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        return dict(row.measured_outcome or {}) if row is not None else {}
+
+
+def _rollbacks(db, runs: dict, *, now: datetime) -> list[dict]:
+    """Roll back a league promotion whose next run is worse than what it replaced."""
+    out = []
+    for c in _configs(db):
+        o = c["outcome"]
+        if not c["incumbent"] or o.get("promoted_by") != LEAGUE or not o.get("previous_incumbent"):
+            continue
+        promoted_at = datetime.fromisoformat(o["promoted_at"])
+        after = [r for r in runs.get(c["id"], []) if r["at"] > promoted_at]
+        if not after:
+            continue
+        latest = after[-1]
+        observed = result_of(c["id"], latest)
+        margin = required_margin(len(observed.tasks))
+        replaced_q = float(o.get("replaced_quality") or 0.0)
+        replaced_r = float(o.get("replaced_reliability") or 0.0)
+        reasons = []
+        if observed.quality < replaced_q - margin:
+            reasons.append(f"quality {observed.quality:.3f} fell below the {replaced_q:.3f} "
+                           f"of the version it replaced by more than the {margin:.3f} margin")
+        if observed.reliability < replaced_r:
+            reasons.append(f"reliability {observed.reliability:.3f} fell below the "
+                           f"{replaced_r:.3f} of the version it replaced")
+        if not reasons:
+            continue
+        done = rollback(db, kind=c["kind"], key=c["key"],
+                        to_config_id=int(o["previous_incumbent"]),
+                        why=(f"run {latest['run_ref']} after promotion: " + "; ".join(reasons)))
+        out.append({**done, "run_ref": latest["run_ref"], "reasons": reasons})
+    return out

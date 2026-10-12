@@ -551,3 +551,154 @@ def state() -> dict:
                  "and order value; the floors exist because the first eats the second one "
                  "defensible week at a time (#5)."),
     }
+
+
+def _sizes_of(cir_json: dict, catalogue: dict[str, dict] | None = None) -> int:
+    """Finished sizes a certified release is one of, read from the stored CIRs (C-80).
+
+    `cir.graded.size_run` counts the certified releases in the same design's size run -- the
+    graded siblings sharing its `provenance.concept_key`, or the size-variant titles of one
+    design -- so the number is measured from the catalogue, never a default. An unreadable
+    CIR is UNMEASURED there; here it is not routed (see `route_certified`), so it is never
+    reached with a made-up count."""
+    from ..cir.graded import size_run
+
+    run = size_run(cir_json, catalogue or {})
+    return int(run["sizes"]) if run["sizes"] is not None else 1
+
+
+def _launch0_seed(slug: str):
+    """A Launch-0 variant's make time, from its own candidate (PT-11), or None.
+
+    The Launch-0 variants are engineered under their own slugs, which no radar seed names;
+    without this they would never be routed or have their owed gates checked here.
+    """
+    from types import SimpleNamespace
+
+    from ..products import launch0 as l0
+
+    if slug not in l0.launch_scope_slugs():
+        return None
+    hours = l0.make_hours(slug)
+    if not hours:
+        return None
+    return SimpleNamespace(slug=slug, maker_hours=(hours, hours), family=None, season=None,
+                           is_bundle=False)
+
+
+def route_certified(db, *, today=None) -> dict:
+    """Route every certified release to its queue and check it kept every gate (#5).
+
+    The runtime form of this module: `assign` and `check_release` over the products that
+    actually exist, read from the database. A product's profile is measured from its own
+    certified CIR (components, colours, closed form, stitches the catalogue had not used
+    before it) and its radar seed (make lane from maker hours); the gate runs are the stages
+    its certificate records. Nothing is inferred to make a product fit a queue: a product
+    whose make lane cannot be read is reported unrouted, not guessed.
+    """
+    from sqlalchemy import select
+
+    from ..cir.graded import size_run
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+    from ..creative.blind_review import pod_for
+    from ..creative.preengineering import make_lane_for_hours
+    from ..radar.opportunity import POOL
+    from ..runtime.pipeline import _flatten_stitches
+
+    with db.session() as s:
+        qa = qa_stable(observe(s))
+        rows = [(p.slug, p.title, pv.version, pv.cir_json, dict(pv.certificate or {}))
+                for pv, p in s.execute(
+                    select(PatternVersion, Product)
+                    .join(Product, Product.id == PatternVersion.product_id)
+                    .where(PatternVersion.certified.is_(True))
+                    .order_by(PatternVersion.id))]
+
+    seeds = {seed.slug: seed for seed in POOL}
+    certified_slugs = {slug for slug, *_rest in rows}
+    # C-68 (#5): a collection is its family's certified members, counted from the database,
+    # not `pattern_count=1`: a family of three certified patterns is the flagship collection
+    # path, and a family still waiting on members is not one yet.
+    family_members: dict[str, int] = {}
+    for seed in POOL:
+        if seed.family and not seed.is_bundle and seed.slug in certified_slugs:
+            family_members[seed.family] = family_members.get(seed.family, 0) + 1
+    latest: dict[str, tuple] = {}
+    seen_stitches: set[str] = set()
+    new_by_slug: dict[str, int] = {}
+    latest_json: dict[str, dict] = {}
+    for slug, title, version, cir_json, cert in rows:
+        latest_json[slug] = cir_json if isinstance(cir_json, dict) else {}
+        try:
+            cir = CIR.from_dict(cir_json)
+        except Exception:  # noqa: BLE001 - an unreadable stored CIR is reported, not routed
+            latest[slug] = (title, version, None, cert)
+            continue
+        stitches = {op.stitch for c in cir.components for r in c.rows
+                    for op in _flatten_stitches(r.ops)}
+        if slug not in new_by_slug:
+            # Techniques the catalogue had never used when this product first certified.
+            new_by_slug[slug] = len(stitches - seen_stitches) if seen_stitches else 0
+        seen_stitches |= stitches
+        latest[slug] = (title, version, cir, cert)
+
+    cards: list[dict] = []
+    for slug, (title, version, cir, cert) in sorted(latest.items()):
+        seed = seeds.get(slug) or _launch0_seed(slug)
+        base = {"slug": slug, "version": version}
+        if cir is None:
+            cards.append({**base, "lane": None, "routed": False,
+                          "why": ["the stored CIR could not be read"]})
+            continue
+        if seed is None:
+            cards.append({**base, "lane": None, "routed": False,
+                          "why": ["no radar seed records this product's make time, so its "
+                                  "make lane is unknown and it is not routed by guess"]})
+            continue
+        profile = Profile(
+            slug=slug, pod=pod_for(slug, title), make_lane=make_lane_for_hours(seed.maker_hours),
+            # F-073/F-080 (K6): the effective class from the certificate's risk matrix, so
+            # testing demand and lane eligibility follow the product's derived risk; a
+            # certificate issued before the matrix falls back to the declared class.
+            risk_class=(((cert or {}).get("risk_matrix") or {}).get("effective")
+                        or cir.risk_class),
+            components=len(cir.components),
+            colours=max(1, len(cir.colors)), new_techniques=new_by_slug.get(slug, 0),
+            sizes=_sizes_of(latest_json.get(slug) or {}, latest_json),
+            pattern_count=max(1, family_members.get(seed.family or "", 0)),
+            closed_form=cir.makes_a_closed_form,
+            # Every product in this chain is certified for a listing: gate.certify always
+            # checks the listing draft and the hero asset, so both gates are owed.
+            has_listing=True)
+        try:
+            card = assign(profile, qa=qa)
+        except LaneRefused as exc:
+            cards.append({**base, "lane": None, "routed": False, "why": [str(exc)]})
+            continue
+        runs = tuple(GateRun(stage=stage, passed=bool(cert.get("granted")))
+                     for stage in cert.get("stages_run") or [] if stage in CANONICAL_STAGES)
+        # The gate list does not depend on the lane (applicable_gates takes the product), so
+        # a single queue is checked exactly as either lane would be.
+        queue = card["lane"] or (FAST if not card["fast_refusals"] else FLAGSHIP)
+        try:
+            release = check_release(profile, runs=runs, lane=queue)
+        except LaneRefused as exc:
+            release = {"ok": False, "why": str(exc)}
+        cards.append({**base, **card, "routed": card["lane"] is not None,
+                      "profile": {"pod": profile.pod, "make_lane": profile.make_lane,
+                                  "sizes": profile.sizes,
+                                  "sizes_basis": size_run(latest_json.get(slug) or {},
+                                                          latest_json)["basis"],
+                                  "pattern_count": profile.pattern_count,
+                                  "risk_class": profile.risk_class,
+                                  "components": profile.components,
+                                  "colours": profile.colours,
+                                  "new_techniques": profile.new_techniques,
+                                  "closed_form": profile.closed_form},
+                      "maker_hours": list(seed.maker_hours), "season": seed.season,
+                      "release": release})
+    return {"qa": qa, "two_queues_open": qa["stable"], "products": cards,
+            "balance": balance(cards),
+            "release_refused": [c["slug"] for c in cards
+                                if c.get("release") and not c["release"].get("ok")]}

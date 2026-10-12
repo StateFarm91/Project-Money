@@ -1,0 +1,10 @@
+test_actual_intake_preserves_benchmark_lineage_and_brief (test_author_provenance.AuthorProvenance.test_actual_intake_preserves_benchmark_lineage_and_brief) ... ok
+test_brief_only_source_survives_author_and_blocks_certify_publish (test_author_provenance.AuthorProvenance.test_brief_only_source_survives_author_and_blocks_certify_publish) ... ok
+test_exact_source_ids_and_context_change_digest (test_author_provenance.AuthorProvenance.test_exact_source_ids_and_context_change_digest) ... ok
+test_malformed_source_identity_is_not_stringified (test_author_provenance.AuthorProvenance.test_malformed_source_identity_is_not_stringified) ... ok
+test_raw_geometry_without_source_stays_unqualified (test_author_provenance.AuthorProvenance.test_raw_geometry_without_source_stays_unqualified) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 17.641s
+
+OK

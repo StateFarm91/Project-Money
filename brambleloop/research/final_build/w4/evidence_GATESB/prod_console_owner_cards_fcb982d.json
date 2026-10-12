@@ -1,0 +1,96 @@
+{
+ "source": "GET /api/console (read-only), deployed fcb982d, read 2026-10-07",
+ "approval_cards": [
+  {
+   "gate": "rendered_pages",
+   "action": "grant a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 19
+  },
+  {
+   "gate": "image_vision",
+   "action": "grant a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 10
+  },
+  {
+   "gate": "ad_authority",
+   "action": "grant an approved advertising budget",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 6
+  },
+  {
+   "gate": "model_provider",
+   "action": "grant a model provider that can actually serve a request",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 4
+  },
+  {
+   "gate": "benchmark_purchases",
+   "action": "grant roughly ten purchased competitor patterns",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 4
+  },
+  {
+   "gate": "tester_roster",
+   "action": "grant one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 2
+  },
+  {
+   "gate": "offsite_storage",
+   "action": "grant an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 1
+  },
+  {
+   "gate": "physical_proof",
+   "action": "grant a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 1
+  },
+  {
+   "gate": "image_generation",
+   "action": "grant an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 0
+  },
+  {
+   "gate": "owned_surfaces",
+   "action": "grant a site or a Pinterest account this company can publish to, which only the owner can create",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 0
+  },
+  {
+   "gate": "live_listings",
+   "action": "grant a listing that exists on the marketplace, which shadow mode forbids by design",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 0
+  },
+  {
+   "gate": "customers",
+   "action": "grant real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 0
+  },
+  {
+   "gate": "second_market_benchmark",
+   "action": "grant a benchmark shop outside the United States, which is a choice of shop rather than a credential or a capability",
+   "max_spend_cad": 0.0,
+   "minutes": 10,
+   "unblocks_count": 0
+  }
+ ]
+}

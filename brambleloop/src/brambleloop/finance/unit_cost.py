@@ -71,6 +71,7 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
     from sqlalchemy import func, select
 
     from ..core.models import AuditLog, CostEntry, LedgerEntry
+    from .listing_costs import cost_basis, basis_summary
 
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=days)
@@ -79,14 +80,27 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
+        # Bounded to the window in SQL (C-80 defect 17): this runs hourly under the governor
+        # and both tables grow by the day; every reader below filters on `>= since` anyway.
+        produced_actions = sorted({a for art in ARTEFACTS for a in art.actions})
+        entries = list(s.scalars(select(CostEntry).where(CostEntry.at >= since)))
         costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id,
-                  float((c.detail or {}).get("latency_ms") or 0.0))
-                 for c in s.scalars(select(CostEntry))]
+                  float((c.detail or {}).get("latency_ms") or 0.0), cost_basis(c))
+                 for c in entries]
+        staged = [(c.product_slug or "", c.purpose, c.kind, float(c.amount_cad or 0.0))
+                  for c in entries if c.product_slug]
         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
-                   for a in s.scalars(select(AuditLog))]
-        contribution = s.scalar(select(func.coalesce(
-            func.sum(LedgerEntry.gross_cad - LedgerEntry.fees_cad
-                     - LedgerEntry.refunds_cad - LedgerEntry.expense_cad), 0.0))) or 0.0
+                   for a in s.scalars(select(AuditLog).where(
+                       AuditLog.at >= since, AuditLog.action.in_(produced_actions)))]
+        # Contribution over the SAME window as the operating cost it is divided by (Codex
+        # CB2-P15): a sale from last year does not pay for this month's work, and a ratio
+        # whose two sides cover different periods says nothing. Lifetime is kept beside it,
+        # labelled, and never enters a ratio or the burning flag.
+        net = (LedgerEntry.gross_cad - LedgerEntry.fees_cad - LedgerEntry.refunds_cad
+               - LedgerEntry.expense_cad)
+        contribution = s.scalar(select(func.coalesce(func.sum(net), 0.0)).where(
+            LedgerEntry.at >= since)) or 0.0
+        lifetime_contribution = s.scalar(select(func.coalesce(func.sum(net), 0.0))) or 0.0
 
     window_costs = [c for c in costs if c[2] >= since]
     total_cost = sum(c[1] for c in window_costs)
@@ -120,6 +134,7 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
                       if a[2] is not None)
         rows[artefact.key] = {
             "meaning": artefact.meaning,
+            "cost_basis": basis_summary((c[1],c[5]) for c in window_costs if c[3] in {a[2] for a in produced} and c[3] is not None),
             "produced": count,
             "model_minutes": round(minutes, 3),
             "minutes_each": (round(minutes / count, 3) if count else None),
@@ -132,9 +147,21 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
                      if uncosted else ""),
         }
 
+    # F-320: each product's creation cost split by stage (concept, engineering,
+    # certification, imagery, listing, judging), from the closed economics vocabulary.
+    from . import economics
+
+    by_product_stage: dict = {}
+    for slug, purpose, kind, amount in staged:
+        stage = economics.classify(purpose, kind)["stage"] or "unstaged"
+        bucket = by_product_stage.setdefault(slug, {})
+        bucket[stage] = round(bucket.get(stage, 0.0) + amount, 6)
+
     validated = rows["validated_pattern"]["produced"]
     return {
+        "by_product_stage": by_product_stage,
         "window_days": days,
+        "cost_basis": basis_summary((c[1],c[5]) for c in window_costs),
         "operating_cost_cad": round(total_cost, 4),
         "attributed_cost_cad": round(attributed, 4),
         "unattributed_cost_cad": round(total_cost - attributed, 4),
@@ -146,11 +173,16 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         "contribution_per_operating_dollar": (
             round(float(contribution) / total_cost, 3) if total_cost else None),
         "contribution_cad": round(float(contribution), 2),
+        "contribution_window_days": days,
+        "lifetime_contribution_cad": round(float(lifetime_contribution), 2),
         "burning": bool(total_cost > 0 and float(contribution) <= 0),
-        "note": (f"CA${total_cost:.2f} spent and CA${float(contribution):.2f} earned in "
-                 f"{days} days. A six-figure store that burns more than it earns is failure "
-                 f"(#31), and the comfortable version of that failure is every number rising "
-                 f"while nobody divides."
+        "note": ((f"CA${total_cost:.2f} recorded operating exposure in {days} days; "
+                  f"CA${float(contribution):.2f} ledger contribution in the same {days} days "
+                  f"(CA${float(lifetime_contribution):.2f} lifetime, in no ratio). Ratios use "
+                  "recorded amounts and are not proof of observed charges or cash."
+                  + (" A six-figure store that burns more than it earns is failure (#31), and "
+                     "the comfortable version of that failure is every number rising while "
+                     "nobody divides." if total_cost > 0 and float(contribution) <= 0 else ""))
                  if total_cost else
                  "no operating cost recorded in this window, so neither ratio is defined"),
     }

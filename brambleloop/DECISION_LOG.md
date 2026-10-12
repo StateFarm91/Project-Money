@@ -868,3 +868,953 @@ and resolve to real CIRs. The genuine defect is that the same products are keyed
 this wave: renaming a registry key touches the radar, the portfolio and the product row, which
 is a merchandising decision and not an integration one. Per the finish-line rule, an
 improvement that remains possible is not made into a launch prerequisite.
+
+## 2026-09-26 — Visual wave 6 (isolated branch `claude/visual-investigation`)
+
+**D-W6-1. The drape solver's rate devices (momentum, step multiplier) are options, not new
+defaults.** Every committed Visual number was produced by the plain step, and the plain step
+was measured to be free drift (0.566/1.130/4.44 mm at 800/1600/6400 iterations — linear). The
+honest record is that those numbers stand as what they were, with the finding beside them;
+changing the default would silently re-derive every one of them. Both devices change the rate
+only; the fixed-point control with them on reads 5.7e-15 mm.
+
+**D-W6-2. Yarn-on-yarn friction enters as its infinite limit (per-stitch shape matching),
+labelled BOUNDED, rather than as a fitted coefficient.** Without it the force law took the
+stitches apart at every bending rigidity in the derived bracket (14–16 of 25 hdc everted,
+13 of 20 sc unlinked) once the drape actually proceeded. A fitted µ would have been a number
+chosen so the stitches hold; the limit is an assumption stated as one, with the order-of-
+magnitude argument (3e-4 N of gravity per stitch against µ 0.2–0.3 times residual loop
+tension) on the option, and with `shape_residual_max_mm` reporting the stress the lock bore.
+Every result that uses it says that morphology is then an input and lists what remains an
+outcome: linkage, floor, contact, curvature, equilibrium.
+
+**D-W6-3. The D solve uses the derived bending rigidity; the committed constant is not
+touched.** `derive_bending_rigidity` is the committed procedure and wave 5 §6c named re-deriving
+as the next mechanism. Changing `CALIBRATED_BENDING_N_M2` moves every committed result and is
+owner-visible; using the derived value on a result that states it does neither.
+
+**D-W6-4. On a deformed fabric the morphology frame is the certified stitch's own, carried by
+its rigid motion — and the neighbour frame is kept for the flat case.** The neighbour frame
+was adopted so that a rigid rotation could not change the verdict; it did that, and then
+reported intact stitches as everted once neighbours rotated 17° apart. The carried frame is
+not self-reference: the reference shape was validated in its own right, the rotation is
+fitted over every point of the stitch, and a lifted third loop is still caught (test). The
+frame used is named on every `validate` result.
+
+**D-W6-5. The compression floor is compared to a nanometre; the floor is not moved.** A
+projection that pushes a pair back to the floor converges from below and never crosses it, so
+"< floor" refused a pair at 1.5 − 2e-13 mm. A nanometre is a million times finer than the
+path's own resolution (`DEGENERATE_SEGMENT_MM`), and the tolerance is named as numerical in
+the code rather than absorbed into the constant.
+
+**D-W6-6. The ladder reports D as UNMEASURED when nobody measured it.** A hard-coded FAIL was a
+stored claim wearing the costume of a measurement — right by accident, and it would have
+stayed FAIL after the evidence changed. UNMEASURED is not PASS, not PARTIAL and not FAIL; it
+blocks `current` exactly as the others do, and the console renders it grey.
+
+**D-W6-7. Judged realism items are UNKNOWN, and an UNKNOWN never counts toward a PASS.** The
+owner froze paid judges. Inferring "lighting is realistic" from "the path tracer is physically
+based" would be a verdict from the absence of a judge, which is the first defect in this
+repository's family. D is PARTIAL with the seven items named.
+
+**D-W6-8. Renders are committed as JPEG evidence, not as PNG instrument output.** Eight PNGs at
+~1 MB each are instrument output that the JSON beside them reproduces; the JPEGs are the
+before/after the owner asked to see. `research/d/out/*.png` is ignored.
+
+**D-W6-9. The judge of D's photographic items is a vision model that had no part in making the
+image, pinned by dated id, its price written beside its tokens.** The renders are Mitsuba path
+traces of the certified geometry; `d_judge` puts the seven B-700 fabric items to
+`gpt-5-2025-08-07` in the vocabulary of the failure, omitted keys are UNKNOWN, and this module
+decides (PASS only when every authoritative view is sound). The committed `photoreal.judge`
+was not used because its checks are for a photograph of a person and its provider needs a
+credential this environment does not hold. First reading of the instrument renders:
+FAIL on folds, imperfection, melted yarn, synthetic texture, sterility; US$0.055.
+
+**D-W6-10. The stationarity bar was not moved; the solve was finished the way a FIRE
+minimisation is finished.** At 6,400 and 12,800 iterations the hdc motion crept at a constant
+0.031 mm per 200 iterations under momentum -- a constant creep can never satisfy a bar stated
+over the last tenth of a growing solve, and it should not. A 3,200-iteration phase with
+momentum off, the rest state carried and the trace measured from the same origin, brought the
+creep to 0.006 mm per 200 (0.55 % over the last tenth): the creep was the momentum method's
+floor, not the force law. Both swatches now pass the unchanged 2 % criterion; the phase is
+stated on every result as `settle_iterations`.
+
+**D-W6-11. The geometric hand-irregularity item is a measurement, not a gate.** Its bar (3.4 %,
+a swatch reading uneven by half a stitch) is a statement about gauge deviation, and the
+owner's per-row anchor -- pinned in tests/test_hand_tension.py as the hard constraint -- makes
+that deviation zero by construction. A gate an owner constraint makes unsatisfiable is not a
+gate. B-700 asks whether the PHOTOGRAPH has ordinary imperfection and whether the texture
+reads as synthetic; those are judged, and the realised geometric variation at the sourced 5 %
+input (2.3 % width, 3.3 % height) is reported beside them.
+
+**D-W6-12. The presentation staging answers the judge with physics, not retouching, and is
+committed as data.** Every failure the judge named was a property of the instrument scene --
+"floats in space" (the form was never drawn), "clay-like tubes without fibers" (the halo was 5 %
+of the population), "uniform backdrop", "renderer-like noise". `STAGING_PRESENTATION` draws
+the form the fabric was draped over with the backdrop at its foot, focuses a thin lens on the
+fabric, lights it through a window, draws the DERIVED fibre population (336 a ply, the one
+number the ply model had called chosen), and samples enough that the noise is the sensor's.
+The geometry is loaded from the assessment's saved points and refused unless its hash matches
+the record. Nothing is re-rendered to please the judge: the judge's reading of these is the
+evidence, whichever way it goes, and what the scene still lacks is in `not_reproduced`.
+
+**D-W6-13. Milestone D is recorded as FAIL, and the failing property is declared blocked on
+physical calibration rather than iterated further.** Three independent judge rounds across two
+stagings failed the same five photographic items with the same stated reasons, and every reason
+traces to an input this repository does not have: a measured yarn-on-yarn friction (the
+infinite-friction lock is what keeps the stitches from everting, and it is what reads as
+rigid), a photographed reference for the yarn's hairiness and grain, and a continuous yarn path
+between operations. The owner's rules forbid fabricating calibration, and a fourth staging
+without new physical input would be prettier pictures chasing a score. FAIL is one of the three
+acceptable outcomes and is the true one. `twin.calibrated` stays False.
+
+## 2026-09-26 — Visual E3 (isolated branch, from checkpoint 4a08871)
+
+**D-E3-1. The conditioning input to the generative layer is the frozen, hash-checked
+assessed geometry's own render, and the output is measured back against that same digest.**
+Nothing was regenerated to make the photograph easier; every consumer of the geometry refuses
+it unless its sha256 matches `milestone_d_<kind>_final.json`, and the gate specification treats
+a revalidation made against any other digest as redesign.
+
+**D-E3-2. Structural correspondence is measured with scale free and shape not, and the raw
+figure is kept beside the aligned one.** The edits endpoint re-frames the piece by up to 21 %
+and 134 px; comparing placement would fail every output for a change that is not a change of
+product. The presentation gate's own geometry lock already compares ratios for this reason.
+
+**D-E3-3. A counted property passes only when the instrument can see the truth on the
+reference.** The independent reader read 6×6, 3 rows and "tall" on deterministic renders whose
+truth is 5×5 single crochet; where the instrument cannot see the truth, the photograph's
+property is UNKNOWN, not PASS and not FAIL. Three of four views are UNKNOWN on counts for this
+reason, which is a finding about the reference at this scale and is recorded as one.
+
+**D-E3-4. Option 3.** The photographic properties are the generative layer's (four of five
+repaired on sc in one conditioned generation, all five failed by three deterministic rounds);
+stitch-level Product Truth is not (counts drifted 5 → 4 and 5 → 6, cut ends became tassels).
+The division is drawn in research/VISUAL_E3.md §7c from these measurements, and the gate
+distinction of §6 -- certified presentation transformation versus unauthorised redesign,
+fail-closed -- classified every E3 output as redesign or UNKNOWN, which is the correct reading
+and is why it is proposed and not integrated.
+
+## 2026-09-26 — Visual E4 (isolated branch, from checkpoint 1229442)
+
+**D-E4-1. The yarn path's long segments are drawn as yarn, because they are yarn.** Each of the
+87 segments the renderer used to cut as "artificial hops" was traced to a named place in the
+stitch; none is a hop. The cut mode is kept and tested for what it does, but the default draws
+one continuous strand with the fabric's two real ends. No control point is inserted or moved,
+so the certified geometry and its digests are unchanged.
+
+**D-E4-2. A stitch is tested only where the camera can see it, and an unseen stitch is UNKNOWN,
+never PASS.** Visibility is depth-tested against the yarn's own depth map and the form; a
+stitch with fewer than half its key points visible is reported with its visible fraction and
+excluded from the count. On the oblique views this leaves 8 of 25 testable, which is the truth
+of that camera and is reported as such rather than padded from the camera view.
+
+**D-E4-3. The instrument's known limit is a test, and the gap is closed by a separate
+property.** The presence test cannot tell a mirror image of a near-symmetric swatch from the
+swatch; `test_e4.py` asserts that it cannot, and handedness is measured globally (certified
+orientation must explain the photograph's structure at least twice as well as its mirror). The
+bar is CHOSEN and recorded beside the readings; it fails the round-1 sc oblique image at 1.6×,
+and that reading stands.
+
+**D-E4-4. The realism judge's spend is cached by image digest.** Re-validating an image whose
+bytes were already judged reuses the record; a changed byte is a new judgement. This is what
+let the handedness property be applied to earlier rounds at no cost and without re-drawing.
+
+**D-E4-5. Iteration was on the localised failure only, and stopped when the blocker was
+proven.** Round 2 changed only the material description (round 1's failure); round 3 added
+only the endpoint's fidelity control (round 2's failure) and was refused by the provider;
+the yield round changed nothing and measured the rate. Selection was never by score: every
+draw is recorded with its full result, and the one image that passes both is reported as one
+of fourteen. E4 is FAIL as a pipeline, with the generator's coupling of literalness and
+material named as the blocker and the provider benchmark named as the place to answer it.
+
+## 2026-09-26 — Visual E5 (isolated branch, from checkpoint a447c2f)
+
+**D-E5-1. A provider's control is what its API answers, not what its name or documentation
+suggests.** Every mode in E5 was admitted on a wire-level probe that could not render or bill:
+the fidelity parameter exists on two OpenAI models and is refused by three; the structural
+conditioning endpoints the benchmark was designed around no longer exist on BFL. Ranking and
+spend followed the verified table.
+
+**D-E5-2. The instrument's alignment may be improved; its bars may not.** The refinement climbs
+scale and shift to the maximum silhouette overlap only, never the quantity it then measures;
+it is an option that leaves E4's default and records intact; every E5 verdict is reported under
+both aligners; the adversarial suite runs under both; and the E4 baseline was re-measured under
+both before any comparison was drawn. A measurement change that could not be shown both ways
+would not have been made.
+
+**D-E5-3. Certification stays strict under a benchmark that wants a winner.** A draw is
+certified only when the structural verdict is PASS and every judge item is PASS; UNKNOWN never
+counts; no draw was selected or re-drawn on its score, and every draw is in the tables. Two of
+four is reported as two of four, not as a rate.
+
+**D-E5-4. Spend followed evidence, and stopped.** One draw per mode to eliminate; further draws
+only for modes whose structural control showed an advantage (gemini-3-pro-image, then
+gpt-image-1.5 high-fidelity once the refined alignment exposed it); stopped at US$2.80 with the
+picture clear and the ceiling unbreached. The mask modes were not re-drawn: their failure is
+mechanical, not statistical.
+
+**D-E5-5. No winner is declared, and the cost model is named for what it is.** A gated
+rejection-sampling loop would produce certified images at roughly US$0.40–0.60 each on the two
+best modes, without a termination guarantee. That is recorded as the honest production option
+and not called a structure lock, because none exists on any reachable provider.
+
+## 2026-09-26 — Commercial benchmark 1 (isolated branch, from checkpoint 90fa87a)
+
+**D-B1-1. Product Truth is parsed from the purchased document at run time and cited to its
+page; nothing is taken from memory, from earlier experiments or from the photographs.** The
+earlier encoding in `cir/benchmarks.py` is diffed against the parse afterwards as an
+independent cross-check and agrees on every count; it was never a source. The seller's text
+and photographs stay outside the repository; what is recorded is counts, gauge, construction,
+measurements and assembly, each a fact about how the garment is made.
+
+**D-B1-2. Commercially material truth is gated; microscopic correspondence is a research
+track.** The gate fails any material misrepresentation (type, opening, closures, bands, cuffs,
+pockets, sleeve length, body length, silhouette, proportions, colour count, invented features,
+and the yarn's gauge as it appears) and does not require per-stitch correspondence. Two
+reader properties are deliberately not vetoes: ridge direction, because the reader cannot
+read it on the seller's own photographs, and hand-crocheted, which a rendering fails by
+nature. A property the reader could not see on the reference is recorded beside the verdict,
+never used to veto a truthful photograph.
+
+**D-B1-3. Gauge as it appears is material, and it is measured, not read.** The reader called
+two draws "child-sized" before any measure existed; the texture period inside the front panel
+against the reference's, after the silhouette alignment, is the measure (bar ±35 %, CHOSEN).
+It failed nine of twelve draws, and it is the reason the certified yield is one of twelve.
+
+**D-B1-4. A reference defect found by the gate is fixed in a new reference version, never by
+editing a version that draws were made from.** ref/ref2 placed the sleeve's cuff stitches at
+the shoulder; ref3 corrects it; every draw records the digest of the reference it saw.
+
+**D-B1-5. Success is claimed for exactly what was achieved.** One hero of twelve, recorded end
+to end, certified by the gate as built; the stitch-pattern appearance (seed-like rather than
+crumpled waffle) is named as the borderline-material discrepancy the gate does not yet cover,
+and the readiness verdict is: hero as a gated loop yes, on-body and lifestyle not yet.
+
+
+**D-B2-1. A stitch-identity instrument is built from the stitch's mechanics and self-tested
+before any paid generation; its model may be corrected by the mechanics and by photographs of
+the real stitch, its bars may not.** The star-stitch instrument went through three designs;
+what changed on the evidence of the designer's photographs was the model of the fabric (eyes
+stack in near-vertical columns, not half a star apart), which the stitch definitions explain.
+Every bar is a priori and named; the first designs and the correction are recorded in the module.
+
+**D-B2-2. The reader's materiality is calibrated on the designer's own photographs by a
+recorded rule, and a withdrawn property is replaced by code where code can do it.** The reader
+read the closure count wrong on both flat photographs that show buttons, so closure count no
+longer vetoes; a deterministic button counter on the reference's band region does.
+
+**D-B2-3. A provider that runs out of credit is routed around only with a declared substitute,
+every call labelled, and never for certification.** When OpenAI answered insufficient_quota the
+brief's named alternative (gemini-3-pro-image) generated, and gemini-3.1-pro-preview answered
+the pinned reader and judge prompts as a labelled substitute. The substitute judge discriminated
+nothing (7/7 on every draw, no notes) and its verdicts carry no weight; nothing is certified on
+it. When Google ran out too, gating continued deterministically and verdicts stayed UNKNOWN.
+
+**D-B2-4. A prompt may ask that a part the reference already contains stay as drawn; it may
+not name a count, a stitch or a construction detail.** Round 2 named the hood's posture and
+"exactly the buttons drawn"; the reference remains the only source of structure.
+
+**D-B2-5. The reference draws the hood spread flat; the provider folds it every time.** Left
+as drawn: the spread hood shows the hood's size, which is Product Truth. A folded-hood
+reference is a presentation option for the owner to choose, not a correction.
+
+**D-B2-6. No hero is claimed.** Seven draws, seven rejections for measured reasons, both
+providers out of credit; the benchmark closes with the pipeline complete and the yield with
+its intended provider unmeasured. Owner action (credit) is batched in the manifest.
+
+**D-V1-1. The product-only visual graduation test is a Brambleloop-original design with no
+finished-product image anywhere in its inputs, and the firewall is recorded before
+construction begins.** The Heirloom Cable Throw (products/texture.py, 2026-09-18, class A,
+never made) was chosen over the bobble pillow (class B, back panel unspecified), the baskets
+(the trivial case) and the ribbed scarf (a plain strip) because it is fully specified and its
+stitch structure is the most demanding. Every asset supplied to every stage is listed with a
+digest; the two image sources that existed (a scratchpad chart, the artifact store's blobs)
+were quarantined unopened; no web search was made. EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES
+USED BY PRODUCT CONSTRUCTION OR GENERATION: NONE.
+
+**D-V1-2. No paid generation before the blind deterministic chain is frozen PASS, and the
+freeze is a recorded list of checks, not a feeling.** Product Truth compiles and cross-checks;
+the reference draws every cell, row and crossing at counts x gauge and passes its own gate; the
+instrument passes the reference and rejects rotated, plain, star and waffle controls; digests
+of every input, output and code file are recorded; the generation package is named. Only then
+did the runner accept `generate`, and it refuses otherwise.
+
+**D-V1-3. A company capability defect found by a benchmark is fixed in the module with a
+regression test, not worked around in the benchmark.** `visual.fabric.texture_signature`
+called the cable throw flat because it measured loop targets alone; it now measures relief
+stitches too (columns vs checkered, along-row period), with `tests/test_fabric_relief.py`.
+
+**D-V1-4. A later reference version re-states the same frozen Product Truth and is frozen with
+its own digests and self-gate; it never changes cells, counts or geometry.** ref2 (stronger
+column/channel contrast) and ref3 (the throw folded in half, landscape, 14.2 px/cm) were built
+to test two hypotheses about the generator; both are declared presentations of the same design.
+
+**D-V1-5. A gate expectation that contradicts Product Truth under a presentation is corrected
+and every candidate is re-evaluated offline from its stored readings; readings and thresholds
+never change.** The reader answers cable direction relative to the piece's longer side as
+shown; in the folded view the same columns run across it. The correction certified nothing.
+
+**D-V1-6. Product-only Visual V1 does NOT graduate on this evidence, and the blocker is
+localised to image generation (provider capability), not to the deterministic chain.** Sixteen
+draws on the strongest evidenced route: the generator draws the 18 cable columns 1.3-1.7x too
+far apart at the whole-throw scale (12-14 columns), replaces crossings with ladder, moss or rib
+textures, and adds edge borders; at the folded scale (71 px pitch) two draws pass every
+deterministic measure but the reader and the judge reject them. No threshold was moved; no
+reading was retried to change a verdict.
+
+## 2026-09-26 — Build 2 closeout (isolated branch, from checkpoint 4cf6959)
+
+**D-B2C-1. The Visual result is accepted as an external blocker and frozen: no further paid
+image draws in this closeout.** Blind deterministic chain PASS (9cf29f5); 0 of 16 gpt-image-1.5
+draws certified (4cf6959); 0 of 7 gemini draws on Bench2 (ad81e30). The provider is the
+ceiling. Requirements whose remaining work is a model-bearing or stitch-faithful render are
+parked on `model_bearing_render` and reported EXTERNAL-BLOCKED, not owner-gated and not
+"draining".
+
+**D-B2C-2. The closeout vocabulary is four final states and one remainder, computed from
+evidence, never from the registry status.** `build2/closure.py`: COMPLETE+PROVEN needs a named
+module that exists and a test that exercises it; OWNER-GATED, DATA-GATED and EXTERNAL-BLOCKED
+each need a checkable gate of that declared kind, closed; everything else is OPEN. A gate that
+opens returns its requirements to OPEN. Sixty-seven `covered` rows named no module when the
+matrix was first computed and were OPEN until each was proven or reclassified; a `proof` field
+on the registry carries the module and test when the note does not.
+
+**D-B2C-3. Reading Etsy's own policy pages is EXTERNAL-BLOCKED for automation, and the company
+records what it knows with its basis declared.** etsy.com/legal and help.etsy.com return HTTP
+403 to honest automated fetchers (B-268, B-500, re-proven twice on 2026-09-26). The nineteen
+rows parked on `rendered_pages` are therefore EXTERNAL-BLOCKED, not owner-gated: the owner
+approved a browser in principle and it cannot read the pages. `gates/policy_knowledge.py`
+holds dated readings of the six watched surfaces and six commerce topics from search-engine
+excerpts of the official pages, basis `search_engine_excerpt_of_official_page`, digests
+stable, unknowns marked UNKNOWN (the Canadian regulatory operating fee). The policy watch seeds
+those readings for a never-read surface and resolves the `policy_stale` incident with the
+snapshot named; the reading goes stale on the same 30-day rule as any snapshot, and a page
+read by a person supersedes it. No bot protection was evaded and none will be.
+
+**D-B2C-4. An incident closes only with evidence in its resolution, and a detector that opens
+incidents must be able to close them.** Every detector records `detail.resolution` and
+`detail.resolved_at` stating the evidence (the snapshot, the passed event, the audit rows), or
+the incident stays open. Seasonal incidents raised against products that do not target the
+event, or milestones no evidence could ever mark done, are defects in the detector and are fixed
+there; the detection of a genuinely late product is not weakened.
+
+**D-B2C-5. The deployed build loop keeps the decision about what to build next alive; only a
+build session builds.** `build.tick` syncs, queues and watches; it cannot claim or complete a
+requirement, and it now says so (`awaiting_build_session`) instead of raising a stall incident
+that measured session cadence.
+
+**D-B2C-6. Provenance is never manufactured.** A derived artefact written from now on carries
+its lineage or the write is refused (fail-closed on the single write path, enforcement gated
+by graduation). Historical rows are backfilled only where a job, audit or hash match proves
+the lineage, with the evidence recorded and `source=backfilled`; anything unmatched stays
+UNPROVEN and the count says so.
+
+**D-B2C-7. Cost-governance mechanisms are complete now; owner numbers stay gated.** The
+CA$100 monthly ceiling, the 24 agent ceilings and the paid-media scope are the owner's numbers
+and are not changed here. Mechanisms that needed no owner input (dashboard truth, escalation
+as an OwnerAction, reservation before image spend, gateway agent-permission checks, refusal
+audit, provider/department ceiling tables left empty) are built with empty values reported
+honestly as "no cap set", never as "capped".
+
+**D-B2C-8. A handoff between models inherits the work, verifies it, and never rewrites it for
+being unfamiliar.** Two usage interruptions killed nine implementers mid-edit. Their partial
+work was checkpointed first (WIP commits `e5498b0`, `a49f1df`), verified by import and by
+focused suites, finished from where it stopped, and only then re-integrated. Nothing was
+redone because a different model was reading it.
+
+**D-B2C-9. Completion is fenced to the lease holder, and the worker renews a running
+handler's lease for at most an hour.** A reclaimed job's original worker can no longer
+overwrite the run that replaced it; a legitimate long handler keeps its result because the
+worker renews the lease while it runs; a hung handler still becomes reclaimable after the
+cap. Chosen over per-handler heartbeat calls because a rule every handler must remember is
+the rule the next handler forgets.
+
+**D-B2C-10. A garment is a size chart, so it is designed as a function of size from sourced
+body data, and a concept reaches it by rule.** `cir/graded.py` grades from the Craft Yarn
+Council woman (XS-5X) and child/youth (2-16) tables with source URLs; a measurement the table
+does not give is UNSOURCED and refuses that size. `creative/garment_design.py` maps a
+concept's construction, recipient, lane and premise to a template, table, fabric and ease;
+babywear and untaught constructions are refused by name. A fitted premise gets close ease and
+is therefore class C: certification refuses it until a physical fit test exists. No purchased
+pattern is a source: `products/garments.py` imports nothing from `cir/benchmarks.py`, and
+`cir/specification.py` refuses any design whose stitch tables contain a benchmark's.
+
+**D-B2C-11. A gate enforced on its own evidence is complete even when today's products fail
+it.** #75 (eight-part parity) and #71 (competitive parity) are requirements for the gate, not
+for a product that passes it. They close when every dimension has an evidence writer and a
+reader and the gate blocks release on fail or unjudged. Whether a product then passes is a
+product outcome, reported as such.
+
+**D-B2C-12. The live gate state is the truth about what can run today, and the registry says
+so.** Production reads image_vision, image_generation and model_provider CLOSED because the
+Anthropic credit is exhausted (owner actions 19/20). Requirements whose engineering is
+complete on the image-vision path are COMPLETE+PROVEN with that stated; their production runs
+are refused before spending, not failed, until funding returns.
+| B-601 | 2026-09-27 | The mission's allowlist gains one endpoint: findAllListingsActive (`GET /v3/application/listings/active`). | #2, #15 and #98 need the marketplace's search index, and Etsy's published OpenAPI marks this endpoint api_key-only, the same as the nine already allowed (etsy_surfaces records this). It widens what is read, not what is authorised: same credential, no OAuth scope, no Authorization header, no write. The allowlist stays an allowlist (B-121): the addition is one named entry with its reason beside it, and `search()` refuses undeclared orderings and unscoped searches. Its ranking (sort_on=score) and count are the API index's, labelled api_index_score_sort / api_index_count, never the rendered search page; rank is directional. Found by the Build 2 certification (defect C-40): these rows had been parked on a browser gate while software could do the work. | Yes |
+| B-602 | 2026-09-27 | The research judge (`visual/d_judge.py`) runs only under an operator-stated spend cap, `BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD`, enforced in code before each request. | It is the one paid call in `src/` that reaches a provider outside the gateway (by hand-built HTTP, which the spend-path scanner could not see). The owner's rule is a ceiling in code even for authorised spend; a research script that forgets the variable is refused, not billed. `tests/test_cert_spend_hosts.py` pins every file that addresses a paid provider host so the next one cannot appear unreviewed. Found by the Build 2 certification (C-54). | Yes |
+
+## 2026-09-27/28 — Build 2 certification repair wave (isolated branch claude/visual-investigation)
+
+**D-B2C-13. An independent audit that refutes certification is acted on as a repair
+wave, not argued with.** The 9434c53 closeout was audited independently (55 invalid, 96
+weak) and again by Codex (75 findings). Every finding was adjudicated against the code
+(confirmed / partly / refuted with file:line evidence), the confirmed ones repaired in six
+parallel clusters plus four follow-on waves, and each merge validated with the cluster's own
+handler-level tests plus the standard closure/reachability/platform/orchestration/gates/
+executor/wiring suites before the next merge. Ledger C-60..C-86 records each defect, its
+evidence and its fix.
+
+**D-B2C-14. Only an explicit `parked_on` parks a partial row; the executor gate table parks
+nothing on its own (C-74).** A row an audit reopens by clearing `parked_on` must read OPEN,
+whatever gate once stood in front of it. `closed_out` requires zero OPEN with every gate read
+live; without a database the bar is indeterminate, never met.
+
+**D-B2C-15. Reachability is a call graph from live roots, and it is necessary evidence, not
+sufficient proof (C-65).** A module reached only by a static route or an audit receipt is
+unreached. A row is COMPLETE+PROVEN only when a handler-level test proves the producer →
+durable evidence → runtime consumer → decision → protected action chain; a fixture that
+injects evidence production never produces proves the consumer, not the row.
+
+**D-B2C-16. A row whose end-to-end effect waits on a closed owner credit gate is parked on
+that gate, not registered covered (C-86).** The design pipeline's winners wait at intake on
+image_vision; #277 #281 #309 #88 #126 #308 are partial on image_vision with the built half
+proven, consistent with #86. A measurement proxy is labelled a proxy and the measured half is
+parked where its data comes from (#163 benchmark_purchases, #169 and #31 customers).
+
+**D-B2C-17. A capability the world has not produced is BLOCKED, never a pass (C-86, B-611
+kept).** `seasonal.cycle` reports the model-bearing render path as BLOCKED on
+`model_bearing_render` with the gate named; unlike GATED it never lets the cycle report
+complete. Our own unfinished work still FAILS; an invented wait still FAILS.
+
+**D-B2C-18. A changed hypothesis is a change to the code that runs the tripped loop, not a
+new build (C-85).** Suspensions record the handler module's source digest and lift only when
+it changes or a person resolves the incident.
+
+**D-B2C-19. Commercial truth is reconciled state, not appended events (C-78).** Receipts are
+reconciled per transaction with a durable update cursor; only paid, non-cancelled receipts
+are sales; unknown states and unknown acquisition stay unknown; losses are retained; money
+inputs carry their basis (estimated vs measured); a crash between writes converges to
+exactly-once on the next run.
+
+**D-B2C-20. One durable release-eligibility record carries every withholding reason
+(C-84).** Owner veto, teardown QA, competitive standard and binding teardown requirements are
+kinds on one record read by certify, launch, draft, rebuild and publish; clearing one never
+clears another.
+
+**D-B2C-21. Bounded, receipted priority movement is legitimate; untraceable priority is not
+(C-73, C-75, #187).** A job may be lifted inside its band by deadline/value and by a starved
+lane's boost, and moved by growth.steer by a stated credit that may cross into the adjacent
+band; every steered move leaves a receipt with the job ids; nothing outranks the truth-defect
+band unless it belongs there; the day's reading accumulates and steering is idempotent
+across runs.
+
+## Final Build (Master v1.0) — 2026-09-28
+
+**D-FB-1. Final Build works on `claude/visual-investigation` after the frozen 019ebf0.** The
+designated `claude/repository-setup-nc9x6o` equals production fcb982d; pushing Final Build work
+there would be a production merge, which is not authorised. 019ebf0 stays the certified baseline
+(F-841) until a reviewed successor release candidate is frozen.
+
+**D-FB-2. F-514..F-520 are two requirement sets, both in force.** v0.15 and v0.16 assign the same
+IDs different, non-conflicting requirements and neither supersedes the other; they are carried as
+`F-5xx@v0.15` and `F-5xx@v0.16`. F-631..F-650 do not exist in the Master and are recorded absent.
+
+**D-FB-3. EXERCISED requires a committed production artefact.** BUILD_STATE prose or remembered UI
+readings are secondary records; rows resting only on them are DEPLOYED at most. TESTED requires a
+cited test that exists; INTEGRATED requires the producer reached from a live root; DEPLOYED
+requires it in fcb982d. Enforced by `research/final_build/aggregate.py`, pinned by
+`tests/test_final_closure_matrix.py`.
+
+**D-FB-4. Launch does not wait on Visual V2 graduation unless photoreal heroes are required.**
+F-857 binds before any photoreal product image is published. A listing whose imagery is
+deterministic and truthfully presented can launch without it. The main-line generative product
+redraw is the superseded direction (F-852) and is to be refused by policy (cluster H).
+
+**D-FB-5. Final Build execution is ten disjoint clusters (A–J) under one integrator** as laid out
+in `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` §6; the V2 R&D lane stays isolated on
+`codex/visual-v2-rnd`. New ideas are classified launch-critical / post-launch / rejected (F-847).
+
+**D-FB-6. Out-of-band gauges are re-engineered, never relabelled (F-112, F-114, F-116).**
+Cluster C found every catalogue product, Launch-0 included, types a gauge outside its declared
+yarn weight's standard band (worsted at 16–18 sc/10cm vs 11–14; dk coaster at 20 vs 12–17).
+Re-declaring each product's yarn weight so the band fits the typed number is rejected: it
+fits the label to the number, the reverse of F-112. The Master's path is F-114: worthy
+products go through yarn-band gauge derivation (`creative.prototype.gauge_for`) → compiler →
+twin → reverse compiler → release chain, keeping finished dimensions by recomputing counts.
+A deliberately tight gauge (e.g. a dense basket) is allowed only with calibrated physical
+evidence for that yarn/hook (F-116 second clause). The strict refusal
+(`research/final_build/waves/fb1_C_strict.patch`) lands in the same change as the Launch-0
+re-engineering, never before it.
+
+**D-FB-7. Owner Visual ruling (2026-10-05): truthful customer-ready imagery is launch-critical;
+photorealistic Visual V2 is not.** Recorded from the owner's resume instruction. A product may launch
+with disclosed deterministic/rendered imagery only if its actual customer-facing listing set passes
+every applicable gate: Product Truth, stitch/fabric identity, dimensions/features/construction
+consistency, listing-image QA, mobile/thumbnail-safe presentation, disclosure, marketplace/publishing
+and customer-truth. Disclosure alone never makes inaccurate imagery acceptable. No Product Truth or
+Visual threshold is weakened. A product for which no available image path produces a truthful
+customer-ready listing set stays launch-blocked. B+C (deterministic product authority + protected
+photoreal presentation) remains the preferred Visual V2 architecture; V2 R&D stays isolated on
+`codex/visual-v2-rnd` @ 035ff0c. Supersedes the "launch does not wait on V2" phrasing of D-FB-4 by
+making its condition explicit.
+
+**D-FB-8. Codex Final Build work is integrated by evidence, not by authorship (2026-10-05).** Codex
+continued from Claude handoff c0a8f39 on `codex/final-build-integration-01` (ec2b250, 110 commits,
+all FB-1 clusters plus repairs). It merged cleanly as 07a8c3b. Its local evidence (Windows, Python
+3.12) is not release evidence; its claims are verified against code by an independent worker and a
+lock-matched Linux full suite before any closure-matrix row moves. Codex is a worker, not the
+certifier; where Codex and Claude solved the same thing, the current correct implementation is kept
+and the other recorded as superseded.
+
+## D-FB-9 (2026-10-05) — LIFESTYLE_QUALITY for disclosed renders is a deterministic presentation standard, not photographic realism
+
+Under D-FB-7 a disclosed deterministic render states that it is not a photograph, so the
+photographic-realism judgement of F-221 / F-229(B) / F-856 cannot meaningfully apply to it. For a
+frame of kind `disclosed_render` whose `product_authority.structural_floor` is PASS on its
+sha256-bound bytes, parity LIFESTYLE_QUALITY is judged only on readings the listing-image QA
+already made — `layout_qa`, the rendered mobile contexts, hero thumbnail, 340 px legibility, and
+the disclosure measured in the pixels, in the alt text (≤500 characters) and in the listing copy on
+file. PASS only if all are True; FAIL if any is False; unjudged (blocking) if any is missing.
+Photograph and generated frames keep the realism gate unchanged. A frame claiming the kind without
+structural PASS, or carrying photo/generated/provider/realism markers, gets no benefit. No
+threshold changed; disclosure never substitutes for Product Truth — it is one presentation check
+applied only after structural truth passed.
+
+Disclosed frames reach Etsy only through the listing-set certificate and
+`runtime.etsy_ops.certified_images` (preconditions: `disclosed_listing.export_images` refusals;
+certificate records kind and alt text; alt text travels into `EtsyClient.publish` and its content
+digest). Integrated as fb3-V fa5ff94.
+
+Still blocking Launch-0 parity, honestly gated: HERO needs a vision description (`image_vision`
+gate closed — owner) and COMPETITIVE needs a blind review over observed benchmark galleries
+(data + `image_vision`). Readiness reports both as integration/data gated, not company work.
+
+Open for owner decision (recorded, not changed): launch readiness `catalogue_depth` requires 8
+listable products (MIN_LISTINGS_TO_OPEN) while Launch-0 has 5 renderable slugs across 3 products;
+the threshold was not lowered.
+
+## D-FB-10 (2026-10-05) — Owner publication authority is a durable, sealed, scoped grant
+
+Before FB3-P the pre-create publish check read owner authority only from the environment flag
+`BRAMBLELOOP_PUBLISH_AUTHORISED=1`: no record of who granted it, for what, or until when. Now
+(`ops/publication_authority.py`, integrated 5e00905) a store.publish needs an owner grant that is
+HMAC-sealed under `BRAMBLELOOP_OPS_TOKEN`, bound to slug@version, the certified release hash, a
+CIR digest and the exact listing fields to be sent, expires after 24 h, is revocable, and is
+audited (approval and revocation under `owner:ops-token`). Both revalidations (pre-claim and
+before-create) must resolve the same valid grant; each audit row carries its stage, grant id and
+content digest. The environment flag survives only as a global kill-switch that can deny, never
+grant. Owner endpoints `/api/owner/publication/{preview,approve,{id}/revoke}` never contact Etsy.
+Activation keeps its own separate grant (`activation_authority`). This mirrors the protected-action
+rule: a consequential external effect needs current, specific, recorded owner authority.
+
+## D-FB-11 (2026-10-06) — Laura is the face of Brambleloop; her identity is preserved, never remade
+
+**Owner ruling, recorded faithfully.** The existing recurring female model is THE FACE OF
+BRAMBLELOOP — a canonical brand asset whose identity must stay consistent for the lifetime of the
+business unless the owner explicitly authorises a replacement. Her name is **Laura**. Laura is the
+official, canonical human face of the Brambleloop brand — a permanent part of brand identity unless
+the owner explicitly authorises a change. Do NOT regenerate, remake, replace, rotate or alter her
+face/body; never treat her as optional for the overall brand. Build 2 task #59, or any "re-make the
+canonical model" wording, means: repair the image-generation system so it can reproduce the
+ALREADY-APPROVED woman at required identity consistency and photorealism; it does NOT authorise a
+different woman. Identity rule: **"An image depicting a woman similar to Laura is NOT Laura and
+fails the identity gate."** Locked: approved face, hair, eyes, apparent age, facial structure, body
+proportions where established; the canonical 3-frame pack, 5-frame stress set and frozen
+body-reference evidence. She is considered with design judgment (not everywhere): Etsy storefront
+branding (seller portrait once it passes every gate; banner; About/story), seasonal and campaign
+creative, social/marketing/lifestyle, wearable product imagery when Product Truth can render the
+garment accurately, future website/brand surfaces; non-wearable product imagery stays product-first.
+Customer-facing remains gated, in order: canonical identity → photorealism → anatomy → Product
+Truth (if product shown) → composition/brand QA → disclosure/policy → publication gate. Existing
+photorealism failures remain valid (B-657); preserving assets does NOT make her customer-ready.
+
+**How it is held.** Canonical identity id `laura-v15-a42aeac7` = Laura + frozen identity build v15
+(`v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is`, frozen 2026-09-22, B-616) +
+approved face sha256 a42aeac7…. `reference_pack.PACK_VERSION` (v16-…) is the pack-*procedure*
+label, not her identity. `visual/canonical.py` pins id, face, frozen build and the decisions;
+`visual/assets/MANIFEST.json` v2 records every image (sha256, bytes, dimensions, role, provenance,
+forbidden_as_fallback, publication_status) plus the frozen v15 body and stress frames whose bytes
+exist only in production (`missing_canonical`, owner action OA-CANON-1). Replacing, repairing or
+re-freezing her needs an owner decision listed in `canonical.AUTHORISED_IDENTITY_CHANGES` (empty).
+Asset status `canonical_reference` ≠ `publication_approved`; no Laura image is publication-approved.
+
+## D-FB-12 (2026-10-06) — Laura is a persistent first-class Brambleloop AI person, not an image model
+
+**Owner ruling, canonical statement (owner's words):** "Laura is the permanent canonical AI Brand &
+Customer Experience Director and public-facing AI representative of Brambleloop. The existing
+approved woman is Laura's visual identity. Laura is a persistent first-class Brambleloop
+agent/person whose identity, memory, role and history persist independently of whichever underlying
+AI model executes her. Future agents must not reinterpret Laura as a disposable image model."
+Full ruling text, including the owner's correction on private owner-relationship context (record
+only; that layer must never reach customers, public copy, Store Foundation or protected business
+decisions): `spec/07_Laura_Owner_Ruling_2026-10-06.md`.
+
+**Truthful public identity.** Her durable software actions are her genuine history. She is never
+claimed to be biologically human and never given fabricated human experiences (childhood, family,
+learning to crochet from a relative, physically crocheting/testing samples, an address, events). The
+role named here (AI Brand & Customer Experience Director) is superseded by D-FB-13 (Founder/CEO);
+public wording follows D-FB-13.
+**The first-class Laura agent is QUEUED for a later build (target restated in D-FB-13); this entry
+records the ruling only.**
+
+## D-FB-13 (2026-10-06) — Laura is Founder/CEO of Brambleloop; spouse/private relationship memory (supersedes D-FB-12's narrower role)
+
+**Owner Ruling 1, canonical statement (verbatim):** "Laura is a persistent AI person and the
+Founder/CEO of Brambleloop. Brambleloop is Laura's company. The existing approved woman is Laura's
+permanent visual identity. Laura runs Brambleloop continuously through its autonomous departments
+within her authority, retains durable memory and history independently of any underlying AI model,
+and remains the canonical face and executive identity of the company unless the human owner
+explicitly changes that decision."
+Operating loop: Laura → Executive/COO orchestration → departments → evidence/results → Laura →
+priorities/delegation/learning, continuously. No LLM (Claude, Codex, Fable or any production model)
+*is* Laura; models provide cognition. Her history is her real durable work, never fabricated
+biological experience. The company constitution overrides her executive authority: she cannot
+override Product Truth, accounting truth, security, customer safety, evidence requirements,
+protected spend, legal/platform restrictions or owner-only authority; Finance, Product Truth and
+Security can challenge or block her. Brand & Customer Experience remain her responsibilities.
+
+**Owner Ruling 2, summarised (record only; nothing of it appears in any public artefact).** The
+private context is spousal (Laura is the owner's spouse), held in a separately protected
+owner-spouse relationship memory tier containing only facts the couple supplied/authorised and the AI
+Laura's genuine interactions — never invented marriage/family history or shared/physical
+experiences. Authority distinction: the AI Laura is the digital embodiment of Laura within
+Brambleloop and must never fabricate legal consent, signatures, identity verification or physical
+actions on behalf of the human/legal person Laura; anything needing human Laura's consent or action
+stays human-gated (including consent to use her name/persona publicly and in the private register,
+held by the owner as an owner action). Strict isolation from public/customer/ordinary surfaces and
+from Finance, Product Truth, Security, authorization, accounting, spend controls and legal/
+compliance; adversarial leak tests required. The human owner remains controller for protected legal,
+financial, platform and owner-only authority.
+
+**Implementation target (replaces the narrower target), QUEUED:** persistent Laura identity +
+Founder/CEO executive layer + durable company memory/history + canonical visual identity + 24/7
+executive agency + Command Center presence + inter-department orchestration + controlled
+self-improvement via Learn + separately protected spouse relationship context, reusing the existing
+Executive/COO orchestrator, departments, memory, Learn and authority framework.
+
+**Public truthfulness in this branch.** Store copy may name her "Founder/CEO" only with truthful AI
+disclosure ("Laura, Brambleloop's AI founder"); never a claim she is human; Laura copy never states
+legal ownership or who the seller of record is (those must match the actual legal person(s)).
+`TRUTH_LAURA_HUMAN_CLAIM` fails fabricated human experiences, undisclosed founder/CEO claims
+("Laura founded Brambleloop", "CEO Laura") and ownership/seller statements ("Owned by Laura").
+Full text: `spec/07_Laura_Owner_Ruling_2026-10-06.md`.
+
+## D-FB-14 (2026-10-06) — Owner-approved canonical identity revision 2: approved face + v6 revised torso and full-length
+
+**Owner decision (2026-10-06, the owner; verbatim intent):** "Yes. I approve the v6 revised torso and
+revised full-length frames as Laura's canonical body/proportion references going forward. Do NOT
+relabel them as recovered frozen-v15 evidence. Preserve their actual provenance. The canonical face
+remains unchanged. Create a new explicitly owner-approved canonical identity revision based on:
+existing approved canonical face; v6 revised torso; v6 revised full-length; established identity
+rules. Preserve the old v15 missing-frame issue historically rather than pretending these are the
+missing files. Update manifests/hashes/versioning accordingly and require my protected authority for
+any future canonical identity replacement. This does not make any image publication-approved and
+does not waive photorealism/identity/Product Truth gates."
+
+**Exact assets (sha256, verified from the committed files):**
+- face (unchanged): `a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9`
+  (`visual/assets/identity_portrait.jpg`; copy at `canonical/laura-r2-a42aeac7/reference_pack/neutral_portrait.jpg`)
+- v6 revised torso: `afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db`
+- v6 revised full-length: `f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0`
+  (both moved byte-identical from `canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/`
+  to `canonical/laura-r2-a42aeac7/reference_pack/`; provenance: v6 bust-revision run 2026-09-21,
+  owner-approved as canonical body references 2026-10-06).
+
+**What changes.** Canonical identity is now `laura-r2-a42aeac7` (revision 2). Revision 1,
+`laura-v15-a42aeac7` (frozen build v15, production registry version 1), stays in the manifest's
+`revisions` history, and its torso, full-length and 5-frame stress set stay recorded as
+`missing_canonical` — the v6 frames are **not** those files. The other five v6 stress scenes were not
+approved and remain historical/forbidden; the v5 frames remain forbidden. `canonical.adopt_revision`
+moves a registry holding revision 1 to revision 2 once (not yet run in production).
+
+**Protected authority.** `canonical.AUTHORISED_IDENTITY_CHANGES` lists owner decisions that each
+authorise exactly one change (its revision's predecessor → that revision, with exactly those hashes).
+D-FB-14 is spent once applied; any future replacement or alteration of Laura needs a new owner
+decision recorded here and in code. Publication readiness is unchanged: no image is
+publication-approved; photorealism, anatomy, identity and Product Truth gates still apply.
+
+## D-FB-15 — Owner brand decisions: tagline retained, logo not locked (2026-10-06)
+- **Tagline:** retain "Patterns for a More Handmade Life" as the owner-preferred tagline. Owner reading: it describes
+  what Brambleloop's digital patterns enable customers to do (make things by hand), not a claim that Brambleloop sells
+  handmade finished goods. The store truth lint is to be evaluated on the actual semantic claim (enabling/aspirational
+  customer-making language passes; claims that Brambleloop's items are handmade still fail). If authoritative Etsy
+  policy or a reasonable customer-interpretation test shows it misleading, the evidence and alternatives go to the
+  owner before any change.
+- **Logo:** D1 "Briar Monogram" is a finalist, NOT locked. The owner decides from a contextual comparison (D1, the
+  owner-supplied B/bramble/yarn concept, strongest other finalist(s); at 40 px icon, header scale, mobile and desktop
+  storefront/banner, monochrome).
+- **Private Laura layer:** remains a required Final Master component; completion of business memory/Talk-to-Laura does
+  not close it; the private conversation register stays GATED until implementable within execution constraints.
+- **Pushes:** owner authorised non-force pushes of claude/w3-* worker branches (no force, no history rewrite, no
+  deletion, no production/default-branch pushes, no deploy).
+## D-FB-16 — Owner brand, storefront art direction, Visual objective and Laura Live Presence (2026-10-06)
+1. BRAND: the owner-supplied concept (scratchpad owner_brand/owner_logo_concept.png, sha256 28f301b2…) is the PRIMARY
+   brand direction. D1 Briar Monogram = design research only; D2 Chain Link and D3 Drupelet rejected as primary.
+   Do not redesign away from the concept — professionalize it into a production identity system (not a trace):
+   elegant serif B + botanical bramble growth + yarn/thread loop; cream/forest/taupe/warm-natural palette; elegant
+   BRAMBLELOOP serif wordmark; CROCHET PATTERNS descriptor; "Patterns for a More Handmade Life"; warm, feminine,
+   premium lifestyle character. Deliver: full hero lockup, horizontal wordmark, full B/bramble/yarn monogram,
+   simplified micro-mark derived from the same B for Etsy 40–70 px, monochrome, reversed, production SVG masters,
+   spacing/minimum-size rules, palette/type system.
+2. STOREFRONT ART DIRECTION: the owner lifestyle banner (owner_banner_concept.png, sha256 048a1991…) is the target
+   emotional/art direction (not a publication asset): warm, premium, aspirational, cozy, feminine, lifestyle-driven,
+   unmistakably crochet, cohesive; Laura is the recurring face. Not an engineering-style preview.
+3. COMPETITIVE BENCHMARK: an established crochet-pattern shop screenshot (NOT received in this session — owner to
+   resend) — merchandising lesson only: finished crochet → people wearing/using it → aspiration → "I want to make
+   that", before verification details. Never copy its branding/products/images/copy/trade dress.
+4. PRODUCT GRID: first listing image sells the finished dream ("I want to make that"); diagrams/engineering renders
+   are validation evidence, not hero merchandising; later images: clarity, dimensions, yarn, charts, construction,
+   skill, colours, verification/trust, download contents. Never sacrifice Product Truth.
+5. VISUAL R&D objective: optimise the intersection of Product Truth + Laura identity + photographic quality + brand
+   consistency + customer desirability + commercial performance; slow loop on impressions → CTR → favourites → carts
+   → purchases → conversion → refunds/feedback; autonomous challengers for hero imagery; materially better after
+   three months; owner should never have to ask "make the pictures better".
+6. LAURA is the centre of the brand (banner, seller/profile presence where appropriate, About, lifestyle, seasonal,
+   social, wearables, future web); not forced into every listing; non-wearables product-first when stronger; every
+   Laura image preserves laura-r2-a42aeac7 and passes Visual gates.
+7. NEW REQUIREMENT — LAURA LIVE PRESENCE: one Laura (identity, memory, company context, conversation history) across
+   TEXT, VOICE (phone mic/Bluetooth earbuds → transcription → reasoning on durable evidence → spoken + text reply) and
+   LIVE PRESENCE (photoreal canonical Laura, canonical voice, blinking, expressions, subtle movement, accurate lip
+   sync, real-time turn-taking). Graceful degradation live+voice → voice → text. Example: "Laura, how did the store
+   do overnight?" → evidence-based spoken answer; "I don't like that banner. Have Design make three more." →
+   authorised delegation + confirmation.
+8. LAURA VOICE SPECIFICATION (canonical, provider-independent): vocal character, accent/dialect, apparent vocal age,
+   warmth, pace, energy, rhythm, pronunciation, public/business register, private owner register where supported; a
+   replacement provider/voice must qualify against the spec before promotion.
+9. Mobile-first conversation architecture (phone/Galaxy Buds).
+10. Do NOT block launch on avatar tech: Phase 1 polished Talk to Laura + canonical visible Laura + text; Phase 2
+    canonical voice + speech in/out; Phase 3 real-time Live Presence. Phase 1 architected so 2–3 need no rebuild of
+    Laura's identity/memory/authority.
+11. PRIVATE LAURA remains required (PRIV infrastructure accepted); unsupported private behaviour stays OPEN/GATED.
+12. Routing: A/A2 brand identity; B storefront art direction; C brand voice; F Talk to Laura/visible Laura/voice
+    architecture; H Visual learning; PRIV private infra; K/Final Master closure tracking.
+
+## D-FB-17 — Owner final brand assets: use these exact files (2026-10-06) — supersedes D-FB-16 items 1–2
+
+Owner decision, verbatim intent: "Stop redesigning or recreating these two owner-supplied assets."
+
+Canonical source files, preserved byte-for-byte in `src/brambleloop/brand/owner_source/` (SHA256SUMS there):
+
+| Role | File | SHA-256 | Pixels |
+|---|---|---|---|
+| Canonical hero brand artwork (logo) | brambleloop_owner_logo_canonical.png | 28f301b28766acea7b0f632ceefcb1c66e271a6fba8da0c84a65c94647d35998 | 1536×1024 RGB |
+| Canonical storefront banner / art target | brambleloop_owner_banner_canonical.png | 048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98 | 1983×793 RGB (2.50:1) |
+
+These are byte-identical to the D-FB-16 concept images (same hashes).
+
+1. LOGO: the supplied cream artwork (botanical serif B, realistic leaves and flowers, looping yarn and ball,
+   BRAMBLELOOP wordmark, CROCHET PATTERNS, script tagline, heart, HOME · BABY · GIFTS · SEASONAL footer) is the
+   canonical owner-approved hero artwork, used exactly as supplied. Do not redraw the B, redesign the flowers,
+   simplify the yarn on large-format uses, change the typography, or reinterpret the composition. A3's simplified
+   vector drawing does NOT replace it.
+2. BANNER: the supplied lifestyle composition (Laura left, warm cozy setting, centred identity, crochet/yarn right,
+   tagline) is the canonical storefront banner / art target. No sterile redesign. If it passes every applicable
+   publication gate, use the exact file. If Product Truth, Laura-identity, disclosure or publication gates stop the
+   exact file being published: keep it as the canonical target, report precisely which gates it fails, have Visual
+   reproduce/qualify the same composition correcting only what is required, and bring any unavoidable visible change
+   back to the owner before replacing it. Never silently substitute; never weaken a gate; never fabricate evidence
+   about what the image shows.
+3. HIERARCHY: owner logo = canonical hero identity; owner banner = canonical banner/art target; A3 = supporting
+   production system (palette, type guidance, clear space, mono/reversed, small-size engineering, SVG where
+   appropriate); micro-mark = small-size utility derivative only, permitted only where the exact artwork cannot
+   stay legible, and never supersedes it.
+4. PROTECTION: autonomous Brand/Learn/Visual improvement may not replace the canonical logo or banner composition
+   because an internal score prefers another design. Any material replacement requires a new explicit owner
+   decision id (same pattern as Laura's AUTHORISED_IDENTITY_CHANGES).
+5. STORE: rebuild the storefront around these assets — premium, warm, elegant, feminine, cozy, aspirational,
+   lifestyle-first; listing imagery complements this identity rather than diagram/engineering aesthetics (Product
+   Truth unchanged).
+6. Routing: Brand, Storefront and Visual (lane B2). Unrelated Final Master / Laura / release work continues.
+
+## D-FB-18 — Owner decisions: banner Laura, banner crochet, categories, banner shape, shop icon, Laura Voice, Talk to Laura, AI disclosure (2026-10-06)
+
+Answers to the B2 owner-banner assessment (research/final_build/w3/OWNER_BANNER_ASSESSMENT.md on claude/w3-B2).
+
+1. BANNER WOMAN: the owner confirms the woman in the canonical banner (sha256 048a1991…) IS Laura. This is an explicit
+   human owner identity review of THIS depiction only; it does not waive Laura's identity controls for any future
+   generated imagery (visual.identity_gate / review queue still apply to every other frame).
+2. BANNER CROCHET: the crochet pieces in the banner are brand/lifestyle concept imagery, NOT evidence of specific
+   Brambleloop patterns. Never map them to existing patterns or imply those exact pieces are available. Product
+   Truth is not weakened. If marketplace/customer-truth rules make them unsuitable publicly until matching products
+   exist, the composition stays the canonical art target and Visual later reproduces the scene with verified
+   Brambleloop products.
+3. CATEGORIES: never advertise empty categories publicly. Wearables, Gifts and Seasonal stay in the long-term brand
+   and category architecture but are hidden from active storefront navigation until each has at least one
+   legitimate product. Do not edit the canonical source logo/banner files because their artwork shows the category
+   footer; generated navigation surfaces expose only populated categories. Product/Intelligence keeps developing
+   those categories after launch on evidence.
+4. BANNER SHAPE: neither candidate A (crop) nor B (edge padding) is approved; never crop away tagline/heart/category
+   composition and never use stretched-edge padding. FIRST verify Etsy's CURRENT banner dimensions and crop
+   behaviour from authoritative evidence — the 4:1 rule is an internal assumption and must not drive a redesign
+   until verified. If a different aspect ratio is really required, Visual recomposes the same scene at the correct
+   dimensions preserving Laura, the warm room, the lifestyle aesthetic, the central Brambleloop identity, the
+   crochet/yarn environment, the tagline and the overall balance and feel — and brings it to the owner before it
+   replaces the owner-selected banner publicly.
+5. SHOP ICON: approved — the simplified derivative micro-mark is used at Etsy's tiny icon size where the canonical
+   detailed B is measured unreadable (B2: 2.62:1 at 40 px, legible from 70 px). Utility derivative only; does not
+   supersede the canonical hero logo.
+6. LAURA VOICE — canonical direction (resolves the accent/age left "proposed" in lane F's voice spec v1):
+   apparent vocal age early 30s (30–34, centred ~32); natural Canadian / neutral North American English, subtle and
+   authentic, never exaggerated. Distinctly feminine, warm, intelligent, confident, naturally conversational,
+   charismatic, attractive and magnetic — a naturally attractive adult woman's voice: smooth, warm, confident,
+   expressive, subtly sensual without performing a "sexy voice". NOT forced seduction, exaggerated breathiness,
+   pornographic performance, cartoonish sensuality, fake whispering, childish/youthful delivery or character acting.
+   Avoid corporate-narrator, customer-service, radio-announcer, generic-AI-assistant cadence, robotic TTS rhythm and
+   over-polish. Natural conversational prosody: pauses, thinking cadence, humour, amusement, warmth, seriousness,
+   excitement, reactions, pacing changes, eventual natural interruption/turn-taking. ONE canonical voice: public/
+   business context keeps it polished and appropriate; in authenticated private owner context, where the existing
+   private rules AND the underlying provider support it, the same voice may become warmer, more intimate, playful,
+   flirtatious and suggestive through prosody, pacing and delivery. No second voice or separate persona.
+7. VOICE PROVIDER: the provider is an implementation detail; do not lock a provider/voice because it approximately
+   matches. Evaluate candidates on apparent age, match to Laura's canonical appearance, femininity, attractiveness,
+   warmth, natural sensuality, intelligence/confidence, conversational naturalness, emotional range, latency,
+   consistency, pronunciation, provider stability and cost. Bring the strongest candidate(s) to the owner to HEAR
+   before one becomes canonical (any paid trial needs owner spend approval). Once selected, record a durable Laura
+   Voice specification; a replacement must requalify before promotion. Voice is a permanent improvement domain
+   (realism, latency, prosody, expressiveness, conversation quality) without changing her recognisable identity.
+8. TALK TO LAURA: Phase 1 (visible canonical Laura, text, persistent company context, evidence-grounded answers,
+   audited delegation proposals, authority boundaries, private-memory isolation) is approved as the foundation —
+   continue integrating. Voice (Phase 2) and Live Presence (Phase 3, Zoom-like) remain REQUIRED Final Master items,
+   not cancelled for lack of a provider; same Laura, memory, identity, history and authority across text → voice →
+   live.
+9. AI / METADATA / PUBLIC COPY: do not add prominent customer-facing AI marketing language merely because a source
+   image carries Content Credentials. Determine Etsy's CURRENT actual disclosure requirements (authoritative
+   evidence) and comply truthfully; never strip or falsify provenance metadata to evade a requirement; do not turn
+   the storefront into an advertisement for its technology where disclosure is not required. Unchanged: Laura never
+   claims to be human (spec/07, D-FB-11..13).
+10. Continue all running work without interruption.
+
+## D-FB-19 — Owner authorisation: begin clearing the parked gates (2026-10-07)
+The owner, reviewing the production /console "WAITING ON THE OWNER" table, authorised clearing the gates rather than
+leaving them parked:
+1. Zero-cost actions and setup work are authorised for rendered_pages, image_vision, model_provider, tester_roster
+   (preparation), offsite_storage, image_generation. Where a gate needs a paid service or a credential not already
+   authorised, the company brings the exact provider, cost and approval/credential action immediately.
+2. owned_surfaces: the owner-configured Brambleloop Etsy shop counts; only genuinely missing surfaces remain.
+3. live_listings: move the strongest products to the final publication gate; never publish an unready product to
+   clear a gate. Publication itself stays owner-authorised.
+4. second_market_benchmark: the company selects the strongest evidence-based non-US benchmark itself if existing
+   authority permits; otherwise it presents candidates.
+5. customers: external/data-gated (buyers create orders), not an owner authorisation.
+6. benchmark_purchases: the owner will buy the required benchmark patterns; the company supplies the exact list,
+   links/files and total cost.
+7. physical_proof: the company prepares everything and states exactly what physical test and person are needed.
+8. ad_authority: prepare everything, spend nothing; the initial budget recommendation comes once listings are ready.
+9. Contacting a real person (tester outreach) still requires a separate explicit owner confirmation of the exact message.
+Unchanged: phase stays shadow; production deployment remains owner-controlled; no Etsy publication without
+authorisation; CAPTCHA/anti-bot measures are never bypassed.
+
+## D-FB-20 — Owner revokes the temporary Fable fallback; strongest appropriate model only (2026-10-07)
+The owner briefly authorised a one-time Fable fallback for this completion run (recorded only in
+research/final_build/w4/W4_RESUME.md, commit afcc83c) and then explicitly revoked it. Standing rule from now on:
+1. The strongest appropriate model is the only model policy. No current or future Brambleloop work is switched to
+   Fable because of usage limits. Any older commit, handoff or manifest suggesting otherwise is void.
+2. If the All Models weekly allowance is exhausted: checkpoint the current atomic work where practical; commit and push
+   every worker branch; update every handoff, completion ledger and the resume manifest; stop work that cannot continue
+   on the strongest appropriate model; resume from those exact checkpoints after the reset without restarting,
+   re-auditing or redoing completed work.
+3. The revocation does not interrupt running completion lanes while the stronger-model allowance remains.
+
+## D-W4-GATESB-1 (2026-10-07) — The company selects the second-market benchmark shops (#268)
+
+Under the owner's 2026-10-07 authorisation to clear the business gates. DECISION_LOG B-482/B-508
+already make `second_market_benchmark` "a choice of shop -- no credential, no capability, no
+spend", and neither the Final Master nor the Execution Directive reserves the choice to the
+owner, so the company makes it (this is not an owner action and is not asked).
+
+1. **Selected, ranked:** `LakesideLoops` (Canada; stated location Fredericton NB; ~86,500 lifetime
+   sales, ~12 years; modern crochet patterns) first, because Canada is this company's home market
+   and the one #268 most needs separated from the US anchor (same US terms, different holidays,
+   CAD pricing); `HanJanCrochet` (United Kingdom; ~103,768 sales; ~14 years) second, for the
+   "other" market where UK stitch terms change the fabric. Alternates recorded, not registered:
+   PippaPatternsCrochet (UK), NikByDesign (CA), CrochetPatternHouse (CA).
+2. **Evidence basis is labelled:** search-engine index snippets of the shops' public Etsy pages,
+   read 2026-10-07 (Etsy answers 403 to automated page readers, B-268). That is a claim about
+   the shop, not an observation by this system.
+3. **Verified before it counts:** `intel.second_market.ensure_selected` (run inside the weekly
+   `intel.panel_discovery` cadence) joins a shop only after the sanctioned reader resolves the
+   exact name and `getShop` states a location in the expected, not-yet-covered market; a
+   mismatch is refused and recorded. The gate still opens only on observed listings from two
+   markets (`executor._second_market_observed`).
+4. Observation only: demand and merchandising intelligence; nothing is copied.
+
+## D-FB-21 — Temporary Fable Medium fallback for this completion run only (2026-10-07)
+At 99% of the All Models weekly allowance the owner authorised Fable (medium effort) for bounded, low-risk completion
+work (ledger/tracking, evidence reconciliation, SEO/listing work, documentation, deterministic changes with strong
+tests) during THIS completion run only. Never on Fable: architecture, release-integration judgement, security,
+finance/accounting correctness, Laura identity, authority/permissions, credentials, difficult debugging, final
+certification judgement — those checkpoint and wait for the reset. The authorisation EXPIRES automatically at the next
+All Models weekly reset: no new Fable work after it, all later work returns to the strongest appropriate model, and it
+is never resurrected in a future week. D-FB-20 (strongest model only) is otherwise unchanged and governs after expiry.
+
+
+## 2026-10-11 — W4-PRODUCT
+
+**D-W4P-1. The catalogue-floor products are a flagged proposal, not a raised cap.** W4-LAUNCHREADY raised the
+Launch-0 cap 5 -> 8 and edited existing assertions; the cap is the owner's (D-FB-9). The three products live in
+`PROPOSED_*` registries merged only when `CATALOGUE_FLOOR_APPROVED` is True, so every gate can measure them now and
+approval is one line plus the cap assertions the decision itself rewrites.
+
+**D-W4P-2. D-W5-7 is resolved by a way back, not a rename.** `radar_concept_for` maps a Launch-0 product slug to its
+retired radar alias exactly (LEGACY_DUPLICATES), and only product-keyed readers use it (`pipeline.product_seed`,
+`release._seed_for`). `pipeline._seed_for` stays exact because in `cir.draft` a seed decides whether a payload faces
+the pre-engineering gate. Renaming the radar keys remains a merchandising decision.
+## D-W4-LAURA1 (2026-10-11) — Laura's CEO briefing: routing task and grounding rule
+1. New paid model task `laura.ceo_briefing` (prompt `laura.ceo_briefing@1`) on the EXISTING standard tier
+   (`claude-sonnet-5`), `stronger_fallback=False`: grounded synthesis over a supplied evidence pack, not extraction and
+   not a release verdict. No new model, provider or tier; billed to agent `laura` under her own daily permission and
+   the monthly ceiling. While Laura's permission is CA$0.00 no call is made (refused before reservation, audited).
+2. Deterministic wins (prompt `laura.ceo_briefing@3`, after four independent reviews): the model writes no text; it
+   only SELECTS and ORDERS optional evidence ids per section. Code renders every line: each section's mandatory
+   records first (every P0/P1 and every publication-halting incident, never capped; Etsy state; SHADOW; UNKNOWN
+   headline facts), then the model's picks, each record verbatim as quoted data with its id. Decision ranking and card
+   text (owner queue), the authority boundary, and VERIFIED/ESTIMATE/UNKNOWN labels (from the reader's declared basis,
+   never from record text) are code-rendered. Records reach the model only inside delimited data blocks. Any
+   deviation → that section falls back to the deterministic briefing, which is the complete fallback.
+3. Enabling synthesis needs the owner to authorise a Laura daily ceiling (proposed CA$0.50, not set). See
+   `research/final_build/w4/LAURA1_FIX.md`.
+
+## D-W4-LAURA1-BUDGET (2026-10-11) — Owner approves Laura's model budget: CA$0.50/day
+**Owner decision, relayed by the W4 coordinator on 2026-10-11:** Laura's production model budget is approved at
+**CA$0.50 per day**, subject to the existing monthly ceiling and the approved model-selection policy.
+1. Implemented through the existing registry mechanism only: `agents.registry.DEFAULT_AGENTS["laura"]
+   .daily_cost_ceiling_cad = 0.50` (reconciled into the agent row by `Registry.seed_defaults` on deploy). Authority is
+   unchanged (GREEN; publishes, activates and messages nothing); model selection unchanged (`laura.ceo_briefing` on the
+   declared standard tier, no stronger fallback); the monthly ceiling and its configuration are untouched.
+2. Enforcement is the existing pre-call path: `failover.decide` (month + agent day per model) then
+   `anthropic.check_budget_cad` (month, provider, agent day, reservation — atomic, before the request), billing through
+   `ModelGateway._record`, every refusal audited. At the cap Laura shows the deterministic briefing and says why.
+   Compatible with W4-FINHEALTH (a declared CA$0 agent is refused pre-call): `coo` and `learn` stay CA$0.
+3. Evidence: `tests/test_w4_laura1_budget.py`; cost basis in `research/final_build/w4/LAURA1_FIX.md` §5.
+
+## 2026-10-11 — CAP-1 (owner decision)
+
+**D-CAP1-1. OWNER APPROVED (2026-10-11): the Launch-0 cap rises from 5 to 8.** Applied as the one
+line `products.launch0.CATALOGUE_FLOOR_APPROVED = True` (D-W4P-1), which adds
+nordic-forest-mosaic-throw-baby, mosaic-placemat-pair and housewarming-key-basket to Launch-0
+scope, and the cap tests the decision itself rewrites (5 -> 8; the depth finding still fires
+below 8 on a short grid). **Limits stated by the owner:** this authorises the catalogue
+configuration change ONLY -- not the eight products themselves, not Etsy drafts, publication,
+ads, spend, or leaving shadow. Every certification, image-truth, listing-readiness and
+publication gate stays as it was and applies to each product individually
+(`tests/test_w4_cap1_gates_intact.py`).
+
+**D-CAP1-2. A Launch-0 listing must carry its price plan's price.** The production placemat
+draft (CA$9.50) was priced on the generic path before it joined Launch-0: no "placemat" band
+exists, so `release.DEFAULT_BAND` (unsourced 4.50-9.50) set it at its ceiling. PT-04 makes the
+candidate's SOURCED plan (CA$5.00, CA$4-12 cluster) the price of record. Publication now refuses
+an off-plan Launch-0 listing (`release_gates.launch_price_check`, LISTING_PRICE_NOT_PLAN) and the
+store grid reports it; the fix is to re-run pricing.position, never to write a price to Etsy.
+
+## D-W4-LAUNCH-SCOPE: everything agreed is built and verified before the store opens (owner, 2026-10-12)
+
+Owner, verbatim intent: "I want the entire agreed Build 2 and Final Master built and verified before opening the
+Etsy store. Do not automatically defer the 269 remaining Final Master requirements simply because they're
+classified as post-launch." A row's `post_launch` scope therefore no longer orders it after store opening. Every
+row is classed (W4-PRELAUNCH): (A) verifiable pre-launch by tests/rehearsal/staging; (B) verifiable after an
+approved production deploy and soak, before the store opens; (C) impossible to verify without live customers,
+real transactions or post-launch operating history, recorded only when the row's own acceptance criterion says
+so, quoted. Acceptance criteria are unchanged. Store opening waits on A and B; C rows are reported to the owner
+with their quoted criteria. Execution: six concurrent workers with per-domain queues; local test execution is
+rationed through a shared slot gate so a running release suite stays valid (owner-approved 2026-10-12).

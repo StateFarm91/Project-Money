@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import benchmarks, coverage, deliverable, mission, pods
+from .cadence import INTERVALS_SECONDS as _CADENCE_LADDER
 from .etsy_public import NotConfigured, PublicReader, ReadFailed
 
 # Fields that decide whether a listing has *commercially* changed. Deliberately not every
@@ -103,6 +104,17 @@ def _price_cad(listing: dict) -> float:
         return 0.0
 
 
+# The listing-structure fields the sanctioned API returns for options and variants (#208).
+# Badges and cross-sell placement exist only on the rendered page and are not here.
+OPTION_FIELDS = ("has_variations", "is_personalizable", "personalization_is_required",
+                 "is_customizable", "listing_type")
+
+
+def listing_options(listing: dict) -> dict:
+    """Which option / variant structure the listing declares, from API fields only."""
+    return {k: listing[k] for k in OPTION_FIELDS if listing.get(k) is not None}
+
+
 def fingerprint_of(listing: dict) -> str:
     return pods.fingerprint({k: listing.get(k) for k in FINGERPRINTED})
 
@@ -160,6 +172,8 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 # new-or-changed branch covered 25 of 438 listings and had no path to the
                 # rest. Unlike the gallery this costs nothing -- the description arrived with
                 # the catalogue page -- so the whole map closes on the next scan.
+                if "options" not in (row.detail or {}) and listing_options(listing):
+                    row.detail = {**(row.detail or {}), "options": listing_options(listing)}
                 if "deliverable" not in (row.detail or {}):
                     facts = deliverable.read(listing)
                     sizes = deliverable.size_range(listing, pod=row.pod)
@@ -187,6 +201,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
                           "when_made": listing.get("when_made")}
+            # #208: options and variants, from the API's own listing fields. Stored only
+            # when the payload carries them -- an absent field is unmeasured, not "none".
+            options = listing_options(listing)
+            if options:
+                row.detail["options"] = options
             # #2's last unmeasured weakness: whether the listing says what arrives. The
             # description is already in this payload and nothing was reading it. It is read
             # here and discarded with the payload -- what is stored is the fact set, which is
@@ -198,6 +217,27 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
             if sizes is not None:
                 row.detail["size_range"] = sizes
             result.pods_notified.add(pod)
+
+    # -- F-787: a publicly observed listing is a public source, recorded as one ----------
+    #
+    # Everything this scan reads comes through the public, read-only marketplace API, so a
+    # new or changed listing is public material: it may inform demand and merchandising
+    # research and is never a source for publishable output. Recording it as such puts a
+    # `pattern_rights='none'` licence row where `gates.originality.release_findings` and the
+    # library read licences, instead of leaving the listing to the purchase-default reading.
+    # `overwrite=False`: terms somebody recorded by hand are never rewritten by a sighting.
+    from ..teardown import licence as _licence
+
+    for listing in to_audit:
+        ref = str(listing.get("listing_id"))
+        try:
+            _licence.register_public_source(
+                db, _licence.public_listing_ref(ref), url=str(listing.get("url") or ""),
+                kind="public_web", attribution=shop_name,
+                notes=f"observed by intel.observe.scan of {benchmark_key}",
+                recorded_by="intel.observe", overwrite=False)
+        except Exception as exc:  # noqa: BLE001 - a failed record is a reported problem
+            result.problems.append(f"{ref}: public-source licence not recorded ({exc})")
 
     # -- the deep audit: what moved first, then the backlog (#208, #212, #303) ----
     #
@@ -310,9 +350,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
 def _open_gaps(db, benchmark_key: str) -> list[str]:
     """One gap per pod the benchmark sells into and Brambleloop does not.
 
-    Scored only on components the scan can actually observe. Make time, contribution and
-    creative potential are left absent rather than guessed, so the queue's own
-    `evidence_weight` says how much of each score is real.
+    Scored on every component the database can answer: apparent demand and portfolio fit
+    from the scan, seasonal timing from the calendar and lead-time engine, search opportunity
+    from captured search-result density, and make time from the arena's make hours (#314).
+    Expected contribution and creative potential have no evidence yet and stay absent rather
+    than guessed, so the queue's own `evidence_weight` says how much of each score is real.
     """
     from sqlalchemy import select
 
@@ -345,23 +387,215 @@ def _open_gaps(db, benchmark_key: str) -> list[str]:
         demand = min(1.0, (sum(favourites) / 2000.0)) if favourites else 0.0
         components = {"apparent_demand": round(demand, 3),
                       "portfolio_fit": min(1.0, len(listings) / 10.0)}
+        extra, basis = gap_components(db, pod_key, listings)
+        components.update(extra)
         coverage.upsert(db, benchmark_key=benchmark_key, arena=pod.name, pod=pod_key,
                         components=components,
                         evidence={"benchmark_listings": len(listings),
                                   "total_favourites": sum(favourites),
-                                  "note": "scored only on what the scan observed; make time, "
-                                          "contribution and creative potential are absent "
-                                          "rather than guessed"})
+                                  "basis": basis,
+                                  "note": "expected contribution and creative potential are "
+                                          "absent rather than guessed"})
         opened.append(pod.name)
     return opened
 
 
+# #314's computable components. The status each lead-time plan reads as, scored: a window a
+# maker can still comfortably hit is worth most, a missed one nothing.
+TIMING_SCORE: dict[str, float] = {"on_track": 1.0, "past_preferred": 0.6, "at_risk": 0.3,
+                                  "missed": 0.0}
+# Search results at which a department's shelf counts as fully crowded (log scale).
+SERP_CROWDED_AT = 100_000
+# A make this long scores zero on make time: nobody finishes it for a near occasion.
+MAKE_HOURS_CEILING = 90.0
+
+
+def gap_components(db, pod_key: str, listings: list) -> tuple[dict, dict]:
+    """Seasonal timing, search opportunity and make time for one pod, from rows (#314)."""
+    import math
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import SerpSnapshot
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal.calendar import DEFAULT_DEPARTMENTS, EVENT_DEPARTMENTS
+    from ..seasonal.leadtime import compile_launch, next_occurrence
+    from .mission_runtime import ARENA_MAKE_HOURS, arena_for
+
+    out: dict[str, float] = {}
+    basis: dict[str, str] = {}
+    arenas: dict[str, int] = {}
+    for row in listings:
+        a = arena_for(row.title or "", pod_key)
+        if a:
+            arenas[a] = arenas.get(a, 0) + 1
+    hours = [ARENA_MAKE_HOURS[a] for a in arenas if a in ARENA_MAKE_HOURS]
+    if hours:
+        mid = sorted(hours)[len(hours) // 2]
+        out["make_time"] = round(max(0.0, 1.0 - mid / MAKE_HOURS_CEILING), 3)
+        basis["make_time"] = f"median arena make time {mid} h (assumed, radar.market)"
+        today = datetime.now(timezone.utc).date()
+        events = [e for e in SEASONAL_EVENTS
+                  if pod_key in EVENT_DEPARTMENTS.get(e.name, DEFAULT_DEPARTMENTS)]
+        if events:
+            soonest = min(events, key=lambda e: next_occurrence(e.event_date, today))
+            plan = compile_launch(soonest.name, next_occurrence(soonest.event_date, today),
+                                  make_hours=mid)
+            status = plan.status(today)
+            out["seasonal_timing"] = TIMING_SCORE.get(status, 0.0)
+            basis["seasonal_timing"] = (f"{soonest.name}: {status}, latest effective launch "
+                                        f"{plan.latest_effective_launch.isoformat()}")
+    spec = pods.BY_KEY.get(pod_key)
+    words = {w.lower() for w in (spec.keywords if spec is not None else ()) if w} | set(arenas)
+    with db.session() as s:
+        snaps = [(r.query.lower(), r.total_count) for r in s.scalars(
+            select(SerpSnapshot).order_by(desc(SerpSnapshot.id)).limit(500))]
+    counts = [n for q, n in snaps if n is not None and any(w in q for w in words)]
+    if counts:
+        density = max(counts)
+        out["search_opportunity"] = round(max(0.0, 1.0 - math.log10(max(1, density))
+                                              / math.log10(SERP_CROWDED_AT)), 3)
+        basis["search_opportunity"] = (f"{density} results on the most crowded captured "
+                                       f"query naming this department")
+    return out, basis
+
+
+# ---------------------------------------------------------------------------
+# #313: the scan interval follows the benchmark shop's own posting behaviour
+
+# The fixed interval this replaces, and the one used whenever history is too thin to adapt.
+FIXED_INTERVAL_SECONDS = 6 * 60 * 60
+# Bounds. The floor is courtesy to a sanctioned API and the cost of a scan that finds nothing;
+# the ceiling is how stale the named benchmark is ever allowed to get.
+ADAPTIVE_FLOOR_SECONDS = 2 * 60 * 60
+ADAPTIVE_CEILING_SECONDS = 24 * 60 * 60
+# Posting events needed, and the span they must cover, before the history is believed.
+MIN_POSTING_EVENTS = 4
+MIN_HISTORY_DAYS = 7
+# Scans per mean posting gap. Four means a new listing waits on average an eighth of the gap.
+SAMPLES_PER_POSTING_GAP = 4
+# A run this close to due counts as due, so window jitter cannot skip a whole period.
+DUE_TOLERANCE = 0.95
+# #213's second input: during a seasonal ramp the interval may not exceed this, whatever the
+# posting history says. The cadence ladder's release-run rung (`cadence.INTERVALS_SECONDS[1]`),
+# taken from there so the two cannot drift. A quiet shop in October is still a shop whose
+# Christmas release, when it comes, is the one the mission exists to catch.
+SEASONAL_CEILING_SECONDS = _CADENCE_LADDER[1]
+
+
+def _aware(value):
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def adaptive_interval(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+                      now: datetime | None = None,
+                      seasonal: bool | None = None) -> dict:
+    """How often to scan, from when the benchmark shop actually posts (#313).
+
+    Posting history is read from `BenchmarkObservation` rows the scan itself writes: each
+    non-baseline scan that found a new or materially changed listing is one posting event.
+    The mean gap between events, divided by SAMPLES_PER_POSTING_GAP and clamped to
+    [floor, ceiling], is the interval. With fewer than MIN_POSTING_EVENTS events or less than
+    MIN_HISTORY_DAYS of history the interval is the fixed six hours, and the reason says so:
+    adapting to three data points is a guess with a formula attached.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkObservation
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        rows = [(_aware(r.at), r.detail or {}) for r in s.scalars(
+            select(BenchmarkObservation).where(
+                BenchmarkObservation.benchmark_key == benchmark_key,
+                BenchmarkObservation.kind == "official_api_read")
+            .order_by(BenchmarkObservation.at))]
+
+    scans = [at for at, _d in rows]
+    events = [at for at, d in rows
+              if not d.get("baseline")
+              and any(c.get("what") in ("new listing", "materially changed")
+                      for c in (d.get("changes") or []))]
+    last_scan = scans[-1] if scans else None
+    # #213: seasonal urgency is the second input. Read from the one seasonal calendar through
+    # `cadence.seasonal_pressure`, never a second list, so the scanner and the ladder agree on
+    # what a ramp is. Injectable so a test can hold the calendar still.
+    if seasonal is None:
+        from .cadence import seasonal_pressure
+        seasonal = seasonal_pressure(now.date())
+    base = {"benchmark": benchmark_key, "scans": len(scans), "posting_events": len(events),
+            "last_scan_at": last_scan.isoformat() if last_scan else None,
+            "floor_seconds": ADAPTIVE_FLOOR_SECONDS,
+            "ceiling_seconds": ADAPTIVE_CEILING_SECONDS,
+            "seasonal_pressure": bool(seasonal),
+            "seasonal_ceiling_seconds": SEASONAL_CEILING_SECONDS}
+
+    def _seasonal(out: dict) -> dict:
+        if not seasonal or out["interval_seconds"] <= SEASONAL_CEILING_SECONDS:
+            return out
+        return {**out, "interval_seconds": SEASONAL_CEILING_SECONDS,
+                "bounded_by": "seasonal",
+                "reason": (out["reason"] + f"; a commercially meaningful event is inside the "
+                           f"planning window, so the interval is held at "
+                           f"{SEASONAL_CEILING_SECONDS // 3600} hours (#213 seasonal "
+                           f"urgency)")}
+
+    span_days = ((events[-1] - events[0]).total_seconds() / 86400) if len(events) > 1 else 0
+    if len(events) < MIN_POSTING_EVENTS or span_days < MIN_HISTORY_DAYS:
+        return _seasonal(
+            {**base, "adaptive": False, "interval_seconds": FIXED_INTERVAL_SECONDS,
+             "reason": (f"history too thin to adapt: {len(events)} posting event(s) over "
+                        f"{span_days:.1f} days, against at least {MIN_POSTING_EVENTS} "
+                        f"over {MIN_HISTORY_DAYS} days. Using the fixed "
+                        f"{FIXED_INTERVAL_SECONDS // 3600}-hour interval")})
+
+    gaps = [(b - a).total_seconds() for a, b in zip(events, events[1:])]
+    mean_gap = sum(gaps) / len(gaps)
+    raw = mean_gap / SAMPLES_PER_POSTING_GAP
+    interval = int(min(ADAPTIVE_CEILING_SECONDS, max(ADAPTIVE_FLOOR_SECONDS, raw)))
+    bound = ("floor" if raw < ADAPTIVE_FLOOR_SECONDS else
+             "ceiling" if raw > ADAPTIVE_CEILING_SECONDS else "none")
+    return _seasonal({**base, "adaptive": True, "interval_seconds": interval,
+            "mean_posting_gap_hours": round(mean_gap / 3600, 2), "bounded_by": bound,
+            "reason": (f"the shop posted {len(events)} times over {span_days:.1f} days, a "
+                       f"mean of {mean_gap / 3600:.1f} hours apart; scanning "
+                       f"{SAMPLES_PER_POSTING_GAP} times per gap gives "
+                       f"{interval / 3600:.1f} hours"
+                       + (f" (held at the {bound})" if bound != "none" else ""))})
+
+
+def scan_due(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+             now: datetime | None = None, seasonal: bool | None = None) -> dict:
+    """Whether the adaptive interval has elapsed since the last recorded scan.
+
+    Both of #213's inputs reach the decision: the shop's posting history and, through
+    `adaptive_interval`, the seasonal calendar.
+    """
+    now = now or datetime.now(timezone.utc)
+    cadence = adaptive_interval(db, benchmark_key=benchmark_key, now=now, seasonal=seasonal)
+    last = cadence["last_scan_at"]
+    if last is None:
+        return {"due": True, "why": "no scan has been recorded", "cadence": cadence}
+    elapsed = (now - datetime.fromisoformat(last)).total_seconds()
+    due = elapsed >= cadence["interval_seconds"] * DUE_TOLERANCE
+    return {"due": due, "elapsed_seconds": int(elapsed), "cadence": cadence,
+            "why": (f"{elapsed / 3600:.1f} hours since the last scan against an interval of "
+                    f"{cadence['interval_seconds'] / 3600:.1f}")}
+
+
 def scan_or_explain(db, *, env: dict[str, str] | None = None,
-                    transport=None, **kwargs) -> dict:
+                    transport=None, adaptive: bool = True, now: datetime | None = None,
+                    **kwargs) -> dict:
     """Run a scan, or say precisely why one could not run (#224).
 
     An unconfigured credential is not a failure to report as an outage. It is the mandate
     being unmet for a stated reason, which is what the requirement asks for.
+
+    With `adaptive` (the default), a scan the adaptive interval says is not yet due is
+    deferred rather than run (#313): the cadence can then fire at the floor and the shop's
+    own posting rhythm decides how many of those firings do any work.
     """
     from ..integrations.http import UrllibTransport
 
@@ -375,7 +609,43 @@ def scan_or_explain(db, *, env: dict[str, str] | None = None,
                 "note": ("No observation was performed and nothing was approximated from "
                          "search results, screenshots or fixtures (#224).")}
 
-    result = scan(db, reader, env=env, **kwargs)
+    # W4-PRODDIAG: when Etsy has refused the credential itself (HTTP 401/403), a scan is the
+    # same request with the same key and gets the same answer. Running it anyway turned an
+    # external credential refusal into a failing job, retried until dead, every two hours
+    # (production 2026-10-10: `mjs.scan` dead letters failing /api/verify). The refusal is
+    # reported -- the `etsy_api` gate is closed and says why -- and the six-hourly
+    # `etsy.probe` is what re-tests it; the scan resumes by itself once a probe succeeds.
+    from .etsy_public import auth_refused, last_probe
+
+    probe = last_probe(db)
+    if auth_refused(probe):
+        return {"ran": False, "credential_refused": True,
+                "reason": ("Etsy refused the read credential at the last etsy.probe "
+                           f"({str(probe.get('at') or '')[:25]}): "
+                           f"{str(probe.get('reason') or '')[:200]}. The scan waits for a "
+                           "probe to succeed rather than knocking with a refused key"),
+                "requirements_unmet": [206, 207, 208, 209, 212, 303],
+                "substituted": False}
+
+    if adaptive:
+        due = scan_due(db, benchmark_key=kwargs.get("benchmark_key", benchmarks.MJS_KEY),
+                       now=now)
+        if not due["due"]:
+            return {"ran": False, "deferred": True,
+                    "reason": f"adaptive interval (#313): not due -- {due['why']}",
+                    "cadence": due["cadence"]}
+
+    try:
+        result = scan(db, reader, env=env, **kwargs)
+    except ReadFailed as e:
+        if not e.credential_refused:
+            raise  # rate limits and server faults: the job's retries are the right answer
+        # The credential was refused mid-scan (between probes). Same reasoning as above: an
+        # external refusal is reported, not retried into a dead letter.
+        return {"ran": False, "credential_refused": True,
+                "reason": f"Etsy refused the read credential: {str(e)[:300]}",
+                "requirements_unmet": [206, 207, 208, 209, 212, 303],
+                "substituted": False}
     report = result.to_report()
     mission.check_report(report)
     return {"ran": True, "report": report}

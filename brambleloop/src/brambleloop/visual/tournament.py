@@ -225,6 +225,31 @@ def preferred_provider(db=None, env: dict | None = None) -> str:
     return ""
 
 
+def alternate_provider(db=None, env: dict | None = None, *, exclude=()) -> str:
+    """A verified, available provider other than the ones named (#81 change_tool rung).
+
+    The strongest measured candidate not in `exclude`, else any credentialed one not in
+    `exclude`; empty when this environment holds no other tool, which the rung records as
+    unattemptable rather than re-running the same model under a new name (C-80 defect 8).
+    """
+    from ..gateway import image_bench, images
+
+    excluded = {str(e) for e in exclude if e}
+    available = [k for k in images.available(env) if k not in excluded]
+    if not available:
+        return ""
+    if db is not None:
+        measured = [(image_bench.stored_result(db, c), c) for c in image_bench.CANDIDATES
+                    if c.key in available]
+        scored = [(r.overall() or 0.0, c.key) for r, c in measured if r is not None]
+        if scored:
+            return max(scored)[1]
+    for fallback in ("gpt-image-2", "flux-2-pro", "nano-banana-2"):
+        if fallback in available:
+            return fallback
+    return available[0]
+
+
 # ---------------------------------------------------------------------------
 # Generate and screen
 

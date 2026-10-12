@@ -1,0 +1,708 @@
+diff --git a/brambleloop/src/brambleloop/creative/intake.py b/brambleloop/src/brambleloop/creative/intake.py
+index 45dda1f..2f1a593 100644
+--- a/brambleloop/src/brambleloop/creative/intake.py
++++ b/brambleloop/src/brambleloop/creative/intake.py
+@@ -598,8 +598,12 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
+     concept: Concept = candidate.concept
+     original_key = concept.key
+     slug = design_slug(concept)
++    # A seasonal transformation of a catalogue product (#279) keeps its parent in its
++    # provenance, so the design records what it was transformed from as well as the run.
++    lineage = (f" <- {concept.provenance}" if str(concept.provenance or "")
++               .startswith("transformed:") else "")
+     designed = replace(concept, key=slug,
+-                       provenance=f"{source}:{original_key}"[:120])
++                       provenance=f"{source}:{original_key}{lineage}"[:120])
+     judged = judgement_for(db, slug)
+     if judged:
+         designed = replace(designed, **{k: judged[k] for k in ("thumbnail_reads_small",
+@@ -695,25 +699,152 @@ def verify_funnel(db, slug: str) -> dict:
+     return {**got, "intake_row": _id}
+ 
+ 
+-def regate_held(ctx, *, today: date | None = None) -> dict:
++# ---------------------------------------------------------------------------
++# The judgement a held winner waits on, produced the day its two inputs exist
++#
++# A winner waits on `image_vision`: whether its board reads at mobile-grid size (#88) and how
++# its craftsmanship reads (#83's taste question). Both are judgements about a picture, so
++# both need a picture of the concept -- a board `listing_asset` files for the design, which
++# is Product-Only Visual V1 image generation (external) -- and a vision model that has been
++# probed as actually working (`gateway.anthropic.vision_usable`, model_provider). Neither is
++# invented here: with no board or no working vision model the winner stays WAITING and this
++# says which of the two it waits on. The day both exist, the cadence that calls
++# `regate_held` asks the judge, records `concept.judged` with the judge's name, and the
++# winner is re-presented in the same run.
++
++JUDGE_TASK = "gallery_observation"   # the vision tier the search-grid tournament also uses
++JUDGE_MAX_TOKENS = 200
++JUDGE_SYSTEM = ("You are judging one crochet concept board for a premium pattern shop. Answer "
++                "only about how this board reads as an image. Never describe or compare any "
++                "other seller's product.")
++JUDGE_PROMPT = (
++    "With the seller name, reviews, badges and price removed, would this product idea itself "
++    "still create curiosity or desire at mobile-grid thumbnail size? Then rate the apparent "
++    "craftsmanship of the object shown from 1.0 (crude) to 5.0 (premium). Answer with exactly "
++    "one JSON object and nothing else: "
++    '{"thumbnail_reads_small": true or false, "craft_impression": number}')
++
++
++class JudgeRefused(ValueError):
++    """A vision answer that is not a judgement."""
++
++
++def board_for(db, slug: str) -> str:
++    """The concept board on file for this design, or "" when none has been rendered.
++
++    Read from the record `listing_asset` files when a render is made, so a board produced by
++    the owned-photography path is found by the design's slug and nothing else has to know
++    where images live.
++    """
++    from ..publish import listing_asset
++
++    for frame in listing_asset.frames_for(db, slug=slug):
++        ref = str(frame.get("image_ref") or frame.get("image") or "").strip()
++        if ref:
++            return ref
++    return ""
++
++
++def parse_judgement(text: str) -> dict:
++    """The judge's answer as the two fields `Concept` reserves for a model with eyes."""
++    import json
++
++    body = (text or "").strip()
++    if body.startswith("```"):
++        body = body.split("\n", 1)[-1].rsplit("```", 1)[0]
++    try:
++        parsed = json.loads(body)
++    except ValueError as exc:
++        raise JudgeRefused(f"the judge did not answer with JSON: {body[:100]!r}") from exc
++    if not isinstance(parsed, dict) or not isinstance(parsed.get("thumbnail_reads_small"), bool):
++        raise JudgeRefused("the judge did not say whether the board reads at grid size")
++    craft = parsed.get("craft_impression")
++    if isinstance(craft, bool) or not isinstance(craft, (int, float)) or not 1.0 <= craft <= 5.0:
++        raise JudgeRefused(f"craft_impression {craft!r} is not a rating from 1.0 to 5.0")
++    return {"thumbnail_reads_small": parsed["thumbnail_reads_small"],
++            "craft_impression": round(float(craft), 2)}
++
++
++def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
++    """Ask the vision judge about one held winner's board, and record what it said.
++
++    Budgeted like every other vision call (reserved before, released with the bill after),
++    and refused rather than faked when the model does not answer as a judgement.
++    """
++    from ..core.resilience import PermanentError, TransientError
++    from ..finance import spend_report
++    from ..gateway import anthropic as gw
++
++    provider = provider or gw.provider_for(JUDGE_TASK)
++    held = None
++    try:
++        reservation = gw.check_budget(
++            ctx.db, model=provider.model,
++            input_tokens=len(JUDGE_PROMPT) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
++            max_tokens=JUDGE_MAX_TOKENS, agent=ctx.job.agent, purpose=JUDGE_TASK,
++            job_id=ctx.job.id)
++        held = reservation["reservation_id"]
++        response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [board],
++                                max_tokens=JUDGE_MAX_TOKENS)
++    except gw.BudgetExceeded as exc:
++        gw.release_reservation(ctx.db, held)
++        return {"judged": False, "why": f"budget: {exc}"[:200], "stopped": True}
++    except (PermanentError, TransientError) as exc:
++        gw.release_reservation(ctx.db, held)
++        return {"judged": False, "why": str(exc)[:200]}
++    cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
++                 + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
++    gw.release_reservation(ctx.db, held, actual_cad=cost)
++    if cost > 0:
++        spend_report.record(ctx.db, agent=ctx.job.agent, amount_cad=cost, purpose=JUDGE_TASK,
++                            provider="anthropic", model=provider.model,
++                            department="creative", product_slug=slug, job_id=ctx.job.id,
++                            tokens_in=response.input_tokens, tokens_out=response.output_tokens,
++                            detail={"what": "concept board judgement", "price_basis": "assumed"})
++    try:
++        verdict = parse_judgement(response.text)
++    except JudgeRefused as exc:
++        return {"judged": False, "why": str(exc)[:200], "cost_cad": cost}
++    ctx.audit(JUDGED_ACTION, artifact=slug,
++              detail={**verdict, "judge": provider.model, "board": board[-120:],
++                      "cost_cad": cost, "source": "creative.regate"})
++    return {"judged": True, **verdict, "judge": provider.model, "cost_cad": cost}
++
++
++def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
+     """Re-present winners that waited on a judgement, now that one may exist.
+ 
+     Only a winner the funnel carried and the gate left *waiting* is eligible: a refusal is a
+-    refusal, and a winner the funnel did not carry is not re-opened by a judgement.
++    refusal, and a winner the funnel did not carry is not re-opened by a judgement. A held
++    winner with no judgement is judged here first when its board exists and a vision model
++    is usable; otherwise `held` says exactly which input it still waits on.
+     """
++    from ..gateway import anthropic as gw
+     from . import ideation
+ 
+     latest: dict[str, dict] = {}
+     for row_id, slug, detail in intake_rows(ctx.db):
+         latest.setdefault(slug, {"id": row_id, **detail})
+-    presented, queued = [], []
++    presented, queued, held = [], [], []
++    vision_ok = gw.vision_usable(ctx.db)
++    stopped = False
+     for slug, detail in list(latest.items()):
+         if len(presented) >= REGATE_LIMIT:
+             break
+         if detail.get("decision") != WAITING:
+             continue
++        board = board_for(ctx.db, slug)
+         judged = judgement_for(ctx.db, slug)
++        if not judged and board and vision_ok and not stopped:
++            asked = judge_held(ctx, slug=slug, board=board, provider=provider)
++            stopped = bool(asked.get("stopped"))
++            judged = judgement_for(ctx.db, slug) if asked.get("judged") else None
+         if not judged:
++            held.append({"slug": slug, "waiting_on": (
++                (["board_image (Product-Only Visual V1 image generation)"] if not board
++                 else []) + (["vision_model (no vision probe has succeeded)"]
++                             if not vision_ok else [])
++                or ["a vision judgement of the board on file"])})
+             continue
+         known = detail.get("judgement") or {}
+         if all(known.get(k) == judged.get(k) for k in ("thumbnail_reads_small",
+@@ -725,6 +856,9 @@ def regate_held(ctx, *, today: date | None = None) -> dict:
+                                                             "craft_impression")
+                                       if k in judged})
+         brief = {k: (detail.get("brief") or {}).get(k) for k in GATE_BRIEF_FIELDS}
++        if board:
++            # #126: with a board on file the gate can request the search-grid tournament.
++            brief["board_image"] = board
+         gate = ideation.pre_engineering_gate(ctx.db, SimpleNamespace(concept=concept),
+                                              ctx=ctx, source="creative.regate", brief=brief)
+         verdict = gate.get("verdict") or {}
+@@ -743,7 +877,8 @@ def regate_held(ctx, *, today: date | None = None) -> dict:
+             advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
+                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")
+             queued.append({"slug": slug, "job": getattr(job, "id", None)})
+-    return {"presented": presented, "queued": queued}
++    return {"presented": presented, "queued": queued, "held": held[:REGATE_LIMIT],
++            "vision_usable": vision_ok}
+ 
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/brambleloop/src/brambleloop/creative/prospecting.py b/brambleloop/src/brambleloop/creative/prospecting.py
+index 791d079..01e26f8 100644
+--- a/brambleloop/src/brambleloop/creative/prospecting.py
++++ b/brambleloop/src/brambleloop/creative/prospecting.py
+@@ -1187,9 +1187,21 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
+ }
+ 
+ 
++def _fate(run, key: str) -> str:
++    """Where one entrant's run ended: `killed at <stage>: <cause>` or `carried to <stage>`."""
++    carried = None
++    for r in run.rounds:
++        if key in r.killed:
++            return f"killed at {r.stage}: {r.killed[key]}"
++        if key in r.survived:
++            carried = r.stage
++    return f"carried to {carried}" if carried else "entered"
++
++
+ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+                catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
+-               agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
++               agent: str = "creative_director", exclude_forms: tuple[str, ...] = (),
++               seeded: list[Concept] | None = None) -> dict:
+     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
+ 
+     Only the two stages this system can honestly run today. `ideation` is the structural
+@@ -1200,12 +1212,25 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+     The three stages after it are not simulated. `proposition` needs a margin and an unmet
+     angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
+     with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
++
++    `seeded` concepts (#279: the seasonal transformations of certified catalogue products
++    derived on cadence) enter the field as entrants beside the generated ones. They face
++    every stage the generated field faces -- a transformation too close to its parent dies
++    at research as sameness, which is the honest verdict on a recolour -- and nothing about
++    being seeded carries a concept further.
+     """
+     from .funnel import Tournament, advance
+ 
+     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
+                   only=only, agent=agent, exclude_forms=tuple(exclude_forms))
+     candidates = drawn["candidates"]
++    seeded_keys = []
++    for concept in seeded or []:
++        if concept.form in exclude_forms or any(c.concept.key == concept.key
++                                                for c in candidates):
++            continue
++        candidates.append(Candidate(concept=concept, slot=None))
++        seeded_keys.append(concept.key)
+     if not candidates:
+         raise ProspectingRefused(
+             "the field is empty, so there is nothing to run a tournament on. "
+@@ -1353,6 +1378,9 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+         "arena": f"{only[0]}/{only[1]}" if only else "",
+         "days_to_event": days_to_event,
+         "window": window,
++        # #279: the seeded transformations and what the funnel did with each of them --
++        # the stage and cause that killed it, or the last stage that carried it.
++        "seeded": {k: _fate(run, k) for k in seeded_keys},
+         # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
+         # can be asked of this exact run later -- by `creative.intake` before it queues a
+         # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
+diff --git a/brambleloop/src/brambleloop/creative/seasonal_transform.py b/brambleloop/src/brambleloop/creative/seasonal_transform.py
+index 6c2fd63..913b341 100644
+--- a/brambleloop/src/brambleloop/creative/seasonal_transform.py
++++ b/brambleloop/src/brambleloop/creative/seasonal_transform.py
+@@ -187,7 +187,7 @@ def transform(parent: Concept, *, occasion: str, layers: tuple[str, ...],
+ 
+ def derive(parent: Concept, transformation: Transformation, *, key: str,
+            title: str, premise: str, palette_story: str, recipient: str,
+-           function: str) -> Concept:
++           function: str, occasion: str = "") -> Concept:
+     """Build the child concept an engineered transformation produces.
+ 
+     Only an engineering route may derive a concept. A presentation-only transformation has
+@@ -198,6 +198,11 @@ def derive(parent: Concept, transformation: Transformation, *, key: str,
+     The child is a concept like any other, so it faces the creative jury on its own. That is
+     the point: the engine's job is to produce something that survives the gate, not to be
+     trusted instead of it.
++
++    `occasion` is the buying occasion the child is for (a `Concept.OCCASIONS` word such as
++    `thanksgiving`); the transformation's own occasion is a motif-grammar season (`fall`),
++    which is the right word for the motifs and the wrong one for the concept. Left empty,
++    the season is used, which is correct only where the two coincide (christmas, halloween).
+     """
+     if transformation.route != ENGINEER:
+         raise TransformRefused(
+@@ -215,7 +220,7 @@ def derive(parent: Concept, transformation: Transformation, *, key: str,
+     return Concept(
+         key=key, title=title, premise=premise, pod=parent.pod, form=parent.form,
+         construction=parent.construction, motif=motif, palette_story=palette_story,
+-        recipient=recipient, occasion=transformation.occasion, feeling=feeling,
++        recipient=recipient, occasion=occasion or transformation.occasion, feeling=feeling,
+         function=function, make_lane=parent.make_lane,
+         provenance=f"transformed:{parent.key}")
+ 
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index 180aa94..47f6d33 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -202,6 +202,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+     "cir.drafted": ("lifetime_total",
+                     "intel.mission_runtime reads whether a response's CIR was ever drafted "
+                     "to walk #309's pipeline"),
++    "seasonal.transformations": ("latest",
++                                 "creative.tournament seeds the last run's derived seasonal "
++                                 "transformations of the catalogue into its field (#279)"),
+ }
+ 
+ PROTECTED_ACTIONS: frozenset[str] = frozenset(
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index e58b75f..ea668bf 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -2791,12 +2791,17 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+         ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                      job_id=ctx.job.id), plan)
+     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
++    # #279: the seasonal transformations `seasonal.remerchandising` derived for this event
++    # enter the field as entrants, and the funnel judges them beside the generated concepts.
++    from ..seasonal import remerchandising as _rm
++
++    seeded = _rm.derived_children(ctx.db, event=arena.event, pod=arena.pod)
+ 
+     try:
+         result = prospecting.tournament(
+             ctx.db, gateway=gateway, catalogue=catalogue,
+             only=(arena.event, arena.pod),
+-            exclude_forms=tuple(plan["saturation"]["excluded_forms"]))
++            exclude_forms=tuple(plan["saturation"]["excluded_forms"]), seeded=seeded)
+     except prospecting.ProspectingRefused as e:
+         ctx.audit("creative.tournament_blocked",
+                   detail={"arena": arena.to_dict(), "reason": str(e)[:400],
+@@ -2853,7 +2858,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+             "role": plan["role"]["role"],
+             "cleared_for_engineering": gate["cleared_for_engineering"],
+             "intake": took, "days_to_event": result.get("days_to_event"),
+-            "pipeline": pipeline_moves,
++            "pipeline": pipeline_moves, "seeded": result.get("seeded") or {},
+             **({} if attempted else
+                {"reason": "every batch came back malformed; nothing was generated or spent"})}
+ 
+@@ -3322,16 +3327,21 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
+ 
+     # #279: every proven evergreen concept is evaluated for this occasion's transformations,
+     # automatically. Presentation layers route here (re-merchandising); object-changing ones
+-    # need an emotional promise before they are engineering, and a brief supplied in the job
+-    # inputs is the only way one is derived -- the engine does not invent a promise.
++    # are derived from a brief generated from the parent (C-61) -- the promise is the
++    # parent's own, executed where the parent's premise says it is -- and the derived child
++    # enters the next `creative.tournament` for this event as an entrant, where the staged
++    # funnel judges it (#3). Nothing is engineered from here.
+     from ..seasonal import remerchandising as _rm
+ 
+     transforms = _rm.transformations(ctx.db, event=event,
+                                      briefs=list(ctx.job.inputs.get("briefs") or []))
+-    ctx.audit("seasonal.transformations", detail={
++    ctx.audit(_rm.TRANSFORMATIONS_ACTION, detail={
+         "event": event, "season": transforms["season"],
+         "evaluated": transforms["evaluated"], "routed": transforms["routed"],
+         "derived": [d["key"] for d in transforms["derived"]],
++        "derived_concepts": [d["concept"] for d in transforms["derived"]],
++        "briefs_generated": transforms.get("briefs_generated", 0),
++        "held": transforms.get("held", [])[:10],
+         "refused": transforms["refused"][:10]})
+     return {"event": event, "pod": pod or None,
+             "candidates": len(report["candidates"]),
+diff --git a/brambleloop/src/brambleloop/seasonal/remerchandising.py b/brambleloop/src/brambleloop/seasonal/remerchandising.py
+index dff28ce..963f68c 100644
+--- a/brambleloop/src/brambleloop/seasonal/remerchandising.py
++++ b/brambleloop/src/brambleloop/seasonal/remerchandising.py
+@@ -426,14 +426,104 @@ PRESENTATION_LAYERS: tuple[str, ...] = ("palette", "styling", "gift_context",
+ OBJECT_LAYERS: tuple[str, ...] = ("motif_vocabulary", "trim")
+ 
+ 
++TRANSFORMATIONS_ACTION = "seasonal.transformations"
++
++# #279: how many of the season's fresh motifs one transformation works in, and the noun a
++# buyer uses for each parent form (for the derived premise).
++TRANSFORM_MOTIFS = 2
++_FORM_NOUN: dict[str, str] = {
++    "flat_panel": "panel", "rectangle_throw": "throw", "coaster": "coaster", "runner": "runner",
++    "wall_hanging": "wall hanging", "garland": "garland", "ornament": "ornament",
++    "pillow": "pillow", "basket": "basket", "fitted_garment": "cardigan",
++    "draped_garment": "shawl", "hat": "hat", "scarf": "scarf", "bag": "bag", "pouch": "pouch",
++}
++
++
++def transformation_brief(parent, season: str, fresh: list[str], index: int) -> dict:
++    """The object-changing brief for one parent, derived by a stated rule from the parent.
++
++    The audit of 9434c53 found that `derive` needed a brief no enqueuer supplied and no code
++    generated, so the engineering half of #279 could never run. This is that brief, and no
++    field of it is guessed:
++
++    - **motifs**: TRANSFORM_MOTIFS motifs from the season's grammar that the category has
++      not worn out (`fresh`), rotated by the parent's position so two parents in the same
++      season are not sent the same pair;
++    - **feeling**: the parent's own -- a seasonal version keeps the promise buyers already
++      bought;
++    - **execution**: which part of the parent delivers that feeling, read from its premise
++      (`preengineering.execution_of`, #109's rule);
++    - **how / premise / title**: the motifs worked where the parent's motif was, finished
++      with an edging of the first -- the `motif_vocabulary` and `trim` layers in words;
++    - **palette, recipient, function**: the parent's. A palette is a presentation layer and
++      changing it here would smuggle a recolour in as engineering.
++    """
++    from ..creative.preengineering import execution_of
++
++    if not fresh:
++        raise ValueError(f"{season} has no fresh motif left: every motif in its grammar is "
++                         f"one the whole category uses")
++    start = (index * TRANSFORM_MOTIFS) % len(fresh)
++    motifs = tuple(fresh[(start + i) % len(fresh)] for i in range(min(TRANSFORM_MOTIFS,
++                                                                         len(fresh))))
++    words = [m.replace("_", " ") for m in motifs]
++    noun = _FORM_NOUN.get(parent.form, parent.form.replace("_", " "))
++    joined = " and ".join(words)
++    return {
++        "parent": parent.key, "key": f"{parent.key}-{season}",
++        "title": f"{season.replace('_', ' ').title()} {parent.title}",
++        "layers": list(OBJECT_LAYERS), "motifs": list(motifs),
++        "feeling": parent.feeling, "execution": execution_of(parent),
++        "how": (f"{joined} figures are worked into the {noun}'s fabric where the "
++                f"{parent.motif} was, so the season is in the stitches"),
++        "premise": (f"a {noun} whose {joined} motifs are worked where the {parent.motif} "
++                    f"was, finished with a {words[0]} edging"),
++        "palette_story": parent.palette_story, "recipient": parent.recipient,
++        "function": parent.function,
++        "derivation": "generated from the parent by remerchandising.transformation_brief",
++    }
++
++
++def derived_children(db, *, event: str, pod: str, limit: int = 12) -> list:
++    """The children the last transformation run derived for this event, in this pod (#279).
++
++    Read by `creative.tournament` so a derived child enters the staged funnel as an entrant
++    beside the generated field: it is judged there like any other concept (#3), and only a
++    child the funnel carries to prototype reaches engineering.
++    """
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++    from ..creative.concept import Concept, ConceptRefused
++
++    with db.session() as s:
++        rows = [dict(r.detail or {}) for r in s.scalars(
++            select(AuditLog).where(AuditLog.action == TRANSFORMATIONS_ACTION)
++            .order_by(desc(AuditLog.id)).limit(20))]
++    latest = next((r for r in rows if r.get("event") == event), None)
++    if not latest:
++        return []
++    out = []
++    for raw in latest.get("derived_concepts") or []:
++        if raw.get("pod") != pod:
++            continue
++        try:
++            out.append(Concept(**{k: v for k, v in raw.items()
++                                  if k in Concept.__dataclass_fields__}))
++        except (ConceptRefused, TypeError):
++            continue
++    return out[:limit]
++
++
+ def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict:
+-    """Evaluate, route and (only from a brief carrying a promise) derive transformations.
++    """Evaluate, route and derive this occasion's transformations of the proven base.
+ 
+     Parents are the certified catalogue concepts for no particular occasion -- the proven
+     evergreen base. Each is surveyed with `evaluate`, its presentation-only transformation is
+     routed to re-merchandising with `transform`, and its object-changing transformation is
+-    evaluated and held until a promise exists. A brief supplies that promise; `derive` then
+-    mints the child concept, which faces the jury like any other.
++    derived from a brief: one supplied in the job inputs, or otherwise the brief
++    `transformation_brief` generates from the parent itself (#279). `derive` mints the child
++    concept, which faces the funnel and the jury like any other (#3): nothing here engineers.
+     """
+     from sqlalchemy import select
+ 
+@@ -461,21 +551,29 @@ def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict
+     fresh = sorted(set(MOTIF_GRAMMAR[season]) - set(SATURATED.get(season, frozenset())))
+ 
+     surveys, routed, held, refused = [], [], [], []
+-    for parent in parents:
++    generated: list[dict] = []
++    for index, parent in enumerate(parents):
+         survey = evaluate(parent, occasions=(season,))
+         surveys.append({"parent": parent.key,
+                         "layers": [r["layer"] for r in survey["seasons"][0]["ladder"]]})
+         presentation = transform(parent, occasion=season, layers=PRESENTATION_LAYERS)
+         routed.append({"parent": parent.key, **presentation.to_dict()})
+-        engineered = transform(parent, occasion=season, layers=OBJECT_LAYERS,
+-                               motifs=tuple(fresh[:2]))
+-        held.append({"parent": parent.key, "problems": engineered.problems,
+-                     "why": "held: an object-changing transformation needs an emotional "
+-                            "promise, and none is invented here"})
++        # The object-changing brief is generated from the parent (#279); a brief supplied in
++        # the job inputs for the same parent takes precedence and is used instead.
++        if not any(b.get("parent") == parent.key for b in briefs or []):
++            try:
++                generated.append(transformation_brief(parent, season, fresh, index))
++            except ValueError as exc:
++                held.append({"parent": parent.key, "why": f"held: {exc}"[:300]})
+ 
+     by_key = {p.key: p for p in parents}
++    # The child is for the event's buying occasion (`thanksgiving`), not the grammar's season
++    # (`fall`): the season names the motifs and the occasion names the buyer's calendar.
++    from ..creative.prospecting import EVENT_OCCASION
++
++    occasion = EVENT_OCCASION.get(event) or season
+     derived = []
+-    for brief in briefs or []:
++    for brief in list(briefs or []) + generated:
+         parent = by_key.get(brief.get("parent", ""))
+         if parent is None:
+             refused.append(f"brief for {brief.get('parent')!r}: not a certified evergreen "
+@@ -489,13 +587,17 @@ def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict
+                           execution=brief.get("execution", ""), how=brief.get("how", ""))
+             child = derive(parent, t, key=brief["key"], title=brief["title"],
+                            premise=brief["premise"], palette_story=brief["palette_story"],
+-                           recipient=brief["recipient"], function=brief["function"])
++                           recipient=brief["recipient"], function=brief["function"],
++                           occasion=occasion)
+         except (TransformRefused, KeyError, ValueError) as exc:
+             refused.append(f"brief for {parent.key}: {exc}")
+             continue
+         derived.append({"key": child.key, "title": child.title, "occasion": child.occasion,
+                         "motif": child.motif, "provenance": child.provenance,
+-                        "make_lane": child.make_lane})
++                        "make_lane": child.make_lane, "pod": child.pod,
++                        "brief_source": brief.get("derivation", "job inputs"),
++                        "concept": child.to_dict()})
+     return {"event": event, "season": season, "evaluated": len(parents),
+             "routed": len(routed), "surveys": surveys, "presentation": routed,
+-            "held": held, "derived": derived, "refused": refused}
++            "held": held, "derived": derived, "briefs_generated": len(generated),
++            "refused": refused}
+diff --git a/brambleloop/tests/test_cert_design_pipeline.py b/brambleloop/tests/test_cert_design_pipeline.py
+index 8d4f880..04e5cc2 100644
+--- a/brambleloop/tests/test_cert_design_pipeline.py
++++ b/brambleloop/tests/test_cert_design_pipeline.py
+@@ -688,6 +688,121 @@ def test_launch_path_uses_observed_buyer_language_and_the_patterns_own_skill_293
+                for w in seasonal)
+ 
+ 
++# ---- #279 / #282: seasonal transformations of the catalogue, derived and judged ----------
++
++
++def test_seasonal_transformations_are_derived_on_cadence_and_judged_by_the_funnel_279_282():
++    """#279: `seasonal.remerchandising` generates the object-changing brief from every
++    certified evergreen parent and derives its child; the next `creative.tournament` for
++    that event seeds the children into its field, and the funnel records what it did with
++    each -- here, at today's novelty floor, a motif-and-trim transformation of its own parent
++    dies at research as sameness, which is the honest verdict and is recorded by name."""
++    from test_cert_growth_seasonal import _certify
++
++    db = _db()
++    _stockings(db, pod="home_decor")
++    for slug in ("cottage-wall-hanging", "pet-snuggle-mat"):
++        _certify(db, slug)
++    out, _ = _handler(db, "seasonal.remerchandising", {}, agent="listing")
++    # The cadence inspects against the soonest proven occasion; the children are for it.
++    event, season = out["event"], out["transformations"]["season"]
++    assert season and sorted(out["derived"]) == [
++        f"cottage-wall-hanging-{season}", f"pet-snuggle-mat-{season}"], out
++    from brambleloop.creative.prospecting import EVENT_OCCASION
++    from brambleloop.seasonal import remerchandising
++
++    children = remerchandising.derived_children(db, event=event, pod="home_decor")
++    assert sorted(c.key for c in children) == sorted(out["derived"])
++    assert all(c.provenance.startswith("transformed:")
++               and c.occasion == EVENT_OCCASION[event] for c in children)
++    assert remerchandising.derived_children(db, event=event, pod="garments") == []
++
++    # The tournament for that event (targeted the way the MJs sentinel targets one).
++    result, _asked = _handler(db, "creative.tournament", {
++        "lane": "breakthrough", "pod": "home_decor", "seasonal_target": event})
++    assert result["arena"] == f"{event}/home_decor", result
++    assert set(result["seeded"]) == set(out["derived"]), result["seeded"]
++    t = _rows(db, "creative.tournament")[-1][2]
++    research = next(r for r in t["funnel_rounds"] if r["stage"] == "research")
++    for key, fate in result["seeded"].items():
++        assert fate != "entered", (key, fate)
++        assert key in research["killed"] or key in research["survived"], (key, research)
++        if key in research["killed"]:
++            assert fate == f"killed at research: {research['killed'][key]}"
++    # A child the funnel did not carry to prototype is not engineerable: the winner intake
++    # rule (#3) and `cir.draft`'s funnel check apply to it exactly as to a generated concept.
++    assert not any(j.inputs.get("slug", "").endswith(f"-{season}")
++                   for j in _jobs(db, "cir.draft"))
++
++
++def test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_277():
++    """The winner waits on `image_vision`. With no board and no vision model the cadence
++    names both; with a board filed for the design and a vision probe that succeeded, the
++    same cadence asks the judge, records `concept.judged` with the judge's name, and the
++    winner is re-presented and queued for engineering in that run."""
++    from brambleloop.gateway import anthropic as gw
++    from brambleloop.gateway import routing
++    from brambleloop.gateway.model_gateway import ModelResponse
++    from brambleloop.publish import owned_photography
++
++    db = _db()
++    _stockings(db)
++    _r, row = _tournament(db)
++    slug = row["concept"]["key"]
++    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    held = [h for h in out["regated"]["held"] if h["slug"] == slug]
++    assert held and len(held[0]["waiting_on"]) == 2, out["regated"]
++    assert out["regated"]["vision_usable"] is False
++
++    board = "https://example.invalid/fixture-board.png"
++    with db.session() as s:
++        s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
++            "made": True, "slug": slug, "method_version": owned_photography.METHOD_VERSION,
++            "image_ref": board}))
++    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    held = [h for h in out["regated"]["held"] if h["slug"] == slug]
++    assert held and held[0]["waiting_on"] == ["vision_model (no vision probe has succeeded)"]
++    assert not _rows(db, intake.JUDGED_ACTION)
++
++    judge_model = routing.route(intake.JUDGE_TASK)[1].model
++    calls: list = []
++
++    class FixtureJudge:
++        """A vision judge fixture: stands in for the model_provider, never a real call."""
++        model = judge_model
++        cost_per_1k_input_cad = 0.0
++        cost_per_1k_output_cad = 0.0
++
++        def see(self, system, prompt, urls, *, max_tokens):
++            calls.append(list(urls))
++            return ModelResponse(text='{"thumbnail_reads_small": true, "craft_impression": 4.4}',
++                                 provider="fixture", model=judge_model, input_tokens=10,
++                                 output_tokens=5, latency_ms=1.0)
++
++    with db.session() as s:
++        s.add(AuditLog(actor="ops", action=gw.VISION_PROBE_ACTION, detail={"ok": True}))
++    saved = gw.provider_for
++    gw.provider_for = lambda task, **kw: FixtureJudge()
++    try:
++        out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    finally:
++        gw.provider_for = saved
++    assert calls == [[board]], calls
++    judged = _rows(db, intake.JUDGED_ACTION)
++    assert judged and judged[-1][1] == slug and judged[-1][2]["judge"] == judge_model
++    assert {"slug": slug, "decision": "engineering"} in out["regated"]["presented"], out
++    assert not [h for h in out["regated"]["held"] if h["slug"] == slug]
++    drafts = _jobs(db, "cir.draft")
++    assert len(drafts) == 1 and drafts[0].inputs["slug"] == slug
++    # A judge that does not answer as a judgement is refused, never recorded.
++    try:
++        intake.parse_judgement('{"thumbnail_reads_small": "yes", "craft_impression": 9}')
++    except intake.JudgeRefused:
++        pass
++    else:
++        raise AssertionError("a non-boolean grid verdict was accepted as a judgement")
++
++
+ if __name__ == "__main__":
+     failed = 0
+     passed = 0
+diff --git a/brambleloop/tests/test_cert_growth_seasonal.py b/brambleloop/tests/test_cert_growth_seasonal.py
+index c867118..bff5a89 100644
+--- a/brambleloop/tests/test_cert_growth_seasonal.py
++++ b/brambleloop/tests/test_cert_growth_seasonal.py
+@@ -573,8 +573,18 @@ def test_evergreen_concepts_are_transformed_and_only_a_promised_brief_derives():
+     got = remerchandising.transformations(db, event="Christmas", briefs=[brief])
+     assert got["evaluated"] == 3 and got["routed"] == 3
+     assert all("PRESENTATION_ONLY" in p["problems"][0] for p in got["presentation"])
+-    assert all(h["problems"] for h in got["held"]), "an engineered variant with no promise"
+-    assert [d["key"] for d in got["derived"]] == ["cottage-wall-hanging-yule"], got["refused"]
++    # C-61 strengthened this test. It used to assert that only the supplied brief derived a
++    # child and every other parent was *held* for want of a brief nobody generated -- which
++    # the audit of 9434c53 found meant the engineering half of #279 could never run. Now a
++    # brief is generated from every parent by a stated rule; the supplied brief still takes
++    # precedence for its own parent, and nothing is held.
++    assert got["held"] == [] and got["briefs_generated"] == 2, got["held"]
++    assert {d["key"] for d in got["derived"]} == {
++        "cottage-wall-hanging-yule", "pet-snuggle-mat-christmas",
++        "mosaic-placemat-pair-christmas"}, got["refused"]
++    generated = [d for d in got["derived"] if d["key"] != "cottage-wall-hanging-yule"]
++    assert all(d["brief_source"].startswith("generated") for d in generated)
++    assert all(d["concept"]["provenance"].startswith("transformed:") for d in got["derived"])
+     # No grammar, no transformation.
+     assert remerchandising.transformations(db, event="Valentine's")["season"] is None
+ 
+@@ -595,16 +605,22 @@ def test_collection_handler_records_the_architecture_assessment():
+ 
+ 
+ def test_remerchandising_handler_runs_the_transformation_engine():
+-    """#279 through `seasonal.remerchandising`, weekly, with no brief: nothing derived."""
++    """#279 through `seasonal.remerchandising`, weekly, with no brief supplied: a brief is
++    generated from every certified evergreen parent and its child is derived and recorded
++    (C-61 strengthened this from "nothing derived")."""
+     db = _db()
+     for slug in ("pet-snuggle-mat", "cottage-wall-hanging"):
+         _certify(db, slug)
+     out = _run(db, "seasonal.remerchandising", agent="listing")
+-    assert out["transformations"]["evaluated"] == 2 and out["derived"] == []
++    assert out["transformations"]["evaluated"] == 2
++    assert sorted(out["derived"]) == ["cottage-wall-hanging-christmas",
++                                      "pet-snuggle-mat-christmas"], out["derived"]
+     with db.session() as s:
+         audit = s.scalar(select(AuditLog).where(
+             AuditLog.action == "seasonal.transformations"))
+         assert audit is not None and audit.detail["routed"] == 2
++        assert audit.detail["briefs_generated"] == 2
++        assert {c["pod"] for c in audit.detail["derived_concepts"]} == {"home_decor"}
+ 
+ 
+ 

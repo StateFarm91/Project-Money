@@ -1,0 +1,219 @@
+BRAMBLELOOP FINAL BUILD v1.1
+PRIORITY ZERO AUTONOMY / PARALLEL COMPLETION / STORE FOUNDATION
+The previous Final Build run ended after approximately 17 hours. Preserve everything it accomplished.
+I am attaching Brambleloop_FINAL_Master_v1.1_Owner_Command_Center.pdf. This is now the CANONICAL FINAL MASTER
+SPECIFICATION.
+Do NOT restart Final Build from scratch. Reconcile v1.1 as a delta against actual current repository reality and continue from there.
+1. OWNER RULING - OA-0003 IS RESOLVED
+Rented/cloud always-on hosting is authorized and REQUIRED.
+Brambleloop must not depend on my PC being powered on, Windows being logged in, my PC not sleeping, Claude, Codex, Fable,
+ChatGPT, or any development conversation remaining open.
+The Windows watchdog/scheduled-task solution is useful development fallback evidence, but it is NOT the production solution.
+M-0019 must proceed.
+Prefer the simplest durable always-on solution consistent with the Master and existing Railway/cloud architecture. Identify any new
+recurring cost before incurring it.
+2. PRIORITY ZERO - FOUNDATIONAL RULE #1 IS CURRENTLY VIOLATED
+This is the most important instruction in this prompt.
+24/7 autonomous operation and continuous self-improvement were founding requirements, NOT new v1.1 features. The previous run
+proved the factory can stop when my PC sleeps or loses its logged-in user session. Treat that as a CRITICAL FINAL BUILD DEFECT.
+Claude, Codex and Fable are development workers. THEY ARE NOT BRAMBLELOOP'S PRODUCTION BRAIN.
+Brambleloop itself must continuously OBSERVE -> determine useful work -> prioritize -> create missions/jobs -> assign specialist
+agents -> execute -> independently validate -> consume outputs downstream -> create follow-on work -> measure outcomes ->
+identify weaknesses/opportunities -> propose improvements -> independently evaluate -> sandbox/test -> promote or reject -> monitor
+-> rollback when worse -> persist lessons -> alter future behaviour -> repeat.
+AN EMPTY QUEUE MUST NOT MEAN AN IDLE COMPANY. A heartbeat, scheduler, or module name is not proof. I want useful
+autonomous company activity.
+3. AUDIT EVERY EXISTING PRODUCTION AGENT / DEPARTMENT
+Before inventing duplicate architecture, discover what already exists.
+Persist a machine-readable autonomy map: department/agent -> mission -> authority -> wake mechanism -> cadence/event ->
+evidence inputs -> autonomous work-generation -> mission creation -> execution -> durable output -> downstream consumer ->
+follow-on work -> learning signal -> improvement path -> next wake -> blocker.
+Audit Executive/COO, Intelligence, Product/Design, Product Truth/QA, Visual, Store/Commerce, Customer Support,
+Finance/Accounting, Growth/Marketing, Learn/Improvement, and Platform/Reliability.
+Any broken link is a defect. Repair executable defects; do not merely document them.
+4. CONTINUOUS SELF-IMPROVEMENT IS NON-NEGOTIABLE
+Verify Learn/Improve actually changes future behaviour through measured evidence.
+Required loop: measure -> diagnose -> propose challenger -> independent evaluation -> sandbox -> promote -> execute -> measure
+post-change outcome -> retain or rollback -> persist lesson -> affect future decisions.
+Require real consumers and real effects across Visual, Search, Design, Support, Product Truth, Commerce, Growth, Finance and
+agent/tool/process performance.
+Self-improvement may NEVER silently weaken Product Truth, customer truth/safety, accounting truth, authorization, security, spend
+controls or evidence requirements. Improvements require evaluation, monitoring and rollback.
+
+5. MULTI-AGENT FINAL BUILD - DO NOT DO THIS SEQUENTIALLY
+The previous prompt consumed approximately 17 hours. This phase MUST use bounded parallel implementation agents wherever file
+ownership and semantic dependencies permit.
+Claude/Opus is the single integrator and certification authority. Build a dependency/ownership graph and launch the maximum
+sensible number of PARALLEL NON-OVERLAPPING agents.
+Attempt independent lanes for: A cloud autonomy/factory/orchestration; B Learn/self-improvement; C Owner Command Center
+backend/API/security; D mobile-first web/PWA frontend; E controller-grade Accountant; F Store Foundation/Etsy setup/preview; G
+SEO/keywords/taxonomy/search intelligence; H Growth/ads/economics; I reliability/observability/failover/SLOs; J adversarial
+certification/autonomy evidence.
+Adjust lanes for safe file ownership. Each worker gets requirement IDs, defect IDs, owned files, forbidden/shared files, interfaces,
+acceptance tests, runtime proof and commit/handoff format.
+Do not wait for one independent lane to finish before another works. Reuse freed agent slots on the next READY independent cluster.
+6. RECONCILE CODEX WORK - DO NOT REDO IT
+Inspect relevant codex/* branches and durable handoffs before duplicating work.
+Known checkpoints: codex/build2-assist-01 @ 19180b3 and codex/visual-v2-rnd @ 035ff0c62a42dd5fd0b616998dcf98833b5c1097.
+Codex Visual V2 retained B+C = deterministic product authority/rendering + protected photoreal composition. Do not restart that
+research. Evidence decides reuse, supersession or rejection. Preserve provenance and discover newer Codex handoffs too.
+7. FINAL MASTER v1.1 DELTA
+Parse and reconcile the attached canonical v1.1 completely, especially F-880 through F-930.
+Reuse existing implementations where they genuinely satisfy the requirements. Do not build duplicates merely because requirement
+numbers are new.
+v1.1 explicitly covers cloud-resident operation, no development-chat dependency, Owner Command Center/PWA, approvals/security,
+24/7 departments, executive orchestration, controller-grade accounting, persistent memory, failover, autonomy SLOs, Store Preview,
+company timeline, Ask Company and bounded autonomy.
+8. OWNER COMMAND CENTER - THIS MUST BECOME HOW I RUN THE COMPANY
+I do not require a native Android/iOS app. Build a secure, beautiful, responsive, mobile-first hosted web application/PWA available
+24/7 from my phone.
+Normal operation after launch must not require GitHub, Railway's dashboard, terminal/CLI, direct database access, Claude or Codex.
+HOME: morning/overnight brief, revenue/profit, store status, launches, completed/in-progress work, autonomy health, incidents,
+opportunities and owner decisions.
+APPROVALS: proposal, evidence, recommendation, uncertainty, upside/downside, max spend, reversibility, deadline, consequence of
+no action, approve/reject.
+STORE: products/releases, listing state, Etsy read-back, imagery, pattern/PDF, price, taxonomy, SEO, performance and
+customer-facing preview.
+MONEY: revenue, fees, refunds, tax/reserves, operating/model/ad spend, contribution/profit, cash commitments, payouts,
+reconciliation and forecasts with uncertainty.
+OPERATIONS: departments/agents, jobs/queue/cadences, incidents/blockers, recovery/SLOs/dependencies.
+AUTONOMY/LEARN: autonomous jobs generated/completed, hours since last owner/development prompt, active/blocked
+departments, inter-agent handoffs, experiments, improvements proposed/tested/promoted/rejected/rolled back, lessons, last useful
+action and next planned action.
+INSIGHTS, NOTIFICATIONS and ACCOUNT must expose the evidence, controls, connected services, scopes, providers, budgets,
+authorities, policies, security and emergency controls needed to run the company.
+
+ASK COMPANY must answer questions like What did Brambleloop do overnight?, Why did profit fall?, What is blocking launch?, and
+Why does this product need my approval?, grounded in durable evidence with provenance.
+9. ACCOUNTANT - TOP-TIER CONTROLLER STANDARD
+This is a serious subsystem, not a dashboard calculator.
+Build/reconcile a dedicated Finance/Accounting specialist with source-linked accounting; double-entry or equivalently rigorous ledger;
+Etsy/order/payment/refund/fee reconciliation; correction entries; actual vs estimated costs separated; UNKNOWN never displayed as
+measured $0.00; product/release/channel profitability; attributable model/API/image/ad/software/testing/benchmark costs; cash
+obligations; expected payouts; tax reserve; safe discretionary budget; anomaly detection; repeatable month-end close;
+tax/accountant-ready evidence packs; and human-accountant handoff.
+Growth and Finance must be able to disagree. Growth cannot scale spend because ROAS looks good if Finance proves contribution
+economics or cash constraints are bad.
+The Accountant cannot invent missing data, file taxes, move money, change banking, borrow, sign contracts or make regulated
+professional representations without applicable authority/human review.
+10. STORE FOUNDATION - I WANT TO SEE THE REAL STORE SOON
+Do not wait for all Launch-0 products before preparing the storefront. Treat the Etsy store itself as a product.
+Bring every store-level surface that can safely be prepared without live listings to OWNER STORE PREVIEW quality: brand identity,
+icon/logo, banner, title/tagline, announcement, About/story, policies, FAQs, support/contact presentation, sections/category
+architecture, digital-product disclosures, brand voice, visual consistency, trust presentation, settings, Search Visibility readiness,
+customer-service readiness and owner-preview experience.
+The standard is NOT fields populated. The standard is: DOES BRAMBLELOOP LOOK LIKE A POLISHED, PREMIUM,
+TRUSTWORTHY CROCHET-PATTERN COMPANY THAT HAS EXISTED FOR YEARS?
+Make it beautiful. Mobile appearance matters. Do not publicly activate/publish without existing owner authority.
+11. SEO / KEYWORDS / SEARCH - OPERATE IT CONTINUOUSLY
+Preserve and implement query matching vs ranking, query-family research, coverage matrix, deepest truthful categories, attributes, all
+13 tags where applicable, long-tail phrases, readable buyer-first titles, natural description relevance, hero/thumbnail CTR, Search
+Visibility findings, impressions, clicks, favorites, carts/orders, conversion, customer-service trust and dated Etsy policy/search
+changes.
+Search is not a one-time launch task. Brambleloop must continuously learn from real search/conversion evidence and improve future
+decisions. Never keyword-stuff or make unsupported claims.
+12. ADS / GROWTH
+Advertising must be evidence-driven and economics-aware. Growth may research, propose, prepare, measure and optimize within
+authority.
+Protected spend must revalidate owner authority, budget, listing eligibility, Product Truth, current trust, organic evidence where
+required, and Accountant contribution/cash constraints.
+Measure actual business economics, not vanity metrics alone. Do not launch paid campaigns without applicable authority.
+13. VISUAL OWNER RULING
+Photorealistic Visual V2 is NOT intrinsically required for first launch. TRUTHFUL CUSTOMER-READY VISUAL EVIDENCE IS
+LAUNCH-CRITICAL.
+Rendered/deterministic imagery may launch only when the actual customer-facing set passes Product Truth, stitch/fabric identity,
+dimensions/features/construction consistency, image QA, mobile/thumbnail-safe layout, disclosure, marketplace/publishing and
+customer-truth gates.
+Disclosure alone cannot make inaccurate imagery acceptable. Do not weaken Product Truth or Visual thresholds. Preserve B+C as
+the preferred Visual V2 architecture.
+
+14. MASTER SPEC INTEGRITY / ERRATA
+Resolve reported anomalies: F-631 through F-650 reportedly undefined; F-514 through F-520 reportedly duplicated with different
+meanings; numbering reaches F-879 while a prior registry reported 866 records.
+Do not invent requirements or silently discard duplicates. Determine parsing, numbering, historical-integration, missing-content or
+duplicate-ID causes. Persist MASTER_SPEC_ERRATA with evidence and canonical resolution where determinable.
+15. PERMANENT PROOF STANDARD
+Where applicable: requirement -> producer -> durable evidence/state -> runtime consumer -> decision -> protected action/effect ->
+observable result -> independent proof.
+Code existence != execution. Handler registration != execution. Reading without consumption != completion. Fixture-only evidence !=
+end-to-end proof. UNKNOWN != zero. Proxy != measurement. Documentation != runtime evidence. Green tests are necessary but not
+sufficient.
+Never mark requirements complete merely to make counts green.
+16. PRODUCTION AUTONOMY / LIGHTS-OUT ACCEPTANCE
+The architecture must support a genuine lights-out test: owner PC OFF; no logged-in Windows session; Claude/Codex/Fable closed;
+no owner prompts generating normal work.
+Brambleloop must remain hosted and alive, and evidence must show useful autonomous work rather than uptime: missions generated,
+independent departments working, inter-agent handoffs, follow-on work, monitoring/recovery, unrelated work continuing around gates,
+improvements proposed/tested where evidence permits, budgets respected, no duplicated external effects, durable restart state.
+Do not fake a long soak by manipulating clocks or inventing evidence. If full duration cannot finish in this session, start the real soak
+when ready, persist evidence, and classify remaining duration honestly as an active certification gate.
+17. CLOUD HOSTING / DEPLOYMENT PREPARATION
+Because OA-0003 is resolved, prepare the production-autonomy hosting path. Prefer existing Railway/cloud infrastructure if it safely
+provides durable execution, scheduler/workers, durable DB/state, restart/recovery, secrets, health checks, logs, cost visibility and
+rollback.
+Do not deploy merely because hosting is prepared. No production merge/deployment is authorized by this prompt unless separately
+approved.
+18. PRESERVE THE PREVIOUS 17-HOUR RUN
+Before substantial new integration, preserve exact repository reality: latest branch/head, RC/freeze state, local vs pushed commits,
+signing status, shadow rehearsal evidence, full-suite results, defect ledger, closure matrix, worker branches and durable handoff.
+Do not rewrite or repeat valid work because v1.1 is attached. If commits remain local/unsigned, preserve the exact tested source and
+use the normal signing/push process available in the new session without altering source merely to obtain signatures.
+19. STORE SETUP AND LAUNCH-0
+Store Foundation and Store Preview should progress in parallel with product/listing completion.
+Do not lower an existing launch-readiness product-count threshold merely to fit current inventory. If the canonical Master requires
+genuinely listable products, satisfy it through genuinely distinct validated products or surface a real owner decision. Do not count sizes
+as separate products unless the Master explicitly defines them that way.
+20. AUTHORITY BOUNDARIES
+Continue engineering, local/shadow testing, read-only verification and preparation.
+This prompt does NOT authorize production deployment; merging an RC into production; public Etsy activation/publication; advertising
+spend; banking/KYC changes; tax filing; moving money; signing contracts; or irreversible external actions.
+
+Existing narrow owner grants remain governed by their own recorded scope and expiry. Do not broaden them by inference.
+21. EXECUTION DISCIPLINE
+Do not stop after an audit, architecture report, one worker wave, or a green focused suite.
+Integrate validated parallel work continuously. After each material integration: run focused tests, verify runtime
+reachability/consumption, update defects/closure, commit, push, and continue to the next READY independent work.
+Owner/data/external gates must not idle unrelated work.
+Use durable repository state as shared memory. Conversation context is disposable. Before session pressure becomes dangerous,
+collect worker results, preserve partial work, update assignments/defects/closure, commit/push and write deterministic resume
+instructions.
+22. RELEASE / CERTIFICATION STANDARD
+When all executable launch-critical v1.1 work is integrated, freeze a candidate and perform adversarial certification.
+Certification must include a clean-state full suite, Final Master closure audit, adversarial COMPLETE sampling, runtime
+reachability/consumption audit, security/customer-truth review, finance truth checks, restart/recovery tests, cloud autonomy evidence,
+shadow business-chain rehearsal, store-preview review, and lights-out autonomy evidence/gate.
+Do not call Final Build complete simply because tests are green.
+23. STOPPING CONDITION
+Continue autonomously until one of these is true:
+A. All launch-critical executable Final Master v1.1 work is implemented/integrated/proven and a successor release candidate is frozen
+and under certification.
+B. Every remaining launch-critical item is genuinely owner/data/external gated and no independent executable work remains.
+C. Session limits force a durable handoff.
+If A is reached, begin adversarial certification immediately rather than waiting for another prompt.
+If C approaches, checkpoint and push BEFORE the limit kills workers.
+24. REQUIRED END-OF-RUN REPORT
+When this run finally stops, report compactly but completely:
+- starting and ending SHA
+- branches/workers launched and what each delivered
+- requirements/defects closed, still open and gated
+- proof that Priority Zero autonomy is fixed or exact remaining blocker
+- cloud hosting status and cost/owner action if any
+- self-improvement loops proven end-to-end
+- Owner Command Center status and URL/preview if safely available
+- Accountant status
+- Store Foundation status and what I can preview now
+- SEO/search and ads readiness
+- full-suite/certification results
+- lights-out soak status
+- exact owner actions required next
+- what remains before a real store can launch.
+
+Do not hide uncertainty or substitute prose for evidence.
+FINAL DIRECTIVE
+Do not spend another day with one agent doing work that can safely be parallelized.
+Do not treat Brambleloop's 24/7 autonomy as a future feature. It was Rule #1 and must be repaired/proven now.
+Do not make Claude itself the company.
+Build the autonomous company, make the store beautiful, give me a phone-first owner command center, give Finance a
+controller-grade Accountant, keep specialist agents working continuously, and prove the system keeps working and improving when
+every development chat is closed.
+BEGIN NOW FROM CURRENT REPOSITORY REALITY.

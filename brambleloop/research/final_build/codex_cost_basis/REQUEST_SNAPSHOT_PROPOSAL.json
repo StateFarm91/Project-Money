@@ -1,0 +1,42 @@
+{
+  "base": "e8cf29a",
+  "status": "proposal only; source scope pending coordinator approval",
+  "measurement": {
+    "actual_maturity_report_subset_rows": 12,
+    "tested_module_lookups": 28,
+    "elapsed_seconds": 1.7018,
+    "isolation": "first12 real covered registry rows; actual captured test imports; jobs_reaching empty to omit unrelated graph analysis",
+    "proposed_content_captures": 2
+  },
+  "causation": "No full suite slowdown attributed to cache. Root rebuild10/10 took229s; new PDF rendering work may explain elapsed time. This measures lookup cardinality only.",
+  "proposed_scope": [
+    "maturity.py private exact content capture + ContextVar request snapshot wrapper",
+    "maturity._tested_modules consult snapshot only during wrapped call",
+    "maturity.report wrapper",
+    "closure.matrix wrapper",
+    "new focused adversarial tests"
+  ],
+  "contract": [
+    "each invocation reads exact source root/path/bytes",
+    "within synchronous call reuse immutable captured import set",
+    "before successful return read exact source again; any mutation or read error aborts, no result or PASS",
+    "ContextVar token reset in finally; separate/nested calls independently capture and reset; threads isolated",
+    "standalone tested-module lookups remain freshly captured",
+    "no status/threshold/reachability semantics changes"
+  ],
+  "tests_required": [
+    "unchanged output equality",
+    "entry+exit capture count2 despite multiple module lookups",
+    "same-size/same-mtime midcall mutation",
+    "add/remove source",
+    "unreadable revalidation",
+    "separatecall freshness",
+    "parallel thread snapshot isolation",
+    "exception reset"
+  ],
+  "known_limits": [
+    "not an atomic filesystem transaction; compares boundary snapshots",
+    "other stale reachability/handler caches outside this scope",
+    "no total closure/dashboards speedup claim"
+  ]
+}

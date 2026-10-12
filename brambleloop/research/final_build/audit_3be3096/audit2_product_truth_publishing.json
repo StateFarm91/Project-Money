@@ -1,0 +1,220 @@
+[
+ {
+  "id": "PT-01",
+  "severity": "LAUNCH-BLOCKING",
+  "title": "Basket and coaster listings are titled/tagged 'Mosaic Blanket', priced from the blanket band, and would be filed under the Blankets & Afghans node; every gate passes it",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/release.py:217-218,725-727",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/pipeline.py:651-667",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/gates/first_customer.py:292-330",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/commerce/search.py:227-259"
+  ],
+  "reproduction": "Ran gate.certify -> pricing.position -> listing.seo (throwaway sqlite, network refused) on launch0.cir_for('basket_small'|'hexagon_coasters'|'cloudline_blanket') via /tmp/.../audit2/run_chain.py. Then category.choose(tests/fixtures_etsy_taxonomy.snapshot(), 'mosaic_blanket'). Then first_customer.check_listing_claims on the drafted title.",
+  "observed": "TITLE: 'Bread Basket | Crochet Pattern PDF | Market Mosaic Blanket | US and UK Terms'; coaster: 'Hexagon Coaster Set | Crochet Pattern PDF | Mosaic Blanket | US and UK Terms'. TAGS include 'mosaic blanket','basket mosaic','coaster mosaic','crochet mosaic'. price_cad=14.0 for both (floor 8.5/ceiling 14.0). _seed_for('market-basket-small') and _seed_for('hexagon-coaster-set') return None (radar seeds are 'market-basket-trio'/'hexie-coaster-set') so listing.seo falls back to category 'mosaic_blanket'. With a taxonomy snapshot, choose() returns taxonomy 2112 'Blankets & Afghans' (basket would be 2115, coaster 2114). first_customer.check_listing_claims returns PASS on both false titles; search tags_truth only checks difficulty/finished-item wording; handle_certify evaluates a hard-coded placeholder ListingDraft (tags ['crochet pattern','mosaic blanket','pdf pattern'], price 11.99) instead of the real listing, so the certificate never sees the copy.",
+  "impact": "First sale of 4 of 5 Launch-0 listings would describe a basket/coaster pattern as a mosaic blanket pattern in the wrong Etsy category: misdescription, buyer disputes/refunds, Etsy relevance/policy exposure. The shadow-rehearsal evidence only exercised the blanket (good seed match), so this was never seen.",
+  "fix": "Give launch0.Candidate/Variant an explicit Etsy category and pass it as listing.seo/pricing inputs (or key _seed_for on launch scope slugs); fail closed (UNKNOWN) when no seed/category is known instead of defaulting to mosaic_blanket; make the title/tag shape+technique check run on the real stored Listing in the certificate and in search tags check (a 'blanket'/'mosaic' term on a vessel/non-mosaic CIR must ERROR).",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-02",
+  "severity": "LAUNCH-BLOCKING",
+  "title": "First-customer gate can never clear: calibration is unreachable and 'imagery' always reads UNVERIFIABLE, so Launch-0 cannot publish even after every owner action is done",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/gates/first_customer.py:336-356,454-520",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/release_gates.py:1018-1024",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/eligibility.py:464-510",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/cir/twin.py:245"
+  ],
+  "reproduction": "inspect.signature(first_customer.blocking) -> (cir,*,listing,frames,store): no db/calibration. release_gates.for_publish calls eligibility.product_publication(db,slug,version,listing=...) with no frames. In the run_chain.py sandbox store.release_gates audit shows FIRST_CUSTOMER_BLOCKING imagery: UNVERIFIABLE 'no listing frames have been built' even though assets.build had filed a disclosed set that parity reports 'product_truth pass'. FC.blocking(cir_for('hexagon_coasters'),listing=...,frames=None) -> [gauge_and_size_claims UNRESOLVED, imagery UNVERIFIABLE, etsy_remote_state UNVERIFIABLE, fulfilment_and_download FAIL].",
+  "observed": "gate_product builds build_twin(cir,result) with default calibration=1.0 so twin.calibrated is always False (calibrated = calibration != 1.0); a recorded physical sample cannot reach it. check_imagery reads legacy publish.listing_assets frames, never the disclosed set that D-FB-7 made the Launch-0 imagery; for_publish never supplies frames.",
+  "impact": "Not a truth leak (fails closed) but a hard launch blocker: the owner can complete the physical sample, object storage and Etsy steps and every Launch-0 product still reports blocking reasons; the only way out is a source edit, which invites weakening the gate under launch pressure.",
+  "fix": "Pass db-derived calibration (calibration_from_db + bound PhysicalTest) into gate_product, and make check_imagery read the disclosed listing-set certificate (listing_asset.frames_for / disclosed_listing.usable_set) instead of legacy frames. Add a test that a bound physical sample + disclosed set turns both checks PASS.",
+  "verified": "verified (executed + code)"
+ },
+ {
+  "id": "PT-03",
+  "severity": "HIGH",
+  "title": "Runtime does not enforce 'content change => new version': a changed design silently replaces the stored release under the same version",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/pipeline.py:995-1018",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/tests/test_release_versions.py"
+  ],
+  "reproduction": "ver.py: gate.certify launch0 hexagon CIR (v1.1.0), then gate.certify the same CIR JSON with gauge.hook_mm 5.0->4.5 and stitches_per_10cm 14.5->15.0 (finished size changes) and version unchanged.",
+  "observed": "Both certified: audit 'gate.certified' x2 then 'gate.recertified {previous_release_hash 94a1a963a2.., release_hash e07c73b8e2..}'; PatternVersion keeps one row ('1.1.0', e07c73b8e2). Only unit test test_release_versions pins catalogue builder fingerprints; nothing at runtime refuses.",
+  "impact": "After a first sale a buyer who holds '1.1.0' and a buyer who downloads '1.1.0' next week hold different patterns (different size/yardage/gauge); version-keyed support and correction notices (buyer_trust.on_certified correction only when flagged) are wrong.",
+  "fix": "In _persist_release refuse (PermanentError + audit) when a PatternVersion with the same version exists with a different content fingerprint unless the job explicitly bumps version; bind PDF/listing/certificate to version+fingerprint; extend the pinned-fingerprint check to a startup/CI gate over launch0 variants and the PDF template version.",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-04",
+  "severity": "HIGH",
+  "title": "Listing price comes from the wrong category band: coaster set and small basket go out at CA$14.00 (plan CA$4.00 / CA$6.50), blanket CA$8.91 (plan CA$7.50)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/release.py:560-570",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/products/launch0.py:340-445,805-835"
+  ],
+  "reproduction": "Same run_chain.py sandbox: Listing rows price_cad market-basket-small 14.0, hexagon-coaster-set 14.0, cloudline-baby-blanket 8.91; pricing.positioned floor 8.5 ceiling 14.0 for basket/coaster.",
+  "observed": "launch0.PriceBand/price_plan (4.00, 6.50, 7.50; band CA$4-12) is never read by pricing.position. Coaster candidate lists 'a price that has to rise above the cluster floor' as a disqualifier.",
+  "impact": "Coaster pattern priced ~3.5x the researched cluster and above its ceiling: no first truthful sale, and the owner approval grant binds these exact fields.",
+  "fix": "Make pricing.position read launch0.price_plan for Launch-0 slugs and refuse (UNKNOWN) a price outside the candidate band.",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-05",
+  "severity": "MEDIUM",
+  "title": "Disclosed-render verifier ignores all annotation text; a frame with a false finished size and false material/safety claims passes structural_floor and export_check",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/visual/render_verification.py:181-234,589-650",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/visual/product_authority.py:35-80",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/disclosed_listing.py:95-122"
+  ],
+  "reproduction": "atk4.py/atk5.py: re-render cloudline scale view, paint over the scale-zone label band in the background colour, redraw in CAPTION colour 'Finished size at the stated gauge: 120.0 cm wide x 150.0 cm long' plus 'Pure merino wool - certified safe for newborns - machine washable', store bytes, build frame with manifest image_sha256 updated.",
+  "observed": "render_verification.verify -> PASS; structural_floor(frame)['status'] == 'PASS'; disclosed_listing.export_check ok=True. Saved example img/attack_tampered_scale.png. Other attacks FAILED as designed: swapped product/view (extent, counts, object_count), one stitch recoloured (colour_placement), stitch erased (stitch_counts), caption erased or word changed (disclosure_in_image iou 0.72), 'photograph'->'a photograph' (0.71).",
+  "impact": "Stitch/colour/scale tamper-resistance is good, but the 'independent verifier' does not protect any customer-visible words in the image, which is where a wrong size or claim would live. The disclosure caption itself is protected (IoU 0.98; an added trailing period passes, harmless).",
+  "fix": "Verify the scale-zone label and dimension-line text against expected strings (OCR-free: re-render expected label at contract position and IoU it, as done for the caption) and refuse any CAPTION/LINE-coloured pixels outside the expected annotation boxes.",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-06",
+  "severity": "MEDIUM",
+  "title": "disclosed_listing.last_asset reads only the newest 50 audit rows across ALL slugs, so other products' disclosed sets silently disappear after 50 rebuilds",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/disclosed_listing.py:388-402",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/listing_asset.py:last()",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/etsy_ops.py:506-523"
+  ],
+  "reproduction": "In the chain sandbox DB, DL.record() 50 copies of the coaster record, then DL.last_asset(db,slug=...) for each slug.",
+  "observed": "coaster -> found; market-basket-small -> None; cloudline-baby-blanket -> None.",
+  "impact": "A product with a valid certificate becomes unpublishable ('not a frame of the disclosed set on file') or falls back to the legacy frame path after routine rebuilds of other products; fails closed but stalls launch and the legacy path then judges different imagery.",
+  "fix": "Filter by artifact slug in SQL (AuditLog.artifact LIKE slug@%) instead of a global limit(50).",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-07",
+  "severity": "MEDIUM",
+  "title": "Yardage double-counts increases: hexagon coaster yardage overstated ~43% (basket +5-10%)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/cir/twin.py:32-34,203-224"
+  ],
+  "reproduction": "Recomputed _yardage with factor applied per op.count instead of op.produces for inc (factor 12.4 already = 2 sc): coaster 41.0 m vs 28.7 m; baskets 57.4/52.1, 119.3/112.2, 201.8/192.8; blanket unchanged 426.7.",
+  "observed": "PDF/listing coaster: cream 26-39 m + wine 7-10 m (set of 4) i.e. ~33-49 m total, outside the +-20% band of the model's own consistent value (~23-34 m).",
+  "impact": "Buyers over-buy yarn (safe direction) but the stated +-20% range is wrong by more than its own tolerance; blanket yardage (426 m, 341-512 m range) is uncalibrated and looks low against typical worsted afghan consumption (my external heuristic ~0.06-0.09 m/cm2 gives ~460-690 m) - suspected, needs a sample.",
+  "fix": "Use per-op yarn factor without multiplying by produces for inc/dc_inc, then calibrate all factors from the first physical samples; widen blanket tolerance until calibrated.",
+  "verified": "verified (executed arithmetic) for coaster/baskets; suspected for blanket"
+ },
+ {
+  "id": "PT-08",
+  "severity": "MEDIUM",
+  "title": "Blanket finished height (97.1 cm) assumes every row containing one dc is a full dc row; headline size is unverifiable and may be overstated",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/cir/twin.py:187-200",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/cir/geometry.py:182-187"
+  ],
+  "reproduction": "twin._flat_dimensions uses the tallest stitch per row: 64 of 70 rows contain a dc among 8 sc, each counted at ~1.39 cm vs 0.72 cm sc; PDF 'THIS FABRIC about 7 rows = 10 cm'.",
+  "observed": "height 97.1 cm; if mixed rows average between sc and dc height the true height could be tens of percent lower. twin.calibrated False.",
+  "impact": "Title/listing/size card/scale image all print 79 x 97 cm; wrong size is a refund. Currently masked only because PT-02 keeps the gate closed.",
+  "fix": "Model mixed-height rows by stitch-weighted height or require a swatch; do not print a headline size until a sample is measured.",
+  "verified": "suspected (model assumption; physical test needed)"
+ },
+ {
+  "id": "PT-09",
+  "severity": "MEDIUM",
+  "title": "Cloudline pattern as written alternates colours every row on turned flat rows; PDF never says how, and the designer-note 'carry the resting colour up the side' is geometrically impossible",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/products/builder.py:194-197",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/cir/model.py (designer_notes)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop//tmp/.../audit2/cloudline_blanket_US.raw.txt Rows 4-67"
+  ],
+  "reproduction": "Read PDF rows 4-67: cream/ink alternate each row (Row 5 ink, 6 cream, 7 ink ...). Rows turn, so the yarn rested at the far edge when the next same-colour row starts at the other edge. PDF finishing says only 'an end to secure at every join and every change'.",
+  "observed": "~64 one-row changes => ~128 ends on a baby blanket with no instruction to cut vs carry; row 8/12 etc start with dc after only 'Ch 1, turn'.",
+  "impact": "Pattern is workable only by cutting yarn each row; first buyer confusion/support and an end-weaving burden on an under-3 item; stated 'carry up the side' note is not in the PDF but is in the CIR notes.",
+  "fix": "Either restructure to two-row colour blocks (true mosaic) or state the cut-and-join method and end count; fix start-of-row turning chain for dc stitches; remove the carry note.",
+  "verified": "suspected (logic from the written rows; no physical sample)"
+ },
+ {
+  "id": "PT-10",
+  "severity": "MEDIUM",
+  "title": "Basket hero shows a hexagonal prism but title/description/size never say the basket is hexagonal; basket 'across' is ambiguous (13.9-16.0 cm for a 60-st hexagon)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/visual/disclosed_render.py:30-40,420-470",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/products/launch0.py:340-360"
+  ],
+  "reproduction": "Viewed img/basket_medium_hero.png; computed 60 sc at 12.5/10cm = 48 cm perimeter -> across points 16.0, across flats 13.9 vs stated 15.3 (circle formula).",
+  "observed": "Render draws 6 flat faces with sharp corners; modelling_notes admit side pitch is 4.5% under gauge. Written text 'inc in next st' does not tell the maker to stack increases.",
+  "impact": "D-FB-7: an image asserting a shape the text does not promise and no sample confirms; buyers expecting a round basket. Same family risk for the 'about 9.2 cm across the points' coaster (true 9.7 points / 8.4 flats from the 42-st perimeter).",
+  "fix": "State 'hexagonal base' (or instruct staggered increases for a round basket) in title/description/PDF, quote across-flats and across-points, and tie the render shape to the written instruction.",
+  "verified": "verified (render + arithmetic); physical shape suspected"
+ },
+ {
+  "id": "PT-11",
+  "severity": "MEDIUM",
+  "title": "Launch-0 variant slugs have no production entry path; the planner's engineered drafts are legacy twins outside Launch-0 scope",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/pipeline.py:410-415",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/listing_asset.py:_in_launch_scope",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/products/launch0.py:487-500"
+  ],
+  "reproduction": "pipeline._engineered_cir('market-basket-trio') -> slug market-basket-trio (== basket_medium content), ('hexie-coaster-set') -> hexie-coaster-set (== hexagon-coaster-set content); both False in launch_scope_slugs(); _engineered_cir('market-basket-small'|'hexagon-coaster-set'|'nursery-nesting-baskets') -> None.",
+  "observed": "Launch-0 CIRs are built only via launch0.BUILDERS and hand-enqueued cir.compile (as shadow_rehearsal does, and only for the blanket).",
+  "impact": "Duplicate listing risk (same pattern under two slugs), legacy slugs skip the first-customer gate and D-FB-7 disclosed imagery, and PT-01 is exposed on the only working path.",
+  "fix": "Add an explicit Launch-0 enqueue (and retire the trio/hexie ENGINEERED aliases or alias them to launch scope).",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-12",
+  "severity": "LOW",
+  "title": "Alt text (carrying the disclosure) is sent to Etsy but never read back or verified remotely",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/integrations/etsy_verify.py:40-44",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/etsy_ops.py:read_back"
+  ],
+  "reproduction": "grep: alt_text is in NOT_IN_RESPONSE; read_back checks only image count.",
+  "observed": "No getListingImages comparison of alt_text.",
+  "impact": "D-FB-9 claims disclosure in alt text on the live listing; if Etsy drops/truncates it the first truthful sale lacks it unnoticed.",
+  "fix": "Read listing images back and compare alt_text and rank to the certified frames.",
+  "verified": "verified (code); remote behaviour suspected"
+ },
+ {
+  "id": "PT-13",
+  "severity": "LOW",
+  "title": "F-757 listing_variant check is wired to nothing at runtime; empty release hash weakens certificate binding",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/gates/certificate.py:154,567-585",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/etsy_ops.py:457"
+  ],
+  "reproduction": "grep listing_variant= across src: no caller passes it; certified_frames only checks release when both sides non-empty.",
+  "observed": "certify(..., listing_variant=None) always; listing-set certify_disclosed takes variant from the record itself. All Launch-0 CIRs are single-variant so no current mis-bind.",
+  "impact": "Latent: a future configurable product could list one configuration with another's images; empty release_hash skips the binding.",
+  "fix": "Pass the listing's declared variant into certify and certify_disclosed; treat empty release hash as UNKNOWN/refuse.",
+  "verified": "verified (code)"
+ },
+ {
+  "id": "PT-14",
+  "severity": "LOW",
+  "title": "eligibility allows AI_LIFESTYLE_CONCEPT to serve DESIRE; F-852 relies on asset_truth findings, not an explicit refusal; children's 'mouthed/dribbled' text on nursery baskets contradicts 'child does not handle it'",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/eligibility.py:MEDIUM_PURPOSES,may_export",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/products/launch0.py:340-345",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/publish/pdf.py (childrens fibre/washing)"
+  ],
+  "reproduction": "el.may_export(Candidate('ai-hero',AI_LIFESTYLE_CONCEPT,CONVERSION_CREATIVE,DESIRE,1), 4 PASSED gates) -> may_export True. No Launch-0 producer reaches it: structural_floor returns UNKNOWN for every non-disclosed frame so listing_asset.last/usable never selects a generated frame; asset_truth ASSET_CONCEPT_AS_HERO refuses a concept hero.",
+  "observed": "Generated hero blocked upstream (good) but a disclosed-as-illustration AI concept in frames 2-10 is not blocked by eligibility itself.",
+  "impact": "Low today; defence-in-depth gap against F-852. Text mismatch is cosmetic.",
+  "fix": "Add an explicit refusal of AI_LIFESTYLE_CONCEPT in the product-imagery roles for Launch-0 in eligibility/certify.",
+  "verified": "verified (executed)"
+ },
+ {
+  "id": "PT-15",
+  "severity": "INFO",
+  "title": "Confirmed OK (executed): pattern arithmetic, UK/US, PDF content, children's block, disclosure, version/hash pinning tests",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/tests/test_release_versions.py",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/tests/test_disclosed_certified_upload.py"
+  ],
+  "reproduction": "All 5 CIRs compile clean and certify (US+UK). Independent parser over extracted PDF text (indep.py): every row's produced count equals its declared count and consumes the previous round's count (US all pass; UK pass after dc-inc mapping); every writer row string appears verbatim in both PDFs; basket_large 'repeat rows 41-44' is consistent with rows 45-48. Gauges inside cyc-sc-band (worsted 12.5 in 11-14, dk 14.5 in 12-17). Safety block present in both terminologies for baskets and blanket (under-3, no unsupervised sleep). Tests run green: test_release_versions, launch0, launch0_gauge, launch0_size_labels, disclosed_render 22/22, disclosed_certified_upload 7/7, search_certificate_integrity, search_hero_publish 4/4. certified_images/publish: certificate-bound bytes, alt text and copy disclosure re-checked at export; taxonomy has no default fallback (certified_payload refuses UNKNOWN); hero/parity still block on image_vision and benchmark review (owner-gated).",
+  "observed": "no defect",
+  "impact": "n/a",
+  "fix": "n/a",
+  "verified": "verified"
+ }
+]

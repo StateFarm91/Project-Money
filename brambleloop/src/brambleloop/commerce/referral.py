@@ -72,6 +72,19 @@ class Mechanic:
                 f"A reward is for an action, never for an opinion")
 
 
+# The mechanics this company would run, declared so the daily reading checks each one against
+# the contribution the orders actually show (#256). None runs until its check passes, and the
+# check cannot pass without a measured contribution per customer.
+DECLARED: tuple[Mechanic, ...] = (
+    Mechanic("show_your_make", "shows_finished_project", "recorded_mention", 0.0,
+             copy="Show us what you made with this pattern, however it turned out."),
+    Mechanic("share_the_pattern", "shares_a_link", "unique_link", 0.0,
+             copy="Know somebody who would enjoy this? Here is a link to pass on."),
+    Mechanic("first_purchase_credit", "brings_a_first_purchase", "referral_code", 1.0,
+             copy="A friend's first purchase with your code earns you CA$1 credit."),
+)
+
+
 def check(mechanic: Mechanic, *, contribution_per_customer_cad: float | None = None) -> dict:
     """Whether this mechanic may run, and which of the three rules it breaks if not."""
     reasons: list[str] = []

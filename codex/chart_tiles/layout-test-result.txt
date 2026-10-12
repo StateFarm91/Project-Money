@@ -1,0 +1,13 @@
+test_impossible_chart_floor_is_structured_refusal_not_exception (test_pdf_layout_bounds.LayoutBounds.test_impossible_chart_floor_is_structured_refusal_not_exception) ... ok
+test_key_value_wrap_retains_text_and_separates_actual_pdf_runs (test_pdf_layout_bounds.LayoutBounds.test_key_value_wrap_retains_text_and_separates_actual_pdf_runs) ... ok
+test_oversize_url_keeps_every_character_inside_printable_width (test_pdf_layout_bounds.LayoutBounds.test_oversize_url_keeps_every_character_inside_printable_width) ... ok
+test_every_stitch_and_colour_once_including_all_border_rows (test_chart_tiles.ChartTiles.test_every_stitch_and_colour_once_including_all_border_rows) ... ok
+test_every_tile_meets_existing_floor_in_reserved_image_area (test_chart_tiles.ChartTiles.test_every_tile_meets_existing_floor_in_reserved_image_area) ... ok
+test_global_row_parity_and_columns_do_not_restart_on_tile (test_chart_tiles.ChartTiles.test_global_row_parity_and_columns_do_not_restart_on_tile) ... ok
+test_legend_footer_is_wrapped_inside_its_actual_image (test_chart_tiles.ChartTiles.test_legend_footer_is_wrapped_inside_its_actual_image) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 21.932s
+
+OK
+Existing catalogue and forced-floor check PASS

@@ -1,4 +1,108 @@
+> **2026-10-11 — W4-COPY: store copy v3 + customer-claim register (branch `claude/w4-COPY`, not deployed).**
+> One content source (`store_foundation/copy_v2.py`, VERSION copy_v3; `brand.storefront.ABOUT` now reads it -- the
+> rejected v1 "compiler" About had survived there). AI disclosure no longer implies a human designer ("This design was
+> created with AI assistance, and every row's stitch count is checked before release."), carried verbatim in listings.
+> Terms: "its images" (no photographs exist); corrections "on request" (no Messages API can notify every buyer; "forever"
+> dropped). `store_foundation.claims`: 16 claims with evidence and verdicts, FORBIDDEN fence over 96 surfaces
+> (tests/test_w4_copy.py). Open owner/legal reviews: licence enforceability, consumer-law refunds, CASL wording, Etsy image
+> rule vs renderings, proactive correction notices, support commitment. `research/final_build/w4/COPY_CLAIMS.md`.
+
+> **2026-10-11 — W4-MARKETINTEL: market intelligence from sanctioned sources, labelled and routed (branch `claude/w4-MARKETINTEL`, not deployed).**
+> Etsy Open API v3 (oas 3.0.0 read 2026-10-11, sha256 b993d52f...) has NO Marketplace Insights / search-volume / shop-stats
+> operation ('insight' 0, 'stats' 0, 'search volume' 0); only findAllListingsActive `{count, results}`. `intel.market_intel`
+> (run inside the daily `intel.serp_capture`) labels competition / favourite velocity / recent-entrant share as PROXY with
+> source+timestamp (UNKNOWN never 0), routes them to SEO (search_language + SEO evidence store), Creative briefs, Pattern
+> Engineering (construction_preference), gated growth experiments, and Product Truth (lint TRUTH_MARKET_CLAIM + SEO tag
+> validator). Owner step: paste the Insights view at /ops/insights (-> /ops/teardown#insights), parsed deterministically,
+> recorded on confirm. Production has 0 SERP snapshots: the Etsy credential is refused (403) -- owner fix first.
+> `serp.capture_targets` now stops at the first 401/403. Finding: #237 waits on the Stats CSV export, not insights_access.
+> Report: `research/final_build/w4/MARKETINTEL.md`. Tests: test_w4_marketintel 7/7 + focused suites green.
+
+> **2026-10-11 — W4-B2GATE2: all 102 gated Build 2 rows read against production 0417f35 (branch `claude/w4-B2GATE2`, not deployed).**
+> Ledger regenerated from production `/api/build` + 8 data gates derived from production GETs (`evidence_B2GATE2/`);
+> counts unchanged 215/56/41/5/3/0, every gate now has a production reading. Fixes: (F1) #140 `radar.lead_lag` refuses a
+> plateau -- production served 4 "measurable" lead-lags that were artefacts and `lead_lag_series` would have opened on
+> them; (F2) `gates/policy_access.py` (robots.txt + Etsy Help Center companion articles as change signals, never a
+> legal page, never opens the gate; `/api/policy` legal_access); (F3) the 30-day policy reading is now a PROPOSAL the
+> owner may accept or decline; (F4) the transactions_r card names its other half: production `etsy.probe` has been
+> HTTP 403 since 2026-10-07 12:00Z (owner: check the Etsy app + `ETSY_SHARED_SECRET`). #195's only unmet condition is
+> company dead letters (fixes on claude/w4-FMGATE). B2GATES doors are not in production yet. Report:
+> `research/final_build/w4/B2_GATE2_REPORT.md`. Tests: test_w4_b2gate2 11/11 + focused suites green.
+> **2026-10-11 — W4-PRODUCT (branch `claude/w4-PRODUCT`, base 0417f35; not deployed).** Carried the two genuine
+> defect fixes from W4-LAUNCHREADY (creative gate judges the engineered Launch-0 cohort; PDF stitch key defines both
+> `slst`/`sl st`). The three catalogue-floor products are a PROPOSAL, not Launch-0: `launch0.CATALOGUE_FLOOR_APPROVED =
+> False` (owner decision CAP-1 / D-FB-9; Launch-0 cap stays 5, no test assertion edited). D-W5-7 closed for readers:
+> `launch0.radar_concept_for` + `pipeline.product_seed` give product-keyed readers the radar concept, so the #168
+> benchmark challenge now covers basket and coaster (was "uncategorised"). Scratch shadow chain radar.scan → … →
+> store.publish: 7/7 Launch-0 releases certified, Product Truth PASS, listings drafted, all refused at the owner
+> boundary; trend evidence UNMEASURED (none stamped). Report: `research/final_build/w4/PRODUCT_FIX.md`.
+> **2026-10-11 — W4-AUTONOMY: "departments idle while eligible work exists" root-caused and fixed (branch `claude/w4-AUTONOMY`, NOT deployed; production stays 0417f35).**
+> Production evidence (public GETs 14:39Z): the only open jobs were model jobs parked on the spent Anthropic balance, and
+> the orchestrator counted them as department work, so Product & Design, Intelligence and Visual read BUSY and got none
+> of their deterministic work (`rule1.measure` masked it the same way; `idle_wake` and Laura's empty-queue path never
+> fired). `ops.sentinel` dead-lettered 7× in 8 min on Postgres VARCHAR(200) (`rebuild:product:` key 544 chars; SQLite
+> never enforces it), so 14 stale products' `chain.rebuild` never queued. Share holds favoured unrunnable model jobs and
+> held the control lane's own `autonomy.orchestrate`. Fixes: actionable-only busy count (60 s due grace, waiting jobs
+> reported, no duplicates), deterministic key fitting at the enqueue boundary, work-conserving share holds, control
+> lane exempt from the pool mix. 10 regression tests (8 fail on 0417f35); Postgres 16 reproduction of the exact
+> production error; production-seeded simulation 0 → 9 missions for the three departments, parked jobs untouched.
+> Shadow, authority, spend and model policy unchanged. Evidence: `research/final_build/w4/AUTONOMY_FIX.md`.
+
+> **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
+> `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
+> committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run
+> 2026-09-21). Revision 1 `laura-v15-a42aeac7` and its missing v15 frames stay as history (OA-CANON-1 still open for
+> the v15 bytes as evidence). `canonical.adopt_revision(db)` moves the production registry from revision 1 to 2 once —
+> **not yet run** (deploy step). Further changes need a new owner decision in `AUTHORISED_IDENTITY_CHANGES`. No image
+> is publication-approved; photorealism/identity/Product Truth gates unchanged.
+
+> **2026-10-06 — LAURA: canonical brand face preserved and protected (D-FB-11..13; branch `claude/v11-CANON`, not deployed).**
+> Owner rulings: the frozen model is **Laura**, a persistent AI person and the **Founder/CEO of Brambleloop**; the
+> approved woman is her permanent visual identity (`spec/07_Laura_Owner_Ruling_2026-10-06.md`). **Task #59
+> reinterpreted:** "re-make the canonical model" = repair the Visual system so it reproduces *Laura*; it never
+> authorises a new woman. Canonical identity id `laura-v15-a42aeac7` (Laura + frozen build v15 + face a42aeac7…);
+> `reference_pack.PACK_VERSION` v16-… is the pack-procedure label, not her identity.
+> - **Preserved (byte-verified):** approved face `visual/assets/identity_portrait.jpg` unchanged; copy as
+>   `canonical/laura-v15-a42aeac7/reference_pack/neutral_portrait.jpg`; historical v6 post-revision local run (7 frames)
+>   and v5 owner-viewed set (lossless face PNG + 5 stress scenes), all `forbidden_as_fallback`. MANIFEST.json v2
+>   records sha256/bytes/dimensions/role/provenance/publication_status for all 19 committed images.
+> - **MISSING canonical (not synthesised):** v15 torso_fit_reference, full_length_standing and the 5-frame stress set.
+>   Bytes live only in production (`durable_artifacts`, referenced by the v15 `audit_log` `model.reference_pack` row,
+>   built 2026-09-22T01:02:49Z, fingerprint 914ee7da716baef7). Public read-only endpoints expose only v16 (not frozen)
+>   hashes. v6 files are NOT proven to be v15 (no v15 hash recorded anywhere).
+> - **OWNER ACTION OA-CANON-1 (≈10 min, CA$0, read-only):** in Railway → Postgres → Query, run
+>   `SELECT detail->'reference_frames', detail->'scenes' FROM audit_log WHERE action='model.reference_pack' AND
+>   detail->>'pack_version' LIKE 'v15-%';` and paste the sha256 values to the session (or GET
+>   `/api/model-tournament/image/{sha256}` for each, which is public once the hash is known). Why: the frozen body
+>   and stress evidence of Laura exist only in one database; a lost DB loses them permanently. Waiting costs nothing
+>   until production storage is at risk.
+> - **Safeguards:** `visual/canonical.py` (identity id, `verify()`, forbidden hashes, `laura_verdict`: "a woman similar
+>   to Laura is NOT Laura"); `model_registry.replace_canonical`/`portrait_repair.adopt` refuse to retire/alter Laura
+>   and `freeze.freeze` refuses any build but v15 without an owner decision in `AUTHORISED_IDENTITY_CHANGES` (empty);
+>   `gate_frames` requires every locked face dimension to match for Laura; historical frames join
+>   `freeze.forbidden_reference_hashes`.
+> - **Store Foundation gap closed for preview only:** `store_foundation/brand_face.py` (placements; icon = logo mark,
+>   Laura = seller portrait/banner/About/seasonal; non-wearables product-first), surface `brand_face` (GATED, never
+>   READY), Owner Store Preview `variant=brand_face` (every Laura image labelled "Internal preview — canonical
+>   reference, not publication-approved"), lint rule `TRUTH_LAURA_HUMAN_CLAIM`. **Customer-facing still gated:**
+>   identity → photorealism (B-657 failure stands) → anatomy → Product Truth → brand QA → disclosure → publication;
+>   no Laura image is `publication_approved`. Public wording: "Laura, Brambleloop's AI founder" (AI disclosure always;
+>   never human; no legal-ownership/seller statements in Laura copy).
+> - **QUEUED (not built): the Laura agent, target per D-FB-13** — persistent identity + Founder/CEO executive layer +
+>   durable company memory/history + canonical visual identity + 24/7 executive agency + Command Center presence +
+>   inter-department orchestration + Learn-controlled self-improvement + separately protected spouse relationship
+>   context (isolated from all public/protected functions; human-Laura consent stays human-gated), reusing the
+>   Executive/COO orchestrator, departments, memory, Learn and authority framework.
+> - Tests: test_canon_manifest 21, test_canon_store_brand_face 11. Handoff: `research/final_build/v1_1/handoff_CANON.md`.
+
+> **2026-09-28 ~14:30Z — FINAL BUILD HANDOFF (usage limit).** Wave FB-1 clusters F, D, C, E integrated on `claude/visual-investigation` (targeted suites green; no full suite yet on FB-1 commits). A finished and awaiting integration; B and G in progress (branches pushed). Resume from `research/final_build/FINAL_BUILD_RESUME_MANIFEST.md`. Nothing deployed, published or spent.
+
+> **2026-09-28 — FINAL BUILD (Master v1.0) PHASE 0 COMPLETE: baseline audit written.** Registry of 866 requirement records (859 IDs; F-631..F-650 absent; F-514..F-520 defined twice, both kept) mapped to evidence and adjudicated: launch-critical 446 / mature 413 / NA 7; launch-critical maturity MISSING 63 · IMPLEMENTED 34 · TESTED 26 · INTEGRATED 129 · DEPLOYED 175 · EXERCISED 19; nothing production-observed or commercially evidenced. 52 launch-critical rows satisfied end to end; 103 below INTEGRATED with no gate; 87 carry a defect (e.g. store.publish sends no images, `/api/support` readable unauthenticated, one hard-coded Etsy taxonomy, P&L reads CA$0.00 while orders are disconnected). See `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` and `FINAL_BUILD_STATE.md`. Engineering baseline 019ebf0 unchanged; production fcb982d; nothing deployed, published or spent.
+
 # BUILD_STATE
+
+> **2026-09-28 — BUILD 2 CERTIFIED (executable obligations), remaining gates parked honestly.** Two independent audits (9434c53: 55 invalid/96 weak; Codex: 75 findings) refuted the earlier closeout. Every finding was adjudicated and the confirmed ones repaired in six clusters plus four follow-on waves (ledger C-60..C-87, all FIXED). A fresh independent 320-row audit of 15c5d1b found no phantom module or unreached handler; its 11 labelling findings are applied. Final head **856186f**: full suite from clean state **5,242 passing, 0 suites failing**; closure with every gate read live on a fresh database **218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated · 7 external-blocked**, `closed_out: true`. Production `/api/verify` 08:16Z: 12 checks, none failing. Nothing deployed, published or spent; phase shadow. Product-Only Visual V1 remains NOT LOCKED. Owner batch and details: "2026-09-28 — Build 2 certification" below and `research/b2_resume/RESUME_MANIFEST.md`.
+
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
@@ -25,11 +129,26 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 227 | satisfied, with a named test or artefact |
-| partial | 45 | something real exists and is short of the requirement |
+| covered | 235 | satisfied, and the note or `proof` names a module that exists and a test that exercises it |
+| partial | 45 | something real exists; **every one is parked on a checkable gate** (0 ready to start) |
 | missing | 0 | nobody has built it |
-| owner_gated | 28 | waits on an owner decision, credential or legal acceptance |
+| owner_gated | 20 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 20 | waits on market evidence that does not exist yet in shadow mode |
+
+**Build 2 closure matrix (2026-09-27, `/api/closure`, computed from evidence — `build2/closure.py`):**
+
+| final state | count |
+|---|---|
+| COMPLETE+PROVEN | 235 |
+| OWNER-GATED | 28 |
+| DATA-GATED | 42 |
+| EXTERNAL-BLOCKED | 15 |
+| OPEN (executable work remaining) | **0** |
+
+The five-status table above is the registry's claim; the matrix is the audit of it. A covered
+row counts as COMPLETE+PROVEN only when a module it names exists and a test exercises it; a
+parked row carries the kind of its gate, checked live. See the 2026-09-27 closeout section at
+the end of this file.
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
@@ -367,6 +486,356 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+
+### 2026-09-28 — Build 2 certification: the repair wave, integrated and audited
+
+**What was wrong.** The 2026-09-27 closeout (9434c53) called 320 rows closed. An independent audit
+refuted it: 55 rows invalid, 96 weak — modules that existed and were tested but that nothing in
+the running system ever called; readings persisted that nothing acted on; fixtures injecting
+evidence production never produces; gates parked in front of executable work. Codex audited the
+six repair patches independently and preserved 75 findings (`research/codex_b2_integration_pack/`).
+
+**What was done.** Six repair clusters (platform, orders, growth, design, improve, intel) and four
+follow-on waves (orders2, platform2, improve2, residue) rebuilt the missing chains — producer →
+durable evidence → runtime consumer on a cadence → decision → protected action — each with a
+handler-level test through `Worker.run_once` on a real database, sockets refused. The lead merged
+one cluster at a time, reconciled every shared-file and semantic conflict by hand (radar.score
+composes #2 steering, the #38 evidence discount and the #97 lesson nudge; one referral reader; one
+withholding record; bounded receipted priority movement), adjudicated every Codex finding against
+the merged code, and recorded each defect and fix in `research/BUILD2_CERTIFICATION.md` (C-60..C-86).
+Highlights: the closure rule itself (C-74: only an explicit park parks; C-65: call-graph
+reachability), order truth reconciled as state (C-78), durable rollback and one release-eligibility
+record (C-81, C-84), steering idempotent across runs (C-75), thrash suspensions lifted only by a
+real change (C-85), the Christmas cardigan engineered end to end and stopped only by owned imagery
+(#308), and the Claude-independence test (boot from a scrubbed environment, shadow publish refused,
+SIGKILL mid-job, restart with no loss or duplication, cadences continue) 4/4.
+
+**Fresh independent audit of 15c5d1b** (`research/b2_resume/reports/independent_audit_15c5d1b.md`):
+217 VALID · 9 WEAK · 0 INVALID · 92 GATED-OK · 2 GATED-BAD; verdict "the C-60 class of exists,
+tested, never runs is gone; every remaining defect is a labelling or measurement-honesty defect".
+All 11 were applied as C-86: #31 #163 #169 parked on the data their measured half needs, #277 #281
+#309 #88 #126 #308 parked on `image_vision` (the design pipeline is built; its winners wait on the
+owner's provider credit), `seasonal.cycle` reports the model-bearing render path BLOCKED on the
+external gate and never complete, the governor says plainly that no experiment-driven job spends yet.
+
+**Honest closure at a885680:** 218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated ·
+7 external-blocked; `closure.matrix(db)` on a fresh database reads every gate live, none open,
+`closed_out: true`. Production (`/api/verify`, 02:27Z): all 12 checks passing, shadow, ad spend 0.
+Product-Only Visual V1 remains NOT LOCKED; the model-bearing render path remains external (0/16,
+0/7 draws).
+
+**Full suite from clean state on the final head 856186f:** `bash run_tests.sh` — **5,242 passing, 0 suites failing** (285 suites; log in `research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log`). The first run on f4565dd (5,237 passing, 5 suites failing) found five older tests asserting behaviour the repair wave deliberately changed; each was adapted to the documented new behaviour, none loosened (ledger C-87).
+
+**Remaining gates, all real, all typed (row ids in `research/b2_resume/closure_state.json`).**
+Owner (58): fund the vision/model provider account (`image_vision`: 15 rows incl. the whole
+original-design path), re-authorise the Etsy app with `transactions_r` (11, 12), record the
+`acceptance_ruling` (189 221 222 320), benchmark purchases (165 168 315 317), owned surfaces (7),
+ad authority (6), live listings (9), Insights/Stats exports (5), tester roster (3), offsite
+storage (51), production window (195). Data (37): customers/orders. External (7): the
+model-bearing render (72 130 202 203 300 308) and Etsy's 403 on policy pages (35 39).
+
+### 2026-09-26 — Product-only Visual V1 graduation (blind Brambleloop product): deterministic chain PASS, 0 of 16 certified — NOT LOCKED
+
+From `ad81e30`. Report `research/VISUAL_V1_GRADUATION.md`; every asset, digest, call, cost and
+verdict in `research/v1grad/out/`. External spend **US$4.86** of a US$5.00 ceiling (OpenAI only;
+Google intentionally unfunded and not substituted).
+
+- **Product:** the Heirloom Cable Throw (`products/texture.py`, class A, 18 cable columns crossing
+  every fourth row on back-post ribbing, 144 x 121, cream worsted), a Brambleloop original that has
+  never been made; the strongest fully specified candidate (no original garment exists yet).
+- **Firewall:** EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES USED BY PRODUCT CONSTRUCTION OR
+  GENERATION: NONE. Every input to every stage listed with digests; a scratchpad chart and the
+  artifact store's image blobs quarantined unopened; no web search.
+- **Blind deterministic chain PASS before any spend:** Product Truth from the CIR (10 cross-checks,
+  4 declared uncertainties), reference at counts x gauge drawing every cell/row/crossing, cable
+  identity + gauge instrument self-tested (reference PASS; rotated, plain, star, waffle controls
+  FAIL; 2x scale fails gauge), reference passes its own gate; frozen with digests at `9cf29f5`.
+- **Generation:** gpt-image-1.5 high input fidelity, 16 draws over five rounds (whole throw; stronger
+  contrast; fidelity prompt; folded landscape at 14.2 px/cm x2). **0 certified.** The generator draws
+  the columns 1.3-1.7x too far apart at the whole-throw scale and rewrites crossings as ladder, moss
+  or rib textures, often adding an edge border; at the folded scale two draws pass every
+  deterministic measure but the reader (texture, edging) and the judge (folds) reject them.
+- **Capability fixed generally:** `visual.fabric.texture_signature` now sees relief stitches
+  (`tests/test_fabric_relief.py`); a gate expectation corrected for the folded view (D-V1-5).
+- **Verdict:** PRODUCT-ONLY VISUAL V1 is NOT locked. Blocker localised to image generation /
+  provider capability at the stitch-structure scale. Shortest next experiment in the report.
+- Tests: `test_v1grad.py` 40/40, `tests/test_fabric_relief.py` 8/8; full suite 4,257 passing, the one
+  failing suite is the pre-existing date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
+### 2026-09-26 — Commercial benchmark 2: Mini Star Stitch Cardigan — pipeline complete, 0 of 7 certified, both providers out of credit
+
+From `e4af6f1` (Bench1 untouched). Report `research/VISUAL_BENCH2.md`; every fact, digest, call
+and cost in `research/bench2/out/`. External spend **US$1.83** of a US$5.00 ceiling. The
+designer's PDF, text and photographs stay outside the repository (asserted by `test_bench2.py`).
+
+- **All-size Product Truth** (17-page PDF, ten sizes, parsed at run time, every fact page-cited):
+  25 deterministic cross-checks pass on every size; four ambiguities recorded; the size 2-3T CIR
+  compiles on a new star-stitch vocabulary (`beg_star_st`/`star_st`/`end_star_st`/`hdc_inc`/`hdc3`).
+- **Star-stitch identity + gauge instrument**, built and self-tested before any paid draw: the
+  eye lattice (pitch, columnar next row, pitch/pair band, isotropy, fan fraction, return row) with
+  a priori bars. Truth passes, six controls fail (half-offset model, hdc, seed, knit, Bench1 waffle,
+  Bench1 hero), five of six designer-photo crops pass. Known limit: a cluster texture sharing the
+  lattice passes it; the reader's material texture answer catches that.
+- **Frozen size 2-3T** with reason; **deterministic full-product reference** (one piece, built-in
+  sleeves, V front neck from the increases, spread hood with face band, bands, cuffs, five
+  buttons) that passes its own gate and reads as star stitch at gauge.
+- **Generation and gate:** OpenAI credit exhausted at the first call (blocks gpt-image-1.5, the
+  pinned reader and the pinned D judge); gemini-3-pro-image drew 7 (2K) with a declared
+  substitute reader/judge, then Google credit ran out. **0 of 7 certified**: texture rewritten
+  to hdc or clusters (6/7), hood folded to a point (7/7), 4 or 6 buttons for 5 (4/7); every
+  rejection measured and recorded. The substitute judge discriminated nothing; nothing rests on it.
+- **OWNER ACTION REQUIRED (batched in the manifest):** add prepaid credit to the OpenAI API
+  organisation (restores the pinned reader, judge and gpt-image-1.5; US$10 covers finishing this
+  benchmark) or to Google AI Studio (US$5). Until then no Bench2 hero can be certified.
+- Tests: `test_bench2.py` 42/42. Full suite 4,245 passing; it exposed that the new stitch codes were
+  unregistered in the publishing registries (difficulty, chart glyphs) and that the code `star` collided
+  with the English word under the abbreviation-key check — fixed (codes renamed `*_st`, all five
+  registered in difficulty, glyphs, twin yarn factors, texture list), `test_deliverable_qa.py`,
+  `test_compiler.py`, `test_twin.py` green afterwards; the one remaining failure is the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
+### 2026-09-26 — Commercial benchmark 1: purchased cardigan pattern → certified listing hero, 1 of 12, through a recorded pipeline
+
+From checkpoint `90fa87a`. Report `research/VISUAL_BENCH1.md`; every fact, digest, call and cost in
+`research/bench1/out/`. External spend **US$3.45** of a US$5.00 ceiling. The seller's PDF, its
+text and photographs stay outside the repository (asserted by `test_bench1.py`).
+
+- **Product Truth from the real pattern** (12-page PDF, text parsed at run time, every fact
+  page-cited): side-to-side one-piece body 94 sts × 91 rows (20/50/20+1) with a 10-st integral
+  hem rib, two chained sleeve openings, side-to-side sleeves with slip-stitch cuffs, 7-st neckband,
+  two 24×13 pockets, 14.5 × 9.5 gauge, size S sample. All consistency checks pass; the CIR
+  compiles; the sleeve-to-opening join is sound under the derived chain gauge; the independent
+  earlier encoding agrees on every count. Pocket placement and colour RGB declared ASSUMED.
+- **Seller photographs read independently** by one fixed reader: all four agree with Product
+  Truth on every gated property; ridge direction is unreadable by the reader even on ground
+  truth (recorded, not gated).
+- **Full-product reference:** deterministic flat lay at counts × gauge with every texture cell a
+  counted stitch; three versions, the third fixing a cuff-end defect the gate exposed (a ribbed
+  insert at the shoulder that the generator faithfully reproduced).
+- **Hero generation and gate:** gpt-image-1.5 high fidelity (E5's best), 12 draws, plus 2 Gemini;
+  every draw gated automatically (silhouette, proportions, sleeve span, **stitch scale**, twelve
+  material reader properties, seven judge items). **One certified hero**
+  (`oa15_hifi_10.png`, sha `1879561f…`); eleven rejected for stated reasons, most often the
+  generator's gauge drawn 1.6–3.6× coarser (two independently read as child-sized).
+- **Discrepancies traced:** gauge → generator (+ reference pixel scale); stitch-pattern
+  appearance (seed-like, not crumpled waffle) → generator, not yet gated; ribbed inserts → our
+  reference (fixed); sleeve-length reads → flat-lay ambiguity; ridge direction → reader.
+- **Readiness:** hero as a gated loop, yes; detail and sizing images, possible now; on-body and
+  lifestyle, not yet (no body form or drape in the reference; E5's pose drift applies). Not
+  published, not integrated. `90fa87a`, `a447c2f`, `1229442`, `4a08871`, `fcb982d` untouched.
+- Tests: `test_bench1.py` 34. No `src/` change.
+
+### 2026-09-26 — Visual E5: structure-locked photorealisation benchmark across providers — no repeatable route; realism solved, pose lock unavailable
+
+From checkpoint `a447c2f`. Report `research/VISUAL_E5.md`; every request and output digest,
+parameter, judge id and cost in `research/e5/out/`. External spend **US$2.80** of a US$3.00
+ceiling (21 draws US$2.58, judge US$0.22), stopped with the picture clear.
+
+- **Capabilities verified on the wire, not assumed:** gpt-image-1 / 1.5 accept
+  `input_fidelity=high` and a mask; gpt-image-2 and both 2.5 variants refuse it. BFL exposes
+  FLUX.2 pro/max/flex editing, Kontext and Fill inpainting, but its depth and canny control
+  endpoints answer 404. Google's three image models edit from several images with no fidelity,
+  strength, mask or structure parameter. No reachable provider offers structure conditioning.
+- **Frozen package** (E4 SC camera: geometry `e0762cc0…`, reference `acdfc2d8…`, mask, normals,
+  manifest) re-hashed before every mode; nothing in the reference changed for any provider.
+- **Nine modes, 21 draws, every one measured by the unchanged E4 instrument and judge.**
+  Realism: 18/21 pass all seven judge items. Structure: certified draws — gpt-image-1.5
+  high-fidelity **2 of 4**, gemini-3-pro-image **2 of 8**, everything else 0; E4's gpt-image-2
+  re-measured on the same view 1 of 4. No consecutive certified draws on any mode.
+- **Instrument:** the E4 aligner's area/centroid estimate is thrown by warm scene pixels on real
+  photographs (structure NCC under-read by up to 0.44, measured before any change); E5 adds a
+  silhouette-refined alignment as an option, E4's default untouched, both verdicts reported on
+  every image, adversarial tests green under both (66). No threshold moved.
+- **Failure mode, provider-independent:** the object is re-posed or re-framed on 50–75 % of
+  draws (aspect drift 0.13–0.45 against a 0.10 bar). When it is not, 5 of 6 draws certify. Mask
+  inpainting destroys the structure it is meant to protect (two modes, silhouette 0.33 and 0.01).
+- **Verdict: no winner.** A gated rejection-sampling loop on the two best modes would cost about
+  US$0.40–0.60 per certified SC image with no termination guarantee; recorded as a cost model,
+  not a route. Best configurations preserved exactly in `run_e5.MODES` and the manifest. Not
+  integrated. `twin.calibrated` False. `a447c2f`, `4a08871`, `1229442`, `fcb982d` untouched.
+- Tests: `test_e5.py` 19, `test_e4.py` 66, `test_e3.py` 10. No `src/` change this phase.
+- Also: `research/VISUAL_E4.md` carries an erratum on its sc draw split (4 camera / 6
+  oblique, not 6 / 5); no E4 result changed.
+
+### 2026-09-26 — Visual E4: stitch-addressable correspondence, continuous reference, yield of the photographic layer — FAIL as a pipeline, one image proves both properties
+
+From checkpoint `1229442`. Report `research/VISUAL_E4.md`; every manifest, per-stitch result, judge
+record, prompt, digest and cost in `research/e4/out/`. External spend **US$0.60** of a US$1.00
+ceiling (14 images US$0.42 list, judge US$0.18), stopped with the evidence complete.
+
+- **The reference's artificial features were yarn all along.** The 87 "hops" the renderer cut
+  (68 capped ends on hdc) were traced: 83 inside an hdc cell between named key points, 4 in
+  turning chains, none on sc. `fabric_strands(continuous=True)` is now the default; the strand
+  runs on through joins, no control point moved; one strand, two ends, on both swatches
+  (three tests in `tests/test_render.py`). Clean `presentation3` references rendered and hashed.
+- **Projected-stitch instrument** (`research/e4/project.py`): every certified stitch projected
+  through the verified pinhole into the reference with id, family, row, position, points,
+  orientation, colour region, depth-tested visibility and neighbours. **Self-validates on all
+  four views** (100 % of projected points on yarn, worst per-stitch reference IoU 0.90–0.97);
+  56 offline checks in `research/e4/test_e4.py` including erasure caught and named, re-framing
+  tolerated, blank frame refused. **A limit found and recorded:** a mirror image of the
+  near-symmetric swatch passes the presence test, so handedness became its own global
+  property (certified ≥ 2× mirrored; references read 4.2–9.5×).
+- **Generation:** `gpt-image-2` edits on the byte-identical package (clean RGB + mask +
+  normals), presentation-only prompts. Round 1 held proportions (drift 4–11 %) but copied the
+  rendered material (judge FAIL on 3 of 4). Round 2 named the material as a rendering to
+  replace: real wool on 5 of 10 draws by the judge, but the generator re-shot the object (aspect
+  drift 17–47 % on 8 of 10, structure NCC collapsed on the worst). Round 3's localised fix,
+  `input_fidelity=high`, was **refused by the provider before any spend** (unsupported on this
+  model). A yield round of six more sc draws confirmed the rate rather than the luck.
+- **Result over 14 images:** every testable stitch present in 14/14; global structure PASS on
+  2/14 (both sc camera); judge 7/7 on 5/14; **both on 1/14** — `sc_camera_e4.png`, sha256
+  `46eebcec…`, 22/25 stitches testable and present (worst IoU 0.81), proportions +4 %,
+  structure 0.47 vs mirror 0.06, judge all seven true. Oblique view: 0/7 structural.
+- **Localised:** instrument, reference, package and judge each ruled out by measurement; the
+  failure is the generator's coupling of reference literalness and material re-synthesis, with
+  no parameter on this endpoint to separate them. Proven blocker within scope; the remaining
+  US$0.40 could not change a 0/7 oblique reading.
+- **Verdict: E4 FAIL.** Not UNKNOWN: every property measured. No threshold weakened (one
+  property added). Milestone D unchanged (FAIL, physical blocker). `twin.calibrated` False.
+  Production gate, drape solver, assessment and `cir/` untouched. `4a08871`, `1229442`,
+  `fcb982d` untouched. One gateway addition: `generate(..., extra_fields=None)`, default none.
+- **Suite on this branch head: 4,249 passing, 1 suite failing** — the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`,
+  which fails identically on `fcb982d` and was not touched. E4's own tests: `test_e4.py` 56,
+  `test_e3.py` 10, `test_render.py` green, `test_gateway.py` 30. Checkpoint tag `checkpoint-e4`.
+
+### 2026-09-26 — Visual E3: certified structure → reference-conditioned photograph → same product? Not yet proven; Option 3
+
+From checkpoint `4a08871`. The frozen assessed geometries (hashes on every record) and their
+judged presentation renders were the only conditioning; `gpt-image-2` through the edits
+endpoint, one image per view plus a two-image arm with silhouette mask and normals added
+-- six images, **US$0.18** of a US$1.00 ceiling; judge and reader **US$0.25**; E3 total
+**US$0.43**. Report `research/VISUAL_E3.md`; every artefact, hash, prompt, response id and cost in
+`research/e3/out/`.
+
+- **Photographic realism (the unchanged independent judge):** on the sc swatch one conditioned
+  generation repaired four of the five D failures -- folds, imperfection, melted yarn, synthetic
+  texture -- and failed only sterility, which is the prop-sphere scene we chose for
+  measurability. On the hdc swatch it repaired none, because it faithfully carried the
+  reference's own artefacts: the 68 cut strand ends of the yarn-path model became "bead-like
+  nubs" and "knotted tassels".
+- **Structural correspondence (measured, property by property):** outline preserved (aligned
+  IoU 0.82–0.93 on all six); rows and stitch family preserved where readable; with mask and
+  normals in the package, row/post placement preserved (NCC 0.40–0.60). **Drift caught:** 4 and
+  6 stitches per row for a certified 5, tassels the product does not have, one view re-shaped
+  as a tube. The independent reader cannot count the truth on three of four deterministic
+  references (UNKNOWN there by rule). No output reaches "same product proven": FAIL ×5, UNKNOWN ×1.
+- **Gate:** the two-category distinction (certified presentation transformation vs unauthorised
+  redesign, fail-closed, `research/e3/gate_spec.py`, 10/10) classifies every E3 output as
+  redesign or UNKNOWN. Proposed, not integrated; production gate unchanged.
+- **Decision: Option 3.** Deterministic: CIR, topology, linkage, morphology, colour placement,
+  the certified deformation, the reference and its digests. Generative: fibre, yarn surface,
+  material, lighting, shadows, camera, background. Not yet certifiable: stitch-level structure,
+  until a projected-stitch correspondence instrument exists and the reference has no cut ends.
+- Not done, per the brief: no purchased-pattern work, no model photography, no tournament,
+  no gate change, no merge, no deploy. `twin.calibrated` False. `4a08871` and `fcb982d` untouched.
+
+### 2026-09-26 — Visual wave 6 close-out: Milestone D judged — FAIL, on a blocker that is physical
+
+The owner lifted the spend freeze for the minimum needed to resolve D's UNKNOWNs. Done, on the
+isolated branch, `fcb982d` untouched:
+
+- **Independent judge.** `visual/d_judge.py` puts the seven B-700 fabric items to
+  `gpt-5-2025-08-07` (a model with no part in the Mitsuba renders), in the vocabulary of the
+  failure, omitted keys UNKNOWN, this module deciding. Three rounds on the authoritative draped
+  views of both swatches: the instrument renders, then `STAGING_PRESENTATION` (the form drawn,
+  thin lens, window key, the derived fibre population), then the same with the fibre scattering
+  model and continuous strands. **Lighting and shadows moved to PASS; folds, imperfection,
+  melted yarn, synthetic texture and sterility failed in all three readings**, for the same
+  stated reasons. Six calls, **US$0.142 in total**; every prompt, answer, response id, token
+  count and list-price cost is in `research/d/out/judge_*.json`.
+- **Stationarity, bar unchanged at 2 %.** 12,800 momentum iterations left the hdc creeping at a
+  constant 0.031 mm / 200 (sc converged, 1.58 %); a 3,200-iteration momentum-off settle phase --
+  how a FIRE minimisation is finished, rest state carried, trace from the same origin -- gave
+  **0.55 % (hdc) and 0.77 % (sc): PASS.** `settle_iterations` is on every result; the assessed
+  points are saved with their hashes and the judged renders were refused unless they matched.
+- **The hand-tension experiment** (`HandTension()`, sourced 5 % input): certifies and keeps every
+  lock, realises 2.2 % width CV, lands on the form on 3 and 2 stitches with worse stationarity.
+  Recorded, not adopted. The geometric irregularity item is a measurement, not a gate (D-W6-11).
+- **Verdict from the executable criterion: D = FAIL on both swatches** (`milestone_d_<kind>_final.json`).
+  Every measured item passes. The five judged failures each trace to a physical input the
+  repository lacks and may not fabricate: a measured yarn-on-yarn friction (the infinite-friction
+  lock is what stops the stitches everting and what reads as rigid -- BOUNDED, uncalibrated), a
+  photographed reference swatch for hairiness and fibre grain (Stage 0, deferred), a continuous
+  yarn path between operations (the 68 "bead-like ends" are the model's hops). A fourth staging
+  without new physical input would be prettier pictures chasing a score, so it was not made
+  (D-W6-13). `twin.calibrated` stays False.
+- Suites: test_drape 157/0, test_render 15/0 (strand continuity added), test_milestone_d 21/0
+  (judge reading and decision rule, offline). Full suite: **4,247 passing, 1 suite failing** -- the same pre-existing, date-dependent spender check that reproduces on untouched `fcb982d`; nothing else, read from the run's own TOTAL PASSING line.
+- Not done, per the brief: no purchased-pattern generation, no GPT Image work, no Etsy imagery,
+  no merge, no deploy.
+
+### 2026-09-26 — Visual wave 6: Milestone D measured, PARTIAL — the drift, the frictionless law, and the frame
+
+Isolated branch `claude/visual-investigation` (worktree), integrated checkpoint `fcb982d`
+untouched. `visual/milestone_d.py` (new), `visual/sc_swatch.py` (new), `drape.py`,
+`crochet_topology.py`, `stitch_shape.py`, `pbr_scene.py`, `milestones.py`, `app/main.py`
+(one colour), `tests/test_milestone_d.py` (new, 15), `test_drape.py` (144 → 157),
+`test_stitch_identity.py` (23 → 29), `test_render.py` (11 → 14). Report:
+`research/VISUAL_MILESTONE_D.md`. **CA$0.00 this wave; nothing deployed, published or
+activated; `BRAMBLELOOP_PHASE=shadow`; no paid API call since the owner's freeze.**
+
+**Full suite on the isolated branch (commit c6ad3e5 code): 4,239 passing, 1 suite failing** -- `test_cost_governance_wave2`, two checks. One was this wave's: `milestone_d` wrote its curve file under a `TemporaryDirectory` prefix (`brambleloop-d-`) absent from `health.TEMP_PREFIXES`, invisible to the disk signal -- the guard the 2026-09-25 wave verification recorded, catching the same defect again; the prefix is now registered and the check passes. The other, `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`, **reproduces on the untouched integrated checkout fcb982d** and is date-dependent: its rows are stamped at a frozen NOW of 2026-09-25 while `spend_report.per_agent_today` reads the wall clock, so from 2026-09-26 the frozen spend is not "today" -- the very defect class the file's next test names. Not Visual's, not touched here, recorded for the integrator. **Rerun with the prefix registered, read from its own TOTAL PASSING line: 4,240 passing, 1 suite failing -- that one pre-existing, date-dependent check and nothing else.**
+
+**Milestone D: PARTIAL, measured — not FAIL, not PASS.** `milestone_d.assess` drapes the
+certified 5x5 (hdc and sc) on a sphere, re-validates it, and derives a plied render from that
+configuration. Measured items pass on both swatches: identity, the flat locks, the exact fixed
+point (5.7e-15 mm with every option on), energy descent, contact with the form, **no
+structural drift** (20/20 linked, 25/25 shaped in the carried frame, above the floor), double
+curvature (contact patch 4 columns x 4 rows hdc, 4 x 5 sc), the render's geometry hash
+unchanged and every ply within the yarn radius of its strand. UNKNOWN, and never counted
+toward a PASS: the seven judged items (folds, lighting, shadows, imperfection, melted yarn,
+synthetic texture, sterility) because no judge ran, and hand irregularity because none was
+applied to the assessed build. Stationarity at 6,400 iterations read 2.3 % (hdc) and 2.1 % (sc) of the whole motion over the last tenth against the 2 % bar -- UNKNOWN, still creeping, the bar not moved, the trace on the result. Under load the certified linkages open by up to 1.9 mm (hdc) and 1.3 mm (sc) while staying linked; reported, since no non-invented limit on a link opening exists (wave 5 §4a).
+
+**Three defects under the inherited failure, each measured before it was fixed.**
+
+1. **The reported drape was free drift.** The force step is scaled to the yarn's bending
+   force, so gravity moved a vertex 0.7 µm per iteration: 0.566 / 1.130 / 4.44 mm at 800 /
+   1600 / 6400 iterations, linear. Every displacement the solver had reported at 800
+   iterations was the first half-millimetre of a fall, and a uniformly drifting fabric moves
+   every row as a unit by construction — that was wave 5's "rigid bar" symptom. Pinned as a
+   test. `momentum` (FIRE) and `step_multiplier` (inside the stencil's stability margin) let
+   a solve arrive; both off by default, both rate-only, fixed point unchanged.
+2. **The frictionless force law takes stitches apart once the drape proceeds**, at every
+   bending rigidity in the derived bracket: 14 of 25 hdc third loops above the V after 25,600
+   plain iterations at the committed constant, 16 of 25 at the derived 1.27e-6 N m^2, and the
+   sc swatch loses 13 of 20 linkages — netting, the failure the locks name. The force missing
+   was yarn-on-yarn friction, which outweighs gravity on a stitch by orders of magnitude.
+   `rigid_stitches` is its infinite limit (per-stitch shape matching, Müller 2005), BOUNDED
+   and stated on every result as holding the stitch's internal shape; linkage, floor,
+   contact, curvature and equilibrium remain the mechanics' to lose. Friction against the
+   form (`support_friction`) only works together with it: measured, the fabric crept 0.6 mm
+   past vertices that had not moved a nanometre until the stitches were locked too.
+3. **The morphology check's frame measured the neighbours, not the stitch.** With every
+   stitch rigid to 0.1 mm through a 26 mm drape, four intact stitches read as everted because
+   the neighbour frame's UP sat 17–19.5° off their own. `validate(reference=flat)` carries
+   each stitch's certified frame by its own rigid motion; a lifted third loop is still caught
+   (test), a 40° rotation is cleared, and a folded fabric of intact stitches — which the
+   neighbour frame fails from 35° — is cleared. The frame used is named on every result.
+
+Also: the pinned pair came back from every drape 2e-13 mm under the floor and was refused;
+the floor is now compared to a nanometre (named as numerical; the floor unchanged). The
+constraint polish ends on the floor and the form. `stitches_shaped_like_hdc` counted sc
+stitches "like hdc" and is `stitches_shaped_as_ordered`. The ladder reports D as
+**UNMEASURED** unless measured on the call — a hard-coded FAIL was a stored claim.
+
+**The bridge wave 5 §6c asked for exists.** `pbr_scene.write_plied_curve_file` draws the
+certified fabric's own strands through `yarn_construction.ply_geometry` and `surface_fibres`
+under the committed scene; `STAGING_PLIED` differs from `STAGING` only in what it admits it
+does not reproduce. Before/after: `wave5_reconciled_oblique.png` (0.566 mm of drift, tubes)
+against `research/d/out/*_draped_plied_*.jpg` (the re-validated draped configuration, plies
+and fibre halo, same camera and key). They are instrument images and are not offered as
+evidence about appearance.
+
+**What is not claimed.** D is not PASS. Morphology under drape is an input of the friction
+lock, not an outcome. The friction limits are BOUNDED by an order-of-magnitude argument, not
+a measured coefficient. The derived bending rigidity (42x the committed constant, which was
+not changed) comes from the committed procedure on a 5x5. `twin.calibrated` stays False.
+`dc`, `inc` and joined rounds are refused by name, not modelled.
+
+## Previously — last completed milestone
 
 ### 2026-09-24 — Physically based yarn relaxation: the increment works; D still not passed
 
@@ -9409,3 +9878,159 @@ verdict read from a watcher's state instead of the job's own terminal evidence. 
 is the same rule `ops/board.py` and `ops/registry.py` already follow -- wait on the log line the
 job itself writes. Had that gone uncorrected, this wave would have been reported clean with a
 temp-directory leak sitting in a newly merged file.
+
+## 2026-09-27 — Build 2 closeout: OPEN = 0, every requirement in a final state
+
+Isolated branch `claude/visual-investigation`, from checkpoint `4cf6959`. The integrated
+branch `claude/repository-setup-nc9x6o` is untouched at `fcb982d`; nothing was deployed,
+published, activated or spent on advertising; no paid Visual generation was run.
+
+**Closure matrix** (`/api/closure`): 235 COMPLETE+PROVEN · 28 OWNER-GATED · 42 DATA-GATED ·
+15 EXTERNAL-BLOCKED · **0 OPEN**. First computed on 2026-09-26 at 161/27/42/19/71; the 71 open
+were 67 covered rows naming no module plus four model-render rows. A 67-row proof audit found
+44 proven, 17 overstated (a correct library nothing in the runtime called) and 3 process
+directives; the 17 were reclassified partial and then made true in the runtime.
+
+**What was built (verified by focused suites, then the full suite):**
+
+- *Etsy/commerce knowledge* — `gates/policy_knowledge.py`: six policy surfaces and six commerce
+  topics as dated readings with declared basis (search-engine excerpts of official pages,
+  because every etsy.com/legal and help.etsy.com page returns 403 to honest automation); the
+  policy watch seeds them and resolves the six `policy_stale` incidents with the snapshot
+  named; `POST /api/policy/snapshot` lets a person record a page they read; `commerce/fee_schedule.py`
+  is the one fee record every fee literal reads; AI disclosure is a sourced ERROR.
+- *Original design* — garment grading from sourced CYC body tables (`cir/graded.py`),
+  shaping primitives, drop-shoulder and top-down raglan templates, two original garments
+  certified at every sourced size (9 adult, 8 child), and `creative/garment_design.py` so a
+  generated garment concept is designed by rule and survives the whole release chain.
+  Writer/reverse are loop-aware and per-piece; certify runs specification and assembly with a
+  twin per piece; a benchmark-containment check refuses purchased-pattern tables; a schematic
+  page renders for multi-piece designs.
+- *Canonical model* — asset MANIFEST with sha256 and role; references hash-pinned
+  (a tampered face returns nothing); `identity.provenance_check` in the frame gate; a
+  version/replacement procedure requiring an owner approval record (not used: no replacement
+  was approved); the poisoned `creative.model_reference_pack` dead letter now stands aside;
+  `/api/model-pack` reads frozen state instead of a literal.
+- *Continuous learning* — measure → mine → hypothesis → sandbox → independent approval →
+  tier-gated promotion → monitor → rollback, all with cadences and handler tests. Proposer,
+  approver and promoter are separate; an Improvement Director blocks conflicting changes;
+  gate thresholds and Product Truth weakening are refused end to end; a full nightly+weekly run
+  leaves 110 gate constants and the cable-throw Product Truth digest unchanged.
+- *Cost governance* — the dashboard states the monthly ceiling and the unset paid-media caps
+  instead of "No spend limits configured"; the 80% escalation is a monthly owner action from a
+  cadence; image renders and the model gateway reserve before spending; one BudgetExceeded
+  hierarchy; refusal audit; provider and department ceiling tables exist and are empty (owner
+  numbers). The date-dependent wave-2 test is fixed by passing its frozen date.
+- *Provenance* — a fail-closed lineage write path on every chain handler, a worker backstop
+  (log-only until the backlog closes), additive lineage columns, and an evidence-only
+  backfill (`source=backfilled`, unmatched rows stay UNPROVEN).
+- *Orchestration and incidents* — `awaiting_build_session` distinguished from `stalled`;
+  `model_bearing_render` gate; completion fenced to the lease holder with worker-side lease
+  renewal (capped at an hour); incident lifecycle reconciliation; seasonal detectors keyed by
+  event and year, filtered to each product's occasion and evidence-aware; `GET /api/incidents`.
+- *Runtime wiring of 17 overstated libraries* — swarm quality/allocation/orphans/backlog,
+  priority bands at enqueue, buyer-trust findings and the order-version table, persisted
+  experiments with kill rules, diversification plan, culture recurrence needing a second
+  sighting, adaptive benchmark scan interval, parity escalation ladder.
+- *Intel and competitive parity* — blind review writer (UNKNOWN without observations, never
+  PASS), dated category-matched benchmark set, insights budgeter, the #126 grid tournament with
+  a three-judge vision panel, and a 13-step #320 acceptance runner.
+- *Dashboard truth* — the console shows ready vs parked work (0 ready; 45 parked) and the
+  closure matrix; parity reads the realism checks product-first frames actually record.
+
+**Honest status of what is not done:**
+
+- **Product-only Visual V1 is NOT LOCKED** (0 of 16 draws, `4cf6959`). #72/#130/#202 are
+  EXTERNAL-BLOCKED on `model_bearing_render`: no provider renders a certified structure
+  faithfully. No further paid draws were run.
+- **Etsy pages are 403 to automation** (#1, #2 density, #15, #37, #39, #189, #221, #222,
+  #236, #277, #281, #320 browser wording): EXTERNAL-BLOCKED; readings are recorded by excerpt
+  or by a person.
+- **Production gates today:** model_provider, image_vision and image_generation are CLOSED
+  because the Anthropic credit is exhausted. The vision-path requirements are built and
+  tested; their production runs are refused before spending until it is funded.
+- **Not deployed.** The seasonal-incident fixes, policy seeding and incident lifecycle will
+  resolve the 17 open production incidents only once this branch is deployed, which is outside
+  this closeout's authority.
+- Physical calibration (yarn factors, fit of class C garments) remains DATA-GATED on a
+  physical sample; nothing was invented.
+
+**OWNER ACTION REQUIRED (batched):**
+
+1. *Fund the Anthropic API* (owner actions 19/20 are duplicates of this). Why: model_provider,
+   image_vision and image_generation are closed, so the vision judges, blind review evidence,
+   gallery analysis and seasonal cycle proof cannot run. Max cost: the existing CA$100/month
+   ceiling, enforced in code. Minutes: 5. Consequence of waiting: competitive parity and the
+   #320 demonstration stay unjudged.
+2. *Decide whether an API + vision traversal satisfies the "browser/vision" wording of
+   #222/#320* (B-105 grades capability, not this). Minutes: 2. Consequence: every acceptance
+   grade stays provisional.
+3. *Authorise deployment of `claude/visual-investigation`* after review. Minutes: 10.
+   Consequence: the 17 production incidents and the dead-letter re-drive stay as they are.
+4. Standing, unchanged: Etsy identity/payout/shop activation, paid-media authority,
+   benchmark purchases, owned surfaces, a physical sample or paid tester.
+
+**Verification (2026-09-27):** full suite on `b80c31a` — **TOTAL PASSING: 4,615 ; suites
+failing: 0** (previous closeout run on `de1f491`: 4,605 / 0; the recovery snapshot `a49f1df`
+had 4,395 / 5 failing, all since fixed). The previously date-dependent
+`test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling` now passes on its
+frozen date. `research/v1grad/test_v1grad.py` 40/0 unchanged. Deployed service (read-only):
+`/api/verify` 12/12 at `fcb982d`.
+
+## 2026-10-05 — Final Build resume: Codex reconciled by evidence; FB-2/FB-3 integrated; 5,653 passing / 0 failing
+
+Branch `claude/visual-investigation` (Final Build). **Production unchanged at `fcb982d`**; nothing
+merged or deployed; no Etsy publication, spend, banking or KYC action. Phase stays SHADOW.
+
+**What is true now (verified):**
+- Full lock-matched suite on `6f9a2f7`, clean tree, HEAD unchanged at end: **5,653 passing, 0 failing
+  suites, release_eligible=true** (record `research/final_build/RUN_6f9a2f7_full_suite.json`).
+- Codex work reconciled by reproduction, not acceptance (D-FB-8). Of Codex build2-assist's 75
+  findings: 39 were still applicable at the start of this session and are now fixed or re-audited;
+  **C-78 was false** — the Orders hardening that Build-2 certification counted as merged never was;
+  ported and proven (Codex's adversarial receipt script 11/11). Codex's Final Build repairs: 9
+  verified, 3 partial (closed), 2 regressions (closed), details in
+  `research/final_build/codex_reconciliation/`.
+- Launch-0 (nesting baskets ×3, Cloudline blanket, hexagon coasters): every product certifies;
+  disclosed deterministic renders (D-FB-7) pass an independent pixel verifier; disclosed frames reach
+  Etsy only through the listing-set certificate (D-FB-9); size labels are gated against the twin
+  (large basket corrected 25 → 24 cm).
+- Protected actions: store.publish needs a sealed, scoped, expiring owner publication grant (D-FB-10);
+  activation keeps its own grant; refusals before any request no longer park a version.
+- Queue: customer-support and truth-defect work can never be overtaken by steered or aged work (G02).
+- Money: refunds, partial/late refunds, unpaid receipts and negative contribution are reconciled as
+  state; modelled/unknown/unbilled spend counts against every ceiling (regression-tested).
+- Catalogue: generators derive gauge from the declared yarn band; re-derived designs carry new
+  versions, and a content-fingerprint test refuses a content change under an old version.
+- Postgres: fcb982d schema+data migrates to head additively with all rows preserved (local evidence;
+  a rehearsal on a snapshot of the real database remains a deploy gate).
+
+**What is NOT true / still blocked:**
+- No Final Build release candidate is frozen yet: launch-critical closure-matrix rows are being
+  re-mapped against current code (the matrix still carries 019ebf0-era mappings for 123 rows).
+- Launch-0 parity still blocks on HERO (needs the `image_vision` gate — owner) and COMPETITIVE
+  (blind review over observed benchmark galleries — data + `image_vision`).
+- Cable throw, bobble pillow and ribbed scarf need physical calibration of their special stitches.
+- Nothing is listed, sold or measured commercially.
+
+**OWNER ACTION REQUIRED (batched; nothing requested before the gate is reached):**
+1. Decision: launch readiness needs 8 listable products; Launch-0 has 5 slugs across 3 products.
+   Keep the threshold (launch waits for more products) or set a Launch-0-specific depth. 2 minutes.
+2. At the live-publish gate only: per release, set `BRAMBLELOOP_OPS_TOKEN` and
+   `BRAMBLELOOP_PUBLISH_AUTHORISED=1`, then preview + approve via `/api/owner/publication/*`.
+   CA$0, ~5 min/release; without it every publish refuses before any Etsy request.
+3. Standing: re-authorise Etsy `transactions_r`; vision-gate ruling; model/vision spend headroom
+   (≤CA$25 top-up proposal; CA$76.40/100 used); rotate the Anthropic key exposed 2026-09-19.
+
+## 2026-10-10 — W4-B2VERIFY: Build 2 claim re-verified on 56d7b38
+
+Regenerated with `research/final_build/w4/build2_ledger.py` against a fresh read-only production gate
+reading (fcb982d, `evidence_B2/prod_gates_2026-10-10.json`): PROVEN 215, OWNER-GATED 54, DATA-GATED 41,
+EXTERNAL-GATED 7, NOT-APPLICABLE 3, OPEN-DEFECT 0 (the committed 2026-10-07 ledger was stale at 58/37).
+Final Master snapshot regenerates identical (launch-critical OPEN 15). The closure count is 0, but the
+adversarial re-check found executable company work it does not see: #10 (free lead-magnet half not done)
+and a gate-wiring defect on #35/#39 (rendered_pages opens only on browser.probe, though the stated remedy
+is a human policy snapshot). Both are listed, not fixed. 15 gated rows got proof citations (states
+unchanged). 17 parked rows' gates are not reported by production, so their state is UNKNOWN. Production
+etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Report:
+`research/final_build/w4/BUILD2_VERIFY_2026-10-10.md`.

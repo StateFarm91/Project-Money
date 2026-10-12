@@ -205,3 +205,277 @@ def verify(sent: dict[str, Any], remote: dict[str, Any], *,
         out.verdicts.append(FieldVerdict(key, verdict, sent=ours, remote=theirs,
                                          note="" if name == key else f"returned as {name}"))
     return out
+
+
+# ---------------------------------------------------------------------------
+# F-559: the customer's files, read back from Etsy
+# ---------------------------------------------------------------------------
+
+#: Etsy exposes no content hash for a listing file. The verdict for the hash is therefore
+#: never MATCH on Etsy's side: it is this, and the byte identity is established *before* the
+#: upload (the bytes sent were compared to the certified release hash) rather than after it.
+HASH_NOT_EXPOSED = "HASH_NOT_EXPOSED_BY_ETSY"
+
+
+@dataclass
+class FileReadBack:
+    """The files Etsy holds for one listing, judged against the certified release's files."""
+
+    listing_id: str
+    files: list[dict[str, Any]] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+
+    @property
+    def verified(self) -> bool:
+        """True only when every certified file is on Etsy under its name and at its size,
+        every file we sent is the certified one, and Etsy holds nothing else.
+
+        An empty expectation is not verified: a listing with no certified file to compare
+        against is a listing whose delivery nobody checked.
+        """
+        return (not self.problems and bool(self.files)
+                and all(f["name"] == MATCH and f["size"] == MATCH and f["certified"]
+                        for f in self.files))
+
+    def summary(self) -> dict[str, Any]:
+        return {"listing_id": self.listing_id, "verified": self.verified,
+                "files": list(self.files), "problems": list(self.problems),
+                "hash_on_etsy": HASH_NOT_EXPOSED,
+                "hash_note": ("Etsy's ShopListingFile has filename and size_bytes and no "
+                              "hash. Byte identity is proven on our side: the sha256 of the "
+                              "bytes uploaded equals the certified release hash. On Etsy's "
+                              "side the proof is name + exact size, and it says so.")}
+
+
+def _remote_size(row: dict[str, Any]) -> int | None:
+    """`size_bytes` when Etsy returns it. `filesize` is a human string ("1.2 MB") and is
+    never parsed into a byte count: rounding a display string is how a stale file of a
+    similar size would pass."""
+    value = row.get("size_bytes")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
+def verify_files(expected: list[dict[str, Any]], remote: list[dict[str, Any]] | None, *,
+                 listing_id: str = "") -> FileReadBack:
+    """Compare the files attached to a listing with the certified release (F-559).
+
+    `expected` is one entry per file we uploaded: `name`, `size` (bytes), `sha256` (of the
+    bytes sent) and `certified_sha256` (the release hash `assets.build` recorded). `remote`
+    is `EtsyClient.get_listing_files`'s results, or None when the read failed -- which is
+    unverified, never clean.
+    """
+    out = FileReadBack(listing_id=str(listing_id))
+    if remote is None:
+        out.problems.append("the listing's files could not be read back from Etsy, so what "
+                            "the buyer would download is unverified")
+        return out
+    if not expected:
+        out.problems.append("no certified file was named for this listing, so there is "
+                            "nothing to verify delivery against")
+        return out
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for row in remote:
+        by_name.setdefault(str(row.get("filename") or ""), []).append(row)
+    seen: set[str] = set()
+    for want in expected:
+        name = str(want.get("name") or "")
+        rows = by_name.get(name) or []
+        certified = bool(want.get("sha256")) and want.get("sha256") == want.get(
+            "certified_sha256")
+        entry: dict[str, Any] = {"file": name, "sent_sha256": want.get("sha256"),
+                                 "certified_sha256": want.get("certified_sha256"),
+                                 "certified": certified, "size_sent": want.get("size")}
+        if not certified:
+            out.problems.append(
+                f"{name}: the bytes sent hash to {str(want.get('sha256'))[:12]} and the "
+                f"certified release file is {str(want.get('certified_sha256'))[:12]}")
+        if not rows:
+            entry.update(name=NOT_RETURNED, size=NOT_RETURNED, size_on_etsy=None)
+            out.problems.append(f"{name} is not attached to listing {listing_id} on Etsy")
+        else:
+            seen.add(name)
+            if len(rows) > 1:
+                out.problems.append(f"{name} is attached {len(rows)} times")
+            size = _remote_size(rows[0])
+            entry["name"] = MATCH
+            entry["size_on_etsy"] = size
+            if size is None:
+                entry["size"] = NOT_RETURNED
+                out.problems.append(f"{name}: Etsy returned no size_bytes, so a stale file "
+                                    f"of the same name cannot be told from the certified one")
+            elif size != int(want.get("size") or -1):
+                entry["size"] = MISMATCH
+                out.problems.append(f"{name} is {size} bytes on Etsy and {want.get('size')} "
+                                    f"bytes certified: a different file under the same name")
+            else:
+                entry["size"] = MATCH
+        out.files.append(entry)
+    stale = sorted(n for n in by_name if n not in seen)
+    for name in stale:
+        out.problems.append(f"Etsy holds {name!r} on listing {listing_id}, which is not a "
+                            f"file of the certified release: a stale or foreign download")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# W3-I: the listing's images, rank by rank -- count, order, alt text and pixel size
+# ---------------------------------------------------------------------------
+
+# Etsy, uploadListingImage: "When uploading a new image, data such as colors and size may
+# return as null values due to asynchronous processing of the image. Use getListingImage
+# endpoint to fetch these values." So a null size straight after upload is PENDING, which is
+# neither a match nor a mismatch, and is never counted as verified.
+PENDING = "PENDING_ETSY_PROCESSING"
+
+
+@dataclass
+class ImageReadBack:
+    """The images Etsy holds for one listing, judged against what was uploaded."""
+
+    listing_id: str
+    images: list[dict[str, Any]] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+
+    @property
+    def verified(self) -> bool:
+        """True only when every image sent is on Etsy at its rank, with its alt text and its
+        pixel size, and Etsy holds no other image. Pending sizes are not verified."""
+        return (not self.problems and bool(self.images)
+                and all(i["alt_text"] == MATCH and i["size"] == MATCH for i in self.images))
+
+    @property
+    def pending(self) -> bool:
+        return any(i.get("size") == PENDING for i in self.images)
+
+    def summary(self) -> dict[str, Any]:
+        return {"listing_id": self.listing_id, "verified": self.verified,
+                "pending": self.pending, "images": list(self.images),
+                "problems": list(self.problems),
+                "hash_note": ("Etsy's ListingImage carries no hash of the uploaded bytes and "
+                              "re-encodes images (sRGB, compression). Byte identity is proven "
+                              "on our side; on Etsy's side the proof is rank, alt text and "
+                              "full_width x full_height, and it says so.")}
+
+
+def _dim(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
+def verify_images(expected: list[dict[str, Any]], remote: list[dict[str, Any]] | None, *,
+                  listing_id: str = "") -> ImageReadBack:
+    """Compare a listing's images on Etsy with the images uploaded, in rank order.
+
+    `expected`: one entry per image sent, in upload order, with `alt_text`, `width`,
+    `height` (read from the bytes sent, e.g. `etsy_constraints.image_info`). `remote`:
+    `EtsyClient.get_listing_images` results, or None when the read failed (unverified).
+
+    Etsy serves `url_fullxfull` at up to 3000 px per side, so an image sent larger than that
+    may legitimately come back scaled; a scaled size with the same aspect ratio is reported
+    as MATCH with a note, and anything else as MISMATCH.
+    """
+    out = ImageReadBack(listing_id=str(listing_id))
+    if remote is None:
+        out.problems.append("the listing's images could not be read back from Etsy, so what "
+                            "a shopper sees is unverified")
+        return out
+    if not expected:
+        out.problems.append("no uploaded image was named for this listing, so there is "
+                            "nothing to verify against (and Etsy will not activate it)")
+        return out
+    held = sorted(remote, key=lambda r: int(_dim(r.get("rank")) or 0))
+    if len(held) != len(expected):
+        out.problems.append(f"images: sent {len(expected)}, Etsy holds {len(held)}")
+    for rank, want in enumerate(expected, start=1):
+        entry: dict[str, Any] = {"rank": rank, "sent_alt_text": want.get("alt_text", ""),
+                                 "sent_px": [want.get("width"), want.get("height")]}
+        got = held[rank - 1] if rank <= len(held) else None
+        if got is None:
+            entry.update(alt_text=NOT_RETURNED, size=NOT_RETURNED, etsy_px=None)
+            out.problems.append(f"image rank {rank} is not on listing {listing_id}")
+            out.images.append(entry)
+            continue
+        entry["listing_image_id"] = got.get("listing_image_id")
+        sent_alt, got_alt = str(want.get("alt_text") or ""), str(got.get("alt_text") or "")
+        entry["alt_text"] = MATCH if sent_alt == got_alt else MISMATCH
+        if entry["alt_text"] == MISMATCH:
+            out.problems.append(f"image rank {rank} alt_text: sent {sent_alt!r}, Etsy holds "
+                                f"{got_alt!r}")
+        w, h = _dim(got.get("full_width")), _dim(got.get("full_height"))
+        entry["etsy_px"] = [w, h]
+        sw, sh = _dim(want.get("width")), _dim(want.get("height"))
+        if w is None or h is None:
+            entry["size"] = PENDING
+            out.problems.append(f"image rank {rank}: Etsy has not reported its size yet "
+                                f"(asynchronous processing); re-read before activation")
+        elif sw is None or sh is None:
+            entry["size"] = NOT_RETURNED
+            out.problems.append(f"image rank {rank}: the size sent was not recorded, so "
+                                f"Etsy's {w}x{h} cannot be compared")
+        elif (w, h) == (sw, sh):
+            entry["size"] = MATCH
+        elif max(sw, sh) > 3000 and max(w, h) <= 3000 and abs(w * sh - h * sw) <= max(sw, sh):
+            entry["size"] = MATCH
+            entry["note"] = f"sent {sw}x{sh}, served scaled to {w}x{h} (Etsy's 3000 px cap)"
+        else:
+            entry["size"] = MISMATCH
+            out.problems.append(f"image rank {rank} is {w}x{h} on Etsy and {sw}x{sh} as sent: "
+                                f"a different or cropped image")
+        out.images.append(entry)
+    for extra in held[len(expected):]:
+        out.problems.append(f"Etsy holds an extra image (listing_image_id "
+                            f"{extra.get('listing_image_id')}) that was not sent")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# F-543: the remote draft against the certified listing, before activation
+# ---------------------------------------------------------------------------
+
+
+def activation_readiness(*, sent: dict[str, Any], remote: dict[str, Any],
+                         remote_files: list[dict[str, Any]] | None,
+                         expected_files: list[dict[str, Any]],
+                         expected_images: int, listing_id: str = "",
+                         disclosure: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Everything Etsy holds for a draft, compared with what was certified, in one verdict.
+
+    Field-by-field read-back (title, description, tags, materials, price, quantity,
+    taxonomy, who/when made, type) through `verify`; the draft state; the image count
+    against the certified frame count; the files through `verify_files`; and the
+    disclosure check run on the copy **as Etsy holds it**, because a disclosure that is in
+    our database and not on the listing is not a disclosure. `ready` is True only when every
+    one of them passed; anything unread is a reason, never a pass.
+    """
+    fields = verify(sent, remote, listing_id=listing_id, expect_state="draft",
+                    expect_images=expected_images)
+    files = verify_files(expected_files, remote_files, listing_id=listing_id)
+    reasons: list[str] = []
+    reasons.extend(fields.problems)
+    reasons.extend(f"{v.field} on Etsy is {v.remote!r}, certified {v.sent!r}"
+                   for v in fields.mismatches)
+    reasons.extend(f"{v.field} was not returned by Etsy, so it is unverified"
+                   for v in fields.unverifiable)
+    if expected_images < 1:
+        reasons.append("the certified listing set has no frame, so there is no first image "
+                       "to activate with")
+    reasons.extend(files.problems)
+    if disclosure is None or not disclosure.get("checked"):
+        reasons.append("the disclosure check was not run on the copy Etsy holds")
+    elif disclosure.get("finding"):
+        reasons.append(f"the copy on Etsy is missing owed disclosures: "
+                       f"{disclosure.get('missing')} {disclosure.get('misplaced') or ''}")
+    return {"ready": not reasons, "reasons": reasons, "fields": fields.summary(),
+            "files": files.summary(), "disclosure": disclosure,
+            "expected_images": expected_images}

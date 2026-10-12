@@ -1,0 +1,6 @@
+# Draft creation durability scope
+Base5c983e4; branch codex/final-draft-durability-01.
+Own publish/draft_intent.py, additive core/db.py registration, integrations/etsy.py::publish on_created callback, runtime/pipeline.py::_publish_and_read_back and handle_store_publish only, new tests/report. Activation owned by finance worker and forbidden here.
+Contract: committed unique slug/version intent before create; content release digest retained; returned remote ID checkpointed atomically with local Listing before uploads; unknown remote outcome refuses blind retry and opens reconciliation; known remote also never re-created. No expiry/reset/automatic external reconciliation or exactly-once claim. Conservative uncertainty before a request may cost availability but cannot authorize duplicate creation.
+Acceptance: actual runtime retry plus database reopen after injected failures beforecreate/aftercreate-beforecheckpoint/aftercheckpoint, and concurrent SQLite connections; <=one remotecreate, original release hash unaffected, protected gates unchanged. PostgreSQL uniqueness transaction semantics reviewed, no PostgreSQL runtime claim without service.
+No real network/provider/production/spend actions. No thresholds/status changes.

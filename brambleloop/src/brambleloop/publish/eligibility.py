@@ -74,6 +74,11 @@ MEDIUM_PURPOSES: dict[AssetClass, tuple[str, ...]] = {
     AssetClass.PATTERN_PREVIEW: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION),
 }
 
+# Media that are generated pictures of the product rather than renders of the CIR or a
+# photograph of a made object. Kept as a purpose-capable medium above (it can be *classified*),
+# and refused by `may_export` in every role (F-852): classifying is not exporting.
+GENERATED_MEDIA: frozenset[AssetClass] = frozenset({AssetClass.AI_LIFESTYLE_CONCEPT})
+
 # ---- what a frame is for (#65) --------------------------------------------
 
 DESIRE = "DESIRE"
@@ -86,6 +91,12 @@ SIZING = "SIZING"
 PATTERN_PREVIEW = "PATTERN_PREVIEW"
 PROOF = "PROOF"
 CROSS_SELL = "CROSS_SELL"
+# F-254 / F-030: the jobs a gallery needs beyond the ten above, "where applicable".
+ANGLE = "ANGLE"
+CONSTRUCTION = "CONSTRUCTION"
+COLOUR_CONTEXT = "COLOUR_CONTEXT"
+FIT = "FIT"
+LIFESTYLE = "LIFESTYLE"
 
 JOBS: dict[str, str] = {
     DESIRE: "make somebody want it, at thumbnail scale, in under a second",
@@ -98,6 +109,11 @@ JOBS: dict[str, str] = {
     PATTERN_PREVIEW: "what the document itself looks like to work from",
     PROOF: "that somebody has made this and it worked",
     CROSS_SELL: "what else in the shop goes with it",
+    ANGLE: "a useful alternate angle: the side, back or inside the hero cannot show",
+    CONSTRUCTION: "how it is put together: the base, joins, seams or assembly",
+    COLOUR_CONTEXT: "the colourway judged truthfully, against its alternatives or in a room",
+    FIT: "how it sits when worn, on a body whose size is stated",
+    LIFESTYLE: "the object in use, where a buyer would live with it",
 }
 
 # Which purposes can do which job. The hero row is the requirement's own example, encoded:
@@ -113,7 +129,63 @@ JOB_PURPOSES: dict[str, tuple[str, ...]] = {
     PATTERN_PREVIEW: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION),
     PROOF: (PHYSICAL_PROOF,),
     CROSS_SELL: (CONVERSION_CREATIVE, CUSTOMER_INFORMATION),
+    ANGLE: (PHYSICAL_PROOF, ENGINEERING_EVIDENCE, CONVERSION_CREATIVE),
+    CONSTRUCTION: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION, PHYSICAL_PROOF),
+    COLOUR_CONTEXT: (CUSTOMER_INFORMATION, CONVERSION_CREATIVE, PHYSICAL_PROOF),
+    # A worn view claims how a real object sits on a real body; only a photograph can.
+    FIT: (PHYSICAL_PROOF,),
+    LIFESTYLE: (CONVERSION_CREATIVE, PHYSICAL_PROOF),
 }
+
+# ---- gallery information architecture per category (F-030, F-254) ----------
+
+# Every listing answers these before a buyer asks (the roles `check_frame_plan` requires,
+# plus the stitch/motif detail).
+BASE_GALLERY_JOBS: tuple[str, ...] = (DESIRE, CONTENTS, SCALE, MATERIALS, DETAIL)
+# Where each further job applies, by catalogue category. "Where applicable" is the rule: a
+# coaster has no worn view and a flat blanket's back is its front.
+_THREE_D = frozenset({"basket", "amigurumi", "bag", "hat", "toy", "ornament", "stocking",
+                      "pillow", "pet", "flower", "seasonal_decor"})
+_WORN = frozenset({"hat", "scarf", "shawl", "garment", "accessory"})
+_COLOURWORK = frozenset({"mosaic_blanket", "graphghan", "blanket", "coaster", "placemat",
+                         "runner", "pillow", "wall_decor", "baby", "nursery"})
+_LIVED_WITH = frozenset({"basket", "blanket", "mosaic_blanket", "graphghan", "pillow",
+                         "runner", "coaster", "placemat", "wall_decor", "nursery", "baby",
+                         "pet", "seasonal_decor"})
+
+
+def gallery_jobs_for(category: str, *, sizes: int = 1, colours: int = 1) -> dict[str, str]:
+    """The gallery jobs that apply to this product, each with why (F-030, F-254)."""
+    cat = (category or "").lower()
+    jobs = {j: "every listing answers it before a buyer asks" for j in BASE_GALLERY_JOBS}
+    if cat in _THREE_D:
+        jobs[ANGLE] = "a three-dimensional object has sides the hero cannot show"
+        jobs[CONSTRUCTION] = "a shaped object is judged on how it is put together"
+    if cat in _WORN:
+        jobs[FIT] = "a worn item is bought on how it sits"
+    if cat in _COLOURWORK or colours > 1:
+        jobs[COLOUR_CONTEXT] = "colour is a deciding fact and a screen distorts it"
+    if cat in _LIVED_WITH:
+        jobs[LIFESTYLE] = "a home object is bought on where it will live"
+    if sizes > 1:
+        jobs[SIZING] = f"{sizes} sizes are sold and a buyer must see how they differ"
+    return jobs
+
+
+def gallery_architecture(category: str, jobs_covered, *, sizes: int = 1,
+                         colours: int = 1) -> dict:
+    """Which applicable gallery jobs this listing's frames do and which they leave out.
+
+    Not an export refusal: a missing job is a conversion-readiness gap, read by
+    `commerce.search_evidence` and the search supremacy gate (F-060), never padded over with
+    a frame that does no honest work.
+    """
+    applicable = gallery_jobs_for(category, sizes=sizes, colours=colours)
+    covered = sorted(set(jobs_covered or []) & set(applicable))
+    missing = sorted(set(applicable) - set(jobs_covered or []))
+    return {"category": category, "applicable": applicable, "covered": covered,
+            "missing": missing, "complete": not missing,
+            "basis": "publish.eligibility.gallery_jobs_for (F-030, F-254)"}
 
 # The hero is always frame one and its job is always DESIRE. Stated rather than derived so
 # that a listing cannot be built with a hero whose job is DETAIL and pass every other check.
@@ -154,7 +226,8 @@ PHOTO_LABEL = ""      # a photograph needs no disclaimer; it is the thing itself
 # Where the render/photograph distinction is material: any frame a buyer could reasonably
 # read as evidence of what the finished object looks like. On a materials list it is not
 # material, and labelling everything trains buyers to read nothing.
-MATERIAL_JOBS: tuple[str, ...] = (DESIRE, DETAIL, PROOF, SCALE)
+MATERIAL_JOBS: tuple[str, ...] = (DESIRE, DETAIL, PROOF, SCALE, ANGLE, FIT, LIFESTYLE,
+                                   COLOUR_CONTEXT, CONSTRUCTION)
 
 LABEL_FOR: dict[AssetClass, str] = {
     AssetClass.PHYSICAL_PRODUCT_PHOTO: PHOTO_LABEL,
@@ -372,6 +445,14 @@ def may_export(candidate: Candidate, results: list[GateResult], *,
         blockers.append(serves["why"])
     if label["required"] and not label["label"]:
         blockers.append("an honesty label is required here and none is defined for this medium")
+    if candidate.medium in GENERATED_MEDIA:
+        # F-852 / PT-14: a generated picture of the product is refused in every listing role,
+        # explicitly and here, rather than relying on an upstream truth finding to have
+        # caught it. A label does not change this: the object in the picture does not exist.
+        blockers.append(
+            f"F-852: a {candidate.medium.value} is generated imagery of an object nobody has "
+            f"made, and generated product imagery is refused in every listing role "
+            f"({candidate.job} here). A disclaimer is not permission")
     if truth_verdict == FAILED:
         blockers.append(
             "the asset truth gate refused this asset. The honesty label is consulted "
@@ -407,6 +488,7 @@ def state() -> dict:
             "two frames doing the same job, which no image comparison would find",
             "an export while any of the four gates has not run",
             "two verdicts for one gate, which lets somebody choose which to read",
+            "generated product imagery (an AI concept) in any listing role (F-852)",
         ],
         "note": ("AssetClass says what an asset is made of; purpose says what it is allowed "
                  "to do. A technically correct chart cannot be promoted to hero merely "
@@ -417,3 +499,163 @@ def state() -> dict:
             "gate is consulted independently of it. There is no ordering in which a "
             "disclaimer makes a misleading asset exportable"),
     }
+
+
+# ---- product publication scope (F-111, F-118, F-119, F-120) -----------------------------
+#
+# Everything above decides what a *frame* may do. This decides whether a *product* may be
+# published at all, which the frame rules cannot see.
+#
+# **Legacy quarantine (F-111).** The Build-1 catalogue was authored at typed gauges its own
+# declared yarn cannot make, before calibration existed. It is ineligible for live publication
+# until it is re-engineered or independently validated -- and until now that was a report
+# (`products.launch0.excluded_from_launch0`) and a slug list, with Shadow Mode the only thing
+# actually stopping it. A slug outside Launch-0 is refused here unless its stored certificate
+# was issued under the current gauge standard, which is what "re-certified" means: examined by
+# the check the legacy products were never examined by.
+#
+# **Launch-0 is the scope (F-120).** Launch-0 products clear the quarantine by being Launch-0,
+# and are then held to the first customer's nine-area gate (F-118), whose UNVERIFIABLE and
+# UNRESOLVED states block exactly as FAIL does.
+
+LEGACY_PRE_CALIBRATION = "LEGACY_PRE_CALIBRATION"
+FIRST_CUSTOMER_BLOCKING = "FIRST_CUSTOMER_BLOCKING"
+NOT_CERTIFIED = "NOT_CERTIFIED"
+RETIRED_DUPLICATE = "RETIRED_DUPLICATE"
+NAME_OUTRUNS_PATTERN = "NAME_OUTRUNS_PATTERN"
+
+
+def name_truth(cir, listing: dict | None = None) -> list[str]:
+    """W4-PIPE: what the product's name promises that its CIR does not make.
+
+    `launch0.title_promise` (piece count), `assembly_promise` (an assembled form) and
+    `fabric_truth` (a colourwork fabric) were enforced at publish only through the
+    first-customer gate, i.e. only for Launch-0. A re-certified product outside Launch-0
+    ("Nordic Star Ornament Set (6)" whose CIR makes one ornament) skipped all three and
+    could be published under a name its pattern does not make. Every product is held to
+    them here; deterministic validation, not scope, decides.
+    """
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..products import launch0 as l0
+
+    out: list[str] = []
+    for key, verdict in (("count", l0.title_promise(cir)),
+                         ("assembly", l0.assembly_promise(cir))):
+        if not verdict.get("backed"):
+            out.append(f"{key}: {verdict.get('why')}")
+    result = compile_cir(cir)
+    if result.ok:
+        twin = build_twin(cir, result)
+        fabric = l0.fabric_truth(cir, twin)
+        if not fabric.get("backed"):
+            out.append(f"fabric: {fabric.get('why')}")
+        if listing:
+            # The drafted copy can say "mosaic" when the CIR title no longer does: the radar
+            # seed and the slug feed the listing words outside Launch-0.
+            from ..gates.first_customer import colourwork_findings
+
+            out.extend(f"listing: {f}" for f in colourwork_findings(
+                cir, twin, title=listing.get("title") or "", tags=listing.get("tags") or ()))
+    # W4-PIPE: imagery the name promises that the motif does not depict (W4-CREATIVE's
+    # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
+    # checked too: outside Launch-0 its words come from the slug and radar seed, which can
+    # still say "village" or "flower" after the CIR was retitled to what it makes.
+    motif = next((p.split(":", 1)[1] for p in
+                  (getattr(cir.provenance, "primitives_used", None) or ())
+                  if isinstance(p, str) and p.startswith("products.motifs:")), None)
+    if motif:
+        from ..creative.emotional_brief import title_conflicts
+
+        for where, text in (("title", cir.title),
+                            ("listing", " ".join([(listing or {}).get("title") or ""]
+                                                 + list((listing or {}).get("tags") or ())))):
+            bad = title_conflicts(text, motif)
+            if bad:
+                out.append(f"imagery: the {where} promises {bad}; the {motif} motif does "
+                           "not depict it")
+    return out
+
+
+def legacy_status(slug: str, certificate: dict | None) -> dict:
+    """Whether a release is in launch scope, legacy, or legacy cleared by re-certification."""
+    from ..gates.certificate import GAUGE_STANDARD
+    from ..products.launch0 import launch_scope_slugs
+
+    in_scope = slug in launch_scope_slugs()
+    cert = certificate or {}
+    recertified = bool(cert.get("granted")) and cert.get("gauge_standard") == GAUGE_STANDARD
+    if in_scope:
+        return {"slug": slug, "in_launch_scope": True, "legacy": False, "cleared": True,
+                "why": "a Launch-0 product"}
+    if recertified:
+        return {"slug": slug, "in_launch_scope": False, "legacy": True, "cleared": True,
+                "why": f"re-certified under the current gauge standard ({GAUGE_STANDARD})"}
+    return {"slug": slug, "in_launch_scope": False, "legacy": True, "cleared": False,
+            "why": (f"outside Launch-0 and not re-certified under the current gauge standard "
+                    f"({GAUGE_STANDARD}); stored standard: "
+                    f"{cert.get('gauge_standard') or 'none -- predates the check'}")}
+
+
+def product_publication(db, slug: str, version: str, *, listing=None, frames=None,
+                        store=None, first_customer=None) -> dict:
+    """May this product be published: one verdict with every reason, never a bare boolean.
+
+    Reads the stored release rather than rebuilding it, so what is refused is what would be
+    shipped. `first_customer` is the gate function, injectable because the real one renders
+    both customer documents; the default is `gates.first_customer.blocking`.
+    """
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = None if product is None else s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.version == version))
+        certificate = dict(pv.certificate or {}) if pv is not None else None
+        cir_json = dict(pv.cir_json or {}) if pv is not None else None
+        certified = bool(pv is not None and pv.certified)
+
+    reasons: list[dict] = []
+    if not certified:
+        reasons.append({"code": NOT_CERTIFIED,
+                        "why": f"{slug}@{version} has no certified release on file"})
+    # PT-11: a retired concept slug whose pattern is a Launch-0 variant is never published --
+    # the same pattern under two slugs, one of them outside the first-customer gate.
+    from ..products.launch0 import LEGACY_DUPLICATES
+
+    retired = LEGACY_DUPLICATES.get(slug)
+    if retired is not None:
+        reasons.append({"code": RETIRED_DUPLICATE, "why": (
+            f"{slug} is retired ({retired['retired_on']}): {retired['why']}. Publish "
+            f"{', '.join(retired['superseded_by'])} instead")})
+    legacy = legacy_status(slug, certificate)
+    if not legacy["cleared"]:
+        reasons.append({"code": LEGACY_PRE_CALIBRATION, "why": legacy["why"]})
+
+    if cir_json and retired is None:
+        for problem in name_truth(CIR.from_dict(cir_json), listing):
+            reasons.append({"code": NAME_OUTRUNS_PATTERN,
+                            "why": f"{slug}@{version}: the name promises what the pattern "
+                                   f"does not make -- {problem}"[:300]})
+
+    blocking: list[dict] | None = None
+    if legacy["in_launch_scope"] and cir_json:
+        if first_customer is None:
+            from ..gates.first_customer import blocking as first_customer
+        # PT-02: the gate reads the database -- the stored calibration and content-bound
+        # physical samples, and the disclosed set with its certificate -- so evidence the
+        # owner produces can clear it. Without it the gate could never clear.
+        blocking = first_customer(CIR.from_dict(cir_json), listing=listing, frames=frames,
+                                  store=store, db=db, version=version)
+        for check in blocking:
+            reasons.append({"code": FIRST_CUSTOMER_BLOCKING,
+                            "why": f"{check['area']}: {check['state']} -- "
+                                   f"{str(check['detail'])[:200]}"})
+    return {"slug": slug, "version": version, "publishable": not reasons,
+            "reasons": reasons, "legacy": legacy, "first_customer_blocking": blocking,
+            # Even with nothing blocking, the first Launch-0 listings are published by a
+            # person who has read the document (gates.first_customer.NEVER_AUTHORISES).
+            "owner_review_required": legacy["in_launch_scope"]}

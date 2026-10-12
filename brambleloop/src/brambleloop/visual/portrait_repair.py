@@ -316,6 +316,72 @@ def _method_verdict(candidates: list[dict]) -> str:
     return NOT_REPAIRED
 
 
+def adopt(db, *, candidate_ref: str, verdict: str, redesign_approval: dict,
+          new_key: str = "brambleloop-canonical-v2") -> dict:
+    """Make a *repaired* portrait the canonical face, on the owner's recorded approval.
+
+    The one way an assessed candidate becomes the reference, and it is narrow on purpose:
+    the verdict has to be `repaired` -- not `different_woman`, which is a replacement the
+    owner reserved to themselves, not `unverifiable`, which is a question still open, and
+    not `not_repaired`, which is the same woman still airbrushed. Anything else is refused
+    before anything is written. The approval has to be scoped `portrait_repair`: a record
+    scoped `redesign` is for choosing a different woman, and this function only ever
+    swaps her photograph.
+
+    Body hashes carry over from the current pack, because a portrait repair leaves the
+    approved bust, torso and body proportions authoritative; only the face hash changes,
+    and it is the sha256 of the candidate's actual bytes. Nothing here generates, judges
+    or spends, and nothing in this repository calls it: the owner has not approved a
+    replacement, and this is the procedure they would use if they did.
+    """
+    from . import brief, identity, model_registry
+
+    if verdict != REPAIRED:
+        raise identity.IdentityRefused(
+            f"a candidate with verdict {verdict!r} is not adopted. Only {REPAIRED!r} is: "
+            f"{DIFFERENT_WOMAN!r} is a replacement the owner reserved to themselves, "
+            f"{UNVERIFIABLE!r} is a question still open, and {NOT_REPAIRED!r} is the same "
+            f"woman still airbrushed")
+    scope = str((redesign_approval or {}).get("scope") or "")
+    if scope != "portrait_repair":
+        raise identity.IdentityRefused(
+            f"adopting a repaired portrait needs an approval scoped 'portrait_repair', not "
+            f"{scope!r}. A redesign approval chooses a different woman, and this only ever "
+            f"changes her photograph")
+    face_hash = brief.sha256_of(candidate_ref)
+    if not face_hash:
+        raise identity.IdentityRefused(
+            f"the candidate at {candidate_ref!r} cannot be read, so its bytes cannot be "
+            f"pinned. A reference nobody can hash is a reference nobody can verify")
+
+    current = model_registry.canonical_pack(db)
+    if current is None:
+        raise identity.IdentityRefused(
+            "there is no canonical portrait to repair. A first selection is the freeze, "
+            "not a repair")
+    # Everything after the face in the current row's references is the body: the pack's
+    # torso and full-length frames, by sha256. They carry over because they are unchanged.
+    body_refs = model_registry.canonical_image_refs(db)[1:]
+    hashes = {k: v for k, v in (current.fields.get("reference_hashes") or {}).items()
+              if k != identity.FACE_HASH_KEY}
+    hashes[identity.FACE_HASH_KEY] = face_hash
+
+    pack = model_registry.replace_canonical(
+        db, new_key=new_key, redesign_approval=redesign_approval,
+        fields={k: v for k, v in current.fields.items()
+                if k not in ("reference_image", "reference_hashes")},
+        image_refs=[candidate_ref] + body_refs, reference_hashes=hashes,
+        note=(f"portrait repair adopted on the owner's approval of "
+              f"{redesign_approval.get('at')}: the same woman, a repaired photograph. "
+              f"Body references carried over unchanged"))
+    return {"adopted": True, "key": new_key, "version": pack.version,
+            "approved_at": pack.approved_by_owner_at,
+            "face_sha256": face_hash, "reference_hashes": dict(hashes),
+            "body_pack_untouched": (
+                "the approved bust, torso and body proportions remain authoritative; only "
+                "the face reference and its hash changed")}
+
+
 def reassess(record: dict) -> dict:
     """Re-derive verdicts from evidence already collected. Makes no call and spends nothing.
 

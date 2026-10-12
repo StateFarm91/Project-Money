@@ -305,7 +305,9 @@ def test_every_abbreviation_in_the_instructions_is_defined_in_the_document():
     Run over every shippable design rather than a fixture, because the stitches that were
     undefined were the ones only three designs use.
     """
+    _vac_308 = 0
     for cir in _designs():
+        _vac_308 += 1
         result, twin = _twin_for(cir)
         text = write_pattern(cir, result, terminology="US",
                              width_cm=twin.width_cm, height_cm=twin.height_cm)
@@ -320,6 +322,7 @@ def test_every_abbreviation_in_the_instructions_is_defined_in_the_document():
         for entry in ab.stitch_key(text, "US"):
             assert entry.token in rendered, (cir.slug, entry.token)
             assert entry.means in rendered, (cir.slug, entry.means)
+    assert _vac_308, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_key_covers_the_stitches_that_never_appear_in_the_chart():
@@ -474,10 +477,13 @@ def test_every_place_that_renders_the_customer_pdf_pins_its_date():
 
     for module in (release, pipeline):
         source = Path(module.__file__).read_text()
+        _vac_477 = 0
         for number, line in enumerate(source.splitlines(), 1):
+            _vac_477 += 1
             if "build_pattern_pdf(" in line and "def " not in line and "import" not in line:
                 window = "\n".join(source.splitlines()[number - 1:number + 3])
                 assert "released_on=" in window, (module.__name__, number, line.strip())
+        assert _vac_477, "enumerate(source.splitlines(), 1) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_footer_tells_a_buyer_whether_their_download_finished():
@@ -518,7 +524,9 @@ def test_the_file_is_a_complete_readable_pdf_with_its_own_metadata():
 
 def test_every_tool_the_instructions_require_is_on_the_materials_list():
     """The page a buyer takes to the shop listed yarn, and the pattern told them to block it."""
+    _vac_521 = 0
     for cir in _designs():
+        _vac_521 += 1
         _, twin = _twin_for(cir)
         rendered = _text_of(build_pattern_pdf(cir, twin=twin, released_on=RELEASED)).lower()
         if "weave in" in rendered or "fasten off" in rendered:
@@ -528,6 +536,7 @@ def test_every_tool_the_instructions_require_is_on_the_materials_list():
         if "cable needle" in rendered:
             assert rendered.count("cable needle") >= 2, (
                 cir.slug, "the cable needle is used and never listed")
+    assert _vac_521, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_small_print_is_legible_and_no_smaller_than_the_brand_allows():
@@ -598,8 +607,11 @@ def test_the_chart_and_its_legend_are_pictures_and_the_document_says_where_the_t
     # The section is a key, not a heading: every mark the chart draws is in it.
     _, twin = _twin_for(cir)
     flat = _flat(doc)
+    _vac_601 = 0
     for symbol, means in pdf_mod._chart_symbols(cir, twin, "US"):
+        _vac_601 += 1
         assert f"{symbol} {means.split()[0]}" in flat, (symbol, means)
+    assert _vac_601, "pdf_mod._chart_symbols(cir, twin, 'US') was empty: the loop proved nothing (F-123)"
 
 
 def test_the_colour_key_describes_the_chart_that_was_actually_printed():
@@ -621,8 +633,11 @@ def test_the_colour_key_describes_the_chart_that_was_actually_printed():
         flat = _flat(_doc_for(cir, twin))
         if art["cues"]:
             assert "Colour key" in flat, cir.slug
+            _vac_624 = 0
             for name, letter in art["cues"].items():
+                _vac_624 += 1
                 assert f"{letter} {name}" in flat, (cir.slug, name, letter)
+            assert _vac_624, "art['cues'].items() was empty: the loop proved nothing (F-123)"
         else:
             assert "Colour key" not in flat, (cir.slug, "a key with no letters to look up")
             assert "carries its yarn's letter" not in flat, cir.slug
@@ -691,7 +706,9 @@ def test_both_terminologies_render_for_every_shippable_design():
     is where terminology defects live and a single-design check would have found none of the
     three that were there.
     """
+    _vac_694 = 0
     for cir in _designs():
+        _vac_694 += 1
         _, twin = _twin_for(cir)
         docs = {t: _doc_for(cir, twin, t) for t in pdf_mod.TERMINOLOGIES}
         assert set(docs) == {"US", "UK"}, sorted(docs)
@@ -704,6 +721,7 @@ def test_both_terminologies_render_for_every_shippable_design():
                        for p in doc.problems), (cir.slug, terminology, doc.problems)
         # Two files, not one file labelled twice.
         assert docs["US"].pdf_bytes != docs["UK"].pdf_bytes, cir.slug
+    assert _vac_694, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_two_documents_are_delivered_under_names_that_tell_them_apart():
@@ -757,7 +775,9 @@ def test_a_uk_document_states_its_gauge_in_uk_terms_everywhere_it_states_it():
     A UK maker who resolves `sc` against their own vocabulary swatches a treble: three times
     the height the gauge was measured at, and every stated measurement wrong with it.
     """
+    _vac_760 = 0
     for cir in _designs():
+        _vac_760 += 1
         if not cir.gauge:
             continue
         _, twin = _twin_for(cir)
@@ -770,6 +790,7 @@ def test_a_uk_document_states_its_gauge_in_uk_terms_everywhere_it_states_it():
             assert ab._contains(line.lower(), uk_token.lower()), (cir.slug, line)
             if us_token.lower() != uk_token.lower():
                 assert not ab._contains(line.lower(), us_token.lower()), (cir.slug, line)
+    assert _vac_760, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_special_stitch_method_names_its_stitches_in_the_documents_terminology():
@@ -849,15 +870,22 @@ def test_the_key_completeness_check_is_measured_on_the_whole_document():
                                defined={"dc", "dc inc"}) == []
 
     # And the real documents pass it, on their whole prose rather than on one section.
+    _vac_852 = 0
     for design in _designs():
-        _, design_twin = _twin_for(design)
+        _vac_852 += 1
+        design_result, design_twin = _twin_for(design)
         for terminology in pdf_mod.TERMINOLOGIES:
             doc = _doc_for(design, design_twin, terminology)
             assert not any(p.startswith("PDF_ABBREVIATION_UNDEFINED")
                            for p in doc.problems), (design.slug, terminology, doc.problems)
             # The prose the check reads is the document's own words, and there is more of it
-            # than the instructions.
-            assert len(doc.prose) > len(text), (design.slug, terminology)
+            # than *its own* instructions. This compared every design's prose against the
+            # Cloudline blanket's instructions, which held only while Cloudline's were short;
+            # the gauge redesign lengthened them past the whole of a small ornament document.
+            own = write_pattern(design, design_result, terminology=terminology)
+            assert len(doc.prose) > len(own), (design.slug, terminology,
+                                               len(doc.prose), len(own))
+    assert _vac_852, "_designs() was empty: the loop proved nothing (F-123)"
 
     # The document still refuses to be quiet about it if the defect returns: with the gauge
     # line un-localised, a UK render reports the undefined token rather than shipping it.
@@ -1168,10 +1196,16 @@ def test_the_chart_shows_the_repeat_the_written_instructions_use():
     cable = build_cable_throw()
     result, twin = _twin_for(cable)
     art = pdf_mod._chart_art(cable, twin)
-    assert "rows 2 to 5 29 times more" in art["caption"], art["caption"]
-    assert "Repeat rows 2-5 29 more times" in write_pattern(cable, result), \
+    # Computed from the design, not pinned: one foundation row, then four-row blocks, the
+    # first worked as written and the rest repeated (blocks - 1 more times).
+    rows = len(cable.components[0].rows)
+    blocks, extra = divmod(rows - 1, 4)
+    assert extra == 0 and blocks > 1, (rows, blocks)
+    more = blocks - 1
+    assert f"rows 2 to 5 {more} times more" in art["caption"], art["caption"]
+    assert f"Repeat rows 2-5 {more} more times" in write_pattern(cable, result), \
         "the written instructions no longer say what the caption was matched against"
-    assert "121 rows tall" not in art["caption"]
+    assert f"{rows} rows tall" not in art["caption"]
 
 
 def test_no_chart_cell_is_smaller_than_the_brand_allows_type_to_be():
@@ -1479,9 +1513,15 @@ def test_a_childrens_pattern_carries_every_statement_its_audience_requires():
             # renderer invented: the full sentence survives into the document.
             rendered = pdf_mod.childrens_statements(cir, twin, assignment)
             flat = _flat(doc)
+            _vac_1492 = 0
             for key, text in rendered.text.items():
+                _vac_1493 = 0
+                _vac_1492 += 1
                 for sentence in text.split("\n"):
+                    _vac_1493 += 1
                     assert " ".join(sentence.split()) in flat, (slug, key)
+                assert _vac_1493, "text.split('\n') was empty: the loop proved nothing (F-123)"
+            assert _vac_1492, "rendered.text.items() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_pattern_that_is_not_for_a_child_does_not_acquire_a_safety_block():
@@ -1557,8 +1597,10 @@ def test_the_safety_block_derives_its_facts_from_the_pattern_it_is_in():
     b_flat, k_flat = _flat(blanket), _flat(basket)
 
     assert f"{blanket_twin.width_cm:.0f} x {blanket_twin.height_cm:.0f} cm" in b_flat
-    assert "79 x 97 cm at the stated gauge" in b_flat
-    assert "15 x 9 cm at the stated gauge" in k_flat
+    assert "79 x 96 cm at the stated gauge" in b_flat
+    # PT-10: the basket is a hexagonal vessel, quoted in the convention that names it.
+    from brambleloop.cir.twin import size_statement
+    assert f"{size_statement(basket_twin)} at the stated gauge" in k_flat, k_flat
     assert "written for acrylic yarn" in b_flat
     assert "written for cotton yarn" in k_flat
     # The compile date of the safety reading, not today's date.
@@ -1575,8 +1617,11 @@ def test_every_statement_in_the_block_shows_its_source_or_says_it_has_none():
     flat = _flat(doc)
     assert "Source: none. This is Brambleloop Studio" in flat
     assert "cpsc.gov" in flat and "publications.aap.org" in flat
+    _vac_1590 = 0
     for key in ch.unsourced_statements():
+        _vac_1590 += 1
         assert ch.STATEMENT_SET[key].source is None, key
+    assert _vac_1590, "ch.unsourced_statements() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_childrens_title_nobody_has_decided_about_is_refused_rather_than_rendered():
@@ -1666,18 +1711,33 @@ def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_sha
         for mark in progress["milestones"]:
             ring = rings[mark["row"] - 1]
             assert mark["height_so_far_cm"] == round(ring.axial_cm, 1), (cir.slug, mark)
-            assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
+            if twin.sides:      # PT-10: a stacked-increase round is quoted across its points
+                from brambleloop.cir.geometry import polygon_spans_cm
+                assert mark["across_cm"] == round(
+                    polygon_spans_cm(ring.circumference_cm, twin.sides)[0], 1), (cir.slug, mark)
+            else:
+                assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
             assert "stitches around" in mark["measured"], (cir.slug, mark)
 
-    # And the document prints those numbers rather than a second opinion about them.
+    # And the document prints those numbers rather than a second opinion about them. The
+    # milestone checked is the last one the twin measures as still flat -- found from the
+    # twin, not pinned: it was "ROUND 17 OF 70 102 stitches" before the basket was re-derived
+    # from its yarn, and is whatever the certified basket's base makes it now.
     cir = build_basket("large")
     _, twin = _twin_for(cir)
     flat = _flat(_doc_for(cir, twin))
-    assert "ROUND 17 OF 70 102 stitches around, about 18 cm across, still flat" in flat, flat
+    rings = twin.geometry.rings
+    marks = value_stack.milestones(cir, twin)["milestones"]
+    flat_marks = [m for m in marks if m["row"] > 1 and rings[m["row"] - 1].axial_cm == 0.0]
+    assert flat_marks, "this design no longer holds the defect"
+    mark = flat_marks[-1]
+    assert mark["measured"].endswith("still flat"), mark
+    assert f"ROUND {mark['row']} OF {len(rings)} {mark['measured']}" in flat, flat
 
     # Proved against the defect, injected: withhold the twin's rings -- which is exactly what
-    # the old code did, by never looking for them -- and the same table claims 5.6 cm of
-    # height on a round the twin measures at 0.0.
+    # the old code did, by never looking for them -- and the same table claims centimetres
+    # of height (5.6 cm, when measured on the seventy-round basket) on a round the twin
+    # measures at 0.0.
     original = value_stack._rings_by_row
     try:
         value_stack._rings_by_row = lambda c, t: None
@@ -1685,8 +1745,8 @@ def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_sha
                    for m in value_stack.milestones(cir, twin)["milestones"]}
     finally:
         value_stack._rings_by_row = original
-    assert twin.geometry.rings[16].axial_cm == 0.0, "this design no longer holds the defect"
-    assert claimed[17] > 5.0, claimed
+    assert rings[mark["row"] - 1].axial_cm == 0.0, "this design no longer holds the defect"
+    assert claimed[mark["row"]] > 5.0, claimed
 
 
 def test_no_document_explains_a_gauge_difference_with_a_stitch_it_does_not_contain():
@@ -1740,7 +1800,14 @@ def test_no_document_explains_a_gauge_difference_with_a_stitch_it_does_not_conta
     finally:
         pdf_mod._taller_than_gauge, pdf_mod._fabric_row_gauge = was_taller, was_gauge
     assert "worked in taller stitches as well" in broken
-    assert "THIS FABRIC about 30 rows = 10 cm" in broken, broken
+    # The false number is the every-round arithmetic on *this* basket, computed rather than
+    # pinned: it read "about 30" when the large basket was seventy rounds at 20 rows = 10 cm,
+    # and reads whatever the current certified basket makes it read. What must hold is that
+    # it is printed and that it is far enough from the stated gauge to be the defect.
+    shipped_wrong = len(twin.row_widths) / twin.height_cm * 10.0
+    assert abs(shipped_wrong - cir.gauge.rows_per_10cm) / cir.gauge.rows_per_10cm \
+        >= pdf_mod.ROW_GAUGE_DRIFT, (shipped_wrong, cir.gauge.rows_per_10cm)
+    assert f"THIS FABRIC about {shipped_wrong:.0f} rows = 10 cm" in broken, broken
 
 
 def test_the_key_does_not_contradict_the_instructions_about_joining_the_rounds():
@@ -1765,8 +1832,11 @@ def test_the_key_does_not_contradict_the_instructions_about_joining_the_rounds()
         for terminology in pdf_mod.TERMINOLOGIES:
             flat = _flat(_doc_for(cir, twin, terminology)).lower()
             assert "join each round with a sl st" in flat, (cir.slug, terminology)
+            _vac_1802 = 0
             for claim in spiral_claims:
+                _vac_1802 += 1
                 assert claim not in flat, (cir.slug, terminology, claim)
+            assert _vac_1802, "spiral_claims was empty: the loop proved nothing (F-123)"
     assert joined_seen, "no joined-round design reached this check"
 
     # Proved against the defect, injected: put the old gloss back and the check fires on a
@@ -1890,7 +1960,9 @@ def test_the_listing_chart_shows_what_the_document_shows():
     measurement recorded, not a claim that they are legible.
     """
     spec = charts.ChartSpec(cell_px=30, margin_px=40, max_width_px=la.CANVAS)
+    _vac_1927 = 0
     for cir, twin in _round_designs():
+        _vac_1927 += 1
         block = charts.round_block(twin)
         unit = la.chart_frame_unit_px(cir, twin)
         # The call this frame used to make, as the injected defect: ask for the whole disc.
@@ -1901,12 +1973,15 @@ def test_the_listing_chart_shows_what_the_document_shows():
         if block:
             assert unit > old_unit * 2, (cir.slug, unit, old_unit)
         assert unit >= 40.0, (cir.slug, unit)
+    assert _vac_1927, "_round_designs() was empty: the loop proved nothing (F-123)"
 
     # The flagship, with the number in the assertion so a regression is legible in the
-    # failure rather than only in the diff. 8.2 px before, 43 px now.
+    # failure rather than only in the diff. 8.2 px before the fix; 43 px on the seventy-round
+    # basket; 56 px (55.9) since the basket was re-derived from its yarn to a 16-round base,
+    # which has fewer rings to fit in the same frame. The pin moved up, never down.
     cir = build_basket("large")
     _, twin = _twin_for(cir)
-    assert round(la.chart_frame_unit_px(cir, twin)) == 43, la.chart_frame_unit_px(cir, twin)
+    assert round(la.chart_frame_unit_px(cir, twin)) == 56, la.chart_frame_unit_px(cir, twin)
 
     # Flat: the listing crops to the block the written instructions repeat, which is what the
     # document's chart shows, rather than to a period that merely divides the row count.
@@ -1971,7 +2046,10 @@ def test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist(
     rnd = c.answer("how many stitches should I have at the end of round 24?")
     assert not rnd.escalated, rnd
     assert rnd.cited_rows == [24], rnd
-    assert "round 24" in rnd.answer and "144 stitches" in rnd.answer, rnd.answer
+    # The count is the certified pattern's own, read from the compiler rather than pinned:
+    # it was 144 when the large basket was worked at a finer gauge.
+    at_24 = compile_cir(basket).row(basket.components[0].name, 24).stitch_count
+    assert "round 24" in rnd.answer and f"{at_24} stitches" in rnd.answer, rnd.answer
     assert "row" not in rnd.answer, rnd.answer
 
     # A flat pattern still answers in rows, because that is what its document prints.

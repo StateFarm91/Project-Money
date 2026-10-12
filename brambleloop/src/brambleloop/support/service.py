@@ -40,32 +40,61 @@ class ServiceRefused(ValueError):
     """A response time that cannot be true, or one recorded twice."""
 
 
-def record_response(db, case_id: int, *, minutes: float, from_canonical: bool) -> dict:
+MEASURED_AS: tuple[str, ...] = ("sent", "draft_ready")
+
+
+def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
+                    measured_as: str = "sent") -> dict:
     """Record how long a case waited, on the case itself.
 
     Refuses a second recording rather than overwriting: a response time that can be revised
     is a response time somebody will revise, and the revision always goes one way.
+
+    The one sequence that is not a revision is the lifecycle itself (Codex CB2-G08): a reply
+    is drafted (`draft_ready`) and later sent (`sent`). Those are two different events, so the
+    sent timing is accepted after a draft timing and the draft timing is kept beside it under
+    `draft_ready_minutes`. Still refused: the same basis twice, a draft timing after the
+    reply was sent, and a sent timing earlier than the draft it delivered.
     """
     from ..core.models import SupportCase
 
     if minutes < 0:
         raise ServiceRefused("a response cannot have taken negative time")
+    if measured_as not in MEASURED_AS:
+        raise ServiceRefused(f"{measured_as!r} is not a timing basis: {list(MEASURED_AS)}")
 
     with db.session() as s:
         case = s.get(SupportCase, case_id)
         if case is None:
             raise ServiceRefused(f"no support case {case_id}")
         detail = dict(case.detail or {})
+        draft_minutes = None
         if "response_minutes" in detail:
-            raise ServiceRefused(
-                f"case {case_id} already recorded {detail['response_minutes']} minutes. A "
-                f"response time that can be revised is one somebody will revise, and the "
-                f"revision always goes the same way")
+            prior_basis = detail.get("response_measured_as", "sent")
+            if not (prior_basis == "draft_ready" and measured_as == "sent"):
+                raise ServiceRefused(
+                    f"case {case_id} already recorded {detail['response_minutes']} minutes "
+                    f"({prior_basis}). A response time that can be revised is one somebody "
+                    f"will revise, and the revision always goes the same way")
+            draft_minutes = float(detail["response_minutes"])
+            if float(minutes) < draft_minutes:
+                raise ServiceRefused(
+                    f"case {case_id}: a reply sent after {float(minutes)} minutes cannot "
+                    f"predate the draft that was ready after {draft_minutes} minutes")
+            detail["draft_ready_minutes"] = draft_minutes
+            detail["draft_from_canonical"] = bool(detail.get("from_canonical"))
         detail["response_minutes"] = float(minutes)
         detail["from_canonical"] = bool(from_canonical)
+        # In shadow mode a reply is drafted and held, so what can be timed is how long the
+        # answer took to be ready, not how long the buyer waited. Kept apart below: a draft
+        # held in a queue is not a response anybody received.
+        detail["response_measured_as"] = measured_as
         case.detail = detail
-        return {"case_id": case_id, "minutes": float(minutes),
-                "from_canonical": bool(from_canonical)}
+        out = {"case_id": case_id, "minutes": float(minutes),
+               "from_canonical": bool(from_canonical), "measured_as": measured_as}
+        if draft_minutes is not None:
+            out["draft_ready_minutes"] = draft_minutes
+        return out
 
 
 def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
@@ -87,8 +116,14 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
                 for c in s.scalars(select(SupportCase))]
 
     recent = [r for r in rows if r[2] >= cutoff]
-    timed = [(esc, d) for esc, d, _ in recent if "response_minutes" in d]
-    untimed = len(recent) - len(timed)
+    all_timed = [(esc, d) for esc, d, _ in recent if "response_minutes" in d]
+    # Only a response somebody received is a service level. A draft-ready time is how fast
+    # the automation produced an answer, reported beside it and never counted as delivered.
+    drafts = [(esc, d) for esc, d in all_timed
+              if d.get("response_measured_as") == "draft_ready"]
+    timed = [(esc, d) for esc, d in all_timed
+             if d.get("response_measured_as", "sent") == "sent"]
+    untimed = len(recent) - len(all_timed)
 
     canonical = [d for esc, d in timed if not esc]
     escalated = [d for esc, d in timed if esc]
@@ -99,6 +134,12 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
         inside = [i for i in items if i["response_minutes"] <= limit_minutes]
         return round(len(inside) / len(items), 3)
 
+    draft_canonical = [d for esc, d in drafts if not esc]
+    draft_block = {"cases": len(drafts),
+                   "canonical_within_target": share(draft_canonical,
+                                                    TARGETS["canonical_minutes"]),
+                   "note": ("how fast an answer was ready; held in shadow mode, so no buyer "
+                            "has received it and it is not a service level")}
     canonical_share = share(canonical, TARGETS["canonical_minutes"])
     escalated_share = share(escalated, TARGETS["escalated_hours"] * 60)
     measured = [s for s in (canonical_share, escalated_share) if s is not None]
@@ -114,6 +155,7 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
                       "target_hours": TARGETS["escalated_hours"]},
         # Minimum, not average: the worse of the two is the one a buyer experienced.
         "meets_target": (min(measured) >= SERVICE_FLOOR) if measured else None,
+        "draft_ready": draft_block,
         "floor": SERVICE_FLOOR,
         "note": ("no case in this window has a recorded response time, so there is no "
                  "service level -- which is different from a bad one"

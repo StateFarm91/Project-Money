@@ -1,0 +1,251 @@
+{
+  "status": "DEGRADED",
+  "as_of": "2026-10-06T06:33:48.855473+00:00",
+  "basis": "estimated",
+  "items": [
+    {
+      "metric": "gross_sales",
+      "label": "Revenue (gross sales)",
+      "value_cad": 92.59,
+      "reading": "measured",
+      "actual_cad": 92.59,
+      "estimated_cad": 0.0,
+      "drill": "gross_sales",
+      "why": ""
+    },
+    {
+      "metric": "refunds",
+      "label": "Refunds",
+      "value_cad": 16.0,
+      "reading": "measured",
+      "actual_cad": 16.0,
+      "estimated_cad": 0.0,
+      "drill": "refunds",
+      "why": ""
+    },
+    {
+      "metric": "net_sales",
+      "label": "Net sales",
+      "value_cad": 76.59,
+      "reading": "measured",
+      "actual_cad": 76.59,
+      "estimated_cad": 0.0,
+      "drill": "net_sales",
+      "why": ""
+    },
+    {
+      "metric": "fees",
+      "label": "Marketplace fees",
+      "value_cad": 10.96,
+      "reading": "estimated",
+      "actual_cad": 0.0,
+      "estimated_cad": 10.96,
+      "drill": "fees",
+      "why": "fees not read from Etsy's ledger are modelled"
+    },
+    {
+      "metric": "operating_spend",
+      "label": "Operating spend",
+      "value_cad": 9.2852,
+      "reading": "estimated",
+      "actual_cad": 9.0052,
+      "estimated_cad": 0.28,
+      "drill": "operating_spend",
+      "why": "includes modelled listing-fee exposure / unknown-basis rows"
+    },
+    {
+      "metric": "contribution",
+      "label": "Contribution",
+      "value_cad": 65.63,
+      "reading": "estimated",
+      "actual_cad": 54.67,
+      "estimated_cad": 10.96,
+      "drill": "contribution",
+      "why": ""
+    },
+    {
+      "metric": "profit",
+      "label": "Profit before tax reserve",
+      "value_cad": 56.34,
+      "reading": "estimated",
+      "actual_cad": 45.1,
+      "estimated_cad": 11.24,
+      "drill": "profit",
+      "why": ""
+    },
+    {
+      "metric": "tax_reserve",
+      "label": "Sales-tax reserve",
+      "value_cad": 9.96,
+      "reading": "estimated",
+      "actual_cad": 0.0,
+      "estimated_cad": 9.96,
+      "drill": "tax_reserve",
+      "why": "a management reserve against net sales (finance.books rate); not a booked liability -- the GST/HST treatment is for the human accountant (tax_pack)"
+    },
+    {
+      "metric": "cash",
+      "label": "Cash in bank",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": "cash",
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00"
+    },
+    {
+      "metric": "expected_payout",
+      "label": "Etsy balance (expected payout)",
+      "value_cad": 65.63,
+      "reading": "derived",
+      "actual_cad": 65.63,
+      "estimated_cad": 0.0,
+      "drill": "expected_payout",
+      "why": "derived receivable (not cash); measured"
+    },
+    {
+      "metric": "committed_spend",
+      "label": "Committed spend (live reservations)",
+      "value_cad": 0.75,
+      "reading": "measured",
+      "actual_cad": 0.75,
+      "estimated_cad": 0.0,
+      "drill": null,
+      "why": ""
+    },
+    {
+      "metric": "owner_payable",
+      "label": "Owed to owner (owner-funded spend)",
+      "value_cad": 16.0052,
+      "reading": "derived",
+      "actual_cad": 16.0052,
+      "estimated_cad": 0.0,
+      "drill": "owner_payable",
+      "why": ""
+    },
+    {
+      "metric": "safe_discretionary_budget",
+      "label": "Safe discretionary budget",
+      "value_cad": null,
+      "reading": "UNKNOWN",
+      "actual_cad": null,
+      "estimated_cad": null,
+      "drill": null,
+      "why": "UNKNOWN: no bank source, so cash is unknown and nothing is safe to spend on the strength of it. no business bank statement has been imported; cash is UNKNOWN, not CA$0.00"
+    }
+  ],
+  "sources": [
+    "ledger",
+    "cost_entries",
+    "spend_reservations",
+    "orders",
+    "operating_readings:commerce.orders_held",
+    "acct_journal_entries",
+    "acct_postings",
+    "acct_statement_lines",
+    "acct_exceptions"
+  ],
+  "reason": "etsy_ledger: NEVER_READ -- ledger fee mapping is not owner-verified, so charged fees are at best `unverified`, not measured; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+  "window": "last 30 days",
+  "currency": "CAD",
+  "source_health": {
+    "orders": {
+      "state": "measured",
+      "last_read_at": "2026-10-06T06:33:48.855473+00:00",
+      "why": "",
+      "owner_action": "reauthorise_transactions_r"
+    },
+    "etsy_ledger": {
+      "state": "never_read",
+      "last_read_at": null,
+      "why": "ledger fee mapping is not owner-verified, so charged fees are at best `unverified`, not measured",
+      "owner_action": "verify the Etsy ledger mapping"
+    },
+    "bank": {
+      "state": "disconnected",
+      "last_read_at": null,
+      "why": "no business bank statement has been imported; cash is UNKNOWN, not CA$0.00",
+      "owner_action": "open a business bank account and provide statements (owner action; Finance cannot do banking)"
+    },
+    "spend": {
+      "state": "measured",
+      "last_read_at": "2026-10-06T06:33:48.855473+00:00",
+      "why": "this company's own cost ledger (cost_entries); row bases vary",
+      "owner_action": ""
+    }
+  },
+  "tax_reserve": {
+    "sales_tax_reserve_ytd_cad": 9.96,
+    "income_tax_setaside_ytd_cad": 14.8,
+    "basis": "estimated (management reserve; treatment for the human accountant)"
+  },
+  "payout_status": {
+    "expected_payout_cad": 65.63,
+    "reading": "derived receivable (not cash); measured"
+  },
+  "runway": {
+    "value": null,
+    "why": "UNKNOWN: cash is unknown. Operating spend is owner-funded today."
+  },
+  "obligations": {
+    "owner_funded_spend_payable_cad": 16.0052,
+    "accrued_listing_fee_exposure_cad": 0.28
+  },
+  "upcoming_bills": [
+    {
+      "name": "hosting (declared run-rate)",
+      "amount_cad": 7.0,
+      "cadence": "monthly",
+      "basis": "declared_not_observed"
+    },
+    {
+      "name": "model/API spend ceiling",
+      "amount_cad": 100.0,
+      "cadence": "monthly",
+      "basis": "policy ceiling (maximum, not a forecast)"
+    }
+  ],
+  "exceptions": {
+    "open": 0,
+    "high": 0,
+    "top": []
+  },
+  "reconciliation_health": "clean",
+  "close": {
+    "locked_periods": [],
+    "last_locked": null,
+    "previous_period": "2026-09",
+    "previous_period_locked": false,
+    "current_period": "2026-10",
+    "next_after_last_lock": null
+  },
+  "forecast": {
+    "as_of": "2026-10-06T06:33:48.855473+00:00",
+    "horizon_days": 30,
+    "currency": "CAD",
+    "is_booked": false,
+    "is_measured": false,
+    "basis": "modelled",
+    "presentation": "range only; never a point estimate presented as fact",
+    "operating_cost": {
+      "low_cad": 8.14,
+      "high_cad": 10.84,
+      "assumptions": [
+        "daily operating spend between the 60-day and 7-day averages",
+        "high end +25% for unplanned work",
+        "the monthly model ceiling caps the true maximum"
+      ],
+      "confidence": "low",
+      "sample_days_with_spend": 7
+    },
+    "revenue": null,
+    "revenue_why": "no revenue forecast: 8 measured orders in 60 days (< 10); a range from so few sales would be a guess"
+  },
+  "totals_micros": {
+    "gross": 92590000,
+    "refunds": 16000000,
+    "fees": 10960000,
+    "operating": 9285200,
+    "net_profit": 46388100
+  }
+}

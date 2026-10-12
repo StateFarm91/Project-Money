@@ -44,9 +44,12 @@ def test_a_retired_flagship_does_not_retire_christmas():
 def test_a_retirement_is_scoped_to_one_class_and_one_occasion():
     """So that 'the flagship is impossible' cannot be read a fortnight later as 'Christmas
     is closed'."""
+    _vac_47 = 0
     for row in _at(97)["retired_classes"]:
+        _vac_47 += 1
         assert row["scope"] == "this product class for this occasion only"
         assert row["last_optimistic_launch"]
+    assert _vac_47, "_at(97)['retired_classes'] was empty: the loop proved nothing (F-123)"
 
 
 def test_capacity_moves_into_the_fastest_open_lane_as_the_slow_ones_close():
@@ -159,9 +162,12 @@ def test_a_priority_programme_with_open_lanes_must_name_something_to_pursue():
 def test_a_bundle_is_only_proposed_where_its_members_share_a_lane():
     """Departments in different lanes make a bundle whose slowest member decides the launch
     date, which is how a quick make ends up waiting for a throw."""
+    _vac_162 = 0
     for bundle in _at(97)["bundles"]:
+        _vac_162 += 1
         assert len(bundle["departments"]) >= 2
         assert bundle["lane"] in C.LANE_ORDER
+    assert _vac_162, "_at(97)['bundles'] was empty: the loop proved nothing (F-123)"
 
 
 # ---- preparation and next year --------------------------------------------
@@ -176,6 +182,30 @@ def test_preparation_starts_before_the_launch_it_serves():
     for row in by_lane:
         assert row["starts_on"] < lane["latest_optimistic_launch"], row
     assert {row["stream"] for row in by_lane} == set(C.PREPARATION_LEADS)
+
+
+def test_a_stream_with_evidence_of_starting_is_not_overdue():
+    """A passed start date says when work had to begin, not that it did not. The daily
+    scan and the SEO drafter ran every day while the sentinel called both streams late."""
+    from datetime import date, timedelta
+
+    late: set = set()
+    for offset in range(0, 90, 3):
+        today = date(2026, 10, 1) + timedelta(days=offset)
+        states = C.lane_states((date(2026, 12, 25) - today).days, today=today)
+        blind = C.preparation(states, today=today)
+        late = {r["stream"] for r in blind if r["overdue"]}
+        if late:
+            break
+    assert late, "no autumn day has an overdue stream, so the test proves nothing"
+
+    started = {stream: (today - timedelta(days=3)).isoformat() for stream in late}
+    seen = C.preparation(states, today=today, started=started)
+    assert not [r for r in seen if r["overdue"]]
+    for row in seen:
+        assert row["started_evidence"] == list(C.PREPARATION_EVIDENCE[row["stream"]])
+        if row["stream"] in late:
+            assert row["started_on"] == started[row["stream"]]
 
 
 def test_search_language_is_mapped_before_the_copy_is_written():

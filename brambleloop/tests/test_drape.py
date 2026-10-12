@@ -71,8 +71,8 @@ check("every stitch is still linked to the loop it was worked into",
 check("no stitch became unmeasurable for linkage",
       after["stitches_unmeasurable"] == 0, str(after["stitches_unmeasurable"]))
 check("every stitch is still shaped like a half double",
-      after["stitches_shaped_like_hdc"] == after["stitches_built"],
-      "%s/%s" % (after["stitches_shaped_like_hdc"], after["stitches_built"]))
+      after["stitches_shaped_as_ordered"] == after["stitches_built"],
+      "%s/%s" % (after["stitches_shaped_as_ordered"], after["stitches_built"]))
 check("no stitch lost the frame its morphology is measured in",
       after.get("stitches_unframeable", 0) == 0)
 check("the stitch count is unchanged", after["stitches_built"] == before["stitches_built"])
@@ -581,10 +581,10 @@ check("frame-invariant rest does not resize the product across the cantilever",
 check("RECORDED NEGATIVE: frame-invariant rest everts free-edge stitches partway through "
       "the descent, so it is not adoptable and is off by default",
       worst_third_loop_margin(_fifab) > 0.0 and
-      _fig["stitches_shaped_like_hdc"] < _fig["stitches_built"],
+      _fig["stitches_shaped_as_ordered"] < _fig["stitches_built"],
       "worst third-loop margin %.3f mm (flat %.3f), %d of %d stitches still shaped"
       % (worst_third_loop_margin(_fifab), flat_margin,
-         _fig["stitches_shaped_like_hdc"], _fig["stitches_built"]))
+         _fig["stitches_shaped_as_ordered"], _fig["stitches_built"]))
 check("it is geometry and not the instrument: the same instrument reads correct on the "
       "default solve at the same iteration count",
       worst_third_loop_margin(DR.drape(FLAT, replace(SETUP, iterations=400))[0]) < -0.5)
@@ -599,11 +599,11 @@ _fi2, _firep2 = DR.drape(FLAT, replace(SETUP, frame_invariant_rest=True, iterati
 _fig2 = CT.validate(_fi2, TWIN, max_rows=ROWS, max_cols=COLS)
 check("the product's validity is not monotone in the iteration count: broken at 400, valid "
       "again at 1600, so an end-of-solve check cannot see that it was ever broken",
-      _fig2["stitches_shaped_like_hdc"] == _fig2["stitches_built"] and
+      _fig2["stitches_shaped_as_ordered"] == _fig2["stitches_built"] and
       worst_third_loop_margin(_fi2) < 0.0 and _fig2["passes"] is True,
       "%d/%d shaped and margin %.3f mm at 1600, against %d/%d and %.3f mm at 400"
-      % (_fig2["stitches_shaped_like_hdc"], _fig2["stitches_built"],
-         worst_third_loop_margin(_fi2), _fig["stitches_shaped_like_hdc"],
+      % (_fig2["stitches_shaped_as_ordered"], _fig2["stitches_built"],
+         worst_third_loop_margin(_fi2), _fig["stitches_shaped_as_ordered"],
          _fig["stitches_built"], worst_third_loop_margin(_fifab)))
 # The reason to keep the option at all: it is the only thing tried so far that moves the
 # standing conformability symptom in the right direction.
@@ -641,8 +641,8 @@ check("wrapping the fabric round a 125mm cylinder leaves every stitch linked",
       "%s/%s" % (_wg["stitches_linked"], _wg["stitches_needing_linkage"]))
 check("wrapping the fabric round a cylinder leaves every stitch shaped like a half double, "
       "so the morphology check is not passing because the fabric was flat",
-      _wg["stitches_shaped_like_hdc"] == _wg["stitches_built"] == before["stitches_built"],
-      "%s/%s" % (_wg["stitches_shaped_like_hdc"], _wg["stitches_built"]))
+      _wg["stitches_shaped_as_ordered"] == _wg["stitches_built"] == before["stitches_built"],
+      "%s/%s" % (_wg["stitches_shaped_as_ordered"], _wg["stitches_built"]))
 check("no stitch becomes unframeable when the fabric is curved everywhere",
       _wg.get("stitches_unframeable", 0) == 0 and _wg["stitches_unmeasurable"] == 0)
 check("the wrapped fabric passes the same topology gate",
@@ -766,10 +766,10 @@ check("the linkage force never let a strand reach another",
 check("RECORDED NEGATIVE: tensile linkage plus co-rotation does not stop free-edge stitches "
       "everting, so the missing mechanism was not the missing tensile link",
       worst_third_loop_margin(_lffab) > 0.0 and
-      _lfg["stitches_shaped_like_hdc"] < _lfg["stitches_built"],
+      _lfg["stitches_shaped_as_ordered"] < _lfg["stitches_built"],
       "worst margin %+.3f mm (flat %+.3f, committed default %+.3f), %d of %d shaped"
       % (worst_third_loop_margin(_lffab), flat_margin, worst_third_loop_margin(DRAPED),
-         _lfg["stitches_shaped_like_hdc"], _lfg["stitches_built"]))
+         _lfg["stitches_shaped_as_ordered"], _lfg["stitches_built"]))
 
 # --- the control: the new force must not move the committed model -------------------------
 _lofab, _lorep = DR.drape(FLAT, replace(SETUP, stitch_linkage=True))
@@ -1105,6 +1105,124 @@ check("the guard stands aside rather than deadlocking when the fabric handed to 
 check("no option added in wave 5 moves the committed default by so much as a nanometre",
       float(np.abs(DR.drape(FLAT, SETUP)[0].points - DRAPED.points).max()) == 0.0,
       "%.3e mm" % float(np.abs(DR.drape(FLAT, SETUP)[0].points - DRAPED.points).max()))
+
+
+# =========================================================================================
+# WAVE 6 -- the reported motion was drift, the frictionless law takes stitches apart, and
+# the four things that let a drape actually arrive. Every option below is OFF by default;
+# the check above this block already proves the committed default is bitwise untouched.
+# =========================================================================================
+_w6 = replace(SETUP, iterations=40)
+_w6_40 = DR.drape(FLAT, _w6)[1]
+_w6_80 = DR.drape(FLAT, replace(_w6, iterations=80))[1]
+check("THE FINDING, PINNED: at the committed step the fabric's motion is LINEAR in the "
+      "iteration count -- free drift toward an equilibrium it has not reached, not drape",
+      1.8 < _w6_80.max_out_of_plane_mm / _w6_40.max_out_of_plane_mm < 2.2,
+      "40 it %.4f mm, 80 it %.4f mm, ratio %.3f" % (_w6_40.max_out_of_plane_mm,
+                                                     _w6_80.max_out_of_plane_mm,
+                                                     _w6_80.max_out_of_plane_mm / _w6_40.max_out_of_plane_mm))
+_w6_m = DR.drape(FLAT, replace(_w6, momentum=0.9))[1]
+check("momentum (FIRE) carries the fabric further in the same iterations and counts its resets",
+      _w6_m.max_out_of_plane_mm > 2.0 * _w6_40.max_out_of_plane_mm and _w6_m.momentum_resets > 0,
+      "%.4f vs %.4f mm, %d resets" % (_w6_m.max_out_of_plane_mm, _w6_40.max_out_of_plane_mm,
+                                       _w6_m.momentum_resets))
+_w6_s = DR.drape(FLAT, replace(_w6, step_multiplier=8.0))[1]
+check("the step multiplier, inside the stencil's stability margin, moves the fabric "
+      "proportionally further in the drift regime",
+      4.0 < _w6_s.max_out_of_plane_mm / _w6_40.max_out_of_plane_mm < 9.0 and not _w6_s.stalled,
+      "x%.2f" % (_w6_s.max_out_of_plane_mm / _w6_40.max_out_of_plane_mm))
+check("the trace records the motion so a caller can see whether a solve has stopped",
+      len(_w6_80.trace) == 1 and _w6_80.trace[0][0] == 50 and _w6_80.trace[0][1] > 0.0,
+      str(_w6_80.trace))
+
+# --- a sphere the fabric falls onto -------------------------------------------------------
+from brambleloop.visual import milestone_d as MD                 # noqa: E402
+_form = MD.sphere_form(FLAT)
+# On the reconciled force law (wave 5): the committed default's soft contact target is not a
+# fixed point of the certified fabric and never was, so every option is measured on top of
+# the configuration that is.
+_sph = replace(SETUP, clamp_fraction=0.0, iterations=300, support_sphere=_form, momentum=0.9,
+               step_multiplier=8.0, energy_gradient_bending=True, frame_invariant_rest=True,
+               contact_rest_is_relaxed_shape=True, bend_on_yarn_only=True)
+_sph_out, _sph_rep = DR.drape(FLAT, _sph)
+check("the fabric reaches the sphere and every entry is counted and pushed back out, to "
+      "within the length projection's say (the polish below makes it exact)",
+      _sph_rep.support_violations > 0 and MD.distance_to_form(_sph_out, _form) > -0.15,
+      "%d corrections, closest %.4f mm to the keep-out" % (_sph_rep.support_violations,
+                                                           MD.distance_to_form(_sph_out, _form)))
+_still, _still_rep = DR.drape(FLAT, replace(_sph, gravity=0.0, iterations=100, rigid_stitches=True,
+                                            support_friction=True, polish_passes=4))
+check("with the load off the certified fabric is still an exact fixed point of the solver "
+      "with every wave-6 option on -- momentum, step, rigid stitches, friction, polish",
+      float(np.abs(_still.points - FLAT.points).max()) < 1e-9,
+      "%.3e mm" % float(np.abs(_still.points - FLAT.points).max()))
+
+# --- the polish ends on the floor the solve was run against --------------------------------
+_pol_out, _pol_rep = DR.drape(FLAT, replace(_sph, polish_passes=4, support_friction=True))
+check("and the polish ends with the fabric out of the form as well as on the floor",
+      MD.distance_to_form(_pol_out, _form) > -1e-6,
+      "%.6f mm" % MD.distance_to_form(_pol_out, _form))
+_pol_gap, _ = CT.min_segment_separation(_pol_out.points, FLAT.yarn_diameter)
+check("the constraint polish hands `validate` a fabric that satisfies the compression floor "
+      "to a nanometre, and reports the strain it cost -- under one per cent, which is less "
+      "than yarn stretches before anything is felt",
+      _pol_gap >= FLAT.yarn_diameter * CT.COMPRESSED_CONTACT - CT.FLOOR_TOLERANCE_MM
+      and _pol_rep.polish_max_strain < 1e-2,
+      "gap %.9f mm, floor %.4f, polish strain %.2e" % (_pol_gap, FLAT.yarn_diameter * CT.COMPRESSED_CONTACT,
+                                                        _pol_rep.polish_max_strain))
+
+# --- the friction lock ---------------------------------------------------------------------
+_rng = np.random.default_rng(6)
+_q = _rng.normal(size=(9, 3))
+_th = 0.9
+_Rz = np.array([[np.cos(_th), -np.sin(_th), 0.0], [np.sin(_th), np.cos(_th), 0.0], [0.0, 0.0, 1.0]])
+_p = _q @ _Rz.T + 2.0
+check("shape matching recovers a rigid motion exactly and leaves it alone",
+      DR.shape_match(_p.copy(), _q, [(0, 9)]) < 1e-12)
+_p2 = _p.copy(); _p2[0] += 0.4
+_res = DR.shape_match(_p2, _q, [(0, 9)])
+check("and pulls a deformed shape back onto its rigid placement, reporting how far it was",
+      0.3 < _res < 0.5 and DR.shape_match(_p2.copy(), _q, [(0, 9)]) < 1e-12, "%.3f" % _res)
+_rig_out, _rig_rep = DR.drape(FLAT, replace(_sph, rigid_stitches=True, support_friction=True))
+_worst_rigid = 0.0
+for _a, _b in DR.op_slices(FLAT):
+    _worst_rigid = max(_worst_rigid, DR.shape_match(_rig_out.points[_a:_b].copy(),
+                                                    FLAT.points[_a:_b], [(0, _b - _a)]))
+check("with rigid stitches every operation stays within a tenth of the yarn's diameter of "
+      "its certified shape through a real drape -- the stress the lock bore -- and the "
+      "fabric still moves",
+      _worst_rigid < 0.1 * FLAT.yarn_diameter and _rig_rep.max_out_of_plane_mm > 1.0,
+      "worst residual %.4f mm, moved %.2f mm" % (_worst_rigid, _rig_rep.max_out_of_plane_mm))
+check("linkage, floor and contact are still the mechanics' to lose: the rigid-stitch drape "
+      "re-validates in the certified frame carried by each stitch's own motion",
+      CT.validate(_rig_out, TWIN, max_rows=ROWS, max_cols=COLS, reference=FLAT)["passes"],
+      str(CT.validate(_rig_out, TWIN, max_rows=ROWS, max_cols=COLS, reference=FLAT)["findings"]))
+
+# --- friction against the support ----------------------------------------------------------
+# A table with a sideways pull: a 200mm sphere under the swatch is flat to within 1mm over it,
+# and gravity is tilted 15 degrees. (The plane support is defined along `down`, so a tilted
+# gravity there tilts the table too, which is a fabric tipping off a corner, not sliding.)
+# Settling and sliding are separated by measuring the centroid at 300 and at 600 iterations:
+# what happens between them is sliding. And the friction lock inside the stitch is on for
+# both runs, because friction against the table cannot hold a yarn that flows freely within
+# its own stitches -- measured: pinned vertices did not drift by a nanometre while the fabric
+# crept 0.6mm past them.
+_table = MD.sphere_form(FLAT, radius_mm=200.0)
+_tilt = np.array([np.sin(np.radians(15.0)), 0.0, -np.cos(np.radians(15.0))])
+def _x_after(iterations, friction):
+    out, rep = DR.drape(FLAT, replace(_sph, support_sphere=_table, iterations=iterations,
+                                      down=tuple(_tilt), rigid_stitches=True,
+                                      support_friction=friction))
+    return float(out.points[:, 0].mean() - FLAT.points[:, 0].mean()), rep
+_slide = _x_after(600, False)[0] - _x_after(300, False)[0]
+_x600, _rep600 = _x_after(600, True)
+_stick = _x600 - _x_after(300, True)[0]
+check("a fabric on a tilted frictionless table keeps sliding; with support friction it stops "
+      "where it landed, and the vertices friction holds have not drifted",
+      _slide > 0.2 and abs(_stick) < 0.1 * _slide and _rep600.stuck_vertices > 0
+      and _rep600.stuck_drift_mm < 1e-9,
+      "slid %.4f mm between 300 and 600 iterations without friction, %.4f mm with; %d held, "
+      "drift %.2e" % (_slide, _stick, _rep600.stuck_vertices, _rep600.stuck_drift_mm))
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

@@ -1,0 +1,11 @@
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   the block names the monthly ceiling as a figure
+OK   scoped paid-media caps are reported as none configured with the reason
+OK   the bare sentence that said the company had no limits is gone
+OK   the dashboard page renders the governance block
+OK   the data behind the block is structured, not only prose
+OK   mixed recorded costs do not become observed actual
+OK   page renders with nullable actual and explicit unknown closure
+
+  7 passing, 0 failing

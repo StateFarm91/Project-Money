@@ -1,0 +1,2876 @@
+[
+ {
+  "uid": "F-091",
+  "launch_class": "MATURE",
+  "launch_class_reason": "provider neutrality is resilience/scale work; a single working provider behind ceilings is sufficient for a safe first sale",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Text judgement goes through the provider-neutral ModelGateway (Provider protocol, failover, circuit breakers), but vision/judgement callers (visual/inspect.py, visual/bible.py, visual/photoreal.py, visual/tournament.py, visual/model_registry.py, culture/classify.py) call gateway.anthropic.provider_for/AnthropicProvider.see directly, so those business agents depend on one vendor module; only one text/vision Provider implementation exists (AnthropicProvider).",
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway.complete_json",
+  "durable_state": "cost_entries (kind=llm)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_model_probe",
+  "protected_effect": "provider swap without touching callers (claimed, unproven for vision)",
+  "tests": [
+   "tests/test_gateway.py::test_failover_moves_to_the_next_provider",
+   "tests/test_gateway.py::test_a_provider_that_is_down_opens_its_circuit_and_is_skipped",
+   "tests/test_gateway.py::test_with_no_provider_the_gateway_says_so_instead_of_pretending",
+   "tests/test_cert_cost.py::test_every_production_model_gateway_is_constructed_with_a_registry"
+  ],
+  "evidence": [
+   "src/brambleloop/gateway/model_gateway.py (Provider protocol, EchoProvider, failover loop)",
+   "grep: 'anthropic as gw' imported by visual/inspect.py, visual/bible.py, visual/photoreal.py, visual/tournament.py, visual/model_registry.py, culture/classify.py, ops/provider_accounts.py (direct vendor module use)",
+   "image generation IS provider-neutral: gateway/images.py PROVIDERS bfl/openai/google/volcengine dialects",
+   "module_reachability: gateway/model_gateway.py reached, in_production_fcb982d true"
+  ],
+  "build2_rows": [
+   "#50 COMPLETE+PROVEN",
+   "#96 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "ops/dependencies.py DEPENDENCIES['model_provider'].recovery claims 'the gateway already routes across providers ... swap the key for another vendor's without touching the callers' -- untrue for the vision/judgement paths that call gateway.anthropic directly.",
+  "next_action": "Add a vision method to the Provider protocol in gateway/model_gateway.py (e.g. ModelGateway.see_json) and migrate the six direct gateway.anthropic callers to it; add a test that no module outside gateway/ imports gateway.anthropic.AnthropicProvider/provider_for; correct the ops/dependencies.py model_provider recovery text until then.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-092",
+  "launch_class": "MATURE",
+  "launch_class_reason": "dependency measurement informs diversification decisions, not first-sale safety",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Concentration is measured only by 30-day spend per provider (scale/dependency.report); calls, critical workflows and 'requirements lost during outage' are not reported. The ai_provider axis also mixes image-generation providers (bfl/openai/google rows written with kind=llm by gateway/images.py) with judgement/vision providers, so image spend can make the judgement dependency read as diversified.",
+  "producer": "src/brambleloop/scale/dependency.py::report",
+  "durable_state": "cost_entries; incidents (signature anti-fragility:ai_provider)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_dependency_sweep",
+  "protected_effect": "an existential provider concentration is raised as an incident",
+  "tests": [
+   "tests/test_dependency.py::test_the_axis_that_is_genuinely_existential_today_says_so",
+   "tests/test_cert_dependencies.py::test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential",
+   "tests/test_cert_dependencies.py::test_a_billed_provider_the_map_does_not_name_is_raised"
+  ],
+  "evidence": [
+   "scale/dependency.py report(): providers = spend by CostEntry.provider over 30 days, fallback available_providers()",
+   "runtime/worker.py CADENCES dependency_sweep -> ops.dependencies (daily); not present in production fcb982d (prod report is config-based, no sweep)",
+   "gateway/images.py writes image spend with provider=image provider key and kind=routing.COST_KIND"
+  ],
+  "build2_rows": [
+   "#29 COMPLETE+PROVEN",
+   "#50 COMPLETE+PROVEN",
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "ai_provider axis sums image-generation spend together with judgement/vision spend (scale/dependency.py report), so the concentration of load-bearing judgement on Anthropic can be masked.",
+  "next_action": "Split the ai_provider axis in scale/dependency.py into judgement_vision and image_generation (filter by gateway.images provider keys), add call counts per provider from cost_entries, and add 'requirements parked if provider down' from build2.executor gates model_provider/image_vision; test in tests/test_dependency.py.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-093",
+  "launch_class": "MATURE",
+  "launch_class_reason": "classification is owner visibility for resilience planning, not a first-sale control",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "The EXISTENTIAL verdict depends on concentration + load, not on 'tested fallback exists'; a second configured/billed provider (e.g. an image provider or an untested key) flips the verdict to sound without any tested fallback.",
+  "producer": "src/brambleloop/scale/dependency.py::act",
+  "durable_state": "incidents (anti-fragility:ai_provider)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_dependency_sweep",
+  "protected_effect": "existential dependency raised as P2 incident until resolved",
+  "tests": [
+   "tests/test_dependency.py::test_the_axis_that_is_genuinely_existential_today_says_so",
+   "tests/test_cert_dependencies.py::test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential"
+  ],
+  "evidence": [
+   "scale/dependency.py assess(): EXISTENTIAL when concentrated and load_bearing (ai_provider load_bearing=True always)",
+   "production fcb982d has report() via /api/dependency but no ops.dependencies sweep; prod available_providers() counts ANTHROPIC and OPENAI keys, so a configured image key could read as diversification"
+  ],
+  "build2_rows": [
+   "#29 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "Verdict can read 'sound' from a second provider that has never passed a fallback test (no tested-fallback criterion).",
+  "next_action": "In scale/dependency.py make the ai_provider axis existential unless a recorded fallback drill (F-097 evidence row) passed within N days for the judgement/vision workload; test that a second billed image provider does not clear it.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-094",
+  "launch_class": "MATURE",
+  "launch_class_reason": "second-provider decision is post-launch resilience economics",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No trigger computes outage/price/terms/volume/revenue-dependence/downtime-cost justification for diversification; only the anti-fragility 'plan vs existential' verdict exists.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "scale/dependency.py has the 'do not diversify before understood' half (PLAN verdict), not a diversification trigger",
+   "ops/funding.py records provider balance outages (inputs a trigger could use)"
+  ],
+  "build2_rows": [
+   "#29 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add scale/dependency.py::diversification_trigger(db) reading ops.funding outage records, model.probe failures, provider price table changes and revenue share; raise an owner card only when a threshold is crossed; test that symmetry alone does not trigger.",
+  "confidence": "MEDIUM",
+  "searched": "grep -i 'second provider|diversif|fallback provider' src/; scale/dependency.py; ops/funding.py; gateway/routing.py"
+ },
+ {
+  "uid": "F-095",
+  "launch_class": "MATURE",
+  "launch_class_reason": "fallback contract matters once a fallback is contemplated",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No structured contract (structured output, vision, context, quality, latency, cost) a fallback must meet before satisfying a gate.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "gateway/routing.py Tier/Task define model per task and price, not a fallback capability contract",
+   "gateway/image_bench.py CANDIDATES rules image providers out on published capability (image-only precedent)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add gateway/routing.py FALLBACK_CONTRACT per task tier (json schema adherence, vision required, min context, eval pass rate from gateway/evals.py, p95 latency, CAD ceiling) and refuse routing a gate task to a provider lacking a passing contract record; tests in tests/test_gateway.py.",
+  "confidence": "HIGH",
+  "searched": "grep -i 'fallback|contract' src/brambleloop/gateway; gateway/routing.py; gateway/image_bench.py"
+ },
+ {
+  "uid": "F-096",
+  "launch_class": "MATURE",
+  "launch_class_reason": "golden-task compatibility pack supports provider change, post-launch",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "gateway/evals.py holds property evals for model output but is unreached and has no extraction/vision/creative-jury/benchmark-comparison/improvement-analysis golden tasks; image provider benchmarking exists (gateway/image_bench.py) for image generation only.",
+  "producer": "src/brambleloop/gateway/evals.py::run_evals",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_gateway.py::test_evals_pass_on_well_behaved_output",
+   "tests/test_gateway.py::test_evals_catch_invented_review_counts"
+  ],
+  "evidence": [
+   "module_reachability: gateway/evals.py reached=false",
+   "gateway/image_bench.py: blind multi-provider image benchmark (creative.image_benchmark cadence) -- image only"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Create gateway/compat_pack.py with provider-neutral golden tasks (extraction, vision gallery reading, creative jury, benchmark comparison, improvement analysis) scored deterministically; run it against EchoProvider in tests and against the live provider in a gated drill.",
+  "confidence": "MEDIUM",
+  "searched": "gateway/evals.py; gateway/image_bench.py; grep 'golden'"
+ },
+ {
+  "uid": "F-097",
+  "launch_class": "MATURE",
+  "launch_class_reason": "only meaningful once a fallback provider exists",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No shadow failover drill routing sampled safe work to a fallback and comparing quality/cost/latency.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "no second text/vision Provider implementation exists on 019ebf0"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "model_provider_fallback",
+   "detail": "a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100)"
+  },
+  "defect": null,
+  "next_action": "Software prep now: add a drill handler (e.g. runtime/release.py 'model.failover_drill') that routes a sampled safe task through ModelGateway with provider order reversed and records quality/cost/latency; gated to no-op while only one provider is configured.",
+  "confidence": "HIGH",
+  "searched": "grep -i 'drill|failover' src/brambleloop"
+ },
+ {
+  "uid": "F-098",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "prevents a weaker/absent model silently passing quality gates during an outage (product truth, no silent downgrade)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/worker.py::park_if_model_down / model_provider_down (+ ops/funding.py::note, gateway circuit breaker)",
+  "durable_state": "audit_log (ai.parked; ops.funding_exhausted); jobs.status/run_after (parked pending); owner_actions",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (every claimed job)",
+  "protected_effect": "spent balance stops spending and raises one owner action; AI gates park dependent build work; no model verdict replaces deterministic validation",
+  "tests": [
+   "tests/test_access.py::test_evidence_labelled_as_observation_is_downgraded_when_nothing_observed_it",
+   "tests/test_funding.py::test_a_spent_balance_stops_the_spending_it_cannot_check",
+   "tests/test_gateway.py::test_a_provider_that_is_down_opens_its_circuit_and_is_skipped",
+   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
+   "tests/test_w4_auto_spend_wiring.py::test_failed_probe_and_spent_balance_are_outage_evidence",
+   "tests/test_w4_auto_spend_wiring.py::test_long_parked_job_runs_and_reports_its_own_refusal",
+   "tests/test_w4_auto_spend_wiring.py::test_model_job_parks_while_the_provider_is_down",
+   "tests/test_w4_auto_spend_wiring.py::test_non_model_job_is_never_parked",
+   "tests/test_w4_auto_spend_wiring.py::test_unprobed_provider_is_unknown_not_down_and_parks_nothing"
+  ],
+  "evidence": [
+   "ops/funding.py (found live 2026-09-21: vision credit exhausted; image providers kept working)",
+   "gateway/model_gateway.py require_deterministic",
+   "launch/access.py accept_evidence (No Silent Downgrade #224)",
+   "ops/funding.py in production fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: runtime/worker.py::park_if_model_down / model_provider_down is called by Worker.run_once before every handler; a MODEL_JOB_TYPES job is parked (pending, attempt not counted, audited ai.parked) only on outage evidence (failover DOWN, open Anthropic funding action, failed probe); an unprobed provider is UNKNOWN and parks nothing; a non-model job always runs; a job parked >24h runs and reports its own refusal (no substitute verdict)"
+  ],
+  "build2_rows": [
+   "#224 COMPLETE+PROVEN",
+   "#50 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: deploy carries the outage mode (fcb982d does not)",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-099",
+  "launch_class": "MATURE",
+  "launch_class_reason": "pricing/model watch is cost optimisation after launch",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "Provider prices live in a static table (gateway/anthropic.py PRICES_USD_PER_MTOK, gateway/images.py cad_per_image) with no versioned watch or routing-economics re-run on change.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "gateway/anthropic.py PRICES_USD_PER_MTOK constant",
+   "ops.policy_watch covers Etsy policy, not provider pricing",
+   "spend_report.estimate_drift detects estimate-vs-bill drift (a lagging symptom only)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Version the price table (gateway/routing.py PRICE_TABLE_VERSION + effective date), record provider model-availability probe results, and on a version change enqueue a routing-economics review (gateway/routing.plan) with an audit row; test that a changed price triggers the review.",
+  "confidence": "HIGH",
+  "searched": "grep -i 'price.*version|model availability|pricing watch' src/"
+ },
+ {
+  "uid": "F-100",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority/spend control: new provider spend needs owner approval",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No diversification approval record/card carrying measured resilience value; connecting a provider is gated only implicitly (unregistered providers refused, keys supplied by the owner, ceilings enforced)",
+  "producer": "src/brambleloop/finance/spend_policy.py::may_spend; src/brambleloop/gateway/images.py::generate (unknown provider refusal)",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gateway/anthropic.py::check_budget_cad",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_cost.py::test_unknown_image_providers_are_refused_before_any_request",
+   "tests/test_cert_cost.py::test_an_entry_in_either_table_is_enforced"
+  ],
+  "evidence": [
+   "tests assert ceilings and unknown-provider refusal, not an owner diversification approval",
+   "scale/dependency.py measures provider concentration (reached via /api/dependency) but nothing links it to an approval"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN",
+   "#223 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "model_provider",
+   "detail": "funding a second provider is an owner decision; the approval card itself is buildable now"
+  },
+  "defect": null,
+  "next_action": "Add a launch/access.py AccessRequest 'second model provider' whose card carries scale/dependency.py's measured provider concentration and outage impact plus max cost, and refuse provider registration in gateway routing without an approved row; test it",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-101",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "spend ceiling integrity is an authority/spend control",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/routing.py::spent_this_month",
+  "durable_state": "cost_entries (kind='llm' = routing.COST_KIND)",
+  "consumer": "src/brambleloop/gateway/anthropic.py::check_budget_cad",
+  "protected_effect": "every billable model/vision/image call is counted by the one ceiling that refuses",
+  "tests": [
+   "tests/test_model_spend_paths.py::test_no_model_spend_path_reaches_a_provider_without_the_ceiling_check",
+   "tests/test_model_spend_paths.py::test_the_scan_catches_a_spend_path_added_without_a_ceiling_check",
+   "tests/test_cert_spend_hosts.py::test_every_file_addressing_a_paid_provider_is_declared",
+   "tests/test_cert_cost.py::test_exhausted_month_refuses_before_the_image_provider_is_called"
+  ],
+  "evidence": [
+   "gateway/routing.py COST_KIND='llm' used by gateway/model_gateway.py, gateway/anthropic.py, gateway/images.py, routing.record (alias 'model' removed)",
+   "production fcb982d uses routing.COST_KIND in anthropic/images/model_gateway",
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json model_spend_within_its_ceiling: spent_this_month_cad 76.40 of 100 from ledger rows"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (re-verify after final deploy via /api/verify)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-102",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "pre-call refusal is the spend control itself",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/anthropic.py::check_budget_cad",
+  "durable_state": "spend_reservations (finance/reservations.py)",
+  "consumer": "src/brambleloop/gateway/model_gateway.py::ModelGateway.complete_json",
+  "protected_effect": "a call whose padded upper bound would cross a ceiling is refused before the provider is asked; unpriced models refused",
+  "tests": [
+   "tests/test_model_provider.py::test_a_call_that_would_cross_the_ceiling_is_refused_before_it_is_made",
+   "tests/test_model_provider.py::test_an_unpriced_model_is_an_unbounded_call_and_is_refused",
+   "tests/test_model_provider.py::test_the_budget_assumes_the_whole_output_allowance_is_used",
+   "tests/test_cost_governance_wave2.py::test_a_check_writes_a_reservation_before_the_call_and_another_process_sees_it",
+   "tests/test_cert_cost.py::test_two_holders_cannot_together_exceed_the_monthly_ceiling"
+  ],
+  "evidence": [
+   "gateway/anthropic.py ESTIMATE_PADDING=1.25, estimate_cad assumes full max_tokens",
+   "ModelGateway.complete_json reserves before breaker.call (added 2026-09-26, after fcb982d: prod ModelGateway billed after the call via registry.record_cost)"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none on main line; production parity arrives only with the Build 2/Final deploy (owner-authorised merge), then confirm via /api/verify",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-103",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "estimate-vs-bill reconciliation keeps the ceiling honest",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "provider-billing settlement runs only with the admin usage keys",
+  "producer": "src/brambleloop/ops/provider_accounts.py::settle (+ spend_report.estimate_drift)",
+  "durable_state": "cost_entries.estimated_cad + amount_cad; spend_reservations",
+  "consumer": "src/brambleloop/finance/spend_report.py::governance; /api/verify estimate_drift (CC)",
+  "protected_effect": "drift outside +/-25% or >share unreserved degrades the spend reading on the dashboard",
+  "tests": [
+   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles",
+   "tests/test_cost_governance_wave2.py::test_release_returns_the_money_and_records_what_the_call_actually_cost",
+   "tests/test_spend_policy.py::test_a_call_with_no_reservation_is_counted_separately_from_a_variance_of_zero",
+   "tests/test_spend_policy.py::test_the_reservation_is_kept_beside_the_bill",
+   "tests/test_w4_cc_company.py::test_estimate_drift_on_verify_and_money_labelled_settlement_owner_gated",
+   "tests/test_w4_spenda_k5a.py::test_a_bucket_of_several_calls_is_settled_without_inventing_per_call_actuals",
+   "tests/test_w4_spenda_k5a.py::test_settlement_against_the_provider_bill_writes_observed_and_opens_an_incident"
+  ],
+  "evidence": [
+   "gateway/anthropic.py release_reservation(actual_cad)",
+   "finance/spend_report.py variance/estimate_drift; governance() reached from dashboard",
+   "production fcb982d has variance() but not estimate_drift/governance",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: post-call settlement against provider billing (single-call buckets observed, multi-call never apportioned); drift on /api/verify"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "provider_usage_api",
+   "detail": "read-only provider usage/cost admin keys (ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY) in Railway; without them settlement is OWNER_GATED and nothing is fetched"
+  },
+  "defect": null,
+  "next_action": "owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-104",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "an unpriced call reading CA$0 would silently bypass the ceiling",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway._estimate_cad",
+  "durable_state": "audit_log (spend refusal rows)",
+  "consumer": "src/brambleloop/gateway/anthropic.py::estimate_cad",
+  "protected_effect": "unpriced/zero-rate model refused before the call; zero-cost-with-tokens rows still written; unknown dimensions counted as 'unattributed'",
+  "tests": [
+   "tests/test_gateway.py::test_a_model_with_no_price_is_refused_rather_than_billed_at_zero",
+   "tests/test_gateway.py::test_a_call_priced_at_zero_still_leaves_the_tokens_it_spent",
+   "tests/test_cert_cost.py::test_the_model_gateway_refuses_an_unpriced_model_rather_than_pricing_it_at_zero",
+   "tests/test_spend_policy.py::test_unknown_spend_is_counted_rather_than_dropped"
+  ],
+  "evidence": [
+   "C-35 FIXED (BUILD2_CERTIFICATION.md)",
+   "prod fcb982d: anthropic.estimate_cad refuses unpriced models; ModelGateway C-35 fix is post-fcb982d"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (deploy parity with the final release)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-105",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility of money",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_report.py::governance",
+  "durable_state": "cost_entries; spend_reservations",
+  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "protected_effect": "owner sees measured vs reserved vs unattributed separately",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_spend_report_numbers_equal_sql",
+   "tests/test_cost_governance_wave2.py::test_the_spend_signal_can_see_money_that_is_reserved_and_not_yet_billed",
+   "tests/test_spend_governance.py::test_a_row_written_before_the_columns_existed_still_attributes_from_detail",
+   "tests/test_spend_governance.py::test_every_dimension_says_where_its_number_came_from"
+  ],
+  "evidence": [
+   "finance/spend_report.py what_it_bought (projection labelled arithmetic), variance.calls_with_no_reservation",
+   "grep 'historical unknown' -> none",
+   "w3 handoff_SPEND.md claim: - **F-105**: governance `honesty` keeps measured, estimate/upper-bound and historical-unknown spend apart."
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a 'historical_unknown' block to finance/spend_report.governance: rows with estimated_cad null or provider/model empty before the C-34 cut-over date, reported separately and never summed into measured-with-estimate; test it.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
+ },
+ {
+  "uid": "F-106",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "spend truth against the real bill",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "settlement against the provider's own bill needs the admin usage keys",
+  "producer": "src/brambleloop/ops/provider_accounts.py::settle_all (fetch_provider_costs + settle)",
+  "durable_state": "audit_log (ops.provider_account_reported); cost_entries",
+  "consumer": "src/brambleloop/finance/governor.py::enforce; ops/provider_accounts.reconcile -> /api/funding",
+  "protected_effect": "owner sees ledger vs reported balance side by side",
+  "tests": [
+   "tests/test_provider_accounts.py::test_a_reported_balance_is_never_treated_as_a_capability",
+   "tests/test_provider_accounts.py::test_the_dashboard_figure_is_reconciled_against_our_own_ledger",
+   "tests/test_w4_spenda_k5a.py::test_provider_cost_reports_parse_in_cents_and_per_day",
+   "tests/test_w4_spenda_k5a.py::test_settlement_against_the_provider_bill_writes_observed_and_opens_an_incident",
+   "tests/test_w4_spenda_k5a.py::test_the_governor_pass_records_the_settlement_state",
+   "tests/test_w4_spenda_k5a.py::test_without_an_admin_key_billing_is_owner_gated_and_nothing_is_fetched"
+  ],
+  "evidence": [
+   "ops/provider_accounts.py (reached via /api/funding; in production fcb982d)",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: provider billing is fetched read-only and settled day x model; a material gap opens a P2 incident (the owner-typed-figures defect is gone)"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "provider_usage_api",
+   "detail": "read-only provider usage/cost admin keys (ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY) in Railway; without them settlement is OWNER_GATED and nothing is fetched"
+  },
+  "defect": null,
+  "next_action": "owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-107",
+  "launch_class": "MATURE",
+  "launch_class_reason": "value-unit attribution is optimisation; core attribution exists",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Attributed by purpose, model, provider, agent, department, product (finance/spend_report.what_it_bought) and task/experiment in finance/governor; not by requirement or benchmark as first-class columns.",
+  "producer": "src/brambleloop/finance/spend_report.py::what_it_bought",
+  "durable_state": "cost_entries (provider, model, purpose, department, product_slug, job_id)",
+  "consumer": "src/brambleloop/app/main.py::api_governor",
+  "protected_effect": "owner can see what the money bought",
+  "tests": [
+   "tests/test_spend_policy.py::test_the_report_answers_by_every_dimension",
+   "tests/test_governor.py::test_all_five_dimensions_the_requirement_names_are_reconciled",
+   "tests/test_spend_governance.py::test_department_is_read_from_the_column_the_single_writer_actually_writes"
+  ],
+  "evidence": [
+   "finance/governor.py (reached, in production)"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN",
+   "#31 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add requirement_id and benchmark_key attribution (CostEntry.detail or columns) set from job inputs in the gateway writers; extend what_it_bought buckets and tests.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-108",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "a spend test on a side path would certify a control production does not use",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway.complete_json",
+  "durable_state": "cost_entries; spend_reservations",
+  "consumer": "src/brambleloop/runtime/release.py::handle_model_probe",
+  "protected_effect": "tests exercise the same check_budget_cad/ledger path production calls",
+  "tests": [
+   "tests/test_cert_cost.py::test_a_provider_ceiling_binds_on_spend_made_through_the_model_gateway",
+   "tests/test_cert_cost.py::test_every_production_model_gateway_is_constructed_with_a_registry",
+   "tests/test_model_spend_paths.py::test_every_visual_spend_path_passes_its_agent_and_releases_its_reservation",
+   "tests/test_cert_cost.py::test_exhausted_month_refuses_before_the_model_provider_is_called"
+  ],
+  "evidence": [
+   "C-31, C-34 FIXED",
+   "tests/test_model_spend_paths.py AST scan of every provider call site"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-109",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "a denied over-budget call must leave durable evidence for owner visibility",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/paid_calls.py",
+  "durable_state": "audit_log (spend refusal action); jobs.status=DEAD with 'budget exceeded'",
+  "consumer": "runtime/worker.Worker.run_once -> finance/spend_report.attributed_to (job scope)",
+  "protected_effect": "refusals counted by ceiling on the dashboard",
+  "tests": [
+   "tests/test_chaos.py::test_exhausted_agent_budget_stops_work_without_crashing_the_worker",
+   "tests/test_spend_governance.py::test_a_breached_daily_ceiling_still_records_what_was_spent",
+   "tests/test_spend_governance.py::test_the_refusal_itself_is_unchanged",
+   "tests/test_w3_spend_paid_calls.py::test_a_budget_refusal_survives_the_callers_rollback"
+  ],
+  "evidence": [
+   "runtime/worker.py BudgetExceeded -> queue.fail(retry=False) + audit job.budget_exceeded (also in prod)",
+   "record_refusal absent from production fcb982d",
+   "w3 handoff_SPEND.md claim: - **F-307, F-339, F-109**: `test_a_budget_refusal_survives_the_callers_rollback`."
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a test that raises inside an outer db.session after check_budget_cad refuses and asserts the refusal AuditLog row persists.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
+ },
+ {
+  "uid": "F-110",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "prevents silently degrading creative/vision quality to fit budget",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_policy.py",
+  "durable_state": "owner_actions (key spend.ceiling.YYYY-MM); audit_log finance.escalation_checked",
+  "consumer": "`spend_report",
+  "protected_effect": "owner asked for more budget with measured burn before work is degraded",
+  "tests": [
+   "tests/test_escalation.py",
+   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
+   "tests/test_spend_policy.py::test_an_escalation_carries_all_six_fields_the_owner_asked_for",
+   "tests/test_spend_policy.py::test_stopping_at_the_cap_names_the_constrained_work_rather_than_degrading"
+  ],
+  "evidence": [
+   "runtime/worker.py CADENCES spend_escalation -> finance.escalation_check (6h); not in production fcb982d",
+   "w3 handoff_SPEND.md claim: - **F-183, F-184, F-110**: `spend_policy.vocabulary / binding_ceiling / escalation`. These go through `spend_report.governance` to `app/main.py` spend controls."
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Feed finance/spend_report.refusals() (purposes refused this month) into escalation(constrained=...) inside handle_finance_escalation_check; test that a refused creative purpose appears in the owner card.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
+ },
+ {
+  "uid": "F-111",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: legacy pre-calibration products must not publish",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/eligibility.py::product_publication, legacy_status; products/launch0.py::launch_scope_slugs",
+  "durable_state": "pattern_versions.certificate.gauge_standard",
+  "consumer": "publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates (store.publish)",
+  "protected_effect": "a slug outside Launch-0 is refused LEGACY_PRE_CALIBRATION unless re-certified under GAUGE_STANDARD cyc-sc-band/1",
+  "tests": [
+   "tests/test_eligibility.py::test_a_legacy_catalogue_slug_is_refused_publication_until_recertified",
+   "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0"
+  ],
+  "evidence": [
+   "gauge_findings now wired into certify (strict patch applied; fb3-G derived catalogue gauges from the yarn band), so re-certification under the stamp is a real re-examination",
+   "not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-112",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: implausible gauge must be refused, not warned",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::gauge_findings",
+  "durable_state": "pattern_versions.certificate (findings, gauge_standard)",
+  "consumer": "runtime/pipeline.py::handle_certify -> certify (GAUGE_OUTSIDE_DECLARED_YARN_BAND / GAUGE_WITHOUT_YARN_EVIDENCE are ERRORs)",
+  "protected_effect": "a gauge the declared yarn cannot hold is refused unless a bound physical test of this content evidences it; the PDF note is only a statement on an evidenced release",
+  "tests": [
+   "tests/test_gates.py::test_a_worsted_16_sts_pattern_fails_certification_rather_than_printing_a_swatch_note",
+   "tests/test_gates.py::test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content",
+   "tests/test_gates.py::test_a_gauge_typed_against_no_yarn_is_refused_and_a_benchmark_is_not_judged",
+   "tests/test_gates.py::test_the_runtime_author_derives_its_gauge_from_the_declared_yarn"
+  ],
+  "evidence": [
+   "certificate.py:292 findings.extend(gauge_findings(...))",
+   "publish/pdf.py:1053 note rewritten as statement, not compensation",
+   "DECISION_LOG mentions F-112"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-113",
+  "launch_class": "MATURE",
+  "launch_class_reason": "salvage of legacy products is post-launch portfolio work (F-120: launch does not wait on salvage)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No salvage workflow re-runs creative/MJs-market/seasonal/novelty/portfolio gates over legacy products and retires the weak; the gates exist individually (creative jury, novelty, seasonal, portfolio) but are not applied as a legacy disposition.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "creative/audit.catalogue_concepts compiles the eleven (novelty/audit), products.launch0.excluded_from_launch0 (truth gates only)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add products/legacy.py::disposition() running creative.jury, creative.standard, intel MJs challenge, seasonal lead-time and commerce.portfolio over each flat.CATALOGUE slug, writing RETIRE/RE-ENGINEER with reasons; test it.",
+  "confidence": "MEDIUM",
+  "searched": "grep -i 'salvage|retire|legacy' src/brambleloop"
+ },
+ {
+  "uid": "F-114",
+  "launch_class": "MATURE",
+  "launch_class_reason": "re-engineering legacy concepts is post-launch catalogue growth",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "The chain exists (creative/prototype derives gauge from yarn band; compiler, twin, reverse compiler, release chain), but no path takes a legacy product through it; legacy products stay on their constant gauges.",
+  "producer": "src/brambleloop/creative/prototype.py::author",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_prototype.py::test_the_gauge_is_derived_from_the_yarn_rather_than_typed"
+  ],
+  "evidence": [
+   "products/builder.py, products/texture.py, runtime/pipeline.py use constant Gauge(...) values"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "After F-113 disposition, author RE-ENGINEER candidates via creative.prototype.author and run them through gate.certify; test one legacy slug end to end.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-115",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "stale PDFs/listings/support for a re-engineered product misrepresent it",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/artefacts.py",
+  "durable_state": "artefact_provenance; incidents (halts_publication per product)",
+  "consumer": "`ops.artefacts.check` marks un-instrumented artefacts of a superseded version (or a retired `LEGACY_DUPLICATES` slug) as retired. Their state stays `unproven` (never fresh), with `retired`/`invalidated` set on the verdict, and they leave the instrumentation backlog and the coverage denominator. I chose this over a new state so that `test_cert_provenance`'s all-unproven assertion still holds unchan",
+  "protected_effect": "stale descendants halt that product's publication and request rebuild",
+  "tests": [
+   "tests/test_artefacts.py::test_every_artefact_class_the_requirement_names_is_watched",
+   "tests/test_artefacts.py::test_moving_an_upstream_under_a_fresh_artefact_turns_it_stale",
+   "tests/test_artefacts.py::test_the_sentinel_incident_actually_stops_certification",
+   "tests/test_cert_rebuild_chain.py::test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it",
+   "tests/test_w3_k7_ops_truth.py::test_reengineering_invalidates_legacy_unprovenanced_artefacts"
+  ],
+  "evidence": [
+   "ops/artefacts.py ARTEFACT_CLASSES",
+   "ops.sentinel hourly cadence",
+   "w3 handoff_K7.md claim: | F-115 Legacy artefact invalidation | COMPLETE | `test_reengineering_invalidates_legacy_unprovenanced_artefacts` → `ops.artefacts.check` marks un-instrumented artefacts of a superseded version (or a retired `LEGACY_DUPLICATES` slug) as retired. Their state stays `unproven` (never fresh), with `reti"
+  ],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN",
+   "#172 COMPLETE+PROVEN",
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Backfill (ops.backfill) then graduate artefact classes so UNPROVEN legacy artefacts block; add a test that a re-engineered legacy slug (new CIR hash) turns its backfilled PDF/listing/support rows STALE.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-116",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "correct patterns: gauge must come from yarn evidence",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/creative/prototype.py::gauge_for",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/pipeline.py::concept_to_cir",
+  "protected_effect": "gauge derived from declared weight band (prototype only)",
+  "tests": [
+   "tests/test_gates.py::test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content",
+   "tests/test_prototype.py::test_the_finished_size_is_the_input_and_the_stitch_count_is_derived",
+   "tests/test_prototype.py::test_the_gauge_is_derived_from_the_yarn_rather_than_typed"
+  ],
+  "evidence": [
+   "creative/prototype.py reached via /api/seasonal-cycle",
+   "grep 'Gauge(' : runtime/pipeline.py:100 worsted 16/14; products/vessels.py:28-29; products/garments.py:460,477; products/texture.py:23-24",
+   "w3 lane K triage R: concept_to_cir derives gauge from declared yarn; certify gauge stage"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Replace the constant in runtime/pipeline.concept_to_cir with creative.prototype.gauge_for(declared weight); add a declared-yarn-evidence field for Launch-0 cotton gauges (published band source) and a test refusing any CIR whose gauge is typed without yarn or calibration evidence.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): concept_to_cir derives gauge from declared yarn; certify gauge stage"
+ },
+ {
+  "uid": "F-117",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "finished-size claims must be true",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/products/garments.py",
+  "durable_state": "physical_tests",
+  "consumer": "`TWIN_DIMENSION_UNSUPPORTED`, drift → `TWIN_DIMENSION_IMPLAUSIBLE` (ERROR). Every launch0/garment statement verified inside tolerance.",
+  "protected_effect": "a wrong-size object is refused/halted",
+  "tests": [
+   "tests/test_physical.py::test_a_sample_that_disagrees_about_size_halts_the_product",
+   "tests/test_physical.py::test_a_size_disagreement_is_a_defect_not_a_calibration",
+   "tests/test_prototype.py::test_a_compiling_cir_that_describes_the_wrong_object_is_refused",
+   "tests/test_risk_matrix.py::test_a_stated_finished_size_outside_tolerance_of_the_twin_blocks_certification",
+   "tests/test_risk_matrix.py::test_every_launch0_and_garment_size_statement_is_inside_tolerance"
+  ],
+  "evidence": [
+   "creative/prototype.py SIZE_TOLERANCE=0.20",
+   "products/launch0.py title/assembly/fabric promise gates",
+   "w3 handoff_K6.md claim: | F-117 Twin plausibility | COMPLETE | `plausibility_findings` in certify stage 2a: every stated finished dimension (not \"to fit\" body sizes) must be within 10% of a twin figure (garments: `products.garments.built_measures`); none → `TWIN_DIMENSION_UNSUPPORTED`, drift → `TWIN_DIMENSION_IMPLAUSIBLE` "
+  ],
+  "build2_rows": [
+   "#103 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add CIR-declared target dimensions (spec field) and a certify stage comparing twin width/height to them within a declared tolerance; test with a Launch-0 basket.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
+ },
+ {
+  "uid": "F-118",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "uncalibrated drape/fit/yardage claims need physical evidence before sale",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Routing exists (quality/testers.plan on gate.lanes cadence; Class B/C need testers; first-customer gate reports twin.calibrated False as UNRESOLVED), but no physical test has been performed and the roster is empty; the first-customer gate itself is not reached by runtime.",
+  "producer": "src/brambleloop/quality/testers.py::plan",
+  "durable_state": "physical_tests; tester profiles",
+  "consumer": "src/brambleloop/runtime/release.py::handle_lane_routing",
+  "protected_effect": "uncalibrated claims stay UNRESOLVED and block",
+  "tests": [
+   "tests/test_eligibility.py::test_a_launch0_slug_is_held_to_the_first_customer_gate",
+   "tests/test_eligibility.py::test_the_real_first_customer_gate_blocks_launch0_today",
+   "tests/test_first_customer_gate.py::test_physical_validation_is_reported_unresolved_and_cannot_be_marked_otherwise",
+   "tests/test_launch0.py::test_no_launch0_product_is_calibrated_and_the_report_leads_with_that",
+   "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated"
+  ],
+  "evidence": [
+   "executor Gate tester_roster / physical_proof",
+   "gates/first_customer.py reached=false",
+   "w4-FM close on 8b67414 (REGATE): gates/first_customer is called from publish/eligibility.py:588 and runtime/pipeline.py:682 (it had no runtime caller)"
+  ],
+  "build2_rows": [
+   "#43 OWNER-GATED",
+   "#64 OWNER-GATED",
+   "#8 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "first_customer gate wired via eligibility; calibration needs a recruited tester"
+  },
+  "defect": null,
+  "next_action": "owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
+ },
+ {
+  "uid": "F-119",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility of launch readiness",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py::_launch_scope_counts",
+  "durable_state": "pattern_versions.certificate.gauge_standard",
+  "consumer": "launch/readiness.py::assess (dashboard, launch assessment)",
+  "protected_effect": "legacy certifications count zero toward catalogue_depth and are reported separately under legacy_counted_zero",
+  "tests": [
+   "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified"
+  ],
+  "evidence": [
+   "module_reachability: publish/eligibility.legacy_status reached via dashboard -> assess -> _launch_scope_counts"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-120",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch assortment policy enforced on publication scope",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/products/launch0.py::launch_scope_slugs",
+  "durable_state": null,
+  "consumer": "publish/eligibility.py::legacy_status (store.publish) and launch/readiness.py::_launch_scope_counts",
+  "protected_effect": "only Launch-0 (or re-certified) products are publishable and count toward readiness",
+  "tests": [
+   "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0",
+   "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified",
+   "tests/test_launch0.py::test_everything_listed_for_launch_passes_every_gate"
+  ],
+  "evidence": [
+   "FINAL_BUILD_STATE: owner decision recorded that catalogue_depth needs 8 listable products while Launch-0 has 5 slugs/variants -- readiness will report catalogue_depth unmet"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-121",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: status claims must cite direct evidence",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/truth.py",
+  "durable_state": "audit_log; jobs; cost_entries (read live per check)",
+  "consumer": "`ops.truth.claim` refuses a positive claim that rests only on configuration, code existence or no errors. `audit_summary` flags an OK status with no sources. It runs over every CC provider in `ops.truth.summary` (`contract_audit`), which is reached from `/api/cc/truth` and the operations tab",
+  "protected_effect": "each safety claim carries the evidence it used; closure requires module+test proof",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
+   "tests/test_deploy.py::test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+   "tests/test_maturity.py::test_the_registrys_own_status_is_never_evidence_for_a_rung",
+   "tests/test_maturity.py::test_the_suite_cannot_satisfy_the_production_rung",
+   "tests/test_w3_k7_ops_truth.py::test_vocabulary_rate_and_claims"
+  ],
+  "evidence": [
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: every check carries an evidence object",
+   "build2/maturity.py ladder; build2/closure.py proof_of (closure not in prod)",
+   "w3 handoff_K7.md claim: | F-121 Claim-to-evidence contract | COMPLETE | `test_vocabulary_rate_and_claims` → `ops.truth.claim` refuses a positive claim that rests only on configuration, code existence or no errors. `audit_summary` flags an OK status with no sources. It runs over every CC provider in `ops.truth.summary` (`co"
+  ],
+  "build2_rows": [
+   "#183 COMPLETE+PROVEN",
+   "#181 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add an 'evidence' field requirement to every /api/console and dashboard card (source table/query + as_of) and a test that walks the console payload refusing any card without it.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-122",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "zero-denominator 'pass/0%' readings mislead the owner and gates",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/truth.py",
+  "durable_state": null,
+  "consumer": "`truth.rate` returns UNMEASURED or NOT-YET-OBSERVED when the denominator is 0. The live lint (`audit_summary`) flags a 0 rate printed next to a 0 denominator in any provider output. Provenance coverage of an empty class is `UNMEASURED`",
+  "protected_effect": "empty axes/metrics read UNMEASURED, not clean/zero",
+  "tests": [
+   "tests/test_dependency.py::test_an_empty_axis_is_unmeasurable_rather_than_diversified",
+   "tests/test_governor.py::test_no_orders_means_marginal_value_is_unmeasurable_rather_than_zero",
+   "tests/test_health.py::test_nothing_ever_certified_is_a_state_rather_than_a_fault",
+   "tests/test_reliability.py::test_nothing_attempted_is_not_a_measurement",
+   "tests/test_w3_k7_ops_truth.py::test_vocabulary_rate_and_claims"
+  ],
+  "evidence": [
+   "grep '^UNMEASURED =' : runtime/growth_ops.py, commerce/order_readings.py, scale/leading.py, commerce/kill_table.py and ~20 more",
+   "scale/dependency.py (unmeasurable axis) in production fcb982d",
+   "w3 handoff_K7.md claim: | F-122 Positive-evidence requirement | COMPLETE | same test → `truth.rate` returns UNMEASURED or NOT-YET-OBSERVED when the denominator is 0. The live lint (`audit_summary`) flags a 0 rate printed next to a 0 denominator in any provider output. Provenance coverage of an empty class is `UNMEASURED` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Create core/evidence_states.py (UNKNOWN, UNMEASURED, NOT_YET_OBSERVED, NOT_YET_WALKED, NOT_APPLICABLE) and a test scanning src/ for rate/ratio computations that return 0/0.0 on a zero denominator without one of these states.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-123",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: tests must prove claims",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "tests/test_vacuity.py::findings_in",
+  "durable_state": null,
+  "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
+  "protected_effect": "a new loop asserting over an unchecked iterable fails the suite",
+  "tests": [
+   "tests/test_vacuity.py::test_a_loop_asserting_over_an_unchecked_iterable_is_flagged",
+   "tests/test_vacuity.py::test_a_non_emptiness_assertion_or_a_literal_clears_the_loop",
+   "tests/test_vacuity.py::test_a_variable_named_like_a_view_is_still_a_root",
+   "tests/test_vacuity.py::test_no_new_vacuous_risk_loop_anywhere_in_the_suite",
+   "tests/test_vacuity.py::test_the_baseline_only_shrinks"
+  ],
+  "evidence": [
+   "release process gate, not a runtime root -> TESTED is the ceiling under the brief's definition",
+   "RUN_6f9a2f7_full_suite.json: suite green including test_vacuity",
+   "w4-FM close on w4-FM2 (FM2): W4-FM2: the BASELINE is empty (109 -> 6 -> 0): every grandfathered loop carries a runtime non-emptiness guard (last six in test_launch, test_product_run, test_cert_claude_independence; the edited test_launch and test_product_run tests run green one by one; the independence test stalls past 15 min under shared-container load, and its two guards are implied by its earlier assertions: done_a is non-empty and every CADENCES type is scheduled under a cadence: key) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "integrator: accept the TESTED completion target in w4/OVERRIDES_PROPOSED_FM2.json (producer tests/test_vacuity.py is operator tooling; INTEGRATED is unreachable by construction)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-124",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery/idempotence: operational changes must be verified by their result",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/assurance.py",
+  "durable_state": "continuity exports (retained); audit_log ops.continuity; model.probe rows",
+  "consumer": "`ops.assurance.postconditions` reads back restore digest, DONE jobs that have outputs, rebuilds, credentials served, cleanup, and the deployed tree's release record. A VIOLATED result opens a `postcondition:*` incident from the `ops.health` cadence",
+  "protected_effect": "restore proved by digest match; gates open only on a served request",
+  "tests": [
+   "tests/test_cert_rebuild_chain.py::test_completion_is_not_claimed_for_a_row_this_attempt_did_not_produce",
+   "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
+   "tests/test_model_provider.py::test_a_key_that_cannot_serve_a_request_does_not_open_the_gate",
+   "tests/test_offsite.py::test_an_archive_that_comes_back_different_is_not_a_backup",
+   "tests/test_w3_k7_ops_truth.py::test_health_handler_runs_the_truth_sweep",
+   "tests/test_w3_k7_ops_truth.py::test_postconditions_read_back"
+  ],
+  "evidence": [
+   "BUILD_STATE.md ~l.360: ops.continuity ran against live Postgres, 4,304 rows / 25 tables restored and digests matched; ~l.4831 'Business continuity is now proved in production'",
+   "ops.continuity and model.probe cadences present in production fcb982d",
+   "w3 handoff_K7.md claim: | F-124 Postcondition verification | COMPLETE | `test_postconditions_read_back`, `test_health_handler_runs_the_truth_sweep` → `ops.assurance.postconditions` reads back restore digest, DONE jobs that have outputs, rebuilds, credentials served, cleanup, and the deployed tree's release record. A VIOLAT"
+  ],
+  "build2_rows": [
+   "#51 OWNER-GATED",
+   "#184 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a post-deploy verifier (script or handler) that reads /api/verify, /api/status commit SHA and cadence ticks after each deploy and records a deploy.readback audit row; make the operator loop refuse to call a deploy done without it.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-125",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: production/test disagreement is a defect",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/maturity.py::record_disagreements",
+  "durable_state": null,
+  "consumer": "runtime consumer per reachability: ladder is live: API get api_build2_maturity -> app/main.py:api_build2_maturity",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_fb4_ops.py::test_a_claim_the_measurement_contradicts_opens_an_incident_until_they_agree",
+   "tests/test_fb4_ops.py::test_the_disagreement_check_runs_on_a_cadence_the_orchestrator_may_run"
+  ],
+  "evidence": [
+   "build2/maturity.py::ladder (API /api/build2/maturity) measures exercised/evidenced rungs; no Incident/DefectReport written",
+   "tests/test_maturity.py::test_a_module_a_job_does_reach_can_be_told_it_never_ran asserts measurement only",
+   "C-78 (Orders hardening claimed but never merged) was found by manual Codex reconciliation, not by a mechanism",
+   "w3 lane K triage R: build2/maturity.disagreements + ops.maturity_disagreements cadence opens incidents"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add build2/maturity.disagreements(db) comparing closure-state COMPLETE claims (and Final Master matrix INTEGRATED+ rows) with ladder 'never ran'/'not reached' results and open one gates.incidents Incident per disagreement until reconciled; run it from the build/ops cadence; test it",
+  "confidence": "MEDIUM",
+  "searched": "grep disagree|disagreement in src/brambleloop (only domain uses); build2/maturity.py; ops/provider_accounts.py | w4-FM re-map on fee1cfe (FOLD-R): build2/maturity.disagreements + ops.maturity_disagreements cadence opens incidents"
+ },
+ {
+  "uid": "F-126",
+  "launch_class": "MATURE",
+  "launch_class_reason": "evidence retention hygiene; not first-sale-critical",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Confounded growth experiments keep a confounder log and reason (growth/experiments.log_confounders) and superseded visual/body frames are refused as references, but there is no general superseded-evidence registry (e.g. for visual benchmark runs or research experiments) with reason.",
+  "producer": "src/brambleloop/growth/experiments.py::log_confounders",
+  "durable_state": "experiment rows detail.confounded / confounded_why",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards"
+  ],
+  "evidence": [
+   "growth/experiments.py confounded handling (#241)",
+   "C-24 FIXED: superseded frames forbidden as references (visual/model_registry)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a Superseded marker (status + reason + superseded_by) to BenchmarkObservation/experiment and visual benchmark result rows and a test that superseded rows are retained and excluded from aggregates.",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-127",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: unknown must not read as zero/false/pass",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/truth.py",
+  "durable_state": null,
+  "consumer": "`truth.NON_VALUES`, `normalise` and `is_non_value` form the shared vocabulary that maps existing module spellings",
+  "protected_effect": "unconfigured/never-run capabilities read unknown, not down/healthy",
+  "tests": [
+   "tests/test_first_customer_gate.py::test_unverifiable_and_unresolved_are_not_passes",
+   "tests/test_health.py::test_an_unconfigured_integration_is_unknown_rather_than_down",
+   "tests/test_model_provider.py::test_no_probe_ever_run_is_unknown_rather_than_unavailable",
+   "tests/test_spend_governance.py::test_an_unreported_disk_is_unknown_rather_than_healthy",
+   "tests/test_w3_k7_ops_truth.py::test_health_handler_runs_the_truth_sweep",
+   "tests/test_w3_k7_ops_truth.py::test_postconditions_read_back"
+  ],
+  "evidence": [
+   "ops/health.py UNKNOWN state (in production)",
+   "commerce/friction.py NOT_YET_WALKED",
+   "intel/etsy_surfaces.py NOT_APPLICABLE",
+   "w3 handoff_K7.md claim: | F-127 Unknown is first-class | COMPLETE | same as F-121 → `truth.NON_VALUES`, `normalise` and `is_non_value` form the shared vocabulary that maps existing module spellings |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Same as F-122: a shared core/evidence_states.py vocabulary plus a scan test.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-128",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "self-labelled capability evidence would open gates falsely",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/access.py::accept_evidence",
+  "durable_state": null,
+  "consumer": "src/brambleloop/build2/executor.py::sync",
+  "protected_effect": "a fixture labelled browser_traversal cannot satisfy the mandate; gates open on observed calls",
+  "tests": [
+   "tests/test_access.py::test_evidence_labelled_as_observation_is_downgraded_when_nothing_observed_it",
+   "tests/test_executor.py::test_owned_surfaces_opens_on_a_recorded_probe_not_on_a_variable",
+   "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason",
+   "tests/test_model_provider.py::test_a_key_that_cannot_serve_a_request_does_not_open_the_gate"
+  ],
+  "evidence": [
+   "C-38 FIXED (owned_surfaces env gate)",
+   "C-82 FIXED (tests_run only from observed runs)",
+   "ops/health.py read(): ('model_gateway', ('ANTHROPIC_API_KEY',)) -> HEALTHY if present",
+   "w3 lane K triage R: ops/health capability signals read recorded probes, not env presence"
+  ],
+  "build2_rows": [
+   "#224 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Change ops/health.read to read gateway.anthropic.usable()/vision_usable(), intel.etsy_public.usable() and the rendered_pages probe instead of env keys; update tests/test_health.py::test_a_configured_integration_reads_healthy accordingly.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): ops/health capability signals read recorded probes, not env presence"
+ },
+ {
+  "uid": "F-129",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: requirement states must match code/tests/production",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "src/brambleloop/build2/requirements.json; build_tasks",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": "closure reopens a row whose gate opened or whose proof is missing",
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse",
+   "tests/test_reachability.py::test_a_module_behind_a_static_state_route_is_not_reached",
+   "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
+  ],
+  "evidence": [
+   "build2/closure.py not in production fcb982d",
+   "research/final_build/aggregate.py (mechanical adjudication, integrator step)",
+   "w3 handoff_TOOLS.md claim: | F-129, F-136 | COMPLETE | `test_w3_final_master_gate::test_the_runtime_recomputes_every_verdict...`. Consumer: `build2/final_master` → `launch/readiness`, `executor.report` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "After aggregation, load closure_matrix.json into a Final Master closure module (build2/closure-style) computed live on the dashboard and on build.tick, reopening rows whose producer becomes unreached or whose gate opens.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-130",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility of what work can actually proceed",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "build_tasks; build_events",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": "ready vs executable are two numbers; nothing owner-gated is ever ready",
+  "tests": [
+   "tests/test_executor.py::test_a_requirement_re_audited_as_gated_leaves_the_queue",
+   "tests/test_executor.py::test_every_executable_requirement_is_either_ready_or_parked",
+   "tests/test_executor.py::test_the_reconciliation_is_actually_called_by_the_report",
+   "tests/test_w3_final_master_gate.py::test_executor_reports_parked_work_split_by_kind_and_the_final_master"
+  ],
+  "evidence": [
+   "build2/executor.py reconciliation/queue present in production fcb982d; build.tick cadence hourly in prod",
+   "w3 handoff_TOOLS.md claim: | F-130, F-860 | COMPLETE | `::test_executor_reports_parked_work_split_by_kind_and_the_final_master` |"
+  ],
+  "build2_rows": [
+   "#186 COMPLETE+PROVEN",
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add closure-kind (owner/data/external) to executor.queue parked_by_capability and extend the executor to Final Master rows once the matrix exists.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-131",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "a proxy gate would un-park or publish on a capability that does not work",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/executor.py::_model_usable",
+  "durable_state": "audit_log probe rows",
+  "consumer": "src/brambleloop/build2/executor.py::sync",
+  "protected_effect": "requirements park/un-park on real capability",
+  "tests": [
+   "tests/test_capability_gates.py",
+   "tests/test_executor.py::test_every_gate_has_a_condition_the_code_can_test",
+   "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason",
+   "tests/test_model_provider.py::test_a_key_that_cannot_serve_a_request_does_not_open_the_gate",
+   "tests/test_provenance.py::test_a_configured_dependency_is_unproven_until_its_gate_probe_succeeds"
+  ],
+  "evidence": [
+   "build2/executor.py _model_usable, _vision_usable, _etsy_usable (present in production)",
+   "C-38 FIXED",
+   "w3 lane K triage R: configured dependency unproven until its gate probe succeeds"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Replace env-presence readings in ops/health.read and ops/dependencies.map_state with the executor gate predicates; test that a set-but-unusable key reads unknown/unavailable.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): configured dependency unproven until its gate probe succeeds"
+ },
+ {
+  "uid": "F-132",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "gates must re-open/close work by themselves",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/executor.py::sync",
+  "durable_state": "build_tasks.state/parked_on; build_events (unpark)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_build_tick",
+  "protected_effect": "a gate opening un-parks dependents; a gate change re-labels parked rows",
+  "tests": [
+   "tests/test_executor.py::test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering",
+   "tests/test_executor.py::test_a_renamed_gate_re_labels_the_rows_already_parked_on_the_old_one",
+   "tests/test_executor.py::test_a_gate_that_checks_rows_opens_when_the_rows_arrive"
+  ],
+  "evidence": [
+   "build.tick hourly in production fcb982d; executor.sync docstring records 22 live production rows re-labelled after the browser_vision split (2026-09-20)",
+   "DECISION_LOG B-480"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-133",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: every partial must say what closes it",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": null,
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": "no row can be parked on free text",
+  "tests": [
+   "tests/test_executor.py::test_a_registry_gate_nothing_checks_is_refused_rather_than_silently_parking",
+   "tests/test_executor.py::test_an_owner_gated_requirement_with_no_gate_is_refused",
+   "tests/test_w3_final_master_gate.py::test_an_orphaned_partial_is_named_by_both_the_adjudicator_and_the_runtime"
+  ],
+  "evidence": [
+   "C-39 FIXED (closure refuses data-gated rows with no machinery)",
+   "w3 handoff_TOOLS.md claim: | F-133 | COMPLETE | `::test_an_orphaned_partial_is_named_by_both...` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Make missing_part + next_action required, validated fields of every non-complete Final Master matrix row (aggregate.py refuses a PARTIAL row with null missing_part).",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-134",
+  "launch_class": "MATURE",
+  "launch_class_reason": "never-idle is build-loop autonomy, not customer protection",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "On 019ebf0 the watchdog alarms only when a CLAIMED task makes no progress; READY-but-unclaimed work reports 'awaiting_build_session' with alarm False, which is weaker than 'READY work with no completion inside the window raises a stall'. Production fcb982d still raises 'stalled' for ready work with no completion (the literal requirement).",
+  "producer": "src/brambleloop/build2/executor.py::watchdog",
+  "durable_state": "build_events; incidents",
+  "consumer": "src/brambleloop/runtime/release.py::handle_build_tick",
+  "protected_effect": "a stalled build loop raises an incident; fully parked does not",
+  "tests": [
+   "tests/test_executor.py::test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not",
+   "tests/test_executor.py::test_never_idle_is_measured_in_completions_rather_than_ticks",
+   "tests/test_executor.py::test_an_honest_release_does_not_leave_the_watchdog_alarming"
+  ],
+  "evidence": [
+   "build2/executor.py watchdog AWAITING_BUILD_SESSION (019ebf0) vs production verdict 'stalled' alarm True"
+  ],
+  "build2_rows": [
+   "#186 COMPLETE+PROVEN",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "Main line relaxed the stall rule: unclaimed READY work never alarms, so a build loop nobody opens a session for is silent indefinitely.",
+  "next_action": "Add a second threshold to executor.watchdog: READY work with no claim and no completion for > N x IDLE_ALARM_HOURS raises a (lower-severity) stall; test both thresholds.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-135",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery/idempotence: a dead worker must not duplicate consequential effects",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no lease-recovery drill has been recorded against the deployed production worker",
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "durable_state": "jobs.leased_by/lease_expires_at; build_tasks.claimed_at",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "protected_effect": "a reclaimed job's original worker cannot complete it; duplicate spend/publication prevented by idempotency keys",
+  "tests": [
+   "tests/test_acceptance_gates.py",
+   "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
+   "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
+   "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_v11_autonomy_recovery.py::test_same_named_workers_cannot_complete_each_others_attempt",
+   "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects"
+  ],
+  "evidence": [
+   "C-11, C-12, C-13 FIXED",
+   "queue/durable.py in production fcb982d",
+   "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed",
+   "w4-FMGATE on 0417f35: production_window opening (24h off-device proof) would not record a lease-recovery drill; the drill needs a controlled kill of the production worker mid-job"
+  ],
+  "build2_rows": [
+   "#184 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "live_restart_drill",
+   "detail": "owner authorises a controlled restart of the production worker during a queued job (Railway restart; disturbs production); the drill then reads lease expiry and no duplicate effect from real rows"
+  },
+  "defect": null,
+  "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-136",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: completion must be machine-derived",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "build_tasks; build_events",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": "a session summary cannot mark a requirement complete",
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_executor.py::test_a_completion_needs_evidence_because_it_is_the_loops_own_progress",
+   "tests/test_executor.py::test_only_the_claimant_of_an_in_progress_task_completes_or_releases_it",
+   "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
+  ],
+  "evidence": [
+   "C-16, C-74 FIXED",
+   "research/final_build/aggregate.py",
+   "w3 handoff_TOOLS.md claim: | F-129, F-136 | COMPLETE | `test_w3_final_master_gate::test_the_runtime_recomputes_every_verdict...`. Consumer: `build2/final_master` → `launch/readiness`, `executor.report` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Build a Final Master completion gate (closure over closure_matrix.json with live reachability/gates) that alone decides 'complete' for F-178.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-137",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: refusals working must not read as defects (or hide defects)",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/queue/durable.py::classify_dead_letter",
+  "durable_state": "jobs (status DEAD, last_error)",
+  "consumer": "src/brambleloop/app/main.py::api_verify",
+  "protected_effect": "shadow/capability refusals and stand-asides reported separately from unexpected dead letters; refusals never re-driven",
+  "tests": [
+   "tests/test_chaos.py::test_one_classifier_decides_refusal_and_redrive",
+   "tests/test_health.py::test_a_capability_refusal_on_any_job_type_is_a_refusal_not_a_defect",
+   "tests/test_persistence.py::test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect"
+  ],
+  "evidence": [
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json no_unexpected_dead_letters_in_24h: expected_publish_refusals 165, expected_stand_asides 1, recent []",
+   "C-14 FIXED (single classifier; post-fcb982d unification)"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN",
+   "#184 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (re-verify after final deploy)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-138",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability and spend: retry storms waste money and hide defects",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.fail",
+  "durable_state": "jobs.attempts/run_after",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "protected_effect": "permanent/permission/budget/capability/provenance failures are terminal; retries use jittered exponential backoff; dead letters re-driven once per fixing deploy",
+  "tests": [
+   "tests/test_chaos.py::test_permanent_errors_are_not_retried",
+   "tests/test_chaos.py::test_a_permanent_error_is_terminal_on_its_first_attempt",
+   "tests/test_chaos.py::test_circuit_breaker_opens_on_sustained_provider_outage",
+   "tests/test_persistence.py::test_a_deploy_re_drives_what_it_fixed_exactly_once",
+   "tests/test_cert_thrash.py"
+  ],
+  "evidence": [
+   "queue/durable.py backoff with jitter; ops/health ALREADY_AUTOMATIC requeue_dead_letter note",
+   "C-51 FIXED (post-fcb982d); C-85 thrash breaker",
+   "backoff + terminal permission/budget handling present in production"
+  ],
+  "build2_rows": [
+   "#184 COMPLETE+PROVEN",
+   "#34 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-139",
+  "launch_class": "MATURE",
+  "launch_class_reason": "incident aggregation is signal quality; not a first-sale blocker",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Aggregation is implemented for the provenance backlog (one incident with count/classes) and incident restatement (report_count), not as a general rule for homogeneous backlogs (e.g. dead letters of one type).",
+  "producer": "src/brambleloop/ops/artefacts.py::sweep",
+  "durable_state": "incidents (signature sentinel:backlog, report_count)",
+  "consumer": "src/brambleloop/app/main.py::api_incidents",
+  "protected_effect": "one actionable incident with its size instead of hundreds",
+  "tests": [
+   "tests/test_artefacts.py::test_the_backlog_is_one_incident_carrying_its_size",
+   "tests/test_incident_lifecycle.py::test_a_condition_that_still_holds_is_restated_on_one_row"
+  ],
+  "evidence": [
+   "ops/incident_lifecycle.py reached (not in production)",
+   "ops/artefacts.py sweep backlog in production"
+  ],
+  "build2_rows": [
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add ops/incident_lifecycle.aggregate(prefix) used by ops.health for dead-letter backlogs by job_type (one incident, count, sample ids).",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-140",
+  "launch_class": "MATURE",
+  "launch_class_reason": "signal actionability is operations maturity",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Escalation requires persistence across sweeps and every signal carries evidence; there is no measure that detects a permanently noisy/false signal (e.g. incident opened/closed flapping rate) and raises it as a defect.",
+  "producer": "src/brambleloop/ops/health.py::persistence",
+  "durable_state": "incidents; audit_log ops.health",
+  "consumer": "src/brambleloop/runtime/release.py::handle_health_sweep",
+  "protected_effect": "a blip is not escalated; a condition is",
+  "tests": [
+   "tests/test_health.py::test_one_bad_sweep_is_a_blip",
+   "tests/test_health.py::test_the_same_signal_across_consecutive_sweeps_is_a_condition",
+   "tests/test_health.py::test_a_health_incident_closes_when_its_signal_recovers_and_says_what_it_read"
+  ],
+  "evidence": [
+   "ops/health.py ESCALATE_AFTER_SWEEPS=3 (production has persistence)"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a flap/noise metric per health signal (open/resolve cycles per week) in ops/health and raise a 'noisy signal' defect incident above a threshold; test it.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-141",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability: health must mean useful progress",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/health.py::read",
+  "durable_state": "jobs (DONE in window); audit_log per-cadence results",
+  "consumer": "src/brambleloop/app/main.py::api_console",
+  "protected_effect": "idle/looping systems are not reported healthy",
+  "tests": [
+   "tests/test_health.py::test_everything_alive_and_nothing_happening_is_idle_rather_than_healthy",
+   "tests/test_health.py::test_the_sweep_refuses_to_call_a_spinning_loop_healthy",
+   "tests/test_health.py::test_the_console_never_reports_healthy_while_nothing_is_happening"
+  ],
+  "evidence": [
+   "ops/health.py progress + evidence_freshness signals present in production fcb982d"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add progress/evidence_freshness to /api/verify so production readback carries the useful-work signal.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-142",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability in the split web/worker deployment",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/health.py::container_starts",
+  "durable_state": "audit_log runtime.started; jobs",
+  "consumer": "src/brambleloop/app/main.py::api_verify",
+  "protected_effect": "liveness read from durable rows / the executing worker, not process-local globals",
+  "tests": [
+   "tests/test_health.py::test_a_sweep_running_inside_a_worker_does_not_report_that_worker_down",
+   "tests/test_spend_governance.py::test_a_container_replaced_on_the_same_commit_is_a_restart",
+   "tests/test_deploy.py::test_runner_state_is_honest_about_a_worker_that_is_not_running"
+  ],
+  "evidence": [
+   "prod_api_verify_2026-09-28T0816Z.json worker_is_alive: last_tick + container_starts_24h from DB",
+   "ops/health executing_worker/from_cadence present in production"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN",
+   "#181 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-143",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/health.py::verdict",
+  "durable_state": "jobs; build_tasks; incidents",
+  "consumer": "src/brambleloop/app/main.py::api_console",
+  "protected_effect": "console shows healthy / idle / degraded / down / unknown and build moving / waiting_on_owner / stalled",
+  "tests": [
+   "tests/test_health.py::test_the_console_answers_both_of_an_absent_owners_questions",
+   "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
+   "tests/test_executor.py::test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not"
+  ],
+  "evidence": [
+   "/api/console present in production fcb982d"
+  ],
+  "build2_rows": [
+   "#183 COMPLETE+PROVEN",
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (confirm console readback after final deploy)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-144",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "local tests are not production truth",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
+  "producer": "src/brambleloop/app/main.py::api_verify",
+  "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
+  "consumer": null,
+  "protected_effect": "production behaviour checked after deploy",
+  "tests": [
+   "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+  ],
+  "evidence": [
+   "four prod_api_verify evidence files 2026-09-27..28",
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)"
+  ],
+  "build2_rows": [
+   "#181 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-145",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build hygiene; not customer-protective",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "run_tests.sh::_brambleloop_cleanup",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "full-suite scratch is contained and removed on success/failure/INT/TERM",
+  "tests": [],
+  "evidence": [
+   "run_tests.sh: BRAMBLELOOP_RUN_TMP=mktemp -d; export TMPDIR; one _brambleloop_cleanup; trap EXIT INT TERM (found 2026-09-20: 37,284 dirs / 29 GB leaked)",
+   "research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log (a run of this script)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add tests/test_run_tests_hygiene.py that runs run_tests.sh against a tiny fixture suite dir (or parses it) asserting TMPDIR scoping and the trap signals.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-146",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build hygiene",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "One cleanup function and trap exist, but no lint/test fails when a second `trap ... EXIT` is added.",
+  "producer": "run_tests.sh::_brambleloop_cleanup",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "run_tests.sh: BRAMBLELOOP_RUN_TMP=mktemp -d; export TMPDIR; one _brambleloop_cleanup; trap EXIT INT TERM (found 2026-09-20: 37,284 dirs / 29 GB leaked)",
+   "comment in run_tests.sh records the earlier second-trap defect (342 MB / 399 dirs survived)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a test asserting run_tests.sh contains exactly one `trap` line and that it covers EXIT INT TERM.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-147",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build hygiene",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Leftover counting exists for production handlers (ops/health.disk_facts counts TEMP_PREFIXES dirs, surfaced by the disk signal) but run_tests.sh does not verify leftover scratch count/size after a run.",
+  "producer": "src/brambleloop/ops/health.py::disk_facts",
+  "durable_state": null,
+  "consumer": "src/brambleloop/ops/health.py::read",
+  "protected_effect": "leaked handler temp dirs visible on the disk signal",
+  "tests": [
+   "tests/test_spend_governance.py::test_the_container_counts_the_temporary_directories_its_own_handlers_left",
+   "tests/test_cost_governance_wave2.py::test_every_prefix_a_call_site_uses_is_one_the_disk_signal_counts"
+  ],
+  "evidence": [
+   "run_tests.sh: BRAMBLELOOP_RUN_TMP=mktemp -d; export TMPDIR; one _brambleloop_cleanup; trap EXIT INT TERM (found 2026-09-20: 37,284 dirs / 29 GB leaked)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "At the end of run_tests.sh count brambleloop-run-* and handler-prefix dirs remaining under the parent TMPDIR and print/fail on growth.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-148",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build hygiene",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "Direct `python tests/test_x.py` runs get no scoped TMPDIR; ~64 test files call tempfile.mkdtemp without cleanup.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "run_tests.sh comment: 'Sixty-four test files call tempfile.mkdtemp'",
+   "no conftest/fixtures TMPDIR scoping found (grep TMPDIR tests/ -> only test_spend_governance.py)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a tests/_scratch.py imported first by tests/fixtures.py (or sitecustomize for tests) that sets a per-process TMPDIR and removes it via atexit/signal handlers; import it in every suite.",
+  "confidence": "HIGH",
+  "searched": "grep TMPDIR|tempfile.tempdir tests/"
+ },
+ {
+  "uid": "F-149",
+  "launch_class": "MATURE",
+  "launch_class_reason": "operations maturity; disk exhaustion is caught by existing signal",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Free space and leftover temp-dir counts are monitored; cache growth, file-count growth trend and growth-rate alarms are not.",
+  "producer": "src/brambleloop/ops/health.py::disk_facts",
+  "durable_state": "runner state (reported by the owning process)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_health_sweep",
+  "protected_effect": "low free space degrades the disk signal before ENOSPC",
+  "tests": [
+   "tests/test_spend_governance.py::test_a_disk_with_no_room_for_the_next_write_is_degraded",
+   "tests/test_spend_governance.py::test_an_unreported_disk_is_unknown_rather_than_healthy"
+  ],
+  "evidence": [
+   "ops/health.py _disk/disk_facts in production fcb982d"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Persist disk_facts samples per sweep and alarm on growth rate of temp/cache file counts; test with synthetic series.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-150",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build/operations practice",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Runtime classifies failures (PermanentError vs TransientError, funding markers, capability refusals) but nothing classifies build/test failures (ENOSPC/permissions/network/provider) before a revert; practice recorded in BUILD_STATE only.",
+  "producer": "src/brambleloop/ops/funding.py::detect",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_chaos.py::test_http_status_classification",
+   "tests/test_funding.py::test_the_live_message_is_recognised_and_an_outage_is_not"
+  ],
+  "evidence": [
+   "BUILD_STATE.md ~l.2707 ENOSPC-induced 11-suite failure diagnosed before any revert"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a failure classifier to run_tests.sh output (grep suite logs for ENOSPC/EACCES/network/provider markers and print an ENVIRONMENT FAILURE line distinct from assertion failures).",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-151",
+  "launch_class": "MATURE",
+  "launch_class_reason": "build hygiene / safety of shared hosts",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/workspace.py::work_dir",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/release.py::handle_model_probe",
+  "protected_effect": "cleanup is scoped to directories this code created (prefix), never a broad /tmp wipe; supplied dirs never deleted",
+  "tests": [
+   "tests/test_cost_governance_wave2.py::test_a_supplied_working_directory_is_never_deleted",
+   "tests/test_cost_governance_wave2.py::test_a_directory_this_system_created_goes_even_when_the_body_raises",
+   "tests/test_cost_governance_wave2.py::test_no_production_module_creates_a_directory_nothing_removes"
+  ],
+  "evidence": [
+   "run_tests.sh: BRAMBLELOOP_RUN_TMP=mktemp -d; export TMPDIR; one _brambleloop_cleanup; trap EXIT INT TERM (found 2026-09-20: 37,284 dirs / 29 GB leaked)",
+   "run_tests.sh removes only its own mktemp dir"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-152",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery evidence must survive container replacement",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Continuity exports are retained in Postgres (core/continuity.retain) and restore proofs audited, and certification evidence is committed under research/b2_resume/evidence; the off-site copy is gated on owner-supplied storage, and no rule/test forbids an audit/recovery artefact existing only in scratch.",
+  "producer": "src/brambleloop/core/continuity.py::retain",
+  "durable_state": "continuity export rows in Postgres; audit_log ops.continuity",
+  "consumer": "src/brambleloop/runtime/release.py::handle_continuity",
+  "protected_effect": "restore evidence survives container loss (same database only until offsite exists)",
+  "tests": [
+   "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
+   "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping"
+  ],
+  "evidence": [
+   "BUILD_STATE.md ~l.4831 continuity proved in production",
+   "research/b2_resume/evidence/*.log committed"
+  ],
+  "build2_rows": [
+   "#51 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "offsite_storage",
+   "detail": "an off-site bucket/credentials only the owner can provision"
+  },
+  "defect": null,
+  "next_action": "Owner: provide off-site storage (offsite_storage gate). Now: add a test that every handler writing recovery/audit evidence writes it to the DB or ArtifactStore, not only to a workspace dir.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-153",
+  "launch_class": "MATURE",
+  "launch_class_reason": "supply-chain assurance; not first-sale-critical",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No audit proves signatures are generated and independently verifiable; commits read %G?=N here.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git log on this worktree: %G? = N for HEAD..019ebf0 (signatures present in config but not verifiable: gpg.ssh.allowedSignersFile unset)",
+   "git config: commit.gpgsign=true, gpg.format=ssh, gpg.ssh.program=/tmp/code-sign (symlink into /opt/env-runner), user.signingkey=/home/claude/.ssh/commit_signing_key.pub"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "Signing is configured (commit.gpgsign=true) while verification yields N: unproven signing presented as a setting.",
+  "next_action": "Add scripts/signing_audit.py reporting %G?/%GK for release commits and an allowedSigners file path status; record result in release evidence; report 'unavailable' when N.",
+  "confidence": "HIGH",
+  "searched": "git log --format=%G?; git config; grep gpgsign|signingkey repo"
+ },
+ {
+  "uid": "F-154",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "security/owner visibility: controls must not be reported working when they are not",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/auth.py",
+  "durable_state": null,
+  "consumer": "functional probes: opsauth accepts a valid token and refuses a wrong one, default-deny on an unregistered route, the CSP middleware on a synthetic response, the owner login refuses a bad credential and a success has been observed, an offsite archive was written, the boot guard ran. A control that is configured but unproven is reported unavailable. Shown in `/api/cc/truth` under security_controls",
+  "protected_effect": "a configured-but-too-short ops token and a configured-but-never-round-tripped offsite target are reported unusable",
+  "tests": [
+   "tests/test_continuity.py::test_a_wrong_or_short_credential_is_refused",
+   "tests/test_offsite.py::test_the_state_reports_the_last_real_round_trip_not_the_variables",
+   "tests/test_w3_k7_ops_truth.py::test_security_controls_configured_but_unproven_is_unavailable"
+  ],
+  "evidence": [
+   "fcb982d app/main.py:700 'credential': opsauth.token_health() and api_offsite -> offsite.state present in production",
+   "w3 handoff_K7.md claim: | F-154 No security theatre | COMPLETE | `test_security_controls_configured_but_unproven_is_unavailable` → functional probes: opsauth accepts a valid token and refuses a wrong one, default-deny on an unregistered route, the CSP middleware on a synthetic response, the owner login refuses a bad creden"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add ops/security_controls.py listing each control with a functional probe (usable/unavailable + why), surfaced on the dashboard/console; test that a configured-but-failing probe reads 'unavailable'",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-155",
+  "launch_class": "MATURE",
+  "launch_class_reason": "supply-chain assurance",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "The signing helper is gpg.ssh.program=/tmp/code-sign (ephemeral /tmp symlink provided by the environment).",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git log on this worktree: %G? = N for HEAD..019ebf0 (signatures present in config but not verifiable: gpg.ssh.allowedSignersFile unset)",
+   "git config: commit.gpgsign=true, gpg.format=ssh, gpg.ssh.program=/tmp/code-sign (symlink into /opt/env-runner), user.signingkey=/home/claude/.ssh/commit_signing_key.pub"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "external",
+   "key": "session_environment_signing",
+   "detail": "the signing helper is provisioned by the hosting environment, not the repository"
+  },
+  "defect": "Signing helper depends on ephemeral /tmp.",
+  "next_action": "Document and, where the environment allows, point gpg.ssh.program at a durable path; the audit (F-153) should flag /tmp helpers.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-156",
+  "launch_class": "MATURE",
+  "launch_class_reason": "supply-chain assurance",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No documented/tested signing recovery procedure exists in the repository.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git log on this worktree: %G? = N for HEAD..019ebf0 (signatures present in config but not verifiable: gpg.ssh.allowedSignersFile unset)",
+   "git config: commit.gpgsign=true, gpg.format=ssh, gpg.ssh.program=/tmp/code-sign (symlink into /opt/env-runner), user.signingkey=/home/claude/.ssh/commit_signing_key.pub",
+   "grep signing in BUILD_STATE/DECISION_LOG: only S3 SigV4 (offsite) signing"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Write ops/SIGNING_RECOVERY.md (public key + allowedSigners committed, private key never) and a test that allowedSigners parses and lists the release signer.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-157",
+  "launch_class": "MATURE",
+  "launch_class_reason": "supply-chain assurance",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "Release evidence does not list unsigned commits.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git log on this worktree: %G? = N for HEAD..019ebf0 (signatures present in config but not verifiable: gpg.ssh.allowedSignersFile unset)",
+   "git config: commit.gpgsign=true, gpg.format=ssh, gpg.ssh.program=/tmp/code-sign (symlink into /opt/env-runner), user.signingkey=/home/claude/.ssh/commit_signing_key.pub"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Have the release evidence script (F-170) list commits with %G? != G in the release range.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-158",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release/supply-chain integrity before deploy",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/release_record.py::verify_build (requirements.lock is in the deployable-tree digest the hosted build must match; the record's supply_chain is verified by ops/deploy_guard.py record from scripts/lock_requirements.py output)",
+  "durable_state": "brambleloop/requirements.lock",
+  "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock; src/brambleloop/app/main.py::_startup boot guard",
+  "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
+  "tests": [
+   "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
+   "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions",
+   "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
+   "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+   "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
+   "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
+   "tests/test_w3_supply_chain.py::test_release_evidence_is_computed_at_the_sha_and_a_bad_lock_refuses_the_record",
+   "tests/test_w3_supply_chain.py::test_sbom_and_change_record_are_derived_from_the_lock"
+  ],
+  "evidence": [
+   "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json supply_chain",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json",
+   "w4-FMGATE on 0417f35: the gap was 'the image has never been built from the lock'. 0417f35 is deployed: its Dockerfile installs only requirements.lock with pip --require-hashes --no-deps, the release record's supply_chain is {status verified, 34 distributions, 1375 hashes, SBOM, material change vs fcb982d recorded}, and the hosted boot guard matched the deployed tree digest -- which includes requirements.lock -- to that record (/api/status boot_guard ok)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: every release record carries its supply-chain check",
+  "confidence": "HIGH",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-159",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release safety: no credential leaks",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/log_secret_guard.py::SecretLogGuard (+ tests/test_secret_scan.py over tracked/generated files)",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/access_log.py::install (app.main import); src/brambleloop/app/worker_entry.py, app/scheduler_entry.py (log_secret_guard.install at start-up)",
+  "protected_effect": "no credential reaches the production runtime log; a catch is counted by fingerprint only",
+  "tests": [
+   "tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
+   "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value",
+   "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
+   "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
+   "tests/test_w4_fm2_log_secret_guard.py::test_a_secret_logged_by_the_service_never_reaches_the_handler",
+   "tests/test_w4_fm2_log_secret_guard.py::test_an_exception_carrying_a_secret_is_redacted_not_printed",
+   "tests/test_w4_fm2_log_secret_guard.py::test_every_service_entrypoint_installs_the_guard",
+   "tests/test_w4_fm2_log_secret_guard.py::test_patterns_are_byte_identical_to_the_release_scan",
+   "tests/test_w4_fm2_log_secret_guard.py::test_the_release_cli_fails_on_an_exported_log_window_with_a_secret"
+  ],
+  "evidence": [
+   "RUN_6f9a2f7_full_suite.json green",
+   "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan",
+   "w4-FM close on w4-FM2 (FM2): ops/log_secret_guard applies the release secret-scan patterns (byte-identical, parity-tested against tests/test_secret_scan.PATTERNS) to every record the production processes log: installed by app.access_log.install at app.main import (web), and by the worker and scheduler entrypoints; a match is redacted to its fingerprint before the line reaches the platform's log store, the record is never dropped and an unscannable record is suppressed. Its CLI scans an exported log window at release (exit 1 on a finding, unreadable = not clean)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none: at release, `python -m brambleloop.ops.log_secret_guard scan <exported window>` is the optional second check",
+  "confidence": "HIGH",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close"
+ },
+ {
+  "uid": "F-160",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "security: exposed credentials must be rotated before launch",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "the chat-exposed ANTHROPIC_API_KEY is still rotation-required: rotating it is an owner act; the register and owner card are wired",
+  "producer": "src/brambleloop/ops/credential_register.py::REGISTER/owner_requests",
+  "durable_state": "code-held register (no values)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_credential_register.py::test_a_rotation_with_evidence_retires_the_card_and_age_alone_never_does",
+   "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
+   "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
+   "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value",
+   "tests/test_fb4_ops.py::test_the_credential_rotation_card_reaches_the_owner_queue_and_the_dashboard"
+  ],
+  "evidence": [
+   "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner",
+   "w4-FMGATE on 0417f35: missing_part was stale: ops/credential_register.py is reached on 0417f35 (owner_requests via launch.readiness) and the rotation card reaches the owner queue (tests/test_fb4_ops.py); what remains is the owner's rotation"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "credential_rotation",
+   "detail": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act"
+  },
+  "defect": null,
+  "next_action": "owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
+  "confidence": "HIGH",
+  "searched": " | w4-FM close on 8b67414 (REGATE) | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-161",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "provenance: absence of lineage must not read as fresh",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/artefacts.py",
+  "durable_state": "artefact_provenance",
+  "consumer": "`artefacts.coverage` gives numerator and denominator per class. Reported in the `ops.sentinel` audit and in `/api/provenance` (graduation.coverage)",
+  "protected_effect": "owner sees unproven artefacts per class, never as fresh",
+  "tests": [
+   "tests/test_artefacts.py::test_an_artefact_with_no_provenance_is_unproven_rather_than_fresh",
+   "tests/test_provenance_backfill.py::test_the_api_reports_the_estate_by_class_source_and_unknown_fields",
+   "tests/test_w3_k7_ops_truth.py::test_coverage_ratio_and_per_class_graduation_via_sentinel"
+  ],
+  "evidence": [
+   "ops/artefacts.py sweep/graduation present in production fcb982d; /api/provenance in production",
+   "w3 handoff_K7.md claim: | F-161 Provenance coverage metric | COMPLETE | `test_coverage_ratio_and_per_class_graduation_via_sentinel` → `artefacts.coverage` gives numerator and denominator per class. Reported in the `ops.sentinel` audit and in `/api/provenance` (graduation.coverage) |"
+  ],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN",
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add coverage {recorded, expected, share} per class to ops/artefacts.summary and to /api/verify.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-162",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "provenance enforcement before release",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/artefacts.py",
+  "durable_state": "artefact_provenance; audit_log provenance.refused",
+  "consumer": "`declare_graduations` (called by the `ops.sentinel` handler) records `provenance.class_graduated` once a class has artefacts and none of them are unproven. After that, `sweep` blocks release on a missing row in that class only",
+  "protected_effect": "after graduation a job writing an unproven artefact fails",
+  "tests": [
+   "tests/test_artefacts.py::test_graduation_is_a_count_rather_than_a_judgement",
+   "tests/test_artefacts.py::test_the_backlog_can_be_enforced_once_it_is_closed",
+   "tests/test_cert_provenance.py::test_worker_audits_and_fails_a_listing_without_lineage_when_enforcement_is_on",
+   "tests/test_cert_provenance.py::test_worker_only_audits_when_a_prior_backlog_keeps_enforcement_off",
+   "tests/test_w3_k7_ops_truth.py::test_coverage_ratio_and_per_class_graduation_via_sentinel"
+  ],
+  "evidence": [
+   "worker provenance backstop not in production fcb982d (grep assert_instrumented prod worker -> none)",
+   "w3 handoff_K7.md claim: | F-162 Graduated enforcement | COMPLETE | same test → `declare_graduations` (called by the `ops.sentinel` handler) records `provenance.class_graduated` once a class has artefacts and none of them are unproven. After that, `sweep` blocks release on a missing row in that class only |"
+  ],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Make graduation per artefact_class (graduation(db, cls)) with a declared GRADUATED_CLASSES record, and enforce absence per graduated class; test that a graduated 'pdf' class blocks while 'marketing_asset' still counts.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-163",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "children regenerated from stale parents ship inconsistent product truth",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/rebuild_graph.py::rebuild_set",
+  "durable_state": "artefact_provenance (edges)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_stale_artefact_sentinel",
+  "protected_effect": "descendants rebuilt parents-first",
+  "tests": [
+   "tests/test_rebuild_graph.py::test_the_order_is_parents_before_children",
+   "tests/test_rebuild_graph.py::test_a_change_reaches_two_hops_downstream",
+   "tests/test_cert_rebuild_chain.py::test_a_stale_pdf_restarts_at_assets_build_not_at_certification"
+  ],
+  "evidence": [
+   "ops/rebuild_graph.py _topological (also in production fcb982d, but enqueue/chain.rebuild wiring changed post-fcb982d: C-69/C-76)"
+  ],
+  "build2_rows": [
+   "#172 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-164",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "a cyclic rebuild never terminates or certifies stale state",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/rebuild_graph.py::load_graph",
+  "durable_state": "artefact_provenance",
+  "consumer": "src/brambleloop/ops/rebuild_graph.py::rebuild_set",
+  "protected_effect": "cycle refused with GraphRefused",
+  "tests": [
+   "tests/test_rebuild_graph.py::test_a_cycle_is_refused_rather_than_traversed",
+   "tests/test_executor.py::test_a_dependency_cycle_is_refused_because_it_looks_healthy"
+  ],
+  "evidence": [
+   "_refuse_cycles present in production fcb982d"
+  ],
+  "build2_rows": [
+   "#172 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (optionally open an Incident on GraphRefused in handle_stale_artefact_sentinel so a cycle escalates rather than only raising)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-165",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "zero rebuild over an incomplete graph must not imply freshness",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/rebuild_graph.py::rebuild_set",
+  "durable_state": "artefact_provenance",
+  "consumer": "src/brambleloop/runtime/release.py::handle_stale_artefact_sentinel",
+  "protected_effect": "coverage {in_graph, not_in_graph, share} reported beside the rebuild set",
+  "tests": [
+   "tests/test_rebuild_graph.py::test_a_propagation_over_an_uninstrumented_estate_reports_its_own_blindness",
+   "tests/test_rebuild_graph.py::test_full_coverage_says_so_plainly"
+  ],
+  "evidence": [
+   "rebuild_set coverage block present in production fcb982d"
+  ],
+  "build2_rows": [
+   "#172 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-166",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "rebuild completion must be proved, not assumed",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/rebuild_graph.py::publication_gate",
+  "durable_state": "artefact_provenance (built_at, inputs)",
+  "consumer": "src/brambleloop/publish/release_gates.py::listing_set",
+  "protected_effect": "a descendant counts as rebuilt only when its provenance row matches current inputs; publication blocked until then",
+  "tests": [
+   "tests/test_rebuild_graph.py::test_publication_is_blocked_until_every_descendant_is_rebuilt",
+   "tests/test_cert_rebuild_chain.py::test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it",
+   "tests/test_cert_rebuild_chain.py::test_completion_is_not_claimed_for_a_row_this_attempt_did_not_produce"
+  ],
+  "evidence": [
+   "publish/release_gates.py not in production fcb982d"
+  ],
+  "build2_rows": [
+   "#172 COMPLETE+PROVEN",
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-167",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch-relevant artefacts need provenance before release",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/backfill.py",
+  "durable_state": "artefact_provenance (source=backfill)",
+  "consumer": "`backfill.relevance` splits what remains unproven into launch_relevant (Launch-0 scope), retired (invalidated) and other. Recorded in the daily `ops.provenance_backfill` audit",
+  "protected_effect": "legacy artefacts gain evidence-cited provenance or stay unproven",
+  "tests": [
+   "tests/test_cert_provenance.py::test_backfill_never_writes_without_evidence_and_leaves_the_rest_unproven",
+   "tests/test_provenance_backfill.py::test_a_backfilled_row_cites_the_evidence_it_was_derived_from",
+   "tests/test_provenance_backfill.py::test_every_class_with_evidence_is_backfilled_and_every_one_without_is_counted",
+   "tests/test_w3_k7_ops_truth.py::test_backfill_reports_launch_relevance_and_retirement"
+  ],
+  "evidence": [
+   "ops/backfill.py not in production fcb982d",
+   "w3 handoff_K7.md claim: | F-167 Legacy provenance backfill | COMPLETE | `test_backfill_reports_launch_relevance_and_retirement` → `backfill.relevance` splits what remains unproven into launch_relevant (Launch-0 scope), retired (invalidated) and other. Recorded in the daily `ops.provenance_backfill` audit |"
+  ],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add Launch-0 slug prioritisation and a retire(artefact) path (mark obsolete legacy artefacts RETIRED with reason so they leave the unproven denominator); test both.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-168",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "safe publication: halt the affected scope, not the company",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/incident_lifecycle.py",
+  "durable_state": "incidents (product_slug, halts_publication)",
+  "consumer": "`incident_lifecycle.escalate_systemic`, run from the ops.health sweep, opens `systemic-halt:publication` when one failure family halts at least 3 products and at least 50% of the catalogue, or when there is an integrity tamper. `gates.incidents.open_incidents` applies that halt to every slug (`publication_halted`, `release_gates.staleness`). Otherwise halts stay per product, and the halt resolves ",
+  "protected_effect": "only affected products stop publishing",
+  "tests": [
+   "tests/test_artefacts.py::test_a_sentinel_that_can_only_add_incidents_stops_the_company",
+   "tests/test_artefacts.py::test_the_sentinel_incident_actually_stops_certification",
+   "tests/test_cert_rebuild_chain.py::test_a_divergent_listing_is_refused_and_halts_publication",
+   "tests/test_w3_k7_ops_truth.py::test_systemic_halt_escalates_and_scopes_back"
+  ],
+  "evidence": [
+   "ops/artefacts.sweep per-slug halts present in production fcb982d",
+   "w3 handoff_K7.md claim: | F-168 Publication halting scope | COMPLETE | `test_systemic_halt_escalates_and_scopes_back` → `incident_lifecycle.escalate_systemic`, run from the ops.health sweep, opens `systemic-halt:publication` when one failure family halts at least 3 products and at least 50% of the catalogue, or when there "
+  ],
+  "build2_rows": [
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a systemic threshold (e.g. >X% of products stale from one upstream such as chain) that raises a company-wide halt incident with the evidence; test both scopes.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-169",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract: clean-tree full suite on the deploy tree",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/release_record.py::verify_build (runtime boot guard: the hosted build must carry a committed release-eligible full-suite record naming its exact deployable-tree digest; written by run_tests.sh REQUIRE_CLEAN=1 + ops/deploy_guard.py record)",
+  "durable_state": "release/RELEASE_<sha>.json + release/suite_runs/*.json (tracked, in the image); incidents (release.unproven_build)",
+  "consumer": "src/brambleloop/app/main.py::_startup / release_record.apply_at_import (forces SHADOW + P1 incident on an unproven build); /api/status boot_guard; ops/deploy_guard.py::check (deploy path)",
+  "protected_effect": "only a full, clean, unmoved-HEAD, zero-failing run on the exact candidate SHA allows deploy",
+  "tests": [
+   "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
+   "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused",
+   "tests/test_rc1_own_release.py::test_boot_guard_accepts_a_recorded_build_and_rejects_tampering",
+   "tests/test_rc1_own_release.py::test_boot_guard_opens_and_resolves_a_p1_incident",
+   "tests/test_rc1_own_release.py::test_boot_guard_rejects_a_red_or_unpinned_suite_record",
+   "tests/test_rc1_own_release.py::test_dockerfile_ships_the_release_records_and_main_runs_the_guard",
+   "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
+   "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible"
+  ],
+  "evidence": [
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json (boot_guard ok, record RELEASE_5dfd1ac, tree 30a4dc93)",
+   "release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt (ALLOW)",
+   "w4-FMGATE on 0417f35: the final handoff's full suite ran against the exact deployed tree and the running build proves it: release/RELEASE_5dfd1ac...json is release_eligible (7877 passing, 0 failing suites, tree clean, HEAD unmoved) and names source_tree_sha256 30a4dc93...; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/status boot_guard {enforced:true, ok:true, record RELEASE_5dfd1ac, tree_sha256 30a4dc93} -- the runtime boot guard recomputed the deployed tree digest and matched it; ops/deploy_guard.py check --candidate 0417f35 --deployed fcb982d = ALLOW (research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt). The old gap ('deploy_guard is run by hand, a push builds without it') is closed at runtime: an unproven hosted build is forced to SHADOW with a P1 incident"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: every successor carries its own release record; the boot guard re-checks it on every hosted boot",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-170",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: suite totals/SHA from the runner",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "run_tests.sh (header/footer from git and clock; JSON run record)",
+  "durable_state": "artifacts/suite_runs/*.log|json",
+  "consumer": "ops/deploy_guard.py (re-reads the log header and TOTAL line)",
+  "protected_effect": "SHA, tree state, UTC times and totals are written by the runner, never hand-carried",
+  "tests": [
+   "tests/test_run_tests_script.py::test_the_log_opens_and_closes_with_sha_tree_state_utc_times_and_totals",
+   "tests/test_run_tests_script.py::test_a_json_run_record_and_a_full_log_copy_are_written_where_the_log_says",
+   "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused"
+  ],
+  "evidence": [
+   "RUN_6f9a2f7_full_suite.json carries git_sha, git_sha_at_end, dirty_paths, started/finished UTC from the runner"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-171",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "post-deploy truth of critical paths",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final Build deploy it is red on two checks",
+  "producer": "src/brambleloop/app/main.py::api_verify",
+  "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
+  "consumer": null,
+  "protected_effect": "production smoke of critical invariants",
+  "tests": [
+   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+  ],
+  "evidence": [
+   "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)",
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h"
+  ],
+  "build2_rows": [
+   "#181 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "company: extend /api/verify (probe recency, continuity proof, cadence coverage, queue round-trip); deploy the dead-letter fixes (843af70, 4b55f22); integrator decides the 0.0 agent ceilings",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-172",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "safe publication before phase change",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/main.py::api_verify",
+  "durable_state": "audit_log store.publish_refused",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish (refuses in shadow; refusals are what api_verify counts); app/main.py::dashboard (last clean /api/verify)",
+  "protected_effect": "no consequential publication in shadow; refusals are non-defects",
+  "tests": [
+   "tests/test_deploy.py::test_the_requeue_endpoint_never_re_drives_a_publication_refusal",
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_shadow.py"
+  ],
+  "evidence": [
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_verify_20261011T1439Z.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_queue_dead_20261011T1439Z.json",
+   "w4-FMGATE on 0417f35: re-proven on the Final Build deploy before any phase change: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify phase_is_shadow ok, nothing_published ok, publication_was_actually_attempted_and_refused ok (185 expected refusals; /api/queue/dead store.publish last_seen 2026-10-11T14:26:20Z, after the 13:59Z deploy); the production_deploy gate is cleared"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: re-run /api/verify after every deploy and before any phase-change request",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-173",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority: one authoritative owner-action list",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/owner_queue.py",
+  "durable_state": "owner_actions; build_tasks",
+  "consumer": "`owner_queue.inventory`, built from the one queue (`executor.approval_inbox`). It covers capability, cost, minutes, requirement kind (credentials/legal/physical/spend/decision) and consequence, plus the Final Master gates by key. Shown in `/api/cc/truth`",
+  "protected_effect": "owner sees batched cards; queue continues",
+  "tests": [
+   "tests/test_deploy.py::test_the_owner_queue_is_written_by_the_system_not_by_hand",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_w3_k7_owner_queue.py::test_packets_and_gate_inventory"
+  ],
+  "evidence": [
+   "approval_inbox present in production fcb982d",
+   "w3 handoff_K7.md claim: | F-173 Owner-gate inventory | COMPLETE | `test_packets_and_gate_inventory` → `owner_queue.inventory`, built from the one queue (`executor.approval_inbox`). It covers capability, cost, minutes, requirement kind (credentials/legal/physical/spend/decision) and consequence, plus the Final Master gates "
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Merge approval_inbox and OwnerAction/readiness requests into one launch owner-action report with a requirement_type field (credential/legal/physical/spend) covering Final Master gates.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-174",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "prevents pre-launch false completion of data-dependent requirements",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/owner_queue.py",
+  "durable_state": "build_tasks; ledger_entries",
+  "consumer": "`owner_queue.data_gates` lists the executor data gates and the 14 Final Master rows gated on data. A data-gated row labelled COMPLETE while the customers gate is closed sets the status to BLOCKED",
+  "protected_effect": "requirements needing customers/orders/traffic cannot be marked complete pre-launch",
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_executor.py::test_a_remainder_that_needs_orders_has_somewhere_to_wait",
+   "tests/test_executor.py::test_customers_counts_evidenced_revenue_not_expenses",
+   "tests/test_w3_k7_owner_queue.py::test_data_gate_inventory_and_false_completion_guard"
+  ],
+  "evidence": [
+   "research/b2_resume/closure_state.json DATA-GATED 37",
+   "w3 handoff_K7.md claim: | F-174 Data-gate inventory | COMPLETE | `test_data_gate_inventory_and_false_completion_guard` → `owner_queue.data_gates` lists the executor data gates and the 14 Final Master rows gated on data. A data-gated row labelled COMPLETE while the customers gate is closed sets the status to BLOCKED |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Emit the Final Master data-gated list from closure_matrix.json (gate.kind == data) on the dashboard alongside the Build 2 list.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-175",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: launch report names unknowns",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py::unknowns",
+  "durable_state": null,
+  "consumer": "launch/readiness.py::assess/to_dict/render (dashboard; launch assessment)",
+  "protected_effect": "the launch report lists physical-calibration, uncalibrated-primitive, Etsy-surface, Launch-0 price/make-time, proxy-measurement and provider unknowns",
+  "tests": [
+   "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today"
+  ],
+  "evidence": [
+   "module_reachability: cir/stitches.py and products/launch0.py reached via dashboard -> assess -> unknowns; not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-176",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery: a restorable pre-launch baseline",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/assurance.py::rollback_baseline / record_baseline",
+  "durable_state": "continuity exports; audit_log ops.continuity",
+  "consumer": "runtime/release.handle_health_sweep -> ops/truth.sweep (ops.health cadence) -> audit_log",
+  "protected_effect": "company restorable to a known state",
+  "tests": [
+   "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced",
+   "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
+   "tests/test_w3_k7_ops_truth.py::test_health_handler_runs_the_truth_sweep",
+   "tests/test_w3_k7_ops_truth.py::test_rollback_baseline_names_missing_components"
+  ],
+  "evidence": [
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+   "w4-FMGATE on 0417f35: the deployed candidate's baseline is recorded and recoverable in production: ops.truth.sweep audit row 26799 at 2026-10-11T14:31:00Z on 0417f35 reads rollback_baseline {recoverable:true, recorded:true, missing:[]} (research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json); the production_window gate it waited on was the deploy"
+  ],
+  "build2_rows": [
+   "#51 OWNER-GATED",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: record_baseline writes once per deployed digest",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-177",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: Final Master reconciled to Build-2 first",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Registry, matrix and aggregation exist and are pinned; rows touched by FB-1/FB-2/FB-3 are being re-mapped against 6f9a2f7 now (this remap), so the matrix does not yet reflect current code",
+  "producer": "research/final_build/parse_master.py; research/final_build/aggregate.py",
+  "durable_state": "research/final_build/master_registry.json; closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse",
+   "tests/test_final_master_registry.py::test_every_declared_id_is_accounted_for_as_present_or_absent",
+   "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+   "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason"
+  ],
+  "evidence": [
+   "closure_matrix.json 866 rows; aggregate.py wave overlay keeps worker DONE separate from maturity (F-867)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Merge the remap outputs, extend aggregate.py to read remap files (it globs mapping/s[0-9].json only), re-aggregate and commit",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-178",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: completion standard",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "aggregate.py caps claims by evidence (EXERCISED needs a committed production artefact, INTEGRATED needs a reached producer) but no completion verdict is computed (applicable row complete iff at target maturity for its launch_class or gate genuinely open)",
+  "producer": "research/final_build/aggregate.py::cap",
+  "durable_state": "research/final_build/closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_exercised_rows_cite_a_committed_production_artefact",
+   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+   "tests/test_final_closure_matrix.py::test_no_row_claims_commercial_evidence_that_does_not_exist"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add aggregate.completion(row): LAUNCH-CRITICAL complete iff maturity>=INTEGRATED (DEPLOYED/EXERCISED where production-verified is claimed, with a stored readback artefact) or gate.kind!=none with a verified gate key; summarise OPEN count and pin OPEN==0 for release in tests/test_final_closure_matrix.py",
+  "confidence": "MEDIUM",
+  "searched": null
+ }
+]

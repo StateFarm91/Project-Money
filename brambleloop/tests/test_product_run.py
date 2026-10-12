@@ -12,6 +12,7 @@ construction rather than by a reviewer noticing.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile
@@ -231,13 +232,16 @@ def test_support_answers_from_the_released_version():
         assert product is not None
     q = JobQueue(db)
     job = q.enqueue("support", "support.reply", {
-        "slug": FLAGSHIP, "version": "1.0.0",
+        "slug": FLAGSHIP, "version": nf.build().version,
         "question": "how many stitches should I have at the end of row 12?"})
     assert Worker(db, "support-worker").run_once() is True
     out = q.get(job.id).outputs
-    assert out["cited_version"] == f"{FLAGSHIP}@1.0.0"
+    assert out["cited_version"] == f"{FLAGSHIP}@{nf.build().version}"
     assert out["cited_rows"] == [12]
-    assert "144 stitches" in out["body"], out["body"]
+    # The throw's width is whatever the released design makes at its yarn-derived gauge
+    # (108 since the D-FB-6 re-derivation; 144 at the old typed gauge), so the expected count
+    # is read from the design rather than typed beside it.
+    assert f"{nf.SIZES['throw'][0]} stitches" in out["body"], out["body"]
     assert out["sent"] is False, "shadow mode drafted a reply and marked it sent"
 
 
@@ -362,6 +366,7 @@ def test_the_detected_repeat_is_the_real_one_not_a_convenient_one():
     twin = build_twin(cir, compile_cir(cir))
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     cols, rows = detect_repeat(grid, colour_grid)
+    assert grid and all(row for row in grid), "an empty chart grid proves no repeat"
     for i, row in enumerate(grid):
         for j, cell in enumerate(row):
             assert cell == grid[i % rows][j % cols], f"repeat lies at row {i}, column {j}"
@@ -425,9 +430,27 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
         broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
                   if j.status in (JobStatus.DEAD, JobStatus.FAILED)
                   and j.job_type != "store.publish"]
+        # The collection stage is reached either way; what it produces depends on the
+        # catalogue. #289 (C-71) refuses a two-member "collection" as a product and its
+        # accessory, and this warehouse certifies exactly two nordic-forest members, so the
+        # stage's evidence is the assessment and the refusal, not a Collection row.
+        from brambleloop.core.models import AuditLog as _AuditLog
+        collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.action in (
+            "collection.assessed", "collection.refused", "collection.assembled")]
+        certified = {p.slug for p in s.scalars(_select(Product))
+                     if p.status == "certified"}
     assert not broken, broken
-    assert len(listings) >= 10, f"the rebuild reached only {len(listings)} listings"
-    assert images and content and collections
+    # Every product that had shipped is reached again -- the property under test. This read
+    # ">= 10 listings" when fifteen products certified; under the strict gauge gate (6747ddd)
+    # and the primitive-calibration gate this cycle's portfolio certifies eight (the cable
+    # throw waits on a physical test, autumn-oak is the held legacy record), so the count is
+    # read from what certified rather than typed.
+    assert len(certified) >= 5, f"only {sorted(certified)} certified; the test proves little"
+    reached = {l.product_slug for l in listings}
+    assert certified <= reached, \
+        f"the rebuild reached only {len(listings)} listings; missing {sorted(certified - reached)}"
+    assert images and content
+    assert collections or collection_stage, "the rebuild never reached the collection stage"
     assert {l.chain_version for l in listings} == {CHAIN_VERSION}
 
 
@@ -610,9 +633,12 @@ def test_a_redesigned_product_re_enters_the_chain():
     fresh = _engineered_cir(slug)
 
     # Certify a *different* design under this slug, the way a product looks after it has been
-    # re-engineered: same slug, same version, different fabric.
+    # re-engineered: same slug, an older version, different fabric.
     stale = build(CATALOGUE["cottage-wall-hanging"])
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
+                           "version": "0.9.0"})
     assert stale.fingerprint != fresh.fingerprint
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -669,7 +695,10 @@ def test_a_recertified_release_rebuilds_its_listing():
     slug = "mosaic-placemat-pair"
     fresh = _engineered_cir(slug)
     stale = build(CATALOGUE["cottage-wall-hanging"])
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
+                           "version": "0.9.0"})
 
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -687,7 +716,9 @@ def test_a_recertified_release_rebuilds_its_listing():
         pv = s.scalar(select(PatternVersion).where(
             PatternVersion.product_id == product.id,
             PatternVersion.version == fresh.version))
-        listing = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        # The redesign is a new version, so it gets its own listing row (PT-03).
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == fresh.version))
         assert listing.release_hash != stale_release, \
             "the listing was never rebuilt for the new release"
         assert listing.release_hash == pv.release_hash, \

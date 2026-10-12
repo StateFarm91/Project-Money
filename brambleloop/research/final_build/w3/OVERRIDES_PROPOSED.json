@@ -1,0 +1,153 @@
+{
+ "_meta": {
+  "status": "PROPOSED -- not applied. Wave 3 lane TOOLS, for integrator acceptance.",
+  "rows": "lane K's 16 STRUCTURAL rows (CLOSURE_f0c2d12.md section STRUCTURAL)",
+  "how_to_accept": "Review each entry; copy accepted entries into research/final_build/overrides.json (same {uid: entry} shape, drop _meta), set accepted_by to the integrator's name, re-run aggregate.py, run tests/test_final_closure_matrix.py + test_w3_final_master_gate.py.",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w3/OVERRIDES_PROPOSED.json --dry-run",
+  "rule": "completion_target may only lower the target to TESTED and only on a structural-producer row; evidence keys (producer, tests, evidence, consumer, durable_state, maturity) are adjudicated by cap(); coverage/defect/missing_part/next_action are integrator judgements recorded with the reason.",
+  "accepted_by_is_null": "F-867: a worker cannot certify itself; aggregate refuses an entry without accepted_by."
+ },
+ "overrides": {
+  "F-170": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (run_tests.sh); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-178": {
+   "completion_target": "TESTED",
+   "producer": "research/final_build/aggregate.py::completion",
+   "tests": [
+    "tests/test_final_closure_matrix.py::test_completion_is_computed_per_row_and_the_open_count_is_summarised",
+    "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator",
+    "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open"
+   ],
+   "coverage": "FULL",
+   "missing_part": "",
+   "next_action": "re-map to build2/final_master.py after reachability regeneration",
+   "reason": "Its producer is operator tooling (research/final_build/aggregate.py (offline adjudicator)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The PARTIAL ('no completion verdict is computed') is stale: aggregate.completion() computes the per-row verdict and summary.launch_critical_open (test_completion_is_computed...). The runtime recompute (src/brambleloop/build2/final_master.py, consumed by launch.readiness) is wave-3 K13 work and is not yet in module_reachability.json (generated at f0c2d12); once reachability is regenerated on the integrated head, F-178 can instead be re-mapped to final_master.py and held at INTEGRATED, and this override should then be dropped.",
+   "accepted_by": null
+  },
+  "F-205": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (tests/test_cert_dashboard.py); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The requirement is itself an acceptance test; it runs against the live GET / route in the suite.",
+   "accepted_by": null
+  },
+  "F-332": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (ops/board.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-334": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (ops/waiter.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-340": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (ops/waiter.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-344": {
+   "completion_target": "TESTED",
+   "producer": "ops/waiter.py (repo root)::Waiter.ack / Waiter.account_idle; ops/registry.py (repo root)::ack_and_account; ops/lock.py (repo root)::_show_unread_lanes",
+   "tests": [
+    "tests/test_waiter.py::test_acknowledging_a_lane_accounts_its_idle_wall_clock_and_flags_a_reliability_incident",
+    "tests/test_waiter.py::test_a_quick_acknowledgement_is_recorded_but_is_not_an_incident",
+    "tests/test_reliability_ledger.py::test_registry_ack_accounts_idle_time_through_the_waiter",
+    "tests/test_reliability_ledger.py::test_the_registry_cli_ack_goes_through_the_waiter",
+    "tests/test_reliability_ledger.py::test_the_board_prints_open_reliability_incidents_and_waste"
+   ],
+   "coverage": "FULL",
+   "missing_part": "",
+   "next_action": "none: at target maturity (operator tooling)",
+   "reason": "Its producer is operator tooling (ops/waiter.py + ops/registry.py + ops/lock.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The PARTIAL recorded at 6f9a2f7 is stale: since ffcb62e (an ancestor of f0c2d12) `registry.py ack` accounts idle time through Waiter.account_idle and the lease board prints open incidents and waste; tests/test_reliability_ledger.py proves both. Coverage FULL is proposed on that evidence.",
+   "accepted_by": null
+  },
+  "F-345": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (brambleloop/run_tests.sh); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-346": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (brambleloop/run_tests.sh); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-347": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (brambleloop/run_tests.sh); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-348": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (ops/board.py, ops/registry.py, ops/waiter.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The requirement is the regression tests themselves.",
+   "accepted_by": null
+  },
+  "F-349": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is operator tooling (ops/waiter.py, ops/board.py, run_tests.sh (plus the HEARTBEAT_PROMPT rule)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have.",
+   "accepted_by": null
+  },
+  "F-350": {
+   "completion_target": "TESTED",
+   "producer": "ops/incidents.py (repo root)::open/close; ops/waiter.py (repo root)::Waiter.waste_report",
+   "tests": [
+    "tests/test_reliability_ledger.py::test_open_is_idempotent_by_signature_and_kinds_are_closed",
+    "tests/test_reliability_ledger.py::test_close_refuses_without_all_three_and_accepts_with_them",
+    "tests/test_reliability_ledger.py::test_material_delay_found_by_the_waiter_opens_a_ledger_entry",
+    "tests/test_reliability_ledger.py::test_the_ledger_cli_refuses_a_bare_close"
+   ],
+   "coverage": "FULL",
+   "missing_part": "",
+   "next_action": "none: at target maturity (operator tooling)",
+   "reason": "Its producer is operator tooling (ops/incidents.py + ops/waiter.py (repo root)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The PARTIAL recorded at 6f9a2f7 is stale: ops/incidents.py (ffcb62e) is the reliability-incident ledger with kinds, idempotent open by signature, and a close that is refused unless root_cause, an EXISTING prevention test and an EXISTING fix commit are all given; the waiter opens an entry on material delay. Coverage FULL is proposed on that evidence.",
+   "accepted_by": null
+  },
+  "F-836": {
+   "completion_target": "TESTED",
+   "producer": "src/brambleloop/build2/final_proof.py::validate; research/final_build/aggregate.py::cap",
+   "tests": [
+    "tests/test_final_proof.py::test_fixture_provenance_is_derived_not_asserted",
+    "tests/test_final_proof.py::test_mutations_refused",
+    "tests/test_final_closure_matrix.py::test_a_fact_only_tests_write_cannot_hold_integrated"
+   ],
+   "coverage": "FULL",
+   "defect": null,
+   "missing_part": "",
+   "next_action": "none",
+   "reason": "Its producer is operator tooling (src/brambleloop/build2/final_proof.py (OFFLINE_ADJUDICATORS) + research/final_build/aggregate.py::cap); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The recorded defect (evidence_class self-declared) is fixed: final_proof derives fixture provenance from the artefact path/name whatever the packet says (test_fixture_provenance_is_derived_not_asserted), and aggregate.cap refuses INTEGRATED+ when a cited durable_state table has no non-test writer in a reached module (test_a_fact_only_tests_write_cannot_hold_integrated). Proposes defect cleared and coverage FULL. Running final_proof on real packets is F-834, not this row.",
+   "accepted_by": null
+  },
+  "F-837": {
+   "completion_target": "TESTED",
+   "producer": "src/brambleloop/build2/final_proof.py::validate; research/final_build/aggregate.py::cap",
+   "tests": [
+    "tests/test_final_proof.py::test_directness_needs_the_independent_reviewers_confirmation",
+    "tests/test_final_closure_matrix.py::test_all_proxy_evidence_refuses_integrated_but_one_direct_item_does_not",
+    "tests/test_final_visual_authority.py::test_preserved_authoritative_pixels_never_certify_unknown_construction"
+   ],
+   "coverage": "FULL",
+   "defect": null,
+   "missing_part": "",
+   "next_action": "none",
+   "reason": "Its producer is operator tooling (src/brambleloop/build2/final_proof.py (OFFLINE_ADJUDICATORS) + research/final_build/aggregate.py::cap); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The recorded defect ('direct' self-declared) is fixed: final_proof requires the independent reviewer's direct_confirmed, not the author's flag (test_directness_needs_the_independent_reviewers_confirmation), and aggregate.cap refuses INTEGRATED+ when every cited evidence item is proxy-flagged (test_all_proxy_evidence_refuses_integrated_but_one_direct_item_does_not). Proposes defect cleared, coverage FULL.",
+   "accepted_by": null
+  },
+  "F-847": {
+   "completion_target": "TESTED",
+   "producer": "research/final_build/aggregate.py::launch_scope",
+   "maturity": "TESTED",
+   "tests": [
+    "tests/test_final_closure_matrix.py::test_launch_scope_classifies_every_row_and_every_reclassification_has_a_reason",
+    "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+    "tests/test_w3_overrides_proposed.py::test_a_wave_item_outside_the_registry_is_unclassified_scope"
+   ],
+   "consumer": "LAUNCH_SCOPE.json (integrator release decision; D-FB-5)",
+   "coverage": "FULL",
+   "missing_part": "",
+   "next_action": "none",
+   "reason": "Its producer is operator tooling (research/final_build/aggregate.py::launch_scope (offline adjudicator)); nothing under a runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement is about how the operator/build process behaves, not a runtime capability, so the release-eligible suite running the named tests is the strongest proof it can have. The mapping named no producer and IMPLEMENTED. The launch-scope ledger LAUNCH_SCOPE.json is generated from the adjudicated matrix, classifies every row launch-critical/post-launch/rejected with a reason and records every reclassification out of launch (test_launch_scope_classifies_every_row...). Wave 3 TOOLS closed the remaining gap: a wave work item that names no registry row is now a problem (unclassified scope), and the matrix test requires zero problems. The maturity claim TESTED is adjudicated by cap() (maturity is an evidence override key).",
+   "accepted_by": null
+  }
+ }
+}

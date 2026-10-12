@@ -8,6 +8,7 @@ says "scan complete". Each of those has a test here.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from pathlib import Path
@@ -652,8 +653,15 @@ def test_an_arena_the_benchmark_sells_and_we_do_not_becomes_queued_work():
     assert queue and all(g["state"] == coverage.UNCOVERED for g in queue)
     top = queue[0]
     # Scored only on observable evidence, and the score says how little of itself is evidence.
-    assert set(top["components"]["components"]) == {"apparent_demand", "portfolio_fit"}
-    assert top["components"]["evidence_weight"] < 0.4
+    # #314 (C-61) added the components a scan can read from rows -- seasonal timing and make
+    # time -- beside demand and fit; what needs sales or a judged concept (contribution,
+    # creative potential) is named missing, never scored.
+    comps = top["components"]
+    assert {"apparent_demand", "portfolio_fit"} <= set(comps["components"])
+    assert set(comps["components"]) <= {"apparent_demand", "portfolio_fit", "seasonal_timing",
+                                        "make_time", "search_opportunity"}
+    assert {"expected_contribution", "creative_potential"} <= set(comps["missing"])
+    assert comps["evidence_weight"] < 1.0
 
 
 def test_a_scan_with_no_credential_explains_itself_instead_of_pretending():
@@ -1008,11 +1016,14 @@ def test_the_remaining_count_is_counted_rather_than_computed_to_fall():
     tree = ast.parse(source)
     fn = next(n for n in ast.walk(tree)
               if isinstance(n, ast.FunctionDef) and n.name == "analyse")
+    _vac_1019 = 0
     for node in ast.walk(fn):
+        _vac_1019 += 1
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
             names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
             assert "judged" not in names, \
                 "the remaining count is subtracting this run's judged again"
+    assert _vac_1019, "ast.walk(fn) was empty: the loop proved nothing (F-123)"
 
 
 def _one_listing(images=("a.jpg", "b.jpg")):
@@ -1152,6 +1163,132 @@ def test_a_listing_below_the_image_floor_still_counts_as_absent():
 
     attributes = market_map.gaps(db)["attributes"]
     assert attributes["silhouette"]["absent_on"] == 1
+
+# ---- #313: an interval that follows the benchmark's posting behaviour ------
+
+
+def _post_history(db, start, gap_hours: float, events: int, *, baseline_first=True):
+    """Scan observations as `scan` writes them: a baseline, then scans that found changes."""
+    from datetime import timedelta
+
+    from brambleloop.core.models import BenchmarkObservation
+
+    with db.session() as s:
+        if baseline_first:
+            s.add(BenchmarkObservation(benchmark_key=benchmarks.MJS_KEY, kind="official_api_read",
+                                       at=start - timedelta(hours=1),
+                                       detail={"baseline": True, "changes": [
+                                           {"listing_ref": "b", "what": "new listing"}]}))
+        for n in range(events):
+            s.add(BenchmarkObservation(
+                benchmark_key=benchmarks.MJS_KEY, kind="official_api_read",
+                at=start + timedelta(hours=gap_hours * n),
+                detail={"baseline": False, "changes": [
+                    {"listing_ref": str(n), "what": "new listing"}]}))
+
+
+def test_thin_posting_history_falls_back_to_the_fixed_interval_and_says_why():
+    from datetime import datetime, timezone
+
+    from brambleloop.intel import observe
+
+    db = _db()
+    now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
+    # Posting history is held still here by `seasonal=False`; the seasonal half of #213 is
+    # asserted below and in tests/test_cert_mjs.py.
+    empty = observe.adaptive_interval(db, now=now, seasonal=False)
+    assert empty["adaptive"] is False
+    assert empty["interval_seconds"] == observe.FIXED_INTERVAL_SECONDS
+    assert "too thin" in empty["reason"]
+
+    _post_history(db, datetime(2026, 9, 25, tzinfo=timezone.utc), 12, 3)
+    thin = observe.adaptive_interval(db, now=now, seasonal=False)
+    assert thin["adaptive"] is False and thin["posting_events"] == 3, thin
+
+    # During a seasonal ramp thin history does not excuse the resting rate (#213).
+    ramp = observe.adaptive_interval(db, now=now, seasonal=True)
+    assert ramp["interval_seconds"] == observe.SEASONAL_CEILING_SECONDS
+    assert "seasonal" in ramp["reason"]
+
+
+def test_the_interval_adapts_to_the_shops_rhythm_inside_its_bounds():
+    from datetime import datetime, timezone
+
+    from brambleloop.intel import observe
+
+    start = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 27, tzinfo=timezone.utc)
+
+    db = _db()
+    _post_history(db, start, 12, 16)  # every twelve hours for a week and a half
+    twelve = observe.adaptive_interval(db, now=now, seasonal=False)
+    assert twelve["adaptive"] is True and twelve["bounded_by"] == "none"
+    assert twelve["interval_seconds"] == 3 * 3600, twelve
+    # The baseline scan found every listing at once; it is not a posting event.
+    assert twelve["posting_events"] == 16
+
+    busy = _db()
+    _post_history(busy, start, 1, 200)
+    assert observe.adaptive_interval(busy, now=now, seasonal=False)["interval_seconds"] == \
+        observe.ADAPTIVE_FLOOR_SECONDS
+
+    quiet = _db()
+    _post_history(quiet, start - __import__("datetime").timedelta(days=60), 7 * 24, 8)
+    out = observe.adaptive_interval(quiet, now=now, seasonal=False)
+    assert out["interval_seconds"] == observe.ADAPTIVE_CEILING_SECONDS
+    assert out["bounded_by"] == "ceiling"
+    # The same quiet shop in a seasonal ramp is scanned at the seasonal ceiling (#213).
+    ramp = observe.adaptive_interval(quiet, now=now, seasonal=True)
+    assert ramp["interval_seconds"] == observe.SEASONAL_CEILING_SECONDS
+    assert ramp["bounded_by"] == "seasonal"
+
+
+def test_the_scan_handler_defers_until_the_adaptive_interval_has_elapsed():
+    """Through `mjs.scan` on the worker: a scan that is not due makes no request at all."""
+    import os
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    import brambleloop.integrations.http as http
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.intel import observe
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    now = datetime.now(timezone.utc)
+    _post_history(db, now - timedelta(days=8), 12, 16)   # last scan ~8h ago, 3h interval
+    due = observe.scan_due(db, now=now)
+    assert due["due"] is True
+    _post_history(db, now - timedelta(minutes=30), 1, 1, baseline_first=False)
+    assert observe.scan_due(db, now=now)["due"] is False
+
+    class NoNetwork:
+        def __getattr__(self, name):
+            raise AssertionError(f"a deferred scan used the transport ({name})")
+
+    saved = (http.UrllibTransport, os.environ.get("ETSY_API_KEY"),
+             os.environ.get("ETSY_SHARED_SECRET"))
+    http.UrllibTransport = NoNetwork
+    os.environ["ETSY_API_KEY"], os.environ["ETSY_SHARED_SECRET"] = "fixture-key", "fixture"
+    try:
+        JobQueue(db).enqueue("market_radar", "mjs.scan", {}, idempotency_key="scan")
+        Worker(db, "w").run_once()
+    finally:
+        http.UrllibTransport = saved[0]
+        for var, value in (("ETSY_API_KEY", saved[1]), ("ETSY_SHARED_SECRET", saved[2])):
+            if value is None:
+                os.environ.pop(var, None)
+            else:
+                os.environ[var] = value
+    with db.session() as s:
+        job = s.scalar(select(Job).where(Job.job_type == "mjs.scan"))
+        assert job.status == JobStatus.DONE, job.last_error
+        assert job.outputs["ran"] is False and "adaptive interval" in job.outputs["reason"]
 
 if __name__ == "__main__":
     fails = 0

@@ -45,7 +45,18 @@ CONSTRUCTION_FIELDS: tuple[str, ...] = (
 PRIMITIVES: tuple[str, ...] = (
     "silhouette", "motif_density", "dimensionality", "palette_role", "prop_context",
     "function", "emotional_tone", "construction_novelty",
+    # W4-B2VISION 2026-10-12: the three #116 names that were missing. Each is read from
+    # evidence already on file -- the API's own option fields, the listing's structure, and
+    # the gallery observation's thumbnail field -- never from what the product depicts.
+    "personalization", "bundle_logic", "thumbnail_readability",
 )
+
+# Closed answers for the two structural primitives.
+PERSONALIZATION: tuple[str, ...] = ("personalizable", "customizable", "none")
+BUNDLE_LOGIC: tuple[str, ...] = ("bundle", "variations", "single")
+# Words in a listing title that say it sells more than one pattern. Structure, not subject.
+_BUNDLE_WORDS: tuple[str, ...] = ("bundle", "set of", "pattern set", "collection", "pack",
+                                  "2 in 1", "3 in 1")
 
 # Closed answer sets where an open one would let a subject in. `motif_density` is the one
 # that matters: a quantity, never a description of the motif.
@@ -185,7 +196,36 @@ def density_of(observations: list[dict], readings: list[dict]) -> str:
     return "sparse" if joined.strip() else "none"
 
 
-def primitives(observations: list[dict], readings: list[dict]) -> dict:
+def _most_common(values: list[str]) -> str:
+    from collections import Counter
+
+    values = [v for v in values if v]
+    return Counter(values).most_common(1)[0][0] if values else ""
+
+
+def structure_of(listings: list[dict]) -> dict:
+    """Personalization and bundle logic, from the API's option fields and listing structure.
+
+    `listings` carry `title` and the `options` block `intel.observe.listing_options` stored
+    (#208). An absent option block is unmeasured, so a listing without one contributes
+    nothing to personalization rather than "none".
+    """
+    pers, bundle = [], []
+    for item in listings:
+        opts = item.get("options")
+        if isinstance(opts, dict) and opts:
+            pers.append("personalizable" if opts.get("is_personalizable") else
+                        "customizable" if opts.get("is_customizable") else "none")
+        title = str(item.get("title") or "").lower()
+        if title:
+            bundle.append("bundle" if any(w in title for w in _BUNDLE_WORDS) else
+                          "variations" if isinstance(opts, dict) and opts.get("has_variations")
+                          else "single")
+    return {"personalization": _most_common(pers), "bundle_logic": _most_common(bundle)}
+
+
+def primitives(observations: list[dict], readings: list[dict],
+               listings: list[dict] | None = None) -> dict:
     """The #116 primitives, assembled from evidence already gathered.
 
     Nothing here asks a new question of a model. Both inputs are readings that already exist
@@ -211,6 +251,8 @@ def primitives(observations: list[dict], readings: list[dict]) -> dict:
         "emotional_tone": first(observations, "emotional_merchandising"),
         "construction_novelty": first(readings, "sleeve_treatment", "neckline",
                                       "colour_architecture"),
+        "thumbnail_readability": first(observations, "thumbnail_readability"),
+        **structure_of(listings or []),
     }
     present = {k: v for k, v in out.items() if v}
     check_free_of_depiction(present.values())
@@ -238,9 +280,13 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
 
     benchmark_key = benchmark_key or benchmarks.MJS_KEY
     with db.session() as s:
-        refs = [r.listing_ref for r in s.scalars(select(BenchmarkListing).where(
-            BenchmarkListing.benchmark_key == benchmark_key,
-            BenchmarkListing.pod == pod))]
+        listed = {r.listing_ref: {"title": r.title or "",
+                                  "options": (r.detail or {}).get("options")}
+                  for r in s.scalars(select(BenchmarkListing).where(
+                      BenchmarkListing.benchmark_key == benchmark_key,
+                      BenchmarkListing.pod == pod))}
+    refs = list(listed)
+    structure: list[dict] = []
 
     observations: list[dict] = []
     readings: list[dict] = []
@@ -250,6 +296,7 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
         if not got:
             continue
         with_evidence += 1
+        structure.append(listed[ref])
         observations.extend(got)
         stored = _stored_readings(db, ref, benchmark_key)
         readings.extend(stored)
@@ -263,10 +310,18 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
                        f"make that product again"),
         }
 
-    derived = primitives(observations, readings)
+    derived = primitives(observations, readings, structure)
+    # #85, #101: the brief is assembled with what the company has learned -- jury autopsies
+    # and routed lessons -- and records that it drew on them, so a later design can be shown
+    # to have used accumulated knowledge rather than restarting from generic intelligence.
+    from ..improve.bus import brief_lessons
+
+    memory = brief_lessons(db, artifact=f"brief:{benchmark_key}:{pod}")
     return {
         "pod": pod, "listings_with_evidence": with_evidence, "usable": True,
         **derived,
+        "lessons": memory["lessons"],
+        "design_provenance": memory["provenance"],
         "is_a_brief_not_an_instruction": (
             "these are constraints to design within -- this silhouette family, this density, "
             "this palette role -- and the tournament that follows makes something original "
@@ -303,6 +358,89 @@ def record_reading(db, listing_ref: str, reading: dict, *, benchmark_key: str = 
         kind="construction_reading", listing_ref=listing_ref,
         detail={"reading": reading, "image": image_key}, env=env)
     return got.observation_id
+
+
+DECOMPOSITION_KIND = "creative.reference_decomposition"
+READS_PER_RUN = 6
+
+
+def run(db, *, provider=None, env: dict | None = None, today=None,
+        reads: int = READS_PER_RUN) -> dict:
+    """The runtime half of #116 and #278: read, record, decompose, store.
+
+    Gated on `image_vision` exactly as the gallery drain is -- no vision probe, no read, and
+    the refusal is returned rather than a reading guessed. Otherwise: listings whose gallery
+    has judged observations and no construction reading get one (`read_listing` on the first
+    gallery image, `record_reading`), and every department with enough evidence has its
+    decomposition *stored* -- an `OperatingReading` per pod -- which is what ideation reads,
+    so the decomposition is a record rather than something recomputed at read time.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing, OperatingReading
+    from ..gateway import anthropic as gw
+    from ..intel import benchmarks, vision
+
+    today = today or datetime.now(timezone.utc).date()
+    if provider is None and not gw.vision_usable(db):
+        return {"ran": False, "reason": ("image_vision is closed: no vision probe has "
+                                         "succeeded, so no competitor image is read and no "
+                                         "decomposition is guessed")}
+    key = benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = [(r.listing_ref, r.pod, list((r.detail or {}).get("image_urls") or []))
+                for r in s.scalars(select(BenchmarkListing).where(
+                    BenchmarkListing.benchmark_key == key,
+                    BenchmarkListing.audit_state != "withdrawn"))]
+    read, failed = [], []
+    for ref, _pod, urls in rows:
+        if len(read) >= reads:
+            break
+        if not urls or not vision.observations_for(db, ref, benchmark_key=key):
+            continue
+        if _stored_readings(db, ref, key):
+            continue
+        try:
+            reading = read_listing(urls[0], db=db, provider=provider)
+            record_reading(db, ref, reading, benchmark_key=key, image_key=urls[0][-64:],
+                           env=env)
+            read.append(ref)
+        except Exception as exc:  # noqa: BLE001 - one unreadable image is skipped, not faked
+            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200]})
+    stored = []
+    for pod in sorted({p for _r, p, _u in rows if p}):
+        b = brief(db, pod, benchmark_key=key)
+        if not b.get("usable"):
+            continue
+        payload = {"as_of": today.isoformat(), "pod": pod,
+                   "primitives": b["primitives"], "absent": b["absent"],
+                   "listings_with_evidence": b["listings_with_evidence"]}
+        with db.session() as s:
+            row = s.scalar(select(OperatingReading).where(
+                OperatingReading.kind == DECOMPOSITION_KIND,
+                OperatingReading.period_key == pod[:20]))
+            if row is None:
+                s.add(OperatingReading(kind=DECOMPOSITION_KIND, period_key=pod[:20],
+                                       payload=payload))
+            else:
+                row.payload = payload
+        stored.append(pod)
+    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored}
+
+
+def stored_decomposition(db, pod: str) -> dict | None:
+    """The newest stored decomposition for a department, or None (#116)."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == DECOMPOSITION_KIND,
+            OperatingReading.period_key == pod[:20]))
+        return dict(row.payload or {}) if row is not None else None
 
 
 def state() -> dict:

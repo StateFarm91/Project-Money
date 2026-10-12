@@ -12,8 +12,8 @@ from __future__ import annotations
 import os
 from datetime import timedelta, timezone
 
-from fastapi import FastAPI, Header, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi import Depends, FastAPI, Header, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, RedirectResponse
 from sqlalchemy import func, select
 
 from ..agents.registry import Registry
@@ -29,7 +29,8 @@ from ..gateway.model_gateway import available_providers
 from ..queue.durable import DuplicateJob, JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
-from . import access_log, runner
+from . import access_log, runner, security
+from .security import Markup, esc
 
 APP_VERSION = "0.1.0"
 
@@ -41,8 +42,84 @@ APP_VERSION = "0.1.0"
 # survived a careful review of the application's own code.
 ACCESS_LOG_REDACTION = access_log.install()
 
+# A3-05: the runtime boot guard. On the hosting platform a build with no committed,
+# release-eligible record for its exact tree runs as SHADOW (and opens a P1 at startup), so a
+# push that skipped the git hook, or a platform-side redeploy, cannot run unproven code live.
+from ..ops import release_record as _release_record
+
+BOOT_GUARD = _release_record.apply_at_import()
+
 db = Database()
-app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
+# A3-02: default-deny. Every route inherits `operator_gate`, so a mutating route (and every GET
+# in `security.OPERATOR_GET_ROUTES`) is closed to anyone without the operator credential
+# unless it is on the short, justified `security.PUBLIC_MUTATING_ROUTES` allow-list.
+app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION,
+              dependencies=[Depends(security.operator_gate)])
+app.add_exception_handler(security.OperatorRefused, security.operator_refused_handler)
+
+
+def _known_customer_refs() -> list[str]:
+    """Every stored buyer identifier, for the response scrub (A3-04 defence in depth)."""
+    from ..core.models import Customer, Order
+
+    with db.session() as s:
+        refs = set(s.scalars(select(SupportCase.customer_ref).distinct()))
+        refs |= set(s.scalars(select(Customer.customer_ref)))
+        refs |= set(s.scalars(select(Order.external_ref).distinct()))
+    return [r for r in refs if r]
+
+
+# Order matters: the scrub runs inside the header middleware, so every response -- including
+# one the scrub rewrote -- leaves with the security headers.
+app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
+app.add_middleware(security.SecurityHeadersMiddleware)
+from .activation_authority_api import make_router as activation_authority_router
+from .publication_authority_api import make_router as publication_authority_router
+from .phase_api import make_router as phase_router
+from .ledger_mapping_api import make_router as ledger_mapping_router
+
+app.include_router(activation_authority_router(db))
+app.include_router(publication_authority_router(db))
+app.include_router(phase_router(db))
+app.include_router(ledger_mapping_router(db))
+from ..learn.api import router as learn_router
+
+app.include_router(learn_router(db))
+from .storefront_api import make_router as storefront_router
+
+app.include_router(storefront_router(db))
+# W3 K8 W1 (applied by lane F): the Etsy estate and CX workspace routes. Customer-bearing
+# reads in it are operator-only (its own CUSTOMER_DATA_ROUTES, merged into ours below).
+from ..commerce.estate_api import make_router as estate_router
+
+app.include_router(estate_router(db))
+# v1.1 Owner Command Center (lane C): `/api/cc/*` behind the owner-session gate (registered
+# into `security.operator_gate`) and the PWA's static files at `/cc/` under a strict CSP.
+from . import command_center
+
+command_center.install(app, db)
+
+
+# W3 lane A wiring: the brand's bundled font subsets, for `brand.identity_system.font_face_css(
+# "/brand/")`. Public, read-only, allow-listed by file name (no path is ever joined from the
+# request), served under the application CSP (`font-src 'self'`).
+_BRAND_FONT_TYPES = {".woff": "font/woff", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
+
+
+@app.get("/brand/fonts/{name}", include_in_schema=False)
+def brand_font(name: str):
+    from fastapi.responses import Response
+
+    from ..brand import identity_system
+
+    allowed = {p.name: p for p in identity_system.FONT_DIR.iterdir()
+               if p.is_file() and p.suffix.lower() in _BRAND_FONT_TYPES}
+    path = allowed.get(name)
+    if path is None:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return Response(path.read_bytes(), media_type=_BRAND_FONT_TYPES[path.suffix.lower()],
+                    headers={"Cache-Control": "public, max-age=86400",
+                             "X-Content-Type-Options": "nosniff"})
 
 
 # What the last boot's enqueues did, readable from /health.
@@ -91,6 +168,10 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
     except Exception as e:  # noqa: BLE001 - a boot job must never block a boot
         record["outcome"] = "error"
         record["detail"] = f"{type(e).__name__}: {e}"[:300]
+        import logging
+
+        logging.getLogger("brambleloop.boot").warning("boot enqueue %s failed: %s",
+                                                      name, record["detail"])
     BOOT_ENQUEUES.append(record)
     return record
 
@@ -98,6 +179,10 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
 @app.on_event("startup")
 def _startup() -> None:
     schema_changes = db.create_all()
+    try:
+        _release_record.record_incident(db)
+    except Exception:  # noqa: BLE001 - the phase is already forced; the row is the record
+        pass
     # One row per container start, carrying the commit it started on.
     #
     # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts
@@ -118,6 +203,14 @@ def _startup() -> None:
                                        "commit_short", "dev"),
                                    "at": utcnow().isoformat()})
     except Exception:  # noqa: BLE001 - recording a boot must never prevent one
+        pass
+    # W3-F wiring 5 (W3-WIRE4): the Laura voice listening decision lives in the one owner
+    # queue, with its cost basis UNKNOWN (never CA$0.00). Idempotent on requirement_key.
+    try:
+        from ..laura.agency import voice_selection as _voice_selection
+
+        _voice_selection.seed_owner_action(db)
+    except Exception:  # noqa: BLE001 - seeding the queue must never prevent a boot
         pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
@@ -435,6 +528,22 @@ def _shutdown() -> None:
 # ---- health ---------------------------------------------------------------
 
 
+def _public_runner_state() -> dict:
+    """The runner state with its last error reduced to the exception class (A3-12).
+
+    A worker that died on a database error carries the driver's message, which names the
+    host and port; the unauthenticated health check reports that it failed and how, not where.
+    """
+    import re as _re
+
+    state = runner.STATE.to_dict()
+    err = str(state.get("last_error") or "")
+    if err:
+        m = _re.match(r"^((?:scheduler: )?[A-Za-z_][\w.]*)", err)
+        state["last_error"] = (m.group(1) if m else "error") + " (detail in the server log)"
+    return state
+
+
 @app.get("/health")
 def health() -> JSONResponse:
     """Liveness + a real readiness signal: can we actually reach the database?"""
@@ -445,13 +554,23 @@ def health() -> JSONResponse:
         detail = "ok"
     except Exception as e:  # noqa: BLE001
         healthy = False
-        detail = f"{type(e).__name__}: {e}"
+        # A3-12: the driver's message names the database host and port (and can name more).
+        # /health is unauthenticated, so it answers with the class of failure only; the
+        # detail goes to the server log, where the operator can read it.
+        import logging
+
+        logging.getLogger("brambleloop.health").warning(
+            "health: database unreachable: %s: %s", type(e).__name__, e)
+        detail = "unreachable"
     return JSONResponse(
         {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail,
-         "build": build_identity(), "runner": runner.STATE.to_dict(),
+         "build": build_identity(), "runner": _public_runner_state(),
          # What this boot's enqueues actually did. A swallowed exception with no trace is
          # the boot-time version of a gate nobody can see refusing.
-         "boot_enqueues": list(BOOT_ENQUEUES)},
+         "boot_enqueues": [
+             ({**r, "detail": (r.get("detail") or "").split(":")[0]
+               + " (detail in the server log)"} if r.get("outcome") == "error" else r)
+             for r in BOOT_ENQUEUES]},
         status_code=200 if healthy else 503,
     )
 
@@ -489,6 +608,8 @@ def api_status() -> dict:
         # therefore proves nothing about a deploy; this is the only field that says whether
         # a fix has actually reached production, and it says `unknown` when it cannot tell.
         "build": build_identity(),
+        "boot_guard": {k: BOOT_GUARD.get(k) for k in ("enforced", "ok", "action", "record",
+                                                      "reasons", "tree_sha256")},
         "queue": q.counts(),
         # Split, because the raw count is 99% Shadow Mode working correctly. A publication
         # job dying is a refusal, not a failure, and a number dominated by healthy refusals
@@ -509,8 +630,15 @@ def api_status() -> dict:
         "products": products,
         "certified_versions": certified,
         "open_incidents": incidents,
+        # Raw sums, kept for API compatibility and named for what they are. A3-09: neither is
+        # a headline figure -- `revenue` (UNMEASURED while the order source is gated; only
+        # measured+reconciled rows when not) and `spend` (every recorded kind) are.
         "agent_opex_cad": round(float(opex), 4),
+        "agent_opex_basis": "raw sum of cost_entries.amount_cad (all kinds); see `spend`",
         "revenue_cad": round(float(revenue), 2),
+        "revenue_cad_basis": "raw sum of ledger.gross_cad, unreconciled; see `revenue`",
+        "revenue": _truth_reading("revenue_reading"),
+        "spend": _truth_reading("spend_reading"),
         "owner_actions_open": owner_open,
         "runner": runner.STATE.to_dict(),
         # Reported rather than assumed. An empty list is the truthful answer until a key is
@@ -520,10 +648,60 @@ def api_status() -> dict:
     }
 
 
+def _truth_reading(name: str) -> dict:
+    """A3-09: the honest revenue/spend reading for /api/status; UNKNOWN if unreadable."""
+    from . import dashboard_truth
+
+    try:
+        return getattr(dashboard_truth, name)(db)
+    except Exception as exc:  # noqa: BLE001 - status must answer; unknown is not zero
+        return {"state": "UNKNOWN", "value_cad": None, "display": "UNKNOWN",
+                "label": "Recorded spend (all kinds)",
+                "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
 @app.post("/api/scheduler/tick")
 def api_tick() -> dict:
-    """Cron target. Idempotent per cadence window, so calling it often is harmless."""
+    """Cron target. Idempotent per cadence window, so calling it often is harmless.
+
+    Operator credential required (A3-02: every mutating route is default-deny). Production
+    does not call this over HTTP: the embedded runner ticks the scheduler in-process, and the
+    Railway cron entrypoint is `python -m brambleloop.app.scheduler_entry`, which talks to the
+    database directly. An external HTTP cron pointed here must send
+    `Authorization: Bearer $BRAMBLELOOP_OPS_TOKEN`, or it is refused with 401 (503 when the
+    token is unset) and enqueues nothing.
+    """
     return {"enqueued": Scheduler(db).tick()}
+
+
+_NO_FILTER_AUDIT = {"state": "UNMEASURED", "entered": [], "lost_to_missing_data": [],
+                    "lost": [], "why": "listing.seo has not written a search profile for this "
+                                       "listing version"}
+
+
+def _catalogue_filters() -> dict:
+    """F-009: per listing version, the Etsy filters it enters and the ones it loses, read from
+    the search profile `listing.seo` stored (`ListingSearchProfile.filters`, produced by
+    `commerce.category.filter_audit`). UNMEASURED while the node's schema is unknown -- the
+    taxonomy has not been read -- never an empty list that reads as "no filter lost"."""
+    from ..core.models import ListingSearchProfile
+
+    out: dict = {}
+    with db.session() as s:
+        for row in s.scalars(select(ListingSearchProfile)):
+            f = row.filters or {}
+            measurable = bool(f.get("measurable"))
+            out[(row.product_slug, row.version)] = {
+                "state": "MEASURED" if measurable else "UNMEASURED",
+                "entered": [x.get("filter") for x in f.get("entered") or []],
+                "lost_to_missing_data": list(f.get("lost_to_missing_data") or []),
+                "lost": [{"filter": x.get("filter"), "status": x.get("status")}
+                         for x in f.get("lost") or []],
+                "why": ("filters the listing's Etsy node offers, entered vs lost, from the "
+                        "stored taxonomy snapshot" if measurable else
+                        f"category {row.category_status}: no taxonomy node schema to audit "
+                        "against (listing.taxonomy_refresh has not read Etsy's taxonomy)")}
+    return out
 
 
 @app.get("/api/catalogue")
@@ -545,6 +723,17 @@ def api_catalogue() -> dict:
     for c in content:
         content_by_slug[c.product_slug] = content_by_slug.get(c.product_slug, 0) + 1
 
+    # F-003: the search column is the search certificate's verdict, not the planning proxy
+    # (`seo_score`, an assumed+observed query share), and it sits beside the five ranking-
+    # readiness dimensions, each MEASURED or UNMEASURED and never blended into one number.
+    from ..commerce import ranking_readiness
+
+    shared = ranking_readiness.shop_wide(db)
+    profiles = {(l.product_slug, l.version): ranking_readiness.profile(
+        db, l.product_slug, l.version, shared=shared) for l in listings}
+    order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
+    filters = _catalogue_filters()
+
     return {
         "published": False,
         "why": ("BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
@@ -552,13 +741,25 @@ def api_catalogue() -> dict:
         "listings": [
             {"slug": l.product_slug, "version": l.version, "title": l.title,
              "price_cad": l.price_cad, "tags": len(l.tags), "state": l.state,
-             "search_share": round(l.seo_score, 3),
+             "search_certificate": profiles[(l.product_slug, l.version)]["search_certificate"]
+             ["verdict"],
+             "ranking_readiness": ranking_readiness.summary(
+                 profiles[(l.product_slug, l.version)]),
              "chain_version": l.chain_version,
              "release": (l.release_hash or "")[:12],
              "images": by_slug.get(l.product_slug, 0),
-             "content_pieces": content_by_slug.get(l.product_slug, 0)}
-            for l in sorted(listings, key=lambda x: -x.seo_score)
+             "content_pieces": content_by_slug.get(l.product_slug, 0),
+             "filters": filters.get((l.product_slug, l.version), dict(_NO_FILTER_AUDIT))}
+            for l in sorted(listings, key=lambda x: (
+                order.get(profiles[(x.product_slug, x.version)]["search_certificate"]
+                          ["verdict"], 9), x.product_slug))
         ],
+        "ranking_readiness_basis": {
+            "dimensions": list(ranking_readiness.DIMENSIONS),
+            "rule": ("each dimension is MEASURED (PASS/FAIL) or UNMEASURED; there is no "
+                     "blended score, and UNMEASURED is never PASS"),
+            "search_certificate": ("the search certificate listing.seo issued, as the publish "
+                                   "gate reads it: NONE, STALE, REFUSED or PASS")},
         "collections": [{"slug": c.slug, "title": c.title, "family": c.family}
                         for c in collections],
         "totals": {"listings": len(listings), "listing_images": len(assets),
@@ -569,8 +770,9 @@ def api_catalogue() -> dict:
 
 @app.get("/api/finance")
 def api_finance() -> dict:
-    """The books, the CFO's view and where CA$100K stands. Every figure observed."""
+    """The books, the CFO's view and where CA$100K stands. Each figure carries its basis (measured / modelled / unknown); nothing unobserved is presented as observed."""
     from ..finance.books import Books, cfo_challenge, trajectory
+    from ..finance.spend_policy import INFRA_CEILING_CAD, INFRA_MONTHLY_CAD
 
     books = Books(db)
     pl = books.profit_and_loss()
@@ -585,13 +787,50 @@ def api_finance() -> dict:
         "unit_economics": books.unit_economics(products_validated=validated,
                                                listings_drafted=listings),
         "cfo_challenges": [c.to_dict() for c in cfo_challenge(
-            pl, limits=limits, infra_monthly_cad=7.0, infra_ceiling_cad=20.0)],
+            pl, limits=limits, infra_monthly_cad=INFRA_MONTHLY_CAD,
+            infra_ceiling_cad=INFRA_CEILING_CAD)],
         "trajectory": trajectory(pl),
     }
 
 
+# F-696 / F-689: routes that return customer, order or support *content* -- anything a buyer
+# wrote, or anything that identifies a buyer -- are operator reads, not dashboard reads.
+#
+# The dashboard's read-only views are unauthenticated on purpose (an absent owner opens a URL),
+# and that convenience is exactly how `/api/support` came to serve customer question text to
+# anyone who could reach the service. Aggregates (counts, rates, service levels) stay open;
+# the rows themselves do not. Every route listed here goes through `_operator_read_refusal`,
+# and `tests/test_customer_data_auth.py` enumerates every GET route the app registers against
+# seeded customer sentinels, so a new route that starts quoting a customer fails the suite
+# until it is listed here.
+CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
+    "/api/support",
+    "/api/cx/workspace",          # W3 K8 (commerce.estate_api), operator credential
+})
+
+
+def _operator_read_refusal(authorization: str) -> JSONResponse | None:
+    """The operator-credential check for a read that carries customer content.
+
+    Same semantics as every write guard: absent token is closed (503), a wrong or missing
+    credential is 401, and the refusal never echoes what was presented or what was expected.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required: this route returns "
+                                      "customer content"}, status_code=401)
+    return None
+
+
 @app.get("/api/support")
-def api_support(limit: int = 50) -> dict:
+def api_support(limit: int = 50, authorization: str = Header(default="")):
+    """Support cases with their question and answer text. Operator credential required."""
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
     with db.session() as s:
         cases = list(s.scalars(select(SupportCase).order_by(SupportCase.id.desc())
                                .limit(min(limit, 500))))
@@ -605,8 +844,73 @@ def api_support(limit: int = 50) -> dict:
         }
 
 
+@app.post("/api/support/messages")
+async def api_support_messages(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """The owner records a buyer message, or that a reply was sent (F-043).
+
+    Etsy has no messages API, so a buyer message reaches this system only when the owner
+    records what they read in Etsy Messages. The first-response watch (`support.triage`)
+    times the case from `received_at`, alerts at 24h/36h and closes when the reply is
+    recorded here as sent. Operator credential required: it writes customer content.
+
+    Body: {event: "buyer_message", customer_ref, message, received_at? (ISO 8601),
+    product_slug?} or {event: "reply_sent", case_id, sent_at? (ISO 8601)}.
+    """
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..support import response_watch
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    event = (body or {}).get("event")
+    try:
+        if event == "buyer_message":
+            out = response_watch.record_buyer_message(
+                db, customer_ref=str(body.get("customer_ref") or ""),
+                message=str(body.get("message") or ""),
+                received_at=body.get("received_at"), product_slug=body.get("product_slug"))
+        elif event == "reply_sent":
+            out = response_watch.record_reply_sent(db, int(body.get("case_id")),
+                                                   sent_at=body.get("sent_at"))
+        else:
+            return JSONResponse({"error": "event must be buyer_message or reply_sent"},
+                                status_code=400)
+    except (response_watch.MessageRefused, TypeError, ValueError) as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=400)
+    return JSONResponse({"recorded": True, "event": event, **out})
+
+
+def _as_of_refusal(as_of: str | None) -> JSONResponse | None:
+    """A3-01/A3-02: `as_of` is a calendar date or nothing, checked before anything is queued.
+
+    It used to be enqueued as given. A garbage value failed inside the job, dead-lettered with
+    the value quoted in its error, turned `/api/verify` red, and was then printed raw on the
+    dashboard -- an unauthenticated query string became stored script on the owner's page.
+    """
+    if as_of in (None, ""):
+        return None
+    from datetime import date as _date
+
+    text = str(as_of)
+    try:
+        if len(text) != 10:
+            raise ValueError
+        day = _date.fromisoformat(text)
+    except ValueError:
+        return JSONResponse({"error": "as_of must be a calendar date, YYYY-MM-DD"},
+                            status_code=400)
+    if not 2000 <= day.year <= 2100:
+        return JSONResponse({"error": "as_of must be a date between 2000 and 2100"},
+                            status_code=400)
+    return None
+
+
 @app.post("/api/plan-cycle")
-def api_plan_cycle(as_of: str | None = None) -> dict:
+def api_plan_cycle(as_of: str | None = None):
     """Enqueue a planning cycle now instead of waiting for the daily cadence.
 
     GREEN: it enqueues work the system already does on a schedule, spends nothing, and cannot
@@ -617,6 +921,9 @@ def api_plan_cycle(as_of: str | None = None) -> dict:
     Running it for a new date re-scores the pool against that calendar, which is the point:
     the portfolio changes with the date, not with the catalogue.
     """
+    refused = _as_of_refusal(as_of)
+    if refused is not None:
+        return refused
     payload = {"as_of": as_of} if as_of else {}
     key = f"plan.cycle:{as_of}" if as_of else None
     try:
@@ -953,6 +1260,154 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.post("/api/owner/decision")
+async def api_owner_decision(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """The owner answers an approval card the improvement loop raised (#92 / #180 / #190).
+
+    Found by the certification wiring: gate-tier improvements and challenger promotions wait
+    on `cells.record_owner_approval` / `league.record_owner_decision`, and the cards named
+    those calls but nothing in the running system could make them. This is that door. It
+    records only; promotion still happens in the loop's own next cycle, under its checks.
+    Authenticated with the operator credential because it writes.
+
+    Body: {kind: "improvement" | "challenger", id: int, why: str (a sentence)}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..improve import cells, league
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    kind, why = body.get("kind"), str(body.get("why") or "")
+    try:
+        ident = int(body.get("id"))
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "id must be an integer"}, status_code=400)
+    try:
+        if kind == "improvement":
+            out = cells.record_owner_approval(db, ident, approved_by="owner", why=why)
+        elif kind == "challenger":
+            out = league.record_owner_decision(db, ident, approved_by="owner", why=why)
+        else:
+            return JSONResponse({"error": "kind must be improvement or challenger"},
+                                status_code=400)
+    except (cells.ImprovementRefused, league.LeagueRefused) as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return JSONResponse({"recorded": True, "kind": kind, "id": ident, "result": out})
+
+
+@app.post("/api/tester/agreement")
+async def api_tester_agreement(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Record one tester who agreed -- the door the `tester_roster` gate reads (W4-B2GATES).
+
+    `quality.tester_programme.record_agreement` was "the one intake" for the CreatorProfile the
+    gate counts, and nothing in the running system called it: a person could agree to test and
+    #9/#43/#250 would have stayed parked. This records only (no message is sent, CASL consent
+    must already exist and is named, never stored here). Operator credential because it writes.
+
+    Body: {handle_ref, specialties: [pod], express_consent: true, consent_source,
+    photo_scopes?: [scope], agreed_on?: YYYY-MM-DD}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import date as _date
+
+    from ..quality import tester_programme
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        agreed_on = _date.fromisoformat(body["agreed_on"]) if body.get("agreed_on") else None
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "agreed_on must be YYYY-MM-DD"}, status_code=400)
+    specialties = body.get("specialties") or []
+    scopes = body.get("photo_scopes") or []
+    if not isinstance(specialties, list) or not isinstance(scopes, list):
+        return JSONResponse({"error": "specialties and photo_scopes must be lists"},
+                            status_code=400)
+    try:
+        out = tester_programme.record_agreement(
+            db, handle_ref=str(body.get("handle_ref") or ""),
+            specialties=[str(x)[:40] for x in specialties][:5],
+            express_consent=body.get("express_consent") is True,
+            consent_source=str(body.get("consent_source") or "")[:300],
+            photo_scopes=[str(x)[:40] for x in scopes][:10], agreed_on=agreed_on)
+    except tester_programme.TesterRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    Registry(db).audit("operator", "tester.agreement_recorded", artifact=out["ref"],
+                       detail={"ref": out["ref"], "consent_version":
+                               out["permission"]["consent_version"]})
+    return JSONResponse({"recorded": True, "ref": out["ref"]})
+
+
+@app.post("/api/mjs/veto")
+async def api_mjs_veto(request: Request, authorization: str = Header(default="")) -> JSONResponse:
+    """Record one owner ruling on flagship creative or canonical model identity (#228).
+
+    The owner's veto, kept countable: a reason from the closed vocabulary, never free text
+    alone. Repeated reasons become improvement lessons; a veto on an MJs-derived proposal
+    (`subject_ref` = `mjs_event:<id>`) is an `owner_veto` outcome against the pod
+    interpretations that proposal was built on. An evaluator prediction, if supplied, must be
+    dated before this ruling. Authenticated with the operator credential because it writes.
+
+    Body: {subject_ref, scope, reason, note?, vetoed? (default true), predicted_veto?,
+    predicted_at? (ISO 8601)}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import datetime as _dt
+
+    from ..intel import mission_runtime, veto
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    predicted_at = body.get("predicted_at")
+    try:
+        predicted_at = _dt.fromisoformat(str(predicted_at)) if predicted_at else None
+    except ValueError:
+        return JSONResponse({"error": "predicted_at must be ISO 8601"}, status_code=400)
+    predicted = body.get("predicted_veto")
+    try:
+        result = mission_runtime.record_veto(
+            db, subject_ref=str(body.get("subject_ref") or ""),
+            scope=str(body.get("scope") or ""), reason=str(body.get("reason") or ""),
+            note=str(body.get("note") or ""),
+            owner_vetoed=bool(body.get("vetoed", True)),
+            predicted_veto=None if predicted is None else bool(predicted),
+            predicted_at=predicted_at)
+    except veto.VetoRefused as e:
+        return JSONResponse({"error": str(e), "scopes": sorted(veto.VETO_SCOPE),
+                             "reasons": sorted(veto.REASONS)}, status_code=400)
+    return JSONResponse(result)
+
+
 @app.get("/api/search/arena-language")
 def api_arena_language() -> dict:
     """The words a shopper in each proven arena actually sees (#293).
@@ -1042,6 +1497,25 @@ def api_creative_blinded() -> dict:
         "not_compared_on": ["the photograph, which is most of why a listing sells and needs "
                             "the browser/vision capability"],
     }
+
+
+@app.get("/api/mjs/findings")
+def api_mjs_findings() -> dict:
+    """W4-MJS: the latest competitor-intelligence findings reading (operator credential).
+
+    Each finding carries its provenance (source, method, sample, observed window) and a
+    confidence grade with its basis. Demand/merchandising intelligence only: no competitor
+    content is stored or reproduced. No reading yet is UNKNOWN with the reason, never empty-OK.
+    """
+    from ..intel import findings as intel_findings
+
+    latest = intel_findings.latest(db)
+    if latest is None:
+        return {"status": "UNKNOWN", "reading": None,
+                "reason": "no mjs.findings reading stored yet: intel.findings.refresh has not "
+                          "run against this database (needs stored mjs.scan observations)"}
+    return {"status": "OK", "reading": latest, "as_of": latest.get("generated_at")
+            or latest.get("as_of")}
 
 
 @app.get("/api/mjs/coverage")
@@ -1136,7 +1610,7 @@ def api_invention() -> dict:
         "unmet_angles": discovery.ANGLE_KINDS,
         "complaint_kinds": discovery.COMPLAINT_KINDS,
         "transferable_mechanisms": discovery.TRANSFERABLE,
-        "north_star": standard.north_star({}),
+        "north_star": standard.north_star_from_db(db),
     }
 
 
@@ -1216,11 +1690,18 @@ def api_policy() -> dict:
     dashboard on every other page, and they are opposite states.
     """
     from ..commerce import terms as customer_terms
+    from ..gates import policy_access, policy_knowledge
     from ..gates.platform_policy import describe, freshness, policy_stamp
 
     return {
         "freshness": freshness(db),
         "certificate_stamp": policy_stamp(db),
+        # The dated readings themselves: what was concluded, from which URL, on what basis,
+        # and what a page reading recorded through POST /api/policy/snapshot supersedes.
+        "knowledge": policy_knowledge.describe(),
+        # W4-B2GATE2 (#35/#39): what software may read of each etsy.com/legal source and what
+        # only a person can, with Etsy's Help Center change signals.
+        "legal_access": policy_access.status(db),
         "rules": describe(),
         "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
         "terms_surfaces": {
@@ -1228,6 +1709,95 @@ def api_policy() -> dict:
             for surface in customer_terms.SURFACES
         },
     }
+
+
+@app.post("/api/policy/snapshot")
+async def api_policy_snapshot(request: Request,
+                              authorization: str = Header(default="")) -> JSONResponse:
+    """Record an operator's reading of one Etsy policy page. Authenticated.
+
+    JSON body: `{source, text, version, summary, read_by}` and optionally `checked_on`
+    (ISO date, default today). `source` must be one of the watched `POLICY_SOURCES`.
+
+    Etsy refuses automated retrieval of its policy pages, and nothing here fetches them. A
+    person opening the page in their own browser and pasting what they read is not evasion;
+    it is how a seller reads the rules, and it is the owner action the `policy_stale`
+    incidents ask for. The reading is stored as a digest (the text is neither stored nor
+    logged), and a current reading closes that source's open incident immediately.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..gates.platform_policy import POLICY_SOURCES, PolicyRefused, record_page_reading
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    source = str(body.get("source") or "").strip()
+    if source not in POLICY_SOURCES:
+        return JSONResponse({"error": f"unknown policy source {source!r}",
+                             "sources": sorted(POLICY_SOURCES)}, status_code=400)
+    try:
+        result = record_page_reading(
+            db, source=source, text=str(body.get("text") or ""),
+            version=str(body.get("version") or ""), summary=str(body.get("summary") or ""),
+            read_by=str(body.get("read_by") or ""),
+            checked_on=str(body.get("checked_on") or ""))
+    except PolicyRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # The audit names the digest and the length, never the text.
+    Registry(db).audit("orchestrator", "policy.page_reading_recorded", detail={
+        k: result[k] for k in ("id", "source", "digest", "material_change", "checked_on",
+                               "current", "incidents_resolved", "basis")})
+    return JSONResponse(result)
+
+
+@app.get("/api/leading")
+def api_leading() -> dict:
+    """The ten #263 leading indicators, each measured or UNMEASURED, and success refused
+    without orders. Reads the database only; nothing is fetched or estimated."""
+    from ..scale import leading
+
+    return leading.dashboard(db)
+
+
+@app.get("/api/cohorts")
+def api_cohorts() -> dict:
+    """Customer cohorts (#11, #12) and the repeat engine (#252): what exists, what is
+    measurable, and the owner-gated scope that would fill them."""
+    from ..commerce import cohorts, repeat
+
+    return {"cohorts": cohorts.state(db), "repeat": repeat.state()}
+
+
+@app.get("/api/blind-review")
+def api_blind_review() -> dict:
+    """The competitive blind review parity reads (#75): today's verdict per product without
+    writing anything, beside the last recorded row. UNKNOWN is never a pass."""
+    from ..creative import blind_review
+
+    return blind_review.state(db)
+
+
+@app.get("/api/acceptance")
+def api_acceptance() -> dict:
+    """The #222/#320 acceptance checklist over the API+vision path, evaluated offline.
+
+    Reads stored scan and vision rows only; it fetches nothing and files nothing. The
+    `intel.acceptance` job files the graded run. Every grade is provisional until the owner's
+    log records whether an API traversal satisfies a requirement worded browser/vision.
+    """
+    from ..intel import acceptance
+
+    return acceptance.describe(db)
 
 
 @app.get("/api/culture")
@@ -1449,7 +2019,119 @@ def api_spend_report() -> dict:
     report = spend_report.what_it_bought(db)
     return {**report,
             "headroom": spend_policy.headroom(report["spent_cad"]),
-            "escalation": spend_policy.escalation(db)}
+            "escalation": spend_policy.escalation(db),
+            # Whether the reservations still describe the bills, and how often the ceiling
+            # actually said no. Both are how a guard is told apart from one that never fires.
+            "drift": spend_report.estimate_drift(db),
+            "refusals": spend_report.refusals(db),
+            "this_week": {"period": "iso_week",
+                          "spent_cad": round(sum(float(r.amount_cad or 0.0)
+                                                 for r in spend_report.rows(db, period="week")),
+                                             6)},
+            "provider_ceilings_cad": dict(spend_policy.PROVIDER_CEILINGS_CAD),
+            "department_allocation": dict(spend_policy.DEPARTMENT_ALLOCATION),
+            "owner_gated_tables_note": (
+                "an empty provider or department table is no cap, not a cap of zero; the "
+                "mechanism is live and an entry binds the day it is written")}
+
+
+def _spend_governance_data() -> dict:
+    """The live spend controls, from the functions that enforce them (`spend_report.governance`)."""
+    from ..finance import spend_report
+
+    return spend_report.governance(db)
+
+
+def _spend_governance_html() -> str:
+    """The dashboard's spend block.
+
+    It used to read the `SpendLimit` table alone and print "No spend limits configured." --
+    true of that table, which holds scoped paid-media caps nobody has authority to set, and
+    false of the company, whose every model call is refused against a monthly ceiling, an
+    agent permission, a purpose allocation and a live reservation table. Those are shown
+    here from the functions that enforce them; the scoped caps are a sub-row, named for what
+    they are.
+    """
+    import html as _html
+
+    def esc(value) -> str:
+        return _html.escape(str(value))
+
+    def table(items, cols, empty):
+        if not items:
+            return f'<div class="empty">{esc(empty)}</div>'
+        head = "".join(f"<th>{esc(c)}</th>" for c in cols)
+        body = "".join("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in r) + "</tr>"
+                       for r in items)
+        return f"<table><tr>{head}</tr>{body}</table>"
+
+    try:
+        g = _spend_governance_data()
+    except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
+        return ('<h2>Spend governance</h2><div class="empty">unavailable: '
+                f'{esc(type(e).__name__)}: {esc(e)}</div>')
+
+    h = g.get("headroom") or {}
+    res = g.get("reservations") or {}
+    refused = g.get("refusals") or {}
+    drift = g.get("drift") or {}
+    agents = g.get("agents") or {}
+    scoped = g.get("scoped_caps") or {}
+
+    headline = [
+        ("Monthly model ceiling",
+         f"CA${h.get('spent_cad', 0.0):.2f} of CA${h.get('ceiling_cad', 0.0):.2f} spent "
+         f"({float(h.get('share') or 0.0) * 100:.0f}%)",
+         ("ESCALATE to owner" if h.get("escalate") else
+          f"under the {float(h.get('escalate_at_share') or 0) * 100:.0f}% escalation line")),
+        ("Reserved, not yet billed",
+         f"CA${float(res.get('cad') or 0.0):.4f} in {int(res.get('count') or 0)} live "
+         f"reservation(s)",
+         (f"{len(res.get('expired_unreleased') or [])} expired unreleased"
+          if res.get("expired_unreleased") else "ok")),
+        ("Refusals this month", str(int(refused.get("count") or 0)),
+         ", ".join(f"{k}: {v}" for k, v in (refused.get("by_ceiling") or {}).items()) or "-"),
+        ("Estimate drift", drift.get("state", "unknown"),
+         (drift.get("why") or "reservations describe the bills")[:120]),
+    ]
+    allocations = [(purpose,
+                    f"CA${a.get('spent_cad', 0.0):.2f} of CA${a.get('allowed_cad', 0.0):.2f}",
+                    "stopped" if not a.get("may_spend", True) else "room left")
+                   for purpose, a in (g.get("allocations") or {}).items()
+                   if isinstance(a, dict) and a.get("capped")]
+    over = [(o["agent"], f"CA${o['spent_today_cad']:.4f}", f"CA${o['daily_ceiling_cad']:.2f}")
+            for o in (agents.get("over") or [])]
+    unregistered = [(u["agent"], f"CA${u['spent_today_cad']:.4f}", "no agent row")
+                    for u in (agents.get("spenders_with_no_agent_row") or [])]
+    providers = g.get("provider_ceilings_cad") or {}
+    departments = g.get("department_allocations") or {}
+    scoped_rows = [(l["scope"], f"CA${l['spent_today_cad']:.2f}/{l['daily_cap_cad']:.2f}",
+                    f"CA${l['spent_lifetime_cad']:.2f}/{l['lifetime_cap_cad']:.2f}",
+                    "PAUSED" if l["paused"] else "ok") for l in (scoped.get("limits") or [])]
+
+    return (
+        "<h2>Spend governance</h2>"
+        + table(headline, ["Control", "Where it stands", "State"], "")
+        + "<h3>Purpose allocations (a stop, not an allowance)</h3>"
+        + table(allocations, ["Purpose", "This month", "State"], "no purpose is capped")
+        + "<h3>Agents over their daily ceiling today</h3>"
+        + table(over, ["Agent", "Spent today", "Daily ceiling"],
+                "none: every registered agent is inside its permission today")
+        + "<h3>Spenders with no agent row</h3>"
+        + table(unregistered, ["Spender", "Spent today", ""],
+                "none: every spender today is a registered agent")
+        + "<h3>Provider and department caps</h3>"
+        + table([("provider " + k, f"CA${v:.2f}/month", "set") for k, v in providers.items()]
+                + [("department " + k, f"{v * 100:.0f}% of the month", "set")
+                   for k, v in departments.items()],
+                ["Cap", "Value", "State"],
+                "none set: an empty table is no cap, not a cap of zero -- the mechanism is "
+                "live and an entry binds the day the owner writes it")
+        + "<h3>Scoped caps (paid media)</h3>"
+        + table(scoped_rows, ["Scope", "Today", "Lifetime", "State"],
+                "Scoped caps (paid media): none configured -- advertising authority not "
+                "granted, so there is no paid-media scope to cap")
+    )
 
 
 @app.get("/api/teardown/readiness")
@@ -1535,10 +2217,15 @@ def api_model_pack() -> dict:
     be looked at rather than a list of paths into a container's `/tmp`.
     """
     from ..runtime.release import _candidate_fingerprint, _pack_attempts, _pack_on_file
-    from ..visual import brief, reference_pack
+    from ..visual import brief, freeze, model_registry, reference_pack
 
     package = _pack_on_file(db)
     attempts = _pack_attempts(db)
+    # Read, not asserted. This said `frozen: False` / "awaiting owner approval" as literals
+    # for four days after the identity was frozen, which is the same defect as a gate
+    # reading configuration: true when written, with nothing keeping it true.
+    canonical = model_registry.canonical_pack(db)
+    frozen_from = freeze.frozen_package(db) or {}
     return {
         "candidate": {
             "given_at": brief.CANDIDATE_GIVEN_AT,
@@ -1549,10 +2236,18 @@ def api_model_pack() -> dict:
         "pack": package,
         "candidate_fingerprint": _candidate_fingerprint(),
         "attempts": attempts,
-        "state": ("awaiting owner approval" if package else
+        "state": ("frozen" if canonical is not None else
+                  "awaiting owner approval" if package else
                   "attempted and unfinished" if attempts else
                   "not yet built for this candidate"),
-        "frozen": False,
+        "frozen": canonical is not None,
+        "canonical": (None if canonical is None else {
+            "version": canonical.version,
+            "approved_at": canonical.approved_by_owner_at,
+            "frozen_from_pack_version": frozen_from.get("pack_version"),
+            "frozen_from_fingerprint": frozen_from.get("candidate_fingerprint"),
+            "reference_hashes_recorded": bool(canonical.fields.get("reference_hashes")),
+        }),
     }
 
 
@@ -1882,9 +2577,17 @@ def api_model_identity() -> dict:
     callers anywhere in the codebase, so a correct gate sat unconsulted while the first
     model-bearing listing would have shipped past it.
     """
-    from ..visual import model_registry
+    from ..visual import approval_record, model_registry
 
-    return model_registry.state(db)
+    out = model_registry.state(db)
+    # F-718 (W4-PROVENANCE): the owner's approval of this identity is held by the repository
+    # (visual/approval_record.json) and compared with the database's own freeze row here.
+    try:
+        out = {**out, "approval_record": approval_record.compare(db)}
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never a match
+        out = {**out, "approval_record": {"state": "UNREADABLE",
+                                          "why": type(exc).__name__}}
+    return out
 
 
 @app.get("/api/image-benchmark")
@@ -1935,16 +2638,15 @@ def api_scale() -> dict:
     argued upward. A sophisticated architecture with no customers reports near zero, which is
     the answer #230 exists to insist on.
     """
-    from ..scale import confidence, target
+    # C-60 (#27, #262, #273, #275): the same fed model the weekly solve uses -- conditions
+    # derived from rows, the calibration ceiling, and the matrix on observed conversion.
+    from ..scale import evidence
 
-    return {
-        "probability": confidence.probability(db),
-        "scenarios": target.matrix(),
-    }
+    return evidence.confidence_reading(db)
 
 
 @app.post("/api/seasonal/recompute")
-def api_seasonal_recompute(as_of: str = "") -> dict:
+def api_seasonal_recompute(as_of: str = ""):
     """Recompute the seasonal war room now, rather than at the next daily cadence.
 
     Same argument as `/api/launch-readiness` and `/api/chain-rebuild`: a daily cadence is
@@ -1955,6 +2657,9 @@ def api_seasonal_recompute(as_of: str = "") -> dict:
     GREEN: it enqueues work already on a schedule, computes dates, spends nothing and
     publishes nothing.
     """
+    refused = _as_of_refusal(as_of)
+    if refused is not None:
+        return refused
     key = f"seasonal.sentinel:{utcnow():%Y%m%dT%H%M}"
     inputs = {"as_of": as_of} if as_of else {}
     try:
@@ -2010,18 +2715,62 @@ def api_mjs_vision() -> dict:
 @app.get("/api/improve")
 def api_improve() -> dict:
     """The Improvement Department: what moved, what regressed, and what it may never do."""
+    from ..improve import director, loops, roi
     from ..improve.bus import compounding
     from ..improve.cells import CELLS, capability_history, retrospective
+    from ..improve.cells import history as cells_history
     from ..improve.governance import describe
 
     return {
         "retrospective": retrospective(db),
         "compounding": compounding(db),
+        # #99: what promoted changes actually returned against their proposal-time baselines.
+        "realised_benefit": roi.realised_benefit(db),
+        # #91: per-cell backlog and experiments, and the conflicts holding promotions.
+        "director": director.state(db),
+        "backlogs": director.backlogs(db),
         "cells": [{"cell": c.key, "department": c.department, "metric": c.metric,
                    "higher_is_better": c.higher_is_better, "measure": c.measure,
                    "history": capability_history(db, c.key, limit=20)} for c in CELLS],
         "governance": describe(),
+        # W4-LEARN: each learning loop's producer, store, metric, baseline, decision rule,
+        # consumer and status (MEASURED / WAITING / UNKNOWN), read from rows.
+        "loops": loops.scoreboard(db),
+        # F-398: the audit trail -- each improvement's spend and the build it shipped on.
+        "history": cells_history(db, limit=50),
     }
+
+
+@app.get("/api/war-room")
+def api_war_room() -> dict:
+    """The CA$5K war room (#276): every field measured or absent with its reason."""
+    from ..scale import war_room
+
+    return war_room.board(db)
+
+
+@app.get("/api/creative-learning")
+def api_creative_learning() -> dict:
+    """Creative performance by style (#82) and concept outcomes (#89), UNMEASURED until live."""
+    from ..creative import outcome_learning, style_learning
+
+    learned = outcome_learning.learn(db)
+    learned.pop("rows", None)
+    return {"style": style_learning.by_style(db), "brand_knowledge": style_learning.knowledge(db),
+            "concepts": learned, "rules": style_learning.state()}
+
+
+@app.get("/api/season-harvest")
+def api_season_harvest() -> dict:
+    """The post-season harvest per event and the timing each hands to next year (#298)."""
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal import harvest
+
+    return {"events": {e.name: harvest.timing_adjustments(db, e.name)
+                       for e in SEASONAL_EVENTS},
+            "minimums": {"event_orders": harvest.MIN_EVENT_ORDERS,
+                         "group_orders": harvest.MIN_GROUP_ORDERS,
+                         "signal_points": harvest.MIN_SIGNAL_POINTS}}
 
 
 @app.get("/api/calendar")
@@ -2034,14 +2783,27 @@ def api_calendar() -> dict:
 
 @app.get("/api/growth")
 def api_growth() -> dict:
-    """The growth architecture: portfolio shape, loop evidence and this week's constraint."""
-    from ..growth.loops import constraint, evidence_summary, from_db
-    from ..growth.mix import report
+    """The growth architecture: portfolio shape, loop evidence and this week's constraint.
 
+    The constraint is solved from the database (orders, listing outcomes, ledger), with every
+    term that has no source passed as None and reported UNMEASURED -- never as zero. The
+    weekly job's recorded reading (reallocation, readiness, confidence) is served beside it.
+    """
+    from ..growth.loops import constraint, evidence_summary, from_db, reallocation
+    from ..growth.mix import report
+    from ..growth.weekly import growth_inputs, latest
+    from ..scale.runrate import observe
+
+    got = observe(db)
+    solved = constraint(growth_inputs(got["observed"]))
     return {
         "portfolio": report(db),
         "loops": evidence_summary(from_db(db)),
-        "constraint": constraint({}),
+        "constraint": solved,
+        "reallocation": reallocation(solved),
+        "unmeasured": got["unmeasured"],
+        "weekly_reading": latest(db) or {"reading": "UNMEASURED",
+                                         "why": "the weekly growth solve has not run yet"},
     }
 
 
@@ -2061,6 +2823,73 @@ def api_swarm() -> dict:
         "bands": [{"priority": p, "kind": k, "why": w} for p, k, w in BANDS],
         "next_when_idle": next_work([]),
     }
+
+
+@app.get("/api/swarm/runtime")
+def api_swarm_runtime() -> dict:
+    """What the swarm handlers decided: agent quality, the live allocation, unowned work.
+
+    Read-only. The allocation and the reassignments are made by `swarm.allocate` and
+    `swarm.orphans` on the worker; this reports them rather than recomputing on a page view.
+    """
+    from ..swarm.orchestrate import agent_quality, latest_allocation, orphans, work_items
+
+    from ..swarm import metrics as swarm_metrics
+
+    items = work_items(db)
+    rs = runner.STATE.to_dict()
+    target = rs.get("worker_target")
+
+    def _guard(fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - one unreadable metric is UNKNOWN
+            return {"reading": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+
+    return {
+        "agent_quality": agent_quality(db),
+        "allocation": latest_allocation(db) or {"reading": "UNMEASURED",
+                                                "why": "no allocation in six hours"},
+        "orphans": orphans([e["item"] for e in items]),
+        "work_items": len(items),
+        # W4-SWARMMETRICS: F-655 starved READY work, F-730 untouched opportunities, F-489
+        # pool utilisation and duplicate work avoided (process-local counters).
+        "starved_ready": _guard(lambda: swarm_metrics.starved_ready(
+            db, worker_target=target if isinstance(target, int) else None)),
+        "untouched_opportunities": _guard(lambda: swarm_metrics.untouched_opportunities(db)),
+        "parallelism": _guard(lambda: swarm_metrics.parallelism(rs)),
+    }
+
+
+@app.get("/api/departments")
+def api_departments() -> dict:
+    """F-487: one row per agent -- running job, pending/deferred, parked job types, last
+    completion, month spend, idle flag. Read-only."""
+    from ..swarm import metrics as swarm_metrics
+
+    return swarm_metrics.agents_view(db)
+
+
+@app.get("/api/experiments")
+def api_experiments() -> dict:
+    """Every pre-registered experiment, with its owner, decision and state (#241, #265)."""
+    from ..core.models import RegisteredExperiment
+
+    with db.session() as s:
+        rows = [{"key": r.key, "owner": r.owner, "state": r.state, "metric": r.metric,
+                 "design": r.design, "decision": r.decision, "gated_on": r.gated_on,
+                 "expected_value_cad": (r.expected_value_cad
+                                        if r.expected_value_cad is not None
+                                        else "UNMEASURED"),
+                 "killed_reason": r.killed_reason, "stop_on": r.stop_on,
+                 # F-504 / F-126: measured effect, retain-or-rollback, superseded marker.
+                 "measured_effect": (r.detail or {}).get("measured_effect") or "UNMEASURED",
+                 "retain_or_rollback": (r.detail or {}).get("retain_or_rollback")
+                 or {"decision": "undecided", "why": "not concluded"},
+                 "superseded": (r.detail or {}).get("superseded")}
+                for r in s.scalars(select(RegisteredExperiment)
+                                   .order_by(RegisteredExperiment.key))]
+    return {"experiments": rows, "count": len(rows)}
 
 
 @app.get("/api/visual")
@@ -2095,6 +2924,20 @@ def api_league() -> dict:
         "note": ("A challenger that brings its own tasks wins every time, so the task set is "
                  "shared and fixed. Cost and reliability are outcomes, not footnotes (#95)."),
     }
+
+
+@app.get("/api/etsy/surfaces")
+def api_etsy_surfaces() -> dict:
+    """F-600: the Etsy surface registry at runtime -- coverage, the A/B/C/D work plan, and
+    the bounded first-sale list with each surface's evidence state (F-498). Read-only; it
+    reads recorded observations and never calls Etsy."""
+    from ..intel import etsy_surfaces
+    from ..launch.readiness import etsy_first_sale_surfaces
+
+    req = etsy_first_sale_surfaces(db)
+    return {"coverage": etsy_surfaces.coverage(), "work_plan": etsy_surfaces.work_plan(),
+            "first_sale": {"ready": req.ready, "blocked_by": req.blocked_by,
+                           **req.evidence}}
 
 
 @app.get("/api/etsy")
@@ -2269,6 +3112,143 @@ def api_arbitrage(pod: str = "") -> dict:
     return arbitrage.state(db, pod=pod)
 
 
+@app.get("/api/serp")
+def api_serp() -> dict:
+    """The SERP laboratory: captured snapshots of the API search index, and their basis (#15).
+
+    Rank is the API index's `sort_on=score` order and is directional; counts are the API
+    index's result counts. Neither is the rendered etsy.com search page.
+    """
+    from ..intel import serp
+
+    return serp.state(db)
+
+
+@app.get("/api/insights")
+def api_insights() -> dict:
+    """Owner-recorded Marketplace Insights snapshots (#236). Etsy's figures as read, labelled.
+
+    Operator credential (`security.OPERATOR_GET_ROUTES`, W4-SECFIX): these are the owner's own
+    Shop Manager figures and the name of who recorded them, not a public aggregate."""
+    from ..intel import insights
+
+    rows = insights.snapshots(db)
+    return {"snapshots": rows, "recorded": bool(rows), "basis": insights.BASIS,
+            "note": ("Marketplace Insights has no API. These rows are what the owner read in "
+                     "Shop Manager and recorded through POST /api/insights/snapshot"
+                     if rows else
+                     "no Insights reading has been recorded; record one through POST "
+                     "/api/insights/snapshot after reading Shop Manager > Marketing > "
+                     "Marketplace Insights")}
+
+
+@app.post("/api/insights/snapshot")
+async def api_insights_snapshot(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Record one Marketplace Insights reading from Shop Manager. Authenticated.
+
+    JSON body: `{keyword, recorded_by}` and any of `search_count`, `listing_count`,
+    `related_terms` (list), `trend_direction` (up/down/flat/unknown), `geography`,
+    `observed_on` (ISO date, default today). Nothing here fetches Shop Manager: a person
+    reads their own dashboard and records what it said (#236), and every row is labelled
+    `owner_recorded_shop_manager`.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..intel import insights
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    terms = body.get("related_terms") or []
+    if not isinstance(terms, list):
+        return JSONResponse({"error": "related_terms must be a list"}, status_code=400)
+    try:
+        result = insights.record(
+            db, keyword=str(body.get("keyword") or ""),
+            search_count=body.get("search_count"), listing_count=body.get("listing_count"),
+            related_terms=[str(t) for t in terms][:50],
+            trend_direction=str(body.get("trend_direction") or "unknown"),
+            geography=str(body.get("geography") or ""),
+            observed_on=str(body.get("observed_on") or ""),
+            recorded_by=str(body.get("recorded_by") or ""))
+    except insights.InsightsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # W4-SECFIX (review e3747c5 LOW-2): the audit log is publicly readable (/api/audit), so it
+    # names the row, never the owner's keyword, figures or name; the row itself holds those.
+    Registry(db).audit("orchestrator", "insights.snapshot_recorded", detail={
+        k: result[k] for k in ("id", "observed_on", "basis")})
+    return JSONResponse(result)
+
+
+@app.post("/api/insights/paste")
+async def api_insights_paste(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """W4-MARKETINTEL: the owner pastes what Marketplace Insights shows; parsed, then recorded.
+
+    JSON body `{text, recorded_by, observed_on?, confirm?}`. Without `confirm: true` it only
+    parses and returns the readings and every line it could not parse, so the owner sees
+    exactly what would be recorded. With it, each reading is recorded through the same
+    `intel.insights.record` as POST /api/insights/snapshot, and the paste's sha256 is audited
+    as provenance (the text itself is not stored). Operator credential, default-deny.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..intel import insights, market_intel
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict) or not str(body.get("text") or "").strip():
+        return JSONResponse({"error": "paste the Insights text in `text`"}, status_code=400)
+    confirm = body.get("confirm") is True
+    try:
+        out = market_intel.record_paste(
+            db, str(body["text"])[:20000], recorded_by=str(body.get("recorded_by") or ""),
+            observed_on=str(body.get("observed_on") or ""), confirm=confirm)
+    except insights.InsightsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    if confirm:
+        Registry(db).audit("orchestrator", "insights.paste_recorded", detail={
+            "paste_sha256": out["digest"], "ids": [r["id"] for r in out["recorded"]],
+            "unparsed_lines": len(out["unparsed"])})  # W4-SECFIX: no name in the public log
+    return JSONResponse(out)
+
+
+@app.get("/api/market-intel")
+def api_market_intel() -> dict:
+    """W4-MARKETINTEL: the latest labelled market proxies and where they were routed.
+
+    Operator credential (`security.OPERATOR_GET_ROUTES`, W4-SECFIX): the payload carries the
+    owner's own Marketplace Insights readings, which are the shop's private demand research.
+    """
+    from ..intel import market_intel
+
+    return {"latest": market_intel.latest(db), "etsy_limit": market_intel.ETSY_LIMIT}
+
+
+@app.get("/ops/insights")
+def ops_insights_page() -> RedirectResponse:
+    """W4-MARKETINTEL: the Insights paste lives on the one owner phone page (/ops/teardown),
+    whose script is the only one the page security policy allows (A3-01)."""
+    return RedirectResponse("/ops/teardown#insights", status_code=307)
+
+
 @app.get("/api/seasonal/cycle")
 def api_seasonal_cycle() -> dict:
     """One seasonal cycle end to end, with every link's evidence (#300, release-blocking).
@@ -2277,16 +3257,21 @@ def api_seasonal_cycle() -> dict:
     than inventing a placeholder concept, because a cycle that produced nothing and reported
     itself complete is the failure this endpoint exists to make impossible.
     """
-    from ..gateway import routing
-    from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
     from ..seasonal import cycle
 
-    gateway = None
-    if AnthropicProvider.key():
-        _task, tier = routing.route("concept_generation")
-        gateway = ModelGateway([AnthropicProvider(model=tier.model)])
-    return cycle.run(db, gateway=gateway)
+    # Certification C-31: a GET must not spend. This route used to build an unbudgeted
+    # gateway (no ceiling, no reservation, no ledger row) whenever a key existed, so every
+    # sweep that walked the routes paid for a generation. It is report-only now: the cycle
+    # runs without a gateway and its generate step reads gated. The paid run is the
+    # `seasonal.cycle_proof` job, whose gateway carries the registry and the job id.
+    report = cycle.run(db, gateway=None)
+    if isinstance(report, dict):
+        report["paid_model_calls"] = {
+            "state": "refused_on_get",
+            "runs_in": "seasonal.cycle_proof",
+            "why": ("a GET that spends money spends it every time a sweep walks the routes; "
+                    "the generating step runs as a budgeted, reserved and billed job instead")}
+    return report
 
 
 @app.get("/api/preproduction")
@@ -2296,15 +3281,27 @@ def api_preproduction() -> dict:
     Nothing is published: no social credential has been granted. The refusals run anyway, so
     they are tested before the day they matter.
     """
-    from ..commerce import preproduction
+    from sqlalchemy import desc, select
 
+    from ..commerce import preproduction, preproduction_cycle
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(
+            AuditLog.action == preproduction_cycle.CYCLE_ACTION)
+            .order_by(desc(AuditLog.id)).limit(1))
+        cycle = ({"at": last.at.isoformat(), **dict(last.detail or {})} if last is not None
+                 else {"at": None, "why": "growth.preproduction has not run yet"})
     return {
         "must_say_it_is_a_concept": list(preproduction.CONCEPT_MARKERS),
         "refused_because_they_imply_a_purchase": [
             {"pattern": pattern, "why": why}
             for pattern, why in preproduction.IMPLIES_AVAILABILITY],
         "never_fabricated": list(preproduction.NEVER_FABRICATED),
-        "publishing": {"state": "gated", "gated_on": "social_credentials"},
+        "publishing": {"state": "gated", "gated_on": preproduction_cycle.GATE,
+                       "open": preproduction_cycle.gate_open(db)["open"]},
+        "last_cycle": cycle,
+        "brief": preproduction_cycle.brief(db),
         "note": ("A picture of a thing that does not exist, posted where people buy things, "
                  "is a pre-order somebody will try to place. No code path here can author an "
                  "engagement number."),
@@ -2823,7 +3820,7 @@ def api_console() -> dict:
                               for j in jobs]},
         "products": {"count": int(products), "certified_versions": int(certified)},
         "agents": agents,
-        "spend": {"limits": limits},
+        "spend": {"limits": limits, **_spend_governance_data()},
         "incidents": [{"signature": i.signature, "severity": i.severity,
                        "halts_publication": i.halts_publication,
                        "product_slug": i.product_slug, "summary": i.summary}
@@ -2870,15 +3867,21 @@ def api_provenance() -> dict:
     with db.session() as session:
         current = provenance.current_from_db(session)
         expected = provenance.expected_from_db(session)
-        verdicts = provenance.check(session, current=current, expected=expected)
         out["graduation"] = provenance.graduation(session, current=current,
                                                   expected=expected)
-    out["estate"] = {
-        "checked": len(verdicts),
-        "fresh": sum(1 for v in verdicts if v.state == provenance.FRESH),
-        "stale": sum(1 for v in verdicts if v.state == provenance.STALE),
-        "unproven": sum(1 for v in verdicts if v.state == provenance.UNPROVEN),
-    }
+        summary = provenance.summary(session, current=current, expected=expected)
+    # `by_class` is each class's fresh/stale/unproven; `by_source` says how each row came to
+    # exist (recorded by the build that made it, or backfilled from evidence on file);
+    # `unknown_fields` counts what the rows could not say -- a backfilled row's commit is
+    # `unknown` because it was never recorded, not because nobody looked. `enforcing` is
+    # whether the worker now fails a job that leaves an artefact without a row.
+    out["estate"] = summary["estate"]
+    out["rows"] = summary["rows"]
+    out["by_class"] = summary["by_class"]
+    out["by_source"] = summary["by_source"]
+    out["unknown_fields"] = summary["unknown_fields"]
+    out["enforcing"] = summary["enforcing"]
+    out["lineage_note"] = summary["note"]
     return out
 
 
@@ -2894,7 +3897,12 @@ def api_trajectory() -> dict:
     from ..scale import trajectory
 
     out = trajectory.state()
-    out["tonight"] = trajectory.nightly(None)
+    # C-64: computed from the database -- observed terms from the rows, assumed terms with
+    # their basis -- and the last recorded nightly run beside it.
+    out["tonight"] = trajectory.nightly(db)
+    from ..runtime.orders import TRAJECTORY_KIND, _previous
+
+    out["last_nightly"] = _previous(db, TRAJECTORY_KIND, "9999-12-31")
     return out
 
 
@@ -2937,12 +3945,15 @@ def api_free_to_paid() -> dict:
 
     A free pattern for something this company sells does not lead to it, it replaces it --
     and that failure looks exactly like success from the inside, because the downloads go up.
-    Nothing free exists yet, and an empty funnel is an empty funnel rather than a failing one.
+
+    W4-B2CLOSE: the plan reads the free work that exists (`growth.free_assets`: built by the
+    catalogue's builder and granted a certificate by the release chain), not an empty list.
+    Nothing is published, so the funnel is still empty and reported as empty.
     """
-    from ..growth import free_to_paid
+    from ..growth import free_assets, free_to_paid
 
     out = free_to_paid.state()
-    out["plan"] = free_to_paid.plan([])
+    out["plan"] = free_assets.reading()
     return out
 
 
@@ -2969,10 +3980,108 @@ def api_benchmarks() -> dict:
     yet: no listings, no impressions, no orders. That is different from a baseline of zero.
     """
     from ..commerce import benchmarks
+    from ..runtime import growth_ops
 
+    # C-60 (#238, #239): baselines from the observations the database holds, each listing
+    # diagnosed against its own cell, and micro-markets ranked on incremental contribution.
     out = benchmarks.state()
-    out["cells"] = benchmarks.cells([])
+    reading = growth_ops.benchmarks_reading(db)
+    out["cells"] = reading["cells"]
+    out["baselines"] = reading["baselines"]
+    out["diagnoses"] = reading["diagnoses"]
+    out["skipped"] = reading["skipped"]
+    out["opportunities"] = reading["opportunities"]
     return out
+
+
+@app.post("/api/listing-outcomes")
+async def api_listing_outcomes(request: Request, period_start: str = "", period_end: str = "",
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Owner listing-level Stats export intake (W3 lane K3 wiring). Authenticated.
+
+    The body is the CSV. `commerce.listing_outcomes.submit_export` validates the whole export
+    synchronously (shape, counts, period, every listing resolved to one of ours) and queues it
+    for the producer; any refusal is a 400 naming what is wrong. The owner-session equivalent
+    (CSRF + nonce) is `POST /api/cc/listing-outcomes`.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    from ..commerce import listing_outcomes
+
+    text = (await request.body()).decode("utf-8", errors="replace")
+    try:
+        out = listing_outcomes.submit_export(db, text, period_start=period_start,
+                                             period_end=period_end, submitted_by="operator")
+    except listing_outcomes.OutcomeRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return JSONResponse(out)
+
+
+@app.post("/api/attribution/stats")
+async def api_attribution_stats(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Ingest an owner-exported Etsy Stats CSV and join it to orders (#237). Authenticated.
+
+    The body is the CSV text itself. It is parsed by `commerce.attribution.parse_stats_csv`,
+    which refuses a malformed export whole, then joined to what the orders table knows: the
+    contribution rate of the orders on file, and support cases and repeat orders per search
+    term. The joined reading is stored, and the SEO agent reads it the next time it chooses
+    tags -- a term shown thousands of times that never sold stops holding a slot.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import date as _date
+
+    from ..commerce import attribution
+    from ..runtime import growth_ops
+    from ..runtime.release import ATTRIBUTION_KIND
+
+    text = (await request.body()).decode("utf-8", errors="replace")
+    try:
+        rows = attribution.parse_stats_csv(text)
+    except attribution.StatsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    from ..core.models import Order
+
+    with db.session() as s:
+        from ..commerce import orders_ingest as _oi
+
+        orders = _oi.countable_orders(s)  # rc1-ORD2: the one countable predicate
+        revenue = sum(float(o.revenue_cad or 0.0) for o in orders)
+        contribution = sum(float(o.contribution_cad or 0.0) for o in orders)
+        support: dict[str, int] = {}
+        repeat: dict[str, int] = {}
+        for o in orders:
+            if o.search_term:
+                if o.support_case_id:
+                    support[o.search_term] = support.get(o.search_term, 0) + 1
+                if o.is_repeat:
+                    repeat[o.search_term] = repeat.get(o.search_term, 0) + 1
+    rate = (contribution / revenue) if revenue > 0 and 0 < contribution <= revenue else None
+    joined = attribution.join_stats(rows, contribution_rate=rate,
+                                    support_by_term=support if orders else None,
+                                    repeat_by_term=repeat if orders else None)
+    key = _date.today().isoformat()
+    reading_id = growth_ops.record(db, ATTRIBUTION_KIND, key, {
+        "period_key": key, "rows": len(rows), "joined": joined,
+        "contribution_rate": rate if rate is not None else "UNMEASURED",
+        "recorded_by": "owner_export"})
+    Registry(db).audit("orchestrator", "attribution.stats_ingested", detail={
+        "rows": len(rows), "reading_id": reading_id, "ranked_on": joined["ranked_on"],
+        "vanity_terms": joined["vanity_terms"][:20]})
+    return JSONResponse({"reading_id": reading_id, "rows": len(rows),
+                         "ranked_on": joined["ranked_on"],
+                         "vanity_terms": joined["vanity_terms"],
+                         "top_terms": [t["term"] for t in joined["terms"][:10]]})
 
 
 @app.get("/api/listing-tests")
@@ -3405,9 +4514,11 @@ def api_build() -> dict:
     """
     from ..build2 import autonomy, executor
 
-    # Reconcile on read as well as on the cadence: a gate that opened a minute ago should
-    # show as open on the page somebody is looking at, not in an hour.
-    executor.sync(db)
+    # Read-only. This used to run `executor.sync` on every request -- a GET that rewrote the
+    # task table, recorded completions and un-parks, and ran every gate's probe query --
+    # so each page view was also a write, and the watchdog's evidence could be produced by
+    # somebody looking at it. `build.tick` syncs on its cadence; this page reports what
+    # that last wrote.
     report = executor.report(db)
     report["approval_inbox"] = executor.approval_inbox(db)
     # #195/#185: the proof that this runs with the owner's devices off, and the continuous
@@ -3417,22 +4528,126 @@ def api_build() -> dict:
     return report
 
 
+@app.get("/api/incidents")
+def api_incidents() -> dict:
+    """Open incidents, and those resolved in the last day with what resolved them.
+
+    Grouped by detector family (the signature before its first colon), so seventeen rows
+    read as six conditions. A resolved row carries `resolution` and `resolved_at`; one
+    closed without them is counted rather than shown as closed for a reason it does not
+    have.
+    """
+    from ..ops import incident_lifecycle
+
+    with db.session() as s:
+        return incident_lifecycle.snapshot(s)
+
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
+    from ..build2 import closure
     from ..build2 import requirements as reqs
 
     return {
         "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
+        # W4-B2: the headline is the closure ledger (evidence), not the registry's own status.
+        # executable_remaining there is OPEN only; gated rows count under their gate's kind.
+        "headline": closure.dashboard(db, m=closure_matrix_shared()),
+        "ledger": "research/final_build/w4/BUILD2_LEDGER.json",
         "coverage": reqs.coverage(),
+        "coverage_basis": "registry claim: requirements.json's own status per row, not "
+                          "evidence; the headline above is the measured ledger",
         "sections": reqs.sections(),
         # Listed in full rather than sliced. A hardcoded `[:40]` silently dropped five
         # requirements from a list whose own summary said forty-five, so anyone reading the
         # list as the remaining work could not see all of it -- and nothing said so.
         "executable_remaining": [r.to_dict() for r in reqs.executable()],
+        # The same list split by whether a checkable gate holds it (`parked_on`).
+        "executable_unparked": [r.id for r in reqs.executable() if not r.parked_on],
         "executable_listed_in_full": True,
         "blocked_on_owner": [r.to_dict() for r in reqs.by_status(reqs.OWNER_GATED)],
     }
+
+
+# W4-CC (CC_DEPLOY_PACKAGE §5): the closure matrix walks the module graph and the test
+# sources -- ~55 s CPU cold, ~10 s warm -- and `/`, `/api/closure` and `/api/build2/maturity`
+# are unauthenticated reads on the single web worker. One computation at a time
+# (single-flight), and a result is reused while its inputs are unchanged: for the matrix the
+# live gate states (re-read on every request, so an opened gate still reopens its rows at
+# once) and the requirements file; the code and tests are fixed inside a deployed image.
+# The maturity ladder also reads job rows, so it is reused only for MATURITY_REUSE_SECONDS
+# and says so (`reused_from`).
+import threading as _threading  # noqa: E402
+import time as _time  # noqa: E402
+
+_CLOSURE_LOCK = _threading.Lock()
+_CLOSURE_MEMO: dict = {}
+CLOSURE_REUSE_SECONDS = 900
+MATURITY_REUSE_SECONDS = 300
+
+
+def _closure_inputs_key():
+    from ..build2 import executor, requirements as reqs
+
+    gates = tuple(sorted((k, bool(v.get("open"))) for k, v in executor.gate_states(db).items()))
+    path = getattr(reqs, "REGISTRY_PATH", None)
+    try:
+        st = os.stat(path) if path else None
+        file_key = (st.st_mtime_ns, st.st_size) if st else None
+    except OSError:
+        file_key = None
+    return (gates, file_key, id(executor.gate_for), id(reqs.load))
+
+
+def closure_matrix_shared() -> dict:
+    """`closure.matrix(db)`, single-flight, reused while gates and registry are unchanged."""
+    import copy
+
+    from ..build2 import closure
+
+    with _CLOSURE_LOCK:
+        key = _closure_inputs_key()
+        memo = _CLOSURE_MEMO.get("matrix")
+        if memo and memo["key"] == key and _time.monotonic() - memo["at"] < CLOSURE_REUSE_SECONDS:
+            return copy.deepcopy(memo["value"])
+        value = closure.matrix(db)
+        _CLOSURE_MEMO["matrix"] = {"key": key, "at": _time.monotonic(), "value": value}
+        return copy.deepcopy(value)
+
+
+def maturity_report_shared() -> dict:
+    import copy
+    from datetime import datetime as _dt
+
+    from ..build2 import maturity
+
+    with _CLOSURE_LOCK:
+        memo = _CLOSURE_MEMO.get("maturity")
+        if memo and _time.monotonic() - memo["at"] < MATURITY_REUSE_SECONDS:
+            out = copy.deepcopy(memo["value"])
+            out["reused_from"] = memo["computed_at"]
+            return out
+        value = maturity.report(db)
+        _CLOSURE_MEMO["maturity"] = {"at": _time.monotonic(), "value": value,
+                                     "computed_at": _dt.now(timezone.utc).isoformat()}
+        return copy.deepcopy(value)
+
+
+@app.get("/api/closure")
+def api_closure() -> dict:
+    """The Build 2 closure matrix: every requirement in one of four final states, or OPEN.
+
+    Computed from evidence rather than the registry status (`build2/closure.py`): a covered
+    row is COMPLETE+PROVEN only when a module it names exists and is tested, and a parked row
+    carries the kind of its gate -- owner, data or external -- checked live against this
+    database, so a gate that has opened returns its requirements to OPEN on this page.
+    """
+    out = closure_matrix_shared()
+    out["rows"] = [{k: r[k] for k in ("id", "title", "status", "state", "gate", "why")}
+                   for r in out["rows"]]
+    out["open"] = [{k: r[k] for k in ("id", "title", "status", "why")} for r in out["open"]]
+    return out
 
 
 @app.get("/api/build2/maturity")
@@ -3448,7 +4663,7 @@ def api_build2_maturity(requirement: int | None = None) -> dict:
 
     if requirement is not None:
         return maturity.ladder(db, reqs.get(requirement))
-    return maturity.report(db)
+    return maturity_report_shared()
 
 
 @app.get("/api/jobs")
@@ -3464,16 +4679,42 @@ def api_jobs(limit: int = 50) -> dict:
 
 @app.get("/api/owner-actions")
 def api_owner_actions() -> dict:
-    with db.session() as s:
-        rows = list(s.scalars(
-            select(OwnerAction).where(OwnerAction.done == False)  # noqa: E712
-        ))
-        return {"actions": [
-            {"id": a.id, "action": a.action, "reason": a.reason,
-             "max_cost_cad": a.max_cost_cad, "minutes": a.minutes,
-             "consequence_of_delay": a.consequence_of_delay, "blocks": a.blocks}
-            for a in rows
-        ]}
+    """The one owner queue (F-179): the same model the dashboard renders.
+
+    This served the raw OwnerAction table, which is exactly the second source F-179 forbids:
+    it asked for work whose gate was already open. It now serves `executor.approval_inbox`,
+    whose cards merge those rows with live gate state, and it names the rows it withheld
+    because their gate is already satisfied.
+    """
+    from ..build2 import executor
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    return {"actions": [
+        {"id": c["owner_action_id"], "gate": c["gate"], "kind": c["kind"],
+         "requirement_key": c["requirement_key"], "action": c["action"],
+         "reason": c["why"], "max_cost_cad": c["max_cost_cad"], "minutes": c["minutes"],
+         "consequence_of_delay": c["consequence_of_waiting"], "unblocks": c["unblocks"],
+         "evidence": c["evidence"], "steps": c["steps"],
+         # F-870 / F-623 / F-180 (K7, wired by W3-WIRE4). `max_cost_basis` "UNKNOWN" means
+         # `max_cost_cad` is null: no ceiling is stated, which is never CA$0.00.
+         "why_software_cannot": c.get("why_software_cannot"), "rank": c.get("rank"),
+         "urgency": c.get("urgency"), "max_cost_basis": c.get("max_cost_basis")}
+        for c in inbox["cards"]],
+        "external_capability_unavailable": inbox["external_capability_unavailable"],
+        "withheld_satisfied": inbox["satisfied_but_open"],
+        "empty_state": inbox.get("empty_state"),
+        "parked": inbox.get("parked_owner_actions"),
+        "source": inbox["source"]}
+
+
+@app.get("/api/headline")
+def api_headline() -> dict:
+    """The dashboard's commercial-truth headline with an evidence envelope per KPI (F-665)."""
+    from ..build2 import executor
+    from . import dashboard_truth
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    return dashboard_truth.headline(db, api_status(), inbox)
 
 
 @app.post("/api/physical-test")
@@ -3497,6 +4738,36 @@ def api_physical_test(payload: dict) -> dict:
     except DuplicateJob:
         return {"enqueued": False, "reason": "an identical sample is already queued"}
     return {"enqueued": True, "job_id": job.id if job else None}
+
+
+@app.post("/api/physical-photo")
+def api_physical_photo(payload: dict) -> dict:
+    """#64: a tester's or customer's photograph of a finished object, recorded by hash.
+
+    Queued like a physical test: with a rights basis it becomes a listing upgrade task.
+    """
+    missing = [k for k in ("slug", "sha256", "source") if not payload.get(k)]
+    if missing:
+        return JSONResponse({"error": f"missing: {missing}"}, status_code=422)
+    try:
+        job = JobQueue(db).enqueue("quality_director", "physical.photo", payload)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "this photograph is already queued"}
+    return {"enqueued": True, "job_id": job.id if job else None}
+
+
+@app.get("/api/launch/packet")
+def api_launch_packet() -> dict:
+    """F-878 (W4-FMEND): the Launch-0 launch packet for the running build, operator credential.
+
+    The same packet the owner Command Center serves at `/api/cc/launch/packet`
+    (`command_center.launch_packet.view` -> `launch.packet.build(db, sha=build.commit())`),
+    on an operator-gated GET (`security.OPERATOR_GET_ROUTES`) so the operator loop can read
+    it. Read-only and single-flight cached; UNKNOWN is never shown as passing.
+    """
+    from .command_center import launch_packet as cc_launch_packet
+
+    return cc_launch_packet.view(db)
 
 
 @app.get("/api/launch")
@@ -3538,6 +4809,10 @@ def api_audit(limit: int = 100, action: str | None = None) -> dict:
         ]}
 
 
+# F-202: the audit action each /api/verify outcome is recorded under.
+VERIFY_AUDIT_ACTION = "verify.completed"
+
+
 @app.get("/api/verify")
 def api_verify() -> JSONResponse:
     """Standing safety assertions, evaluated against live state.
@@ -3552,31 +4827,31 @@ def api_verify() -> JSONResponse:
     def check(name: str, ok: bool, evidence) -> None:
         checks.append({"check": name, "ok": bool(ok), "evidence": evidence})
 
-    phase = os.environ.get("BRAMBLELOOP_PHASE", "shadow")
-    check("phase_is_shadow", phase == "shadow", {"BRAMBLELOOP_PHASE": phase})
+    # A3-10: phase-aware -- the effective phase (env AND the sealed record), and in a live
+    # phase the publication checks assert "everything published is certified, granted and
+    # read back" instead of "nothing published". Draft writes (incomplete publishes, draft
+    # create intents, exercise drafts left on Etsy) are counted. See app/verify_checks.py.
+    from . import verify_checks
+
+    pub_checks = verify_checks.publication_checks(db)
+    checks.append(pub_checks["phase"])
 
     with db.session() as s:
-        published = s.scalar(select(func.count()).select_from(AuditLog).where(
-            AuditLog.action == "store.published")) or 0
         refused = s.scalar(select(func.count()).select_from(AuditLog).where(
             AuditLog.action == "store.publish_refused")) or 0
         certified = s.scalar(select(func.count()).select_from(PatternVersion).where(
             PatternVersion.certified)) or 0
         audits = s.scalar(select(func.count()).select_from(AuditLog)) or 0
-        revenue = s.scalar(select(func.sum(LedgerEntry.gross_cad))) or 0.0
-        customers = s.scalar(select(func.count()).select_from(LedgerEntry)) or 0
         limits = list(s.scalars(select(SpendLimit)))
         agents = list(s.scalars(select(Agent)))
         ad_spend = s.scalar(select(func.sum(CostEntry.amount_cad)).where(
             CostEntry.kind == "ads")) or 0.0
 
-    check("nothing_published", published == 0,
-          {"store.published": published, "store.publish_refused": refused})
+    checks.append(pub_checks["published"])
     check("publication_was_actually_attempted_and_refused", refused > 0,
           {"refusals": refused})
     check("no_paid_advertising", ad_spend == 0, {"ad_spend_cad": float(ad_spend)})
-    check("no_revenue_claimed", float(revenue) == 0.0 and customers == 0,
-          {"revenue_cad": float(revenue), "ledger_entries": customers})
+    checks.append(pub_checks["revenue"])
     # This assertion used to be "no model provider is configured", which was true for the
     # whole of Build 1 and stopped being true the moment the owner supplied a key. A standing
     # safety check that an owner decision has overtaken is not a safety check; it is a red
@@ -3607,10 +4882,21 @@ def api_verify() -> JSONResponse:
     from ..finance.spend_report import per_agent_today
 
     today = per_agent_today(db)
-    check("every_agent_has_a_cost_ceiling",
-          bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
+    # W4-FINHEALTH: a CA$0 ceiling that DEFAULT_AGENTS declares (learn, coo, laura) is a
+    # permission of zero, refused before the call -- not a missing ceiling. The verdict now
+    # fails on what is actually wrong: a non-finite ceiling, a zero/negative one nobody
+    # declared, or a declared no-spend agent that spent. `registry.ceiling_audit` says how.
+    from ..agents.registry import ceiling_audit
+
+    audit_c = ceiling_audit([(a.name, a.daily_cost_ceiling_cad) for a in agents],
+                            {r["agent"]: r["spent_today_cad"] for r in today["agents"]})
+    check("every_agent_has_a_cost_ceiling", audit_c["ok"],
           {"agents": len(agents),
-           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0],
+           "without_ceiling": [m["agent"] for m in audit_c["misconfigured"]],
+           "declared_no_spend": audit_c["declared_no_spend"],
+           "misconfigured": audit_c["misconfigured"],
+           "no_spend_agents_that_spent_today": audit_c["no_spend_agents_that_spent_today"],
+           "zero_ceiling_means": audit_c["zero_ceiling_means"],
            "spent_today_against_ceiling": today["agents"],
            "over_their_ceiling_today": today["over"],
            "this_check_measures": ("that a ceiling exists, not that it was enforced. The "
@@ -3689,8 +4975,15 @@ def api_verify() -> JSONResponse:
 
     unexpected = [j for j in dead if not _deliberate(j)]
     recent = [j for j in unexpected if _aware(j.finished_at or j.created_at) >= cutoff]
+    # W4-FINHEALTH: a list of job types said *which* failed, not how many or why, so "17
+    # mjs.scan dead letters" and "1 mjs.scan dead letter" read the same. The per-type count,
+    # last time and first error line are carried now. Verdict unchanged.
+    from ..queue.durable import dead_letter_digest
+
     check("no_unexpected_dead_letters_in_24h", not recent,
           {"recent": sorted({j.job_type for j in recent}),
+           "recent_by_type": dead_letter_digest(recent),
+           "recent_total": len(recent),
            "historical_total": len(unexpected),
            "historical_types": sorted({j.job_type for j in unexpected}),
            "expected_publish_refusals":
@@ -3701,9 +4994,68 @@ def api_verify() -> JSONResponse:
                "shadow mode refusing to publish, and a job standing aside for the build "
                "that can run it. Both are refusals working; neither is a death to explain")})
 
+    # F-182: no owner action is presented as required while its gate's live evidence says it
+    # is already satisfied. Each presented card's gate is re-evaluated here independently of
+    # the inbox's own pass, and rows withheld as satisfied are carried as evidence so a stale
+    # legacy row is visible rather than silently dropped.
+    from ..build2 import executor
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    presented_satisfied = [
+        {"gate": c["gate"], "owner_action_id": c["owner_action_id"], "action": c["action"]}
+        for c in inbox["cards"]
+        if c["gate"] and executor.GATE_BY_KEY[c["gate"]].open(db, dict(os.environ))]
+    external_presented = [c["gate"] for c in inbox["cards"]
+                          if c["gate"] in {e["gate"] for e in
+                                           inbox["external_capability_unavailable"]}]
+    check("no_satisfied_owner_action_presented",
+          not presented_satisfied and not external_presented,
+          {"presented_cards": len(inbox["cards"]),
+           "presented_but_satisfied": presented_satisfied,
+           "external_presented_as_owner_request": external_presented,
+           "withheld_because_satisfied": inbox["satisfied_but_open"],
+           "source": inbox["source"]})
+
     passed = all(c["ok"] for c in checks)
-    return JSONResponse({"ok": passed, "checks": checks},
+    # F-202: the outcome is persisted so the dashboard header can show when production last
+    # verified clean. Best effort: a verification that cannot record itself still answers.
+    try:
+        Registry(db).audit("orchestrator", VERIFY_AUDIT_ACTION, detail={
+            "ok": passed, "failing": [c["check"] for c in checks if not c["ok"]],
+            "commit": build_identity()["commit"]})
+    except Exception:  # noqa: BLE001
+        pass
+    # F-103 (W4-SPEND): estimate drift is a readback, not a pass/fail check -- it informs, it
+    # does not decide health. Settlement against provider billing is OWNER-GATED.
+    try:
+        from .command_center.tabs import estimate_drift_reading
+
+        drift = estimate_drift_reading(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        drift = {"state": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+    # F-171 (W4-SMOKE): the smoke matrix -- probes ran, continuity proven, cadences covered,
+    # queue round-trip, search intelligence captured -- read from rows. A readback beside the
+    # safety checks (its own verdict is served at /api/verify/smoke); it never makes this
+    # endpoint green, and an unreadable matrix is UNKNOWN.
+    try:
+        from ..ops.smoke import smoke_matrix
+
+        smoke = smoke_matrix(db)
+    except Exception as exc:  # noqa: BLE001
+        smoke = {"verdict": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+    return JSONResponse({"ok": passed, "checks": checks,
+                         "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
+
+
+@app.get("/api/verify/smoke")
+def api_verify_smoke() -> JSONResponse:
+    """F-171: the production smoke matrix on its own (ops/smoke.py). 200 only on PASS; FAIL
+    and UNKNOWN are 503, so a post-deploy readback cannot read "not judged yet" as healthy."""
+    from ..ops.smoke import smoke_matrix
+
+    m = smoke_matrix(db)
+    return JSONResponse(m, status_code=200 if m["verdict"] == "PASS" else 503)
 
 
 @app.post("/api/dead-letters/requeue")
@@ -3855,6 +5207,15 @@ def api_etsy_oauth_callback(request: Request) -> Response:
                                   if k != "tokens"},
                                **({"tokens": result.detail["tokens"]}
                                   if "tokens" in result.detail else {})})
+    if result.ok:
+        # W4-ONDEMAND: a fresh grant is the moment the taxonomy and market-intel reads can
+        # succeed; queue them now (idempotent per hour) rather than at the next cadence.
+        try:
+            from ..ops import on_demand
+
+            on_demand.after_etsy_ok(db, trigger="oauth_callback")
+        except Exception:  # noqa: BLE001 - follow-on work never changes the callback page
+            pass
     return _oauth_page(result.http_status, result.headline, result.explanation,
                        result.what_to_do,
                        {"outcome": result.outcome, **result.detail})
@@ -4031,6 +5392,9 @@ tr:last-child td{border-bottom:none}
 .failed{background:#fdf3e2;color:#9a6b1f}
 .empty{color:var(--muted);font-style:italic;padding:12px}
 .owner{border-left:4px solid var(--gold);background:#fffaf0}
+.card small{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
+.card.alarm{border-left:4px solid #cf222e}
+.asof{color:var(--muted);font-size:11px;margin:-6px 0 6px}
 """
 
 
@@ -4044,10 +5408,29 @@ def _counts() -> dict:
         }
 
 
-def _pill(status: str) -> str:
+def _owner_cost_text(card: dict) -> str:
+    """A card's maximum cost as text. UNKNOWN is never rendered as CA$0.00 (F-870)."""
+    cost = card.get("max_cost_cad")
+    if card.get("max_cost_basis") == "UNKNOWN" or cost is None:
+        return "UNKNOWN (no ceiling stated yet)"
+    return f"CA${float(cost):.2f}"
+
+
+def _newest_row_line(values) -> Markup:
+    """F-203 (K7, wired by W3-WIRE4): the as-of of a table is its newest row, stated next to
+    the query time, so a stale table cannot read as current."""
+    stamps = [v for v in values if v is not None]
+    newest = max(stamps, key=lambda v: v if v.tzinfo else v.replace(tzinfo=timezone.utc)) \
+        if stamps else None
+    newest_text = f"{newest:%Y-%m-%d %H:%M:%S} UTC" if newest else "no rows"
+    return Markup(f'<div class="asof">as of {utcnow():%Y-%m-%d %H:%M:%S} UTC (query time)'
+                  f' &middot; newest row {esc(newest_text)}</div>')
+
+
+def _pill(status: str) -> Markup:
     cls = {"done": "done", "dead": "dead", "running": "running",
            "failed": "failed"}.get(status, "pending")
-    return f'<span class="pill {cls}">{status}</span>'
+    return Markup(f'<span class="pill {cls}">{esc(status)}</span>')
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -4060,18 +5443,18 @@ def dashboard() -> str:
         audits = list(s.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(15)))
         incidents = list(s.scalars(
             select(Incident).where(Incident.resolved == False)))  # noqa: E712
-        owner = list(s.scalars(
-            select(OwnerAction).where(OwnerAction.done == False)))  # noqa: E712
         products = list(s.scalars(select(Product).order_by(Product.id.desc()).limit(10)))
-        limits = list(s.scalars(select(SpendLimit)))
         agents = list(s.scalars(select(Agent).order_by(Agent.name)))
 
+    # A3-01: every cell, header and empty-state is escaped here; a cell that is already
+    # markup this function's callers built (a status pill) arrives as `Markup`.
     def rows(items, cols, empty):
         if not items:
-            return f'<div class="empty">{empty}</div>'
-        head = "".join(f"<th>{c}</th>" for c in cols[0])
-        body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in items)
-        return f"<table><tr>{head}</tr>{body}</table>"
+            return Markup(f'<div class="empty">{esc(empty)}</div>')
+        head = "".join(f"<th>{esc(c)}</th>" for c in cols[0])
+        body = "".join("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in r) + "</tr>"
+                       for r in items)
+        return Markup(f"<table><tr>{head}</tr>{body}</table>")
 
     # Launch readiness, because "is anything waiting on me" is the question an absent owner
     # actually has, and a count of queued actions does not answer it.
@@ -4088,7 +5471,7 @@ def dashboard() -> str:
             [["Requirement", "Ready", "Blocked on"]], "")
     except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
         launch_html = ('<h2>Launch readiness</h2><div class="empty">could not be assessed: '
-                       f'{type(e).__name__}</div>')
+                       f'{esc(type(e).__name__)}</div>')
 
     # -- the Build-2 command centre (#318, and the owner's request) --------
     #
@@ -4096,24 +5479,56 @@ def dashboard() -> str:
     # Every block is guarded: a dashboard that fails to render because one subsystem is
     # unhappy tells the owner nothing about the twelve that are fine.
     def _block(title: str, build) -> str:
+        # F-203: every block states when it was read. The blocks are computed on request, so
+        # the as-of is the query time; a block reading an older snapshot says so itself.
+        asof = f'<div class="asof">as of {utcnow():%Y-%m-%d %H:%M:%S} UTC</div>'
         try:
-            return f"<h2>{title}</h2>" + build()
+            return f"<h2>{esc(title)}</h2>" + asof + build()
         except Exception as e:  # noqa: BLE001
-            return (f'<h2>{title}</h2><div class="empty">unavailable: '
-                    f'{type(e).__name__}: {e}</div>')
+            return (f'<h2>{esc(title)}</h2>{asof}<div class="empty">unavailable: '
+                    f'{esc(type(e).__name__)}: {esc(e)}</div>')
+
+    # F-179 / F-663: ONE owner surface. The legacy OwnerAction table is merged into the gate
+    # cards by `executor.approval_inbox`; there is no second "Owner action required" list.
+    try:
+        from ..build2 import executor as _executor
+
+        inbox = _executor.approval_inbox(db, env=dict(os.environ))
+    except Exception:  # noqa: BLE001 - the block below reports it in place
+        inbox = None
 
     def _approvals() -> str:
-        """What is waiting on the owner (#183). A count does not answer the question."""
-        from ..build2 import executor
-
-        inbox = executor.approval_inbox(db, env=dict(os.environ))
+        """What is waiting on the owner (#183, F-663). One ranked queue; a count is not it."""
+        if inbox is None:
+            raise RuntimeError("the owner inbox could not be computed")
         cards = inbox.get("cards") or []
+        if not cards:
+            # F-204 (K7, wired by W3-WIRE4): an empty queue is only "nothing is waiting" when
+            # the empty-queue guard proves it; otherwise it says so, with the reason.
+            es = inbox.get("empty_state") or {}
+            if es.get("state") == "PROVEN-EMPTY":
+                return rows([], [[]], "nothing is waiting on the owner")
+            return rows([], [[]], "queue empty but UNPROVEN: "
+                        + str(es.get("why") or "the empty-queue check did not run"))
         return rows(
-            [(c["gate"], c["action"], c.get("consequence_of_waiting", ""),
-              c.get("requirements_unparked", c.get("parked", "")))
+            [(c["gate"] or c["requirement_key"], c["action"],
+              _owner_cost_text(c), f"{c['minutes']} min",
+              c.get("consequence_of_waiting", ""), c["unblocks_count"],
+              c.get("evidence", ""))
              for c in cards],
-            [["Gate", "Action", "Consequence of waiting", "Unparks"]],
-            "nothing is waiting on the owner")
+            [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
+              "Unblocks", "Evidence it is done"]],
+            "")
+
+    def _external() -> str:
+        """F-196: gates no owner action can open. Listed, never asked for."""
+        if inbox is None:
+            raise RuntimeError("the owner inbox could not be computed")
+        ext = inbox.get("external_capability_unavailable") or []
+        return rows([(e["gate"], e["label"], e["unblocks_count"], (e["why"] or "")[:220])
+                     for e in ext],
+                    [["Capability", "State", "Parked requirements", "Why"]],
+                    "no external capability is unavailable")
 
     def _learning() -> str:
         """What this company has learned since yesterday, and where it came from (#183)."""
@@ -4135,8 +5550,8 @@ def dashboard() -> str:
                                    env=dict(os.environ))
         verdict = health.verdict(readings)
         return (f'<div class="grid"><div class="card"><span>state</span>'
-                f'<b>{verdict["state"]}</b></div></div>'
-                + f'<div class="empty">{verdict["why"]}</div>'
+                f'<b>{esc(verdict["state"])}</b></div></div>'
+                + f'<div class="empty">{esc(verdict["why"])}</div>'
                 + rows([(r["signal"], r["state"], r["why"][:90]) for r in
                         verdict["readings"]],
                        [["Signal", "State", "Why"]], ""))
@@ -4156,13 +5571,49 @@ def dashboard() -> str:
         #
         # `executable_remaining` is the computed field and the one the API already serves;
         # using it means the tile and the endpoint cannot disagree.
+        #
+        # W4-B2: the headline is now the closure ledger (`closure.dashboard`): PROVEN /
+        # OWNER-GATED / DATA-GATED / EXTERNAL-GATED / NOT-APPLICABLE / OPEN-DEFECT, with
+        # "executable remaining" = OPEN only. The registry's counts stay visible, labelled as
+        # what they are: the registry's claim about itself.
+        from ..build2 import closure
+
+        m = closure_matrix_shared()
+        closing = "".join(
+            f'<div class="card"><span>closure: {esc(k)}</span><b>{esc(v)}</b></div>'
+            for k, v in m["counts"].items())
+        # The ledger headline needs the full matrix; if it cannot be derived it is stated as
+        # unavailable (never 0) and the matrix's own counts -- e.g. an explicit UNKNOWN --
+        # still render instead of the whole block going blank.
+        try:
+            hd = closure.dashboard(db, m=m)
+            headline = "".join(
+                f'<div class="card"><span>{esc(label)}</span><b>{esc(hd[key])}</b></div>'
+                for label, key in (("PROVEN", "proven"), ("OWNER-GATED", "owner_gated"),
+                                   ("DATA-GATED", "data_gated"),
+                                   ("EXTERNAL-GATED", "external_gated"),
+                                   ("NOT-APPLICABLE", "not_applicable"),
+                                   ("OPEN-DEFECT", "open_defects"),
+                                   ("executable remaining (OPEN only)", "executable_remaining"),
+                                   ("total", "total")))
+            basis = f'{hd["basis"]} -- as of {hd["as_of"]}'
+        except Exception as e:  # noqa: BLE001 - headline UNKNOWN, not zero, not a blank block
+            headline = ('<div class="card"><span>closure headline</span><b>UNKNOWN</b></div>')
+            basis = f"closure headline unavailable: {type(e).__name__}: {e}"
         executable = cov["executable_remaining"]
+        ready = cov["executable_unparked"]
         cards = "".join(
-            f'<div class="card"><span>{k.replace("_", " ")}</span><b>{v}</b></div>'
-            for k, v in sorted(cov.items()))
-        return (f'<div class="grid">{cards}'
-                f'<div class="card"><span>executable left</span><b>{executable}</b></div>'
-                f"</div>")
+            f'<div class="card"><span>registry claim: {esc(k.replace("_", " "))}</span>'
+            f'<b>{esc(v)}</b></div>' for k, v in sorted(cov.items()))
+        return (f'<div class="grid">{headline}</div>'
+                f'<div class="empty">{esc(basis)}</div>'
+                f'<div class="grid">{closing}</div>'
+                f'<details><summary>registry claim (requirements.json status, not evidence)'
+                f'</summary><div class="grid">{cards}'
+                f'<div class="card"><span>registry claim: executable left</span>'
+                f'<b>{esc(executable)}</b></div>'
+                f'<div class="card"><span>registry claim: ready to start (not parked)</span>'
+                f'<b>{esc(ready)}</b></div></div></details>')
 
     def _visual_pipeline() -> str:
         """The milestone ladder, so the route to a listable product is visible on the page.
@@ -4176,16 +5627,18 @@ def dashboard() -> str:
         try:
             m = milestones.assess()
         except Exception as e:  # noqa: BLE001 - a broken milestone must not blank the console
-            return f"<p>unavailable: {type(e).__name__}: {e}</p>"
+            return f"<p>unavailable: {esc(type(e).__name__)}: {esc(e)}</p>"
         tone = {"PASS": "#1a7f37", "PARTIAL": "#9a6700", "FAIL": "#cf222e",
-                "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e"}
+                "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e",
+                "UNMEASURED": "#57606a"}
         rows = "".join(
-            f"<tr><td><b>{r['milestone']}</b></td><td>{r['name']}</td>"
-            f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{r['status']}</b></td>"
-            f"<td>{r['evidence'][:150]}</td></tr>"
+            f"<tr><td><b>{esc(r['milestone'])}</b></td><td>{esc(r['name'])}</td>"
+            f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{esc(r['status'])}</b>"
+            f"</td><td>{esc(str(r['evidence'])[:150])}</td></tr>"
             for r in m["milestones"])
-        return (f"<p>highest passed: <b>{m['highest_passed'] or 'none'}</b> &middot; "
-                f"working on <b>{m['current'] or '-'}</b> &middot; {m['business_objective']}</p>"
+        return (f"<p>highest passed: <b>{esc(m['highest_passed'] or 'none')}</b> &middot; "
+                f"working on <b>{esc(m['current'] or '-')}</b> &middot; "
+                f"{esc(m['business_objective'])}</p>"
                 f"<table><tr><th></th><th>Milestone</th><th>State</th><th>Evidence</th></tr>"
                 f"{rows}</table>")
 
@@ -4199,18 +5652,77 @@ def dashboard() -> str:
         backlog = vision_plan(db, MJS_KEY)
         cadence = next_interval(db, MJS_KEY)
         cov = report["catalogue_coverage"]
+        # F-192: the state alone ("unverified", "wrong_shop") does not say what failed or
+        # when; the problem text and check time sit beside it.
+        sh = report["registry"]["scan_health"] or {}
+        health = str(sh.get("state", "unknown")) + (
+            f" — {sh['problem']}" if sh.get("problem") else "") + (
+            f" (checked {sh['checked_at']})" if sh.get("checked_at") else " (never checked)")
+        fc = backlog.get("forecast") or {}
+        per_img = fc.get("measured_cad_per_image")
+        forecast_txt = (
+            f"measured {'CA$%.4f' % per_img if per_img is not None else 'UNKNOWN'}/image "
+            f"(est. CA${fc.get('estimated_cad_per_image', 0):.4f}); "
+            f"{fc.get('images_per_day') if fc.get('images_per_day') is not None else 'UNKNOWN'}/day; "
+            f"ETA {('%s days' % fc['eta_days']) if fc.get('eta_days') is not None else 'UNKNOWN'}; "
+            f"share {(fc.get('allocation') or {}).get('share_of_ceiling')} of the month, "
+            f"spent CA${((fc.get('allocation') or {}).get('spent_cad') or 0):.2f} of "
+            f"CA${((fc.get('allocation') or {}).get('allowed_cad') or 0):.2f}")
+        rec = report.get("reconciliation") or {}
         return rows([
             ("observation", report["observation_state"]),
             ("shop", report["registry"]["shop_name"]),
-            ("scan health", str(report["registry"]["scan_health"].get("state", "unknown"))),
+            ("scan health", health),
             ("catalogue known / audited",
              f"{cov['listings_known']} / {cov['listings_audited']}"),
+            ("counts reconcile", "yes" if rec.get("ok") else
+             "NO: " + ", ".join(rec.get("failing") or ["unknown"])),
             ("last mandated evidence", str(report["last_mandated_evidence_at"] or "never")),
             ("images awaiting judgement",
              f"{backlog['pending_images']} (CA${backlog['estimated_cad_total']:.2f})"),
+            ("gallery cost forecast", forecast_txt),
             ("scan cadence", f"every {cadence.interval_hours}h"),
             ("coverage gaps", str(report["gap_queue"]["total"])),
+            ("last successful scan", str(report["last_successful_scan"] or "never")),
+            ("changed / new (last scan)",
+             ", ".join(f"{k}: {v}" for k, v in
+                       report["listings_changed_new"]["last_scan"].items()) or "none"),
+            ("pod assignments", ", ".join(f"{k}: {v}" for k, v in
+                                          report["pod_assignments"].items()) or "none"),
+            ("top uncovered", "; ".join(f"{g['arena']} ({g['score']:.2f})" for g in
+                                        report["top_uncovered_opportunities"][:5]) or "none"),
+            ("seasonal adaptations", "; ".join(
+                f"{a['arena']} for {a['event']}: {a['winner'] or 'no winner yet'}"
+                f" (stopped at {a['pipeline_stopped_at'] or '-'})"
+                for a in report["upcoming_seasonal_adaptations"][:5]) or "none"),
+            ("launch deadlines", "; ".join(
+                f"{d['arena']} / {d['event']}: latest {d['latest_effective_launch']}"
+                for d in report["launch_deadlines"][:5]) or "none"),
+            ("comparison results", str(report["comparison_results"])[:300]),
+            ("products launched", str(report["products_launched"]["published_listings"])),
+            ("conversion / revenue", str(report["conversion_revenue"])[:200]),
+            ("mission incidents", str(len(report["mission_incidents"]))),
         ], [["Mission", "State"]], "")
+
+    def _etsy_surfaces() -> str:
+        # F-600: the Etsy surface registry at runtime -- coverage, the work plan, and the
+        # bounded first-sale list with each surface's evidence state (F-498).
+        from ..intel import etsy_surfaces as es
+        from ..launch.readiness import etsy_first_sale_surfaces
+
+        cov = es.coverage()
+        req = etsy_first_sale_surfaces(db)
+        head = rows([
+            ("surfaces", str(cov["surfaces"])),
+            ("verdicts", ", ".join(f"{k}: {v}" for k, v in cov["verdicts"].items())),
+            ("work plan", ", ".join(f"{k}: {len(v)}" for k, v in es.work_plan().items())),
+            ("without a collector", ", ".join(cov["without_collector"]) or "none"),
+            ("first-sale list ready", "yes" if req.ready else f"no ({req.blocked_by})"),
+        ], [["Etsy surfaces", "State"]], "")
+        return head + rows(
+            [(r["surface"], r["evidence_state"], r["owner_action"] or "-")
+             for r in req.evidence["surfaces"]],
+            [["First-sale surface", "Evidence", "Owner action"]], "no first-sale surface")
 
     def _seasonal() -> str:
         from ..seasonal.leadtime import catalogue_plans
@@ -4233,7 +5745,8 @@ def dashboard() -> str:
         p = probability(db)
         gate = p["evidence_gate"]
         return rows([
-            ("modelled probability of CA$5,000/month", f"{p['probability']:.2f}"),
+            # F-189: UNMEASURED while the evidence gate is unmet; 0.00 would be a claim.
+            ("modelled probability of CA$5,000/month", p["display"]),
             ("binding layer", p["weakest_critical_layer"]),
             ("capped by", p["capped_by"]),
             ("evidence gate", "met" if gate["satisfied"] else
@@ -4241,16 +5754,25 @@ def dashboard() -> str:
         ], [["CA$5K model", "Value"]], "")
 
     def _creative() -> str:
-        from ..creative.audit import audit_catalogue
+        from ..creative.audit import audit_catalogue, tournament_cohort
 
         report = audit_catalogue()
         freedom = report["generator_degrees_of_freedom"]
+        cohort = report["cohort"]
+        # F-188: the tournament is a separate cohort with its own row, so the legacy
+        # catalogue's failures are never read as the current generator's.
+        t = tournament_cohort(db)
         return rows([
+            ("cohort measured", f"{cohort['name']} ({cohort['generator_version']}, "
+                                f"n={cohort['n']})"),
             ("products audited", str(report["products_audited"])),
             ("survived the creative gate", str(len(report["survivors"]))),
             ("dominant failure", str(report["autopsy"]["dominant_cause"])),
             ("constructions used", ", ".join(freedom["constructions_used"])),
             ("stitch vocabularies", ", ".join(freedom["stitch_vocabularies"])),
+            ("tournament cohort survivors",
+             (f"{t['survivors']} / {t['candidates']} over {t['runs']} runs"
+              if t["state"] == "MEASURED" else t["state"])),
         ], [["Creative gate", "Value"]], "")
 
     def _improve() -> str:
@@ -4265,7 +5787,27 @@ def dashboard() -> str:
             ("regressed", ", ".join(report["regressed_cells"]) or "none"),
             ("bottleneck", str(report["bottleneck"] or "none")),
             ("lessons acted on", f"{comp['acted_on']} / {comp['routed']}"),
+            # W4L-2: what can move before a sale (internal, never a customer outcome), and
+            # which cells only customer evidence can measure (DATA-GATED, not "0 measured").
+            *_learn_presale_rows(report["unmeasured_cells"]),
         ], [["Improvement", "Value"]], "")
+
+    def _learn_presale_rows(unmeasured: list) -> list:
+        from ..improve.measure import DATA_GATED_CELLS
+
+        post = [c for c in unmeasured if c in DATA_GATED_CELLS]
+        out = [("post-launch-only cells (DATA-GATED: no customer evidence yet)",
+                ", ".join(post) if post else "none")]
+        try:
+            from ..improve import presale
+
+            pre = presale.summary(db)
+            n = pre.get("measured")
+            val = (f"{n} / {pre.get('of')}" if isinstance(n, int) else
+                   f"UNKNOWN: {pre.get('reason') or 'unreadable'}")
+        except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0
+            val = f"UNKNOWN: {type(exc).__name__}"
+        return [("pre-sale outcomes measured (internal, not customer outcomes)", val)] + out
 
     def _models() -> str:
         from ..gateway.routing import budget
@@ -4280,10 +5822,26 @@ def dashboard() -> str:
         lines += [(c["name"], c["state"]) for c in statuses()]
         return rows(lines, [["Capability", "State"]], "")
 
+    # F-206 / F-186 / F-187: commercial truth leads; volume counts are demoted below it.
+    try:
+        from . import dashboard_truth
+
+        head = dashboard_truth.headline(db, st, inbox)
+        headline_html = '<div class="grid">' + "".join(
+            f'<div class="card{" alarm" if k["alarm"] else ""}"><span>{esc(k["label"])}</span>'
+            f'<b>{esc(k["value"])}</b><small title="{esc(k["evidence"]["transform"])}">'
+            f'{esc(str(k["why"])[:140])}<br>source: {esc(str(k["evidence"]["source"])[:80])}'
+            f' &middot; as of {esc(k["evidence"]["as_of"])}</small></div>'
+            for k in head["kpis"]) + "</div>"
+    except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
+        headline_html = (f'<div class="empty">headline unavailable: {esc(type(e).__name__)}: '
+                         f'{esc(e)}</div>')
+
     command_centre = (
         _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
+        + _block("Etsy surfaces", _etsy_surfaces)
         + _block("Seasonal deadlines", _seasonal)
         + _block("CA$5,000/month model", _scale)
         + _block("Creative standard", _creative)
@@ -4291,66 +5849,73 @@ def dashboard() -> str:
         + _block("Capabilities and spend", _models)
     )
 
-    owner_html = ""
-    if owner:
-        items = [(a.action, f"CA${a.max_cost_cad:.2f}", f"{a.minutes} min",
-                  a.consequence_of_delay) for a in owner]
-        owner_html = "<h2>Owner action required</h2>" + rows(
-            items, [["Action", "Max cost", "Time", "Consequence of delay"]], "")
+    # F-202: which build is on screen, when its container started, and when production last
+    # verified clean -- so a pushed fix and an older rendered dashboard cannot be confused.
+    ident = build_identity()
+    with db.session() as s:
+        last_ok = next((a for a in s.scalars(
+            select(AuditLog).where(AuditLog.action == VERIFY_AUDIT_ACTION)
+            .order_by(AuditLog.id.desc()).limit(200)) if (a.detail or {}).get("ok")), None)
+        last_ok_at = f"{last_ok.at:%Y-%m-%d %H:%M} UTC" if last_ok else "never recorded"
+    started = st["runner"].get("worker_started_at") or "unknown"
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Brambleloop Studio OS</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>{_CSS}</style></head><body>
 <header><h1>BRAMBLELOOP STUDIO</h1>
-<div class="sub">Autonomous crochet commerce OS &middot; v{APP_VERSION} &middot; {utcnow():%Y-%m-%d %H:%M} UTC</div>
+<div class="sub">Autonomous crochet commerce OS &middot; v{APP_VERSION} &middot; rendered {utcnow():%Y-%m-%d %H:%M} UTC
+&middot; commit <b>{esc(ident['commit_short'])}</b> ({esc(ident['branch'])}) &middot; container started {esc(started)}
+&middot; last clean /api/verify: <b>{esc(last_ok_at)}</b></div>
 </header><main>
+{headline_html}
+{_block("Waiting on the owner", _approvals)}
+{_block("External capability unavailable", _external)}
+<h2>Volume and operations</h2>
+<div class="sub" style="color:var(--muted);font-size:12px">Output volume, not business readiness.</div>
 <div class="grid">
-  <div class="card"><span>Queue pending</span><b>{st['queue'].get('pending',0)}</b></div>
-  <div class="card"><span>Running</span><b>{st['queue'].get('running',0)}</b></div>
-  <div class="card"><span>Dead letters</span><b>{st['dead_letters']}</b></div>
-  <div class="card"><span>Certified releases</span><b>{st['certified_versions']}</b></div>
-  <div class="card"><span>Open incidents</span><b>{st['open_incidents']}</b></div>
-  <div class="card"><span>Agent opex</span><b>CA${st['agent_opex_cad']:.2f}</b></div>
-  <div class="card"><span>Revenue</span><b>CA${st['revenue_cad']:.2f}</b></div>
+  <div class="card"><span>Queue pending</span><b>{esc(st['queue'].get('pending',0))}</b></div>
+  <div class="card"><span>Running</span><b>{esc(st['queue'].get('running',0))}</b></div>
+  <div class="card"><span>Certified releases</span><b>{esc(st['certified_versions'])}</b></div>
+  <div class="card"><span>Open incidents</span><b>{esc(st['open_incidents'])}</b></div>
+  <div class="card"><span>{esc(st['spend'].get('label', 'Recorded spend'))}</span><b>{esc(st['spend']['display'])}</b></div>
+  <div class="card"><span>Revenue (reconciled)</span><b>{esc(st['revenue']['display'])}</b></div>
   <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
-  <div class="card"><span>Model providers</span><b>{len(st['model_providers']) or 'none'}</b></div>
-  <div class="card"><span>Listings drafted</span><b>{_counts()['listings']}</b></div>
-  <div class="card"><span>Listing images</span><b>{_counts()['listing_images']}</b></div>
-  <div class="card"><span>Content pieces</span><b>{_counts()['content_pieces']}</b></div>
+  <div class="card"><span>Model providers</span><b>{esc(len(st['model_providers']) or 'none')}</b></div>
+  <div class="card"><span>Listings drafted</span><b>{esc(_counts()['listings'])}</b></div>
+  <div class="card"><span>Listing images</span><b>{esc(_counts()['listing_images'])}</b></div>
+  <div class="card"><span>Content pieces</span><b>{esc(_counts()['content_pieces'])}</b></div>
 </div>
 <div class="sub" style="color:var(--muted);font-size:12px;margin:-14px 0 18px">
-Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
-{st['runner']['worker_last_tick'] or 'never'} &middot; restarts {st['runner']['worker_restarts']}
-&middot; scheduler {st['runner']['scheduler_last_tick'] or 'never'}
-{('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
+Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
+{esc(st['runner']['worker_last_tick'] or 'never')} &middot; restarts {esc(st['runner']['worker_restarts'])}
+&middot; scheduler {esc(st['runner']['scheduler_last_tick'] or 'never')}
+{('&middot; last error: ' + esc(st['runner']['last_error'])) if st['runner']['last_error'] else ''}
 </div>
-{owner_html}
 {command_centre}
 {_block("Health", _health)}
-{_block("Waiting on the owner", _approvals)}
 {_block("Learning changes", _learning)}
 {launch_html}
 <h2>Recent jobs</h2>
+{_newest_row_line(t for j in jobs for t in (j.finished_at, j.started_at, j.created_at))}
 {rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
         (j.last_error or "")[:70]) for j in jobs],
       [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet.")}
 <h2>Products</h2>
+{_newest_row_line(p.created_at for p in products)}
 {rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
       [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
 <h2>Open incidents</h2>
+{_newest_row_line(i.at for i in incidents)}
 {rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
         "HALTS" if i.halts_publication else "") for i in incidents],
       [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents.")}
-<h2>Spend limits</h2>
-{rows([(l.scope, f"CA${l.spent_today_cad:.2f}/{l.daily_cap_cad:.2f}",
-        f"CA${l.spent_lifetime_cad:.2f}/{l.lifetime_cap_cad:.2f}",
-        "PAUSED" if l.paused else "ok") for l in limits],
-      [["Scope", "Today", "Lifetime", "State"]], "No spend limits configured.")}
+{_spend_governance_html()}
 <h2>Agents</h2>
 {rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
         "on" if a.enabled else "off") for a in agents],
       [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents.")}
 <h2>Audit trail</h2>
+{_newest_row_line(a.at for a in audits)}
 {rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
       [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet.")}
 </main></body></html>"""
@@ -4460,10 +6025,26 @@ async def api_teardown_intake(request: Request,
     if not uploads:
         return JSONResponse({"error": "no files were attached"}, status_code=400)
 
+    # F-786: the purchase's licence terms, as a JSON form field, recorded with the files.
+    # Validated before anything enters the quarantine; absent means the conservative
+    # personal-use reading (never a permissive one).
+    licence_terms = None
+    raw_terms = form.get("licence_terms")
+    if raw_terms not in (None, ""):
+        import json as _json
+
+        from ..teardown.licence import validate_purchase_terms
+
+        try:
+            licence_terms = validate_purchase_terms(_json.loads(str(raw_terms)))
+        except (ValueError, TypeError) as exc:
+            return JSONResponse({"error": f"licence_terms refused: {exc}"}, status_code=400)
+
     paid = form.get("paid_cad")
     try:
         result = receive(db, listing_ref, uploads,
-                         paid_cad=float(paid) if paid not in (None, "") else None)
+                         paid_cad=float(paid) if paid not in (None, "") else None,
+                         licence_terms=licence_terms)
     except IntakeRefused as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -4473,16 +6054,177 @@ async def api_teardown_intake(request: Request,
     return JSONResponse(result)
 
 
+def _teardown_ops_refusal(authorization: str) -> JSONResponse | None:
+    """The operator-token check the teardown and culture write routes share."""
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    return None
+
+
+async def _teardown_json_body(request: Request) -> dict | JSONResponse:
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001 - a malformed body is a 400, whatever broke
+        return JSONResponse({"error": f"expected a JSON object: {exc}"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "expected a JSON object"}, status_code=400)
+    return body
+
+
+def _teardown_refusals() -> tuple:
+    from ..teardown import audits, lab, library, pipeline, scorecard
+
+    return (audits.AuditRefused, scorecard.ScoreRefused, scorecard.ParityRefused,
+            library.ContentRefused, lab.LabRefused, pipeline.PipelineRefused)
+
+
+@app.post("/api/teardown/audit")
+async def api_teardown_audit(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """Record one complete per-dimension audit (#152-#160). Authenticated, because it writes.
+
+    JSON: `benchmark_ref` (a purchased benchmark's manifest ref, or `brambleloop:<slug>` for
+    our own product), `audit` (the schedule key) and `answers`. What the intake manifest
+    settles is prefilled. Every notable element becomes a scorecard finding (#161), every
+    finding is promoted into the Improvement Department (#164), and the delight question is
+    asked of the benchmark (#169).
+    """
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..teardown import lab
+
+    try:
+        result = lab.record_audit(db, str(body.get("benchmark_ref") or ""),
+                                  str(body.get("audit") or ""),
+                                  body.get("answers") or {},
+                                  confidence=body.get("confidence"),
+                                  raw_notes=str(body.get("raw_notes") or ""))
+    except _teardown_refusals() as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.post("/api/teardown/finding")
+async def api_teardown_finding(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Record one twelve-dimension scorecard finding (#161) and promote it (#164)."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..teardown import lab
+
+    try:
+        result = lab.record_finding(
+            db, str(body.get("benchmark_ref") or ""), str(body.get("dimension") or ""),
+            body.get("score"), str(body.get("mechanism") or ""),
+            str(body.get("improvement") or ""), confidence=body.get("confidence"),
+            raw_notes=str(body.get("raw_notes") or ""))
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": f"score must be 0-5: {exc}"}, status_code=400)
+    except _teardown_refusals() as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.post("/api/teardown/qa")
+def api_teardown_qa(authorization: str = Header(default="")) -> JSONResponse:
+    """Brambleloop's own certified products through #163 and #169, one audit row each."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..teardown import lab
+
+    return JSONResponse(lab.product_qa_all(db))
+
+
+@app.post("/api/teardown/manifest")
+def api_teardown_manifest(authorization: str = Header(default="")) -> JSONResponse:
+    """Regenerate BENCHMARK_MANIFEST.md (#170) into the quarantined library and return it."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..teardown import lab
+
+    return JSONResponse(lab.write_manifest(db))
+
+
+@app.post("/api/culture/clearance")
+async def api_culture_clearance(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Record a basis for direct use of a signal's protected element (#135).
+
+    JSON: `signal_key`, `kind`, `evidence`, `recorded_by`, optional `scope` and
+    `publication_year`. A basis the rights module refuses leaves the signal in the original
+    lane and says why; the opportunity is never discarded.
+    """
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..culture import engine, rights
+
+    year = body.get("publication_year")
+    try:
+        result = engine.clear(
+            db, str(body.get("signal_key") or ""), kind=str(body.get("kind") or ""),
+            evidence=str(body.get("evidence") or ""),
+            recorded_by=str(body.get("recorded_by") or ""),
+            scope=str(body.get("scope") or ""),
+            publication_year=int(year) if year not in (None, "") else None)
+    except (rights.RightsRefused, ValueError) as exc:
+        return JSONResponse({"error": str(exc), "lane": rights.ORIGINAL}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.get("/api/culture/development")
+def api_culture_development() -> dict:
+    """What the culture engine has put into creative development, and what it owns (#144, #146)."""
+    from ..culture import engine
+
+    return {"candidates": engine.candidates(db),
+            "collections": engine.collection_plans(db),
+            "ip": engine.roster(db), "ip_direction": engine.ip_direction(db),
+            "stage": engine.STAGE,
+            "note": ("candidates for creative development; none of these is an engineering "
+                     "job, and the concept tournament, jury and CIR stand between each row "
+                     "and a pattern")}
+
+
 @app.get("/ops/teardown", response_class=HTMLResponse)
 def ops_teardown_page() -> HTMLResponse:
-    """The phone page: paste the operator token once, tap a pick, choose files.
+    """The phone page: paste the operator token, tap a pick, choose files.
 
     Served without authentication because it contains no data -- every row on it is fetched
-    with the token the browser holds. Deliberately one file, no build step and no framework:
+    with the token the page holds. Deliberately one file, no build step and no framework:
     this is opened on a phone, months from now, by somebody who has just paid for thirteen
     patterns and wants them filed.
+
+    A3-01: the token is held in page memory only, never in `localStorage` (which any script on
+    this origin could read, forever, and which an XSS on the dashboard would have read), and
+    the script is served from `/ops/teardown.js` so the page runs under a policy that forbids
+    inline script. Reloading the page asks for the token again; that is the price, and it is
+    the right one for a credential that controls the whole company.
     """
-    return HTMLResponse(_TEARDOWN_PAGE)
+    return HTMLResponse(_TEARDOWN_PAGE, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/ops/teardown.js")
+def ops_teardown_script() -> Response:
+    return Response(_TEARDOWN_SCRIPT, media_type="application/javascript",
+                    headers={"Cache-Control": "no-store"})
 
 
 _TEARDOWN_PAGE = """<!doctype html>
@@ -4502,7 +6244,7 @@ _TEARDOWN_PAGE = """<!doctype html>
  .meta{font-size:.8rem;opacity:.75;margin:0 0 8px}
  .done{opacity:.55}
  .badge{font-size:.72rem;border-radius:999px;padding:2px 8px;border:1px solid currentColor}
- input[type=password],input[type=file]{width:100%;box-sizing:border-box;padding:10px;
+ input[type=password],input[type=file],#ins-who,#ins-text{width:100%;box-sizing:border-box;padding:10px;
    border-radius:8px;border:1px solid rgba(128,128,128,.5);background:transparent;color:inherit}
  button{padding:10px 14px;border-radius:8px;border:0;background:#3c5a3f;color:#fff;
    font-size:.9rem;width:100%;margin-top:8px}
@@ -4512,14 +6254,33 @@ _TEARDOWN_PAGE = """<!doctype html>
 <h1>Benchmark intake</h1>
 <p class="sub">Tap a pick, choose the files Etsy gave you. Zips are fine. Nothing needs
 renaming, sorting or describing.</p>
-<div id="auth"><p class="sub">Operator token (stored on this phone only):</p>
+<div id="auth"><p class="sub">Operator token (kept in this page's memory only; it is
+forgotten when the page is closed or reloaded):</p>
 <input type="password" id="token" autocomplete="off" placeholder="BRAMBLELOOP_OPS_TOKEN">
-<button onclick="save()">Remember and load</button></div>
+<button id="load" type="button">Load</button></div>
 <div id="status" class="msg"></div>
 <div id="picks"></div>
-<script>
-const T=()=>localStorage.getItem('bl_ops')||'';
-function save(){localStorage.setItem('bl_ops',document.getElementById('token').value.trim());load();}
+<h1 id="insights" style="margin-top:24px">Marketplace Insights</h1>
+<p class="sub">The only market figure the company cannot collect itself: Etsy publishes no
+API for it. In Shop Manager &gt; Marketing &gt; Marketplace Insights, search a term, copy the
+view, paste it here (start each term with a line <b>Search term: ...</b>). Nothing is recorded
+until you check the parse and tap Record.</p>
+<input id="ins-who" placeholder="Your name (recorded_by)">
+<textarea id="ins-text" rows="8" placeholder="Search term: crochet blanket pattern&#10;Searches 12.4K&#10;Listings 85,321&#10;Trend: up&#10;Related searches&#10;granny square blanket 3.1K"></textarea>
+<button id="ins-parse" type="button">Check the parse</button>
+<button id="ins-record" type="button">Record</button>
+<div id="ins-out" class="msg"></div>
+<script src="/ops/teardown.js"></script></body></html>
+"""
+
+_TEARDOWN_SCRIPT = r"""'use strict';
+// The operator token lives in this variable and nowhere else (A3-01). Remove the copy an
+// earlier version of this page left in localStorage.
+let TOKEN='';
+try{ localStorage.removeItem('bl_ops'); }catch(e){}
+const T=()=>TOKEN;
+function save(){const i=document.getElementById('token');TOKEN=i.value.trim();i.value='';load();}
+function safeHref(u){u=String(u||'');return /^https:\/\//i.test(u)?u:'';}
 function H(){return {'Authorization':'Bearer '+T()};}
 async function load(){
   const s=document.getElementById('status'); s.textContent='Loading…';
@@ -4546,7 +6307,7 @@ function card(p){
   const m=document.createElement('p'); m.className='meta';
   m.textContent='CA$'+p.price_cad+' · '+p.department+' · '+(p.received?p.files+' files received':p.answers||'');
   el.appendChild(m);
-  if(p.url){const a=document.createElement('a');a.href=p.url;a.target='_blank';a.textContent='open the listing';a.className='meta';el.appendChild(a);}
+  if(safeHref(p.url)){const a=document.createElement('a');a.href=safeHref(p.url);a.rel='noopener noreferrer';a.target='_blank';a.textContent='open the listing';a.className='meta';el.appendChild(a);}
   const f=document.createElement('input'); f.type='file'; f.multiple=true; el.appendChild(f);
   const b=document.createElement('button'); b.textContent=p.received?'Add more files':'Upload';
   const out=document.createElement('div'); out.className='msg';
@@ -4567,6 +6328,25 @@ function card(p){
   };
   el.appendChild(b); el.appendChild(out); return el;
 }
-if(T()) load();
-</script></body></html>
+document.getElementById('load').addEventListener('click',save);
+// W4-MARKETINTEL: Marketplace Insights paste -> deterministic parse -> confirm.
+async function insights(confirm){
+  const out=document.getElementById('ins-out');
+  if(!T()){out.textContent='Enter the operator token above first.';return;}
+  let r; try{ r=await fetch('/api/insights/paste',{method:'POST',
+    headers:Object.assign({'Content-Type':'application/json'},H()),
+    body:JSON.stringify({text:document.getElementById('ins-text').value,
+      recorded_by:document.getElementById('ins-who').value,confirm:confirm})}); }
+  catch(e){ out.textContent='Could not reach the server: '+e; return; }
+  const d=await r.json();
+  if(!r.ok){ out.textContent='Refused: '+(d.error||r.status); return; }
+  const rows=(d.readings||[]).map(x=>x.keyword+': searches '+(x.search_count??'UNKNOWN')+
+    ', listings '+(x.listing_count??'UNKNOWN')+', trend '+x.trend_direction+
+    (x.related_terms.length?', related: '+x.related_terms.join(' / '):'')).join('\n');
+  out.textContent=(confirm?'Recorded '+(d.recorded||[]).length+' reading(s).\n':'Parsed (not yet recorded):\n')+
+    (rows||'nothing recognised')+((d.unparsed||[]).length?'\n\nNot understood (will not be recorded):\n'+d.unparsed.join('\n'):'');
+}
+document.getElementById('ins-parse').addEventListener('click',()=>insights(false));
+document.getElementById('ins-record').addEventListener('click',()=>insights(true));
 """
+

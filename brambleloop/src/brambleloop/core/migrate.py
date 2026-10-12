@@ -90,19 +90,24 @@ def apply(engine: Engine) -> list[str]:
                                   f'WHERE "{column}" IS NULL'), {"v": default})
                 changes.append(f"{table}.{column} {ddl} backfilled={default!r}")
             else:
+                changes.append(f"{table}.{column} {ddl}")
                 log.info("added column %s.%s (%s)", table, column, ddl)
 
-    if changes:
-        insp = inspect(engine)
-        existing_tables = set(insp.get_table_names())
-        for table_obj in Base.metadata.sorted_tables:
-            if table_obj.name not in existing_tables:
+    # Re-audit L-3: the index pass ran only when `changes` was non-empty, and only backfilled
+    # columns were recorded -- so a release that added only nullable, no-default columns with
+    # indexes left those indexes missing on every existing database. Missing indexes are now
+    # created on every pass, whatever else did or did not change (each is checked first, so a
+    # database that has them all is untouched and `changes` stays empty).
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    for table_obj in Base.metadata.sorted_tables:
+        if table_obj.name not in existing_tables:
+            continue
+        have = {i["name"] for i in insp.get_indexes(table_obj.name)}
+        for index in table_obj.indexes:
+            if index.name in have:
                 continue
-            have = {i["name"] for i in insp.get_indexes(table_obj.name)}
-            for index in table_obj.indexes:
-                if index.name in have:
-                    continue
-                index.create(bind=engine, checkfirst=True)
-                changes.append(f"index {index.name}")
-                log.info("created index %s", index.name)
+            index.create(bind=engine, checkfirst=True)
+            changes.append(f"index {index.name}")
+            log.info("created index %s", index.name)
     return changes

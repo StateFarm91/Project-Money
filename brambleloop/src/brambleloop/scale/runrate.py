@@ -313,3 +313,305 @@ def allowable_cac(aov_cad: float, contribution_rate: float, *,
                  "how a business buys customers at a loss while every headline number "
                  "rises."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #243: new-customer CAC, blended CAC, contribution after advertising.
+
+# The share of a risk-adjusted allowable CAC that is held back for what the forecast got
+# wrong. A policy constant rather than a measurement: it says how much of the modelled
+# contribution the company is willing to bet on the model being right, and it is stated so it
+# can be argued with rather than discovered inside a number.
+DEFAULT_SAFETY_MARGIN = 0.30
+
+
+def cac_split(*, ad_spend_cad: float, new_customers_from_ads: int | None,
+              new_customers_all_sources: int | None,
+              contribution_cad: float | None = None,
+              offsite_fees_cad: float = 0.0) -> dict:
+    """The three numbers #243 says to keep apart, each measured or UNMEASURED (#243).
+
+    New-customer CAC is spend over the customers the ads actually brought. Blended CAC is
+    spend over every new customer in the period, ads or not, and it is always the flattering
+    one because organic customers make paid ones look cheap. Contribution after advertising
+    is what was left once the ads and the Offsite Ads fees were paid, which is the only one
+    of the three that can go negative while both CACs look fine.
+    """
+    if ad_spend_cad < 0 or offsite_fees_cad < 0:
+        raise RunRateRefused("spend and fees are non-negative")
+
+    def _per(count: int | None, what: str) -> dict:
+        if count is None:
+            return {"value": None, "status": "UNMEASURED",
+                    "why": f"{what} has not been counted"}
+        if count == 0:
+            return {"value": None, "status": "UNMEASURED",
+                    "why": (f"{what} is zero: CA${ad_spend_cad:.2f} spent for nobody is not "
+                            f"an infinite CAC, it is a campaign with no result yet")}
+        return {"value": round(ad_spend_cad / count, 2), "status": "measured",
+                "customers": count}
+
+    new_cac = _per(new_customers_from_ads, "new customers from ads")
+    blended = _per(new_customers_all_sources, "new customers from all sources")
+    if (new_customers_from_ads is not None and new_customers_all_sources is not None
+            and new_customers_from_ads > new_customers_all_sources):
+        raise RunRateRefused("more customers from ads than from all sources is a counting fault")
+
+    if contribution_cad is None:
+        after = {"value": None, "status": "UNMEASURED",
+                 "why": "contribution has not been measured for the period"}
+    else:
+        after = {"value": round(contribution_cad - ad_spend_cad - offsite_fees_cad, 2),
+                 "status": "measured", "contribution_cad": contribution_cad,
+                 "ad_spend_cad": ad_spend_cad, "offsite_fees_cad": offsite_fees_cad}
+
+    return {
+        "ad_spend_cad": ad_spend_cad,
+        "new_customer_cac_cad": new_cac,
+        "blended_cac_cad": blended,
+        "contribution_after_ads_cad": after,
+        "note": ("kept apart on purpose: blended CAC is always the flattering one because "
+                 "organic customers make paid ones look cheap, and contribution after "
+                 "advertising is the only figure here that can go negative while both CACs "
+                 "look fine (#243)"),
+    }
+
+
+def allowable_cac_risk_adjusted(*, price_cad: float, fee_rate: float, refund_rate: float,
+                                discount_rate: float, cost_of_sale_cad: float,
+                                expected_repeat_contribution_cad: float,
+                                safety_margin: float = DEFAULT_SAFETY_MARGIN) -> dict:
+    """What a customer may cost, from every term #243 names, with a stated haircut (#243).
+
+    Price, fees, expected refunds, discounts, repeat contribution and margin. The first-order
+    contribution is what is left of a discounted price after fees, refunds and the cost of
+    sale; the repeat term is added only as *expected* contribution the caller has measured,
+    because a repeat rate this shop has not observed is a wish with a decimal point. The
+    safety margin is the share held back for the model being wrong, and it is a parameter so
+    the bet is visible.
+    """
+    if price_cad <= 0:
+        raise RunRateRefused("allowable CAC needs a positive price")
+    for name, value in (("fee_rate", fee_rate), ("refund_rate", refund_rate),
+                        ("discount_rate", discount_rate), ("safety_margin", safety_margin)):
+        if not 0 <= value < 1:
+            raise RunRateRefused(f"{name} is a share between 0 and 1, got {value}")
+    if cost_of_sale_cad < 0 or expected_repeat_contribution_cad < 0:
+        raise RunRateRefused("cost of sale and repeat contribution are non-negative")
+
+    net_price = price_cad * (1 - discount_rate)
+    after_fees = net_price * (1 - fee_rate)
+    after_refunds = after_fees * (1 - refund_rate)
+    first_order = after_refunds - cost_of_sale_cad
+    lifetime = first_order + expected_repeat_contribution_cad
+    allowable = max(0.0, lifetime * (1 - safety_margin))
+    return {
+        "allowable_cac_cad": round(allowable, 2),
+        "terms": {"price_cad": price_cad, "discount_rate": discount_rate,
+                  "net_price_cad": round(net_price, 2), "fee_rate": fee_rate,
+                  "after_fees_cad": round(after_fees, 2), "refund_rate": refund_rate,
+                  "after_refunds_cad": round(after_refunds, 2),
+                  "cost_of_sale_cad": cost_of_sale_cad,
+                  "first_order_contribution_cad": round(first_order, 2),
+                  "expected_repeat_contribution_cad": expected_repeat_contribution_cad,
+                  "lifetime_contribution_cad": round(lifetime, 2),
+                  "safety_margin": safety_margin},
+        "first_order_negative": first_order < 0,
+        "note": ("set against contribution after discounts, fees, refunds and cost of sale, "
+                 "with repeat contribution added only where measured and a stated share held "
+                 "back for the forecast being wrong (#243)"
+                 if first_order >= 0 else
+                 "the first order loses money before any ad is bought; no CAC is allowable "
+                 "and the problem is the price or the cost of sale, not the campaign"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The runtime half (certification repair C-48). `ops.capacity` used to hand `constraint()` an
+# empty `Observed()`, so no term was ever identifiable and no scale rule could fire (#25, #28).
+# This reads the funnel from the rows that record it. A term with no source stays None --
+# UNMEASURED -- and never becomes zero: zero orders from a shop that has never been live is
+# not a conversion rate of zero, it is no conversion rate at all.
+
+UNMEASURED = "UNMEASURED"
+WINDOW_DAYS = 30
+
+
+def _aware(value):
+    from datetime import timezone
+
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def orders_source_live(db) -> dict:
+    """Whether an order count of zero would be a measurement.
+
+    Orders are counted from the `orders` table, which only an order ingest writes. Until a
+    listing has been published or an order has been recorded, nothing could have produced a
+    row, so a count of zero says nothing about buyers and is reported UNMEASURED.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import Listing, Order
+
+    with db.session() as s:
+        orders_ever = s.scalar(select(func.count()).select_from(Order)) or 0
+        published = s.scalar(select(func.count()).select_from(Listing).where(
+            Listing.state == "published")) or 0
+    live = bool(orders_ever or published)
+    return {"live": live, "orders_ever": int(orders_ever), "published_listings": int(published),
+            "why": ("orders have been recorded or a listing is published, so a count is a "
+                    "measurement" if live else
+                    "no listing has been published and no order has ever been recorded, so an "
+                    "order count of zero would be the absence of a source reported as a "
+                    "number")}
+
+
+def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
+    """The funnel as the database records it over the trailing window (C-48, #24, #25).
+
+    Sources, each read only where it exists:
+      * visits and impressions -- `listing_outcomes` rows whose period ends in the window;
+      * orders, revenue, contribution, repeat orders, refunds -- `orders`, once the order
+        source is live (see `orders_source_live`);
+      * revenue where no order rows exist -- ledger `sale` entries;
+      * listings -- published listings, which this database always knows;
+      * support rate -- support cases against orders, once there are orders.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry, Listing, ListingOutcome, Order, SupportCase
+
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+    since = now - timedelta(days=window_days)
+    since_day = since.date().isoformat()
+    source = orders_source_live(db)
+
+    with db.session() as s:
+        outcomes = [r for r in s.scalars(select(ListingOutcome))
+                    if (r.period_end or "") >= since_day]
+        from ..commerce import orders_ingest as _oi
+
+        # rc1-ORD2: booked orders only; `refunded` below means not countable (voided).
+        _held = _oi.held_refs(s)
+        orders = [o for o in _oi.booked_orders(s)
+                  if _aware(o.at) is not None and _aware(o.at) >= since]
+        _void = {o.id for o in orders if not _oi.countable(o, _held)}
+        sales = [x for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
+                 if _aware(x.at) is not None and _aware(x.at) >= since]
+        published = sum(1 for r in s.scalars(select(Listing)) if r.state == "published")
+        support = [c for c in s.scalars(select(SupportCase))
+                   if _aware(c.at) is not None and _aware(c.at) >= since]
+
+    visits = sum(int(r.visits or 0) for r in outcomes) if outcomes else None
+    impressions = sum(int(r.impressions or 0) for r in outcomes) if outcomes else None
+
+    if source["live"]:
+        kept = [o for o in orders if o.id not in _void]
+        n_orders = len(kept)
+        revenue = round(sum(float(o.revenue_cad or 0.0) for o in kept), 2)
+        contribution = round(sum(float(o.contribution_cad or 0.0) for o in kept), 2)
+        repeat = sum(1 for o in kept if o.is_repeat)
+        refund_rate = (len(_void) / len(orders)) if orders else None
+        support_rate = (len(support) / len(orders)) if orders else None
+    else:
+        n_orders = revenue = contribution = repeat = refund_rate = support_rate = None
+        if sales:
+            # Money the ledger holds is real even when no order row exists for it.
+            revenue = round(sum(float(x.gross_cad or 0.0) for x in sales), 2)
+            contribution = round(sum(float(x.net_cad) for x in sales), 2)
+
+    observed = Observed(visits=visits, impressions=impressions, orders=n_orders,
+                        revenue_cad=revenue, contribution_cad=contribution,
+                        repeat_orders=repeat, listings=published)
+    unmeasured = [name for name, value in (
+        ("visits", visits), ("impressions", impressions), ("orders", n_orders),
+        ("revenue_cad", revenue), ("contribution_cad", contribution),
+        ("repeat_orders", repeat), ("refund_rate", refund_rate),
+        ("support_rate", support_rate)) if value is None]
+    return {
+        "observed": observed,
+        "refund_rate": refund_rate,
+        "support_rate": support_rate,
+        "window_days": window_days,
+        "since": since.isoformat(),
+        "orders_source": source,
+        "outcome_rows": len(outcomes),
+        "unmeasured": unmeasured,
+        "sources": {
+            "visits": "listing_outcomes" if outcomes else UNMEASURED,
+            "impressions": "listing_outcomes" if outcomes else UNMEASURED,
+            "orders": "orders" if source["live"] else UNMEASURED,
+            "revenue_cad": ("orders" if source["live"] else
+                            "ledger" if sales else UNMEASURED),
+            "listings": "listings (published)",
+            "support_rate": "support_cases / orders" if support_rate is not None
+            else UNMEASURED,
+        },
+    }
+
+
+def reading(value):
+    """A value as it is written to a reading: the number, or UNMEASURED. Never zero-for-None."""
+    return UNMEASURED if value is None else value
+
+
+def per_visitor_from_db(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
+    """#24 at runtime: rank SKUs on contribution per visitor from recorded outcomes.
+
+    A SKU enters the ranking only with recorded visits and a measured order count; the rest
+    are listed as UNMEASURED rather than ranked at a conversion of zero.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing, ListingOutcome, Order
+
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+    since = now - timedelta(days=window_days)
+    live = orders_source_live(db)["live"]
+    with db.session() as s:
+        prices = {r.product_slug: float(r.price_cad or 0.0) for r in s.scalars(select(Listing))
+                  if r.version != "collection"}
+        visits: dict[str, int] = {}
+        for r in s.scalars(select(ListingOutcome)):
+            if (r.period_end or "") >= since.date().isoformat():
+                visits[r.product_slug] = visits.get(r.product_slug, 0) + int(r.visits or 0)
+        orders: dict[str, list] = {}
+        from ..commerce import orders_ingest as _oi
+
+        for o in _oi.countable_orders(s):  # rc1-ORD2
+            if _aware(o.at) is not None and _aware(o.at) >= since:
+                orders.setdefault(o.product_slug, []).append(
+                    (float(o.revenue_cad or 0.0), float(o.contribution_cad or 0.0)))
+
+    candidates, unmeasured = [], []
+    for slug in sorted(set(prices) | set(visits)):
+        v = visits.get(slug)
+        if not v or not live:
+            unmeasured.append({"slug": slug, "reading": UNMEASURED,
+                               "why": ("no recorded visits" if not v else
+                                       "the order source is not live")})
+            continue
+        got = orders.get(slug, [])
+        revenue = sum(r for r, _ in got)
+        contribution = sum(c for _, c in got)
+        price = (revenue / len(got)) if got else prices.get(slug, 0.0)
+        if price <= 0:
+            unmeasured.append({"slug": slug, "reading": UNMEASURED, "why": "no price"})
+            continue
+        candidates.append({
+            "slug": slug, "price_cad": round(price, 2), "conversion": len(got) / v,
+            "contribution_rate": (contribution / revenue) if revenue else 1.0})
+    ranked = per_visitor(candidates) if candidates else {
+        "ranked": [], "best": None, "conversion_ranking_disagrees": None,
+        "note": "no SKU has recorded visits and a measured order count, so nothing is ranked"}
+    ranked["unmeasured"] = unmeasured
+    return ranked

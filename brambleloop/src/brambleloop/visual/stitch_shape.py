@@ -91,6 +91,38 @@ def _unit(v):
     return v / n
 
 
+def rigid_rotation(rest: np.ndarray, now: np.ndarray) -> np.ndarray:
+    """The proper rotation that best carries `rest` onto `now` (centroids removed): the polar
+    factor of the cross-covariance, by SVD with the reflection excluded. Kabsch/Umeyama."""
+    q = np.asarray(rest, float); p = np.asarray(now, float)
+    h = (q - q.mean(axis=0)).T @ (p - p.mean(axis=0))
+    u, _, vt = np.linalg.svd(h)
+    d = np.sign(np.linalg.det(vt.T @ u.T)) or 1.0
+    return vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+
+
+def carried_frame(op, reference_op, reference_frame):
+    """The reference stitch's frame, carried by THIS stitch's own rigid motion since then.
+
+    WHY A SECOND WAY TO FRAME A STITCH. `local_frame` builds the frame from neighbours so
+    that it travels with the cloth, and on a flat or gently curved fabric that is right. On
+    a fabric that actually drapes it is not: measured on the 5x5 over a sphere with every
+    stitch held rigid to 0.1mm, the neighbour frame's UP sat 17-19.5 degrees off the
+    stitch's own, and four intact stitches -- third loop 1.6mm below the V in their own
+    frame, exactly as certified -- were reported everted. A frame borrowed from a neighbour
+    that has rotated 20 degrees away measures the neighbour's rotation, not this stitch's
+    shape.
+
+    So on a deformed fabric the frame is the certified stitch's own frame, rotated by the
+    least-squares rigid motion of ALL this stitch's points since certification. That is not
+    self-reference: the reference shape was validated in its own right, the rotation is
+    fitted over every point of the stitch, and a loop that has moved 2mm out of place cannot
+    rotate that fit enough to hide itself -- `test_stitch_identity` everts one to prove it.
+    """
+    r = rigid_rotation(reference_op.points, op.points)
+    return tuple(r @ np.asarray(a, float) for a in reference_frame)
+
+
 def local_frame(op, row_neighbour=None, anchor=None, neighbour_is_ahead: bool = True):
     """The fabric's own three directions at this stitch: (across, up, through).
 
@@ -130,8 +162,8 @@ def shape_report(op, L: float, H: float, D: float, frame) -> list[str]:
     pts = op.points
     back = _span(pts, op.back_loop)
     front = _span(pts, op.front_loop)
-    third = _span(pts, op.third_loop)
-    if len(back) < 2 or len(front) < 2 or len(third) < 1:
+    kind = getattr(op, "kind", "hdc")
+    if len(back) < 2 or len(front) < 2:
         return ["the stitch does not name its own loops"]
 
     def along(p, axis):
@@ -139,14 +171,24 @@ def shape_report(op, L: float, H: float, D: float, frame) -> list[str]:
 
     v_up = float(min(along(back, up).min(), along(front, up).min()))
 
-    # --- the third loop -------------------------------------------------------
-    # Behind the front leg, and below the V. A stitch drawn without the opening yarn over
-    # has nothing here, and that is exactly the difference between this and a single crochet.
-    if along(third, through).mean() >= along(front, through).mean():
-        out.append("no third loop behind the fabric: the opening yarn over is missing, "
-                   "which makes this a single crochet rather than a half double")
-    if along(third, up).mean() > v_up:
-        out.append("the third loop sits above the top V instead of below it")
+    # --- the third loop: the family's signature, checked in BOTH directions ------------
+    # A half double's opening yarn over leaves a strand behind the fabric below the V; a
+    # single crochet has no opening yarn over and so has no such strand. So an hdc without
+    # one is an sc wearing the wrong label, and an sc that names one is an hdc wearing the
+    # wrong label. Neither is a near miss, and neither is silently accepted.
+    if kind == "sc":
+        if op.third_loop is not None:
+            out.append("a single crochet names a third loop: this cell carries an opening "
+                       "yarn over, which makes it a half double rather than a single crochet")
+    else:
+        third = _span(pts, op.third_loop) if op.third_loop is not None else pts[0:0]
+        if len(third) < 1:
+            return ["the stitch does not name its own loops"]
+        if along(third, through).mean() >= along(front, through).mean():
+            out.append("no third loop behind the fabric: the opening yarn over is missing, "
+                       "which makes this a single crochet rather than a half double")
+        if along(third, up).mean() > v_up:
+            out.append("the third loop sits above the top V instead of below it")
 
     # --- the top V ------------------------------------------------------------
     back_run = float(along(back[-1], across) - along(back[0], across))
@@ -167,7 +209,7 @@ def shape_report(op, L: float, H: float, D: float, frame) -> list[str]:
     rise = float(rise_axis.max() - rise_axis.min())
     if not 0.55 * H <= rise <= 2.6 * H:
         out.append(f"the stitch rises {rise:.1f}mm where a row is {H:.1f}mm: this is not a "
-                   f"half double's height")
+                   f"{'single' if kind == 'sc' else 'half double'} crochet's height")
 
     # --- it must climb --------------------------------------------------------
     # A stitch starts at the row below and finishes at its own top. One that ends lower than
@@ -194,16 +236,20 @@ def shape_margins(op, L: float, H: float, D: float, frame) -> dict:
     pts = op.points
     back = _span(pts, op.back_loop)
     front = _span(pts, op.front_loop)
-    third = _span(pts, op.third_loop)
-    if len(back) < 2 or len(front) < 2 or len(third) < 1:
+    has_third = op.third_loop is not None
+    third = _span(pts, op.third_loop) if has_third else pts[0:0]
+    if len(back) < 2 or len(front) < 2 or (has_third and len(third) < 1):
         return {}
     v_up = float(min((back @ up).min(), (front @ up).min()))
     back_run = float((back[-1] @ across) - (back[0] @ across))
     front_run = float((front[-1] @ across) - (front[0] @ across))
     return {
-        "third_loop_below_v_mm": float((third @ up).mean() - v_up),
-        "third_loop_behind_front_mm": float((third @ through).mean()
-                                            - (front @ through).mean()),
+        # Absent for a single crochet: there is no third loop to measure, and a margin for a
+        # strand that does not exist would be a number about nothing.
+        **({"third_loop_below_v_mm": float((third @ up).mean() - v_up),
+            "third_loop_behind_front_mm": float((third @ through).mean()
+                                                - (front @ through).mean())}
+           if has_third else {}),
         "v_legs_opposed": -abs(back_run * front_run) if back_run * front_run < 0
                           else abs(back_run * front_run),
         "v_width_margin_mm": float(0.35 * L - max(abs(back_run), abs(front_run))),

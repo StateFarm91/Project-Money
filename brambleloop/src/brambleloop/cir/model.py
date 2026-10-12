@@ -322,6 +322,15 @@ class Hold:
         return (self.from_stitch, self.from_stitch + self.count)
 
 
+# F-750: the directions a piece can be worked in, and the typed features a piece can be.
+WorkDirection = Literal["bottom_up", "top_down", "side_to_side", "centre_out"]
+WORK_DIRECTIONS: tuple[str, ...] = ("bottom_up", "top_down", "side_to_side", "centre_out")
+Feature = Literal["body", "yoke", "sleeve", "band", "button_band", "hood", "pocket",
+                  "collar", "cuff", "panel"]
+FEATURES: tuple[str, ...] = ("body", "yoke", "sleeve", "band", "button_band", "hood",
+                             "pocket", "collar", "cuff", "panel")
+
+
 @dataclass
 class Component:
     """A separately-worked piece (a sleeve, a motif, a granny square).
@@ -362,6 +371,23 @@ class Component:
     # That is the single most visible property of a textured garment in a photograph, and
     # without this field nothing downstream may claim it in either direction.
     grain: Literal["up", "across"] = "up"
+    # A gauge this piece is worked at when it is not the CIR's main gauge (F-754): a ribbed
+    # band, a cuff in a smaller hook. Declarable so a source that states a second gauge
+    # regime is *recorded* rather than silently dropped -- but the twin, the assembly and
+    # the PDF still compute every length from `CIR.gauge`, so certification refuses a
+    # component whose gauge differs from the main one (COMPONENT_GAUGE_UNSUPPORTED) until
+    # per-component gauge is carried end to end. Omitted from `to_dict` when None, so no
+    # existing Product Truth digest moves.
+    gauge: "Gauge | None" = None
+    # Which way the piece is worked (F-750), and what it is on the finished object. Both are
+    # construction semantics the stitch counts cannot carry: a top-down raglan yoke and a
+    # bottom-up body can have identical row counts, and a hood, a pocket and a band are all
+    # "a flat piece" to the compiler. Optional and omitted from `to_dict` when None, so no
+    # existing Product Truth digest moves; a design that states them is held to them by
+    # `cir.topology` (direction against grain and holds) and they enter its construction
+    # fingerprint, the writer's piece heading and the reverse compiler's comparison.
+    work_direction: "WorkDirection | None" = None
+    feature: "Feature | None" = None
 
     @property
     def rows_run_vertically_on_the_body(self) -> bool:
@@ -376,9 +402,23 @@ class Component:
         names = [h.name for h in self.holds]
         if len(names) != len(set(names)):
             raise ValueError(f"component {self.name!r} has duplicate hold names: {names}")
+        if isinstance(self.gauge, dict):
+            self.gauge = Gauge(**self.gauge)
+        if self.work_direction is not None and self.work_direction not in WORK_DIRECTIONS:
+            raise ValueError(f"component {self.name!r} work_direction "
+                             f"{self.work_direction!r} is not one of {WORK_DIRECTIONS}")
+        if self.feature is not None and self.feature not in FEATURES:
+            raise ValueError(f"component {self.name!r} feature {self.feature!r} is not one "
+                             f"of {FEATURES}")
 
 
-SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]
+# "pick_up": the first round of piece_a is worked into piece_b (an afterthought thumb into its
+# opening) -- a join with a length on both sides, made by crocheting rather than sewing.
+# "thread": piece_a is passed through piece_b (a cord through closed loops); nothing is sewn,
+# and what is checked is that it fits through (W4-CAND).
+SeamMethod = Literal["whipstitch", "slst", "mattress", "sew", "pick_up", "thread"]
+# The joining word each method's sentence uses between its two pieces.
+SEAM_CONNECTOR = {"pick_up": "into", "thread": "through"}
 
 
 @dataclass
@@ -446,6 +486,129 @@ class Seam:
 
 
 @dataclass
+class Provenance:
+    """Where a Brambleloop design came from, stated so it can be checked.
+
+    A design's stitch tables can be compared against every benchmark this company has
+    encoded (`specification.refuse_a_benchmark_in_our_clothes`), but a match is only the
+    *symptom* of the failure the Execution Directive forbids. The cause is a design whose
+    numbers were read off somebody else's pattern, and the defence against that is a record
+    of what the design was actually built from: which concept, which brief, which generic
+    primitives (grading, shaping, assembly), and which benchmarks were consulted -- for
+    demand and merchandising intelligence only, never as a source of stitch counts.
+
+    Optional on the CIR and omitted from `to_dict` when absent, because every existing
+    product's serialised form is a frozen Product Truth digest and adding a key to it would
+    change what those digests point at without changing a single stitch.
+    """
+
+    concept_key: str
+    brief_digest: str
+    primitives_used: tuple[str, ...] = ()
+    benchmarks_consulted: tuple[str, ...] = ()
+    generated_by: str = "brambleloop"
+    at: str | None = None   # ISO 8601, UTC
+
+    def __post_init__(self) -> None:
+        # JSON turns tuples into lists; one representation, so the fingerprint is stable.
+        self.primitives_used = tuple(str(p) for p in (self.primitives_used or ()))
+        self.benchmarks_consulted = tuple(str(b) for b in (self.benchmarks_consulted or ()))
+
+
+@dataclass
+class Grading:
+    """This release as one size of a graded design, with the whole size family (F-762).
+
+    A graded garment is a function of size, and each size is released as its own CIR. Until
+    this existed the CIR of size M knew nothing about the other eight: the size chart, the
+    ease and the fit were properties of a `GradedDesign` object that did not survive one
+    pipeline hop, so the PDF could not print them, the listing check could not read them and
+    certification could not recompute them.
+
+    `sizes` is the machine-readable size matrix, one entry per sourced size in the body
+    table's order: `body_cm` and `intended_cm` (body + ease) per required measurement,
+    `built_cm` measured from that size's compiled rows and twin, `stitches` (widest row) and
+    `rows` per piece, and `yarn_m` for the whole garment. `cir.graded.grading_problems`
+    recomputes this size's entry from the rows and re-checks every grading relationship at
+    certification (F-768).
+
+    Optional and omitted from `to_dict` when None: only graded releases carry it.
+    """
+
+    design_key: str
+    size: str
+    table: str
+    source_url: str
+    retrieved: str
+    fit: str | None = None
+    ease_cm: dict[str, float] = field(default_factory=dict)
+    sizes: list[dict] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.ease_cm = {str(k): float(v) for k, v in dict(self.ease_cm or {}).items()}
+        self.sizes = [dict(e) for e in (self.sizes or [])]
+
+    def entry(self, size: str | None = None) -> dict | None:
+        want = self.size if size is None else size
+        return next((e for e in self.sizes if e.get("size") == want), None)
+
+    @property
+    def size_names(self) -> tuple[str, ...]:
+        return tuple(str(e.get("size")) for e in self.sizes)
+
+
+SINGLE_VARIANT = "single"
+
+
+@dataclass
+class Configuration:
+    """Which optional features this design has, and which configuration its rows encode (F-757).
+
+    `features` maps a feature name to the options a maker can choose ("hood": ["on", "off"]).
+    `default` names the option of every feature that this CIR's rows, counts and twin
+    actually describe -- which is therefore the configuration every disclosed render drawn
+    from this CIR shows, and the one a listing image may claim. A CIR with no configuration
+    block is a single-variant design (`SINGLE_VARIANT`), which is every existing product.
+
+    Structural problems (an option the feature does not offer, a feature with no default)
+    are reported by `configuration_problems` and refused at certification rather than at
+    construction, so a malformed block reaches a finding instead of a stack trace.
+    """
+
+    features: dict[str, list[str]] = field(default_factory=dict)
+    default: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.features = {str(k): [str(o) for o in (v or [])]
+                         for k, v in dict(self.features or {}).items()}
+        self.default = {str(k): str(v) for k, v in dict(self.default or {}).items()}
+
+    def problems(self) -> list[str]:
+        out = []
+        for name, options in sorted(self.features.items()):
+            if not options:
+                out.append(f"feature {name!r} declares no options")
+            if len(set(options)) != len(options):
+                out.append(f"feature {name!r} repeats an option: {options}")
+            if name not in self.default:
+                out.append(f"feature {name!r} has no default: the rows must encode one "
+                           f"configuration")
+            elif self.default[name] not in options:
+                out.append(f"feature {name!r} default {self.default[name]!r} is not one of "
+                           f"{options}")
+        for name in sorted(set(self.default) - set(self.features)):
+            out.append(f"default names undeclared feature {name!r}")
+        return out
+
+
+def variant_key(selection: dict[str, str] | None) -> str:
+    """A stable name for one configuration: `single` for none, else `a=x;b=y` sorted."""
+    if not selection:
+        return SINGLE_VARIANT
+    return ";".join(f"{k}={selection[k]}" for k in sorted(selection))
+
+
+@dataclass
 class CIR:
     """The canonical pattern object."""
 
@@ -475,6 +638,12 @@ class CIR:
     designer_notes: str | None = None
     finished_size_note: str | None = None
     assembly: list[Seam] = field(default_factory=list)
+    # Optional. Absent from `to_dict` when None: see `Provenance`.
+    provenance: Provenance | None = None
+    # Optional (F-757). Absent from `to_dict` when None: a single-variant design.
+    configuration: Configuration | None = None
+    # Optional (F-762). Absent from `to_dict` when None: only graded releases carry it.
+    grading: Grading | None = None
 
     def __post_init__(self) -> None:
         if not self.components:
@@ -482,6 +651,21 @@ class CIR:
         names = [c.name for c in self.components]
         if len(names) != len(set(names)):
             raise ValueError(f"component names must be unique, got {names}")
+        if isinstance(self.provenance, dict):
+            self.provenance = Provenance(**self.provenance)
+        if isinstance(self.configuration, dict):
+            self.configuration = Configuration(**self.configuration)
+        if isinstance(self.grading, dict):
+            self.grading = Grading(**self.grading)
+
+    @property
+    def represented_variant(self) -> dict[str, str]:
+        """The configuration this CIR's rows encode: `{}` for a single-variant design."""
+        return dict(self.configuration.default) if self.configuration else {}
+
+    @property
+    def variant_key(self) -> str:
+        return variant_key(self.represented_variant)
 
     @property
     def makes_a_closed_form(self) -> bool:
@@ -516,16 +700,38 @@ class CIR:
 
     # ---- serialization -------------------------------------------------
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        out = asdict(self)
+        # Omitted rather than serialised as null. Every certified product's `to_dict` is a
+        # frozen Product Truth digest, and a key that did not exist when those digests were
+        # taken must not appear in the payload they were taken over.
+        if out.get("provenance") is None:
+            out.pop("provenance", None)
+        if out.get("configuration") is None:
+            out.pop("configuration", None)
+        if out.get("grading") is None:
+            out.pop("grading", None)
+        for comp in out.get("components", []):
+            for optional in ("gauge", "work_direction", "feature"):
+                if comp.get(optional) is None:
+                    comp.pop(optional, None)
+        return out
 
     def to_json(self, **kw: Any) -> str:
         return json.dumps(self.to_dict(), indent=2, sort_keys=True, **kw)
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "CIR":
+        # Every field `to_dict` writes is read back here, and `tests/test_cir_roundtrip.py`
+        # holds the two to the same set. Until 2026-09-26 this dropped `Op.loop`, `Op.spans`,
+        # `Row.skips`, `Component.holds/resumes/grain` and `CIR.authored`: the benchmark
+        # cardigan round-tripped into a CIR that failed to compile (its armhole rows lost
+        # their skips and became underruns), relabelled itself as Brambleloop's own work,
+        # turned its side-to-side grain upright and flattened every textured stitch to
+        # plain fabric. Every pipeline hop serialises, so every pipeline hop did that.
         def node(x: dict[str, Any]) -> OpNode:
             if "stitch" in x:
-                return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"))
+                return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
+                          loop=x.get("loop", "both"), spans=x.get("spans", 0))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )
@@ -538,6 +744,12 @@ class CIR:
                 foundation_kind=c.get("foundation_kind", "chain"),
                 make=c.get("make", 1),
                 note=c.get("note"),
+                holds=[Hold(**h) for h in c.get("holds", [])],
+                resumes=c.get("resumes"),
+                grain=c.get("grain", "up"),
+                gauge=Gauge(**c["gauge"]) if c.get("gauge") else None,
+                work_direction=c.get("work_direction"),
+                feature=c.get("feature"),
                 rows=[
                     Row(
                         index=r["index"],
@@ -549,6 +761,7 @@ class CIR:
                         into=r.get("into"),
                         allow_remainder=r.get("allow_remainder", False),
                         note=r.get("note"),
+                        skips=r.get("skips", 0),
                     )
                     for r in c["rows"]
                 ],
@@ -565,9 +778,14 @@ class CIR:
             materials=[Material(**m) for m in d.get("materials", [])],
             colors=d.get("colors", {}),
             risk_class=d.get("risk_class", "A"),
+            authored=d.get("authored", "brambleloop"),
             designer_notes=d.get("designer_notes"),
             finished_size_note=d.get("finished_size_note"),
             assembly=[Seam(**seam) for seam in d.get("assembly", [])],
+            provenance=Provenance(**d["provenance"]) if d.get("provenance") else None,
+            configuration=(Configuration(**d["configuration"])
+                           if d.get("configuration") else None),
+            grading=Grading(**d["grading"]) if d.get("grading") else None,
         )
 
     @staticmethod

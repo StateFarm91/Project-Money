@@ -1,0 +1,28 @@
+{
+ "cluster": "residue",
+ "branch": "claude/b2r-residue",
+ "head": "c60b37b",
+ "rows": [
+  {
+   "id": 4,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_residue.py::test_preproduction_prepares_refuses_to_post_records_unmeasured_and_acts_when_measured_4 (+ ..._reaches_the_generator_brief_of_the_next_tournament_4, ..._source_still_cannot_author_a_number_4); tests/test_reachability.py and tests/test_closure.py now assert commerce/preproduction.py is reached through handler growth.preproduction",
+   "note": "New handler growth.preproduction (runtime/release.py) on cadence preproduction_validation (daily, agent growth, granted in agents/registry.py, band exploration in swarm/orchestrate.py), implemented in new commerce/preproduction_cycle.py: takes held winners (creative.winner_intake rows decided `waiting`) and the newest tournament's research survivors, prepares one post per channel through preproduction.prepare/check_post and records each once (preproduction.concept_post / post_refused); reads the owned_surfaces gate exactly as build2/executor does and records the refusal to post (preproduction.publish_refused; posted=0 always); reads interest only from a platform-written preproduction.interest_observed row via record_interest, otherwise records UNMEASURED by name; a measured concept is recorded preproduction.validated with its receipt and creative.ideation.plan()['preproduction'] puts it into every generator brief (constraints_text) of the next tournament. /api/preproduction now reports the last cycle from rows. Five retention entries added. Test runs through Worker.run_once with sockets refused, including idempotency across four runs and the injected observation. Real-gated half: publishing (no site/Pinterest account) and the interest ingest that only an owned surface brings."
+  },
+  {
+   "id": 194,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_residue.py::test_weekly_cycle_revises_a_metric_unmeasured_for_three_cycles_with_a_proxy_194, ::test_weekly_cycle_revises_a_metric_whose_realised_outcomes_contradict_it_194, ::test_weekly_cycle_with_nothing_to_revise_proposes_nothing_194; tests/test_cert_improve_wave.py, tests/test_weekly.py still pass",
+   "note": "improve/evolution.metric_revisions() generates REVISE_METRIC ArchitectureChanges from rows: (a) a department UNMEASURED this cycle and in the previous two improve.weekly rows (the handler now writes cells_unmeasured into its row) while a proxy in METRIC_PROXIES reads rows now (portfolio->value_ladder_rungs_filled from Listing prices, finance->cost_estimate_error from CostEntry estimates, growth->experiments_decided_share, pricing->listing_price_inside_observed_band from Listing vs BenchmarkListing); (b) a metric that moved its good way across its last two CapabilityPoints while every assessed promotion in that department realised nothing (improve.roi.realised_benefit, >=2 assessed, 0 returned). handle_weekly_evolution adds them to weekly.cycle (metrics_revised counted; the module's own rules apply: never self-proposed, names old and new metric, no goalpost phrasing), cards them as one owner card improve.architecture:revise_metric with the evidence, and records considered/unrevised departments (no proxy or no proxy rows => reported, never invented). Nothing is auto-applied: no tier pre-authorises changing the scoreboard and improve/cells.CELLS is code; the old metric's history is untouched. Retention entry for improve.weekly (windowed)."
+  },
+  {
+   "id": 308,
+   "status": "partial",
+   "parked_on": "model_bearing_render",
+   "proof": "tests/test_cert_design_pipeline.py::test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308; tests/test_prospecting.py::test_a_concept_that_cannot_seed_a_family_is_carried_as_a_single_product_not_cut",
+   "note": "Wiring defect fixed in creative/prospecting.proposition(): a concept failing #111's family test is carried with carried_as=single_product (family verdict, viable roles and bundle_possible recorded per concept) instead of killed as no_family; the angle check is the stage's only kill. family.py is untouched (a bundle still needs two viable roles; test_family unchanged). Candidate/intake record carried_as and family_verdict. The MJs cropped-cardigan listing now runs: mjs.scan -> Christmas/garments tournament -> proposition carries ~40 cardigans as single products -> prototype authors graded garment designs and compiles them -> winner (fitted_garment) -> intake waiting on image_vision -> judged -> sentinel regate -> cir.draft (drafted, fitted_garment) -> cir.compile (compiled) -> gate.certify (granted) through the worker; the mission pipeline completes through `certification` and stops at `premium_assets` ('no Brambleloop-owned listing asset has been filed'), which is imagery on model_bearing_render (external). No collection.assemble is enqueued for a single product."
+  }
+ ]
+}

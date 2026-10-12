@@ -1,0 +1,198 @@
+{
+ "read_on": "2026-10-11",
+ "robots_url": "https://www.etsy.com/robots.txt",
+ "robots_read": true,
+ "help_center_calls": 6,
+ "sources": {
+  "advertising_rules": {
+   "pages": [
+    "https://www.etsy.com/legal/advertising/"
+   ],
+   "robots": [
+    {
+     "url": "https://www.etsy.com/legal/advertising/",
+     "robots": "allowed",
+     "rule": null
+    }
+   ],
+   "direct_fetch": "not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not",
+   "companions": [
+    {
+     "article_id": "360033701174",
+     "ok": true,
+     "title": "How to Set Up and Manage an Etsy Ads Campaign",
+     "edited_at": "2026-09-04T15:36:24Z",
+     "digest": "75f40c333a53b77c7383ebb400357b4a99571f551366bf800390dc8605ab917b",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    },
+    {
+     "article_id": "360000338367",
+     "ok": true,
+     "title": "How Etsy's Offsite Ads Work",
+     "edited_at": "2026-06-22T14:45:59Z",
+     "digest": "2f9c26e2cf54b3524ce6476a584446491b408b5a977a1ac3663087b046f78341",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    }
+   ],
+   "machine_signal": "help_center_companion",
+   "needs_person": true,
+   "why_person": "the policy text is only on etsy.com/legal, which refuses software"
+  },
+  "children_and_baby": {
+   "pages": [
+    "https://www.etsy.com/legal/prohibited-items/children/",
+    "https://www.etsy.com/legal/policy/childrens-clothing-and-products/239344787532"
+   ],
+   "robots": [
+    {
+     "url": "https://www.etsy.com/legal/prohibited-items/children/",
+     "robots": "allowed",
+     "rule": null
+    },
+    {
+     "url": "https://www.etsy.com/legal/policy/childrens-clothing-and-products/239344787532",
+     "robots": "allowed",
+     "rule": null
+    }
+   ],
+   "direct_fetch": "not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not",
+   "companions": [],
+   "machine_signal": "none",
+   "needs_person": true,
+   "why_person": "the policy text is only on etsy.com/legal, which refuses software; and no Etsy Help Center article links this page, so there is no machine change signal either"
+  },
+  "creativity_standards": {
+   "pages": [
+    "https://www.etsy.com/legal/handmade/",
+    "https://www.etsy.com/legal/creativity/"
+   ],
+   "robots": [
+    {
+     "url": "https://www.etsy.com/legal/handmade/",
+     "robots": "disallowed",
+     "rule": "Disallow: /*handmade/"
+    },
+    {
+     "url": "https://www.etsy.com/legal/creativity/",
+     "robots": "allowed",
+     "rule": null
+    }
+   ],
+   "direct_fetch": "not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not",
+   "companions": [
+    {
+     "article_id": "360024112614",
+     "ok": true,
+     "title": "What Can I Sell on Etsy?",
+     "edited_at": "2025-09-17T18:36:53Z",
+     "digest": "94b7bb1f638fbcd58ea397c3be50eeb5910d3976e1b10f69280cb0e4b759dafe",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    },
+    {
+     "article_id": "33558571339159",
+     "ok": true,
+     "title": "How Do I Submit an Appeal for a Listing Removed by Etsy?",
+     "edited_at": "2026-07-23T16:00:16Z",
+     "digest": "d603c626de0d834ce5fc1c129dd5f987d294a1f6f3dc1948f9df6d53fa03e7ac",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    }
+   ],
+   "machine_signal": "help_center_companion",
+   "needs_person": true,
+   "why_person": "the policy text is only on etsy.com/legal, which refuses software; robots.txt also disallows https://www.etsy.com/legal/handmade/"
+  },
+  "seller_policy": {
+   "pages": [
+    "https://www.etsy.com/legal/sellers/"
+   ],
+   "robots": [
+    {
+     "url": "https://www.etsy.com/legal/sellers/",
+     "robots": "allowed",
+     "rule": null
+    }
+   ],
+   "direct_fetch": "not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not",
+   "companions": [
+    {
+     "article_id": "360024112614",
+     "ok": true,
+     "title": "What Can I Sell on Etsy?",
+     "edited_at": "2025-09-17T18:36:53Z",
+     "digest": "94b7bb1f638fbcd58ea397c3be50eeb5910d3976e1b10f69280cb0e4b759dafe",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    },
+    {
+     "article_id": "115015808588",
+     "ok": true,
+     "title": "What to Do if You Receive a Negative Review",
+     "edited_at": "2025-04-25T13:37:08Z",
+     "digest": "510d62468c39b91ab72c68e9d542db3e27f0741dba894a8fec4527d3f234137f",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    },
+    {
+     "article_id": "33558571339159",
+     "ok": true,
+     "title": "How Do I Submit an Appeal for a Listing Removed by Etsy?",
+     "edited_at": "2026-07-23T16:00:16Z",
+     "digest": "d603c626de0d834ce5fc1c129dd5f987d294a1f6f3dc1948f9df6d53fa03e7ac",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    }
+   ],
+   "machine_signal": "help_center_companion",
+   "needs_person": true,
+   "why_person": "the policy text is only on etsy.com/legal, which refuses software"
+  },
+  "shilling_and_reviews": {
+   "pages": [
+    "https://www.etsy.com/legal/prohibited/",
+    "https://www.etsy.com/legal/policy/shilling/"
+   ],
+   "robots": [
+    {
+     "url": "https://www.etsy.com/legal/prohibited/",
+     "robots": "allowed",
+     "rule": null
+    },
+    {
+     "url": "https://www.etsy.com/legal/policy/shilling/",
+     "robots": "allowed",
+     "rule": null
+    }
+   ],
+   "direct_fetch": "not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not",
+   "companions": [
+    {
+     "article_id": "115015808588",
+     "ok": true,
+     "title": "What to Do if You Receive a Negative Review",
+     "edited_at": "2025-04-25T13:37:08Z",
+     "digest": "510d62468c39b91ab72c68e9d542db3e27f0741dba894a8fec4527d3f234137f",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    },
+    {
+     "article_id": "360000336727",
+     "ok": true,
+     "title": "How to Create Pattern Listings",
+     "edited_at": "2023-04-06T19:35:09Z",
+     "digest": "4f234132f4443d598d34bd5a9baa508f2e33796391ef89df9418ae886cef38a6",
+     "links_policy_page": true,
+     "changed_since_last_run": false
+    }
+   ],
+   "machine_signal": "help_center_companion",
+   "needs_person": true,
+   "why_person": "the policy text is only on etsy.com/legal, which refuses software"
+  }
+ },
+ "changed_companions": [],
+ "never_fetched": "etsy.com/legal pages: not attempted: etsy.com/legal answers automated clients HTTP 403 from DataDome (re-proven 2026-10-11 from the build container, GET /legal/sellers/ with an identifying user agent). Passing that bot challenge would be evasion, which this company refuses; a person reading the page in their own browser is not"
+}

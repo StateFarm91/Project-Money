@@ -92,11 +92,22 @@ def assess(galleries: list[dict]) -> dict:
     failed: dict[str, int] = {}
     correctness_breaches = []
 
+    render_spend, judging_spend, judging_unknown = [], [], []
     for gallery in galleries:
         slug = gallery.get("slug")
         tries = list(gallery.get("attempts") or [])
         attempts_used.append(len(tries))
-        spend.append(round(sum(float(t.get("spent_cad") or 0.0) for t in tries), 4))
+        # F-322: an attempt costs its render *and* the judgements made of it (photoreal,
+        # motif, inspection, identity). Judging is read per gallery from the ledger by
+        # `measure`; where nobody supplied it, it is UNKNOWN and named -- never counted as 0.
+        render = round(sum(float(t.get("spent_cad") or 0.0) for t in tries), 4)
+        judging = gallery.get("judging_cad")
+        render_spend.append(render)
+        if judging is None:
+            judging_unknown.append(slug)
+        else:
+            judging_spend.append(round(float(judging), 4))
+        spend.append(round(render + float(judging or 0.0), 4))
         won = next((t for t in tries if t.get("usable_as_listing_asset")), None)
         if won:
             usable.append(slug)
@@ -123,17 +134,11 @@ def assess(galleries: list[dict]) -> dict:
     per_usable = round(total_spend / len(usable), 4) if usable else None
     enough = len(galleries) >= MIN_GALLERIES_FOR_A_RATE
 
-    systematic, stochastic, unclassified = [], [], []
-    for name, n in failed.items():
-        times_asked = asked.get(name, 0)
-        if n < times_asked:
-            stochastic.append(name)
-        elif times_asked >= MIN_ASKS_FOR_A_CLASSIFICATION:
-            systematic.append(name)
-        else:
-            unclassified.append(name)
-    systematic, stochastic, unclassified = (
-        sorted(systematic), sorted(stochastic), sorted(unclassified))
+    # F-309: the one standard, shared with every paid handler's breaker.
+    from ..finance.systematic import classify
+
+    systematic, stochastic, unclassified = classify(
+        asked, failed, min_asks=MIN_ASKS_FOR_A_CLASSIFICATION)
 
     affordable = per_usable is not None and per_usable <= MAX_CAD_PER_USABLE_GALLERY
     meets_economics = bool(usable and affordable and not exhausted and not over_budget)
@@ -149,7 +154,13 @@ def assess(galleries: list[dict]) -> dict:
         "attempts_per_gallery": attempts_used,
         "max_attempts_allowed": MAX_ATTEMPTS_PER_GALLERY,
         "total_spend_cad": total_spend,
+        "render_spend_cad": round(sum(render_spend), 4),
+        "judging_spend_cad": round(sum(judging_spend), 4),
+        "judging_unknown_for": sorted(s for s in judging_unknown if s),
         "cad_per_usable_gallery": per_usable,
+        "cad_per_usable_basis": ("render + judging" if not judging_unknown else
+                                 "FLOOR: render plus judging where known; judging cost is "
+                                 "UNKNOWN for some galleries, so the true figure is higher"),
         "ceiling_cad_per_usable_gallery": MAX_CAD_PER_USABLE_GALLERY,
         "affordable": affordable,
         "dimensions_asked": dict(sorted(asked.items())),
@@ -241,9 +252,57 @@ def measure(db, *, limit: int = 200) -> dict:
                                              "attempts": []})
         gallery["attempts"].append(record)
 
+    for gallery in galleries.values():
+        gallery["judging_cad"] = _judging_cad(db, gallery.get("slug"))
     out = assess(list(galleries.values()))
     out["method_version"] = model_photography.METHOD_VERSION
     out["counts_only_the_current_method"] = (
         "a rate mixing method versions measures a history rather than a pipeline. When "
         "the method changes this measurement starts again")
     return out
+
+
+# The purposes a render attempt's judgements bill under (photoreal, motif fidelity, inspection
+# and identity all route through the `asset_inspection` task).
+JUDGING_PURPOSES = ("asset_inspection",)
+# A sequence row is filed after its frames were judged, so the window opens this far before the
+# first filed sequence. Erring wide over-counts judging (a pessimistic cost), never under.
+from datetime import timedelta as _td  # noqa: E402
+
+JUDGING_LOOKBACK = _td(hours=6)
+
+
+def _judging_cad(db, slug: str | None) -> float | None:
+    """F-322: what judging this product's current-method renders cost, from the ledger.
+
+    Rows billed to the product (`CostEntry.product_slug`) under a judging purpose since the
+    first sequence this method filed for it. None (UNKNOWN) when the ledger cannot be read or
+    the product has no filed sequence; 0.0 only when the ledger was read and holds none. The
+    window opens `JUDGING_LOOKBACK` before that first sequence (see above).
+    """
+    if not slug:
+        return None
+    try:
+        from sqlalchemy import func, select
+
+        from ..core.models import AuditLog, CostEntry
+        from ..publish import model_photography
+
+        with db.session() as s:
+            first = None
+            for at, detail in s.execute(select(AuditLog.at, AuditLog.detail).where(
+                    AuditLog.action == model_photography.ACTION)
+                    .order_by(AuditLog.id)).all():
+                d = detail or {}
+                if (d.get("slug") == slug
+                        and d.get("method_version") == model_photography.METHOD_VERSION):
+                    first = at
+                    break
+            if first is None:
+                return None
+            total = s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0)).where(
+                CostEntry.product_slug == slug, CostEntry.purpose.in_(JUDGING_PURPOSES),
+                CostEntry.at >= first - JUDGING_LOOKBACK))
+        return round(float(total or 0.0), 4)
+    except Exception:  # noqa: BLE001 - unreadable is UNKNOWN, never zero
+        return None

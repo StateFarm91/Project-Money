@@ -55,9 +55,14 @@ def test_the_flagship_has_a_real_cycle():
     cir = nf.build("throw")
     cycle = detect_cycle(cir.components[0].rows)
     assert cycle is not None
+    # The motif count follows the yarn-derived gauge (D-FB-6), so it is read from the design:
+    # the first pass is printed with the setup and the second as the block, and the rest are
+    # the repeats the instruction collapses.
+    motifs = nf.SIZES["throw"][1]
+    assert motifs >= 3, "the throw must work its block at least three times to collapse it"
     assert cycle.period == 24, cycle
-    assert cycle.repeats == 3, cycle
-    assert cycle.rows_saved == 72
+    assert cycle.repeats == motifs - 2, cycle
+    assert cycle.rows_saved == 24 * (motifs - 2)
 
 
 def test_a_short_pattern_is_left_alone():
@@ -78,18 +83,42 @@ def test_a_cycle_is_never_claimed_where_the_rows_differ():
     victim.ops = [Op("sc", victim.declared_count)]
     cycle = detect_cycle(rows)
     if cycle is not None:
+        _vac_86 = 0
         for i in range(cycle.repeats):
+            _vac_87 = 0
+            _vac_86 += 1
             for j in range(cycle.period):
+                _vac_87 += 1
                 a = rows[cycle.start - 1 + j]
                 b = rows[cycle.end + i * cycle.period + j]
                 assert [(*_op(o),) for o in a.ops] == [(*_op(o),) for o in b.ops], \
                     "a cycle was claimed across rows that differ"
+            assert _vac_87, "range(cycle.period) was empty: the loop proved nothing (F-123)"
+        assert _vac_86, "range(cycle.repeats) was empty: the loop proved nothing (F-123)"
 
 
 def _op(node):
     return (getattr(node, "stitch", None), getattr(node, "count", None),
             getattr(node, "times", None))
 
+
+
+def test_rows_that_differ_only_in_their_loop_are_not_one_instruction():
+    """Same counts, different fabric: a loop-blind signature collapsed back-loop rows into
+    plain ones, and the document then printed the plain row for all of them."""
+    rows = [Row(i, [Op("sc", 10, loop="back" if 5 <= i <= 8 else "both")],
+                declared_count=10, turning_chain=1) for i in range(1, 13)]
+    assert detect_cycle(rows) is None
+    plain = [Row(i, [Op("sc", 10)], declared_count=10, turning_chain=1) for i in range(1, 13)]
+    assert detect_cycle(plain) is not None
+
+
+def test_an_expanded_row_keeps_its_skips():
+    rows = [Row(i, [Op("sc", 10)], declared_count=10, turning_chain=1, skips=2)
+            for i in range(1, 9)]
+    cycle = detect_cycle(rows)
+    assert cycle is not None
+    assert all(r.skips == 2 for r in expand(rows[:cycle.end], cycle))
 
 def test_a_cycle_that_would_save_too_little_is_not_worth_it():
     rows = [Row(index=i, ops=[Op("sc", 10)], declared_count=10, turning_chain=1)
@@ -171,12 +200,27 @@ def test_every_design_collapses_and_reverse_compiles_clean():
         printed = len([ln for ln in text.splitlines() if ln.startswith("Row ")])
         parsed = parse_pattern(text, "US")
         findings = compare(cir, text, "US")
-        rows = len(cir.components[0].rows)
-        if findings or len(parsed) != rows:
-            problems.append((slug, len(findings), len(parsed), rows))
-        # Where a cycle exists, the printed pattern must actually be shorter.
-        if detect_cycle(cir.components[0].rows) is not None and printed >= rows:
-            problems.append((slug, "collapsed nothing", printed, rows))
+        # Multi-piece designs (a garland is pennants on a cord, 1.3.0) print every piece, and
+        # the reader attributes each row to the piece it is written under. Every piece must
+        # read back with exactly its own rows: a total alone could hide one piece's rows
+        # leaking into another.
+        rows = sum(len(c.rows) for c in cir.components)
+        assert len(cir.components) >= 1
+        by_piece: dict = {}
+        for r in parsed:
+            by_piece[r.component] = by_piece.get(r.component, 0) + 1
+        if len(cir.components) == 1:
+            expected = {None: rows} if None in by_piece else {cir.components[0].name: rows}
+        else:
+            expected = {c.name: len(c.rows) for c in cir.components}
+        if findings or len(parsed) != rows or by_piece != expected:
+            problems.append((slug, len(findings), len(parsed), rows, by_piece, expected))
+        # Where any piece has a cycle, the printed pattern must be shorter by at least the
+        # rows that cycle saves -- one collapsed piece cannot hide behind another.
+        saved = sum(cy.rows_saved for cy in (detect_cycle(c.rows) for c in cir.components)
+                    if cy is not None)
+        if saved and printed > rows - saved:
+            problems.append((slug, "collapsed nothing", printed, rows, saved))
     assert not problems, problems
 
 
@@ -184,9 +228,11 @@ def test_the_flagship_prints_a_fraction_of_its_rows():
     cir = nf.build("large")
     text = write_pattern(cir, compile_cir(cir))
     printed = len([ln for ln in text.splitlines() if ln.startswith("Row ")])
-    assert printed == 48, printed
-    assert len(cir.components[0].rows) == 168
-    assert len(parse_pattern(text, "US")) == 168
+    worked = 24 * nf.SIZES["large"][1]     # motif count follows the derived gauge (D-FB-6)
+    assert printed == 48, printed          # two 24-row passes, whatever the size
+    assert printed < worked / 2, (printed, worked)
+    assert len(cir.components[0].rows) == worked
+    assert len(parse_pattern(text, "US")) == worked
 
 
 # ---- attacks ---------------------------------------------------------------
@@ -196,7 +242,12 @@ def test_a_tampered_repeat_count_is_caught():
     """The instruction is as load-bearing as a row, so it has to be checked like one."""
     cir = nf.build("throw")
     text = write_pattern(cir, compile_cir(cir))
-    tampered = text.replace("3 more times", "4 more times")
+    # The count is read from the rendered text, not pinned: the throw's motif count follows
+    # its yarn-derived gauge (D-FB-6), so a literal stops matching when the design changes.
+    more = re.search(r"Repeat rows \d+-\d+ (\d+) more times", text)
+    assert more is not None, "the throw no longer collapses a repeat; the test proves nothing"
+    said = f"{more.group(1)} more times"
+    tampered = text.replace(said, f"{int(more.group(1)) + 1} more times")
     assert tampered != text
     findings = compare(cir, tampered, "US")
     assert findings, "an extra repeat pass passed unchallenged"
@@ -235,9 +286,15 @@ def test_a_repeat_pointing_at_rows_that_were_never_printed_is_refused():
 
 
 def test_a_tampered_row_inside_the_repeated_block_is_caught_in_every_pass():
-    """One wrong row in the block is wrong four times over, and must be reported."""
+    """One wrong row in the block is wrong in every pass, and must be reported each time."""
     cir = nf.build("throw")
     text = write_pattern(cir, compile_cir(cir))
+    # How many passes the block is worked, from the document's own total -- not a literal:
+    # the pass count follows the design (the throw's motif count is gauge-derived, D-FB-6).
+    total = re.search(r"\((\d+) repeats of the (\d+)-row block in total\.\)", text)
+    assert total is not None, "the throw no longer states its repeat total"
+    passes = int(total.group(1))
+    assert passes >= 2, "a block worked once is not a repeat; the test proves nothing"
 
     # Take the needle from the rendered text rather than a guessed literal: a hardcoded
     # instruction string silently stops matching the day the design changes, and a tamper
@@ -254,8 +311,8 @@ def test_a_tampered_row_inside_the_repeated_block_is_caught_in_every_pass():
     tampered = "\n".join(lines)
     assert tampered != text, "the tamper did not apply; the test proves nothing"
     findings = compare(cir, tampered, "US")
-    assert len(findings) >= 4, (
-        f"a row inside a four-pass block was reported {len(findings)} times; the error "
+    assert len(findings) >= passes, (
+        f"a row inside a {passes}-pass block was reported {len(findings)} times; the error "
         f"exists in every pass")
 
 

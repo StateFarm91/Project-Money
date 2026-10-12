@@ -14,9 +14,10 @@ is not sharing a pass.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row, Seam
+from ..gates.originality import catalogue_provenance
 from .motifs import LIBRARY, Motif, get
 
 PALETTES: dict[str, dict[str, str]] = {
@@ -45,6 +46,16 @@ class Design:
     yarn: str = "worsted acrylic"
     yarn_weight: str = "worsted"
     note: str = ""
+    # How many identical pieces the pattern tells the maker to work (Component.make). A
+    # title that names a set or a pair is backed only by this (launch0.title_promise).
+    pieces: int = 1
+    # Finishing joins (cir.assembly). Empty for a flat piece; a form the title names as
+    # assembled (launch0.ASSEMBLED_FORMS) is backed only by real seams (W4-PIPE).
+    assembly: tuple = ()
+    # A garland's hanging cord (W4-PIPE): a narrow single-crochet strip worked side to side,
+    # each pennant's top edge sewn across a placed run of its rows. Without it a "garland" is
+    # one flat panel and the title is false (launch0.ASSEMBLED_FORMS, NAME_OUTRUNS_PATTERN).
+    cord: bool = False
 
 
 class DesignDoesNotFit(ValueError):
@@ -66,13 +77,96 @@ def _runs(pattern: str) -> list[Op]:
     return ops
 
 
-def build(design: Design, version: str = "1.0.0") -> CIR:
+def _drawn_size_cm(design: Design, motif: Motif) -> tuple[float, float]:
+    """The finished size a design's typed counts make at its typed gauge, as the twin
+    measures it (a row is as tall as its tallest stitch). This is the design's intent."""
+    from ..cir import stitches
+
+    width = design.width_stitches * 10.0 / design.stitches_per_10cm
+    return width, design.motif_repeats * _repeat_height_cm(motif, design.rows_per_10cm,
+                                                           stitches)
+
+
+def _repeat_height_cm(motif: Motif, rows_per_10cm: float, stitches) -> float:
+    """One repeat's height by the tallest-stitch rule the typed counts were DRAWN with: this
+    is the design-intent size only (`_drawn_size_cm`), never what a finished piece measures."""
+    tall = stitches.get("dc").row_height / (stitches.get("sc").row_height or 1.0)
+    return sum((tall if "1" in line else 1.0) for line in motif.grid) * 10.0 / rows_per_10cm
+
+
+def _measured_repeat_height_cm(motif: Motif, rows_per_10cm: float, stitches) -> float:
+    """One repeat's height as the twin measures it: the stitch-weighted row height
+    (`cir.geometry.HEIGHT_RULE`, PT-08). Counts are chosen with this rule so the size the
+    pattern states is the size its own rows make, at the design's drawn intent."""
+    from ..cir.geometry import mix_height_units
+
+    base = stitches.get("sc").row_height or 1.0
+    return sum(mix_height_units((("dc", line.count("1")), ("sc", line.count("0"))), base)
+               for line in motif.grid) * 10.0 / rows_per_10cm
+
+
+def _derive_from_yarn(design: Design) -> Design:
+    """The same design at the gauge its declared yarn actually holds, counts recomputed to
+    the nearest whole motif of the size it was drawn at. A motif is never cut, so a piece
+    smaller than one motif at the new gauge is one motif, and the size it states is the
+    size its counts make."""
+    from ..cir import stitches
+    from ..creative.prototype import gauge_for
+
+    motif = get(design.motif)
+    gauge = gauge_for(design.yarn_weight)
+    width_cm, height_cm = _drawn_size_cm(design, motif)
+    across = max(1, int(width_cm * gauge.stitches_per_10cm / (10.0 * motif.width) + 0.5))
+    repeats = max(1, int(height_cm / _measured_repeat_height_cm(motif, gauge.rows_per_10cm,
+                                                                stitches) + 0.5))
+    return replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
+                   stitches_per_10cm=gauge.stitches_per_10cm,
+                   rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
+
+
+def build(design: Design, version: str = "1.0.0", *, derive: bool = True) -> CIR:
     """Generate the CIR. Refuses a width the motif cannot tile.
 
     Refusing rather than fudging matters: a motif silently truncated at the edge produces a
     blanket with half a fir tree down one side, which compiles perfectly and is a defect
     nobody's arithmetic will ever catch.
     """
+    border_rows = 0
+    catalogued = design == CATALOGUE.get(design.slug)
+    cloudline = design.slug == "cloudline-baby-blanket" and catalogued
+    if cloudline:
+        # D-FB-6 authorized design revision: complete diamonds, with explicit equal
+        # SC end borders. Published yarn gauge is the input; counts follow it.
+        #
+        # 1.2.0 (PT-08, PT-09, 2026-10-06): the length is computed with the stitch-weighted
+        # row height every other measurement now uses (a sc row carrying one dc in nine is
+        # 1.11 sc tall, not 2.0), and the colour changes every TWO rows. Two-row stripes put
+        # every change at the same side edge, where the colour not in use is resting, so
+        # "carry the resting colour up the side" is an instruction the fabric can obey; the
+        # one-row stripes it replaced needed the yarn cut and rejoined at every change. The
+        # end borders are an even number of rows for the same reason.
+        from ..cir import stitches as _st
+        from ..creative.prototype import gauge_for
+        gauge = gauge_for(design.yarn_weight)
+        motif = get(design.motif)
+        across = round(78.8 * gauge.stitches_per_10cm / (10 * motif.width))
+        target_units = 97.2 * gauge.rows_per_10cm / 10
+        sc_h = _st.get("sc").row_height or 1.0
+        dc_h = _st.get("dc").row_height
+        repeat_units = sum(1.0 + line.count("1") / len(line) * (dc_h / sc_h - 1.0)
+                           for line in motif.grid)
+        candidates = [(abs(repeats * repeat_units + 2 * ends - target_units), ends, repeats)
+                      for repeats in range(1, int(target_units / repeat_units) + 2)
+                      # a border, not a second field: at most six plain rows at each end
+                      for ends in range(2, 7, 2)]
+        _, border_rows, repeats = min(candidates)
+        design = replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
+                         stitches_per_10cm=gauge.stitches_per_10cm,
+                         rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
+    elif design.slug in YARN_DERIVED and catalogued and derive:
+        design = _derive_from_yarn(design)
+    if version == "1.0.0" and catalogued:
+        version = RELEASE_VERSIONS.get(design.slug, version)
     motif: Motif = get(design.motif)
     motif.validate()
     if design.width_stitches % motif.width:
@@ -86,13 +180,19 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
 
     colour_names = list(palette)
     across = design.width_stitches // motif.width
+    stripe = 2 if cloudline else 1
 
     rows: list[Row] = []
     index = 0
     for _ in range(design.motif_repeats):
         for line in motif.grid:
             index += 1
-            colour = colour_names[(index - 1) % len(colour_names)]
+            if cloudline:
+                # Two-row stripes, the first in the contrast colour so the cream border
+                # reads as a border.
+                colour = colour_names[1 - ((index - 1) // stripe) % len(colour_names)]
+            else:
+                colour = colour_names[(index - 1) % len(colour_names)]
             if index == 1:
                 ops: list = [Op("sc", design.width_stitches)]
             else:
@@ -100,7 +200,46 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
             rows.append(Row(index=index, ops=ops, declared_count=design.width_stitches,
                             turning_chain=1, color=colour))
 
-    return CIR(
+    if border_rows:
+        # Restore the full first diamond row: the plain foundation is now in the border.
+        rows[0].ops = [Repeat(_runs(motif.grid[0]), times=across)]
+        def edge():
+            return Row(index=0, ops=[Op("sc", design.width_stitches)],
+                       declared_count=design.width_stitches, turning_chain=1,
+                       color=colour_names[0])
+        rows = ([edge() for _ in range(border_rows)] + rows
+                + [edge() for _ in range(border_rows)])
+        for index, row in enumerate(rows, 1):
+            row.index = index
+    if cloudline:
+        # A row that starts with a double crochet turns with two chains (not counted as a
+        # stitch), so the edge dc is not dragged down to a single-crochet turning height.
+        for row in rows:
+            first = row.ops[0]
+            while isinstance(first, Repeat):
+                first = first.ops[0]
+            if first.stitch == "dc":
+                row.turning_chain = 2
+
+    # What the colour changes ask of the maker, read off the rows rather than asserted
+    # (`cir.colour_changes`, PT-09).
+    from ..cir.colour_changes import plan_component
+
+    probe = plan_component(Component(name="panel", construction="flat_rows", rows=rows,
+                                     foundation=design.width_stitches,
+                                     foundation_kind="chain"))
+    if probe.changes and probe.carry_is_possible:
+        colour_note = (f"Colour changes every {'two rows' if stripe == 2 else 'row'}, so every "
+                       f"change falls at the same side edge: carry the resting colour loosely "
+                       f"up that edge. ")
+    elif probe.changes:
+        colour_note = ("Colour changes every row. The rows turn, so the colour not in use is "
+                       "always resting at the far edge when it is next needed: cut it and "
+                       "rejoin at each change, and weave in the ends (see Finishing). ")
+    else:
+        colour_note = ""
+
+    cir = CIR(
         slug=design.slug,
         title=design.title,
         version=version,
@@ -113,13 +252,84 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         materials=[Material(name=design.yarn, yarn_weight=design.yarn_weight, color_id=c)
                    for c in colour_names],
         components=[Component(name="panel", construction="flat_rows", rows=rows,
-                              foundation=design.width_stitches, foundation_kind="chain")],
+                              foundation=design.width_stitches, foundation_kind="chain",
+                              make=design.pieces)],
+        assembly=list(design.assembly),
         designer_notes=(
             f"{motif.name} on a {motif.width}-stitch repeat, {across} across and "
-            f"{design.motif_repeats} up ({len(rows)} rows). {motif.note}. "
-            f"Colour changes every row; carry the resting colour up the side."
+            + (f"{design.motif_repeats} up ({design.motif_repeats * len(motif.grid)} motif rows). "
+               if border_rows else f"{design.motif_repeats} up ({len(rows)} rows). ")
+            + f"{motif.note}. "
+            + colour_note
+            + (f"Work {border_rows} single-crochet rows in {colour_names[0]} at each end "
+               f"around the full diamond region; {len(rows)} rows total. " if border_rows
+               else "")
             + (f" {design.note}" if design.note else "")),
+        # F-783: where this design came from. Built from the Brambleloop motif library and
+        # palette table by this module's deterministic tiler; no benchmark was consulted.
+        provenance=catalogue_provenance(
+            design.slug, {"builder": "products.builder.build",
+             # `pieces` is recorded only when it says something (W4-PIPE): a field added
+             # with its default must not change the content of designs already released.
+             "design": {k: (repr(v) if k == "assembly" else v)
+                        for k, v in vars(design).items()
+                        if not (k == "pieces" and v == 1) and not (k == "assembly" and not v)
+                        and not (k == "cord" and not v)},
+                          "motif_grid": list(motif.grid)},
+            ("products.builder", f"products.motifs:{motif.slug}",
+             f"products.builder.PALETTES:{design.palette}")),
     )
+    return _with_cord(cir) if design.cord else cir
+
+
+CORD_STITCHES = 3          # the cord is three single crochet wide
+CORD_TIE_CM = 25.0         # a tie at each end
+CORD_GAP_CM = 2.0          # between pennants
+
+
+def _with_cord(cir: CIR) -> CIR:
+    """Add the hanging cord and the placed seams that hang the pennants on it.
+
+    The cord is worked side to side (grain across): a three-stitch chain, then rows until it
+    is long enough for both ties, every pennant and the gaps between them. Its rows therefore
+    run along its length, so a pennant's top edge is sewn across a counted run of cord rows
+    and `cir.assembly` measures both sides of that join.
+    """
+    from dataclasses import replace as _replace
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    panel = cir.components[0]
+    pennant_w = build_twin(cir, compile_cir(cir)).width_cm
+    colour = panel.rows[0].color
+
+    def cord_of(rows: int) -> Component:
+        return Component(name="cord", construction="flat_rows", foundation=CORD_STITCHES,
+                         foundation_kind="chain", grain="across",
+                         rows=[Row(index=i, ops=[Op("sc", CORD_STITCHES)],
+                                   declared_count=CORD_STITCHES, color=colour,
+                                   turning_chain=1) for i in range(1, rows + 1)],
+                         note="The hanging cord: worked side to side, three stitches wide.")
+
+    probe = _replace(cir, components=[cord_of(10)], assembly=[])
+    row_cm = build_twin(probe, compile_cir(probe), component="cord").height_cm / 10
+    n = panel.make
+    span = max(1, round(pennant_w / row_cm))
+    gap = max(1, round(CORD_GAP_CM / row_cm))
+    tie = max(1, round(CORD_TIE_CM / row_cm))
+    total = 2 * tie + n * span + (n - 1) * gap
+    starts = [tie + 1 + i * (span + gap) for i in range(n)]
+    where = ", ".join(f"{a}-{a + span - 1}" for a in starts)
+    seam = Seam("whipstitch", "panel", "cord", edge_a="top", edge_b="bottom",
+                at_round=starts[0], spans_rounds=span,
+                note=(f"Sew the top edge of each of the {n} pennants along the cord, one "
+                      f"pennant to each run of {span} cord rows: rows {where}. Rows 1-{tie} "
+                      f"and {total - tie + 1}-{total} are the ties."))
+    return _replace(cir, components=[panel, cord_of(total)],
+                    assembly=list(cir.assembly) + [seam],
+                    designer_notes=cir.designer_notes
+                    + f" Work {n} pennants, then the cord; sew them on as the finishing says.")
 
 
 # ---- the catalogue ---------------------------------------------------------
@@ -131,7 +341,9 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
 
 CATALOGUE: dict[str, Design] = {
     "winter-village-graphghan": Design(
-        slug="winter-village-graphghan", title="Winter Village Graphghan",
+        # W4-PIPE 1.3.0 (creative HELD + fabric truth): the snowfall motif shows no village,
+        # and one colour per row is a relief, not a graphghan.
+        slug="winter-village-graphghan", title="Winter Snowfall Relief Throw",
         motif="snowfall", palette="nordic", width_stitches=144, motif_repeats=8,
         note="Sparse flakes so the field reads at blanket scale rather than as noise."),
     "cloudline-baby-blanket": Design(
@@ -151,36 +363,124 @@ CATALOGUE: dict[str, Design] = {
         note="The lattice is a relief: double crochet standing above a single-crochet "
              "ground, one colour per row."),
     "autumn-oak-mosaic-throw": Design(
-        slug="autumn-oak-mosaic-throw", title="Autumn Oak Overlay Mosaic Throw",
+        # W4-PIPE 1.3.0 (creative HELD + fabric truth): the motif is fir-and-star, not oak,
+        # and one colour per row is a relief, not a mosaic. W4-PIPE3 1.4.0: re-engineered
+        # from its declared yarn (YARN_DERIVED) -- the typed 16 sc/10cm below is the drawn
+        # intent, which worsted cannot hold; `as_drawn` keeps that record refusable.
+        slug="autumn-oak-mosaic-throw", title="Fir and Star Relief Throw",
         motif="fir-and-star", palette="autumn", width_stitches=144, motif_repeats=5),
     "harvest-table-runner": Design(
         slug="harvest-table-runner", title="Harvest Table Runner",
         motif="chevron-band", palette="autumn", width_stitches=48, motif_repeats=14),
+    # W4-PIPE 1.3.0: the title claimed a pair and a mosaic; the CIR made one panel with one
+    # colour per row. It now makes two (pieces=2) and is named for the relief it works.
     "mosaic-placemat-pair": Design(
-        slug="mosaic-placemat-pair", title="Mosaic Placemat Pair",
-        motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5),
+        slug="mosaic-placemat-pair", title="Diamond Lattice Placemat Pair",
+        motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5,
+        pieces=2,
+        note="Make two. The lattice is a relief: double crochet standing above a "
+             "single-crochet ground, one colour per row."),
+    # W4-PIPE 1.3.0: "Set (6)" over a CIR that made one ornament; the pattern now makes six.
+    # 1.4.0: the snowfall motif depicts snowflakes, not stars (creative HELD).
     "nordic-star-ornaments": Design(
-        slug="nordic-star-ornaments", title="Nordic Star Ornament Set (6)",
-        motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1,
+        slug="nordic-star-ornaments", title="Nordic Snowflake Ornament Set (6)",
+        motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1, pieces=6,
         note="One ornament per repeat; the twelve-row snowfall keeps each one ornament-sized "
-             "rather than the twenty-four rows the fir band would impose."),
+             "rather than the twenty-four rows the fir band would impose. Make six."),
+    # W4-PIPE 1.3.0: a garland is pennants on a cord. Each was one 40-stitch panel with no
+    # cord and no seam (NAME_OUTRUNS_PATTERN); now five pennants and a cord they are sewn to.
     "spooky-garland": Design(
         slug="spooky-garland", title="Spooky Bunting Garland",
-        motif="pumpkin-row", palette="autumn", width_stitches=40, motif_repeats=2),
+        motif="pumpkin-row", palette="autumn", width_stitches=30, motif_repeats=2,
+        pieces=5, cord=True,
+        note="Five pennants, each sewn to the cord along its top edge."),
     "valentine-heart-garland": Design(
         slug="valentine-heart-garland", title="Heart Motif Garland",
-        motif="heart-row", palette="cottage", width_stitches=40, motif_repeats=2),
+        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
+        pieces=5, cord=True,
+        note="Five pennants, each sewn to the cord along its top edge."),
     "pet-snuggle-mat": Design(
         slug="pet-snuggle-mat", title="Pet Snuggle Mat",
         motif="basketweave", palette="hearth", width_stitches=56, motif_repeats=7),
     "pressed-flower-motifs": Design(
-        slug="pressed-flower-motifs", title="Pressed Flower Motif Library (12)",
-        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
-        note="A motif sampler: each repeat worked separately as a standalone appliqué."),
+        # W4-PIPE 1.3.0: the heart-row motif depicts hearts, not flowers (creative HELD), and
+        # "(12)" is backed by the pattern making twelve.
+        slug="pressed-flower-motifs", title="Heart Applique Motif Library (12)",  # ASCII: shop language
+        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2, pieces=12,
+        note="A motif library: work twelve appliqués, each a standalone piece. Make twelve."),
     "cottage-wall-hanging": Design(
-        slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
-        motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),
+        # W4-PIPE 1.3.0: the chevron-band motif depicts chevrons, not botanicals (creative
+        # HELD), and "wall hanging" is backed by a real finishing step: a rod pocket.
+        slug="cottage-wall-hanging", title="Cottage Chevron Wall Hanging",
+        motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6,
+        assembly=(Seam("whipstitch", "panel", "panel", edge_a="top", edge_b="fold",
+                       note="Rod pocket: fold the top edge 4 cm to the wrong side over a "
+                            "dowel and whipstitch it across the panel; hang from the dowel."),),
+        note="Finish with a rod pocket across the top edge for a hanging dowel."),
 }
+
+
+# D-FB-6 re-engineering of the flat catalogue (Cloudline has its own authorized border
+# redesign in `build`). Each design here has its gauge derived from its declared yarn's
+# published band (`creative.prototype.gauge_for`) and its stitch and row counts recomputed,
+# in whole motif repeats, to the size it was drawn at (`_derive_from_yarn`); its default
+# version becomes 1.1.0 because its content changed. Every Design still records the typed
+# 16 sc/10cm it was drawn at -- that is the record of the intent the counts are derived from.
+#
+# Held back, with the reason recorded rather than faked:
+#
+# W4-PIPE3 (2026-10-07): autumn-oak-mosaic-throw was held here as the legacy record of a typed
+# out-of-band gauge (16 sc/10cm against worsted, band 11-14). It is now re-engineered the same
+# way as the rest of the catalogue (gauge from the yarn, counts in whole motifs at the drawn
+# size) under 1.4.0. The refusal of the typed record is still pinned, by building the design
+# exactly as drawn (`as_drawn`) in tests/test_launch0_gauge.py: it gained its pass by
+# re-engineering, not by the gate moving.
+LEGACY_HELD: dict[str, str] = {
+    "cloudline-baby-blanket": "re-engineered separately: the D-FB-6 border redesign in build()",
+}
+YARN_DERIVED: frozenset[str] = frozenset(CATALOGUE) - frozenset(LEGACY_HELD)
+
+# The released version of each catalogue design, applied when a caller asks for the default.
+# A design's content (its CIR, or a customer-visible figure the twin derives from it) cannot
+# change under a released version: tests/data/release_fingerprints.tsv pins both.
+#
+# 1.1.0: D-FB-6 (a8ed44f) re-derived gauge and counts.
+# 1.2.0 (2026-10-06): PT-07/PT-08/PT-09 -- yardage counted per stitch once (increases were
+# double-counted), row height by the stitch-weighted rule (a sc row with a few dc in it is no
+# longer measured as a dc row), and colour-change notes that the rows can actually obey.
+RELEASE_VERSIONS: dict[str, str] = {slug: "1.2.0" for slug in CATALOGUE}
+# W4-PIPE (2026-10-07): piece count made true (pieces=2 / pieces=6) and the placemat named for
+# the relief fabric it works rather than a mosaic it cannot.
+RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.3.0"
+RELEASE_VERSIONS["nordic-star-ornaments"] = "1.4.0"
+# W4-PIPE (2026-10-07, W4-CREATIVE HELD titles): retitled to what the motif depicts and the
+# fabric makes; the library makes twelve; the wall hanging carries its rod-pocket seam.
+for _slug in ("winter-village-graphghan", "pressed-flower-motifs", "cottage-wall-hanging"):
+    RELEASE_VERSIONS[_slug] = "1.3.0"
+# W4-PIPE (2026-10-07): the garlands are pennants on a cord (five pennants, a cord, a seam).
+for _slug in ("spooky-garland", "valentine-heart-garland"):
+    RELEASE_VERSIONS[_slug] = "1.3.0"
+
+
+# W4-PIPE3 (2026-10-07): autumn-oak 1.3.0 was the legacy typed gauge (refused); 1.4.0 is the
+# design re-derived from its declared yarn, the first release of it that can certify.
+RELEASE_VERSIONS["autumn-oak-mosaic-throw"] = "1.4.0"
+
+
+# The last release of each re-engineered design that was built at its typed gauge.
+AS_DRAWN_RELEASE: dict[str, str] = {"autumn-oak-mosaic-throw": "1.3.0"}
+
+
+def as_drawn(slug: str) -> CIR | None:
+    """The superseded release of a re-engineered design: built at the typed gauge and counts
+    it was DRAWN at, with no derivation from its yarn, under the version it was released as.
+    It exists so the gauge gate's refusal of that typed out-of-band record stays pinned by a
+    test (tests/test_launch0_gauge.py) after the design itself was re-engineered."""
+    design = CATALOGUE.get(slug)
+    version = AS_DRAWN_RELEASE.get(slug)
+    if design is None or version is None:
+        return None
+    return build(design, version, derive=False)
 
 
 def for_slug(slug: str, version: str = "1.0.0") -> CIR | None:

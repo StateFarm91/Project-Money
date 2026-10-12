@@ -26,7 +26,7 @@ and the invariants are listed rather than trusted to taste.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from ..seasonal.calendar import MILESTONES
@@ -88,6 +88,10 @@ CONTINUITY_INVARIANTS: dict[str, str] = {
              "with",
     "policy_text": "delivery, returns, licence, support and privacy, which are promises "
                    "rather than decoration",
+    "canonical_logo": "the owner's hero artwork (D-FB-17), used exactly as supplied; replacing "
+                      "it needs a new owner decision, never a seasonal plan",
+    "canonical_banner": "the owner's banner composition (D-FB-17); a seasonal look may not "
+                        "replace it without an owner decision naming the new file",
 }
 
 
@@ -102,6 +106,10 @@ class Takeover:
     surfaces: tuple[str, ...]
     changes: dict[str, str]          # surface -> what it becomes
     changes_invariants: tuple[str, ...] = ()
+    # D-FB-17: canonical brand role ("hero_logo" | "storefront_banner") -> sha256 of the file a
+    # takeover would put in its place. Refused unless an owner decision names those bytes.
+    replaces_assets: dict[str, str] = field(default_factory=dict)
+    approval: dict | None = None
 
 
 def schedule(event: str, event_date: date, *, today: date | None = None,
@@ -177,15 +185,27 @@ def check(takeover: Takeover) -> list[str]:
             if why else
             f"TAKEOVER_BREAKS_CONTINUITY: {invariant}")
 
+    from . import canonical_assets as CA
+
+    for role, sha in (takeover.replaces_assets or {}).items():
+        try:
+            CA.require_brand_change_authorised(role, sha, takeover.approval,
+                                               action=f"takeover {takeover.event!r}")
+        except CA.BrandChangeRefused as exc:
+            problems.append(f"TAKEOVER_REPLACES_CANONICAL_ASSET: {role} -- {exc}")
+
     return problems
 
 
 def plan(event: str, event_date: date, changes: dict[str, str], *,
-         today: date | None = None, changes_invariants: tuple[str, ...] = ()) -> dict:
+         today: date | None = None, changes_invariants: tuple[str, ...] = (),
+         replaces_assets: dict[str, str] | None = None,
+         approval: dict | None = None) -> dict:
     """A scheduled, checked takeover, refused rather than flagged if it breaks continuity."""
     takeover = Takeover(event=event, event_date=event_date,
                         surfaces=tuple(changes), changes=dict(changes),
-                        changes_invariants=changes_invariants)
+                        changes_invariants=changes_invariants,
+                        replaces_assets=dict(replaces_assets or {}), approval=approval)
     problems = check(takeover)
     if problems:
         raise TakeoverRefused("; ".join(problems))
@@ -212,3 +232,123 @@ def calendar(events: dict[str, date], *, today: date | None = None) -> dict:
                  "saying December in October competes against what the buyer can still "
                  "finish (#131)."),
     }
+
+
+
+# ---------------------------------------------------------------------------
+# The executor (C-69, #131): scheduled takeovers applied on their date and reverted on theirs.
+#
+# The storefront this company holds is the drafted one (`brand.storefront`); the marketplace
+# copy of it is written only when publishing is allowed. So a takeover is applied here to the
+# stored storefront state -- one `operating_readings` row per event and surface, the state the
+# storefront is rendered from -- on its transition date, checked against the storefront's own
+# rules and the continuity invariants, and reverted on its revert date. A surface whose
+# applied storefront fails its checks is reverted at once rather than left up.
+
+STATE_KIND = "storefront.takeover"
+APPLIED, REVERTED = "applied", "reverted"
+
+
+def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    today = today or date.today()
+    applied, reverted, refused = [], [], []
+    with db.session() as s:
+        rows = {r.period_key: r for r in s.scalars(select(OperatingReading).where(
+            OperatingReading.kind == STATE_KIND))}
+        for plan_ in plans:
+            event, changes = plan_["event"], plan_.get("changes") or {}
+            for surface in plan_["surfaces"]:
+                import hashlib
+
+                tag = hashlib.sha256(f"{event}|{plan_['event_date']}".encode()).hexdigest()[:8]
+                key = f"{tag}:{surface['surface'][:11]}"
+                starts = date.fromisoformat(surface["transitions_on"])
+                ends = date.fromisoformat(surface["reverts_on"])
+                row = rows.get(key)
+                state = (row.payload or {}).get("state") if row is not None else None
+                if starts <= today < ends and state != APPLIED:
+                    change = changes.get(surface["surface"], "")
+                    problems = _applied_problems(surface["surface"], change, db=db)
+                    if problems:
+                        refused.append({"event": event, "surface": surface["surface"],
+                                        "problems": problems})
+                        continue
+                    payload = {"state": APPLIED, "event": event,
+                               "surface": surface["surface"], "change": change,
+                               "applied_on": today.isoformat(),
+                               "reverts_on": ends.isoformat(),
+                               "marketplace_write": "withheld: shadow mode drafts the "
+                                                    "storefront and publishes nothing"}
+                    if row is None:
+                        s.add(OperatingReading(kind=STATE_KIND, period_key=key,
+                                               payload=payload))
+                    else:
+                        row.payload = payload
+                    applied.append(key)
+        # Revert by date whatever today's plans contain: once an occasion has passed it is no
+        # longer planned, and that is exactly when its banner must come down.
+        for key, row in rows.items():
+            p = dict(row.payload or {})
+            if p.get("state") == APPLIED and today >= date.fromisoformat(p["reverts_on"]):
+                row.payload = {**p, "state": REVERTED, "reverted_on": today.isoformat()}
+                reverted.append(key)
+    return {"applied": applied, "reverted": reverted, "refused": refused,
+            "active": active(db, today=today)}
+
+
+def _applied_problems(surface: str, change: str, db=None) -> list[str]:
+    """The storefront's own checks, run on the storefront as the takeover would leave it.
+
+    C-80 defect 18: every surface the storefront renders is checked as rendered -- the banner
+    as the announcement, shop_content as seasonal copy on About, featured_collection as the
+    pinned collection, which with a database must name a collection or a product that exists;
+    a takeover that would pin nothing real is refused, not applied.
+    """
+    from . import storefront
+
+    store = storefront.build_storefront()
+    if surface == "banner":
+        store.announcement = change
+    elif surface == "shop_content":
+        store.seasonal_copy = change
+        store.about = f"{store.about}\n\n{change}"
+    elif surface == "featured_collection":
+        store.featured_collection = change
+    problems = storefront.check_storefront(store)
+    if not change.strip():
+        problems.append(f"TAKEOVER_SURFACE_EMPTY: {surface}")
+    if surface == "featured_collection" and db is not None and change.strip():
+        from sqlalchemy import select
+
+        from ..core.models import Collection, Product
+
+        with db.session() as s:
+            titles = {c.title for c in s.scalars(select(Collection))}
+            slugs = {p.slug for p in s.scalars(select(Product))}
+        named = {part.strip() for part in change.split(",") if part.strip()}
+        if change.strip() not in titles and not (named & slugs):
+            problems.append(f"TAKEOVER_FEATURED_COLLECTION_NAMES_NOTHING: {change[:80]!r} is "
+                            f"neither a collection title nor a product this shop has")
+    return problems
+
+
+def active(db, *, today: date | None = None) -> dict[str, dict]:
+    """The takeover changes live on the drafted storefront today, by surface."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    today = today or date.today()
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for r in s.scalars(select(OperatingReading).where(
+                OperatingReading.kind == STATE_KIND)):
+            p = r.payload or {}
+            if p.get("state") == APPLIED and date.fromisoformat(p["reverts_on"]) > today:
+                out[p["surface"]] = {"event": p["event"], "change": p["change"],
+                                     "reverts_on": p["reverts_on"]}
+    return out

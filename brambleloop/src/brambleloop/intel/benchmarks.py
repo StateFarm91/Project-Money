@@ -129,13 +129,39 @@ def spec_for(key: str) -> BenchmarkSpec | None:
     return next((b for b in REGISTRY if b.key == key), None)
 
 
-def markets_observed() -> list[str]:
+def markets_observed(db=None) -> list[str]:
     """Which buyer markets the registry actually covers, ignoring unstated ones.
 
     #268 needs this: a cross-border lens built on one market is a single-market lens with a
     cross-border name, and the count of distinct stated markets is what says which it is.
+    With a database, benchmarks the panel discovered (#219) count too -- but only those with
+    observed listings, because a registered shop nobody has read is not a market observed.
     """
-    return sorted({b.market for b in REGISTRY if b.market})
+    stated = {b.market for b in REGISTRY if b.market}
+    if db is None:
+        return sorted(stated)
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        keys = {k for (k,) in s.execute(select(BenchmarkListing.benchmark_key).distinct())}
+    return sorted({m for k in keys if (m := market_of(db, k))} | stated
+                  if keys else stated)
+
+
+def market_of(db, key: str) -> str:
+    """A benchmark's stated buyer market: the code spec's, else the discovered row's."""
+    spec = spec_for(key)
+    if spec is not None and spec.market:
+        return spec.market
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    with db.session() as s:
+        row = s.scalar(select(Benchmark).where(Benchmark.key == key))
+        return (row.market or "") if row is not None else ""
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +247,42 @@ def resolve(spec: BenchmarkSpec, fetch: Fetcher | None = None) -> Resolution:
     return Resolution(spec.key, HEALTHY, final_url, _utcnow())
 
 
+def api_resolve(spec: BenchmarkSpec, reader) -> Resolution:
+    """#206 through the sanctioned read API rather than a rendered page (certification C-40).
+
+    `findShops` with the exact shop name, then the shop URL Etsy itself reports. The same
+    refusals as `resolve`: a near-match is a different seller, and a shop whose own URL names
+    somebody else is `wrong_shop` -- never re-pointed. Labelled with its basis so an API
+    reading is never mistaken for a page someone looked at.
+    """
+    from .etsy_public import NotConfigured, ReadFailed
+
+    basis = {"basis": "etsy_api_findShops"}
+    try:
+        shop = reader.resolve_shop(spec.shop_name)
+    except NotConfigured as e:
+        return Resolution(spec.key, UNVERIFIED, spec.canonical_url,
+                          problem=f"no read credential: {e}", detail=basis)
+    except ReadFailed as e:
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=str(e)[:300], detail=basis)
+    except Exception as e:  # noqa: BLE001 - a transport failure is a health result
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=f"{type(e).__name__}: {e}"[:300], detail=basis)
+    reported = str(shop.get("url") or "").split("?")[0]
+    landed = shop_segment(reported) if reported else None
+    detail = {**basis, "shop_id": shop.get("shop_id"), "reported_url": reported}
+    if landed is None or landed.lower() != spec.shop_name.lower():
+        return Resolution(spec.key, WRONG_SHOP, spec.canonical_url, _utcnow(),
+                          problem=(f"Etsy reports this shop at {reported!r}, which does not "
+                                   f"name {spec.shop_name!r}; not re-pointed"), detail=detail)
+    # Identity, not the URL string: the API reports the shop without the locale segment the
+    # registered URL carries (/ca/shop/...), and reading that difference as a move would make
+    # `record_resolution` re-point the registry for no reason. A move is a redirect question,
+    # which only a rendered fetch can answer.
+    return Resolution(spec.key, HEALTHY, spec.canonical_url, _utcnow(), detail=detail)
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 
@@ -256,6 +318,14 @@ def seed(db) -> list[str]:
                 continue
             for field_name in declared:
                 current, want = getattr(row, field_name), getattr(spec, field_name)
+                # A recorded `moved` resolution is observed state, not drift: the deploy must
+                # not quietly put back the URL Etsy stopped serving (#206). Only a move that
+                # still names this shop is kept; anything else reverts to the declaration.
+                if (field_name == "canonical_url" and current != want
+                        and (row.scan_health or {}).get("state") == MOVED
+                        and (shop_segment(current) or "").lower()
+                        == spec.shop_name.lower()):
+                    continue
                 if current != want:
                     setattr(row, field_name, want)
                     changes.append(f"{spec.key}.{field_name} updated")
@@ -275,8 +345,28 @@ def record_resolution(db, resolution: Resolution) -> None:
         if row is None:
             return
         row.scan_health = resolution.to_dict()
-        if resolution.checked_at is not None:
-            row.last_scan_at = resolution.checked_at
+        # The check time lives in `scan_health.checked_at`. It used to be written into
+        # `last_scan_at` as well, which made a URL health check read as a catalogue scan on
+        # the mission dashboard -- the one timestamp that must mean the catalogue was read.
         # A `moved` result updates where we look. A `wrong_shop` result never does.
         if resolution.state == MOVED:
             row.canonical_url = resolution.url
+
+
+def fetcher_for(db, env: dict[str, str] | None = None) -> Fetcher | None:
+    """The fetcher `resolve` may use, or None when no observation capability is proven.
+
+    A rendered-page worker counts only once `intel.browser` has recorded a successful fetch;
+    an endpoint that is merely configured is the typed-string gate this company already
+    refused once. With None, `resolve` answers `unverified` -- never `healthy`.
+    """
+    from . import browser
+
+    if not (browser.configured(env) and browser.usable(db)):
+        return None
+
+    def _fetch(url: str) -> "tuple[int, str]":
+        got = browser.fetch(url, env=env)
+        return int(got.get("status") or 200), str(got.get("final_url") or url)
+
+    return _fetch

@@ -1,0 +1,2395 @@
+{
+ "g3pro_1": {
+  "mode": "g3pro",
+  "draw": 1,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "46fabed649490b28e05f3ac2138021f19d7c1c6d962de743671621a2b2084086",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou_aligned": 0.752,
+      "alignment": {
+       "scale": 1.0380337963718327,
+       "shift_px": [
+        -12.604310841236156,
+        -15.667881054388886
+       ],
+       "iou": 0.7521295484682984
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.786,
+      "drift": 0.105
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 1.046,
+      "drift": 0.083
+     }
+    },
+    "buttons": {
+     "status": "PASS",
+     "evidence": {
+      "count": 5,
+      "expected": 5,
+      "blobs_px": [
+       [
+        788,
+        624,
+        1530
+       ],
+       [
+        785,
+        706,
+        1200
+       ],
+       [
+        784,
+        782,
+        1029
+       ],
+       [
+        784,
+        861,
+        957
+       ],
+       [
+        785,
+        934,
+        1229
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.752
+     }
+    },
+    "star_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "identity": "FAIL",
+      "gauge": "PASS",
+      "panels": {
+       "front_left": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 1.027,
+         "star_pitch_ratio": 0.705,
+         "status": "PASS"
+        },
+        "star_pitch_px": 13.0,
+        "row_pair_px": 34.0,
+        "pitch_over_pair": 0.382,
+        "column_offset_star": 0.462,
+        "row_peak": 0.616,
+        "next_row_peak": 0.518,
+        "blob_isotropy": 0.55,
+        "diagonal_fraction": 0.57,
+        "return_row_contrast": 1.409,
+        "failed": [
+         "column_offset",
+         "pitch_over_pair"
+        ],
+        "why": null
+       },
+       "front_right": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 1.027,
+         "star_pitch_ratio": 0.759,
+         "status": "PASS"
+        },
+        "star_pitch_px": 14.0,
+        "row_pair_px": 34.0,
+        "pitch_over_pair": 0.412,
+        "column_offset_star": 0.5,
+        "row_peak": 0.47,
+        "next_row_peak": 0.368,
+        "blob_isotropy": 0.556,
+        "diagonal_fraction": 0.564,
+        "return_row_contrast": 1.287,
+        "failed": [
+         "column_offset"
+        ],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 1.027,
+        "star_pitch_ratio": 0.705,
+        "status": "PASS"
+       },
+       "front_right": {
+        "row_pair_ratio": 1.027,
+        "star_pitch_ratio": 0.759,
+        "status": "PASS"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "buttoned",
+    "expected": [
+     "buttoned",
+     "closed_other",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 5,
+    "expected": [
+     "5"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "star_stitch"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood": {
+    "status": "PASS",
+    "got": "attached_hood",
+    "expected": [
+     "attached_hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood_edge": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain",
+     "ribbed_band"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "cluster_rows_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "body_ridge_direction": {
+    "status": "PASS",
+    "got": "horizontal",
+    "expected": [
+     "horizontal",
+     "none"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": [
+     "buttons",
+     "hood"
+    ],
+    "expected": [
+     "buttons",
+     "hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "buttoned",
+   "closure_count": 5,
+   "front_band": "none",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 0,
+   "pocket_position": "none",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "extra_features": [
+    "hood",
+    "buttons"
+   ],
+   "handmade_crochet": true,
+   "hood": "attached_hood",
+   "hood_edge": "ribbed_band",
+   "notes": "The texture is made of horizontal ridges."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "front_band",
+    "texture",
+    "silhouette",
+    "proportions",
+    "star_identity"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  }
+ },
+ "g3pro_2": {
+  "mode": "g3pro",
+  "draw": 2,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "389bd7f24fd2cc7ece0af23a65770bd8dada872ae9e6a09fdde70f9e9a298230",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou_aligned": 0.622,
+      "alignment": {
+       "scale": 1.0970020220527499,
+       "shift_px": [
+        -60.86213929470114,
+        -47.83691690032697
+       ],
+       "iou": 0.6220004097173657
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.775,
+      "drift": 0.118
+     }
+    },
+    "sleeve_span": {
+     "status": "FAIL",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 0.912,
+      "drift": 0.2
+     }
+    },
+    "buttons": {
+     "status": "FAIL",
+     "evidence": {
+      "count": 0,
+      "expected": 5,
+      "blobs_px": [],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.717
+     }
+    },
+    "star_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "identity": "FAIL",
+      "gauge": "FAIL",
+      "panels": {
+       "front_left": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.983,
+         "star_pitch_ratio": 0.635,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 11.7,
+        "row_pair_px": 32.55,
+        "pitch_over_pair": 0.36,
+        "column_offset_star": 0.102,
+        "row_peak": 0.517,
+        "next_row_peak": 0.33,
+        "blob_isotropy": 0.564,
+        "diagonal_fraction": 0.556,
+        "return_row_contrast": 1.479,
+        "failed": [
+         "pitch_over_pair"
+        ],
+        "why": null
+       },
+       "front_right": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 0.618,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 11.4,
+        "row_pair_px": 32.98,
+        "pitch_over_pair": 0.346,
+        "column_offset_star": 0.169,
+        "row_peak": 0.383,
+        "next_row_peak": 0.268,
+        "blob_isotropy": 0.566,
+        "diagonal_fraction": 0.518,
+        "return_row_contrast": 1.19,
+        "failed": [
+         "pitch_over_pair",
+         "return_row_contrast"
+        ],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 0.983,
+        "star_pitch_ratio": 0.635,
+        "status": "FAIL"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 0.618,
+        "status": "FAIL"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "buttoned",
+    "expected": [
+     "buttoned",
+     "closed_other",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "FAIL",
+    "got": 4,
+    "expected": [
+     "5"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "smooth",
+    "expected": [
+     "star_stitch"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood": {
+    "status": "PASS",
+    "got": "attached_hood",
+    "expected": [
+     "attached_hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood_edge": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "plain",
+     "ribbed_band"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "cluster_rows_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "horizontal"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "PASS",
+    "got": "horizontal",
+    "expected": [
+     "horizontal",
+     "none"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": [
+     "buttons",
+     "hood"
+    ],
+    "expected": [
+     "buttons",
+     "hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "buttoned",
+   "closure_count": 4,
+   "front_band": "none",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 0,
+   "pocket_position": "none",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "smooth",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "beige",
+   "extra_features": [
+    "hood",
+    "buttons"
+   ],
+   "handmade_crochet": true,
+   "hood": "attached_hood",
+   "hood_edge": "none",
+   "cluster_rows_direction": "none",
+   "notes": "The texture is composed of basic horizontal rows of crochet stitches, and the sleeves show prominent ridge lines running lengthwise along the arm."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "front_band",
+    "texture",
+    "silhouette",
+    "proportions",
+    "sleeve_span",
+    "buttons",
+    "star_identity",
+    "star_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  }
+ },
+ "g3pro_3": {
+  "mode": "g3pro",
+  "draw": 3,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "8675eb154df998ef2a46e96fdc68995e7a88ddf528b2df55dcf1049ccef984d2",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.912,
+      "alignment": {
+       "scale": 1.0025009618773078,
+       "shift_px": [
+        -2.0466902620086103,
+        -2.846373486817697
+       ],
+       "iou": 0.9122944182766396
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.87,
+      "drift": 0.009
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 1.148,
+      "drift": 0.007
+     }
+    },
+    "buttons": {
+     "status": "FAIL",
+     "evidence": {
+      "count": 6,
+      "expected": 5,
+      "blobs_px": [
+       [
+        765,
+        631,
+        784
+       ],
+       [
+        766,
+        696,
+        808
+       ],
+       [
+        766,
+        761,
+        812
+       ],
+       [
+        766,
+        825,
+        802
+       ],
+       [
+        766,
+        889,
+        886
+       ],
+       [
+        767,
+        944,
+        905
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.758
+     }
+    },
+    "star_identity": {
+     "status": "PASS",
+     "evidence": {
+      "identity": "PASS",
+      "gauge": "PASS",
+      "panels": {
+       "front_left": {
+        "status": "PASS",
+        "identity": "PASS",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 1.03,
+         "status": "PASS"
+        },
+        "star_pitch_px": 19.0,
+        "row_pair_px": 33.0,
+        "pitch_over_pair": 0.576,
+        "column_offset_star": 0.0,
+        "row_peak": 0.536,
+        "next_row_peak": 0.598,
+        "blob_isotropy": 0.558,
+        "diagonal_fraction": 0.541,
+        "return_row_contrast": 1.449,
+        "failed": [],
+        "why": null
+       },
+       "front_right": {
+        "status": "PASS",
+        "identity": "PASS",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 1.03,
+         "status": "PASS"
+        },
+        "star_pitch_px": 19.0,
+        "row_pair_px": 33.0,
+        "pitch_over_pair": 0.576,
+        "column_offset_star": 0.0,
+        "row_peak": 0.578,
+        "next_row_peak": 0.518,
+        "blob_isotropy": 0.559,
+        "diagonal_fraction": 0.566,
+        "return_row_contrast": 1.302,
+        "failed": [],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 1.03,
+        "status": "PASS"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 1.03,
+        "status": "PASS"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "buttoned",
+    "expected": [
+     "buttoned",
+     "closed_other",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "FAIL",
+    "got": 6,
+    "expected": [
+     "5"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "plain_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed_all_over",
+    "expected": [
+     "star_stitch"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood": {
+    "status": "PASS",
+    "got": "attached_hood",
+    "expected": [
+     "attached_hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood_edge": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain",
+     "ribbed_band"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "cluster_rows_direction": {
+    "status": "PASS",
+    "got": "horizontal",
+    "expected": [
+     "horizontal"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "PASS",
+    "got": "horizontal",
+    "expected": [
+     "horizontal",
+     "none"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": [
+     "buttons",
+     "hood"
+    ],
+    "expected": [
+     "buttons",
+     "hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "buttoned",
+   "closure_count": 6,
+   "front_band": "plain_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 0,
+   "pocket_position": "none",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "ribbed_all_over",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "extra_features": [
+    "hood",
+    "buttons"
+   ],
+   "handmade_crochet": true,
+   "hood": "attached_hood",
+   "hood_edge": "ribbed_band",
+   "cluster_rows_direction": "horizontal",
+   "notes": "The texture on the body has horizontal ridges while the sleeves and hood have vertical ridges."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "buttons"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  }
+ },
+ "g3pro_4": {
+  "mode": "g3pro",
+  "draw": 4,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "b600ea69f4ab22aa9a40b49a29127f236003b8752767c6debb61ff13b775dfb1",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.845,
+      "alignment": {
+       "scale": 1.0042717687572804,
+       "shift_px": [
+        -6.026804211387912,
+        -6.474015800499615
+       ],
+       "iou": 0.8451065033411868
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.7,
+      "drift": 0.202
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 1.198,
+      "drift": 0.05
+     }
+    },
+    "buttons": {
+     "status": "FAIL",
+     "evidence": {
+      "count": 6,
+      "expected": 5,
+      "blobs_px": [
+       [
+        764,
+        626,
+        872
+       ],
+       [
+        763,
+        691,
+        883
+       ],
+       [
+        763,
+        757,
+        840
+       ],
+       [
+        763,
+        821,
+        839
+       ],
+       [
+        763,
+        885,
+        926
+       ],
+       [
+        766,
+        942,
+        918
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.775
+     }
+    },
+    "star_identity": {
+     "status": "PASS",
+     "evidence": {
+      "identity": "PASS",
+      "gauge": "PASS",
+      "panels": {
+       "front_left": {
+        "status": "PASS",
+        "identity": "PASS",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 0.976,
+         "status": "PASS"
+        },
+        "star_pitch_px": 18.0,
+        "row_pair_px": 33.0,
+        "pitch_over_pair": 0.545,
+        "column_offset_star": 0.0,
+        "row_peak": 0.809,
+        "next_row_peak": 0.76,
+        "blob_isotropy": 0.57,
+        "diagonal_fraction": 0.506,
+        "return_row_contrast": 2.093,
+        "failed": [],
+        "why": null
+       },
+       "front_right": {
+        "status": "PASS",
+        "identity": "PASS",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 1.03,
+         "status": "PASS"
+        },
+        "star_pitch_px": 19.0,
+        "row_pair_px": 33.0,
+        "pitch_over_pair": 0.576,
+        "column_offset_star": 0.0,
+        "row_peak": 0.776,
+        "next_row_peak": 0.749,
+        "blob_isotropy": 0.568,
+        "diagonal_fraction": 0.502,
+        "return_row_contrast": 2.055,
+        "failed": [],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 0.976,
+        "status": "PASS"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 1.03,
+        "status": "PASS"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "buttoned",
+    "expected": [
+     "buttoned",
+     "closed_other",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "FAIL",
+    "got": 6,
+    "expected": [
+     "5"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "star_stitch",
+    "expected": [
+     "star_stitch"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood": {
+    "status": "PASS",
+    "got": "attached_hood",
+    "expected": [
+     "attached_hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hood_edge": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain",
+     "ribbed_band"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "cluster_rows_direction": {
+    "status": "PASS",
+    "got": "horizontal",
+    "expected": [
+     "horizontal"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "horizontal",
+     "none"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": [
+     "buttons",
+     "hood"
+    ],
+    "expected": [
+     "buttons",
+     "hood"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "buttoned",
+   "closure_count": 6,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 0,
+   "pocket_position": "none",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "star_stitch",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "extra_features": [
+    "hood",
+    "buttons"
+   ],
+   "handmade_crochet": true,
+   "hood": "attached_hood",
+   "hood_edge": "ribbed_band",
+   "cluster_rows_direction": "horizontal",
+   "notes": "The texture is rows of small eyelets or star clusters."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "proportions",
+    "buttons"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  }
+ },
+ "g3pro_5": {
+  "mode": "g3pro",
+  "draw": 5,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "96e9a66c4e7655c72e72164156922e78e64b445bd2f427922877cd68f875f47c",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.839,
+      "alignment": {
+       "scale": 1.0396793436229192,
+       "shift_px": [
+        -26.37531823391555,
+        -22.884050907472215
+       ],
+       "iou": 0.8390363973169349
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.967,
+      "drift": 0.101
+     }
+    },
+    "sleeve_span": {
+     "status": "FAIL",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 0.999,
+      "drift": 0.124
+     }
+    },
+    "buttons": {
+     "status": "PASS",
+     "evidence": {
+      "count": 5,
+      "expected": 5,
+      "blobs_px": [
+       [
+        776,
+        630,
+        743
+       ],
+       [
+        777,
+        695,
+        898
+       ],
+       [
+        777,
+        762,
+        878
+       ],
+       [
+        776,
+        831,
+        892
+       ],
+       [
+        776,
+        899,
+        1006
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.809
+     }
+    },
+    "star_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "identity": "FAIL",
+      "gauge": "FAIL",
+      "panels": {
+       "front_left": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 1.027,
+         "star_pitch_ratio": 0.542,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 10.0,
+        "row_pair_px": 34.0,
+        "pitch_over_pair": 0.294,
+        "column_offset_star": 0.1,
+        "row_peak": 0.279,
+        "next_row_peak": 0.204,
+        "blob_isotropy": 0.575,
+        "diagonal_fraction": 0.465,
+        "return_row_contrast": 2.138,
+        "failed": [
+         "pitch_over_pair"
+        ],
+        "why": null
+       },
+       "front_right": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.513,
+         "star_pitch_ratio": 0.597,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 11.0,
+        "row_pair_px": 17.0,
+        "pitch_over_pair": 0.647,
+        "column_offset_star": 0.455,
+        "row_peak": 0.17,
+        "next_row_peak": 0.203,
+        "blob_isotropy": 0.572,
+        "diagonal_fraction": 0.503,
+        "return_row_contrast": 1.51,
+        "failed": [
+         "column_offset"
+        ],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 1.027,
+        "star_pitch_ratio": 0.542,
+        "status": "FAIL"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.513,
+        "star_pitch_ratio": 0.597,
+        "status": "FAIL"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "front": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "closure_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "front_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hem_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "cuffs": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_position": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "sleeve_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "body_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "texture": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood_edge": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "cluster_rows_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "body_ridge_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "colour_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "extra_features": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "handmade_crochet": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   }
+  },
+  "reader_answers": null,
+  "judge": null,
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "proportions",
+    "sleeve_span",
+    "star_identity",
+    "star_gauge"
+   ],
+   "unknown_material": [
+    "product_type",
+    "front",
+    "front_band",
+    "hem_band",
+    "cuffs",
+    "pocket_count",
+    "pocket_position",
+    "sleeve_length",
+    "body_length",
+    "texture",
+    "hood",
+    "colour_count",
+    "extra_features"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": [],
+   "blocked": "reader and judge could not run: OpenAI and Google credit exhausted (see manifest blockers)"
+  }
+ },
+ "g3pro_6": {
+  "mode": "g3pro",
+  "draw": 6,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "6732f958e8c19353135f028c87d4cedb3f588205152494a0158e165e29e538e2",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.875,
+      "alignment": {
+       "scale": 1.0139264873758052,
+       "shift_px": [
+        -9.146499554432012,
+        -12.747792294193573
+       ],
+       "iou": 0.8745636143651044
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.866,
+      "drift": 0.014
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 1.149,
+      "drift": 0.008
+     }
+    },
+    "buttons": {
+     "status": "FAIL",
+     "evidence": {
+      "count": 6,
+      "expected": 5,
+      "blobs_px": [
+       [
+        768,
+        628,
+        775
+       ],
+       [
+        768,
+        698,
+        626
+       ],
+       [
+        767,
+        764,
+        719
+       ],
+       [
+        768,
+        830,
+        777
+       ],
+       [
+        768,
+        894,
+        762
+       ],
+       [
+        770,
+        948,
+        933
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.734
+     }
+    },
+    "star_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "identity": "FAIL",
+      "gauge": "PASS",
+      "panels": {
+       "front_left": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.966,
+         "star_pitch_ratio": 1.032,
+         "status": "PASS"
+        },
+        "star_pitch_px": 19.03,
+        "row_pair_px": 32.01,
+        "pitch_over_pair": 0.594,
+        "column_offset_star": 0.036,
+        "row_peak": 0.741,
+        "next_row_peak": 0.528,
+        "blob_isotropy": 0.55,
+        "diagonal_fraction": 0.506,
+        "return_row_contrast": 1.191,
+        "failed": [
+         "return_row_contrast"
+        ],
+        "why": null
+       },
+       "front_right": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.996,
+         "star_pitch_ratio": 0.976,
+         "status": "PASS"
+        },
+        "star_pitch_px": 18.0,
+        "row_pair_px": 33.0,
+        "pitch_over_pair": 0.545,
+        "column_offset_star": 0.056,
+        "row_peak": 0.685,
+        "next_row_peak": 0.608,
+        "blob_isotropy": 0.543,
+        "diagonal_fraction": 0.507,
+        "return_row_contrast": 1.343,
+        "failed": [
+         "blob_isotropy"
+        ],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 0.966,
+        "star_pitch_ratio": 1.032,
+        "status": "PASS"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.996,
+        "star_pitch_ratio": 0.976,
+        "status": "PASS"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "front": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "closure_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "front_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hem_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "cuffs": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_position": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "sleeve_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "body_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "texture": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood_edge": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "cluster_rows_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "body_ridge_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "colour_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "extra_features": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "handmade_crochet": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   }
+  },
+  "reader_answers": null,
+  "judge": null,
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "buttons",
+    "star_identity"
+   ],
+   "unknown_material": [
+    "product_type",
+    "front",
+    "front_band",
+    "hem_band",
+    "cuffs",
+    "pocket_count",
+    "pocket_position",
+    "sleeve_length",
+    "body_length",
+    "texture",
+    "hood",
+    "colour_count",
+    "extra_features"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": [],
+   "blocked": "reader and judge could not run: OpenAI and Google credit exhausted (see manifest blockers)"
+  }
+ },
+ "g3pro_7": {
+  "mode": "g3pro",
+  "draw": 7,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "062c8ed6e735fd417ba1b746e34ac039866891eb35965b218e9f358c1f9bc72e",
+  "usd_generation": 0.24,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.898,
+      "alignment": {
+       "scale": 1.014153610112789,
+       "shift_px": [
+        -8.904513782864,
+        -13.14931475270339
+       ],
+       "iou": 0.8979401844803826
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.878,
+      "aspect_gen": 0.867,
+      "drift": 0.013
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.14,
+      "gen": 1.14,
+      "drift": 0.0
+     }
+    },
+    "buttons": {
+     "status": "PASS",
+     "evidence": {
+      "count": 5,
+      "expected": 5,
+      "blobs_px": [
+       [
+        766,
+        628,
+        789
+       ],
+       [
+        766,
+        696,
+        695
+       ],
+       [
+        766,
+        760,
+        875
+       ],
+       [
+        766,
+        826,
+        948
+       ],
+       [
+        767,
+        894,
+        892
+       ]
+      ],
+      "reference_button_area_px": 754.8,
+      "garment_value": 0.77
+     }
+    },
+    "star_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "identity": "FAIL",
+      "gauge": "FAIL",
+      "panels": {
+       "front_left": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.513,
+         "star_pitch_ratio": 0.597,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 11.0,
+        "row_pair_px": 17.0,
+        "pitch_over_pair": 0.647,
+        "column_offset_star": 0.0,
+        "row_peak": 0.475,
+        "next_row_peak": 0.276,
+        "blob_isotropy": 0.555,
+        "diagonal_fraction": 0.476,
+        "return_row_contrast": 1.122,
+        "failed": [
+         "return_row_contrast"
+        ],
+        "why": null
+       },
+       "front_right": {
+        "status": "FAIL",
+        "identity": "FAIL",
+        "gauge": {
+         "row_pair_ratio": 0.483,
+         "star_pitch_ratio": 0.597,
+         "status": "FAIL"
+        },
+        "star_pitch_px": 11.0,
+        "row_pair_px": 16.0,
+        "pitch_over_pair": 0.688,
+        "column_offset_star": 0.0,
+        "row_peak": 0.478,
+        "next_row_peak": 0.202,
+        "blob_isotropy": 0.559,
+        "diagonal_fraction": 0.461,
+        "return_row_contrast": 1.074,
+        "failed": [
+         "return_row_contrast"
+        ],
+        "why": null
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      },
+      "rule": "both front panels must PASS identity and gauge; UNKNOWN blocks"
+     }
+    },
+    "star_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "panels": {
+       "front_left": {
+        "row_pair_ratio": 0.513,
+        "star_pitch_ratio": 0.597,
+        "status": "FAIL"
+       },
+       "front_right": {
+        "row_pair_ratio": 0.483,
+        "star_pitch_ratio": 0.597,
+        "status": "FAIL"
+       }
+      },
+      "expected_px": {
+       "star": 18.44,
+       "row_pair": 33.12
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "front": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "closure_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "front_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hem_band": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "cuffs": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "pocket_position": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "sleeve_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "body_length": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "texture": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "hood_edge": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "cluster_rows_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "body_ridge_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   },
+   "colour_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "extra_features": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": true
+   },
+   "handmade_crochet": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "BLOCKED: no provider with credit (reader could not run)",
+    "material": false
+   }
+  },
+  "reader_answers": null,
+  "judge": null,
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "star_identity",
+    "star_gauge"
+   ],
+   "unknown_material": [
+    "product_type",
+    "front",
+    "front_band",
+    "hem_band",
+    "cuffs",
+    "pocket_count",
+    "pocket_position",
+    "sleeve_length",
+    "body_length",
+    "texture",
+    "hood",
+    "colour_count",
+    "extra_features"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, sleeve span, button count, star identity, star gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": [],
+   "blocked": "reader and judge could not run: OpenAI and Google credit exhausted (see manifest blockers)"
+  }
+ }
+}

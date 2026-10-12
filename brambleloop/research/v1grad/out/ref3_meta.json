@@ -1,0 +1,87 @@
+{
+ "slug": "heirloom-cable-blanket",
+ "size_px": [
+  1536,
+  1024
+ ],
+ "px_per_cm": 14.2376,
+ "cell_px": [
+  8.899,
+  15.03
+ ],
+ "expected_px": {
+  "cable_column_pitch": 71.19,
+  "crossing_period": 60.12,
+  "cable_width": 35.59
+ },
+ "throw_box_px": [
+  127.3,
+  51.2,
+  1408.7,
+  972.8
+ ],
+ "dimensions_cm": {
+  "width": 90.0,
+  "height": 64.73,
+  "aspect_h_over_w": 1.4322
+ },
+ "regions": {
+  "cable_column": 2,
+  "channel": 3,
+  "foundation_row": 4
+ },
+ "region_pixels": {
+  "cable_column": 584960,
+  "channel": 586788,
+  "foundation_row": 10256
+ },
+ "counts": {
+  "cells_drawn": 8784,
+  "rows_drawn": 61,
+  "crossings_drawn": 270,
+  "rows_visible": 61,
+  "crossing_rows_visible": 15
+ },
+ "conventions_DECLARED": {
+  "view": "flat lay, straight on, the throw folded in half across its length with the upper half tucked underneath; the lower half (rows 1-61) is the visible face, the fold is the top edge",
+  "folded": true,
+  "surface_rgb": [
+   66,
+   66,
+   70
+  ],
+  "front_pair": "left",
+  "fill": 0.9,
+  "relief_units": {
+   "fpdc": 1.0,
+   "bpdc": -0.5,
+   "cable2x2": 1.2,
+   "sc": 0.0
+  },
+  "contrast": 1.0,
+  "relief_gain": 4.0
+ },
+ "colour": {
+  "yarn_rgb": [
+   250,
+   246,
+   235
+  ],
+  "basis": "the CIR's own colour hex (#FAF6EB cream)"
+ },
+ "inputs": {
+  "product_truth_sha256": "cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808",
+  "cir_fingerprint": "33da2708f35c"
+ },
+ "validation": {
+  "every_cell_drawn": true,
+  "every_row_drawn": true,
+  "crossings_drawn_equals_truth": true,
+  "every_region_present": true,
+  "drawn_extent_cm": [
+   90.0,
+   64.73
+  ],
+  "extent_matches_truth": true
+ }
+}

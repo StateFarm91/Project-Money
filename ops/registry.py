@@ -116,7 +116,12 @@ import board as B                                                      # noqa: E
 
 # Beside `ops/LOCK`, and untracked for the same reason: it names machine-local paths. It
 # survives a container restart because the checkout does; that is the whole requirement.
-REGISTRY = _HERE / "JOBS.json"
+REGISTRY = Path(os.environ.get("BRAMBLELOOP_JOB_REGISTRY") or (_HERE / "JOBS.json"))
+# F-342: every enrolled job says whether it IS the workload or merely WATCHES one. A query for
+# the workload (`workloads`) never returns an observer, and an observer's marker must differ
+# from the workload's, so neither the observer nor its shell can satisfy a liveness probe for
+# the work it watches.
+ROLES = ("work", "observer")
 
 # The branch every lane is integrated into. Recorded per job so it cannot silently change
 # underneath an old record.
@@ -288,6 +293,89 @@ def integration_state(rec: dict, git) -> dict:
             "why": "no branch and no merge commit were recorded for this lane"}
 
 
+def merge_delay(rec: dict, git) -> dict:
+    """F-489: seconds from a lane's last commit to the commit that integrated it.
+
+    Asked of git, like `integration_state`: the lane's tip commit time against the recorded
+    merge commit, or else the first merge on the integration ref's ancestry path that contains
+    the tip. None with the reason when either end cannot be established -- a lane still out of
+    the branch has no merge delay yet, which is different from a delay of zero.
+    """
+    state = integration_state(rec, git)
+    if not state.get("integrated"):
+        return {"seconds": None, "why": f"not integrated: {state.get('status')}"}
+    ref = state.get("ref") or INTEGRATION_REF
+    branch = rec.get("branch")
+    tip = None
+    if branch:
+        code, out = git("rev-parse", "--verify", f"{branch}^{{commit}}")
+        tip = out if code == 0 else None
+    recorded = (rec.get("integrated") or {}).get("commit")
+    merge = recorded
+    if merge is None and tip:
+        code, out = git("log", "--merges", "--ancestry-path", "--reverse", "--format=%H",
+                        f"{tip}..{ref}")
+        merge = out.splitlines()[0] if code == 0 and out else None
+    if not tip or not merge:
+        return {"seconds": None,
+                "why": "the lane tip or its merge commit cannot be identified in git"}
+    c1, t_tip = git("log", "-1", "--format=%ct", tip)
+    c2, t_merge = git("log", "-1", "--format=%ct", merge)
+    if c1 != 0 or c2 != 0 or not t_tip.isdigit() or not t_merge.isdigit():
+        return {"seconds": None, "why": "commit times unreadable"}
+    return {"seconds": max(0, int(t_merge) - int(t_tip)), "tip": tip, "merge": merge,
+            "why": "integration commit time minus lane tip commit time"}
+
+
+class OwnershipConflict(ValueError):
+    """Two live lanes claiming overlapping paths (F-457)."""
+
+    def __init__(self, clashes: list[dict]):
+        self.clashes = clashes
+        super().__init__("; ".join(
+            f"{c['path']} overlaps {c['other_path']} owned by live lane {c['lane']!r}"
+            for c in clashes[:5]))
+
+
+def _literal_prefix(pattern: str) -> str:
+    """The part of a path pattern before its first wildcard."""
+    cut = len(pattern)
+    for ch in "*?[":
+        i = pattern.find(ch)
+        if i != -1:
+            cut = min(cut, i)
+    return pattern[:cut]
+
+
+def paths_overlap(a: str, b: str) -> bool:
+    """Conservative: two manifests overlap when either one's literal prefix contains the
+    other's, path-segment aware (`src/a` does not overlap `src/ab`)."""
+    pa, pb = _literal_prefix(a).rstrip("/"), _literal_prefix(b).rstrip("/")
+    if not pa or not pb:
+        return True  # a bare wildcard owns everything
+
+    def under(x, y):  # x is y or inside y
+        return x == y or x.startswith(y + "/") or (y.endswith("/") and x.startswith(y))
+
+    wild_a, wild_b = pa != a.rstrip("/"), pb != b.rstrip("/")
+    if under(pa, pb) or under(pb, pa):
+        return True
+    # A wildcard mid-segment ("src/a*") also covers names that extend the prefix.
+    return (wild_a and pb.startswith(pa)) or (wild_b and pa.startswith(pb))
+
+
+def ownership_conflicts(data: dict, name: str, owns: list[str]) -> list[dict]:
+    out = []
+    for other, rec in (data.get("jobs") or {}).items():
+        if other == name or rec.get("role", "work") != "work" or rec.get("integrated"):
+            continue
+        for p in owns:
+            for q in rec.get("owns") or []:
+                if paths_overlap(p, q):
+                    out.append({"path": p, "other_path": q, "lane": other})
+    return out
+
+
 # --- the registry ----------------------------------------------------------------------------
 class Registry:
     """A JSON file and the functions that read and write it. That is the whole mechanism."""
@@ -324,16 +412,39 @@ class Registry:
 
     # -- writing ------------------------------------------------------------------------
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
-              integration_ref: str = INTEGRATION_REF) -> dict:
+              integration_ref: str = INTEGRATION_REF, role: str = "work",
+              watches: str | None = None, owns: tuple[str, ...] | list[str] = ()) -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
         is captured here and not at read time.
+
+        F-457 (ownership boundaries): `owns` is the lane's path manifest (repository paths or
+        globs). Enrolment -- the pre-dispatch moment -- refuses a manifest that overlaps a live
+        lane's, so two lanes cannot be dispatched onto the same files. A lane is live until
+        its work is integrated or the record is forgotten.
         """
+        if role not in ROLES:
+            raise ValueError(f"role must be one of {ROLES}, not {role!r}")
         data = self.load()
+        owns = [str(p).strip()[2:] if str(p).strip().startswith("./") else str(p).strip()
+                for p in owns or () if str(p).strip()]
+        if owns and role == "work":
+            clash = ownership_conflicts(data, job.name, owns)
+            if clash:
+                raise OwnershipConflict(clash)
+        if role == "observer":
+            target = data["jobs"].get(watches or "")
+            if target is None:
+                raise ValueError("an observer must name the enrolled job it watches")
+            if job.marker and job.marker == target.get("marker"):
+                raise ValueError("an observer cannot carry its workload's marker: a liveness "
+                                 "probe for the work would then be satisfied by the observer")
         prior = data["jobs"].get(job.name, {})
         rec = {
             "name": job.name,
+            "role": role,
+            "watches": watches if role == "observer" else None,
             "lane": lane or prior.get("lane", ""),
             "log": str(job.log),
             "terminal": job.terminal.pattern,
@@ -349,6 +460,7 @@ class Registry:
             "branch": branch if branch is not None else prior.get("branch"),
             "integration_ref": integration_ref,
             "enrolled_utc": utc(),
+            "owns": owns or prior.get("owns") or [],
             # A re-enrolment is a new run of the lane; an old acknowledgement or merge would
             # otherwise be inherited by work it never saw.
             "acknowledged": None,
@@ -357,6 +469,11 @@ class Registry:
         data["jobs"][job.name] = rec
         self._save(data)
         return rec
+
+    def workloads(self) -> list[str]:
+        """Names of jobs that ARE work. Records written before roles existed count as work."""
+        return sorted(n for n, r in self.load()["jobs"].items()
+                      if r.get("role", "work") == "work")
 
     def forget(self, name: str) -> bool:
         data = self.load()
@@ -514,6 +631,7 @@ class Registry:
         base = {
             "job": rec["name"],
             "lane": rec.get("lane", ""),
+            "role": rec.get("role", "work"),
             "evidence_path": rec["log"],
             "evidence_present": job.log.exists(),
             "same_host": here,
@@ -609,12 +727,55 @@ def survey(path: Path | str = REGISTRY, **kw) -> dict:
     return Registry(path).survey(**kw)
 
 
+def ack_and_account(reg: "Registry", name: str, *, waiter=None) -> dict:
+    """Acknowledge `name` and account its idle gap (F-344), exactly as `waiter.py ack` does.
+
+    Imported lazily: `waiter` imports this module. A waiter that cannot be built still lets
+    the acknowledgement through, and says the gap went unaccounted.
+    """
+    if waiter is None:
+        try:
+            import waiter as W
+
+            waiter = W.Waiter(registry=reg)
+        except Exception as exc:  # noqa: BLE001
+            out = reg.acknowledge(name)
+            out["idle"] = {"accounted": False, "why": f"waiter unavailable: {exc}"[:200]}
+            return out
+    return waiter.ack(name)
+
+
+def reliability_lines(*, ledger=None, waste: dict | None = None) -> list[str]:
+    """Open reliability incidents and the week's time waste, for the board (F-344, F-350)."""
+    try:
+        import incidents as I
+
+        if waste is None:
+            import waiter as W
+
+            waste = W.Waiter().waste_report(7)
+        return I.board_lines(ledger, waste)
+    except Exception as exc:  # noqa: BLE001 - the board must not fail on its own accounting
+        return [f"reliability ledger unavailable ({type(exc).__name__}); NOT checked"]
+
+
 def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
+    argv = list(argv)
+    opts = {}
+    for flag in ("--role", "--watches", "--owns"):
+        if flag in argv:
+            i = argv.index(flag)
+            if i + 1 >= len(argv):
+                print(f"{flag} needs a value")
+                return 2
+            opts[flag[2:]] = argv[i + 1]
+            del argv[i:i + 2]
     cmd = argv[1] if len(argv) > 1 else "survey"
-    reg = Registry()
+    reg = Registry(Path(os.environ.get("BRAMBLELOOP_JOB_REGISTRY") or REGISTRY))
     if cmd == "survey":
         out = reg.survey()
+        out["reliability"] = reliability_lines()
         print(json.dumps(out, indent=2, sort_keys=True))
         return 1 if out["needs_attention"] else 0
     if cmd == "enrol" and len(argv) >= 4:
@@ -622,12 +783,21 @@ def _cli(argv: list[str]) -> int:
         lane = argv[4] if len(argv) > 4 else ""
         branch = argv[5] if len(argv) > 5 else None
         marker = argv[6] if len(argv) > 6 else ""
-        rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
-                        branch=branch)
+        try:
+            rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
+                            branch=branch, role=opts.get("role", "work"),
+                            watches=opts.get("watches"),
+                            owns=[p for p in (opts.get("owns") or "").split(",") if p])
+        except ValueError as exc:
+            print(f"refused: {exc}")
+            return 2
         print(json.dumps(rec, indent=2, sort_keys=True))
         return 0
     if cmd == "ack" and len(argv) >= 3:
-        print(json.dumps(reg.acknowledge(argv[2]), indent=2, sort_keys=True))
+        # F-344: the heartbeat's ack (step 3) accounts the lane's idle wall-clock too, through
+        # the waiter -- acknowledging here used to record the ack and forget the gap.
+        print(json.dumps(ack_and_account(reg, argv[2]), indent=2, sort_keys=True,
+                         default=str))
         return 0
     if cmd == "integrate" and len(argv) >= 4:
         print(json.dumps(reg.integrate(argv[2], argv[3]), indent=2, sort_keys=True))
@@ -636,7 +806,11 @@ def _cli(argv: list[str]) -> int:
         print("forgotten" if reg.forget(argv[2]) else "not enrolled")
         return 0
     print(__doc__.strip().splitlines()[0])
-    print("usage: registry.py [survey | enrol <name> <log> [lane] [branch] [marker] | "
+    if cmd == "workloads":
+        print(json.dumps(reg.workloads(), indent=2))
+        return 0
+    print("usage: registry.py [survey | workloads | enrol <name> <log> [lane] [branch] "
+          "[marker] [--role work|observer] [--watches <job>] [--owns path,glob,...] | "
           "ack <name> | integrate <name> <commit> | forget <name>]")
     return 2
 

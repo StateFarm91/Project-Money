@@ -1,0 +1,686 @@
+[
+ {
+  "id": "CB2-P01",
+  "codex_claim": "FIXED: Reopened status is overridden by executor gate membership. C-74 classify gives explicit PARTIAL/no parked_on precedence over executor membership. All 60 reopened-row controls pass again at 2e66b3a; this repairs the specific C-65 hiding defect, not semantic proof.",
+  "classification": "FIXED",
+  "evidence": "C-74 (BUILD2_CERTIFICATION.md). closure.classify parks a partial row only on its own explicit parked_on. classify/gate_for AST-identical 2198861->HEAD.",
+  "current_code_ref": "brambleloop/src/brambleloop/build2/closure.py:117 classify",
+  "reproduction": "cd /home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop && PYTHONPATH=src /home/user/Project-Money/brambleloop/.venv/bin/python tests/test_closure.py -> 27 passing, 0 failing incl. 'a reopened partial row the gate table still lists is OPEN, not parked' and 'no reopened row without an explicit park is counted as gated (the C-65/P01 twenty)' (/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_closure.out)",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P02",
+  "codex_claim": "STILL PRESENT: Module reachability is mistaken for requirement proof. proof_of still accepts module existence, named/imported tests and at least one reached module. It does not bind a requirement to the required output, consumer or action. No actual test execution receipt is required by this Boolean.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "proof_of unchanged (AST-identical): proven = bool(existing) and (tested or tests named) and bool(reached). No output/consumer/action binding and no executed-test receipt. Not repaired by any C-entry; C-86's independent 320-row audit is a one-off human/agent audit, not a property of the Boolean. Confidence HIGH (static, by design).",
+  "current_code_ref": "brambleloop/src/brambleloop/build2/closure.py:93-114 proof_of",
+  "reproduction": "test_closure.py output at HEAD: '#75: COMPLETE+PROVEN None module visual/parity.py exists and is tested' -- the closure's proof sentence is module existence+test+reach (/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_closure.out)",
+  "next_action": "Owner/integrator decision: either label COMPLETE+PROVEN as 'reachable and tested' (necessary evidence) or add a per-row behavioural proof binding (test id that exercises the row's output/consumer). Not a code defect to patch blindly."
+ },
+ {
+  "id": "CB2-P03",
+  "codex_claim": "FIXED: Unchecked gates can coexist with closed_out. matrix now requires successful live gate reads before closed_out. Three isolated zero-OPEN controls pass at 2e66b3a: missing DB and read failure stay indeterminate; successful live-read control closes.",
+  "classification": "FIXED",
+  "evidence": "C-74. matrix requires zero OPEN with gates read live; matrix changed after cert (b7fecd9/c5a759f graph snapshot work) but the control still passes.",
+  "current_code_ref": "brambleloop/src/brambleloop/build2/closure.py matrix",
+  "reproduction": "test_closure.py at HEAD: 'the closeout bar is open == 0 AND gates read live; with no database it is indeterminate, never met (C-65/P03)' OK; matrix closed_out False without db; '/api/closure serves the matrix with gates checked live' OK",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P04",
+  "codex_claim": "STILL PRESENT: Unique-value comparison permits unmeasured or unsupported superiority. compare_advantages still calls an advantage beyond when benchmark best is below MATCHED_AT, without comparing a measured score of this release. Latest Platform verification explicitly confirms this limitation.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "compare_advantages unchanged (AST-identical). Verdict 'beyond' needs only benchmark best < MATCHED_AT (5); the function takes no measured score of this release. C-86 reclassified #163 to partial parked on benchmark_purchases (requirements.json #163 partial/benchmark_purchases), so it no longer supports a COMPLETE claim, but check_unique_value still consumes this verdict. Confidence HIGH.",
+  "current_code_ref": "brambleloop/src/brambleloop/teardown/lab.py:387-410 compare_advantages",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro1.py case P04 (lab._class_composite patched to best=3 on every dimension): compare_advantages(None,['deterministic_validation'],'blanket') -> beyond=['deterministic_validation'], verdict state 'beyond' 'the best purchased benchmark scores 3 on pattern_correctness_evidence'; no product score input exists",
+  "next_action": "Require a measured score of the release on the same dimension (ours > benchmark best) before 'beyond'; otherwise 'unmeasured'. Keep #163 parked until then."
+ },
+ {
+  "id": "CB2-P05",
+  "codex_claim": "STILL PRESENT: Delight scores are fixed proxies and can use another version. measured_self_scores uses fixed presence-based scores and slug-wide ArtefactProvenance. Latest Platform verification confirms cross-version/proxy issue; this is not measured product delight.",
+  "classification": "SUPERSEDED",
+  "evidence": "Cross-version half FIXED by C-80 defect 16 (lab reads ArtefactProvenance for slug@version only; lab.py:227-232 comment 'C-80 (Codex P05)'). Fixed presence-based scores remain (e.g. put('delivery_packaging', 4 if terms>=2 else 3)), but C-86 reclassified #169 to partial parked on customers (requirements.json #169 partial/customers), i.e. the measured-delight claim was withdrawn rather than met. Proving worker-level tests currently FAIL at HEAD for an unrelated fixture reason: the fixture product no longer certifies (gate.certify outputs granted=False, GAUGE_OUTSIDE_DECLARED_YARN_BAND 16 sc/10cm vs worsted 11-14, gate from 6747ddd, after 019ebf0) so assets.build raises 'no product nordic-forest-mosaic-throw: assets cannot precede certification'. (test_cert_unique_value::test_customization_and_support_are_read_from_this_releases_own_artefacts -> KeyError 'customization'; ::test_delight_is_measured... -> LabRefused 'not a Brambleloop product').",
+  "current_code_ref": "brambleloop/src/brambleloop/teardown/lab.py:207 measured_self_scores; :413 _evidenced_beyond_certificate",
+  "reproduction": "Static read of lab.py:227-232 (slug@version LIKE filter). Proving tests not executable at HEAD (see evidence).",
+  "next_action": "Repair the nordic-forest fixture/gauge conflict so test_cert_unique_value runs again, then re-run it; keep #169 parked on customers."
+ },
+ {
+  "id": "CB2-P06",
+  "codex_claim": "STILL PRESENT: Frame review can clear unjudged, empty or stale evidence. _review_frames promotes described/unjudged to clear; frame_review_state accepts empty frames and keys approvals by slug@version without current bytes. C-80 explicitly records these defects. Source review only; no image API or Visual edit.",
+  "classification": "FIXED",
+  "evidence": "C-80 defects 6/7 (platform2 194ea41, merged). frame_review_state requires non-empty frames, all clear, and frame_shas equal to stored ListingAsset shas; _review_frames keeps unjudged as unjudged (release.py:1088 comment). Proving worker-level tests currently FAIL at HEAD for an unrelated fixture reason: the fixture product no longer certifies (gate.certify outputs granted=False, GAUGE_OUTSIDE_DECLARED_YARN_BAND 16 sc/10cm vs worsted 11-14, gate from 6747ddd, after 019ebf0) so assets.build raises 'no product nordic-forest-mosaic-throw: assets cannot precede certification'.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/release.py:1110-1148 frame_review_state; :1088 _review_frames",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro_p06.py: empty frames review -> reviewed False ('an empty review is not a review'); review with frame_shas {1:'aaa'} but stored ListingAsset sha 'bbb' -> reviewed False, bound_to_stored_frames False. Worker-level tests test_cert_listing_frames::test_unjudged_stays_unjudged... and ::test_a_frame_role_without_a_registered_claim... FAIL at HEAD with ValueError 'no product nordic-forest-mosaic-throw: assets cannot precede certification' (fixture, not this defect)",
+  "next_action": "Fix the test_cert_listing_frames fixture (flagship no longer certifies under the strict gauge gate) and re-run the two worker-level proofs."
+ },
+ {
+  "id": "CB2-P07",
+  "codex_claim": "STILL PRESENT: Polling backoff grows without a new observation. _free_poll_backoff resets next-attempt time from now using the same completed observation tail. C-80 confirms repeated sweeps can extend delay without a new observation.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 5: _free_poll_backoff stores last_counted_job_id; the same tail keeps level and absolute deadline.",
+  "current_code_ref": "brambleloop/src/brambleloop/swarm/orchestrate.py:464-519 _free_poll_backoff (488-496)",
+  "reproduction": "cd /home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop && PYTHONPATH=src /home/user/Project-Money/brambleloop/.venv/bin/python -c (runpy) test_cert_thrash::test_unchanged_free_polling_backs_off_and_progress_lifts_it -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P08",
+  "codex_claim": "STILL PRESENT: New build SHA stands in for changed failure hypothesis. retry_allowed permits the same failed call after any build SHA change; it does not require a relevant changed hypothesis. C-80 confirms the issue.",
+  "classification": "FIXED",
+  "evidence": "C-85 (a711a22): suspension carries a digest of the tripped handler's module source; lifts only when that code changes or the incident resolves.",
+  "current_code_ref": "brambleloop/src/brambleloop/swarm/orchestrate.py:559 retry_allowed; suspended_job_types",
+  "reproduction": "test_cert_thrash::test_a_paid_loop_is_suspended_until_the_hypothesis_changes -> PASS; ::test_a_dead_call_the_breaker_tripped_is_not_redriven_under_the_same_build -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P09",
+  "codex_claim": "BLOCKED FROM DETERMINING: Lane enforcement needs atomic concurrent admission. Lane/claim implementations are present, but this lane has no faithful concurrent multi-worker/Postgres admission trace. Existing isolated controls are insufficient to resolve the original race-risk specification.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Codex BLOCKED (no faithful concurrent trace). share_decision changed by C-80 defect 4 (largest-remainder budgets, measured-share hold). C-11 covers duplicate claims on SQLite threads, not lane-capacity admission under concurrency. No concurrent multi-worker admission trace exists in this run either.",
+  "current_code_ref": "brambleloop/src/brambleloop/swarm/capacity.py share_decision; swarm/orchestrate.py lane_hold; queue/durable.py:244 claim",
+  "reproduction": "Not reproduced (requires concurrent workers; heavy suite running on this machine).",
+  "next_action": "Run N (>=3) Worker threads against one file-backed SQLite (and Postgres if available) with lane-limited job mix; assert per-lane in-flight never exceeds limit and no state where all runnable jobs are held (mutual deferral)."
+ },
+ {
+  "id": "CB2-P10",
+  "codex_claim": "STILL PRESENT: Rebuild completion is not strictly request-bound. Targeted rebuild machinery and G03 slug resolution exist, but completion is not strictly bound to the requested attempt and new fingerprints. Latest Platform verification records this under #172/C-80; not repaired by the scoped-slug fix.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 12: _targeted_rebuild completion requires row.inputs == fingerprints.new and the attempt's stage job; else chain.rebuild_unbound.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/release.py:3586 _targeted_rebuild",
+  "reproduction": "test_cert_rebuild_chain::test_completion_is_not_claimed_for_a_row_this_attempt_did_not_produce -> PASS (53 s)",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P11",
+  "codex_claim": "STILL PRESENT: Escalation plans do not prove distinct rung execution. Escalation rungs still dispatch the same photography job; no distinct input/tool change and durable rung-result progression. C-80 corroborates. No generation was run.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "C-80 defect 8 (d534a0f) built distinct rungs with persisted creative.escalation_result. At HEAD the proving test FAILS: the rung job is enqueued with version '1.0.0' but the handler records its result under the rebuilt CIR's version '1.1.0' (cloudline-baby-blanket redesigned in 6747ddd), so escalation_progress(slug, '1.0.0') reads nothing and the ladder does not advance. Either the test fixture is stale or the photography rung handler ignores job.inputs['version'] (key = f'{slug}@{cir.version}').",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/release.py:7011-7018 (rung handler key uses cir.version); visual/gallery.py:240 escalation_progress",
+  "reproduction": "test_gallery_escalation::test_the_ladder_advances_through_distinct_rungs_from_persisted_results -> FAIL at line 199; instrumented copy prints OUT {'version': '1.1.0', 'slug': 'cloudline-baby-blanket', 'rung': 'regenerate_constrained', 'attempted': True} then PROGRESS {'results': {}, 'attempted': [], 'start_attempt': 0}",
+  "next_action": "Decide whether the rung job must honour its requested version (likely: results must bind to the release that failed parity). If so, load the CIR for job.inputs['version'] or refuse on mismatch; then re-run the test."
+ },
+ {
+  "id": "CB2-P12",
+  "codex_claim": "STILL PRESENT: Launch readiness uses weak rollback and baseline proxies. Launch readiness uses seo_score/any OperatingReading for analytics baseline and retained certificate/continuity proof for rollback. These are not actual prelaunch traffic and withdrawal rehearsal; C-80 confirms the downstream readiness-consumer gap.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 10: launch/rollback.rehearse feeds readiness.rollback_plan; analytics_baseline reads listing.query_portfolio and records traffic UNMEASURED; handle_launch_readiness withholds live-Etsy asks while the package is BUILD-blocked. #54 parked on insights_access for the traffic half (requirements.json).",
+  "current_code_ref": "brambleloop/src/brambleloop/launch/readiness.py _launch_package_items",
+  "reproduction": "test_cert_rebuild_chain::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced -> PASS (87 s)",
+  "next_action": "None (traffic baseline stays data-gated)."
+ },
+ {
+  "id": "CB2-P13",
+  "codex_claim": "STILL PRESENT: Experiment cost attribution is partly a job-type proxy. _experiment_of still falls back to exploration:<job_type>. Latest Platform verification confirms category-attributed spend is not a registered experiment's cost.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 13 + C-86: _experiment_of returns {experiment, basis}; exploration spend reported under its own proxy bucket; governor reports has_writer from data.",
+  "current_code_ref": "brambleloop/src/brambleloop/finance/governor.py _experiment_of, spend_by",
+  "reproduction": "test_cert_lanes_capacity::test_experiment_spend_is_attributed_from_the_spending_job -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-P14",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Continuous critical-dependency actions remain absent. The former absence of a recurring action path is corrected: dependency cadence, incidents and caps exist; focused dependency suite passes. Current Platform verification identifies constant-ok Railway probe and unprobed dependencies. Full critical-dependency recovery coverage remains unqualified.",
+  "classification": "FIXED",
+  "evidence": "Named defects repaired: constant Railway probe (C-80 defect 9) and unmapped billed provider. map_state further changed in adfcf8f (FB-1/E: capability read from recorded probes). Confidence MEDIUM: Codex's broader 'full critical-dependency recovery coverage' is a scope statement, not a reproduced defect.",
+  "current_code_ref": "brambleloop/src/brambleloop/ops/dependencies.py map_state, drill, _railway_probe",
+  "reproduction": "test_cert_dependencies::test_the_railway_probe_reads_the_health_record_or_says_unknown PASS; ::test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixed PASS; ::test_a_billed_provider_the_map_does_not_name_is_raised PASS; ::test_spend_without_a_validated_pattern_is_an_incident_and_caps_the_lane PASS",
+  "next_action": "Optional: enumerate the dependency map vs. DEPENDENCIES actually used and confirm each has a probe or an explicit UNKNOWN."
+ },
+ {
+  "id": "CB2-P15",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Validated-products-per-dollar optimization remains absent. Unit-cost minutes/ratios and governor consumer now exist; spend-without-validated-output cap test passes. Whole optimization claim is not proved: unit_costs sums contribution across all LedgerEntry dates while operating costs use the window, and broad scans remain C-80 work.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "unit_costs computes contribution as the SUM over ALL LedgerEntry rows (no date filter) but operating cost over the window, and divides them into contribution_per_operating_dollar and 'burning'. d12b342 only relabelled the note ('lifetime ledger contribution'). Confidence HIGH.",
+  "current_code_ref": "brambleloop/src/brambleloop/finance/unit_cost.py:92-94 (unfiltered contribution) vs :96 window_costs; :153-156 ratio/burning",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro3.py: one LedgerEntry 400 days old (gross 100) + one CostEntry yesterday (10) -> {window_days: 30, operating_cost_cad: 10.0, contribution_cad: 100.0, contribution_per_operating_dollar: 10.0, burning: false}",
+  "next_action": "Filter contribution to LedgerEntry.at >= since (or report both windows separately and compute ratios only on matching windows)."
+ },
+ {
+  "id": "CB2-P16",
+  "codex_claim": "STILL PRESENT: Recognizability without model remains unevidenced. Passing moat suite verifies evidence inventory and signature-count proxies, not independent product-first recognizability without the model. Current Platform verification retains #44 partial and records that distinction.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 15: moat carries per-listing basis (recognisability_proxy vs measured) and a measurement behind image_vision; #44 parked on image_vision for the measured half (requirements.json #44 partial/image_vision).",
+  "current_code_ref": "brambleloop/src/brambleloop/brand/moat.py inventory",
+  "reproduction": "test_cert_rebuild_chain::test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured -> PASS",
+  "next_action": "None (measured half stays gated)."
+ },
+ {
+  "id": "CB2-P17",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Opportunity scorers do not consume evidence freshness/population weighting. Radar freshness/population tests pass on the integrated scorer and SERP captures carry stamps. Current Platform verifier still reports unstamped MJs observations; Intel differentiation consumer named by original finding is not integrated. Not a blanket fix.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "MJs stamping FIXED (C-80 defect 14; test passes). The Intel consumer named by the finding now exists (intel/serp.py differentiation_by_pod, merged 7b5750c) and applies only a captured_at recency window; no radar.provenance.weight/population discount was found in it.",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/serp.py:325 differentiation_by_pod; radar/provenance.py weight",
+  "reproduction": "test_cert_trend_evidence::test_mjs_benchmark_listings_are_stamped_global_over_their_seen_window_and_discount_scores -> PASS. differentiation_by_pod not exercised.",
+  "next_action": "Check whether differentiation_by_pod output feeds a selection or current-demand claim; if so it must apply provenance.weight / check_presentable_as_current for population mismatch, with a test using a foreign-population SERP."
+ },
+ {
+  "id": "CB2-P18",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Seasonal takeover has plans but no proven apply/revert executor. Actual persisted apply/revert and quality refusal for banner surface now exist; focused takeover tests pass. Latest Platform verifier notes shop_content/featured_collection APPLIED states have no renderer. Former total executor absence is fixed; all-surface effect/recovery claim needs re-audit.",
+  "classification": "FIXED",
+  "evidence": "C-80 defect 18: storefront renders shop_content and featured_collection; takeover refuses a featured collection naming nothing real.",
+  "current_code_ref": "brambleloop/src/brambleloop/brand/takeover.py; publish storefront",
+  "reproduction": "test_cert_takeover::test_every_applied_surface_is_rendered_on_the_storefront_the_launch_check_reads -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-O01",
+  "codex_claim": "STILL PRESENT: Receipt state is not reconciled for late full or partial refunds. At tested 2e66b3a, adversarial tests reproduce late full refund ignored, partial $2 refund treated as full $12, and a 60-day-old modified receipt excluded by creation watermark. C-78 prose says fixed but current source bytes are unchanged from 4edacff.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "C-78's claimed fix (orders2 3081402) is NOT in HEAD: git merge-base --is-ancestor 3081402 HEAD -> NOT-merged; no 'receipt_state' in src. FB-1 D (e172837) changed lines/_record_line but refunds are still all-or-nothing (refunded = bool(receipt['refunds']) or status in NOT_KEPT_STATUSES) and the ledger row is insert-once (no update on a later refund). finance/reconcile.apply classifies Etsy 'refund' ledger entries but applies only FEE_KINDS. _last_ingested is still max(Order.at) creation watermark.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py:227 lines (236), :288 _record_line (ledger insert-once), :357 _last_ingested, :369 ingest; finance/reconcile.py:130 apply",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O01_late_full_refund -> AssertionError (12.0, 0.0) != (0, 12); test_O01_partial_refund -> (0.0, 12.0) != (10, 2); test_O01_old_modified_receipt -> 12.0 != 0",
+  "next_action": "Integrate (not rewrite) the orders2 candidate 3081402 (branch claude/b2r-orders2). Against its tree the same script gives 10/11 PASS (O01 late full + partial PASS; old-modified-receipt still FAILS 12.0 != 0 under a created-filtering feed) -- see C-78 entry."
+ },
+ {
+  "id": "CB2-O02",
+  "codex_claim": "STILL PRESENT: Unpaid and cancelled receipts can become sales. At tested 2e66b3a, tests import $12 revenue from is_paid=false/status=open and status=canceled fixtures. lines/_record_line still do not filter payment state; C-78 source mismatch applies.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Cancelled half FIXED by FB-1 D (NOT_KEPT_STATUSES makes a cancelled receipt refunded, revenue 0). Unpaid/open half remains: no is_paid/status filter; an unpaid receipt is booked as a $12 sale.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py:69 NOT_KEPT_STATUSES; :227-252 lines",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O02_unpaid_open_receipt_creates_no_sales_revenue -> AssertionError 12.0 != 0; test_O02_cancelled_receipt_creates_no_sales_revenue -> PASS",
+  "next_action": "Integrate the 3081402 receipt_state (UNPAID_STATES/UNKNOWN) or equivalent; unpaid/unknown never a sale."
+ },
+ {
+  "id": "CB2-O03",
+  "codex_claim": "STILL PRESENT: Historical sale versions are assigned from current listing state. At tested 2e66b3a, test attributes a 60-day-old sale to current version 2.0.0 created two days ago. No sale-time listing history resolution exists in current _catalogue.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "_catalogue maps etsy_listing_id to the CURRENT Listing.version; _record_line assigns it regardless of sale date. requirements.json #42 is 'covered' ('records order to purchased version at sale time') -- contradicted by this reproduction.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py:254 _catalogue; :288-296 _record_line",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O03_imported_old_sale_does_not_inherit_future_listing_version -> AssertionError '2.0.0' unexpectedly found in ['2.0.0'] (60-day-old sale, listing version created 2 days ago)",
+  "next_action": "Integrate 3081402 listing_history/version_at (PASSes there); re-audit #42's covered status after integration."
+ },
+ {
+  "id": "CB2-O04",
+  "codex_claim": "STILL PRESENT: Out-of-order history corrupts first-purchase and repeat cohorts. At tested 2e66b3a, out-of-order test leaves first_seen_at at the newer receipt date. Existing customer early-return preserves arrival order rather than earliest paid history.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "record_customer keeps the first-encountered arrival; first purchase not re-derived from earliest paid order.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/cohorts.py:86 record_customer; commerce/orders_ingest.py:369 ingest",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O04_first_purchase_is_earliest_not_first_encountered -> AssertionError first_seen_at 2026-09-26T12:00:00 (expected 60 days earlier)",
+  "next_action": "Integrate 3081402 (PASSes there)."
+ },
+ {
+  "id": "CB2-O05",
+  "codex_claim": "STILL PRESENT: Crash can leave order without version or ledger evidence. At tested 2e66b3a, injected post-Order-commit interruption, reopened DB and retry produce Order=1, OrderVersion=0, Ledger=1. Ledger repairs; sale-version evidence does not. Deterministic transaction interruption, not a real worker SIGKILL proof.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Customer/order/version/ledger writes still span separate sessions (cohorts.record_customer, record_order, then a third session for ledger); a crash after the Order commit leaves no OrderVersion and the retry does not repair it.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py:288-355 _record_line",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O05_retry_after_order_commit_repairs_version_evidence -> AssertionError (1, 0, 1) != (1, 1, 1) [orders, versions, ledger]",
+  "next_action": "Integrate 3081402 one-session-per-line (PASSes there)."
+ },
+ {
+  "id": "CB2-O06",
+  "codex_claim": "STILL PRESENT: Unknown Etsy acquisition becomes organic and loop counters resist correction. Current acquisition producer writes etsy; SOURCE_TO_LOOP maps it to etsy_organic, and loop_block adds max(0, desired-have). Unknown attribution and downward correction defects remain; source identical across 4ed..2e.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Unknown-as-organic half FIXED by FB-1 D F-283 (acquisition_source='unknown'; SOURCE_TO_LOOP has no 'unknown' key). Downward-correction half remains: loop_block adds max(0, want-have) and loops.observe only increments, so a later refund never lowers loop orders.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/order_readings.py:586-619 loop_block (611); growth/loops.py:159 observe",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro1.py case O06: loop_block with one offsite_ads sale -> paid_ads orders 1; same order re-read refunded -> (orders, contribution) = (1, 0.0); SOURCE_TO_LOOP.get('unknown') -> None. Receipt run observation: acquisition_source 'unknown'",
+  "next_action": "Make loop_block reconcile signed deltas (orders can decrease) and keep event counts separate from net outcomes; 3081402 claims a 'signed loop reconcile'."
+ },
+ {
+  "id": "CB2-O07",
+  "codex_claim": "STILL PRESENT: Negative contribution is suppressed and fee estimates can look measured. At tested 2e66b3a, one-cent sale has ledger net -0.27 and Order contribution 0.00. Negative economics are clamped; estimated money inputs are not fully propagated as distinct measured/estimated provenance.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "_record_line stores contribution_cad=max(0.0, contribution); finance/reconcile.apply also clamps (max(0.0, revenue - fees)). Ledger keeps the loss, Order does not. Fee basis labelling WAS added by FB-1 D (fees_basis modelled/measured), so the provenance half is improved.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py:313 (max(0.0, contribution)); finance/reconcile.py:190",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors: test_O07_negative_contribution_matches_negative_ledger -> AssertionError 0.0 != -0.27",
+  "next_action": "Remove both clamps (or store signed contribution beside a floored display value); integrate 3081402 (PASSes there) and re-check reconcile.apply."
+ },
+ {
+  "id": "CB2-O08",
+  "codex_claim": "STILL PRESENT: Pricing and offer guards may annotate rather than prevent actions. decide_price still returns a price after an impossible net floor warning. Latest handle_pricing_position appends guard prose then enqueues listing.seo; portfolio guard changes intervention prose but retains discard-shaped label. Claimed PriceDecision.refused/stop contract is absent.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "decide_price/handle_pricing_position/handle_portfolio_review AST-identical to Codex's assessed head. decide_price returns a PriceDecision (no refused/stop field) after 'no price inside the band clears' warning.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/pricing.py:248 decide_price (339-342 warning only); runtime/release.py:430 handle_pricing_position",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro1.py case O08: decide_price('x', category_band_cad=(1.0,1.2), proposed_cad=1.1) -> price 1.2, net 0.808, has_refused_attr False, warnings incl. 'no price inside the band clears CA$1.00 of net contribution per sale'",
+  "next_action": "Add a refusal state on PriceDecision and make handle_pricing_position stop listing.seo on it (3081402 claims 'pricing refusals stop the chain')."
+ },
+ {
+  "id": "CB2-O09",
+  "codex_claim": "STILL PRESENT: Certification is treated as correction without correction scope. on_certified remains the old routine-new-certification correction producer. C-78's correction-of-version/hash and eligible-release scope are absent from current source. No actual buyer messaging was performed.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "on_certified AST-identical: any newer certified version 'corrects every older one a buyer holds'; no declared-correction or releasability scope. Confidence HIGH (static; no buyer message path runs in shadow).",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/buyer_trust.py:749-779 on_certified",
+  "reproduction": "Static: buyer_trust.py:771-772 older = {v for held if _version_key(v) < _version_key(version)} -> every routine new version produces correction notices for all older holders.",
+  "next_action": "Integrate 3081402's declared-correction scope."
+ },
+ {
+  "id": "CB2-O10",
+  "codex_claim": "STILL PRESENT: North-star metrics use draft and research proxies. north_star_cohorts remains unchanged: draft Listing presence and research/tournament proxies substitute for named lifecycle outcomes. Reported cir.drafted/store.published rewrite is not in the integrated source.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "north_star_cohorts AST-identical (tournament survivors / research proxies; no cir.drafted/store.published lifecycle events). Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/standard.py:372 north_star_cohorts",
+  "reproduction": "Static: standard.py docstring lines 375-382 define concept_to_engineering_survival as 'tournament survivors / concepts generated'.",
+  "next_action": "Integrate 3081402's lifecycle-event north star."
+ },
+ {
+  "id": "CB2-G01",
+  "codex_claim": "FIXED: Third steering run repeats priority movement. C-75 reads immutable growth.steered receipts as well as prior readings; repeated handler runs no longer erase moved IDs and move them on the third run. Named regression passed; b9f7e3a also exempts these receipts from retention. This verdict is the original third-run defect, not a general concurrency proof.",
+  "classification": "FIXED",
+  "evidence": "C-75: steer-once set read from immutable growth.steered receipts.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:1183 steer",
+  "reproduction": "test_cert_growth_ops::test_growth_steer_moves_the_queue_and_orders_the_experiment_queue -> PASS (three further same-day runs leave priorities unchanged)",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-G02",
+  "codex_claim": "STILL PRESENT: Steering escapes protected priority bands. Independent regression at tested 2e66b3a: actual pending chain.rebuild priority 25, fast-lane steer delta -20, stored result 5. It outranks customer 10 and truth 15 after one run. C-75 idempotence does not bound priority composition. Actual JobQueue.claim also selects chain.rebuild while a priority-10 support.reply job remains waiting; see out/growth_followups_2e66b3a_claim.json.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "steer() still applies an unbounded delta: job.priority = int(job.priority) + delta (fast lane -2*STEER_CREDIT = -20). JobQueue.claim orders by _effective_priority asc (priority less bounded aging), with no protected-band floor, so the steered rebuild (5) outranks a waiting customer-support job (10). Neither steer nor claim AST changed since 2198861 (priority_decision changed but is not on this path).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:1238-1253 (1251 job.priority = int(job.priority) + delta); queue/durable.py:226 _effective_priority, :244 claim (order_by at :278)",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/growth_followups.py --only bands --source-root <worktree>/brambleloop (Codex script, unchanged) -> FAIL; /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/growth_followups_448e87c_claim.json band_observations: before 25, after 5, protected_truth_band 15, moved [chain.rebuild delta -20 'fast lane admitted (#291)'], claimed_job_type 'chain.rebuild', waiting_customer_job_id 2 at customer_priority 10",
+  "next_action": "Clamp steering so a moved job never crosses into the customer_incident/truth_defect bands (e.g. max(priority+delta, BAND_BY_KIND['truth_defect']+1) for non-protected kinds) or enforce the floor in claim; add this queue-claim assertion as a regression test."
+ },
+ {
+  "id": "CB2-G03",
+  "codex_claim": "FIXED: Fast-lane targeted rebuild request is not consumed. C-76 resolves slugs to scoped product rebuild targets and refuses unknown requested products instead of scanning the catalogue. Named scoped-request regression passed; latest function remains equivalent for this contract. P10 attempt/fingerprint binding is separate.",
+  "classification": "FIXED",
+  "evidence": "C-76: a request naming slugs is scoped to those products; unknown product refused.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/release.py handle_chain_rebuild / :3586 _targeted_rebuild",
+  "reproduction": "test_cert_growth_ops::test_a_fast_lane_rebuild_request_is_scoped_to_its_slugs_not_the_catalogue -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-G04",
+  "codex_claim": "STILL PRESENT: Commercial evidence has consumers but no normal producer. Normal orders producer still does not supply the review-star/offsite/creator attribution fields consumed by Growth readings. Fixtures can populate them; that proves consumers, not a production evidence chain.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Review stars: _review_stars reads Order.reviewed + detail.review_stars, and no production code sets Order.reviewed or review_stars (only fixtures). Creator attribution: no producer. Offsite-ads attribution now HAS a producer (finance/reconcile.apply -> sources.attribute 'offsite_ads' from an Etsy Offsite Ads fee entry, FB-1 D), so that sub-part is fixed in code (UNVERIFIED against a live shop per its docstring).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/commerce_readings.py:111 _review_stars; finance/reconcile.py:204-217",
+  "reproduction": "grep over src for writers: 'reviewed = True|reviewed=True|.reviewed =' -> only the reader at runtime/commerce_readings.py:119; no 'review_stars' writer outside the reader",
+  "next_action": "Add a review ingest (Etsy reviews endpoint behind its gate) or mark the stars/creator readings UNMEASURED-by-construction; keep fixture-only fields out of COMPLETE claims."
+ },
+ {
+  "id": "CB2-G05",
+  "codex_claim": "STILL PRESENT: Blank agreements can pass tester graduation. creators_reading still passes empty testing_terms and ambassador_terms; may_graduate has no nonempty separate-agreement requirement. Result creates an owner offer card, not a completed ambassador transition; actual graduation must not be inferred.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "may_graduate has no non-empty separate-agreement check; empty testing_terms and ambassador_terms pass.",
+  "current_code_ref": "brambleloop/src/brambleloop/growth/creators.py:569-617 may_graduate",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro1.py case G05: may_graduate(Graduation('t1', invited=3, delivered=3, testing_terms='', ambassador_terms='', consent_ref='c-1')) -> {may_graduate: true, reasons: []}",
+  "next_action": "Refuse when either agreement text/reference is empty; keep #250 parked on tester_roster."
+ },
+ {
+  "id": "CB2-G06",
+  "codex_claim": "STILL PRESENT: Distribution plans are not executable production chains. Distribution persists plans for pins/clusters/video/tools, without full executable asset/publication consumers for every claimed surface. Keep plan output distinct from produced/distributed work and preserve external gates.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "handle_growth_distribution AST-identical: records one OperatingReading of plans (pins/clusters/video/creators/tools/gallery/interviews); no publication consumer. Confidence MEDIUM (static; the finding is about claim scope).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:829-852 handle_growth_distribution",
+  "reproduction": "Static: growth_ops.py:840-850 builds `reading` from plan_* and calls record(DISTRIBUTION_KIND, ...) only.",
+  "next_action": "Ensure the requirements citing distribution read 'planned' not 'distributed'; real publication stays behind external gates."
+ },
+ {
+  "id": "CB2-G07",
+  "codex_claim": "STILL PRESENT: Club cadence uses release spacing and lacks feasibility input. _club_answers derives cadence from release spacing and lacks actual production-feasibility inputs. A historical interarrival interval does not establish sustainable promised production lead time.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "_club_answers sets product_lead_days to the median gap between certified releases (throughput interarrival), not a production lead time. Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/commerce_readings.py:126 _club_answers (145-150)",
+  "reproduction": "Static: commerce_readings.py:148-149 lead = max(0.1, median(gaps)); Cadence(period_days=CLUB_PERIOD_DAYS, product_lead_days=round(lead, 2))",
+  "next_action": "Read lead time from recorded per-release production durations or leave cadence UNANSWERED."
+ },
+ {
+  "id": "CB2-G08",
+  "codex_claim": "STILL PRESENT: Support draft timing can prevent later delivery measurement. Draft handling stores response_minutes with draft_ready; record_response refuses any second timing when that key exists. A later sent observation cannot replace the draft measure through this writer.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "record_response refuses any second timing once response_minutes exists, so a draft_ready timing blocks the later sent timing.",
+  "current_code_ref": "brambleloop/src/brambleloop/support/service.py:46-76 record_response (65-69)",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro1.py case G08: record_response(case, minutes=3, measured_as='draft_ready') then record_response(case, minutes=90, measured_as='sent') -> ServiceRefused 'case 1 already recorded 3.0 minutes...'",
+  "next_action": "Store draft_ready and sent timings under separate keys; service_level reads sent."
+ },
+ {
+  "id": "CB2-G09",
+  "codex_claim": "STILL PRESENT: Unknown traffic and absent contribution distort benchmark readings. benchmark_observations still defaults missing traffic_source to etsy_search. Correction: it does aggregate contribution when Order rows exist; do not claim contribution is always None. That aggregation inherits unresolved Orders loss/refund correctness.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "benchmark_observations still defaults a missing traffic_source to 'etsy_search'. Confidence HIGH (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:1002",
+  "reproduction": "Static: growth_ops.py:1002 sources = {(r.detail or {}).get('traffic_source') or 'etsy_search' for r in rows}",
+  "next_action": "Default to 'unknown' and exclude unknown from measured source rankings."
+ },
+ {
+  "id": "CB2-G10",
+  "codex_claim": "STILL PRESENT: Calibration can score overlapping or missing observations as actuals. Calibration still lacks fully comparable, deduplicated actual-window completeness; missing/overlapping observations can look like numerical outcomes. Existing audit source contract remains; no new live forecast outcome proof claimed.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "calibration sums every ListingOutcome overlapping the week in full (no proration/dedup) and treats absent orders as zero revenue regardless of whether the order source was connected. Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/scale/evidence.py:360-405 calibration (395-400)",
+  "reproduction": "Static: evidence.py:397-400 imp/vis = sum over outcomes where start<=pe and ps<=end (overlap, unprorated); :395 revenue from orders with no source-connected check",
+  "next_action": "Require complete, non-overlapping actual windows and an orders-gate-open check; otherwise skip as UNMEASURED."
+ },
+ {
+  "id": "CB2-G11",
+  "codex_claim": "BLOCKED FROM DETERMINING: Planning-time ads gates are not an execution-time guarantee. Campaign execution rechecks owner authority/caps and hard-refuses actual production spend because no ad integration exists. It does not establish future execution-time trust/eligibility freshness. No current paid-effect bypass was demonstrated; future protected executor must revalidate.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Codex BLOCKED. ads_plan/handle_ads_campaign/trust_checks AST-identical; production spend still hard-refuses (no ad integration). Cannot be settled until a protected spend executor exists.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:308 ads_plan; handle_ads_campaign",
+  "reproduction": "Not reproducible (no spend path).",
+  "next_action": "When an ads executor is built, require it to re-read authority, trust, eligibility, listing state and budget at execution time; add a stale-plan negative test."
+ },
+ {
+  "id": "CB2-G12",
+  "codex_claim": "STILL PRESENT: Experiment rank changes may only reorder the dashboard. steer_rank is written on RegisteredExperiment and consumed by war_room board sorting; no actual experiment execution-priority consumer was found. Display ordering is not execution steering.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "steer_rank is written by steer and read only by war_room board sorting; no experiment execution consumer. Confidence HIGH (static grep).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:1262-1263; scale/war_room.py:154",
+  "reproduction": "grep 'steer_rank' over src -> only growth_ops.py:1262-1263 (write) and war_room.py:154 (live.sort for display)",
+  "next_action": "Either consume steer_rank where experiments are scheduled or describe it as display ordering."
+ },
+ {
+  "id": "CB2-G13",
+  "codex_claim": "STILL PRESENT: Ads eligibility countdown and credit/cash separation are absent. No verified shop-eligibility countdown or credit-versus-cash ledger/producer was added. Keep owner authority and unknown date; no ad spend or invented eligibility date.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "No shop-eligibility countdown or credit-vs-cash separation found in ads_plan/handle_ads_adjust/ad_authority (AST-identical). Confidence MEDIUM (absence by grep for countdown/credit in runtime/growth_ops.py, growth/, finance/).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/growth_ops.py:308 ads_plan",
+  "reproduction": "grep -n 'countdown|eligib.*date|ad_credit|credit_cad' runtime/growth_ops.py growth/*.py finance/*.py -> no matches",
+  "next_action": "Build from verified shop evidence when ad authority work resumes; never invent an eligibility date."
+ },
+ {
+  "id": "CB2-D01",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Winner judgement contract lacks a proven production writer. Design now includes judge_held and regate_held producing named concept.judged evidence, so 'no producer' is outdated. Producer stores slug and truncated board path, not image/content hashes; required independent/current-evidence binding remains unproved. No provider call made.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "judge_held records the judge name and board[-120:] (a path) with no image/content hash; judgement_for(db, key) is keyed by slug only, so a judgement survives a changed board. intake/gate_concept changed after cert (FB-1 G originality, a4ad5ad) but not this binding.",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py:869-912 judge_held (909-911); :228-262 judgement_for",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro2.py case D01: a concept.judged row for 'winner-x' with board '/old/board_v1.png' -> judgement_for(db,'winner-x') returns thumbnail_reads_small True, craft_impression 4.5 with no board/hash comparison possible",
+  "next_action": "Record sha256 of the board bytes in concept.judged and have judgement_for accept only a judgement whose hash equals the current board_for() bytes."
+ },
+ {
+  "id": "CB2-D02",
+  "codex_claim": "STILL PRESENT: Reconsideration misses changed prerequisite evidence. regate_held reconsiders only when thumbnail_reads_small or craft_impression differs from known judgement. Newly changed grid/top-decile/capability prerequisites alone need not trigger reconsideration.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "regate_held still skips re-presentation when thumbnail_reads_small and craft_impression equal the known judgement; changed grid/top-decile/capability prerequisites alone do not trigger reconsideration (function changed at HEAD for origin args only). Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py:915 regate_held (lines with `if all(known.get(k) == judged.get(k) ...): continue`)",
+  "reproduction": "Static: intake.py regate_held -> `if all(known.get(k) == judged.get(k) for k in ('thumbnail_reads_small','craft_impression')): continue`",
+  "next_action": "Include a digest of the gate's other inputs (grid verdict id, benchmark score set, capability state) in the comparison."
+ },
+ {
+  "id": "CB2-D03",
+  "codex_claim": "STILL PRESENT: Gap progression can attach to the wrong arena. _gap_for selects the first CoverageGap by pod/id; advance_gap accepts pod rather than exact originating gap/event/arena. New Design integration carries the original provenance defect into current code.",
+  "classification": "FIXED",
+  "evidence": "Repaired by Codex c5ec2f9 + 7fd49e8 (integrated in HEAD): _gap_for removed; advance_gap requires an exact persisted coverage_origin (event_id, gap_id, benchmark_key, arenas, fingerprint, tournament_job_id, candidate_key) checked inside one transaction. Not a Claude C-entry.",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py advance_gap / coverage_origin / brief_coverage_origin; intel/mission_runtime.py consume_concepting",
+  "reproduction": "cd /home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop && PYTHONPATH=src /home/user/Project-Money/brambleloop/.venv/bin/python tests/test_exact_coverage_origin.py -> Ran 9 tests, OK",
+  "next_action": "Record this repair in the ledger (no C-number exists for it)."
+ },
+ {
+  "id": "CB2-D04",
+  "codex_claim": "STILL PRESENT: Pipeline report advances on artifact or listing existence. _stage_evidence uses any slug-wide assets and any certified PatternVersion; _challenge_for sends category empty/our_scores empty and treats not blocks_release as passed. This does not bind premium/benchmark proof to the precise current release.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "_stage_evidence and _challenge_for AST-identical (slug-wide assets / any certified PatternVersion; challenge called with empty category/our_scores). advance_pipeline changed only for origin wiring. Confidence MEDIUM (static, Codex's reading not contradicted).",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/mission_runtime.py:1826 _stage_evidence; :1906 _challenge_for",
+  "reproduction": "Static: functions unchanged since Codex's 2198861 assessment (AST hash identical across 2198861/019ebf0/HEAD).",
+  "next_action": "Bind stage evidence to the exact release (slug@version + release_hash) and pass real category/our_scores to the challenge."
+ },
+ {
+  "id": "CB2-D05",
+  "codex_claim": "STILL PRESENT: Draft age can become launch-failure evidence. response_outcomes now selects a published listing, but uses listing.created_at as publication age and emits no-sale failure after days without proof of exposure or readable sales source. Draft-to-published age and unknown-versus-zero remain unresolved.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "response_outcomes AST-identical: uses listing.created_at as publication age and can emit a no-sale failure without verified exposure or a connected sales source. Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/mission_runtime.py:1986 response_outcomes",
+  "reproduction": "Static: unchanged since Codex assessment (AST identical).",
+  "next_action": "Use the store.publish time and require orders gate open + exposure evidence before a launch-failure lesson."
+ },
+ {
+  "id": "CB2-D06",
+  "codex_claim": "STILL PRESENT: Seller language is labelled buyer evidence. buyer_language delegates to intent.strategy using observed BenchmarkListing titles and title share. Seller wording is observed; measured buyer query population is not established by those titles.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "buyer_language labels its output 'phrases buyers were seen using', but intent.observed_phrases merges Keyword rows with BenchmarkListing (seller) title terms into one 'observed' set without population labels. Confidence MEDIUM.",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py:397-415 buyer_language; commerce/intent.py:141 observed_phrases (149-156)",
+  "reproduction": "Static: intent.py:153 iterates Keyword and :156 iterates BenchmarkListing into the same observed set",
+  "next_action": "Split observed into seller_wording vs buyer_query with source/population; only the latter may be called buyer language."
+ },
+ {
+  "id": "CB2-D07",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Breakthrough and cardigan end-to-end scope remains unfinished. Design pipeline/intake/seasonal transformation and tests are integrated, but original-engine garment/cardigan end-to-end scope remains partial in the report. New wiring is not a finished certified original product. Do not rerun Visual or declare completion.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Scope finding (garment/cardigan end-to-end). intake, handle_creative_tournament and advance_pipeline all changed after Codex's assessment (C-61 design merge, FB-1 G originality gate, origin binding). #277/#281/#309 parked on image_vision (C-86).",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py intake; runtime/release.py handle_creative_tournament; intel/mission_runtime.py advance_pipeline",
+  "reproduction": "Not reproduced (scope, not a single behaviour).",
+  "next_action": "Trace one cardigan concept from tournament through intake, cir.draft, compile and certify at HEAD and record exactly where it stops and on which gate."
+ },
+ {
+  "id": "CB2-D08",
+  "codex_claim": "STILL PRESENT: Funnel evidence must bind the actual concept payload. verify_funnel reads latest intake by slug and evaluates stored original_key/rounds; it does not bind approval to the actual concept payload/version/hash supplied for engineering.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "verify_funnel and handle_cir_draft AST-identical: funnel evidence is read as the latest intake by slug, not bound to the carried concept payload/version/hash. Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/intake.py:792 verify_funnel; runtime/pipeline.py handle_cir_draft",
+  "reproduction": "Static: unchanged since Codex assessment (AST identical).",
+  "next_action": "Carry an intake row id / concept hash in the cir.draft payload and have verify_funnel match it."
+ },
+ {
+  "id": "CB2-M01",
+  "codex_claim": "STILL PRESENT: Rollback state commits before rollback effect. Improve is now integrated. monitor_trials selects only PROMOTED, calls cells.revert before ROLLBACKS, and only then creates rollback incident evidence. A failure between state and effect remains unrecoverable by that scan. C-81 explicitly assigns the repair to improve2; no duplicate Codex repair.",
+  "classification": "FIXED",
+  "evidence": "C-81 (improve2 effbd5a, merged b7c734e): rollback decided durably on the PROMOTED row (cells.mark_rollback_pending), executed idempotently, verified, then REVERTED.",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/cells.py:601 mark_rollback_pending; improve/runner.py monitor_trials",
+  "reproduction": "test_cert_improve_wave::test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M02",
+  "codex_claim": "STILL PRESENT: Replay model differs from multi-worker runtime. Integrated replay.simulate_day advances one clock serially by service_s and sorts pending work; it does not model actual worker parallelism/lane admission. Its weighted deadline score is a serial replay proxy, not faithful multi-worker runtime proof.",
+  "classification": "FIXED",
+  "evidence": "Fixed as scoping (67746ff): replay runs carry a versioned SIMULATOR record (single worker, defaulted durations) and the claim is scoped to it -- which is what the finding required.",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/replay.py simulate_day, replay, state",
+  "reproduction": "test_cert_improve_wave::test_the_replay_scopes_its_claim_to_the_simulator_it_ran -> PASS",
+  "next_action": "None (multi-worker fidelity remains explicitly out of scope)."
+ },
+ {
+  "id": "CB2-M03",
+  "codex_claim": "STILL PRESENT: New replay record can be mistaken for fresh post-promotion evidence. Integrated cycle identifies replay windows by date bounds/job count; monitor/_latest_pair filter recorded-at timestamps, not novel post-promotion task identities/content. Identical run_ref is correctly deduplicated by league.record_run, so exact duplicate recording is not the claim. A new ref can still reuse old/overlapping observations and be called a fresh window.",
+  "classification": "FIXED",
+  "evidence": "67746ff: runs record a dataset fingerprint and observation bounds; monitor accepts post-promotion evidence only with a new fingerprint, bounds after promotion, and a full day elapsed.",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/replay.py cycle, _latest_pair, monitor",
+  "reproduction": "test_cert_improve_wave::test_a_replay_of_unchanged_history_is_never_fresh_post_promotion_evidence -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M04",
+  "codex_claim": "STILL PRESENT: Registered test filenames are not test execution provenance. Integrated bootstrap.register_code_versions passes static test filename tuples into league.register(tests_run=...). It executes no test and binds no observed run receipt. C-82 explicitly records this pending improve2 repair.",
+  "classification": "FIXED",
+  "evidence": "C-82 (4a3c657): ConfigVersion.tests_declared holds coverage; tests_run only observed runs bound to the version digest.",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/bootstrap.py register_code_versions",
+  "reproduction": "test_cert_improve_wave::test_tests_run_holds_only_observed_runs_bound_to_the_versions_digest -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M05",
+  "codex_claim": "STILL PRESENT: Lesson matches receive invented currency-valued priority. Integrated handle_radar_score adds 150.0 * count(matching engineering lessons) to payload.value_cad and marks lessons acted-on. That is heuristic queue priority, not measured expected currency benefit or realized improvement.",
+  "classification": "FIXED",
+  "evidence": "1661a92: a lesson match is a bounded priority heuristic with a stated reason, never written into value_cad.",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/pipeline.py handle_radar_score",
+  "reproduction": "test_cert_improve_wave::test_engineering_lessons_nudge_priority_as_a_bounded_heuristic_never_as_cad -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M06",
+  "codex_claim": "STILL PRESENT: Adopting an audit floor does not implement the underlying improvement. Integrated _execute_self_audit returns executed='standard floor' and calls adopt_floor, which updates finding metadata. apply_pattern_help annotates/reroutes support cases. Neither establishes an implemented product improvement plus independent reevaluation and actual improved customer response.",
+  "classification": "SUPERSEDED",
+  "evidence": "185950c: the claim was narrowed rather than the capability built -- _execute_self_audit records implements='standard', changes_artifact=False, artifact_change='none by this promotion'; runner.state() lists does_not_execute. The finding's overclaim no longer exists; the underlying product-improvement executor still does not exist (honestly stated).",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/runner.py _execute_self_audit; teardown/enforce.py adopt_floor",
+  "reproduction": "test_cert_improve_wave::test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_self_audit -> PASS (asserts the executed record and state)",
+  "next_action": "None unless a requirement claims artifact-changing improvement."
+ },
+ {
+  "id": "CB2-M07",
+  "codex_claim": "STILL PRESENT: Self-audits and keyword checks can certify wrong content. Integrated enforce.our_scores selects newest self-audit by slug/requirement, not current release/content hash. support_text_evidence uses keyword presence. The new standards_gate consumes those readings, so stale or semantically wrong evidence remains material.",
+  "classification": "FIXED",
+  "evidence": "b00b20f: self-audits bind to the release hash they read; keyword checks labelled structural_keyword.",
+  "current_code_ref": "brambleloop/src/brambleloop/teardown/enforce.py our_scores, support_text_evidence, _judge, check",
+  "reproduction": "test_cert_improve_wave::test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structural -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M08",
+  "codex_claim": "STILL PRESENT: Taste and function-quality heuristics overstate independent quality. Integrated taste_judge remains deterministic form/motif-frequency, distance and text-presence screening; function_quality uses artifact/outcome-count proxies. C-83 fixes one tie rejection but does not turn screening/counts into independent quality evidence.",
+  "classification": "FIXED",
+  "evidence": "Labelling (what the finding required): function_quality metrics carry evidence kind and limits (185950c); taste rejections labelled basis 'screening_heuristic' with limits (b7c734e, creative/ideation.py:743-752). C-83 tie fix separate.",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/ideation.py:743-752; swarm/orchestrate.py function_quality",
+  "reproduction": "test_cert_improve_wave::test_agent_quality_reads_each_agents_function_with_declared_inputs_and_outputs -> PASS; static read of ideation.py:749 'basis': 'screening_heuristic'",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M09",
+  "codex_claim": "STILL PRESENT: Priority-policy replay is not a general challenger engine. Integrated replay challenge producer optimizes the job-priority policy. evolution adds proposals/owner cards and selected experiment stopping; it does not prove a general model/tool/architecture evaluation and execution engine. State this implemented scope precisely.",
+  "classification": "FIXED",
+  "evidence": "Scope stated (what the finding required): replay.state()['scope'] says only the job-priority policy is produced; weekly/runner state owner-card-only paths.",
+  "current_code_ref": "brambleloop/src/brambleloop/improve/replay.py state/cycle; improve/evolution.py",
+  "reproduction": "test_cert_improve_wave::test_the_replay_scopes_its_claim_to_the_simulator_it_ran -> PASS; ::test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-M10",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Veto withholding must survive all rebuild paths. Improve standards_gate now exists and for_publish rechecks owner veto/competitive/teardown standards. handle_certify's owner-veto return still omits _mark_withheld after release persistence. Combined direct/retry/rebuild durability requires the existing negative spec; no final publication bypass is claimed from that omission alone.",
+  "classification": "FIXED",
+  "evidence": "C-84 (d97426b): one withholding record on certificate['withholding'] keyed by kind, read by gate.certify, launch.plan, listing.draft, chain.rebuild (sweep and targeted) and store.publish.",
+  "current_code_ref": "brambleloop/src/brambleloop/publish/withholding.py:159 current; runtime/pipeline.py _mark_withheld; runtime/release.py handle_chain_rebuild",
+  "reproduction": "test_cert_improve_wave::test_withholding_survives_every_rebuild_path_through_the_worker -> PASS; ::test_release_eligibility_is_one_record_and_clearing_one_reason_never_clears_another -> PASS",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-I01",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Repeated unchanged policy snapshot erases unreviewed change. record_snapshot still compares with the immediately previous digest; candidate unreviewed_changes/review_change consumers are absent. A->B->B review bypass in that candidate is not an executed 2e66b3a finding or a fix; re-audit when actual guards land.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Intel merged (7b5750c) with unreviewed_changes/review_change. unreviewed_changes only inspects the NEWEST snapshot per source; an A->B change followed by an unchanged B reading (material_change False) erases the unreviewed block without any review.",
+  "current_code_ref": "brambleloop/src/brambleloop/gates/platform_policy.py:136-177 record_snapshot; :185-203 unreviewed_changes",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro2.py case I01: record_snapshot(A), (B) -> material true, unreviewed ['advertising_rules']; record_snapshot(B) again with no review_change -> unreviewed []",
+  "next_action": "Track the last REVIEWED digest per source and block while latest digest != last reviewed digest (or carry material_change forward until reviewed)."
+ },
+ {
+  "id": "CB2-I02",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Distinctiveness is substituted for top-decile strength. creative/strength.py concept/benchmark score producers are absent; existing _top_decile gate is not proof of comparable quality evidence. Candidate rarity-to-strength substitution remains pending after Intel integration.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "creative/strength.py (merged) is explicitly card distinctiveness (form/occasion/recipient/feeling difference share) and _top_decile consumes it as concept strength vs the category top decile when no judged score exists; #125 is 'covered'. Confidence MEDIUM (static; documented design choice).",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/strength.py:1-22 docstring, :59 concept_score; creative/preengineering.py:304-323 _top_decile",
+  "reproduction": "Static: strength.py SOURCE='deterministic:card_distinctiveness_v1'; preengineering.py:320-323 uses strength.benchmark_scores/concept_score when the brief carries no scores",
+  "next_action": "Label the gate input as distinctiveness (rarity) or add a comparable quality dimension; re-audit #125's covered status."
+ },
+ {
+  "id": "CB2-I03",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Fabric swatch does not prove finished-product visual fidelity. Candidate creative/board.py swatch producer is absent. No finished-product fidelity is proved by this head or by a material swatch. Original negative specification remains; Visual V2 stays frozen.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "creative/board.py (merged) makes a DIGITAL_TWIN_RENDER fabric raster of the prototype CIR; a grid 'clear' on that board sets thumbnail_reads_small in judgement_for. #126 is parked on image_vision so no live grid runs. Whether a fabric-raster board is ever consumed as finished-product fidelity evidence was not settled.",
+  "current_code_ref": "brambleloop/src/brambleloop/creative/board.py:22 make_board; creative/intake.py:242-247 (grid verdict -> thumbnail_reads_small)",
+  "reproduction": "Not reproduced.",
+  "next_action": "Check every consumer of grid_verdict_for/thumbnail_reads_small and confirm none treats a board verdict as finished-product visual fidelity; label the board 'material/arrangement evidence only'."
+ },
+ {
+  "id": "CB2-I04",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Photo intake validates hash syntax and rights label, not evidence. publish/physical_upgrade.py, photo intake handler and endpoint are absent. Candidate hash-syntax/rights-label checks cannot count as verified bytes/rights. Execute bytes/license negatives only when implemented.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "physical_upgrade.intake (merged) validates only SHA-256 syntax, source and a rights label; no stored bytes are read or hashed, no product/version association check, no licence record. With any rights label the handler queues assets.physical_upgrade. API /api/physical_photo enqueues the payload as given.",
+  "current_code_ref": "brambleloop/src/brambleloop/publish/physical_upgrade.py:42-71 intake; runtime/release.py:2301 _intake_photo; app/main.py:4171 api_physical_photo",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro2.py case I04/I05: intake(slug='any-slug', sha256='a'*64, rights_basis=<first basis>) -> {state: 'received', may_use: true} with no bytes anywhere; plan_upgrade -> upgraded true",
+  "next_action": "Require the bytes in the ArtifactStore (hash recomputed), the slug@version to exist, and a licence/consent record id before may_use."
+ },
+ {
+  "id": "CB2-I05",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Photo planning stops before review/publication but starts impact clock. Candidate physical upgrade plan/review/publication/impact chain is absent. No current published exposure date/effect is established; planning time must not start impact evidence.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "plan_upgrade sets state 'upgrade_queued' and upgraded_on=today while the new frame is approved=False 'awaiting asset-truth review and listing-set re-certification'; measure_impact measures ListingOutcome from upgraded_on, i.e. the impact clock starts at planning, before any review/publication.",
+  "current_code_ref": "brambleloop/src/brambleloop/publish/physical_upgrade.py:87-133 plan_upgrade; :136-160 measure_impact",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro2.py case I04/I05: photo state 'upgrade_queued', impact clock start '2026-10-05' (plan day); frame approved False, blocked ['awaiting asset-truth review and listing-set re-certification']",
+  "next_action": "Anchor impact to the store.publish (exposure) time of the version carrying the photo; no review/publish -> UNMEASURED."
+ },
+ {
+  "id": "CB2-I06",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Seller location opens a buyer-market evidence gate. Intel panel_discovery/market_for and benchmark market_of producers are absent. Existing second-market gate must not be credited with buyer-market proof from candidate seller geography; verify actual integration chain later.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "benchmarks.market_of documents 'stated buyer market' but for discovered panel members returns Benchmark.market, which panel_discovery.market_for derives from the shop's country (seller geography). executor._second_market_observed opens the #268 gate on >1 such market. Confidence MEDIUM (static chain).",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/panel_discovery.py:53 market_for; intel/benchmarks.py:153 market_of; build2/executor.py:418-444 _second_market_observed",
+  "reproduction": "Static: panel_discovery.py:53-60 market_for(country_iso) -> 'US'/'CA'/'other' from shop location; executor.py:443 markets = {market_of(db,key)} ; return len(markets) > 1",
+  "next_action": "Name the field seller_market; open the second-market gate only on buyer/query-population evidence (e.g. locale-specific SERP), and re-audit #268."
+ },
+ {
+  "id": "CB2-I07",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Drift incidents resolve when evidence ages out or becomes unreadable. visual/drift_series.py is unmerged. Original evidence-disappears/incident-resolves candidate defect remains a mandatory negative test, not a verified 2e66b3a fix.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "drift_series.run resolves every open drift incident whose dimension is not in the current gradual list, including when there are zero readable batches (UNMEASURED). Evidence ageing out of the 60-day window therefore resolves a publication-halting incident.",
+  "current_code_ref": "brambleloop/src/brambleloop/visual/drift_series.py:93-124 run (lifecycle.reconcile at ~110)",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro2.py case I07: open Incident(signature='identity_drift_series:face', halts_publication=True), no frames on record -> run(): batches 0, measurable false, incidents_resolved ['identity_drift_series:face'], incident.resolved True",
+  "next_action": "Resolve only when measurable is true and the dimension has >= TREND_BATCHES known shares that are flat/falling; UNMEASURED leaves incidents open."
+ },
+ {
+  "id": "CB2-I08",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Benchmark-refresh trigger and purchased candidate can diverge. intel/benchmark_refresh.py is unmerged. Trigger-to-purchased-candidate correspondence and duplicate-information controls require testing the integrated implementation.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "intel/benchmark_refresh.py merged (assess/_pick). Trigger-to-purchased-candidate correspondence and duplicate-information controls not exercised here.",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/benchmark_refresh.py:130 assess, _pick",
+  "reproduction": "Not reproduced.",
+  "next_action": "Run assess() on a DB where the trigger is pod P's shift and the library already holds seller S; assert the raised owner action names a P candidate not already in the library."
+ },
+ {
+  "id": "CB2-I09",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Company standing and entry superiority rely on capability/count proxies. Candidate company-standing/entry-axis/positioning functions are absent; capability counts are not measured current-product superiority. No 2e66b3a quality result inferred.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Merged functions use count measures (median approved images per product as photography_coverage) applied symmetrically to benchmarks; whether entry_axes/positioning present capability as demonstrated superiority was not settled.",
+  "current_code_ref": "brambleloop/src/brambleloop/intel/mission_runtime.py:1022 _our_dims; entry_axes; intel/serp.py positioning",
+  "reproduction": "Not reproduced.",
+  "next_action": "Read entry_axes and positioning outputs for a pod with no certified product of ours; superiority must be None/UNMEASURED there."
+ },
+ {
+  "id": "CB2-I10",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Quote-token heuristics cover only explicit title forms. Candidate quote_tokens function is absent; current file_topic alone is not evidence of broad screening. Keep existing rights gates and original limited-extractor concern for later merge.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "quote_tokens (merged) extracts only quoted spans, parenthetical qualifiers, and exclaimed meme titles; an unquoted catchphrase yields nothing. Defect only if #139 (covered) is read as comprehensive screening; rights.PROTECTED_CLASSES gates remain. Confidence LOW-MEDIUM (limitation, claim-dependent).",
+  "current_code_ref": "brambleloop/src/brambleloop/culture/engine.py:214-238 quote_tokens",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/repro3.py: quote_tokens('Keep calm and crochet on','meme') -> []; quote_tokens('I am the danger','internet_moment') -> []",
+  "next_action": "State the extractor's scope in #139's note, or add a catchphrase list/model-backed check behind its gate."
+ },
+ {
+  "id": "CB2-I11",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Registry reclassification is not in the preserved patch. Latest registry changed under Opus for Orders/Growth/Design/Platform; Intel proposed rows are not resolved just by that change. Reconcile legitimate parks only after the built halves exist. Numeric registry IDs are not AST symbols; index symbol_found=false is not missing-row proof.",
+  "classification": "SUPERSEDED",
+  "evidence": "Registry reconciliation was done by the integrator at the Intel merge (7b5750c: #203/#300 parked on model_bearing_render; #208/#210/#211 out of the image_vision tuple) and C-86; the candidate patch question is moot.",
+  "current_code_ref": "brambleloop/src/brambleloop/build2/requirements.json; build2/executor.py gate_for",
+  "reproduction": "test_closure.py at HEAD 27/27 OK incl. 'a partial row with no gate is OPEN' and the reopened-twenty control",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-I12",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Collection patch context predates the fixed no-spin behavior. Current C-73 member-triggered collection behavior and Design edits must be retained; Intel's unmerged patch predates that context. A removed historical test function name is not a functional regression by itself.",
+  "classification": "FIXED",
+  "evidence": "Intel merge kept C-73 member-triggered collection mechanics and adopted the #289 refusal (7b5750c message).",
+  "current_code_ref": "brambleloop/src/brambleloop/runtime/release.py handle_collection_assemble, enqueue_member_collections",
+  "reproduction": "test_cert_growth_seasonal::test_a_bundle_waiting_for_members_waits_and_does_not_die -> PASS (Codex's cited name ..._defers_and_does_not_die does not exist; this is the current name)",
+  "next_action": "None."
+ },
+ {
+  "id": "CB2-X01",
+  "codex_claim": "STILL PRESENT: Duplicate promotion/referral readers can disagree. C-77 fixed referral duplication, but promotion still has two different readers: Order readings consume Cohort/PriceObservation; Growth consumes Experiment arms and may omit spend. Whole original duplicate-reader contract is not fixed.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Referral duplication fixed by C-77; promotion still has two readers (order_readings.promotion_block from Cohort/PriceObservation; growth_ops.promotion_reading from Experiment arms). Both AST-identical. Confidence MEDIUM (static).",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/order_readings.py:453 promotion_block; runtime/growth_ops.py:923 promotion_reading",
+  "reproduction": "Static: two promotion readers present at the cited lines; no shared verdict contract.",
+  "next_action": "Pick one promotion reader (as C-77 did for referral) and have the other consume it."
+ },
+ {
+  "id": "CB2-X02",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Combined model and registration changes lack integration evidence. Improve now adds TeardownFinding confidence/raw_notes and registrations; existing Order models remain unchanged. Combined fresh/upgrade migration proof has not been run and Intel PhysicalPhoto is still absent. Do not transfer candidate migration results to this integrated head.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Models changed further after Codex (Order gained fees_basis/offsite fields in FB-1 D; PhysicalPhoto exists; ConfigVersion.tests_declared). No fresh-vs-upgrade migration proof was run here.",
+  "current_code_ref": "brambleloop/src/brambleloop/core/models.py Order, PhysicalPhoto, TeardownFinding, ConfigVersion; core/migrate.py apply",
+  "reproduction": "Not reproduced.",
+  "next_action": "Create a DB from 019ebf0's schema (or 2198861), seed rows, run core.migrate.apply at HEAD, and compare to a fresh create_all; assert no data loss and every new column present."
+ },
+ {
+  "id": "CB2-X03",
+  "codex_claim": "CHANGED \u2014 REAUDIT REQUIRED: Final protected actions must combine every applicable gate. Improve standards_gate is now called by for_publish and reads current veto/standards. Its teardown self-audits remain slug-bound rather than content-bound, and certify/rebuild veto persistence requires re-audit (M10). No complete direct/retry/protected-effect proof; actual ads spend still hard-refuses.",
+  "classification": "RE-AUDIT-NEEDED",
+  "evidence": "Narrowed: veto/withholding persistence across certify/rebuild is FIXED (C-84, M10); self-audits now release-hash-bound (M07). Remaining question is whether store.publish's final gate (release_gates.for_publish/staleness, changed after Codex) consumes hash-bound eligibility on direct/retry paths; ads still hard-refuse.",
+  "current_code_ref": "brambleloop/src/brambleloop/publish/release_gates.py staleness, standards_gate, for_publish",
+  "reproduction": "Partially: test_withholding_survives_every_rebuild_path_through_the_worker PASS.",
+  "next_action": "Hand-enqueue a store.publish for a release whose certificate hash changed after withholding was cleared and assert refusal."
+ },
+ {
+  "id": "CB2-X04",
+  "codex_claim": "STILL PRESENT: Test fixtures can conceal missing production evidence chains. Growth fixture-seeded reviews/attribution still lack matching normal production producers (G04); Design judgement producer now exists but is not fully hash-bound (D01). Green consumer tests alone do not prove production evidence chains.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "Pattern persists: review stars (G04) are only fixture-seeded; Orders behaviour certified by test_cert_orders (14 tests, fixtures) while 8 adversarial receipt cases fail; Design judgement (D01) not hash-bound. Confidence MEDIUM (meta-finding).",
+  "current_code_ref": "brambleloop/src/brambleloop/brambleloop/tests/test_cert_growth_ops.py test_commerce_readings_read_stars_club_answers_and_referral_and_act; tests/test_cert_orders.py",
+  "reproduction": "See CB2-G04 (no writer for Order.reviewed), C-78 (8/11 failing), CB2-D01 repro.",
+  "next_action": "Separate consumer-unit proofs from producer->consumer certification in the closure's proof field."
+ },
+ {
+  "id": "C-78",
+  "codex_claim": "OPUS_HANDOFF.md/CURRENT_STATE.md on codex/build2-assist-01 @19180b3: C-78/b9f7e3a claims Orders2/3081402 integrated and test_cert_orders 23/23, but 10 critical app files plus test_cert_orders.py have identical blobs at 4edacff and 2e66b3a; fresh run reproduces 9 receipt failures, 2 controls pass, 0 errors (out/receipt_adversarial_2e66b3a_v2.json); LATEST_DELTA.md: critical receipt files identical through 2198861, missing Orders hardening not repaired.",
+  "classification": "STILL-APPLICABLE",
+  "evidence": "The ledger row 'C-78 ... FIXED (orders2, merged) ... test_cert_orders 23/23' is FALSE at 019ebf0 and at HEAD. Evidence: (1) git merge-base --is-ancestor 3081402 HEAD -> NOT merged (3081402 exists only on local branch claude/b2r-orders2); (2) commerce/orders_ingest.py, cohorts.py, buyer_trust.py, order_readings.py, pricing.py, growth/loops.py blobs identical at 4edacff, 2198861 and 019ebf0 (a01a09e7, 8b8a7e15, da40bbd1, 48952b4c, af252cb3, bdaf5c63); (3) tests/test_cert_orders.py has 14 test functions at HEAD vs 23 at 3081402; (4) no 'receipt_state' anywhere in src. After certification FB-1 D (e172837, c9e038c, 2f6b288) changed orders_ingest.py and added finance/reconcile.py (measured fees, unknown attribution, cancelled->refunded), which fixes 1 of Codex's 9 failures. The Build 2 verdict (856186f) and requirements #42 (covered) relied on this claim.",
+  "current_code_ref": "brambleloop/src/brambleloop/commerce/orders_ingest.py (dba03b73 at HEAD); finance/reconcile.py (b81dda41); brambleloop/research/BUILD2_CERTIFICATION.md C-78 row",
+  "reproduction": "/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/test_receipt_adversarial.py (Codex script, unchanged) run with --source-root <worktree>/brambleloop --source-sha 448e87c; output /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_448e87c.json: 11 tests, 8 FAIL, 3 PASS, 0 errors. FAIL: O01_late_full_refund (12.0,0.0)!=(0,12); O01_old_modified_receipt 12.0!=0; O01_partial_refund (0.0,12.0)!=(10,2); O02_unpaid_open 12.0!=0; O03_historical_version '2.0.0' found; O04_first_purchase first_seen 2026-09-26T12:00:00; O05_retry (1,0,1)!=(1,1,1); O07_negative_contribution 0.0!=-0.27. PASS: O02_cancelled (newly, via FB-1 D NOT_KEPT_STATUSES), control_paid_idempotent, control_closed_gate. Same script against `git archive 3081402` source: 10 PASS / 1 FAIL (only O01_old_modified_receipt 12.0 != 0) -> /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/out/receipt_adversarial_3081402.json",
+  "next_action": "Correct the C-78 ledger row and the 856186f verdict text now (claim not in source). Then merge 3081402's orders changes onto HEAD, reconciling with FB-1 D's orders_ingest/finance.reconcile changes (both edit _record_line/ingest), re-run the receipt script (target 11/11; fix the creation-watermark case) plus test_cert_orders and test_money_truth, and re-audit #42/#11/#12/#22/#269/#271."
+ }
+]

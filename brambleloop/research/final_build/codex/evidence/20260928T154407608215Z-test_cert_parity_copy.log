@@ -1,0 +1,78 @@
+OK   test_a_declared_catchphrase_in_the_copy_blocks_listing_seo_unless_cleared
+OK   test_a_generated_hero_photograph_is_refused_by_the_policy_gate_in_listing_seo
+FAIL test_a_listing_whose_copy_lost_its_disclosure_is_blocked_at_publish KeyError('finding')
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 355, in test_a_listing_whose_copy_lost_its_disclosure_is_blocked_at_publish
+    assert row["disclosures"]["finding"] is True
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'finding'
+FAIL test_a_taken_deterministic_rung_enqueues_assets_build_once AssertionError()
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 228, in test_a_taken_deterministic_rung_enqueues_assets_build_once
+    assert row["escalation"]["taken"] == "deterministic_representation"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+FAIL test_a_visual_defect_becomes_a_fixture_and_a_recurrence_is_a_fixture_bug TypeError("'NoneType' object is not subscriptable")
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 486, in test_a_visual_defect_becomes_a_fixture_and_a_recurrence_is_a_fixture_bug
+    assert first.outputs["ok"] is False and second.outputs["ok"] is False
+           ~~~~~~~~~~~~~^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+OK   test_an_inferior_product_is_returned_to_creative_development_by_the_handler
+FAIL test_assets_build_walks_the_evidence_to_creative_flow AssertionError('brief_from_truth / check_creative / advance were never called')
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 436, in test_assets_build_walks_the_evidence_to_creative_flow
+    assert flows, "brief_from_truth / check_creative / advance were never called"
+           ^^^^^
+AssertionError: brief_from_truth / check_creative / advance were never called
+OK   test_c45_a_months_old_review_is_not_todays_comparison
+OK   test_c45_every_one_of_eleven_products_reads_its_own_review
+FAIL test_creative_that_invents_a_stitch_is_blocked_and_sent_back_to_the_brief TypeError("'NoneType' object is not subscriptable")
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 465, in test_creative_that_invents_a_stitch_is_blocked_and_sent_back_to_the_brief
+    assert job.outputs["ok"] is False
+           ~~~~~~~~~~~^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+OK   test_diversify_moves_slots_off_shared_phrases_when_alternatives_exist
+FAIL test_every_release_is_classified_and_its_disclosures_are_in_the_copy AssertionError()
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 367, in test_every_release_is_classified_and_its_disclosures_are_in_the_copy
+    assert classified and classified[-1]["classification"]["ok"] is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+FAIL test_image_provenance_is_stored_by_assets_build AssertionError('record_image was never called by assets.build')
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 407, in test_image_provenance_is_stored_by_assets_build
+    assert rows, "record_image was never called by assets.build"
+           ^^^^
+AssertionError: record_image was never called by assets.build
+OK   test_listing_seo_applies_the_query_portfolio_to_its_tags
+OK   test_review_is_built_on_the_dated_benchmark_set_and_refuses_a_stale_one
+OK   test_store_publish_reads_the_product_own_review_through_the_handler
+FAIL test_the_disclosure_check_measures_the_stored_listing_in_the_chain AssertionError('listing.seo never ran the disclosure check')
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 614, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\tests\test_cert_parity_copy.py", line 338, in test_the_disclosure_check_measures_the_stored_listing_in_the_chain
+    assert checked, "listing.seo never ran the disclosure check"
+           ^^^^^^^
+AssertionError: listing.seo never ran the disclosure check
+OK   test_the_missing_67_dimensions_are_compared_and_can_put_us_behind
+OK   test_the_mjs_challenge_names_its_eight_dimensions
+OK   test_the_model_photography_handler_records_the_shot_plan_it_renders_from
+
+  12 passing, 8 failing

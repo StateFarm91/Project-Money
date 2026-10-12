@@ -1,0 +1,147 @@
+diff --git a/brambleloop/src/brambleloop/gates/certificate.py b/brambleloop/src/brambleloop/gates/certificate.py
+
+--- a/brambleloop/src/brambleloop/gates/certificate.py
++++ b/brambleloop/src/brambleloop/gates/certificate.py
+@@ -278,15 +278,19 @@ def certify(
+             ERROR, "PHYSICAL_TEST_REQUIRED",
+             f"risk class {cir.risk_class} requires a physical test before release; "
+             "computation alone cannot confirm fit and drape"))
+-    # 6b/6c. The gauge-band and new-primitive refusals (F-112, F-116, F-074) are computed by
+-    #     `gauge_findings` / `primitive_findings` below. The primitive status is recorded on
+-    #     every certificate; turning either into a refusal is staged separately
+-    #     (research/final_build/waves/fb1_C_strict.patch) because every product module in the
+-    #     catalogue declares a yarn weight whose band cannot hold its typed gauge, and the
+-    #     refusal lands together with the product re-declaration, not ahead of it.
+-    primitive_status, _ = primitive_findings(
++    # 6b. The gauge against the declared yarn (F-112, F-116). A gauge the declared yarn's
++    #     published band cannot hold is a known-implausible assumption, and every finished
++    #     size and yardage figure in the document is arithmetic from it. It used to reach the
++    #     buyer as a "swatch before you buy" note in the PDF; a warning cannot stand in for
++    #     truth, so it is refused here unless a tester's measured sample of this exact content
++    #     is the evidence for it instead.
++    findings.extend(gauge_findings(cir, physically_evidenced=physical_test_passed))
++    # 6c. New primitives (F-074): a stitch whose real-world height and yarn behaviour no
++    #     sample has measured does not carry unrestricted size or yardage claims.
++    primitive_status, primitive_errors = primitive_findings(
+         cir, physically_evidenced=physical_test_passed,
+         calibrated_primitives=calibrated_primitives)
++    findings.extend(primitive_errors)
+     # 6d. No convenience downgrade (F-090): a lower risk class than this product has held
+     #     before needs evidence, and the only evidence that reduces physical testing is a
+     #     physical test of this content.
+@@ -319,10 +323,9 @@ def certify(
+         physical_test_passed=physical_test_passed,
+         content_hash=content,
+         physical_evidence=binding,
+-        # Stamped only where `gauge_findings` refuses (the staged strict patch). Until then no
+-        # certificate claims the current gauge standard, so no legacy product clears
+-        # quarantine by re-certification -- the fail-closed direction (F-111, F-119).
+-        gauge_standard=None,
++        # Every certificate from here was examined by `gauge_findings`; a stored one without
++        # this stamp predates the check and is legacy (F-111, F-119).
++        gauge_standard=GAUGE_STANDARD,
+         primitives=primitive_status,
+     )
+ 
+diff --git a/brambleloop/src/brambleloop/publish/pdf.py b/brambleloop/src/brambleloop/publish/pdf.py
+
+--- a/brambleloop/src/brambleloop/publish/pdf.py
++++ b/brambleloop/src/brambleloop/publish/pdf.py
+@@ -1031,14 +1031,16 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
+                    f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
+                    f"{row['fabric_changes']}")
+         if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
+-            # Said out loud rather than quietly corrected. Which number is wrong -- the gauge
+-            # or the weight on the band -- is decided by a swatch, and this document has not
+-            # seen one. Picking a side here would be inventing a measurement.
++            # F-112: this note used to be the whole answer -- "swatch before you buy" printed
++            # over a gauge the declared yarn cannot make. A warning is not a substitute for
++            # truth, so certification now refuses such a pattern (GAUGE_OUTSIDE_DECLARED_YARN
++            # _BAND) unless a physical test of this exact content is bound to it. What is left
++            # here is a statement of fact about a released pattern, not a compensation.
+             doc.para(
+                 f"Note: the gauge above sits outside the published band for "
+-                f"{guide['declared_weight'].replace('_', ' ')} yarn. Swatch before you buy: "
+-                f"either this fabric wants a different weight than the one named, or it wants "
+-                f"a different hook.", size=9, color=MUTED)
++                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
++                f"tested gauge rather than the band's; match it with your own swatch.",
++                size=9, color=MUTED)
+         doc.para(
+             f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
+             f"Buying exactly enough is how a project ends one row short in a dye lot that has "
+diff --git a/brambleloop/tests/test_gates.py b/brambleloop/tests/test_gates.py
+
+--- a/brambleloop/tests/test_gates.py
++++ b/brambleloop/tests/test_gates.py
+@@ -574,7 +574,69 @@ def test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalib
+ 
+ 
+ 
+-# ---- F-116 (runtime half): the live author derives its gauge ------------------------------
++# ---- gauge evidence (F-112, F-116) and new primitives (F-074) ------------------------------
++
++
++def _worsted_at(sts: float):
++    from brambleloop.cir.model import Gauge, Material
++
++    cir = fixtures.good_mosaic_panel()
++    cir.gauge = Gauge(stitches_per_10cm=sts, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0)
++    cir.materials = [Material(name="worsted acrylic", yarn_weight="worsted", color_id=c)
++                     for c in cir.colors]
++    return cir
++
++
++def test_a_worsted_16_sts_pattern_fails_certification_rather_than_printing_a_swatch_note():
++    """F-112: the implausible gauge BUILD_STATE flagged is refused, not warned about."""
++    from brambleloop.gates.certificate import GAUGE_STANDARD
++
++    cert = certify(_worsted_at(16))
++    assert not cert.granted
++    assert "GAUGE_OUTSIDE_DECLARED_YARN_BAND" in {f.code for f in cert.errors}
++    assert cert.gauge_standard == GAUGE_STANDARD
++
++    fine = certify(_worsted_at(12.5))                  # the middle of worsted's 11-14 band
++    assert fine.granted, fine.blocking_reasons
++    assert fine.to_dict()["gauge_standard"] == GAUGE_STANDARD
++
++
++def test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content():
++    """F-116's other way through: calibrated physical evidence, bound to the exact content."""
++    cir = _worsted_at(16)
++    content = certify(cir).content_hash
++    row = {"id": 3, "slug": cir.slug, "version": cir.version, "passed": True,
++           "completed_at": "2026-09-28T00:00:00+00:00", "content_hash": content}
++    cert = certify(cir, physical_evidence=[row])
++    assert cert.granted, cert.blocking_reasons
++    assert "GAUGE_OUTSIDE_BAND_PHYSICALLY_EVIDENCED" in {f.code for f in cert.findings}
++
++
++def test_a_gauge_typed_against_no_yarn_is_refused_and_a_benchmark_is_not_judged():
++    cir = fixtures.good_mosaic_panel()
++    cir.gauge.yarn_weight = None                       # no gauge weight, no materials
++    assert "GAUGE_WITHOUT_YARN_EVIDENCE" in {f.code for f in certify(cir).errors}
++    cir.authored = "benchmark"
++    from brambleloop.gates.certificate import gauge_findings
++    assert gauge_findings(cir) == []
++
++
++def test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence():
++    """F-074: a bobble no sample has measured does not carry unrestricted claims."""
++    from brambleloop.cir.model import Op, Row
++
++    cir = fixtures.good_mosaic_panel()
++    cir.components[0].rows.append(Row(index=5, ops=[Op("sc", 19), Op("bob"), Op("sc", 20)],
++                                      declared_count=40, color="forest", turning_chain=1))
++    cert = certify(cir)
++    assert "UNCALIBRATED_PRIMITIVE" in {f.code for f in cert.errors}, cert.blocking_reasons
++    assert cert.primitives["uncalibrated"] == ["bob"]
++    assert cert.primitives["unrestricted"] is False
++    # A primitive a passed sample has measured is calibrated, and the restriction lifts.
++    lifted = certify(cir, calibrated_primitives={"bob"})
++    assert "UNCALIBRATED_PRIMITIVE" not in {f.code for f in lifted.findings}, \
++        lifted.blocking_reasons
++    assert lifted.primitives["status"]["bob"] == "calibrated"
+ 
+ 
+ def test_the_runtime_author_derives_its_gauge_from_the_declared_yarn():

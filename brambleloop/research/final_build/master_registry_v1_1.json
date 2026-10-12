@@ -1,0 +1,645 @@
+{
+ "source": {
+  "text": "research/final_build/master_v1.1.txt",
+  "pdf": "spec/10_Brambleloop_FINAL_Master_v1.1_Owner_Command_Center.pdf",
+  "text_sha256": "234765f0cb564526c2752faa676427f41fedf89282f16b6fc2834532b84c8187"
+ },
+ "v1_0_body_unchanged": true,
+ "v1_0_body_nonblank_lines": 4248,
+ "requirements": [
+  {
+   "id": "F-880",
+   "num": 880,
+   "title": "Cloud-Resident Always-On Runtime",
+   "text": "Production workers, scheduler, queues, state, evidence, alerts and recovery run on durable hosted infrastructure 24/7. Owner PC/phone availability is irrelevant to execution.",
+   "lines": [
+    4360,
+    4361
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-881",
+   "num": 881,
+   "title": "No Development-Chat Dependency",
+   "text": "Normal company operation must not require an active Claude, Codex, Fable or ChatGPT session. Development models may improve the system; they are not the production scheduler or memory.",
+   "lines": [
+    4362,
+    4363
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-882",
+   "num": 882,
+   "title": "Mobile-First Owner Command Center",
+   "text": "Provide a secure responsive web application optimized for phone use. Native mobile apps are optional; the web surface must provide the complete normal owner-control workflow.",
+   "lines": [
+    4364,
+    4365
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-883",
+   "num": 883,
+   "title": "PWA / Home-Screen Mode",
+   "text": "Where supported, the owner command center may be installable as a PWA with app-like launch, authentication persistence consistent with security policy, and deep links from notifications.",
+   "lines": [
+    4366,
+    4367
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-884",
+   "num": 884,
+   "title": "Owner Home Brief",
+   "text": "Home presents a concise current-state and overnight brief: money, store, work completed, work in progress, incidents, opportunities, launch state, owner actions and meaningful changes since last view.",
+   "lines": [
+    4368,
+    4369
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-885",
+   "num": 885,
+   "title": "Evidence-Backed Approval Inbox",
+   "text": "Every approval card shows proposed action, agent recommendation, evidence, uncertainty, expected benefit, downside, max spend, reversibility, deadline and consequence of no action before approve/reject.",
+   "lines": [
+    4370,
+    4371
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-886",
+   "num": 886,
+   "title": "One-Tap Owner Actions",
+   "text": "Safe owner decisions should be executable from the web surface without terminals, Git, Railway dashboards or direct database manipulation.",
+   "lines": [
+    4372,
+    4373
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-887",
+   "num": 887,
+   "title": "Owner Action Authentication",
+   "text": "High-impact actions require authenticated owner identity, CSRF/replay protection, authorization checks, immutable audit record and, for sensitive actions, re-authentication or step-up verification.",
+   "lines": [
+    4374,
+    4375
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-888",
+   "num": 888,
+   "title": "Account & Security Tab",
+   "text": "Account exposes owner profile, authentication, active sessions/devices, connected services, OAuth scopes, model providers, budgets, authorities, notification preferences, owner policies and emergency controls.",
+   "lines": [
+    4376,
+    4377
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-889",
+   "num": 889,
+   "title": "Emergency Controls",
+   "text": "Owner can immediately pause publishing, ads/spend, external actions or selected departments without stopping read-only monitoring, evidence collection or recovery functions.",
+   "lines": [
+    4379,
+    4380
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-890",
+   "num": 890,
+   "title": "24/7 Department Agents",
+   "text": "Core departments operate continuously through durable specialist agents/cadences: Executive/COO, Product & Design, Product Truth/QA, Visual, Store/Commerce, Customer Support, Finance/Accounting, Growth/Marketing, Intelligence, Learn/Improvement and Platform/Reliability.",
+   "lines": [
+    4381,
+    4383
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-891",
+   "num": 891,
+   "title": "Agent Intelligence Standard",
+   "text": "Specialist agents must use the strongest appropriate reasoning/tooling available within policy, cost and latency constraints; important decisions require evidence, uncertainty and escalation rather than shallow scripted automation.",
+   "lines": [
+    4384,
+    4385
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-892",
+   "num": 892,
+   "title": "Agent Role Charters",
+   "text": "Each specialist has explicit mission, authority, inputs, outputs, KPIs, forbidden actions, escalation rules, evidence requirements and handoff contracts. Agents cannot silently expand their own authority.",
+   "lines": [
+    4386,
+    4387
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-893",
+   "num": 893,
+   "title": "Executive Orchestrator",
+   "text": "A durable executive/COO layer prioritizes company work across departments, resolves scheduling conflicts, protects launch/customer-critical work and presents only genuine owner decisions upward.",
+   "lines": [
+    4388,
+    4389
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-894",
+   "num": 894,
+   "title": "Work Never Waits on the Owner Without Cause",
+   "text": "When one task is owner/data/external gated, the orchestrator continues all independent READY work. Owner absence cannot idle the company.",
+   "lines": [
+    4390,
+    4391
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-895",
+   "num": 895,
+   "title": "Overnight Autonomy",
+   "text": "The system deliberately uses unattended hours for safe work such as research, analysis, design candidates, validation, reconciliation, monitoring, experiments in authorized sandboxes and preparation of owner decisions.",
+   "lines": [
+    4392,
+    4393
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-896",
+   "num": 896,
+   "title": "Morning Handoff",
+   "text": "After unattended work, the owner receives a compact morning brief: what changed, what was completed, money spent, incidents, important discoveries, queued actions and decisions needed.",
+   "lines": [
+    4394,
+    4395
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-897",
+   "num": 897,
+   "title": "Smart Notification Policy",
+   "text": "Notify the owner for decisions, risk, deadlines, meaningful commercial events and anomalies - not routine machine chatter. Alerts are deduplicated, severity-ranked and actionable.",
+   "lines": [
+    4396,
+    4397
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-898",
+   "num": 898,
+   "title": "Web Surface Uses Real Production State",
+   "text": "The owner UI reads the same durable state and evidence used by production. It cannot show fabricated zeros, fixture data or stale cached success as current truth.",
+   "lines": [
+    4398,
+    4399
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-899",
+   "num": 899,
+   "title": "Operational Drill-Down",
+   "text": "Every headline metric/action can drill into provenance: source, timestamp, confidence, affected product/order/job, responsible agent, relevant evidence and audit history.",
+   "lines": [
+    4400,
+    4401
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-900",
+   "num": 900,
+   "title": "Remote Health & Recovery",
+   "text": "Owner can see worker/scheduler health, queue backlog, dead letters, incidents, last successful cadences and recovery status from the phone without accessing hosting consoles.",
+   "lines": [
+    4402,
+    4403
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-901",
+   "num": 901,
+   "title": "Accountant Agent",
+   "text": "Senior Controller Standard - Finance is run by a dedicated accountant/controller agent designed to behave like a top-tier small-business controller: conservative, evidence-first, reconciled, audit-ready and explicit about unknowns.",
+   "lines": [
+    4404,
+    4405
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-902",
+   "num": 902,
+   "title": "Accounting Source of Truth",
+   "text": "Accounting derives from reconciled transaction/order/payment/refund/fee/tax/spend records. Missing sources remain UNKNOWN; CA$0.00 may only mean measured zero.",
+   "lines": [
+    4406,
+    4407
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-903",
+   "num": 903,
+   "title": "Double-Entry Ledger",
+   "text": "Maintain an auditable double-entry ledger or equivalently rigorous accounting model with immutable source references, correction entries and period integrity.",
+   "lines": [
+    4408,
+    4409
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-904",
+   "num": 904,
+   "title": "Bank/Etsy/Processor Reconciliation",
+   "text": "When data access exists, reconcile marketplace orders, deposits, fees, refunds, taxes and bank/processor movements. Differences become exceptions requiring resolution, not silent adjustments.",
+   "lines": [
+    4410,
+    4411
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-905",
+   "num": 905,
+   "title": "Accrual vs Cash Views",
+   "text": "Support the accounting views required for management and tax/compliance context, clearly labeling basis and preventing one basis from masquerading as another.",
+   "lines": [
+    4412,
+    4413
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-906",
+   "num": 906,
+   "title": "Product & Channel Profitability",
+   "text": "Compute contribution and profit by order, product, release, product family, channel and period using actual attributable costs where available and explicitly identified estimates otherwise.",
+   "lines": [
+    4414,
+    4415
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-907",
+   "num": 907,
+   "title": "Cost Attribution",
+   "text": "Track marketplace fees, ads, model/API spend, image/render costs, refunds, benchmark purchases, software, contractor/physical-test costs and other attributable operating expenses.",
+   "lines": [
+    4416,
+    4417
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-908",
+   "num": 908,
+   "title": "Cash & Runway Intelligence",
+   "text": "Provide current cash obligations, upcoming bills/renewals, committed spend, expected payouts, tax reserves, safe discretionary budget and runway/coverage signals.",
+   "lines": [
+    4418,
+    4419
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-909",
+   "num": 909,
+   "title": "Tax-Ready Evidence Pack",
+   "text": "Maintain categorized, source-linked records and exportable period packages suitable for accountant/bookkeeper review. The agent does not invent tax treatment when jurisdictional/accounting judgment is required.",
+   "lines": [
+    4420,
+    4421
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-910",
+   "num": 910,
+   "title": "Month-End Close",
+   "text": "Run a repeatable close checklist: source completeness, reconciliation, unresolved exceptions, revenue/fees/refunds, expenses, tax reserves, period lock and owner summary.",
+   "lines": [
+    4422,
+    4423
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-911",
+   "num": 911,
+   "title": "Financial Anomaly Detection",
+   "text": "Detect duplicate charges, unexpected fee rates, missing deposits, refund anomalies, spend spikes, margin deterioration and reconciliation drift; escalate with evidence.",
+   "lines": [
+    4424,
+    4425
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-912",
+   "num": 912,
+   "title": "Spend Governor Integration",
+   "text": "Accountant/controller evidence feeds spend authority. No agent may treat budget availability as permission when owner or policy authority is absent.",
+   "lines": [
+    4426,
+    4427
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-913",
+   "num": 913,
+   "title": "Financial Forecast Honesty",
+   "text": "Forecasts include assumptions, ranges and confidence. Forecast revenue/profit is never presented as booked or measured.",
+   "lines": [
+    4429,
+    4430
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-914",
+   "num": 914,
+   "title": "Owner Money Dashboard",
+   "text": "Phone view shows revenue, gross receipts, refunds, fees, operating spend, contribution/profit, cash commitments, tax reserve, payout status and reconciliation health with period controls.",
+   "lines": [
+    4431,
+    4432
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-915",
+   "num": 915,
+   "title": "Financial Drill-Through",
+   "text": "Every financial number can be traced to underlying source records and corrections. The owner can see why the number exists.",
+   "lines": [
+    4433,
+    4434
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-916",
+   "num": 916,
+   "title": "Human Accountant Handoff",
+   "text": "Provide clean exports, exception notes, source evidence and questions for a human accountant/tax professional without requiring them to understand Brambleloop internals.",
+   "lines": [
+    4435,
+    4436
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-917",
+   "num": 917,
+   "title": "Accounting Guardrails",
+   "text": "The accountant agent cannot file taxes, move money, change bank details, borrow, sign contracts or make regulated professional representations without explicit authority and applicable human review.",
+   "lines": [
+    4437,
+    4438
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-918",
+   "num": 918,
+   "title": "Department KPIs With Anti-Gaming",
+   "text": "Each agent/department has outcome KPIs plus guardrails. Optimizing a metric cannot override Product Truth, customer safety, financial truth, policy or owner authority.",
+   "lines": [
+    4439,
+    4440
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-919",
+   "num": 919,
+   "title": "Cross-Agent Challenge",
+   "text": "High-impact proposals can be challenged by another specialist (for example Accountant vs Growth spend, Product Truth vs Design, Reliability vs release) before escalation or execution.",
+   "lines": [
+    4441,
+    4442
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-920",
+   "num": 920,
+   "title": "Persistent Company Memory",
+   "text": "Operational memory is durable, queryable and source-linked across products, customers, experiments, incidents, decisions, finances and lessons. No critical memory exists only inside an LLM context window.",
+   "lines": [
+    4443,
+    4444
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-921",
+   "num": 921,
+   "title": "Model/Agent Failover",
+   "text": "Where practical, production workflows degrade safely if a model/provider is unavailable: queue work, use approved fallback, or park honestly. Provider outage cannot corrupt state or authorize weaker gates.",
+   "lines": [
+    4445,
+    4446
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-922",
+   "num": 922,
+   "title": "Cost-Aware Intelligence Routing",
+   "text": "Use expensive/high-reasoning models where decision value justifies them and cheaper/local/deterministic methods where sufficient. Cost optimization may not weaken required evidence or safety.",
+   "lines": [
+    4447,
+    4448
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-923",
+   "num": 923,
+   "title": "Owner Availability SLO",
+   "text": "The owner command center and core read-only company status target continuous availability independent of the owner's devices, with monitored uptime and a documented degraded mode.",
+   "lines": [
+    4449,
+    4450
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-924",
+   "num": 924,
+   "title": "Production Autonomy SLO",
+   "text": "Define and monitor expected scheduler/worker cadence freshness, queue latency, recovery time and critical department heartbeat. Violations raise incidents.",
+   "lines": [
+    4451,
+    4452
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-925",
+   "num": 925,
+   "title": "No Terminal for Normal Operations",
+   "text": "After launch, routine owner operation - approvals, monitoring, store review, budgets, incident acknowledgement, provider/account status and safe controls - must not require command-line access.",
+   "lines": [
+    4453,
+    4454
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-926",
+   "num": 926,
+   "title": "Store Preview Mode",
+   "text": "Provide an owner-facing customer-view preview of the complete shop/listing set before activation, including images, titles, descriptions, prices, files, disclosures and mobile presentation.",
+   "lines": [
+    4455,
+    4456
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-927",
+   "num": 927,
+   "title": "Company Timeline",
+   "text": "Owner can review a chronological audit timeline of significant autonomous actions, approvals, deployments, releases, spend, incidents, customer events and financial closes.",
+   "lines": [
+    4457,
+    4458
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-928",
+   "num": 928,
+   "title": "Owner Search / Ask Company",
+   "text": "Provide a secure natural-language query surface over authorized company evidence so the owner can ask questions such as 'what did Brambleloop do overnight?', 'why did profit drop?', or 'what is blocking launch?' with source-linked answers.",
+   "lines": [
+    4459,
+    4461
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-929",
+   "num": 929,
+   "title": "No Autonomous Hallucinated Action",
+   "text": "An agent may reason creatively, but external/company-state actions require validated inputs and declared authority. Uncertain facts become questions, probes or parked work - never invented execution.",
+   "lines": [
+    4462,
+    4463
+   ],
+   "version": "v1.1",
+   "section": "94"
+  },
+  {
+   "id": "F-930",
+   "num": 930,
+   "title": "24/7 Does Not Mean Reckless",
+   "text": "Always-on autonomy is bounded autonomy: continuous useful work, continuous monitoring and rapid recovery, while consequential external actions remain governed by Product Truth, evidence, budgets, permissions and owner policy.",
+   "lines": [
+    4464,
+    4465
+   ],
+   "version": "v1.1",
+   "section": "94"
+  }
+ ],
+ "count": 51,
+ "missing_ids": [],
+ "duplicate_ids": [],
+ "acceptance_tests_s95": [
+  "\u007f Turn off the owner's PC and close all development chats for 24 hours: scheduler/workers continue, durable cadences execute, state",
+  "persists and the owner web surface remains readable.",
+  "\u007f Kill a worker during unattended execution: the job is safely reclaimed/recovered without duplicate external effects.",
+  "\u007f Open the command center from a phone browser: Home, Approvals, Store, Money, Operations, Insights/Learn, Notifications and Account",
+  "are usable without desktop-only controls.",
+  "\u007f Attempt a high-impact approval without authenticated owner authority: refuse and audit it.",
+  "\u007f Revoke publishing/spend authority after a plan is prepared but before execution: protected action revalidates and refuses.",
+  "\u007f Disconnect an accounting source: Money changes to UNKNOWN/stale with source-health warning rather than CA$0.00.",
+  "\u007f Inject a duplicate fee/payment/refund: reconciliation detects the exception and prevents silent double counting.",
+  "\u007f Trace a displayed profit number from the phone UI to source orders, fees, spend and corrections.",
+  "\u007f Let Growth propose spend that Finance says violates margin/cash policy: cross-agent challenge blocks/escalates rather than",
+  "self-approving.",
+  "\u007f Block one department on an owner action overnight: independent departments continue READY work.",
+  "\u007f Create routine machine events at high volume: notification policy suppresses noise while a real customer/security/financial incident",
+  "reaches the owner.",
+  "\u007f Ask the company why a product is blocked: natural-language owner query returns source-linked current evidence, gate and next action",
+  "without inventing an answer."
+ ]
+}

@@ -73,5 +73,8 @@ def check(presented: str | None, env: dict[str, str] | None = None) -> None:
     supplied = (presented or "").strip()
     if supplied.lower().startswith("bearer "):
         supplied = supplied[7:].strip()
-    if not supplied or not hmac.compare_digest(supplied, expected):
+    # Bytes, not str: `hmac.compare_digest` raises TypeError on a non-ASCII str, which turned
+    # an anonymous `Authorization: Bearer t\xe9` into a 500 instead of a refusal (A3-11).
+    if not supplied or not hmac.compare_digest(supplied.encode("utf-8", "surrogatepass"),
+                                               expected.encode("utf-8", "surrogatepass")):
         raise OpsAuthRefused("operator credential rejected")

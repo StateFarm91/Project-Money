@@ -28,8 +28,11 @@ They are not a measurement of this account's billing, so every ledger row carrie
 from __future__ import annotations
 
 import json
+import math
 import os
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -55,7 +58,8 @@ PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 DEFAULT_MODEL = "claude-sonnet-5"
 
 # Assumed, not fetched. A rate this company does not control and does not measure.
-USD_TO_CAD = 1.37
+# Single source (core.fx): the reciprocal of the 0.715 USD/CAD the ceiling check uses.
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402
 
 # Applied to every estimate before it is checked against the ceiling. A ceiling that trusts an
 # optimistic estimate is crossed before anybody notices.
@@ -103,8 +107,18 @@ API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
 
-class BudgetExceeded(PermanentError):
-    """The monthly model ceiling would be crossed by this call."""
+from ..agents.registry import BudgetExceeded as _LedgerBudgetExceeded  # noqa: E402
+
+
+class BudgetExceeded(PermanentError, _LedgerBudgetExceeded):
+    """The monthly model ceiling would be crossed by this call.
+
+    Also a `agents.registry.BudgetExceeded`, deliberately. Two unrelated classes of the same
+    name meant a caller written against the ledger's refusal (the worker, every gateway
+    caller, the runaway-loop guard) did not catch the pre-call refusal once the model gateway
+    started checking before the call on 2026-09-26: the control fired and the exception
+    escaped the handler built to stop on it. One refusal, one hierarchy.
+    """
 
 
 class AgentCeilingExceeded(BudgetExceeded):
@@ -142,18 +156,36 @@ def provider_for(task_key: str, **kw) -> "AnthropicProvider":
 
 
 def monthly_ceiling_cad() -> float:
-    """The ceiling in force. Environment may lower it; nothing may raise it."""
+    """The ceiling in force. Environment may lower it; nothing may raise it.
+
+    Re-audit D-1: `float("nan")` parses and `min(nan, authorised)` is `nan`, against which
+    every comparison is False -- a NaN in the environment removed the ceiling altogether.
+    A value that is not a finite, positive amount is not a lowering anyone can have meant,
+    so it falls back to the authorised ceiling rather than disabling it.
+    """
+    import math
+
     authorised = _policy_ceiling()
     raw = (os.environ.get("BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD") or "").strip()
+    if not raw:
+        return authorised
     try:
-        value = float(raw) if raw else authorised
+        value = float(raw)
     except ValueError:
+        return authorised
+    if not math.isfinite(value) or value <= 0:
         return authorised
     return min(value, authorised)
 
 
 def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
-    """Model spend for the calendar month, counted from ledger rows."""
+    """Ceiling-governed spend for the calendar month, counted from ledger rows.
+
+    Every kind the monthly ceiling governs (`routing.counts_against_monthly_ceiling`): model,
+    vision and image renders alike, plus any kind not explicitly assigned to another ceiling.
+    It read only `routing.COST_KIND` rows, so image renders -- which the policy puts inside this same
+    CA$ month -- were invisible to it (RC1 audit B2).
+    """
     from sqlalchemy import select
 
     from ..core.models import CostEntry
@@ -161,8 +193,7 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
-        rows = list(s.scalars(select(CostEntry).where(
-            CostEntry.kind == routing.COST_KIND)))
+        rows = list(s.scalars(select(CostEntry).where(routing.ceiling_kind_filter())))
     total = 0.0
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
@@ -203,8 +234,23 @@ def agent_daily_ceiling(db, agent: str, *, now: datetime | None = None) -> dict 
     except PermissionDenied:
         return None
     ceiling = float(row.daily_cost_ceiling_cad or 0.0)
+    if not math.isfinite(ceiling):
+        # Re-audit D-1 (same pattern): a NaN or infinite permission compares False against
+        # every spend, which would grant unlimited spend. Nobody authorised that, so the
+        # permission reads as zero and every call from this agent is refused.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
     if ceiling <= 0:
-        return None
+        # W4-FINHEALTH: a registered agent declared at CA$0 (`learn`, `coo`, `laura`) holds a
+        # permission of zero, not no permission. This returned `None` -- the "never heard of
+        # this agent" answer -- so `check_budget` skipped the agent check entirely and a
+        # zero-ceiling agent's first call was made and billed, refused only afterwards by
+        # `ModelGateway`'s post-hoc check (and not at all on `spend_report.record` paths).
+        # `/api/verify` calls a CA$0 ceiling "refused, safe"; this is what makes that true:
+        # any call with a positive estimate is refused before it is made. Not a ceiling
+        # change -- the declared value is unchanged; only its enforcement now matches it.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
     return {"agent": agent, "daily_ceiling_cad": ceiling,
             "spent_today_cad": registry.spend_today(agent, now=now)}
 
@@ -213,7 +259,8 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
                  now: datetime | None = None, uncommitted_cad: float = 0.0,
                  agent: str = "", purpose: str = "", job_id: int | None = None,
                  reserve: bool = True, holder: str | None = None,
-                 ttl_seconds: int | None = None) -> dict:
+                 ttl_seconds: int | None = None, product_slug: str = "",
+                 evidence_ref: str = "") -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
@@ -249,47 +296,288 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     budget for its TTL rather than for the rest of the month -- `finance.reservations` has the
     reasoning. `reserve=False` is for a caller that only wants the arithmetic, and it is not
     what a caller about to spend money should pass.
+
+    This is the token-priced front door. The arithmetic lives in `check_budget_cad`, which
+    takes an estimate in dollars, so a purchase that is not priced per token -- an image, at
+    `ImageProvider.cad_per_image` -- passes through the same ceiling, the same permission and
+    the same reservation table rather than through a second mechanism beside them.
+    """
+    try:
+        estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+    except BudgetExceeded as exc:
+        from ..finance import spend_report
+
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=0.0,
+            committed_cad=0.0, which="unpriced_model", why=str(exc), purpose=purpose,
+            now=now, detail={"model": model, "provider": "anthropic", "job_id": job_id})
+        raise
+    return check_budget_cad(db, estimate_cad=estimate, model=model, provider="anthropic",
+                            now=now, uncommitted_cad=uncommitted_cad, agent=agent,
+                            purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
+                            ttl_seconds=ttl_seconds, product_slug=product_slug,
+                            evidence_ref=evidence_ref)
+
+
+class NoQuestionRefused(BudgetExceeded):
+    """F-328: a paid call that names neither the question it answers nor the evidence it
+    serves. Money spent to look busy is refused at any budget (`spend_policy.WASTE`)."""
+
+
+class SystematicFailureRefused(BudgetExceeded):
+    """F-309: this handler's current method has a floor that failed every time it was asked.
+    A `BudgetExceeded`, so every caller already built to stop a run on a refusal stops."""
+
+
+def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str = "",
+                     job_id: int | None = None, uncommitted_cad: float = 0.0,
+                     holder: str | None = None, ttl_seconds: int | None = None,
+                     now: datetime | None = None, reserve: bool = True,
+                     model: str = "", provider: str = "", product_slug: str = "",
+                     evidence_ref: str = "") -> dict:
+    """The ceiling check itself, on an estimate already expressed in dollars.
+
+    Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
+    "outside this mechanism" (`tests/test_model_spend_paths.py` pinned nine render sites as
+    exactly that). The order and the meaning of the checks are unchanged:
+
+    1. the authorised month (billed + this caller's unbilled + others' live reservations);
+    2. a provider's own ceiling, when the owner has set one in
+       `spend_policy.PROVIDER_CEILINGS_CAD` -- an empty table binds nothing and says so;
+    3. this agent's daily permission;
+    4. a reservation written down before the call.
+
+    **Atomic (RC1 audit B4).** Steps 1-4 run under `budget_lock` -- a process lock plus a
+    Postgres advisory transaction lock or the SQLite write lock -- and the reservation is
+    inserted through the locked session, so no two holders can both read room that only one
+    of them fits in. **Own reservations count (B5):** the holder's own open reservations are
+    added to `uncommitted_cad`.
+
+    **Every refusal leaves a row.** Each raise path writes `spend.refused` to the audit log
+    with the ceiling, the estimate and what was committed, because a guard whose refusals
+    cannot be counted is a guard nobody can tell from one that never fires.
     """
     from ..finance import reservations
 
+    if reserve and not (str(purpose or "").strip() or str(evidence_ref or "").strip()):
+        # F-328 (No Spend To Look Busy): every reservation -- i.e. every call about to spend
+        # -- names the question it answers (`purpose`: a declared task or pinned prompt) or the
+        # evidence it serves (`evidence_ref`). A call with neither is refused before any money
+        # moves, and the refusal is recorded like every other.
+        from ..finance import spend_report
+
+        why = ("a paid call must name the question it answers (purpose) or the evidence it "
+               "serves (evidence_ref); this one named neither, so it is spend with nothing "
+               "on the other side of it and is refused at any budget")
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=estimate_cad,
+            committed_cad=0.0, which="no_question", why=why, purpose="", now=now,
+            detail={"model": model, "provider": provider, "job_id": job_id})
+        raise NoQuestionRefused(why)
+    if reserve:
+        # F-309: the shared systematic-failure breaker. A handler whose current method has a
+        # floor that never once passed is refused before the reservation, like any ceiling.
+        from ..finance import systematic
+
+        blocked = systematic.refusal(db, purpose)
+        if blocked:
+            from ..finance import spend_report
+
+            spend_report.record_refusal(
+                db, agent=agent, ceiling_cad=monthly_ceiling_cad(),
+                estimate_cad=estimate_cad, committed_cad=0.0, which="systematic_failure",
+                why=blocked, purpose=purpose, now=now,
+                detail={"model": model, "provider": provider, "job_id": job_id})
+            raise SystematicFailureRefused(blocked)
     me = holder or reservations.holder_id()
+    decided: dict = {}
+    # RC1 audit B4: the read of what is committed and the write of this call's claim are one
+    # atomic step under `budget_lock`. They were two -- `outstanding()` then `reserve()` --
+    # and two holders that both read CA$40 committed of a CA$100 month both reserved CA$60.
+    # The lock is never held across a provider call: only across this arithmetic and one
+    # INSERT. A refusal is *recorded* after the lock is released (its audit row is a write,
+    # and on SQLite a second writer inside the lock would wait on the lock itself).
+    with budget_lock(db) as locked_session:
+        decided = _decide_and_reserve(
+            db, locked_session, me=me, estimate_cad=estimate_cad, agent=agent,
+            purpose=purpose, job_id=job_id, uncommitted_cad=uncommitted_cad,
+            ttl_seconds=ttl_seconds, now=now, reserve=reserve, model=model,
+            provider=provider, product_slug=product_slug)
+    refusal = decided.pop("_refusal", None)
+    if refusal is not None:
+        from ..finance import spend_report
+
+        exc_type, record = refusal
+        spend_report.record_refusal(db, now=now, **record)
+        raise exc_type(record["why"])
+    if reserve:
+        # F-307: the next paid call in this job scope was allowed on this estimate; if its
+        # worker dies mid-call, that is what the orphan is counted at (never zero).
+        from . import paid_calls
+
+        paid_calls.note_reservation(decided)
+    return decided
+
+
+# The budget lock (RC1 audit B4). One process-wide re-entrant lock serialises threads of this
+# process, and a database lock serialises processes: a transaction-scoped Postgres advisory
+# lock, or SQLite's write lock (`BEGIN IMMEDIATE`) on a file database. An in-memory SQLite
+# database is private to this process, so the process lock is the whole of it there. A
+# dialect with neither is refused rather than checked without a lock: an unserialised
+# ceiling is the defect this exists to close.
+BUDGET_LOCK_KEY = 734543611
+_PROCESS_BUDGET_LOCK = threading.RLock()
+
+
+def _sqlite_in_memory(engine) -> bool:
+    database = str(engine.url.database or "")
+    return database in ("", ":memory:") or "mode=memory" in str(engine.url)
+
+
+@contextmanager
+def budget_lock(db):
+    """Hold the spend ceiling's lock for one check-and-reserve. Yields the locked session."""
+    from sqlalchemy import text
+
+    with _PROCESS_BUDGET_LOCK:
+        with db.session() as session:
+            engine = session.get_bind()
+            dialect = engine.dialect.name
+            if dialect == "postgresql":
+                session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                                {"key": BUDGET_LOCK_KEY})
+            elif dialect == "sqlite":
+                if not _sqlite_in_memory(engine):
+                    session.execute(text("BEGIN IMMEDIATE"))
+            else:
+                raise BudgetExceeded(
+                    f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
+                    f"and its reservation cannot be made atomic. Refused rather than checked "
+                    f"without one")
+            yield session
+
+
+def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
+                        purpose: str, job_id, uncommitted_cad, ttl_seconds, now, reserve: bool,
+                        model: str, provider: str, product_slug: str) -> dict:
+    """The four checks and the reservation, run while `budget_lock` is held.
+
+    Returns the budget dict, or a dict carrying `_refusal` -- (exception type, record) --
+    that the caller records and raises once the lock is released.
+    """
+    from ..finance import reservations, spend_policy, spend_report
+
+    import math
+
     spent = spent_this_month_cad(db, now=now)
-    mine = max(0.0, float(uncommitted_cad or 0.0))
-    others = reservations.outstanding(db, exclude_holder=me, now=now)
+    held = reservations.outstanding(db, exclude_holder=me, now=now)
+    # RC1 audit B5: this holder's *own* live reservations count too. They were excluded on
+    # the theory that a caller declares its in-flight spend through `uncommitted_cad`, so a
+    # caller that did not -- a loop that reserved and released late -- was granted
+    # CA$40 ten times against a CA$100 month. Counting them can only refuse more, never less.
+    own_open = float(held.get("own_holder_cad") or 0.0)
+    mine = round(max(0.0, float(uncommitted_cad or 0.0)) + own_open, 6)
+    others = held
     committed = round(spent + mine + others["cad"], 6)
     ceiling = monthly_ceiling_cad()
-    estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+
+    def _refusal(exc_type, which: str, message: str, *, estimate: float, **extra) -> dict:
+        record = {"agent": agent, "ceiling_cad": extra.pop("ceiling", ceiling),
+                  "estimate_cad": estimate,
+                  "committed_cad": extra.pop("committed", committed),
+                  "which": which, "why": message, "purpose": purpose,
+                  "detail": {"model": model, "provider": provider, "job_id": job_id,
+                             **extra}}
+        return {"_refusal": (exc_type, record)}
+
+    try:
+        raw_estimate = float(estimate_cad)
+    except (TypeError, ValueError):
+        raw_estimate = float("nan")
+    # Certification C-36: NaN compares False against every ceiling and a negative estimate
+    # subtracts from what is committed, so either would pass a spent month. Refused, with
+    # the refusal recorded like every other (the raw value in detail, 0 in the number).
+    if not math.isfinite(raw_estimate) or raw_estimate < 0:
+        message = (f"the estimate {estimate_cad!r} is not a finite, non-negative amount, so "
+                   f"it cannot be checked against any ceiling. Refused rather than read as "
+                   f"free")
+        return _refusal(BudgetExceeded, "invalid_estimate", message, estimate=0.0,
+                        raw_estimate=repr(estimate_cad)[:40])
+    estimate = round(raw_estimate, 6)
+    # Re-audit D-1: a ceiling that is not a finite, positive number compares False against
+    # every committed amount. `monthly_ceiling_cad` already falls back to the authorised
+    # figure; this refuses outright should anything else ever hand this check a bad ceiling.
+    if not isinstance(ceiling, (int, float)) or not math.isfinite(ceiling) or ceiling <= 0:
+        return _refusal(BudgetExceeded, "invalid_ceiling",
+                        f"the monthly ceiling {ceiling!r} is not a finite, positive amount, so "
+                        f"no call can be checked against it. Refused rather than read as no "
+                        f"ceiling", estimate=estimate, ceiling=0.0)
+    # Other holders' live claims, by the dimension each ceiling is about (C-32/C-33). The
+    # monthly step already counted them; the agent and provider steps read only billed rows
+    # plus this caller's own, so two concurrent holders each fit and together overshot.
+    others_agent_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                 if agent and r.get("agent") == agent), 6)
+    others_provider_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                    if provider and r.get("provider") == provider), 6)
 
     # 1. The authorised month. This is the budget, and it is the one that stops the company.
     if committed + estimate > ceiling:
-        raise BudgetExceeded(
+        return _refusal(
+            BudgetExceeded, "monthly_ceiling",
             f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
             f"already committed this month (CA${spent:.4f} billed, "
-            f"CA${mine:.4f} spent by this run and not yet billed, "
+            f"CA${mine:.4f} spent or reserved by this caller and not yet billed "
+            f"(CA${own_open:.4f} of it in this holder's own open reservations), "
             f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
             f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
             f"than found on the invoice. The way past this is the owner raising the ceiling "
-            f"with measured usage attached, not a cheaper model")
+            f"with measured usage attached, not a cheaper model", estimate=estimate)
 
-    # 2. This agent's daily permission. Second, because the month is authoritative and a
-    #    per-agent ceiling is a permission rather than a slice of it.
+    # 2. A provider's own ceiling, if the owner has set one. Read from this month's ledger by
+    #    provider; an empty table is no cap rather than a cap of zero.
+    provider_ceiling = spend_policy.PROVIDER_CEILINGS_CAD.get(provider) if provider else None
+    provider_spent = None
+    if provider_ceiling is not None:
+        by_provider = spend_report.what_it_bought(db, now=now)["by_provider"]
+        provider_spent = float((by_provider.get(provider) or {}).get("cad") or 0.0)
+        if provider_spent + mine + others_provider_cad + estimate > provider_ceiling:
+            return _refusal(
+                BudgetExceeded, "provider_ceiling",
+                f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
+                f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
+                f"PROVIDER_CEILINGS_CAD), other callers hold CA${others_provider_cad:.4f} "
+                f"in live reservations against it, and this call is estimated at "
+                f"CA${estimate:.4f}. "
+                f"Refused before the call. The monthly ceiling still has "
+                f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
+                f"provider, not the budget", estimate=estimate,
+                ceiling=provider_ceiling,
+                committed=round(provider_spent + mine + others_provider_cad, 6))
+
+    # 3. This agent's daily permission. After the month, because the month is authoritative
+    #    and a per-agent ceiling is a permission rather than a slice of it.
     permission = agent_daily_ceiling(db, agent, now=now)
     if permission is not None:
         today = permission["spent_today_cad"]
         allowed = permission["daily_ceiling_cad"]
-        if today + mine + estimate > allowed:
-            raise AgentCeilingExceeded(
+        if today + mine + others_agent_cad + estimate > allowed:
+            return _refusal(
+                AgentCeilingExceeded, "agent_daily_ceiling",
                 f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
-                f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "
-                f"in this run); this call is estimated at CA${estimate:.4f}. Refused before "
-                f"the call. This is a daily permission, not the budget -- the month still "
+                f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
+                f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
+                f"CA${mine:.4f} unbilled in this run, CA${others_agent_cad:.4f} reserved "
+                f"by other callers for this agent). This is a daily permission, not the "
+                f"budget -- the month still "
                 f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
                 f"work resumes at the next UTC day. To do more today, either lower the work "
                 f"this agent asks for (the cadence is derived from this ceiling, so it will "
                 f"follow) or have the owner raise the agent's ceiling in "
-                f"`agents.registry.DEFAULT_AGENTS`")
+                f"`agents.registry.DEFAULT_AGENTS`", estimate=estimate,
+                ceiling=allowed, committed=round(today + mine + others_agent_cad, 6))
 
-    # 3. Written down before the call, so another process reading the same month sees it.
+    # 4. Written down before the call -- and before the lock is released -- so the next
+    #    holder to take the lock reads it.
     reservation_id = None
     if reserve:
         # `now` is threaded through deliberately. Without it the row's expiry is stamped from
@@ -297,9 +585,15 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
         # supplies a timestamp writes a reservation that reads as already expired -- a
         # reservation that protects nothing, in exactly the callers that are most careful
         # about which instant they mean.
-        reservation_id = reservations.reserve(
-            db, amount_cad=estimate, holder=me, agent=agent, purpose=purpose, model=model,
-            job_id=job_id, now=now,
+        # The product this reservation is held for (F-321): the caller's slug, else the
+        # running job's (`spend_report.attributed_to`), else shared. `SpendReservation` has no
+        # product column, so it rides in the detail beside the provider.
+        held_for, held_detail = spend_report.attribution(
+            product_slug, {"provider": provider} if provider else None)
+        held_detail["product_slug"] = held_for
+        reservation_id = reservations.reserve_in(
+            locked_session, amount_cad=estimate, holder=me, agent=agent, purpose=purpose,
+            model=model, job_id=job_id, now=now, detail=held_detail,
             ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
                          else ttl_seconds))
 
@@ -307,10 +601,14 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
             "estimate_cad": estimate,
             "headroom_cad": round(ceiling - committed - estimate, 6),
             "uncommitted_cad": round(mine, 6),
+            "own_open_reservations_cad": round(own_open, 6),
             "reserved_by_others_cad": others["cad"],
             "reserved_by_others_count": others["count"],
             "expired_unreleased_cad": others["expired_unreleased_cad"],
             "agent_permission": permission,
+            "provider": provider,
+            "provider_ceiling_cad": provider_ceiling,
+            "provider_spent_cad": provider_spent,
             "holder": me,
             "reservation_id": reservation_id}
 
@@ -374,9 +672,6 @@ class AnthropicProvider:
         return (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
     def complete(self, system: str, user: str, *, max_tokens: int) -> ModelResponse:
-        import urllib.error
-        import urllib.request
-
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
@@ -386,26 +681,7 @@ class AnthropicProvider:
             **({"system": system} if system else {}),
             "messages": [{"role": "user", "content": user}],
         }).encode()
-        request = urllib.request.Request(API_URL, data=payload, method="POST")
-        request.add_header("x-api-key", key)
-        request.add_header("anthropic-version", API_VERSION)
-        request.add_header("content-type", "application/json")
-
-        started = time.time()
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-                body = json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
-            detail = exc.read().decode(errors="replace")[:400]
-            if exc.code in (429, 500, 502, 503, 529):
-                raise TransientError(f"anthropic {exc.code}: {detail}") from exc
-            # 400 with a billing message is the state this account is actually in, and it is
-            # permanent until somebody buys credits. Retrying it is spend on nothing.
-            raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
-        except urllib.error.URLError as exc:
-            raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
-
-        return self._read(body, started)
+        return self._guarded(payload, key, "anthropic.messages")
 
     def see(self, system: str, prompt: str, image_urls: list[str], *,
             max_tokens: int) -> ModelResponse:
@@ -422,9 +698,6 @@ class AnthropicProvider:
         the observation is stored and the picture is not, which is also what keeps this on
         the right side of "never copy a competitor's expression".
         """
-        import urllib.error
-        import urllib.request
-
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
@@ -446,6 +719,27 @@ class AnthropicProvider:
             **({"system": system} if system else {}),
             "messages": [{"role": "user", "content": content}],
         }).encode()
+        return self._guarded(payload, key, "anthropic.vision")
+
+    def _guarded(self, payload: bytes, key: str, effect: str) -> ModelResponse:
+        """The one place a paid model request leaves the process (F-307/F-339).
+
+        Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
+        occurrence, so a reclaimed or retried attempt replays the answer it already paid for
+        instead of paying again; outside a job it is a plain call."""
+        from . import paid_calls, routing
+
+        return paid_calls.guarded(
+            effect, paid_calls.fingerprint(effect, payload.decode("utf-8", "replace")),
+            lambda: self._send(payload, key),
+            encode=_encode_response, decode=_decode_response, classify=_classify_failure,
+            cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
+
+    def _send(self, payload: bytes, key: str) -> ModelResponse:
+        """The HTTP request itself. Tests replace this; no test reaches the network."""
+        import urllib.error
+        import urllib.request
+
         request = urllib.request.Request(API_URL, data=payload, method="POST")
         request.add_header("x-api-key", key)
         request.add_header("anthropic-version", API_VERSION)
@@ -455,10 +749,12 @@ class AnthropicProvider:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 body = json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:
+        except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
             detail = exc.read().decode(errors="replace")[:400]
             if exc.code in (429, 500, 502, 503, 529):
                 raise TransientError(f"anthropic {exc.code}: {detail}") from exc
+            # 400 with a billing message is the state this account is actually in, and it is
+            # permanent until somebody buys credits. Retrying it is spend on nothing.
             raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
@@ -476,6 +772,32 @@ class AnthropicProvider:
             latency_ms=round((time.time() - started) * 1000, 2))
 
 
+def _encode_response(r: ModelResponse) -> dict:
+    return {"text": r.text, "provider": r.provider, "model": r.model,
+            "input_tokens": int(r.input_tokens), "output_tokens": int(r.output_tokens),
+            "latency_ms": float(r.latency_ms)}
+
+
+def _decode_response(d: dict) -> ModelResponse:
+    """A replayed answer: the text already paid for, with zero tokens because nothing was
+    sent. `replayed=True` is what keeps it from being billed or counted at an estimate."""
+    return ModelResponse(text=str(d.get("text") or ""), provider=str(d.get("provider") or ""),
+                         model=str(d.get("model") or ""), input_tokens=0, output_tokens=0,
+                         latency_ms=0.0, replayed=True)
+
+
+def _classify_failure(exc: BaseException) -> str:
+    """DECLINED when the provider refused before doing work (it did not bill: HTTP status,
+    unreachable); UNCERTAIN for a timeout or an unreadable 200 (whether it billed is
+    unknown). The same split `ModelGateway._billing` bills on."""
+    from . import paid_calls
+
+    if isinstance(exc, (TransientError, PermanentError)) and not isinstance(
+            exc, TimeoutError) and not getattr(exc, "billed_usage", None):
+        return paid_calls.DECLINED
+    return paid_calls.UNCERTAIN
+
+
 # ---------------------------------------------------------------------------
 # The probe: what makes the gate honest
 
@@ -483,6 +805,9 @@ class AnthropicProvider:
 PROBE_PROMPT = "Reply with the single word: ok"
 PROBE_MAX_TOKENS = 8
 PROBE_MODEL = "claude-haiku-4-5-20251001"
+# The probe's recorded reason when it could not try at all (no key is configured). Read by
+# `runtime.worker.model_provider_down`: not an outage, so model jobs are not parked for it.
+NO_KEY_REASON = "no ANTHROPIC_API_KEY in this environment"
 
 
 def probe(db, *, provider: AnthropicProvider | None = None,
@@ -502,7 +827,7 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                     "model": provider.model, "ok": False, "reason": ""}
 
     if not provider.key():
-        record["reason"] = "no ANTHROPIC_API_KEY in this environment"
+        record["reason"] = NO_KEY_REASON
     else:
         budget: dict = {}
         try:
@@ -539,7 +864,8 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                 purpose="model.probe", provider="anthropic", model=response.model,
                 department="gateway", job_id=job_id, kind=routing.COST_KIND,
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
-                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms")})
+                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms"),
+                        "attribution": "shared"})
 
             # A call that got an answer is evidence the balance is no longer the blocker,
             # which is the only honest way to close an owner action about money: by the
@@ -706,7 +1032,7 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
                 purpose=VISION_PROBE_ACTION, provider="anthropic", model=response.model,
                 department="gateway", job_id=job_id, kind=routing.COST_KIND,
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
-                detail={"price_basis": "assumed"})
+                detail={"price_basis": "assumed", "attribution": "shared"})
 
             # This call got an answer, so the balance is no longer the blocker.
             #
@@ -803,8 +1129,8 @@ def state(db) -> dict:
         "spent_this_month_cad": spent_this_month_cad(db),
         "monthly_ceiling_cad": monthly_ceiling_cad(),
         "price_basis": "assumed: provider list prices read at build time, USD converted at "
-                       f"an assumed {USD_TO_CAD} and padded {ESTIMATE_PADDING}x before any "
-                       "ceiling check",
+                       f"an assumed {USD_TO_CAD:.4f} CAD/USD and padded "
+                       f"{ESTIMATE_PADDING}x before any ceiling check",
         "note": ("no probe has been run, so whether this key can serve a request is unknown "
                  "-- which is not the same as unavailable"
                  if probe_state is None else

@@ -21,21 +21,41 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 log = logging.getLogger("brambleloop.worker")
+# F-159: no secret reaches the platform's log store from this process.
+from ..ops import log_secret_guard as _log_secret_guard  # noqa: E402
+
+_log_secret_guard.install()
 
 
 def main() -> int:
+    # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
+    # build runs as SHADOW (the phase env is forced before the effective phase is read below).
+    from ..ops import release_record
+
+    release_record.apply_at_import()
     db = Database()
     db.create_all()
+    try:
+        release_record.record_incident(db)
+    except Exception:  # noqa: BLE001 - the phase is already forced
+        pass
     Registry(db).seed_defaults()
     from ..intel.benchmarks import seed as seed_benchmarks
 
     seed_benchmarks(db)
 
-    phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
+    # F-299: the environment AND the recorded owner transition; disagreement -> the more
+    # restrictive phase plus an incident. Shadow when nothing is recorded.
+    from ..core.phase import effective_phase
+
+    phase = effective_phase(db)
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"worker-{os.getpid()}"
     log.info("starting worker %s in phase %s", name, phase.value)
 
-    worker = Worker(db, name, phase=phase)
+    # rc1-AUTH A1: the boot-time phase is only the first reading; the worker re-resolves it
+    # for every job (`live_phase`), and protected effects re-resolve it again at their
+    # effect boundaries (`runtime.worker.protected_phase`).
+    worker = Worker(db, name, phase=phase, live_phase=True)
     max_seconds = os.environ.get("BRAMBLELOOP_MAX_SECONDS")
     stats = worker.run(max_seconds=float(max_seconds) if max_seconds else None)
     log.info("worker %s exiting: %s", name, stats)

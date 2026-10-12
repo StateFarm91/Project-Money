@@ -103,7 +103,7 @@ def realised_benefit(db, *, now: datetime | None = None,
     from sqlalchemy import select
 
     from ..core.models import CapabilityPoint, Improvement
-    from .cells import BY_KEY, PROMOTED
+    from .cells import BY_KEY, PROMOTED, is_trial_metric, trial_direction
 
     now = now or datetime.now(timezone.utc)
 
@@ -111,9 +111,17 @@ def realised_benefit(db, *, now: datetime | None = None,
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
+        all_promoted = [r for r in s.scalars(select(Improvement)) if r.state == PROMOTED]
         promoted = [(r.id, r.cell, r.metric, r.baseline_value, r.cost_cad or 0.0,
                      _aware(r.promoted_at or r.at))
-                    for r in s.scalars(select(Improvement)) if r.state == PROMOTED]
+                    for r in all_promoted if not is_trial_metric(r)]
+        # A trial-metric promotion is read by re-running its own trial on fresh data (the
+        # monitor records it on the row), never from the cell's capability curve, which is in
+        # different units.
+        trial_rows = [(r.id, r.cell, r.metric, r.baseline_value, r.cost_cad or 0.0,
+                       _aware(r.promoted_at or r.at),
+                       ((r.evidence or {}).get("monitoring") or {}).get("observed"),
+                       trial_direction(r)) for r in all_promoted if is_trial_metric(r)]
         history = [(h.cell, _aware(h.at), h.value, (h.detail or {}).get("from", ""))
                    for h in s.scalars(select(CapabilityPoint))]
 
@@ -130,6 +138,14 @@ def realised_benefit(db, *, now: datetime | None = None,
             improvement_id=improvement_id, cell=cell_key, metric=metric,
             baseline=baseline, observed=(after[-1][1] if after else None),
             higher_is_better=cell.higher_is_better, cost_cad=cost_cad,
+            age_days=(now - promoted_at).total_seconds() / 86400.0,
+            window_days=window_days))
+
+    for improvement_id, cell_key, metric, baseline, cost_cad, promoted_at, observed, up in \
+            trial_rows:
+        rows.append(Realised(
+            improvement_id=improvement_id, cell=cell_key, metric=metric, baseline=baseline,
+            observed=observed, higher_is_better=up, cost_cad=cost_cad,
             age_days=(now - promoted_at).total_seconds() / 86400.0,
             window_days=window_days))
 
@@ -168,6 +184,8 @@ def prioritise(candidates: list[dict]) -> dict:
     permission to burn unlimited tokens", and the mechanism that makes that real is having to
     say in advance what would count as it having worked.
     """
+    from . import tiers
+
     rows = []
     for c in candidates:
         expected = c.get("expected_impact")
@@ -177,14 +195,34 @@ def prioritise(candidates: list[dict]) -> dict:
                 f"{c.get('key', 'a candidate')}: say what improvement is expected and on "
                 f"which metric. A candidate that cannot say what would count as working "
                 f"cannot be prioritised, and cannot be assessed afterwards either")
+        # F-394: a launch blocker names the readiness item it unblocks. `True` is a claim.
+        blocker = c.get("blocks_launch")
+        if blocker is not None and (not isinstance(blocker, str) or not blocker.strip()):
+            raise RoiRefused(
+                f"{c.get('key', 'a candidate')}: a launch-blocker flag names the readiness "
+                f"item it unblocks (e.g. 'launch.readiness:<item>'), not {blocker!r}")
+        tier = c.get("tier")
+        if tier is not None and tier not in tiers.TIER_BY_KEY:
+            raise RoiRefused(f"{c.get('key', 'a candidate')}: unknown risk tier {tier!r}")
         rows.append({**c, "cost_cad": cost,
+                     "blocks_launch": blocker.strip() if blocker else None,
+                     "reversibility_rank": (tiers.TIER_BY_KEY[tier].rank if tier else None),
                      "impact_per_cad": (round(float(expected) / cost, 4) if cost > 0
                                         else None)})
-    # A free change with real expected impact outranks a paid one: sorted with None first.
-    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0)))
+    # Launch blockers first (F-394): a change that unblocks a named readiness item outranks
+    # any amount of expected impact elsewhere while the company cannot sell. Then, as before,
+    # a free change with real expected impact outranks a paid one (None first) and, among
+    # free changes, the larger expected impact first. Reversibility breaks the remaining
+    # ties: the lower risk tier (scoring before gate) is the cheaper one to be wrong about.
+    rows.sort(key=lambda r: (r["blocks_launch"] is None,
+                             r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
+                             -float(r["expected_impact"]),
+                             r["reversibility_rank"] if r["reversibility_rank"] is not None
+                             else len(tiers.TIERS)))
     return {"ranked": rows,
-            "note": ("Ordered by expected impact per dollar, with free changes first. "
-                     "Continuous learning is not permission to burn unlimited tokens (#99).")}
+            "note": ("Launch blockers first; then expected impact per dollar, with free "
+                     "changes first; reversibility (risk tier) breaks ties. Continuous "
+                     "learning is not permission to burn unlimited tokens (#99).")}
 
 
 # ---------------------------------------------------------------------------
@@ -235,12 +273,22 @@ def compounding_report(db) -> dict:
     from ..core.models import AuditLog
 
     with db.session() as s:
-        rows = [a.detail or {} for a in s.scalars(select(AuditLog).where(
-            AuditLog.action == "design.provenance"))]
+        raw = [(a.artifact or "", a.detail or {}) for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "design.provenance").order_by(AuditLog.id))]
+
+    # #101 counts *designs*, not runs. An `ideation:<kind>:<arena>` row is the brief a run was
+    # assembled with, recorded once per distinct lesson set; it is not a design and would
+    # count the same weekly run many times. A design is counted once, at its latest record.
+    briefs = [d for artifact, d in raw if artifact.startswith("ideation:")]
+    latest: dict[str, dict] = {}
+    for artifact, d in raw:
+        if not artifact.startswith("ideation:"):
+            latest[artifact] = d
+    rows = list(latest.values())
 
     if not rows:
         return {"measurable": False,
-                "designs": 0,
+                "designs": 0, "briefs_recorded": len(briefs),
                 "reason": ("no design has recorded what it drew on, so whether the company "
                            "is compounding or restarting cannot be told apart"),
                 "note": ""}
@@ -249,6 +297,7 @@ def compounding_report(db) -> dict:
     return {
         "measurable": True,
         "designs": len(rows),
+        "briefs_recorded": len(briefs),
         "designs_using_accumulated_knowledge": len(used),
         "share": round(len(used) / len(rows), 3),
         "mean_lessons_per_design": round(

@@ -215,3 +215,81 @@ def from_db(db, *, today: date | None = None) -> dict:
                  if not testers else
                  f"{len(testers)} tester(s) with recorded assignments"),
     }
+
+
+def plan(db, products: list[dict], *, today: date | None = None) -> dict:
+    """The runtime form of #43: forecast, capacity and assignment over real products.
+
+    `products` are certified releases: slug, risk_class, specialty (the pod a tester must know),
+    make_hours and needed_by. Testers are the people recorded in `physical_tests`, each
+    credited with the specialties of the products they actually tested -- a specialty nobody
+    has demonstrated is not one. A product whose sample has already passed needs no tester.
+
+    Assignment spreads the work: each demand goes to the qualified tester with the least
+    already assigned in this plan, so one reliable person does not quietly become the whole
+    network. Nobody qualified is reported as such, never filled by an out-of-specialty guess.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalTest
+
+    today = today or date.today()
+    with db.session() as s:
+        tests = list(s.scalars(select(PhysicalTest)))
+    specialty_of = {p["slug"]: p["specialty"] for p in products}
+    sampled = {t.product_slug for t in tests if t.passed}
+
+    people: dict[str, dict] = {}
+    for t in tests:
+        entry = people.setdefault(t.tester_ref or "unnamed",
+                                  {"accepted": 0, "completed": 0, "specialties": set()})
+        entry["accepted"] += 1
+        if t.passed:
+            entry["completed"] += 1
+        if t.product_slug in specialty_of:
+            entry["specialties"].add(specialty_of[t.product_slug])
+    testers = [Tester(ref=ref, specialties=tuple(sorted(v["specialties"])),
+                      accepted=v["accepted"], completed=v["completed"])
+               for ref, v in sorted(people.items())]
+
+    demands = [Demand(product_slug=p["slug"], risk_class=p["risk_class"],
+                      specialty=p["specialty"], make_hours=float(p["make_hours"]),
+                      needed_by=p["needed_by"])
+               for p in products
+               if p["risk_class"] in NEEDS_SAMPLE and p["slug"] not in sampled]
+    fc = forecast(demands, today=today)
+    cap = capacity(testers, demands, today=today)
+
+    load: dict[str, int] = {t.ref: 0 for t in testers}
+    by_slug = {d.product_slug: d for d in demands}
+    assignments, unassigned = [], []
+    for row in fc["demands"]:
+        demand = by_slug[row["product_slug"]]
+        qualified = sorted((t for t in testers if demand.specialty in t.specialties),
+                           key=lambda t: (not t.reliable, load[t.ref], t.ref))
+        placed = None
+        refusals = []
+        for tester in qualified:
+            try:
+                placed = assign(tester, demand)
+                load[tester.ref] += placed["tester_days"]
+                break
+            except TesterRefused as exc:
+                refusals.append(str(exc))
+        if placed:
+            assignments.append(placed)
+        else:
+            unassigned.append({"product_slug": demand.product_slug,
+                               "specialty": demand.specialty,
+                               "must_start_by": row["must_start_by"],
+                               "already_late": row["already_late"],
+                               "why": (refusals or [
+                                   f"no recorded tester has tested {demand.specialty!r}; "
+                                   f"an out-of-specialty assignment is a slow way to "
+                                   f"discover that"])})
+    return {"forecast": fc, "capacity": cap, "testers": [t.to_dict() for t in testers],
+            "assignments": assignments, "unassigned": unassigned,
+            "sampled": sorted(sampled),
+            "note": ("no tester is recorded, so every Class B/C demand is unassigned -- "
+                     "the `tester_roster` gate" if not testers else
+                     f"{len(testers)} recorded tester(s)")}

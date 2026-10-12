@@ -234,3 +234,89 @@ def state() -> dict:
             "composition choice; showing more is a claim about a pattern that does not "
             "contain it, made by an image nobody thought of as a statement"),
     }
+
+
+# ---- #63 in the runtime: the release chain walks the flow ---------------------------
+
+FLOW_ACTION = "creative.evidence_flow"
+
+
+def _size(width_cm, height_cm) -> str | None:
+    if not width_cm or not height_cm:
+        return None
+    return f"{float(width_cm):.0f} x {float(height_cm):.0f} cm"
+
+
+def brief_for_release(cir, twin, *, evidence_ref: str,
+                      deliverables: tuple[str, ...]) -> Brief:
+    """The brief `assets.build` constrains its listing frames by, from the compiled twin.
+
+    Motifs are the colours the chart places (a colourwork motif is its placement of these
+    yarns and nothing else); dimensions the twin's finished size; texture the stitch types
+    the twin says the pattern works; construction the CIR's; deliverables the files the
+    release stores. Everything is read off the truth, and nothing off the artwork.
+    """
+    size = _size(getattr(twin, "width_cm", None), getattr(twin, "height_cm", None))
+    return brief_from_truth(
+        product_slug=cir.slug, version=cir.version, evidence_ref=evidence_ref,
+        motifs=tuple(sorted(c for c in twin.colors_used if c)),
+        dimensions=(size,) if size else (),
+        texture=tuple(sorted(twin.stitch_types_used)),
+        construction=(str(cir.construction),),
+        deliverables=tuple(deliverables))
+
+
+def produced_by_frames(frames) -> dict[str, tuple[str, ...]]:
+    """What the conversion creative depicts or claims, read off the frames themselves."""
+    motifs, texture, dims = set(), set(), set()
+    for frame in frames:
+        motifs.update(c for c in (getattr(frame, "depicts_colors", None) or []) if c)
+        claims = getattr(frame, "claims", None)
+        if claims is not None:
+            motifs.update(c for c in (getattr(claims, "colors", None) or []) if c)
+            size = _size(getattr(claims, "finished_width_cm", None),
+                         getattr(claims, "finished_height_cm", None))
+            if size:
+                dims.add(size)
+        texture.update(getattr(frame, "depicts_stitches", None) or [])
+    return {MOTIFS: tuple(sorted(motifs)), DIMENSIONS: tuple(sorted(dims)),
+            TEXTURE: tuple(sorted(texture)), CONSTRUCTION: (), DELIVERABLES: ()}
+
+
+def walk(brief: Brief, produced: dict[str, tuple[str, ...]], *, produced_by: str,
+         compared_by: str, gates_ok: bool) -> dict:
+    """Walk CIR -> ... -> export in order, stopping where the evidence stops it.
+
+    Each step is `advance`d, so a skip is refused rather than taken. The creative check and
+    the independence check decide whether the flow reaches the gates; `gates_ok` (the
+    structural, truth and hero checks the caller ran) decides whether it reaches export.
+    A failure sends the product back to the brief, which `advance` reports as a restart.
+    """
+    creative = check_creative(brief, produced)
+    independence = check_independence(produced_by=produced_by, compared_by=compared_by)
+    steps: list[dict] = []
+    stage = CIR
+    blocked_at = None
+    # Export itself happens at store.publish; this walk ends at the gates and says whether
+    # they passed, rather than claiming a listing was exported.
+    for to in FLOW[1:-1]:
+        if to == ASSET_TRUTH and not creative["ok"]:
+            blocked_at = CREATIVE
+            break
+        if to == GATES and not independence["independent"]:
+            blocked_at = ASSET_TRUTH
+            break
+        step = advance(stage, to)
+        steps.append(step)
+        if not step["advanced"]:  # pragma: no cover - the walk is in order by construction
+            blocked_at = stage
+            break
+        stage = to
+    if blocked_at is None and not gates_ok:
+        blocked_at = GATES
+    restart = advance(blocked_at, BRIEF) if blocked_at and blocked_at != BRIEF else None
+    return {"brief": brief.to_dict(), "creative": creative, "independence": independence,
+            "steps": [s["to"] for s in steps], "reached": stage,
+            "blocked_at": blocked_at, "restart": restart,
+            "export_ready": blocked_at is None and stage == GATES,
+            "ok": blocked_at is None and stage == GATES}

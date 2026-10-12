@@ -443,13 +443,9 @@ PORTRAIT_ACTION = "visual.carried_portrait_realism"
 
 def _portrait_fingerprint(path: str) -> str:
     """The portrait's content hash. A verdict belongs to the bytes it was made about."""
-    import hashlib
-    from pathlib import Path
+    from ..gateway.evidence_key import file_bytes
 
-    try:
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    except OSError:
-        return ""
+    return file_bytes(path)
 
 
 def carried_portrait(db, *, provider=None, path: str = "") -> dict:

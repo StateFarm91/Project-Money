@@ -1,0 +1,78 @@
+{
+  "scope": "AB-01",
+  "branch": "codex/final-ab-properties-01",
+  "base": "c93b136",
+  "integration_base_merged": "479fc67794444ccc1b9db72c20626e3c583b1bfe",
+  "requirements": [
+    "F-005",
+    "F-007",
+    "F-543"
+  ],
+  "status": "repair candidate for coordinator review; not certified",
+  "commits": [
+    "1a518ff",
+    "0b69f76"
+  ],
+  "independent_test_commit": "6391b8d (cherry-pick of Learn8e89034)",
+  "runtime_chain": {
+    "producer": "listing.seo persists ListingSearchProfile (existing A producer)",
+    "state": "category_status CHOSEN, taxonomy_id, properties, verdict PASS; absent/UNKNOWN/refused stops certified_payload",
+    "consumer": "handle_store_publish -> certified_payload -> payload taxonomy; _publish_and_read_back -> set_listing_property PUT",
+    "independent_observation": "getListing plus getListingProperties GET -> canonical_properties -> etsy_verify; ignored/missing property changes unverified",
+    "protection": "same sent_fields includes properties in activation owner content digest; activation readback and listing census use same independent property reads",
+    "effect": "draft publication only verified when fields/files/images/properties match; activation withheld on mismatch; census opens drift incident",
+    "learn_contract": "handle_store_publish uses same pdf_help_links(db,cir.to_dict()) as asset rendering; original PDF_HASH_DRIFT check unchanged"
+  },
+  "tests_run": [
+    {
+      "file": "tests/test_etsy_property_contract.py",
+      "passing": 4,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_etsy_readback_observe.py",
+      "passing": 37,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_learn_publish_contract.py",
+      "passing": 3,
+      "failing": 0
+    }
+  ],
+  "adversarial": [
+    "chosen2114 replaces66",
+    "ignored successful PUT fails independent readback",
+    "missing profile no default",
+    "removed property blocks activation and shows census drift",
+    "changed local property invalidates owner approval",
+    "changed Learn approval changes bytes and triggers PDF_HASH_DRIFT"
+  ],
+  "tests_changed": [
+    {
+      "file": "tests/test_etsy_readback_observe.py::_product",
+      "why": "existing fixture lacked category/profile; seed explicitly chosen fake category2114 plus property200 and PASS for honest new precondition. No assertions relaxed."
+    }
+  ],
+  "official_contract_sources": [
+    "https://developer.etsy.com/documentation/reference",
+    "https://developer.etsy.com/documentation/tutorials/listings/"
+  ],
+  "source_verification": "Coordinator verified official updateListingProperty/getListingProperties contract; no live Etsy experiment in this lane",
+  "initial_failures": [
+    "first implementation checkpoint contained taxonomy helper signature syntax typo from broad replacement; fixed0b69f76 before passing tests",
+    "new ignored-write test initially read nonexistent output read_back field; corrected to existing problems/read_back_verified outputs"
+  ],
+  "limitations": [
+    "fake server proves local contract, not live Etsy behavior",
+    "no full suite or heavy certification suite run",
+    "legacy fixtures elsewhere lacking ListingSearchProfile must be audited rather than granting production fallback",
+    "concurrent remote mutation after read-back remains external race; no transactional Etsy guarantee",
+    "requirement maturity/status not changed",
+    "do not use1a518ff alone; apply0b69f76 correction too"
+  ],
+  "migrations": [],
+  "paid_spend": 0,
+  "production_actions": [],
+  "visual_changes": false
+}

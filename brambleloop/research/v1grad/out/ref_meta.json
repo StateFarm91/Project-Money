@@ -1,0 +1,82 @@
+{
+ "slug": "heirloom-cable-blanket",
+ "size_px": [
+  1024,
+  1536
+ ],
+ "px_per_cm": 10.24,
+ "cell_px": [
+  6.4,
+  10.81
+ ],
+ "expected_px": {
+  "cable_column_pitch": 51.2,
+  "crossing_period": 43.24,
+  "cable_width": 25.6
+ },
+ "throw_box_px": [
+  51.2,
+  108.0,
+  972.8,
+  1428.0
+ ],
+ "dimensions_cm": {
+  "width": 90.0,
+  "height": 128.9,
+  "aspect_h_over_w": 1.4322
+ },
+ "regions": {
+  "cable_column": 2,
+  "channel": 3,
+  "foundation_row": 4
+ },
+ "region_pixels": {
+  "cable_column": 606215,
+  "channel": 606215,
+  "foundation_row": 4610
+ },
+ "counts": {
+  "cells_drawn": 17424,
+  "rows_drawn": 121,
+  "crossings_drawn": 540
+ },
+ "conventions_DECLARED": {
+  "view": "flat lay, straight on, whole throw",
+  "surface_rgb": [
+   66,
+   66,
+   70
+  ],
+  "front_pair": "left",
+  "fill": 0.9,
+  "relief_units": {
+   "fpdc": 1.0,
+   "bpdc": -0.5,
+   "cable2x2": 1.2,
+   "sc": 0.0
+  }
+ },
+ "colour": {
+  "yarn_rgb": [
+   250,
+   246,
+   235
+  ],
+  "basis": "the CIR's own colour hex (#FAF6EB cream)"
+ },
+ "inputs": {
+  "product_truth_sha256": "cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808",
+  "cir_fingerprint": "33da2708f35c"
+ },
+ "validation": {
+  "every_cell_drawn": true,
+  "every_row_drawn": true,
+  "crossings_drawn_equals_truth": true,
+  "every_region_present": true,
+  "drawn_extent_cm": [
+   90.0,
+   128.9
+  ],
+  "extent_matches_truth": true
+ }
+}

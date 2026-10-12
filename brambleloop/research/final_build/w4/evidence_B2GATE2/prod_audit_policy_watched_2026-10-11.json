@@ -1,0 +1,159 @@
+{
+ "audit": [
+  {
+   "id": 24134,
+   "at": "2026-10-11T00:01:41.844214+00:00",
+   "actor": "orchestrator",
+   "action": "policy.watched",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "all_fresh": false,
+    "never_checked": [
+     "seller_policy",
+     "creativity_standards",
+     "listing_image_rules",
+     "advertising_rules",
+     "shilling_and_reviews",
+     "children_and_baby"
+    ],
+    "stale": [],
+    "incidents_opened": [],
+    "blocked_workflows": [
+     "creative_assets",
+     "growth",
+     "listing",
+     "paid_media",
+     "portfolio",
+     "product_creation",
+     "publishing",
+     "support"
+    ]
+   }
+  },
+  {
+   "id": 23279,
+   "at": "2026-10-10T00:01:56.134792+00:00",
+   "actor": "orchestrator",
+   "action": "policy.watched",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "all_fresh": false,
+    "never_checked": [
+     "seller_policy",
+     "creativity_standards",
+     "listing_image_rules",
+     "advertising_rules",
+     "shilling_and_reviews",
+     "children_and_baby"
+    ],
+    "stale": [],
+    "incidents_opened": [],
+    "blocked_workflows": [
+     "creative_assets",
+     "growth",
+     "listing",
+     "paid_media",
+     "portfolio",
+     "product_creation",
+     "publishing",
+     "support"
+    ]
+   }
+  },
+  {
+   "id": 22447,
+   "at": "2026-10-09T00:02:05.455328+00:00",
+   "actor": "orchestrator",
+   "action": "policy.watched",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "all_fresh": false,
+    "never_checked": [
+     "seller_policy",
+     "creativity_standards",
+     "listing_image_rules",
+     "advertising_rules",
+     "shilling_and_reviews",
+     "children_and_baby"
+    ],
+    "stale": [],
+    "incidents_opened": [],
+    "blocked_workflows": [
+     "creative_assets",
+     "growth",
+     "listing",
+     "paid_media",
+     "portfolio",
+     "product_creation",
+     "publishing",
+     "support"
+    ]
+   }
+  },
+  {
+   "id": 21603,
+   "at": "2026-10-08T00:01:28.307249+00:00",
+   "actor": "orchestrator",
+   "action": "policy.watched",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "all_fresh": false,
+    "never_checked": [
+     "seller_policy",
+     "creativity_standards",
+     "listing_image_rules",
+     "advertising_rules",
+     "shilling_and_reviews",
+     "children_and_baby"
+    ],
+    "stale": [],
+    "incidents_opened": [],
+    "blocked_workflows": [
+     "creative_assets",
+     "growth",
+     "listing",
+     "paid_media",
+     "portfolio",
+     "product_creation",
+     "publishing",
+     "support"
+    ]
+   }
+  },
+  {
+   "id": 20766,
+   "at": "2026-10-07T00:03:20.626309+00:00",
+   "actor": "orchestrator",
+   "action": "policy.watched",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "all_fresh": false,
+    "never_checked": [
+     "seller_policy",
+     "creativity_standards",
+     "listing_image_rules",
+     "advertising_rules",
+     "shilling_and_reviews",
+     "children_and_baby"
+    ],
+    "stale": [],
+    "incidents_opened": [],
+    "blocked_workflows": [
+     "creative_assets",
+     "growth",
+     "listing",
+     "paid_media",
+     "portfolio",
+     "product_creation",
+     "publishing",
+     "support"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,1234 @@
+"""Tab aggregators: each tab reads the department providers (tolerating absence) and the
+production database directly. No canned data; UNKNOWN is never coerced to zero (F-898)."""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import func, select
+
+from . import approvals, emergency, notifications, providers, readers
+from .models import SecurityEvent, ensure_tables, kv_get, kv_set
+from .providers import envelope, guard, now_iso, unknown
+
+HOME_SEEN_KEY = "home_last_seen"
+
+
+def _tab(name: str, sections: dict, **extra) -> dict:
+    return {"tab": name, "generated_at": now_iso(), "sections": sections, **extra}
+
+
+def _aware(v):
+    if v is None:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+# ---- money --------------------------------------------------------------------------
+
+
+# Lane E (finance.accounting.dashboard) labels each figure with `reading`; the command
+# center's money contract (readers._money, format.js) reads `state`. Only these readings carry
+# a number; every other reading (UNKNOWN, lower_bound, stale, anything unrecognised) is shown
+# as its state word with value_cad None -- never as CA$0.00 (F-898, F-902).
+_READING_STATE = {"measured": "MEASURED", "estimated": "ESTIMATED", "modelled": "MODELLED",
+                  "derived": "RECORDED"}
+
+
+def _money_item(item: dict) -> dict:
+    """One lane E figure in the command center money shape, provider fields kept."""
+    reading = str(item.get("reading") or "UNKNOWN")
+    value = item.get("value_cad")
+    state = _READING_STATE.get(reading.lower(), reading.upper())
+    if state not in readers.VALUE_STATES or value is None:
+        state = state if state not in readers.VALUE_STATES else "UNKNOWN"
+        out = {**item, "value_cad": None, "actual_cad": None, "estimated_cad": None,
+               "state": state, "basis": "unknown", "display": state}
+    else:
+        suffix = "" if state == "MEASURED" else f" ({reading.lower()})"
+        # R2-FIN (audit M6): a `derived` figure (RECORDED here) is arithmetic over other
+        # figures, not a measurement; its basis says so instead of "measured".
+        out = {**item, "value_cad": round(float(value), 2), "state": state,
+               "basis": ("measured" if state == "MEASURED" else
+                         "derived" if state == "RECORDED" else state.lower()),
+               "display": f"CA${float(value):,.2f}{suffix}"}
+    out["provider_reading"] = reading
+    out["sources"] = [f"finance.accounting.dashboard:{item.get('metric') or '?'}"]
+    return out
+
+
+def _adapt_accounting(acct: dict) -> dict:
+    items = acct.get("items") or []
+    if not any(isinstance(i, dict) and "value_cad" in i for i in items):
+        return acct
+    return {**acct, "items": [_money_item(i) if isinstance(i, dict) and "value_cad" in i
+                              else i for i in items]}
+
+
+# F-914: the PWA's period choices -> the accountant's `summary(window=...)` grammar.
+_PERIOD_ALIASES = {"month": "mtd", "this_month": "mtd", "mtd": "mtd", "30d": "30d",
+                   "ytd": "ytd", "all": "all"}
+
+
+def money_window(period: str | None, now: datetime | None = None) -> str | None:
+    """Translate a requested period into an accounting window. None = provider default.
+    Raises ValueError for anything the accountant cannot answer (never silently ignored)."""
+    p = (period or "").strip().lower()
+    if not p:
+        return None
+    if p in _PERIOD_ALIASES:
+        return _PERIOD_ALIASES[p]
+    if p == "last_month":
+        now = now or datetime.now(timezone.utc)
+        first = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        prev = first - timedelta(days=1)
+        return f"{prev.year:04d}-{prev.month:02d}"
+    if len(p) == 7 and p[4] == "-" and p[:4].isdigit() and p[5:].isdigit() \
+            and 1 <= int(p[5:]) <= 12:
+        return p
+    raise ValueError(f"period {period!r}: use month, last_month, 30d, ytd, all or YYYY-MM")
+
+
+def money_section(db, window: str | None = None) -> dict:
+    """The Accountant provider is primary; fallback readers only state what they measure."""
+    acct = _adapt_accounting(providers.call("accounting", db, window=window) if window
+                             else providers.call("accounting", db))
+    profit_item = next((i for i in acct.get("items") or []
+                        if isinstance(i, dict) and i.get("metric") == "profit"
+                        and "state" in i), None)
+    rev = readers.revenue(db)
+    spent = _spend_with_basis(db, readers.recorded_spend(db))
+    orders = _orders_freshness(db)
+    stale = orders is not None and orders.get("state") == "stale"
+    if stale and rev.get("state") == "MEASURED":
+        # R2-FIN (audit M4): the order source was read, but longer ago than its freshness
+        # bound. The headline is STALE (as of the last read), never MEASURED.
+        rev = {**rev, "value_cad": None, "state": "STALE", "basis": "unknown",
+               "display": "STALE", "stale_value_cad": rev.get("value_cad"),
+               "why": orders.get("why") or "order source read is stale"}
+    try:
+        from .. import dashboard_truth
+
+        src = dashboard_truth._order_source(db)
+        measured = bool(src.get("measured")) and not stale
+        source_health = {"order_source_measured": measured,
+                         "order_source_state": (orders or {}).get("state"),
+                         "last_read_at": src.get("last_read_at"),
+                         "why": (orders or {}).get("why") if stale else (src.get("why") or ""),
+                         "warning": (None if measured else
+                                     ("order source is STALE: " + str((orders or {}).get("why"))
+                                      + "; revenue, fees and profit are as of that read, not "
+                                      "measured now") if stale else
+                                     "order/payment source is not connected-and-read: revenue,"
+                                     " fees and profit are UNKNOWN, not CA$0.00")}
+    except Exception as exc:  # noqa: BLE001
+        source_health = {"order_source_measured": False,
+                         "warning": f"source health unreadable: {type(exc).__name__}"}
+    status = acct["status"]
+    if status == "UNKNOWN" and rev["state"] == "MEASURED":
+        status = "DEGRADED"
+    return {"status": status, "accounting": acct, "revenue": rev,
+            "profit": (acct.get("profit") if isinstance(acct.get("profit"), dict) else
+                       {k: profit_item[k] for k in ("value_cad", "state", "basis", "display",
+                                                    "sources", "why")}
+                       if profit_item is not None else
+                       {"value_cad": None, "state": "UNKNOWN", "basis": "unknown",
+                        "display": "UNKNOWN",
+                        "why": acct.get("reason") or "the accountant provider owns profit"}),
+            "recorded_spend": spent, "source_health": source_health,
+            "reason": acct.get("reason") if acct["status"] == "UNKNOWN" else None}
+
+
+def _orders_freshness(db) -> dict | None:
+    """The accountant's order-source state (measured | stale | never_read | disconnected)."""
+    try:
+        from ...finance.accounting import health as H
+
+        return H.reading(db)["sources"]["orders"]
+    except Exception:  # noqa: BLE001 - unreadable: the caller keeps its own reading
+        return None
+
+
+def _cost_row_bases(db, since: datetime | None = None) -> dict:
+    """CA$ of cost rows per basis (measured | modelled | partial | unknown), from the rows."""
+    from ...core.models import CostEntry
+    from ...finance.listing_costs import cost_basis
+
+    out: dict[str, float] = {}
+    with db.session() as s:
+        q = select(CostEntry)
+        if since is not None:
+            q = q.where(CostEntry.at >= since)
+        for c in s.scalars(q):
+            b = cost_basis(c) or "unknown"
+            out[b] = round(out.get(b, 0.0) + float(c.amount_cad or 0.0), 6)
+    return out
+
+
+def _basis_of(by_basis: dict) -> str:
+    live = {k for k, v in by_basis.items() if v}
+    if not live or live == {"measured"}:
+        return "measured"
+    return "mixed" if "measured" in live else (live.pop() if len(live) == 1 else "mixed")
+
+
+def _spend_with_basis(db, spent: dict) -> dict:
+    """R2-FIN (audit M6): recorded spend's basis is derived from its rows, not hardcoded."""
+    if spent.get("value_cad") is None:
+        return spent
+    try:
+        from ...core.models import LedgerEntry
+
+        by = _cost_row_bases(db)
+        with db.session() as s:
+            for e in s.scalars(select(LedgerEntry).where(
+                    (LedgerEntry.fees_cad > 0) | (LedgerEntry.expense_cad > 0))):
+                fb = (e.fees_basis or "unknown") if e.fees_cad else None
+                if fb:
+                    fb = fb if fb in ("measured", "modelled") else "unknown"
+                    by[fb] = round(by.get(fb, 0.0) + float(e.fees_cad), 6)
+                if e.expense_cad:
+                    eb = e.basis if e.basis in ("measured", "modelled") else "unknown"
+                    by[eb] = round(by.get(eb, 0.0) + float(e.expense_cad), 6)
+    except Exception as exc:  # noqa: BLE001
+        return {**spent, "basis": "unknown",
+                "why": (spent.get("why") or "") + f"; row bases unreadable ({type(exc).__name__})"}
+    basis = _basis_of(by)
+    not_measured = round(sum(v for k, v in by.items() if k != "measured"), 2)
+    return {**spent, "basis": basis, "by_basis_cad": {k: round(v, 4) for k, v in by.items() if v},
+            "display": spent["display"] if basis == "measured" else
+            f"CA${float(spent['value_cad']):,.2f} (recorded; CA${not_measured:,.2f} not measured)"}
+
+
+SETTLEMENT_GATE = ("OWNER-GATED: settling recorded model spend against the provider's own "
+                   "billing needs provider usage-API (admin) access, which only the owner can "
+                   "grant; until then 'actual' means the recorded per-call cost, not the invoice")
+
+
+def estimate_drift_reading(db) -> dict:
+    """F-103 (W4-SPEND): pre-call estimates vs recorded per-call cost this month. Labelled
+    estimated-vs-actual; settlement against provider billing is OWNER-GATED and says so.
+
+    W4-CCFIN: a status envelope like every other Money section (status, as_of, basis, items,
+    sources, reason), with the drift detail kept alongside it. No token-priced call this month
+    means nothing was judged: UNKNOWN with a reason and an unknown reservation share -- never a
+    "healthy" 0%."""
+    from ...finance import spend_report
+
+    d = spend_report.estimate_drift(db)
+    calls = d.get("token_priced_calls")
+    measured = isinstance(calls, int) and calls > 0
+    outside = d.get("purposes_outside_tolerance") or {}
+    if not measured:
+        status = "UNKNOWN"
+        reason = ("no token-priced model call is recorded this month, so estimate drift has "
+                  "not been measured")
+    elif d.get("degraded"):
+        status, reason = "DEGRADED", (d.get("why") or "estimates drift from recorded cost")
+    else:
+        status, reason = "OK", None
+    items = [{"purpose": k, "calls": b.get("calls"), "estimated_cad": b.get("estimated_cad"),
+              "recorded_cad": b.get("recorded_cad"), "ratio": b.get("ratio"),
+              "under_estimated": b.get("under_estimated"),
+              "detail": "outside tolerance" + (" (under-estimated)"
+                                               if b.get("under_estimated") else ""),
+              "status": "DEGRADED"} for k, b in sorted(outside.items())]
+    return envelope(
+        status, items, ["finance.spend_report.estimate_drift", "cost_entries"],
+        basis="measured" if measured else "unknown", reason=reason,
+        provider="finance.spend_report.estimate_drift",
+        label="estimated vs actual (recorded per-call cost) model spend, this month",
+        # `state` stays spend_report's own word: /api/verify's readback contract reads it
+        # (healthy|degraded). Whether drift was measured at all is `status`.
+        state=d.get("state"),
+        degraded=d.get("degraded") if measured else None,
+        why=d.get("why") or None,
+        token_priced_calls=calls,
+        purposes_outside_tolerance=sorted(outside),
+        purposes_too_few_calls_to_judge=d.get("purposes_too_few_calls_to_judge"),
+        calls_with_no_reservation_share=(d.get("calls_with_no_reservation_share")
+                                         if measured else None),
+        tolerance=d.get("tolerance"),
+        settlement_against_provider_billing="OWNER-GATED",
+        settlement_why=SETTLEMENT_GATE)
+
+
+def money(db, window: str | None = None) -> dict:
+    m = money_section(db, window)
+    acct = m["accounting"] if isinstance(m["accounting"], dict) else {}
+    # F-914: the period is echoed only when the accountant confirmed it; revenue and recorded
+    # spend headline tiles are the command center's own all-time readers and say so.
+    echoed = (acct.get("window") or acct.get("period") or window) if window else None
+    drift = guard("estimate_drift", lambda: estimate_drift_reading(db))
+
+    # CC_VERIFY_7421ef6 FU-2: these two headline figures ignore the period filter; say so on
+    # the value itself so the tile can never read as the selected period's figure.
+    def all_time(v):
+        return {**v, "scope": "all_time"} if isinstance(v, dict) else v
+
+    return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
+                          "estimate_drift": drift,
+                          # F-652: the recorded-spend trend the Money tab charts.
+                          "spend_trend": guard("spend_trend", lambda: spend_trend(db))},
+                status=m["status"], revenue=all_time(m["revenue"]), profit=m["profit"],
+                recorded_spend=all_time(m["recorded_spend"]), source_health=m["source_health"],
+                reason=m["reason"], window=window,
+                period=(echoed if isinstance(echoed, str) else
+                        (echoed or {}).get("label") if isinstance(echoed, dict) else None),
+                period_applies_to=(["accounting"] if window else None))
+
+
+def money_drill(db, metric: str, window: str | None = None) -> dict:
+    metric = str(metric or "")[:80]
+    if not metric:
+        return unknown("metric required", "money.drill")
+    # The command center's own figures (revenue, recorded_spend) drill into its own readers;
+    # every other metric is the accountant's (lane E) and goes through its drill (F-915).
+    if metric not in ("revenue", "recorded_spend") and providers.available("accounting_drill"):
+        out, why = (providers.call_raw("accounting_drill", db, metric, window=window) if window
+                    else providers.call_raw("accounting_drill", db, metric))
+        if out is not None:
+            return out if isinstance(out, dict) else {"metric": metric, "rows": out}
+        return unknown(why or "drill failed", "finance.accounting.dashboard.drill")
+    if metric == "revenue":
+        rev = money_section(db)["revenue"]
+        if rev["state"] != "MEASURED":
+            return unknown(f"revenue is {rev['state']}: {rev.get('why')}", "readers.revenue",
+                           rev["sources"])
+        # R2-FIN (audit L4): the headline's own rows -- measured, reconciled, countable sales
+        # (all time, net of refunds) -- so it can be traced, and said apart from the
+        # accountant's windowed gross_sales.
+        from .. import dashboard_truth
+
+        def read_rev():
+            rows = [r for r in dashboard_truth._sale_rows(db)
+                    if dashboard_truth._reconciled_measured(r)]
+            items = [{"ref": r["ref"], "gross_cad": r["gross"], "refunds_cad": r["refunds"],
+                      "net_cad": round(r["gross"] - r["refunds"], 2), "basis": r["basis"],
+                      "reconciliation": r["recon"], "source": f"ledger:{r['ref']}"}
+                     for r in rows]
+            total = round(sum(i["net_cad"] for i in items), 2)
+            return envelope("OK" if items else "UNKNOWN", items,
+                            [i["source"] for i in items] or ["ledger"],
+                            provider="dashboard_truth.revenue_reading", metric=metric,
+                            value_cad=total, check={"sum_of_rows_cad": total,
+                                                    "headline_cad": rev["value_cad"],
+                                                    "matches": abs(total - (rev["value_cad"] or 0))
+                                                    < 0.005},
+                            note=("headline revenue is all-time measured+reconciled sales net "
+                                  "of refunds; the accountant's gross_sales is the 30-day "
+                                  "accrual gross of every posted sale"),
+                            reason=None if items else "no reconciled measured sale")
+
+        return guard("revenue", read_rev, sources=["ledger"])
+    if metric == "recorded_spend":
+        from ...core.models import CostEntry
+
+        def read():
+            with db.session() as s:
+                rows = list(s.scalars(select(CostEntry).order_by(CostEntry.id.desc())
+                                      .limit(200)))
+                items = [{**readers.row_dict(r), "source": f"cost_entries:{r.id}"}
+                         for r in rows]
+            return envelope("OK" if items else "UNKNOWN", items, ["cost_entries"],
+                            provider="cost_entries", metric=metric,
+                            reason=None if items else "no cost entry recorded")
+
+        return guard("cost_entries", read, sources=["cost_entries"])
+    return unknown("the accountant drill-through (lane E) is not built; no source rows to show",
+                   "finance.accounting.dashboard.drill")
+
+
+# ---- home / brief ---------------------------------------------------------------------
+
+
+def _changes_since(db, since: datetime | None) -> dict:
+    if since is None:
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        basis = "no previous view recorded; showing the last 24 h"
+    else:
+        basis = "since your last view"
+    events = readers.audit_events(db, since=since, limit=25)
+    return envelope("OK", events, [e["source"] for e in events] or ["audit_log"],
+                    provider="audit_log", since=since.isoformat(), basis_note=basis)
+
+
+def reconcile_owner_actions(owner: dict, box: dict) -> dict:
+    """W4-CCGAP (CC_VERIFY FU-4): "Your actions" counts gate/owner-action decisions only, while
+    the headline "Decisions for you" and Approvals count the whole inbox (those plus
+    publication approvals). Both numbers are true; the card now says how they relate, so the
+    owner never sees two unexplained counts for "what needs me"."""
+    if not isinstance(owner, dict) or not isinstance(box, dict):
+        return owner
+    n = owner.get("open_actions")
+    total = box.get("open")
+    if not isinstance(n, int) or not isinstance(total, int):
+        return owner
+    pub = sum(1 for c in box.get("cards") or []
+              if isinstance(c, dict) and str(c.get("card_id", "")).startswith("publication:"))
+    other = total - n - pub
+    parts = [f"{n} gate/owner-action decision(s)"]
+    if pub:
+        parts.append(f"{pub} publication approval(s)")
+    if other > 0:
+        parts.append(f"{other} other card(s)")
+    return {**owner, "inbox_open": total, "publication_open": pub,
+            "reason": (f"{' + '.join(parts)} = {total} open on Approvals" if total != n
+                       else owner.get("reason")),
+            "count_note": ("the batch plan on Approvals is a dated snapshot of the owner action "
+                           "list and may list more decisions than are live here")}
+
+
+def home(db) -> dict:
+    ensure_tables(db)
+    with db.session() as s:
+        seen = kv_get(s, HOME_SEEN_KEY, {}) or {}
+    since = None
+    if seen.get("at"):
+        try:
+            since = datetime.fromisoformat(seen["at"])
+        except ValueError:
+            since = None
+    m = money_section(db)
+    autonomy = providers.call("autonomy", db)
+    store_f = providers.call("store_foundation", db)
+    prods = readers.products(db)
+    inc = readers.incidents(db, limit=10)
+    box = approvals.inbox(db)
+    jw = readers.jobs_window(db, 24)
+    improve = providers.call("improvement", db)
+    try:
+        from ...core import phase as phase_mod
+
+        ph = phase_mod.resolve(db)
+        launch = envelope("OK" if ph["phase"] != "shadow" else "BLOCKED",
+                          [{"phase": ph["phase"], "why": ph["why"]}],
+                          ["audit_log (owner.phase.transition)", "env BRAMBLELOOP_PHASE"],
+                          provider="core.phase.resolve",
+                          reason=("SHADOW: nothing is published live" if ph["phase"] == "shadow"
+                                  else None))
+    except Exception as exc:  # noqa: BLE001
+        launch = unknown(f"phase unreadable: {type(exc).__name__}", "core.phase.resolve")
+    headline = {
+        "revenue": m["revenue"], "profit": m["profit"],
+        "store": {"products": len(prods["items"]) if prods["status"] == "OK" else None,
+                  "certified": prods.get("certified"), "on_etsy": prods.get("on_etsy"),
+                  "status": prods["status"], "reason": prods.get("reason")},
+        "launch": {"phase": (launch["items"][0]["phase"] if launch["items"] else "UNKNOWN"),
+                   "status": launch["status"]},
+        "autonomy": {"status": autonomy["status"], "reason": autonomy.get("reason"),
+                     "jobs_completed_24h": jw.get("completed") if jw["status"] == "OK" else None},
+        "incidents_open": inc.get("open_total") if inc["status"] != "UNKNOWN" else None,
+        "owner_decisions": box["open"],
+    }
+    opportunities = guard("opportunities", lambda: envelope(
+        improve["status"] if improve["status"] != "UNKNOWN" else "OK",
+        [i for i in improve.get("items", [])][:5] + readers.improvements(db).get("items", [])[:5],
+        (improve.get("sources") or []) + ["improvements"], provider="learn+improvements"))
+    # W4-OWNERHOME: the six-block owner overview leads Home. It reuses what was read above
+    # (queue, money, products, autonomy) rather than reading them a second time.
+    from . import overview as overview_mod
+
+    ov = guard("overview", lambda: overview_mod.overview(
+        db, box=box, m=m, products=prods, departments=autonomy))
+    from . import executive as exec_mod
+
+    return _tab("HOME", {
+        "overview": ov,
+        # W4-CCFM2 (F-661): today / month / 90-day revenue, profit, conversion, live listings
+        # and customer risk, each with its basis (UNKNOWN never 0).
+        "executive": exec_mod.executive(db),
+        "changes_since_last_view": _changes_since(db, since),
+        "autonomy": autonomy, "store": store_f, "products": prods,
+        "money": m["accounting"], "incidents": inc,
+        "owner_actions": reconcile_owner_actions(readers.owner_actions_summary(db), box),
+        "work_24h": jw, "launch": launch, "opportunities": opportunities},
+        headline=headline, last_seen_at=seen.get("at"))
+
+
+def mark_seen(db) -> dict:
+    ensure_tables(db)
+    at = datetime.now(timezone.utc).isoformat()  # full precision: "since" must be exact
+    with db.session() as s:
+        kv_set(s, HOME_SEEN_KEY, {"at": at})
+    return {"seen_at": at}
+
+
+def morning_brief(db, hours: float = 12) -> dict:
+    """F-896: what changed, completed, money spent, incidents, discoveries, queue, decisions."""
+    from ...core.models import CostEntry, Incident, Job, JobStatus, Lesson
+
+    hours = max(1.0, min(float(hours or 12), 72.0))
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    def spent():
+        from ...finance.listing_costs import cost_basis
+
+        by_kind: dict[str, dict] = {}
+        with db.session() as s:
+            for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+                k = c.kind or "other"
+                i = by_kind.setdefault(k, {"kind": k, "amount_cad": 0.0, "entries": 0,
+                                           "by_basis_cad": {}})
+                b = cost_basis(c) or "unknown"
+                i["amount_cad"] += float(c.amount_cad or 0.0)
+                i["entries"] += 1
+                i["by_basis_cad"][b] = i["by_basis_cad"].get(b, 0.0) + float(c.amount_cad or 0.0)
+        items = []
+        for i in sorted(by_kind.values(), key=lambda x: x["kind"]):
+            i["amount_cad"] = round(i["amount_cad"], 4)
+            i["by_basis_cad"] = {k: round(v, 4) for k, v in i["by_basis_cad"].items()}
+            i["basis"] = _basis_of(i["by_basis_cad"])
+            items.append(i)
+        total = round(sum(i["amount_cad"] for i in items), 2)
+        by: dict[str, float] = {}
+        for i in items:
+            for k, v in i["by_basis_cad"].items():
+                by[k] = by.get(k, 0.0) + v
+        # R2-FIN (audit M6): the total's basis comes from its rows -- a modelled listing fee
+        # or an unknown-basis model call is not "measured" because this system wrote it.
+        basis = _basis_of(by)
+        not_measured = round(sum(v for k, v in by.items() if k != "measured"), 2)
+        return envelope("OK", items, ["cost_entries"], provider="cost_entries",
+                        basis=basis if basis in ("measured", "modelled") else "unknown",
+                        total={"value_cad": total, "state": "RECORDED", "basis": basis,
+                               "by_basis_cad": {k: round(v, 4) for k, v in by.items() if v},
+                               "display": (f"CA${total:,.2f} (recorded)" if basis == "measured"
+                                           else f"CA${total:,.2f} (recorded; "
+                                                f"CA${not_measured:,.2f} not measured)")})
+
+    def incidents_opened():
+        with db.session() as s:
+            rows = list(s.scalars(select(Incident).where(Incident.at >= since)
+                                  .order_by(Incident.at.desc()).limit(25)))
+            items = [{"id": r.id, "severity": r.severity, "summary": r.summary[:300],
+                      "resolved": bool(r.resolved), "source": f"incidents:{r.id}"}
+                     for r in rows]
+        return envelope("OK", items, [i["source"] for i in items] or ["incidents"],
+                        provider="incidents")
+
+    def discoveries():
+        with db.session() as s:
+            rows = list(s.scalars(select(Lesson).where(Lesson.at >= since)
+                                  .order_by(Lesson.id.desc()).limit(10)))
+            items = [{"subject": r.subject, "statement": r.statement[:300],
+                      "confidence": r.confidence, "source": f"lessons:{r.id}"} for r in rows]
+        return envelope("OK", items, [i["source"] for i in items] or ["lessons"],
+                        provider="lessons")
+
+    def queued():
+        with db.session() as s:
+            n = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.PENDING)) or 0
+            types = list(s.execute(select(Job.job_type, func.count()).where(
+                Job.status == JobStatus.PENDING).group_by(Job.job_type)
+                .order_by(func.count().desc()).limit(10)))
+        return envelope("OK", [{"job_type": t, "pending": int(c)} for t, c in types],
+                        ["jobs"], provider="jobs", pending_total=int(n))
+
+    box = approvals.inbox(db)
+    autonomy = providers.call("autonomy", db)
+    return _tab("MORNING_BRIEF", {
+        "what_changed": envelope("OK", readers.audit_events(db, since=since, limit=30),
+                                 ["audit_log"], provider="audit_log"),
+        "completed": readers.jobs_window(db, hours),
+        "money_spent": guard("money_spent", spent, sources=["cost_entries"]),
+        "incidents": guard("incidents", incidents_opened, sources=["incidents"]),
+        "discoveries": guard("discoveries", discoveries, sources=["lessons"]),
+        "overnight_autonomy": autonomy,
+        "queued_actions": guard("queued", queued, sources=["jobs"]),
+        "decisions_needed": envelope("OK" if not box["cards"] else "BLOCKED",
+                                     [{"card_id": c["card_id"], "title": c["title"]}
+                                      for c in box["cards"]],
+                                     box["sources"], provider="approvals.inbox",
+                                     reason=(f"{len(box['cards'])} owner decisions open"
+                                             if box["cards"] else None))},
+        window_hours=hours, since=since.isoformat())
+
+
+# ---- store / operations / autonomy / insights -----------------------------------------
+
+
+def _seo_w3(seo: dict) -> dict:
+    """W3 lane G: the SEO provider's wave-3 block (Etsy constraint verification, Launch-0
+    strategy, learning hooks) as its own section. Absent -> UNKNOWN, never an empty OK."""
+    w3 = seo.get("w3") if isinstance(seo, dict) else None
+    if not isinstance(w3, dict) or not w3:
+        return unknown("seo.status summary has no w3 block", "brambleloop.seo.status")
+    items = [{"part": k, **(v if isinstance(v, dict) else {"value": v})} for k, v in w3.items()]
+    bad = [i for i in items if i.get("status") == "UNKNOWN"]
+    return envelope("DEGRADED" if bad else "OK", items, ["brambleloop.seo.status (w3)"],
+                    basis="modelled", provider="brambleloop.seo.status.w3",
+                    reason=("; ".join(f"{i['part']}: {i.get('why')}" for i in bad)[:300]
+                            if bad else None))
+
+
+def store(db) -> dict:
+    seo = providers.call("seo", db)
+    from . import company as company_mod
+
+    return _tab("STORE", {"store_foundation": providers.call("store_foundation", db),
+                          "live_drift": guard("live_drift",
+                                              lambda: company_mod.store_live_drift(db)),
+                          "store_readiness": guard("store_readiness",
+                                                   lambda: company_mod.store_readiness(db)),
+                          "competitor_intel": guard("competitor_intel",
+                                                    lambda: company_mod.competitor_intel(db)),
+                          "seo": seo, "seo_w3": _seo_w3(seo),
+                          "products": readers.products(db),
+                          "launch_verdict": guard("launch_verdict", lambda: launch_verdict(db),
+                                                  sources=["audit_log"]),
+                          "visibility": providers.call("visibility", db),
+                          "search_evidence": providers.call("search_evidence", db),
+                          "publication_candidates": guard(
+                              "publication_candidates", lambda: envelope(
+                                  "OK", approvals._publication_cards(db),
+                                  ["pattern_versions", "listings",
+                                   "ops.publication_authority.evidence"],
+                                  provider="approvals.publication_candidates"))})
+
+
+#: A wake this far past with nothing having run is shown as overdue, not as plain sleep.
+WAKE_GRACE = timedelta(minutes=15)
+
+
+def slo_card(env: dict) -> dict:
+    """W4-CCGAP: the SLO provider reports OK when every *judged* objective is met, even when
+    most objectives (including P1 scheduler freshness) have no evidence at all. On the owner's
+    card that read as "healthy". OK is shown only when every objective was judged; otherwise
+    the card is DEGRADED and names the unjudged ones. The provider's own status is kept."""
+    if not isinstance(env, dict) or env.get("status") != "OK":
+        return env
+    slos = [i for i in env.get("items") or [] if isinstance(i, dict) and i.get("kind") == "slo"]
+    unknown_keys = [str(i.get("key")) for i in slos if str(i.get("state")).upper() == "UNKNOWN"]
+    if not slos or not unknown_keys:
+        return env
+    p1 = [str(i.get("key")) for i in slos if str(i.get("state")).upper() == "UNKNOWN"
+          and str(i.get("breach_severity")).upper() in ("P0", "P1")]
+    judged = len(slos) - len(unknown_keys)
+    return {**env, "status": "DEGRADED", "provider_status": "OK",
+            "reason": (f"only {judged} of {len(slos)} objectives have evidence; the judged ones "
+                       f"are met. UNKNOWN: {', '.join(unknown_keys)}"
+                       + (f" (P1 with no evidence: {', '.join(p1)})" if p1 else "")),
+            "unjudged": unknown_keys}
+
+
+def agents_card(db, env: dict, *, now: datetime | None = None) -> dict:
+    """W4-CCGAP: the autonomy agents provider calls an agent that has never run "sleeping",
+    and keeps a wake that is long past as "sleeping" too. The Company tab (company.agents)
+    already shows the first as UNKNOWN; this makes Autonomy & Learn say the same, flags an
+    overdue wake, and recomputes the counts. Nothing is invented: no job is ever implied."""
+    if not isinstance(env, dict) or not isinstance(env.get("items"), list) or not env["items"]:
+        return env
+    from ...core.models import Job
+
+    now = now or datetime.now(timezone.utc)
+    try:
+        with db.session() as s:
+            ever = {a for a in s.scalars(select(Job.agent).distinct()) if a}
+    except Exception as exc:  # noqa: BLE001 - unreadable jobs: say so, change nothing
+        return {**env, "agents_card_note": f"jobs unreadable ({type(exc).__name__})"}
+    items, changed = [], 0
+    for it in env["items"]:
+        if not isinstance(it, dict):
+            items.append(it)
+            continue
+        it = dict(it)
+        state = str(it.get("state") or "UNKNOWN").lower()
+        never = (it.get("agent") not in ever and not it.get("last_run")
+                 and not it.get("current_job") and not it.get("doing_now"))
+        wake = None
+        try:
+            wake = _aware(datetime.fromisoformat(str(it["next_wake"]))) if it.get(
+                "next_wake") else None
+        except ValueError:
+            wake = None
+        if wake is not None and state in ("sleeping", "unknown") and now - wake > WAKE_GRACE:
+            mins = int((now - wake).total_seconds() // 60)
+            it["overdue_wake_minutes"] = mins
+            it["why"] = (f"next wake was {mins} min ago and nothing has run since: the "
+                         "scheduler or worker may not be running")
+        if state == "sleeping" and never:
+            it["provider_state"] = it.get("state")
+            it["state"] = "UNKNOWN"
+            it["why"] = ("no job has ever been recorded for this agent here, so it is not "
+                         "known to be sleeping" + (f"; {it['why']}" if it.get("why") else ""))
+            changed += 1
+        items.append(it)
+    counts: dict[str, int] = {}
+    for it in items:
+        if isinstance(it, dict):
+            k = str(it.get("state") or "UNKNOWN")
+            k = "UNKNOWN" if k.upper() == "UNKNOWN" else k.lower()
+            counts[k] = counts.get(k, 0) + 1
+    overdue = sum(1 for it in items if isinstance(it, dict) and it.get("overdue_wake_minutes"))
+    status = env.get("status")
+    if counts.get("UNKNOWN") == len(items):
+        status = "UNKNOWN"
+    elif status == "OK" and (counts.get("UNKNOWN") or overdue):
+        status = "DEGRADED"
+    reasons = [r for r in (
+        f"{counts['UNKNOWN']} agent(s) have no recorded job" if counts.get("UNKNOWN") else None,
+        f"{overdue} agent(s) past their wake with nothing run" if overdue else None,
+        env.get("reason") if env.get("reason") and not str(env.get("reason")).startswith(
+            providers.NO_REASON) else None)
+        if r]
+    return {**env, "items": items, "counts": counts, "status": status,
+            "reason": "; ".join(reasons) or env.get("reason"),
+            "never_run_shown_unknown": changed}
+
+
+def _agents_workspace(db) -> dict:
+    from . import executive as exec_mod
+
+    return exec_mod.agents_workspace(db)
+
+
+def operations(db) -> dict:
+    from . import executive as exec_mod
+
+    return _tab("OPERATIONS", {"slo": slo_card(providers.call("slo", db)),
+                               # W4-CCFM2 (F-729): autonomy health from durable state.
+                               "autonomy_health": exec_mod.autonomy_health(db),
+                               "truth": providers.call("ops_truth", db),
+                               "autonomy": providers.call("autonomy", db),
+                               "queue": readers.queue(db),
+                               "incidents": readers.incidents(db),
+                               "agents": readers.agents(db)},
+                emergency=guard("emergency", lambda: emergency.status(db)))
+
+
+def operations_drill(db, kind: str, ident: str) -> dict:
+    from ...core.models import Agent, AuditLog, Incident, Job
+
+    models = {"job": Job, "incident": Incident, "audit": AuditLog, "agent": Agent}
+    model = models.get(kind)
+    if model is None:
+        return unknown(f"kind must be one of {sorted(models)}", "operations.drill")
+    with db.session() as s:
+        if kind == "agent" and not str(ident).isdigit():
+            row = s.scalar(select(Agent).where(Agent.name == str(ident)))
+        else:
+            try:
+                row = s.get(model, int(ident))
+            except (TypeError, ValueError):
+                row = None
+        if row is None:
+            return unknown(f"no {kind} {ident!r}", "operations.drill")
+        data = readers.row_dict(row)
+        data.pop("seal", None)
+        if isinstance(data.get("detail"), dict):
+            data["detail"] = {k: v for k, v in data["detail"].items() if k != "seal"}
+        table = model.__tablename__
+        q = select(AuditLog).order_by(AuditLog.id.desc()).limit(20)
+        if kind == "job":
+            q = q.where(AuditLog.job_id == row.id)
+            agent = row.agent
+        elif kind == "incident":
+            q = q.where(AuditLog.artifact.ilike(f"%{(row.product_slug or row.signature)[:60]}%"))
+            agent = (row.detail or {}).get("agent") if isinstance(row.detail, dict) else None
+        elif kind == "agent":
+            q = q.where(AuditLog.actor == row.name)
+            agent = row.name
+        else:
+            q = q.where(AuditLog.artifact == row.artifact) if row.artifact else q.where(
+                AuditLog.id == row.id)
+            agent = row.actor
+        related = [{"id": a.id, "at": readers._iso(a.at), "actor": a.actor,
+                    "action": a.action, "artifact": a.artifact,
+                    "source": f"audit_log:{a.id}"} for a in s.scalars(q)]
+    return envelope("OK", [data], [f"{table}:{data.get('id', ident)}"],
+                    provider="operations.drill", kind=kind, responsible_agent=agent,
+                    audit_history=related, confidence="recorded row (measured)")
+
+
+# W3 lane H: the Visual R&D metrics shown per product class, in this order.
+VISUAL_RND_METRICS = (
+    ("accepted_image_yield", "Accepted-image yield"),
+    ("structural_rejection_trend", "Structural rejection trend"),
+    ("photorealism_trend", "Photorealism"),
+    ("laura_identity_consistency", "Laura identity consistency"),
+    ("cost_per_accepted_image", "Cost per accepted image"),
+    ("latency_s_median", "Median latency (s)"),
+    ("task_score_mean", "Gallery task score"),
+    ("benchmark_gap", "Benchmark gap"),
+    ("hero_ctr", "Hero CTR"),
+    ("listing_conversion", "Listing conversion"),
+    ("refund_rate", "Refund rate"),
+)
+
+
+def reading_text(m) -> str:
+    """One Visual R&D reading as text. UNKNOWN shows its reason and never a number."""
+    if isinstance(m, list):            # a trend: one point per pipeline version
+        if not m:
+            return "UNKNOWN"
+        last = m[-1]
+        return (f"{last.get('structural_rejection_share')} rejected at {last.get('version')} "
+                f"({last.get('frames')} frames; {len(m)} version(s))")
+    if not isinstance(m, dict) or m.get("value") is None or \
+            str(m.get("reading") or "").upper() != "MEASURED":
+        why = (m or {}).get("why") if isinstance(m, dict) else None
+        return "UNKNOWN" + (f" -- {why}" if why else "")
+    v = m["value"]
+    if m.get("currency") == "CAD":
+        v = f"CA${float(v):,.2f}"
+    n = m.get("frames") or m.get("galleries") or m.get("denominator")
+    return f"{v} ({m.get('basis') or 'measured'}" + (f"; n={n}" if n else "") + ")"
+
+
+def visual_rnd_section(db) -> dict:
+    """Lane H's provider, flattened to one row per product class for the Learn view."""
+    e = providers.call("visual_rnd", db)
+    rows = []
+    for it in e.get("items") or []:
+        if not isinstance(it, dict) or not it.get("product_class"):
+            continue
+        pl = it.get("pipeline") or {}
+        known = [k for k, _l in VISUAL_RND_METRICS
+                 if isinstance(it.get(k), dict) and it[k].get("reading") == "MEASURED"]
+        row = {"title": f"{it.get('title') or it['product_class']}",
+               "status": "OK" if known else "UNKNOWN",
+               "why": (None if known else "no measured Visual R&D reading for this class yet"),
+               "pipeline": (f"{pl.get('label')} (generation {pl.get('generation')})"
+                            if pl else "UNKNOWN -- no incumbent pipeline version"),
+               "experiments": str(it.get("experiments_total", "UNKNOWN")),
+               "paid_challengers_waiting_on_owner": str(len(it.get("paid_challengers_gated")
+                                                            or [])),
+               "source": "brambleloop.visual.rnd.status"}
+        for k, label in VISUAL_RND_METRICS:
+            row[label] = reading_text(it.get(k))
+        rows.append(row)
+    return {**e, "items": rows, "provider_items": len(e.get("items") or [])}
+
+
+def visual_rnd_governance(db) -> dict:
+    """The parts of lane H's provider that are not per-class readings: borderline identity
+    results held for a human (F-219), paid challengers whose spend plan is incomplete
+    (F-877), the commercial merchandising objective and the evolution report. Each part is
+    its own row; a missing part is UNKNOWN with its reason, never an empty OK."""
+    e = providers.call("visual_rnd", db)
+    if e.get("status") == "UNKNOWN" and not e.get("items"):
+        return {**e, "items": []}
+    rows = []
+
+    def row(title, status, text, why=None, **extra):
+        rows.append({"title": title, "status": status, "detail": text, "why": why,
+                     "source": "brambleloop.visual.rnd.status", **extra})
+
+    idr = e.get("identity_review")
+    if isinstance(idr, dict) and idr.get("reading") == "MEASURED":
+        n = idr.get("open_listed")
+        row("Laura identity review queue", "DEGRADED" if n else "OK",
+            f"{n} borderline identity result(s) held for a human (newest {idr.get('limit')} "
+            f"listed); a review never makes an image publication-approved",
+            open_listed=n)
+    else:
+        row("Laura identity review queue", "UNKNOWN", "UNKNOWN",
+            why=(idr or {}).get("why") if isinstance(idr, dict) else "not reported")
+    spend = e.get("spend") if isinstance(e.get("spend"), dict) else None
+    if spend is not None and isinstance(spend.get("paid_plans_incomplete"), list):
+        bad = spend["paid_plans_incomplete"]
+        pe = spend.get("paid_execution")
+        row("Paid challengers: spend plans", "DEGRADED" if bad else "OK",
+            (f"{len(bad)} queued paid challenger(s) have an incomplete plan: "
+             f"{', '.join(str(x) for x in bad[:10])}" if bad else
+             "every queued paid challenger carries a complete plan")
+            + f"; paid execution: {pe if isinstance(pe, str) else (pe or {}).get('state', pe)}",
+            paid_plans_incomplete=bad)
+    else:
+        row("Paid challengers: spend plans", "UNKNOWN", "UNKNOWN", why="not reported")
+    com = e.get("commercial")
+    if isinstance(com, dict) and isinstance(com.get("heroes"), dict):
+        heroes = com["heroes"]
+        txt = "; ".join(f"{c}: {(h or {}).get('incumbent_reading', 'UNKNOWN')}"
+                        for c, h in sorted(heroes.items()))
+        row("Commercial hero objective", "OK" if heroes else "UNKNOWN", txt or "UNKNOWN",
+            why=None if heroes else "no product class reported a hero")
+    else:
+        row("Commercial hero objective", "UNKNOWN", "UNKNOWN",
+            why=(com or {}).get("reason") if isinstance(com, dict) else "not reported")
+    evo = e.get("evolution")
+    if isinstance(evo, dict) and isinstance(evo.get("classes"), dict) and evo["classes"]:
+        verdicts = {}
+        for c, v in evo["classes"].items():
+            verdicts[c] = (v or {}).get("verdict") or "UNKNOWN"
+        txt = "; ".join(f"{c}: {v}" for c, v in sorted(verdicts.items()))
+        row("Evolution (is Visual getting better?)",
+            "OK" if any(v not in ("UNKNOWN",) for v in verdicts.values()) else "UNKNOWN", txt,
+            why=None if any(v != "UNKNOWN" for v in verdicts.values()) else
+            "no measured trend yet (needs live listings and marketplace exports)")
+    else:
+        row("Evolution (is Visual getting better?)", "UNKNOWN", "UNKNOWN",
+            why=(evo or {}).get("reason") if isinstance(evo, dict) else "not reported")
+    worst = ("UNKNOWN" if all(r["status"] == "UNKNOWN" for r in rows) else
+             "DEGRADED" if any(r["status"] in ("DEGRADED", "UNKNOWN") for r in rows) else "OK")
+    return envelope(worst, rows, list(e.get("sources") or []), basis=e.get("basis") or "unknown",
+                    provider="brambleloop.visual.rnd.status (governance)",
+                    as_of=e.get("as_of"),
+                    reason=("; ".join(f"{r['title']}: {r['why']}" for r in rows if r.get("why"))
+                            [:300] or None))
+
+
+def launch_verdict(db) -> dict:
+    """The newest `launch.assessed` audit row (runtime.release): PASS/FAIL with the blockers.
+    Never run -> UNKNOWN; anything but `ready is True` is FAIL, never a pass."""
+    from ...core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "launch.assessed")
+                       .order_by(AuditLog.id.desc()).limit(1))
+        if row is None:
+            return unknown("launch.readiness has never run (no launch.assessed row)",
+                           "audit_log (launch.assessed)", ["audit_log"])
+        d = dict(row.detail or {})
+        at = _aware(row.at).isoformat() if row.at else None
+        rid = row.id
+    ready = d.get("ready") is True
+    items = [{"title": "Launch verdict", "status": "OK" if ready else "BLOCKED",
+              "verdict": "PASS" if ready else "FAIL", "assessed_at": at,
+              "source": f"audit_log:{rid}"}]
+    for label, key in (("Ours to do", "ours_to_do"), ("Blocked on owner", "blocked_on_owner"),
+                       ("Blocked on integration", "blocked_on_integration")):
+        vals = d.get(key)
+        if isinstance(vals, list):
+            items.append({"title": label, "status": "OK" if not vals else "DEGRADED",
+                          "count": len(vals), "detail": ", ".join(map(str, vals[:12])),
+                          "source": f"audit_log:{rid}"})
+    return envelope("OK" if ready else "BLOCKED", items, [f"audit_log:{rid}"],
+                    basis="measured", provider="audit_log (launch.assessed)", as_of=at,
+                    reason=None if ready else "the latest launch assessment is not ready")
+
+
+def autonomy(db) -> dict:
+    from ...core.models import AuditLog
+
+    jw = readers.jobs_window(db, 24)
+
+    def owner_gap():
+        with db.session() as s:
+            last = s.scalar(select(func.max(AuditLog.at)).where(
+                AuditLog.actor.like("owner%")))
+        if last is None:
+            return unknown("no owner action is recorded", "audit_log (actor owner*)")
+        hours = (datetime.now(timezone.utc) - _aware(last)).total_seconds() / 3600
+        return envelope("OK", [{"hours": round(hours, 1), "last_owner_action_at":
+                                _aware(last).isoformat()}], ["audit_log"],
+                        provider="audit_log (actor owner*)",
+                        note=("hours since the last recorded owner action; development-chat "
+                              "prompts are not recorded in production state"))
+
+    return _tab("AUTONOMY", {"autonomy": providers.call("autonomy", db),
+                             # W4-CCFIN: Rule #1 state and per-agent status (read-only).
+                             "rule1": providers.call("rule1", db),
+                             "agents": agents_card(db, providers.call("agents", db)),
+                             # W4-CCFM2 (F-668): per-agent department, work, failures, spend.
+                             "agents_workspace": _agents_workspace(db),
+                             "improvement": providers.call("improvement", db),
+                             "jobs_24h": jw,
+                             "hours_since_owner_action": guard("owner_gap", owner_gap),
+                             "improvements": readers.improvements(db),
+                             "lessons": readers.lessons(db),
+                             "experiments": readers.experiments(db),
+                             "visual_rnd": guard("visual_rnd",
+                                                 lambda: visual_rnd_section(db)),
+                             "visual_rnd_governance": guard(
+                                 "visual_rnd_governance", lambda: visual_rnd_governance(db)),
+                             "laura_roadmap": providers.call("laura_roadmap", db)},
+                last_useful_action=jw.get("last_useful_action"))
+
+
+def insights(db) -> dict:
+    return _tab("INSIGHTS", {"seo": providers.call("seo", db),
+                             "ads": providers.call("ads", db),
+                             "experiments": readers.experiments(db),
+                             "lessons": readers.lessons(db),
+                             "improvements": readers.improvements(db),
+                             # W4-CCFM1 (F-619 "Customers", with Marketing): aggregates only.
+                             **_customer_sections(db),
+                             # W4-CCALL (F-622): the combined marketing & customers view.
+                             "marketing_customers": guard(
+                                 "marketing_customers", lambda: marketing_customers(db))})
+
+
+def _customer_sections(db) -> dict:
+    c = guard("customers", lambda: customers(db))
+    sec = (c or {}).get("sections") if isinstance(c, dict) else None
+    if not isinstance(sec, dict):
+        return {"customer_orders": c, "customer_support": c, "customer_reviews": c}
+    return {"customer_orders": sec.get("orders"), "customer_support": sec.get("support"),
+            "customer_reviews": sec.get("reviews")}
+
+
+def timeline(db, limit: int = 50) -> dict:
+    limit = max(1, min(int(limit or 50), 200))
+    events = []
+    sources = ["audit_log"]
+    a_events, why = providers.call_raw("timeline", db, limit=limit)
+    a_status = "UNKNOWN"
+    a_sources: list = []
+    if isinstance(a_events, dict):
+        # The real lane A provider is an envelope: its own status stands (an UNKNOWN
+        # envelope with no rows is UNKNOWN, never promoted to OK), as do its reason and
+        # sources.
+        a_status = str(a_events.get("status") or "UNKNOWN")
+        why = why or a_events.get("reason")
+        a_sources = [str(x) for x in (a_events.get("sources") or [])]
+        a_events = a_events.get("items")
+        if not isinstance(a_events, list):
+            a_events = None
+    elif isinstance(a_events, list):
+        a_status = "OK"           # a bare list (older contract): rows were returned
+    if isinstance(a_events, list):
+        for e in a_events:
+            if isinstance(e, dict):
+                events.append({**e, "origin": "autonomy.status.timeline"})
+        sources.append("brambleloop.autonomy.status.timeline")
+        sources.extend(x for x in a_sources if x not in sources)
+    for e in readers.audit_events(db, limit=limit):
+        events.append({**e, "origin": "audit_log"})
+    events.sort(key=lambda e: str(e.get("at") or ""), reverse=True)
+    return _tab("TIMELINE", {}, events=events[:limit], sources=sources,
+                autonomy_timeline={"status": a_status,
+                                   "reason": why if (a_events is None or
+                                                     a_status != "OK") else None})
+
+
+def notifications_tab(db) -> dict:
+    return _tab("NOTIFICATIONS", {}, **notifications.listing(db))
+
+
+def account(db, current_session: str) -> dict:
+    from ...core.models import OAuthCredential
+    from ...gateway.model_gateway import available_providers
+    from . import auth
+
+    ensure_tables(db)
+
+    def services():
+        with db.session() as s:
+            rows = list(s.scalars(select(OAuthCredential)))
+            items = [{"provider": r.provider, "scopes": (r.scopes or "").split(),
+                      "token_fingerprint": r.token_fingerprint,
+                      "obtained_at": readers._iso(r.obtained_at),
+                      "updated_at": readers._iso(r.updated_at),
+                      "source": f"oauth_credentials:{r.provider}"} for r in rows]
+        if not items:
+            return unknown("no connected OAuth service is recorded", "oauth_credentials")
+        return envelope("OK", items, [i["source"] for i in items], provider="oauth_credentials")
+
+    with db.session() as s:
+        events = [{"id": e.id, "at": readers._iso(e.at), "kind": e.kind,
+                   "outcome": e.outcome, "method": e.method, "route": e.route,
+                   "reason": e.reason, "session_id": e.session_public_id or None}
+                  for e in s.scalars(select(SecurityEvent).order_by(SecurityEvent.id.desc())
+                                     .limit(50))]
+        refused_24h = s.scalar(select(func.count()).select_from(SecurityEvent).where(
+            SecurityEvent.outcome == "refused",
+            SecurityEvent.at >= datetime.now(timezone.utc) - timedelta(hours=24))) or 0
+    emerg = guard("emergency", lambda: emergency.status(db))
+    return _tab("ACCOUNT", {
+        "connected_services": guard("services", services, sources=["oauth_credentials"]),
+        "budgets": readers.spend_limits(db),
+        # W4-CCFIN: the recorded authority ladder and the company work DAG (read-only; the
+        # approve/grant POSTs stay behind step-up in api.py).
+        "authority_policy": providers.call("authority_policy", db),
+        "authority_dag": providers.call("authority_dag", db)},
+        owner={"principal": "owner (passphrase{})".format(
+            " + TOTP" if auth.totp_required() else ""),
+            "login_configured": auth.login_configured(),
+            "totp_required": auth.totp_required(),
+            "second_factor": auth.second_factor_status(),
+            "stepup_window_seconds": int(auth.STEPUP_WINDOW.total_seconds())},
+        sessions=auth.list_sessions(db, current_session),
+        security_events=events, refused_attempts_24h=int(refused_24h),
+        model_providers={"configured": available_providers(),
+                         "note": "a provider is listed only when its credential is configured"},
+        authorities={"phase": emerg.get("phase") if isinstance(emerg, dict) else None,
+                     "live_grants": ((emerg.get("publishing") or {}).get("live_grants")
+                                     if isinstance(emerg, dict) else None)},
+        notification_policy=notifications.get_policy(db),
+        emergency=emerg)
+
+
+# ---- W4-CCFM1: Customers view (F-619), workspace map (F-619 / F-651), spend trend (F-652) -----
+
+def _count(s, stmt) -> int:
+    return int(s.scalar(stmt) or 0)
+
+
+def customers(db) -> dict:
+    """F-619 "Customers": aggregates only -- never a buyer's name, reference or message text.
+
+    Orders, repeat buyers, refunds and reviews are counted only when the order source is
+    connected and read (`dashboard_truth._order_source`); otherwise each is UNKNOWN, never 0.
+    Support cases are the owner-recorded conversations (Etsy has no messages API), counted
+    from `support_cases` and labelled owner-recorded. Customer content stays behind the
+    operator credential at /api/support (F-696)."""
+    from ...core.models import Order, SupportCase
+    from .. import dashboard_truth
+
+    src = dashboard_truth._order_source(db)
+    measured = bool(src.get("measured"))
+    with db.session() as s:
+        orders = {
+            "orders": _count(s, select(func.count()).select_from(Order)),
+            "repeat_orders": _count(s, select(func.count()).select_from(Order)
+                                    .where(Order.is_repeat == True)),  # noqa: E712
+            "refunded_orders": _count(s, select(func.count()).select_from(Order)
+                                      .where(Order.refunded == True)),  # noqa: E712
+            "reviewed_orders": _count(s, select(func.count()).select_from(Order)
+                                      .where(Order.reviewed == True)),  # noqa: E712
+            "buyers": _count(s, select(func.count(func.distinct(Order.customer_id)))),
+        }
+        support = {
+            "cases": _count(s, select(func.count()).select_from(SupportCase)),
+            "awaiting_reply": _count(s, select(func.count()).select_from(SupportCase)
+                                     .where(SupportCase.sent == False)),  # noqa: E712
+            "escalated": _count(s, select(func.count()).select_from(SupportCase)
+                                .where(SupportCase.escalated == True)),  # noqa: E712
+            "resolved": _count(s, select(func.count()).select_from(SupportCase)
+                               .where(SupportCase.resolved == True)),  # noqa: E712
+        }
+    why = src.get("why") or "order source not connected and read"
+    order_items = [{"metric": k, "value": (v if measured else None),
+                    "state": "MEASURED" if measured else "UNKNOWN",
+                    "why": None if measured else why} for k, v in orders.items()]
+    support_items = [{"metric": k, "value": v, "state": "OWNER_RECORDED",
+                      "why": "counted from what the owner recorded from Etsy Messages"}
+                     for k, v in support.items()]
+    return _tab("CUSTOMERS", {
+        "orders": envelope("OK" if measured else "UNKNOWN", order_items,
+                           ["orders", "commerce.orders_ingest.source_state"],
+                           basis="measured" if measured else "unknown",
+                           provider="tabs.customers.orders",
+                           reason=None if measured else why,
+                           last_read_at=src.get("last_read_at")),
+        "support": envelope("OK", support_items, ["support_cases (owner-recorded)"],
+                            provider="tabs.customers.support",
+                            note=("aggregates only; buyer messages are customer content and "
+                                  "stay behind the operator credential (F-696)")),
+        "reviews": unknown("no review source is connected: Etsy reviews are not read by this "
+                           "system", "tabs.customers.reviews", ["etsy reviews (not read)"]),
+    })
+
+
+#: F-619 / F-651: every owner area the Final Master names, mapped to the Command Center route
+#: that serves it and the API it reads. One source of truth per area; no new store.
+WORKSPACES: tuple[dict, ...] = (
+    {"area": "Today", "route": "home", "api": "/api/cc/home", "rows": ["F-619", "F-661"]},
+    {"area": "Owner inbox / Owner actions", "route": "approvals", "api": "/api/cc/approvals",
+     "rows": ["F-619", "F-651"]},
+    {"area": "Month / Finance", "route": "money", "api": "/api/cc/money", "rows": ["F-619", "F-620"]},
+    {"area": "Products", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-619", "F-651"]},
+    {"area": "Listings", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-619"]},
+    {"area": "Etsy", "route": "store", "api": "/api/cc/etsy", "rows": ["F-651"]},
+    {"area": "Marketing", "route": "insights", "api": "/api/cc/insights", "rows": ["F-619", "F-651"]},
+    {"area": "Customers", "route": "insights", "api": "/api/cc/customers", "rows": ["F-619", "F-651"]},
+    {"area": "Experiments", "route": "insights", "api": "/api/cc/insights", "rows": ["F-619"]},
+    {"area": "Research", "route": "insights", "api": "/api/cc/insights", "rows": ["F-651"]},
+    {"area": "Departments", "route": "company", "api": "/api/cc/company", "rows": ["F-619", "F-621"]},
+    {"area": "Agent activity / Agents", "route": "learn", "api": "/api/cc/learn", "rows": ["F-619", "F-668"]},
+    {"area": "System health / Reliability", "route": "operations", "api": "/api/cc/operations",
+     "rows": ["F-619", "F-651", "F-729"]},
+    {"area": "QA (pattern quality)", "route": "store", "api": "/api/cc/store/catalogue", "rows": ["F-651"]},
+    {"area": "Visual", "route": "store", "api": "/cc/image-review", "rows": ["F-651"]},
+    {"area": "Command Center (company status)", "route": "company", "api": "/api/cc/company",
+     "rows": ["F-651"]},
+)
+
+
+def spend_trend(db, *, days: int = 30, now: datetime | None = None) -> dict:
+    """F-652: recorded spend per UTC day over `days` days (cost_entries). Recorded, not
+    reconciled; a day with no cost row reads 0.0 because the table was read and held none."""
+    from ...core.models import CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    labels = [(start + timedelta(days=i)).date().isoformat() for i in range(days)]
+    vals = [0.0] * days
+    with db.session() as s:
+        for at, amt in s.execute(select(CostEntry.at, CostEntry.amount_cad)
+                                 .where(CostEntry.at >= start)).all():
+            if at is None:
+                continue
+            at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+            i = (at.date() - start.date()).days
+            if 0 <= i < days:
+                vals[i] = round(vals[i] + float(amt or 0.0), 6)
+    return envelope("OK", [{"date": d, "value_cad": v} for d, v in zip(labels, vals)],
+                    ["cost_entries"], basis="measured", provider="tabs.spend_trend", days=days,
+                    total_cad=round(sum(vals), 6),
+                    note="recorded spend (not reconciled), per UTC day")
+
+
+# ---- W4-CCALL (F-622): combined Marketing & Customers owner view --------------------------------
+
+def marketing_customers(db) -> dict:
+    """F-622: organic vs paid orders, ROAS, CPC/CTR, campaigns, review themes, refunds and
+    support, in one owner view. Each row reads its own existing source and states its basis;
+    a figure with no source is UNKNOWN (never 0). No customer content is shown."""
+    from ...commerce import orders_ingest as oi
+    from ...core.models import SupportCase
+    from ...finance.sources import channel
+    from ...growth import ads_readiness
+    from .. import dashboard_truth
+
+    src = dashboard_truth._order_source(db)
+    measured = bool(src.get("measured"))
+    why_orders = src.get("why") or "order source not connected and read"
+    with db.session() as s:
+        orders = list(oi.countable_orders(s))
+        by_channel: dict[str, int] = {}
+        for o in orders:
+            ch = channel(o.acquisition_source)
+            by_channel[ch] = by_channel.get(ch, 0) + 1
+        # A refunded order is voided, so it is not "countable": refunds are read from every
+        # order row, not from the countable set.
+        from ...core.models import Order as _Order
+
+        refunded = int(s.scalar(select(func.count()).select_from(_Order).where(
+            _Order.refunded == True)) or 0)  # noqa: E712
+        escalated = int(s.scalar(select(func.count()).select_from(SupportCase).where(
+            SupportCase.escalated == True)) or 0)  # noqa: E712
+        cases = int(s.scalar(select(func.count()).select_from(SupportCase)) or 0)
+    ads = ads_readiness.summary(db)
+    roas = (ads.get("kpis") or {}).get("roas") or {}
+    props = ads.get("proposals") or {}
+
+    def ordered(v, metric, label):
+        return {"metric": metric, "label": label, "value": v if measured else None,
+                "state": "MEASURED" if measured else "UNKNOWN",
+                "why": None if measured else why_orders}
+
+    items = [
+        ordered(by_channel.get("etsy_organic", 0), "orders_organic", "Orders: Etsy organic"),
+        ordered(by_channel.get("etsy_ads", 0) + by_channel.get("offsite_ads", 0),
+                "orders_paid", "Orders: paid (Etsy Ads + Offsite Ads)"),
+        ordered(by_channel.get("owned_direct", 0), "orders_owned", "Orders: owned channels"),
+        ordered(sum(v for k, v in by_channel.items()
+                    if k not in ("etsy_organic", "etsy_ads", "offsite_ads", "owned_direct")),
+                "orders_unattributed", "Orders: unattributed"),
+        {"metric": "roas", "label": "ROAS (evidence-attributed Etsy Ads)",
+         "value": roas.get("roas"), "contribution_roas": roas.get("contribution_roas"),
+         "state": "MEASURED" if roas.get("status") == "measured" else "UNKNOWN",
+         "why": roas.get("why") or "ads KPIs unreadable"},
+        {"metric": "cpc_ctr", "label": "CPC / CTR", "value": None, "state": "UNKNOWN",
+         "why": "Etsy Ads statistics are not read by this system (no sanctioned collector)"},
+        {"metric": "campaigns", "label": "Campaigns (spend proposals)",
+         "value": props.get("total"), "awaiting_owner": len(props.get("awaiting_owner") or []),
+         "finance_blocked": len(props.get("finance_blocked") or []),
+         "state": "MEASURED" if isinstance(props.get("total"), int) else "UNKNOWN",
+         "why": ("proposals only: nothing is executed; spend needs Finance and the owner"
+                 if isinstance(props.get("total"), int) else ads.get("reason"))},
+        {"metric": "review_themes", "label": "Review themes", "value": None, "state": "UNKNOWN",
+         "why": "Etsy reviews are not read by this system"},
+        ordered(refunded, "refunds", "Refunded orders"),
+        {"metric": "support_cases", "label": "Support cases (owner-recorded)", "value": cases,
+         "escalated": escalated, "state": "OWNER_RECORDED",
+         "why": "counted from what the owner recorded from Etsy Messages"},
+    ]
+    return envelope("OK" if measured else "DEGRADED", items,
+                    ["orders (commerce.orders_ingest.countable_orders)", "growth.ads_readiness",
+                     "support_cases"], provider="tabs.marketing_customers",
+                    reason=None if measured else f"orders UNKNOWN: {why_orders}",
+                    ads_status=ads.get("status"))

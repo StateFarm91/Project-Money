@@ -108,4 +108,10 @@ def install() -> list[str]:
             if _FILTER not in handler.filters:
                 handler.addFilter(_FILTER)
         attached.append(name)
+    # F-159 (W4-FM2): the release secret-scan patterns, applied to every line this process
+    # logs (root handlers and the server's own loggers) before it reaches the platform.
+    from ..ops import log_secret_guard
+
+    # Not added to the returned list: that list names the query-string redaction's loggers.
+    log_secret_guard.install()
     return attached

@@ -68,8 +68,8 @@ WORLD_SPEED: dict[str, tuple[int | None, str]] = {
                          "changes, which is a fingerprint question and not a date one"),
 }
 
-# Each cell's world, named rather than inferred. Twelve entries because `improve.cells` has
-# twelve; a cell added there without an entry here is refused rather than defaulted, because
+# Each cell's world, named rather than inferred. One entry per cell because `improve.cells` has
+# thirteen (Learn joined for F-799); a cell added there without an entry here is refused rather than defaulted, because
 # a default interval is exactly the single global constant this requirement exists to remove.
 CELL_WORLD: dict[str, str] = {
     "product_creativity": MARKET,
@@ -84,6 +84,7 @@ CELL_WORLD: dict[str, str] = {
     "portfolio": OPERATIONAL,
     "finance": OPERATIONAL,
     "runtime": OPERATIONAL,
+    "learn": OPERATIONAL,
 }
 
 # How long a capability may sit still before flatness is a finding rather than a short

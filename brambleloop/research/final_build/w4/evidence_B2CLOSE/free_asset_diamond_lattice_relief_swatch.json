@@ -1,0 +1,108 @@
+{
+ "lane": "W4-B2CLOSE",
+ "as_of": "2026-10-10",
+ "requirement": 10,
+ "what": "one real free motif asset, built and certified like a product; unpublished (shadow)",
+ "asset": {
+  "key": "diamond-lattice-relief-swatch",
+  "kind": "motif",
+  "surface": "article",
+  "teaches": "the lattice relief -- placing double crochet above a single-crochet ground so a diamond stands out in texture -- and the worsted gauge it is worked at",
+  "leads_to": "cloudline-baby-blanket",
+  "why_next": "a maker who has finished the swatch has already worked the blanket's lattice motif in relief at its gauge and in its colours, so the blanket asks for a technique they have made rather than a new one",
+  "makes": "diamond-lattice-relief-swatch"
+ },
+ "built_by": "growth.free_assets.cir_for -> products.builder.build(motif diamond-lattice, palette cloudline, worsted gauge_for)",
+ "certificate": {
+  "slug": "diamond-lattice-relief-swatch",
+  "version": "1.0.0",
+  "granted": true,
+  "content_hash": "07bc072167821753d1c7ea14a708d0d2dd3ebab085788b8e5387e5bdee6b24cf",
+  "release_hash": "07bc072167821753d1c7ea14a708d0d2dd3ebab085788b8e5387e5bdee6b24cf",
+  "stages_run": [
+   "compile",
+   "specification",
+   "twin",
+   "assembly",
+   "write",
+   "reverse",
+   "originality",
+   "physical_test",
+   "confidence"
+  ],
+  "errors": [],
+  "size_statement": "14.4 x 15.9 cm",
+  "stitch_total": 288,
+  "yarn_metres": {
+   "cream": 9.0,
+   "ink": 9.2
+  },
+  "physical_test_passed": false,
+  "confidence_weakest": "physical"
+ },
+ "warnings": [
+  "ORIGINALITY_DURABLE_EVIDENCE_UNCHECKED: standalone check: no current database corpus/licence review; not full runtime originality proof"
+ ],
+ "paid_slugs": [
+  "autumn-oak-mosaic-throw",
+  "cloudline-baby-blanket",
+  "cottage-wall-hanging",
+  "harvest-table-runner",
+  "hexagon-coaster-set",
+  "market-basket-large",
+  "market-basket-medium",
+  "market-basket-small",
+  "mosaic-placemat-pair",
+  "nordic-star-ornaments",
+  "pet-snuggle-mat",
+  "pressed-flower-motifs",
+  "spooky-garland",
+  "valentine-heart-garland",
+  "winter-village-graphghan"
+ ],
+ "plan": {
+  "assets": [
+   {
+    "key": "diamond-lattice-relief-swatch",
+    "ok": true,
+    "reasons": [],
+    "kind": "motif",
+    "surface": "article",
+    "job": {
+     "leads_to": "cloudline-baby-blanket",
+     "why_next": "a maker who has finished the swatch has already worked the blanket's lattice motif in relief at its gauge and in its colours, so the blanket asks for a technique they have made rather than a new one"
+    }
+   }
+  ],
+  "with_a_job": 1,
+  "of": 1,
+  "premium_products_fed": [
+   "cloudline-baby-blanket"
+  ],
+  "premium_products_with_nothing_feeding_them": [
+   "autumn-oak-mosaic-throw",
+   "cottage-wall-hanging",
+   "harvest-table-runner",
+   "hexagon-coaster-set",
+   "market-basket-large",
+   "market-basket-medium",
+   "market-basket-small",
+   "mosaic-placemat-pair",
+   "nordic-star-ornaments",
+   "pet-snuggle-mat",
+   "pressed-flower-motifs",
+   "spooky-garland",
+   "valentine-heart-garland",
+   "winter-village-graphghan"
+  ],
+  "note": "",
+  "published": [],
+  "publication": {
+   "state": "unpublished (shadow)",
+   "waits_on": "owned_surfaces",
+   "why": "an article needs an owned site; the owner half of #10 (owner_queue owned_surfaces) has not opened one. Nothing is published, no email is captured and no message is sent (CASL)"
+  },
+  "funnel_counts": "none measured: nothing is published, so no rung has a count"
+ },
+ "pattern_text": "Diamond Lattice Relief Swatch\nVersion 1.0.0\n\nGauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook\nMaterials: worsted acrylic; worsted acrylic\nTerminology: US terms\n\n## panel\nFoundation: ch 18.\nRow 1 (cream): Ch 1, turn. sc in next 18 sts. (18 sts)\nRow 2 (ink): Ch 1, turn. [sc in next 3 sts, dc in next 3 sts, sc in next 3 sts] x 2. (18 sts)\nRow 3 (cream): Ch 1, turn. [sc in next 2 sts, dc in next 2 sts, sc in next st, dc in next 2 sts, sc in next 2 sts] x 2. (18 sts)\nRow 4 (ink): Ch 1, turn. [sc in next st, dc in next 2 sts, sc in next 3 sts, dc in next 2 sts, sc in next st] x 2. (18 sts)\nRow 5 (cream): Ch 1, turn. [dc in next 2 sts, sc in next 5 sts, dc in next 2 sts] x 2. (18 sts)\nRow 6 (ink): Ch 1, turn. [sc in next st, dc in next 2 sts, sc in next 3 sts, dc in next 2 sts, sc in next st] x 2. (18 sts)\nRow 7 (cream): Ch 1, turn. [sc in next 2 sts, dc in next 2 sts, sc in next st, dc in next 2 sts, sc in next 2 sts] x 2. (18 sts)\nRow 8 (ink): Ch 1, turn. [sc in next 3 sts, dc in next 3 sts, sc in next 3 sts] x 2. (18 sts)\nRow 9 (cream): Ch 1, turn. [sc in next 4 sts, dc in next st, sc in next 4 sts] x 2. (18 sts)\nRow 10 (ink): Ch 1, turn. [sc in next 3 sts, dc in next 3 sts, sc in next 3 sts] x 2. (18 sts)\nRow 11 (cream): Ch 1, turn. [sc in next 2 sts, dc in next 2 sts, sc in next st, dc in next 2 sts, sc in next 2 sts] x 2. (18 sts)\nRow 12 (ink): Ch 1, turn. [sc in next st, dc in next 2 sts, sc in next 3 sts, dc in next 2 sts, sc in next st] x 2. (18 sts)\nRow 13 (cream): Ch 1, turn. [dc in next 2 sts, sc in next 5 sts, dc in next 2 sts] x 2. (18 sts)\nRow 14 (ink): Ch 1, turn. [sc in next st, dc in next 2 sts, sc in next 3 sts, dc in next 2 sts, sc in next st] x 2. (18 sts)\nRow 15 (cream): Ch 1, turn. [sc in next 2 sts, dc in next 2 sts, sc in next st, dc in next 2 sts, sc in next 2 sts] x 2. (18 sts)\nRow 16 (ink): Ch 1, turn. [sc in next 3 sts, dc in next 3 sts, sc in next 3 sts] x 2. (18 sts)\n\n\n## Finishing\nFasten off and weave in all ends on the wrong side. Thread each end through at least 5 cm of stitches, then back through a few in the opposite direction, so it cannot work loose in wear or washing.\nThis pattern uses 2 colours, so there is an end to secure at every join and every change.\nColour changes: 14 of the 15 start at the edge opposite the resting colour, so it cannot be carried: cut it at the end of its row and rejoin it at the start of its next row, leaving a 10 cm tail. Ends to weave in: about 32.\nBlock the finished piece: pin it out damp, easing rather than stretching, and leave it to dry flat.\nCheck the ball band before blocking with heat or water. Fibres behave differently and yours is the one in your hands.\n"
+}

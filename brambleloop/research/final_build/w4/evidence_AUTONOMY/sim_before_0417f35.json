@@ -1,0 +1,61 @@
+{
+ "ticks": [
+  {
+   "states": {
+    "product_design": "BUSY",
+    "intelligence": "BUSY",
+    "visual": "BUSY"
+   },
+   "missions": {},
+   "worker_claims": 8
+  },
+  {
+   "states": {
+    "product_design": "BUSY",
+    "intelligence": "BUSY",
+    "visual": "BUSY"
+   },
+   "missions": {},
+   "worker_claims": 9
+  },
+  {
+   "states": {
+    "product_design": "BUSY",
+    "intelligence": "BUSY",
+    "visual": "BUSY"
+   },
+   "missions": {},
+   "worker_claims": 7
+  }
+ ],
+ "rule1": {
+  "product_design": {
+   "done": 0,
+   "useful": 0,
+   "noop": 0,
+   "dead": 0,
+   "useful_types": {},
+   "idle_at_end": false,
+   "rule1_defect": false
+  },
+  "intelligence": {
+   "done": 0,
+   "useful": 0,
+   "noop": 0,
+   "dead": 0,
+   "useful_types": {},
+   "idle_at_end": false,
+   "rule1_defect": false
+  },
+  "visual": {
+   "done": 0,
+   "useful": 0,
+   "noop": 0,
+   "dead": 0,
+   "useful_types": {},
+   "idle_at_end": false,
+   "rule1_defect": false
+  }
+ },
+ "parked_still_pending": 7
+}

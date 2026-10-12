@@ -128,12 +128,37 @@ def concentration(positions: list[Position]) -> dict:
     }
 
 
-def stress_test(positions: list[Position], *, target_cad: float = 5000.0) -> dict:
+# Revenue keys that are not a measured season or a measured channel. An order whose source is
+# "unknown" says nothing about which channel to lose, and "evergreen" is not an event.
+_NOT_A_SEASON = ("", "none", "evergreen", None)
+_NOT_A_CHANNEL = ("", "unknown", None)
+
+
+def _loss_scenario(name: str, what: str, revenue_by: dict | None, excluded: tuple,
+                   total: float) -> dict:
+    """Lose the largest measured key of one revenue breakdown, or say it is unmeasured."""
+    measured = {k: float(v) for k, v in (revenue_by or {}).items()
+                if k not in excluded and float(v or 0) > 0}
+    if not measured:
+        return {"scenario": name, "testable": False, "reading": "UNMEASURED",
+                "why": (f"no revenue is attributed to a {what}, so losing the top one "
+                        f"cannot be modelled. Refused rather than estimated")}
+    top = max(measured, key=measured.get)
+    return {"scenario": name, "testable": True, "removed": top,
+            "remaining_cad": round(total - measured[top], 2),
+            "share_lost": round(measured[top] / total, 3) if total else None}
+
+
+def stress_test(positions: list[Position], *, target_cad: float = 5000.0,
+                revenue_by_season: dict | None = None,
+                revenue_by_channel: dict | None = None) -> dict:
     """Remove the best thing and see whether the target survives (#270).
 
-    Three plausible single failures, because they are the ones that actually happen: the top
-    product gets copied or delisted, the top family goes out of fashion, and the season that
-    carries the year does not repeat.
+    Five plausible single failures, because they are the ones that actually happen: the top
+    product gets copied or delisted, the top family goes out of fashion, the top three go
+    together, the seasonal event that carries the year does not repeat, and the traffic
+    channel that brings most buyers changes its rules. The last two are modelled only from
+    attributed revenue; with none they are reported UNMEASURED and refused, never estimated.
     """
     earning = [p for p in positions if p.revenue_cad > 0]
     total = sum(p.revenue_cad for p in earning)
@@ -142,7 +167,12 @@ def stress_test(positions: list[Position], *, target_cad: float = 5000.0) -> dic
                 "reason": ("nothing has earned anything, so there is no revenue to stress. "
                            "The target does not survive any scenario, including the one where "
                            "nothing goes wrong"),
-                "scenarios": []}
+                "scenarios": [],
+                "refused": [
+                    _loss_scenario("top seasonal event lost", "seasonal event",
+                                   revenue_by_season, _NOT_A_SEASON, 0.0),
+                    _loss_scenario("top traffic channel lost", "traffic channel",
+                                   revenue_by_channel, _NOT_A_CHANNEL, 0.0)]}
 
     ranked = sorted(earning, key=lambda p: -p.revenue_cad)
     by_family: dict[str, float] = {}
@@ -160,6 +190,16 @@ def stress_test(positions: list[Position], *, target_cad: float = 5000.0) -> dic
          "removed": ", ".join(p.slug for p in ranked[:3]),
          "remaining_cad": round(total - sum(p.revenue_cad for p in ranked[:3]), 2)},
     ]
+    refused = []
+    for extra in (_loss_scenario("top seasonal event lost", "seasonal event",
+                                 revenue_by_season, _NOT_A_SEASON, total),
+                  _loss_scenario("top traffic channel lost", "traffic channel",
+                                 revenue_by_channel, _NOT_A_CHANNEL, total)):
+        if extra["testable"]:
+            extra.pop("testable")
+            scenarios.append(extra)
+        else:
+            refused.append(extra)
     for s in scenarios:
         s["survives_target"] = s["remaining_cad"] >= target_cad
         s["shortfall_cad"] = round(max(0.0, target_cad - s["remaining_cad"]), 2)
@@ -170,6 +210,7 @@ def stress_test(positions: list[Position], *, target_cad: float = 5000.0) -> dic
         "current_cad": round(total, 2),
         "target_cad": target_cad,
         "scenarios": scenarios,
+        "refused": refused,
         "fragile_to": [s["scenario"] for s in fragile],
         "note": ("Exploiting a winner stays aggressive; this measures what it would cost to "
                  "lose it, so resilience is part of the confidence rather than an afterthought "
@@ -210,10 +251,173 @@ def positions_from_db(db) -> list[Position]:
     return out
 
 
+def diversification_plan(shape_report: dict, concentration_report: dict,
+                         stress: dict) -> dict:
+    """What to build or grow next so no single loss ends the target (#270).
+
+    Every action is tied to the reading it answers. Actions that depend on revenue are not
+    invented while revenue is unmeasured; the catalogue-shape actions still are, because the
+    shape is measured from the catalogue itself.
+    """
+    actions: list[dict] = []
+    for role in shape_report.get("roles_absent", []):
+        actions.append({"action": f"create a {role} product",
+                        "because": f"the catalogue has no {role} product at all",
+                        "reading": "measured"})
+    for gap in shape_report.get("gaps", []):
+        if "want_at_least" in gap and not gap.get("missing_entirely"):
+            actions.append({"action": f"add {gap['role']} products",
+                            "because": (f"{gap['role']} is {gap['share']:.0%} of the "
+                                        f"catalogue against at least "
+                                        f"{gap['want_at_least']:.0%}"),
+                            "reading": "measured"})
+    if concentration_report.get("measurable") and concentration_report.get("alarm"):
+        actions.append({"action": (f"build products in other families than "
+                                   f"{concentration_report['top_sku']}'s"),
+                        "because": concentration_report["note"], "reading": "measured"})
+    remedies = {
+        "top SKU lost": "grow a second earner in the same role before scaling the first",
+        "top family lost": "launch a family unrelated to the top one",
+        "top three lost": "widen the earning base beyond three products",
+        "top seasonal event lost": "add evergreen CORE products and a second season",
+        "top traffic channel lost": ("develop a second acquisition channel (owned surfaces "
+                                     "are owner-gated)"),
+    }
+    for scenario in stress.get("scenarios", []):
+        if not scenario.get("survives_target", True):
+            actions.append({"action": remedies.get(scenario["scenario"], "diversify"),
+                            "because": (f"{scenario['scenario']}: CA$"
+                                        f"{scenario['shortfall_cad']:.2f} short of target"),
+                            "reading": "measured"})
+    unmeasured = [r["scenario"] for r in stress.get("refused", [])]
+    if not stress.get("testable"):
+        unmeasured = ["revenue concentration"] + unmeasured
+    return {"actions": actions, "unmeasured": unmeasured,
+            "note": ("Revenue-dependent actions wait for revenue; shape actions do not "
+                     "(#270).")}
+
+
+def revenue_breakdowns(db) -> dict:
+    """Attributed revenue by seasonal event and by acquisition channel, from real orders.
+
+    Refunded orders do not count. The season is the product's seasonal event as the pool
+    declares it, so an order for an evergreen product carries no season.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Order
+
+    try:
+        from ..radar.opportunity import POOL
+
+        season_of = {m.slug: (m.season or "") for m in POOL}
+    except Exception:  # noqa: BLE001 # pragma: no cover
+        season_of = {}
+    by_season: dict[str, float] = {}
+    by_channel: dict[str, float] = {}
+    with db.session() as s:
+        from ..commerce import orders_ingest
+
+        for order in orders_ingest.countable_orders(s, select(Order)):
+            amount = float(order.revenue_cad or 0.0)
+            season = season_of.get(order.product_slug, "")
+            by_season[season] = by_season.get(season, 0.0) + amount
+            by_channel[order.acquisition_source or "unknown"] = (
+                by_channel.get(order.acquisition_source or "unknown", 0.0) + amount)
+    return {"by_season": by_season, "by_channel": by_channel}
+
+
 def report(db, *, target_cad: float = 5000.0) -> dict:
     positions = positions_from_db(db)
+    breakdowns = revenue_breakdowns(db)
+    shaped = shape(positions)
+    conc = concentration(positions)
+    stress = stress_test(positions, target_cad=target_cad,
+                         revenue_by_season=breakdowns["by_season"],
+                         revenue_by_channel=breakdowns["by_channel"])
     return {
-        "shape": shape(positions),
-        "concentration": concentration(positions),
-        "stress_test": stress_test(positions, target_cad=target_cad),
+        "shape": shaped,
+        "concentration": conc,
+        "stress_test": stress,
+        "diversification_plan": diversification_plan(shaped, conc, stress),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #232 at creation time: the role the next product is created *for*.
+#
+# Roles only guide creation if something upstream of engineering reads the gap and writes the
+# brief to it. These are what each creatable role asks of a concept -- the make lanes it
+# belongs in and one sentence for the brief -- so the ideation handlers can aim a field at the
+# portfolio's hole rather than at the next listing count. RETIRE is not creatable.
+ROLE_BRIEF: dict[str, dict] = {
+    HERO: {"lanes": ("MEDIUM", "LONG", "FLAGSHIP"),
+           "brief": "a traffic and revenue driver: the product the shop is found by"},
+    CORE: {"lanes": ("SHORT", "MEDIUM"),
+           "brief": "a reliable evergreen or seasonal earner that sells every year"},
+    ENTRY: {"lanes": ("QUICK", "SHORT"),
+            "brief": "a low-friction first purchase: quick, cheap and finishable"},
+    BUNDLE: {"lanes": ("QUICK", "SHORT", "MEDIUM"),
+             "brief": "a product that raises order value by belonging to a set"},
+    CROSS_SELL: {"lanes": ("QUICK", "SHORT"),
+                 "brief": "an attachment bought beside something the shop already sells"},
+    EXPERIMENT: {"lanes": ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP"),
+                 "brief": "a learning vehicle, expected to mostly fail"},
+}
+
+
+def next_role(positions: list[Position], *, pending: list[str] | None = None) -> dict:
+    """The role the next product should be created for, from the portfolio's gaps (#232).
+
+    `pending` is the roles already assigned to concepts that have not become products yet, so
+    two ideation runs in a week do not both chase the same hole. The choice is the creatable
+    role furthest below its healthy share in the *projected* catalogue; ties break in ROLES
+    order so the answer is reproducible.
+    """
+    pending = [r for r in (pending or []) if r in ROLE_BRIEF]
+    projected = list(positions) + [Position(slug=f"pending-{i}", role=r)
+                                   for i, r in enumerate(pending)]
+    report = shape(projected)
+    total = max(1, report["skus"])
+    shortfall: dict[str, float] = {}
+    for role, (low, _high) in HEALTHY_SHARE.items():
+        shortfall[role] = low - report["counts"][role] / total
+    # #231: high concentration triggers diversification. When one SKU carries the alarm share
+    # of revenue, the next product is not another of the winner's role in the winner's
+    # family: the winner's role drops to the back of the ranking and the brief names the
+    # family to build away from. Exploitation of the winner is preserved -- a BUNDLE or
+    # CROSS_SELL that attaches to it stays eligible, because that grows the winner without
+    # deepening the dependence on it.
+    conc = concentration(positions)
+    top = next((p for p in positions if conc.get("top_sku") == p.slug), None)
+    diversify = bool(conc.get("measurable") and conc.get("alarm") and top is not None)
+    avoid_role = top.role if diversify and top.role not in (BUNDLE, CROSS_SELL) else None
+    ranked = sorted(HEALTHY_SHARE, key=lambda r: (r == avoid_role, -shortfall[r],
+                                                  ROLES.index(r)))
+    role = ranked[0]
+    if shortfall[role] <= 0:
+        # Every creatable role is at or above its floor: the portfolio has no hole, and the
+        # next product is a learning vehicle rather than a fill.
+        role = EXPERIMENT
+    brief = ROLE_BRIEF[role]["brief"]
+    if diversify:
+        brief = (f"{brief} Diversify: {conc['note']}; build outside the "
+                 f"{top.family or top.slug!r} family.")
+    return {
+        "role": role,
+        "lanes": list(ROLE_BRIEF[role]["lanes"]),
+        "brief": brief,
+        "concentration": {k: conc.get(k) for k in ("measurable", "top_1_share",
+                                                   "top_5_share", "top_sku", "alarm")},
+        "diversifying": diversify,
+        "avoid_family": (top.family or top.slug) if diversify else None,
+        "deprioritised_role": avoid_role,
+        "shortfall": round(max(0.0, shortfall.get(role, 0.0)), 3),
+        "catalogue_skus": len(positions),
+        "pending": pending,
+        "projected_counts": report["counts"],
+        "roles_absent": report["roles_absent"],
+        "why": (f"{role} is the creatable role furthest below its healthy share once the "
+                f"{len(pending)} role(s) already assigned to undeveloped concepts are counted: "
+                f"product creation follows the portfolio's gap, not the listing count (#232)"),
     }

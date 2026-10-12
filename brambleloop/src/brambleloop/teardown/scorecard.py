@@ -50,6 +50,13 @@ SCALE: dict[int, str] = {
 }
 
 
+# Audits of Brambleloop's own products are recorded under this prefix (#169's "every
+# teardown and Brambleloop QA"). They feed our own scorecard and the delight question, and
+# never the composite standard: the standard is built from what competitors do best, and a
+# standard that included our own scores would be measuring us against ourselves.
+SELF_PREFIX = "brambleloop:"
+
+
 class ScoreRefused(Exception):
     """A score outside the scale, on a dimension that does not exist, or with no action."""
 
@@ -61,15 +68,35 @@ class Finding:
     score: int
     mechanism: str
     improvement: str
+    # #161: the analyst's confidence in the score (0-1, or None when unstated) and the raw
+    # notes it was drawn from. Both are kept on the row, never folded into the score.
+    confidence: float | None = None
+    raw_notes: str = ""
 
     def to_dict(self) -> dict:
         return {"benchmark_ref": self.benchmark_ref, "dimension": self.dimension,
                 "score": self.score, "mechanism": self.mechanism,
-                "improvement": self.improvement}
+                "improvement": self.improvement, "confidence": self.confidence,
+                "raw_notes": self.raw_notes}
+
+
+def check_confidence(confidence) -> float | None:
+    """A stated confidence is a share between 0 and 1; an unstated one stays None (#161)."""
+    if confidence in (None, ""):
+        return None
+    if isinstance(confidence, bool):
+        raise ScoreRefused("confidence is a share between 0 and 1, not a yes or no")
+    try:
+        value = float(confidence)
+    except (TypeError, ValueError) as exc:
+        raise ScoreRefused(f"confidence {confidence!r} is not a number between 0 and 1") from exc
+    if not 0.0 <= value <= 1.0:
+        raise ScoreRefused(f"confidence {value} is outside 0-1")
+    return value
 
 
 def finding(benchmark_ref: str, dimension: str, score: int, mechanism: str,
-            improvement: str) -> Finding:
+            improvement: str, *, confidence=None, raw_notes: str = "") -> Finding:
     """Build a scored finding, refusing the three ways it goes wrong."""
     if dimension not in DIMENSIONS:
         raise ScoreRefused(f"{dimension!r} is not one of the twelve dimensions")
@@ -83,7 +110,11 @@ def finding(benchmark_ref: str, dimension: str, score: int, mechanism: str,
             "produces no action is a review (#164)")
     check_derived(mechanism)
     check_derived(improvement)
-    return Finding(benchmark_ref, dimension, score, mechanism.strip(), improvement.strip())
+    notes = (raw_notes or "").strip()
+    if notes:
+        check_derived(notes)
+    return Finding(benchmark_ref, dimension, score, mechanism.strip(), improvement.strip(),
+                   confidence=check_confidence(confidence), raw_notes=notes)
 
 
 def record(db, f: Finding) -> int:
@@ -92,7 +123,8 @@ def record(db, f: Finding) -> int:
     with db.session() as s:
         row = TeardownFinding(benchmark_ref=f.benchmark_ref, dimension=f.dimension,
                               score=float(f.score), mechanism=f.mechanism,
-                              improvement=f.improvement)
+                              improvement=f.improvement, confidence=f.confidence,
+                              raw_notes=f.raw_notes)
         s.add(row)
         s.flush()
         return row.id
@@ -113,7 +145,8 @@ def scorecard(db, benchmark_ref: str) -> dict:
         current = best.get(r.dimension)
         if current is None or r.score > current["score"]:
             best[r.dimension] = {"score": r.score, "mechanism": r.mechanism,
-                                 "improvement": r.improvement}
+                                 "improvement": r.improvement,
+                                 "confidence": r.confidence, "raw_notes": r.raw_notes}
     unscored = [d for d in DIMENSIONS if d not in best]
     return {
         "benchmark": benchmark_ref,
@@ -145,7 +178,8 @@ def composite_standard(db) -> dict:
     from ..core.models import TeardownFinding
 
     with db.session() as s:
-        rows = list(s.scalars(select(TeardownFinding)))
+        rows = [r for r in s.scalars(select(TeardownFinding))
+                if not r.benchmark_ref.startswith(SELF_PREFIX)]
 
     best_score: dict[str, float] = {}
     for r in rows:
@@ -224,23 +258,34 @@ def check_unique_value(product_class: str, advantages: list[str]) -> dict:
             "advantages": {a: ADVANTAGES[a] for a in advantages}}
 
 
+# #169 names seven mechanisms -- clarity, bonus utility, navigation, polish, support,
+# customization and confidence. Clarity, polish and support are teardown dimensions
+# (instruction and chart clarity, beginner support, premium presentation, delivery, support
+# experience); bonus utility, navigation, customization and confidence are not among the
+# twelve and are scored as mechanisms in their own right (C-69: they were omitted).
+DELIGHT_DRIVERS: tuple[str, ...] = (
+    "instruction_clarity", "chart_quality", "beginner_support", "premium_presentation",
+    "delivery_packaging", "support_experience",
+    "bonus_utility", "navigation", "customization", "confidence")
+
+
 def delight_question(scores: dict[str, float]) -> dict:
     """#169: 'after paying, does this feel better than expected?'
 
     Answered from the dimensions that actually produce that feeling rather than from the mean,
     because a product can be average everywhere and delightful nowhere.
     """
-    drivers = ("instruction_clarity", "chart_quality", "beginner_support",
-               "premium_presentation", "delivery_packaging", "support_experience")
-    present = {d: scores[d] for d in drivers if d in scores}
+    present = {d: scores[d] for d in DELIGHT_DRIVERS if d in scores}
     if not present:
         return {"answerable": False,
                 "reason": "none of the dimensions that create post-purchase delight have "
-                          "been scored"}
+                          "been scored",
+                "unscored": list(DELIGHT_DRIVERS)}
     weakest = min(present, key=present.get)
     return {
         "answerable": True,
         "drivers": present,
+        "unscored": [d for d in DELIGHT_DRIVERS if d not in present],
         "weakest": weakest,
         "better_than_expected": all(v >= 4 for v in present.values()),
         "note": (f"{weakest} at {present[weakest]} is what a buyer would notice first"

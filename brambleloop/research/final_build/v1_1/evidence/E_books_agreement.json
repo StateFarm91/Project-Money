@@ -1,0 +1,47 @@
+{
+  "since": "2026-09-06T06:33:48.855473+00:00",
+  "until": "2026-10-06T06:33:48.855473+00:00",
+  "agree": true,
+  "metrics": {
+    "gross_sales_cad": {
+      "books": 92.59,
+      "ledger": 92.59,
+      "books_minus_ledger": 0.0,
+      "agree": true
+    },
+    "refunds_cad": {
+      "books": 16.0,
+      "ledger": 16.0,
+      "books_minus_ledger": 0.0,
+      "agree": true
+    },
+    "platform_fees_cad": {
+      "books": 10.96,
+      "ledger": 10.96,
+      "books_minus_ledger": -0.0,
+      "agree": true
+    },
+    "net_sales_cad": {
+      "books": 76.59,
+      "ledger": 76.59,
+      "books_minus_ledger": 0.0,
+      "agree": true
+    },
+    "operating_costs_cad": {
+      "books": 9.2852,
+      "ledger": 9.2852,
+      "books_minus_ledger": 0.0,
+      "agree": true
+    },
+    "tax_reserve_cad": {
+      "books": 9.96,
+      "ledger": 9.9567,
+      "books_minus_ledger": 0.0033,
+      "agree": true
+    }
+  },
+  "explained_by": [],
+  "verdict": "books and ledger agree",
+  "books_sales_reading": "measured",
+  "ledger_sales_reading": "measured"
+}

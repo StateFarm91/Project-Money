@@ -283,10 +283,20 @@ def test_the_gate_fails_our_own_catalogue_and_says_why():
     report = audit.audit_catalogue()
 
     assert report["products_audited"] == 11
-    assert report["survivors"] == [], "the gate passed products the owner judged below standard"
-    assert report["rejected"] == 11
-    assert report["autopsy"]["survival_rate"] == 0.0
+    # W4-CREATIVE: the bare generator output -- the catalogue the owner judged below
+    # standard -- is still measured on its own and still fails every product.
+    raw = report["raw_generator"]
+    assert raw["survivors"] == [], "the gate passed products the owner judged below standard"
+    assert raw["rejected"] == 11
+    assert raw["autopsy"]["survival_rate"] == 0.0
+    assert raw["autopsy"]["deaths_by_critic"] == {"emotional_appeal": 11}
     assert "no representation of an idea" in report["root_cause"]
+    # Anything surviving now does so only through a validated emotional brief, and only as
+    # needs_taste: nothing is approved without eyes.
+    briefed = set(report["briefs"]["briefed"])
+    assert set(report["survivors"]) <= briefed
+    assert all(report["decisions"][k] == "needs_taste" for k in report["survivors"])
+    assert all(report["decisions"][k] == "rejected" for k in report["briefs"]["held"])
 
 
 def test_the_generators_degrees_of_freedom_are_measured_from_the_cir_not_asserted():
@@ -298,12 +308,27 @@ def test_the_generators_degrees_of_freedom_are_measured_from_the_cir_not_asserte
     """
     freedom = audit.generator_degrees_of_freedom()
 
-    assert freedom["products"] == 11
-    assert freedom["constructions_used"] == {"flat_rows": 11}
-    assert freedom["components_per_product"] == {"1": 11}
-    assert freedom["stitch_vocabularies"] == {"dc,sc": 11}
-    assert "construction" in freedom["does_not_vary"]
-    assert "same object at different widths" in freedom["finding"]
+    from brambleloop.products.builder import CATALOGUE, build
+
+    # Measured independently here from the compiled CIR, then compared: the audit may not assert.
+    cirs = [build(d) for d in CATALOGUE.values()]
+    assert cirs, "empty catalogue"
+    comps: dict = {}
+    cons: dict = {}
+    for cir in cirs:
+        comps[str(len(cir.components))] = comps.get(str(len(cir.components)), 0) + 1
+        for c in cir.components:
+            cons[c.construction] = cons.get(c.construction, 0) + 1
+    assert freedom["products"] == len(CATALOGUE) == len(cirs)
+    assert freedom["components_per_product"] == comps
+    assert freedom["constructions_used"] == cons
+    assert sum(freedom["stitch_vocabularies"].values()) == len(cirs)
+    # The verdict follows the measurement: a dimension with more than one value varies.
+    for name, measured in (("component count", comps), ("construction", cons)):
+        assert (name in freedom["varies"]) == (len(measured) > 1), (name, freedom)
+        assert (name in freedom["does_not_vary"]) == (len(measured) <= 1), (name, freedom)
+    if len(comps) > 1:
+        assert "single-component" in freedom["finding"] and "same object" not in freedom["finding"]
 
 
 if __name__ == "__main__":

@@ -1,0 +1,1199 @@
+{
+ "cap_usd": 5.0,
+ "prompt": "The first image is a flat computer rendering of a hand-crocheted garment laid out flat. Make a real product photograph of that same physical garment for a handmade marketplace listing: laid flat exactly as shown, seen from directly above, on a plain pale linen surface. Keep the garment exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with visible stitch texture, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame.",
+ "reference_sha256": {
+  "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+  "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+  "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+ },
+ "calls": [
+  {
+   "key": "seller:seller_1.jpg",
+   "kind": "reader",
+   "image_sha256": "7be43f12a34d76735e4a05fd7f7b1b067ac0e93f974b8eb8b4daa14ec1a18891",
+   "response_id": "chatcmpl-ESNSDPXH1vrsTAsNovWEsytFaPKDj",
+   "usd": 0.01862,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "vertical",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Chunky textured body with wide ribbed hem and cuffs."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"vertical\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Chunky textured body with wide ribbed hem and cuffs.\"\n}"
+  },
+  {
+   "key": "seller:seller_2.jpg",
+   "kind": "reader",
+   "image_sha256": "e0ee2f963c8c5fd410629e56a0c011ce1deca1c540269238ec36b88a8f1da9e8",
+   "response_id": "chatcmpl-ESNSjpxvCwdjmqesy23uADKIyZ3Q0",
+   "usd": 0.01181,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "mid_thigh",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Chunky open-front longline cardigan with patch pockets and ribbed trims."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"mid_thigh\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Chunky open-front longline cardigan with patch pockets and ribbed trims.\"\n}"
+  },
+  {
+   "key": "seller:seller_3.jpg",
+   "kind": "reader",
+   "image_sha256": "2bdd57199abce5915da4c532351ada60ca61ef28b7e3275f4732882ab8df4726",
+   "response_id": "chatcmpl-ESNT01WEgu3D3CGalweMdhFr3Ga3C",
+   "usd": 0.01437,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "mid_thigh",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Chunky textured open-front cardigan with wide ribbed bands and patch pockets."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"mid_thigh\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Chunky textured open-front cardigan with wide ribbed bands and patch pockets.\"\n}"
+  },
+  {
+   "key": "seller:seller_4.jpg",
+   "kind": "reader",
+   "image_sha256": "7387a2131afd1b672d8911650b18bc9e18842e6b43df9e4b5b434d19f0ed2bd4",
+   "response_id": "chatcmpl-ESNTM6VO93sxwqBgUiO5zxiCEVuQX",
+   "usd": 0.01239,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "mid_thigh",
+    "texture": "other",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Oversized chunky crochet with wide ribbed bands and patch pockets."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"mid_thigh\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Oversized chunky crochet with wide ribbed bands and patch pockets.\"\n}"
+  },
+  {
+   "key": "reference:ref_flatlay.png",
+   "kind": "reader",
+   "image_sha256": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+   "response_id": "chatcmpl-ESNTdmQYfQSvwrJJMjppyNem5XGXj",
+   "usd": 0.01078,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Patch pockets and a wide ribbed front and hem are visible."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Patch pockets and a wide ribbed front and hem are visible.\"\n}"
+  },
+  {
+   "key": "candidate:oa15_hifi_1.png",
+   "kind": "reader",
+   "image_sha256": "42201cae39c68767ebc9192c215eb3ce032a1dce865a0b76ef72e062972ff774",
+   "response_id": "chatcmpl-ESNVavhSDVRkQE5RDGIIN6d0qeDAD",
+   "usd": 0.01011,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Patch pockets and a seed-stitch style texture with ribbed bands."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Patch pockets and a seed-stitch style texture with ribbed bands.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_1",
+   "kind": "judge",
+   "image_sha256": "42201cae39c68767ebc9192c215eb3ce032a1dce865a0b76ef72e062972ff774",
+   "response_id": "chatcmpl-ESNVpYIKzvsczvaOFr2qWQfyqJMGY",
+   "usd": 0.015219
+  },
+  {
+   "key": "candidate:oa15_hifi_2.png",
+   "kind": "reader",
+   "image_sha256": "64474fe5b307a1812f591ccb4e9a6b2083710e21a0e65c04b3ff254b992b94ac",
+   "response_id": "chatcmpl-ESNWW2kCRfkZfMCYQBarJ2gdDkkUN",
+   "usd": 0.01201,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Child-sized open cardigan with patch pockets and ribbed trims."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Child-sized open cardigan with patch pockets and ribbed trims.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_2",
+   "kind": "judge",
+   "image_sha256": "64474fe5b307a1812f591ccb4e9a6b2083710e21a0e65c04b3ff254b992b94ac",
+   "response_id": "chatcmpl-ESNWoGRpwsjRjHEo1Fxjzlwsd8VHD",
+   "usd": 0.020279
+  },
+  {
+   "key": "candidate:oa15_hifi_3.png",
+   "kind": "reader",
+   "image_sha256": "82bfebba5590b5a97f9c3a7a75062152d8cf008dd3c752be12cbaa3153dc0739",
+   "response_id": "chatcmpl-ESNXRGgM9rUQHRF1iUxdzmpaPihM6",
+   "usd": 0.01198,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Two patch pockets are visible on the front."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Two patch pockets are visible on the front.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_3",
+   "kind": "judge",
+   "image_sha256": "82bfebba5590b5a97f9c3a7a75062152d8cf008dd3c752be12cbaa3153dc0739",
+   "response_id": "chatcmpl-ESNXgP6qLTbCpTAq5gF6caJRCXZz9",
+   "usd": 0.011189
+  },
+  {
+   "key": "candidate:oa15_hifi_4.png",
+   "kind": "reader",
+   "image_sha256": "87d9ea0b74a8d340444641e1fa8c2e3572707d706c418586769cc57f898f3c46",
+   "response_id": "chatcmpl-ESNa42ttt8FYqS0OwZbT9FjV9EZnI",
+   "usd": 0.00821,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Two patch pockets on the front; appears to be a small child\u2019s size."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Two patch pockets on the front; appears to be a small child\u2019s size.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_4",
+   "kind": "judge",
+   "image_sha256": "87d9ea0b74a8d340444641e1fa8c2e3572707d706c418586769cc57f898f3c46",
+   "response_id": "chatcmpl-ESNaHg2dvnaFFBja3DsPnyGQRGPuv",
+   "usd": 0.014279
+  },
+  {
+   "key": "candidate:oa15_hifi_5.png",
+   "kind": "reader",
+   "image_sha256": "bd4307895bf2d39da53b1e967c4c604136b0355661a0d02245db263f679a4635",
+   "response_id": "chatcmpl-ESNadEGFVVYmx0HRCDdpU43F8G9Ef",
+   "usd": 0.01073,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Child-sized crochet cardigan with ribbed trims and patch pockets."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Child-sized crochet cardigan with ribbed trims and patch pockets.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_5",
+   "kind": "judge",
+   "image_sha256": "bd4307895bf2d39da53b1e967c4c604136b0355661a0d02245db263f679a4635",
+   "response_id": "chatcmpl-ESNapbbimxF36P5gXulSht1rBlTaS",
+   "usd": 0.014279
+  },
+  {
+   "key": "candidate:oa15_hifi_6.png",
+   "kind": "reader",
+   "image_sha256": "66c13095b32bdb03169936c28be9bb32f295f9e5a3d2ea1d9721892e6b7214a4",
+   "response_id": "chatcmpl-ESNbCxUwegatDclrZctmkQjKShsuv",
+   "usd": 0.01009,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Seed-stitch body with ribbed bands and patch pockets."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Seed-stitch body with ribbed bands and patch pockets.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_6",
+   "kind": "judge",
+   "image_sha256": "66c13095b32bdb03169936c28be9bb32f295f9e5a3d2ea1d9721892e6b7214a4",
+   "response_id": "chatcmpl-ESNbPOI1kSgTJjgcn9imz6Lb5b9VE",
+   "usd": 0.011829
+  },
+  {
+   "key": "candidate:g3pro_1.png",
+   "kind": "reader",
+   "image_sha256": "82325c19540278ff3417b132f051855d254817af8ee944ab9058d1298d4fc439",
+   "response_id": "chatcmpl-ESNbk2QUOAtLYzykn32S7W84DVAF4",
+   "usd": 0.01208,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Patch pockets and wide ribbed bands at the front opening, hem, and cuffs are visible."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Patch pockets and wide ribbed bands at the front opening, hem, and cuffs are visible.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_1",
+   "kind": "judge",
+   "image_sha256": "82325c19540278ff3417b132f051855d254817af8ee944ab9058d1298d4fc439",
+   "response_id": "chatcmpl-ESNc1wPqsWuj1IE3JxpkGCAqN51bn",
+   "usd": 0.007349
+  },
+  {
+   "key": "candidate:g3pro_2.png",
+   "kind": "reader",
+   "image_sha256": "85c82d2d926fa3e56df77e29c364bc0a28643968c2f233e1f5303b7b4e0b4444",
+   "response_id": "chatcmpl-ESNcDmYTcaEtDoMUKjqcMVv87xt55",
+   "usd": 0.01138,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Patch pockets and ribbed trims are visible."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Patch pockets and ribbed trims are visible.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_2",
+   "kind": "judge",
+   "image_sha256": "85c82d2d926fa3e56df77e29c364bc0a28643968c2f233e1f5303b7b4e0b4444",
+   "response_id": "chatcmpl-ESNcWqHdktp9L1lNY2hLpx1WBkofO",
+   "usd": 0.006069
+  },
+  {
+   "key": "candidate:oa15_hifi_7.png",
+   "kind": "reader",
+   "image_sha256": "2eb865b3caa249c29312a8ff37626ed1b24506e0860d38014c6fdc6992316f0e",
+   "response_id": "chatcmpl-ESNfftwa2vl7RD07N8CqDuhNT2tjP",
+   "usd": 0.01502,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "three_quarter",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Wide ribbed front band and unusual ribbed inserts at the upper sleeves with deep ribbed cuffs."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"three_quarter\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Wide ribbed front band and unusual ribbed inserts at the upper sleeves with deep ribbed cuffs.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_7",
+   "kind": "judge",
+   "image_sha256": "2eb865b3caa249c29312a8ff37626ed1b24506e0860d38014c6fdc6992316f0e",
+   "response_id": "chatcmpl-ESNg8UGmbjcya5W4Iwlst6n2HQwO5",
+   "usd": 0.011539
+  },
+  {
+   "key": "candidate:oa15_hifi_8.png",
+   "kind": "reader",
+   "image_sha256": "e4910fd0205a3351e65c49d8552632ab19d3b36b42a307bcd84798fbe4c2365f",
+   "response_id": "chatcmpl-ESNgY6slsg2fBfcuQIJLr7zg0zNyR",
+   "usd": 0.01309,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "mid_thigh",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Ribbed panels appear at the upper sleeves in addition to the ribbed bands and cuffs."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"mid_thigh\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Ribbed panels appear at the upper sleeves in addition to the ribbed bands and cuffs.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_8",
+   "kind": "judge",
+   "image_sha256": "e4910fd0205a3351e65c49d8552632ab19d3b36b42a307bcd84798fbe4c2365f",
+   "response_id": "chatcmpl-ESNh2HxFVdXWoreq68yPkMSNWpRz5",
+   "usd": 0.014739
+  },
+  {
+   "key": "candidate:oa15_hifi_9.png",
+   "kind": "reader",
+   "image_sha256": "fddfaab294f72256c59841f2a4972c26d7df5f75c8890f8b2545f63e98b8a264",
+   "response_id": "chatcmpl-ESNhY8249Cexdn2Ft10r27n0vZuzF",
+   "usd": 0.01164,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": ""
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_9",
+   "kind": "judge",
+   "image_sha256": "fddfaab294f72256c59841f2a4972c26d7df5f75c8890f8b2545f63e98b8a264",
+   "response_id": "chatcmpl-ESNhs5LsD8KsSmw6ALwKkgHefmI1V",
+   "usd": 0.008979
+  },
+  {
+   "key": "candidate:oa15_hifi_10.png",
+   "kind": "reader",
+   "image_sha256": "1879561f02f1fc8b5fff9a1b267e17bf51174341b24a33c032c496799b636b3f",
+   "response_id": "chatcmpl-ESNkj4LKPXEHPb3J9mrD8HZnL9rV6",
+   "usd": 0.01363,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Patch pockets and wide ribbed bands; no closures."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Patch pockets and wide ribbed bands; no closures.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_10",
+   "kind": "judge",
+   "image_sha256": "1879561f02f1fc8b5fff9a1b267e17bf51174341b24a33c032c496799b636b3f",
+   "response_id": "chatcmpl-ESNlDIgYyzPuf6DvwVr4RGRnEPNkk",
+   "usd": 0.014099
+  },
+  {
+   "key": "candidate:oa15_hifi_11.png",
+   "kind": "reader",
+   "image_sha256": "f4d2e1916966ddfc18f22e79e64c5ec366891d1eee9718798736505d2b3cebd6",
+   "response_id": "chatcmpl-ESNlm3FhCeAKQZZOL1lBV8HULvFsQ",
+   "usd": 0.01108,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "waffle_textured",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Raglan sleeve shaping is visible."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"waffle_textured\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Raglan sleeve shaping is visible.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_11",
+   "kind": "judge",
+   "image_sha256": "f4d2e1916966ddfc18f22e79e64c5ec366891d1eee9718798736505d2b3cebd6",
+   "response_id": "chatcmpl-ESNm4rQNyLX5jnTO5Hr8eHoSsAnUA",
+   "usd": 0.018589
+  },
+  {
+   "key": "candidate:oa15_hifi_12.png",
+   "kind": "reader",
+   "image_sha256": "cf4ce17b353be8290a7169b74e3ba8e1424081701be50af3b388a15fadf64bb1",
+   "response_id": "chatcmpl-ESNmfZtk8nnCjhzMJstTb9qiuTeZg",
+   "usd": 0.01239,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 0,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 2,
+    "pocket_position": "hip",
+    "sleeve_length": "three_quarter",
+    "body_length": "mid_thigh",
+    "texture": "other",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Patch pockets and three-quarter sleeves; no fasteners."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 0,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 2,\n  \"pocket_position\": \"hip\",\n  \"sleeve_length\": \"three_quarter\",\n  \"body_length\": \"mid_thigh\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Patch pockets and three-quarter sleeves; no fasteners.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_12",
+   "kind": "judge",
+   "image_sha256": "cf4ce17b353be8290a7169b74e3ba8e1424081701be50af3b388a15fadf64bb1",
+   "response_id": "chatcmpl-ESNn0i0B2Bxp9FAWk0rt7mQHVsETm",
+   "usd": 0.010269
+  }
+ ],
+ "runs": [
+  {
+   "mode": "oa15_hifi",
+   "draw": 1,
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "e7eea585698dcd18565e62772d053825aac5cc389a0928a368766ecf2b3c0082",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_1.png",
+   "output_sha256": "42201cae39c68767ebc9192c215eb3ce032a1dce865a0b76ef72e062972ff774",
+   "seconds": 17.0,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 316
+    },
+    "total_tokens": 14663
+   },
+   "usd": 0.18665,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 2,
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "e7eea585698dcd18565e62772d053825aac5cc389a0928a368766ecf2b3c0082",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_2.png",
+   "output_sha256": "64474fe5b307a1812f591ccb4e9a6b2083710e21a0e65c04b3ff254b992b94ac",
+   "seconds": 18.9,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1390,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 334
+    },
+    "total_tokens": 14681
+   },
+   "usd": 0.18737,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 3,
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "e7eea585698dcd18565e62772d053825aac5cc389a0928a368766ecf2b3c0082",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_3.png",
+   "output_sha256": "82bfebba5590b5a97f9c3a7a75062152d8cf008dd3c752be12cbaa3153dc0739",
+   "seconds": 17.4,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1421,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 365
+    },
+    "total_tokens": 14712
+   },
+   "usd": 0.1886,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 4,
+   "prompt_version": "v2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_4.png",
+   "output_sha256": "87d9ea0b74a8d340444641e1fa8c2e3572707d706c418586769cc57f898f3c46",
+   "seconds": 17.0,
+   "usage": {
+    "input_tokens": 13340,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 278
+    },
+    "output_tokens": 1394,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 338
+    },
+    "total_tokens": 14734
+   },
+   "usd": 0.18777,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 5,
+   "prompt_version": "v2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_5.png",
+   "output_sha256": "bd4307895bf2d39da53b1e967c4c604136b0355661a0d02245db263f679a4635",
+   "seconds": 17.3,
+   "usage": {
+    "input_tokens": 13340,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 278
+    },
+    "output_tokens": 1359,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 303
+    },
+    "total_tokens": 14699
+   },
+   "usd": 0.18637,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 6,
+   "prompt_version": "v2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_6.png",
+   "output_sha256": "66c13095b32bdb03169936c28be9bb32f295f9e5a3d2ea1d9721892e6b7214a4",
+   "seconds": 17.4,
+   "usage": {
+    "input_tokens": 13340,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 278
+    },
+    "output_tokens": 1365,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 309
+    },
+    "total_tokens": 14705
+   },
+   "usd": 0.18661,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 1,
+   "prompt_version": "v2",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/g3pro_1.png",
+   "output_sha256": "82325c19540278ff3417b132f051855d254817af8ee944ab9058d1298d4fc439",
+   "seconds": 16.1,
+   "usage": {
+    "promptTokenCount": 994,
+    "candidatesTokenCount": 1328,
+    "totalTokenCount": 2496,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 220
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 174,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 2,
+   "prompt_version": "v2",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "reference_sha256": {
+    "rgb": "9ae67dd3ce0dc7299b535fb71e54f9f92b10f9528428d99285ab9d22fdfe649b",
+    "mask": "838f66fc2c35adf8c9aea68a2ca5b519c3e17480e11f1cc8a9881e68cfed5cd4",
+    "normal": "d43bfac322ffddddb323b6c7180c00c72619945584c65dbf303cc086eaa1c1af"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/g3pro_2.png",
+   "output_sha256": "85c82d2d926fa3e56df77e29c364bc0a28643968c2f233e1f5303b7b4e0b4444",
+   "seconds": 14.3,
+   "usage": {
+    "promptTokenCount": 994,
+    "candidatesTokenCount": 1290,
+    "totalTokenCount": 2444,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 220
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 160,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 7,
+   "prompt_version": "v2",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "820c216a15b3fbec97babcd3e480e66bd0f1e218b9c2ebbeb27a4700e277ec71",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "2a9222dd95fde768bf2cf448a692e8a41425a033c362214ee969e9bc7bc04918"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_7.png",
+   "output_sha256": "2eb865b3caa249c29312a8ff37626ed1b24506e0860d38014c6fdc6992316f0e",
+   "seconds": 21.2,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1890,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 322
+    },
+    "total_tokens": 21794
+   },
+   "usd": 0.27309,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 8,
+   "prompt_version": "v2",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "820c216a15b3fbec97babcd3e480e66bd0f1e218b9c2ebbeb27a4700e277ec71",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "2a9222dd95fde768bf2cf448a692e8a41425a033c362214ee969e9bc7bc04918"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_8.png",
+   "output_sha256": "e4910fd0205a3351e65c49d8552632ab19d3b36b42a307bcd84798fbe4c2365f",
+   "seconds": 23.7,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1899,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 331
+    },
+    "total_tokens": 21803
+   },
+   "usd": 0.27344,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 9,
+   "prompt_version": "v2",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "820c216a15b3fbec97babcd3e480e66bd0f1e218b9c2ebbeb27a4700e277ec71",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "2a9222dd95fde768bf2cf448a692e8a41425a033c362214ee969e9bc7bc04918"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_9.png",
+   "output_sha256": "fddfaab294f72256c59841f2a4972c26d7df5f75c8890f8b2545f63e98b8a264",
+   "seconds": 24.1,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1936,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 368
+    },
+    "total_tokens": 21840
+   },
+   "usd": 0.27492,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 10,
+   "prompt_version": "v2",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "8198f845cdcc42a55d313ea4c3eb68541058e6a4672273f16ea8b97294e9c146",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "efddf633035afd59880d9ce2508c5b7c98654e08e04211a222b0f69debaa785a"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_10.png",
+   "output_sha256": "1879561f02f1fc8b5fff9a1b267e17bf51174341b24a33c032c496799b636b3f",
+   "seconds": 26.1,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1903,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 335
+    },
+    "total_tokens": 21807
+   },
+   "usd": 0.2736,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 11,
+   "prompt_version": "v2",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "8198f845cdcc42a55d313ea4c3eb68541058e6a4672273f16ea8b97294e9c146",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "efddf633035afd59880d9ce2508c5b7c98654e08e04211a222b0f69debaa785a"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_11.png",
+   "output_sha256": "f4d2e1916966ddfc18f22e79e64c5ec366891d1eee9718798736505d2b3cebd6",
+   "seconds": 26.8,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1924,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 356
+    },
+    "total_tokens": 21828
+   },
+   "usd": 0.27444,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 12,
+   "prompt_version": "v2",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "8198f845cdcc42a55d313ea4c3eb68541058e6a4672273f16ea8b97294e9c146",
+    "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+    "normal": "efddf633035afd59880d9ce2508c5b7c98654e08e04211a222b0f69debaa785a"
+   },
+   "prompt_sha256": "4447e8c0914c9f00e6b90479ef1b3e7ae6f71944f7afcc1f8eb699cca9e04e19",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_12.png",
+   "output_sha256": "cf4ce17b353be8290a7169b74e3ba8e1424081701be50af3b388a15fadf64bb1",
+   "seconds": 26.2,
+   "usage": {
+    "input_tokens": 19904,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 311
+    },
+    "output_tokens": 1917,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 349
+    },
+    "total_tokens": 21821
+   },
+   "usd": 0.27416,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  }
+ ],
+ "spent_usd": 3.4451,
+ "prompts": {
+  "v2": "The first image is a flat computer rendering of a hand-crocheted garment laid out flat. Make a real product photograph of that same physical garment for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain pale linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, one sleeve resting a little differently from the other, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the garment exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with visible stitch texture, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame."
+ },
+ "references": {
+  "ref2": {
+   "rgb": "820c216a15b3fbec97babcd3e480e66bd0f1e218b9c2ebbeb27a4700e277ec71",
+   "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+   "normal": "2a9222dd95fde768bf2cf448a692e8a41425a033c362214ee969e9bc7bc04918"
+  },
+  "ref3": {
+   "rgb": "8198f845cdcc42a55d313ea4c3eb68541058e6a4672273f16ea8b97294e9c146",
+   "mask": "52073c18473beda688b78c976b7c9d293d1826d7b704df6579880e37ade54863",
+   "normal": "efddf633035afd59880d9ce2508c5b7c98654e08e04211a222b0f69debaa785a"
+  }
+ }
+}

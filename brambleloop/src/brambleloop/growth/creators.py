@@ -589,7 +589,24 @@ def may_graduate(graduation: Graduation) -> dict:
             "one agreement covers both. Testing compensation and public advocacy have to be "
             "separate documents, because under one the test fee is a review fee")
 
-    lowered = graduation.testing_terms.lower()
+    # Codex CB2-G05: "separate agreements" is a claim about two documents that exist. A blank
+    # term is no agreement at all, so it cannot be the separate one this check promises.
+    testing = (graduation.testing_terms or "").strip()
+    ambassador = (graduation.ambassador_terms or "").strip()
+    if not testing:
+        reasons.append(
+            "no testing agreement is recorded. Separate agreements means two documents that "
+            "exist; a blank testing term is not one of them")
+    if not ambassador:
+        reasons.append(
+            "no ambassador agreement is recorded. A tester cannot be moved into a "
+            "relationship whose terms were never written down")
+    if testing and ambassador and testing.lower() == ambassador.lower():
+        reasons.append(
+            "the testing and ambassador terms are the same text. One document filed twice is "
+            "one agreement, and under one the test fee is a review fee")
+
+    lowered = (graduation.testing_terms or "").lower()
     found = sorted({w for w in PUBLIC_IN_TESTING_TERMS if w in lowered})
     if found:
         reasons.append(

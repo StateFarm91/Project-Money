@@ -188,10 +188,14 @@ class Arena:
     benchmark_listings: int
     days_away: int
     forms: dict = field(default_factory=dict)
+    # C-60 (#2): the department's observed market score, where it is rankable; None where it
+    # is not, which sorts after every scored arena rather than as a middling score.
+    arbitrage: float | None = None
 
     def to_dict(self) -> dict:
         return {"event": self.event, "pod": self.pod, "days_away": self.days_away,
-                "benchmark_listings": self.benchmark_listings, "forms": self.forms}
+                "benchmark_listings": self.benchmark_listings, "forms": self.forms,
+                "arbitrage": self.arbitrage}
 
 
 class NoArenasContradictsEvidence(RuntimeError):
@@ -233,13 +237,17 @@ def arenas(db, *, today: date | None = None, limit: int = 12,
             f'this catalogue answers every market the benchmark sells in -- which it does '
             f'not -- or a reader is looking in the wrong place')
 
+    from ..radar import arbitrage
+
+    steer = arbitrage.steering(db)
     out: list[Arena] = []
     for gap in gaps[:limit]:
         out.append(Arena(
             event=gap["event"], pod=gap["department"],
             benchmark_listings=gap["benchmark_listings"] or 0,
             days_away=gap["days_away"],
-            forms=arena_forms(db, gap["department"])["forms"]))
+            forms=arena_forms(db, gap["department"])["forms"],
+            arbitrage=(steer.get(gap["department"]) or {}).get("score")))
     return out
 
 
@@ -427,6 +435,11 @@ class Candidate:
     nearest_key: str = ""
     nearest_distance: float = 1.0
     findings: list = field(default_factory=list)
+    # #111 / #308: how the proposition stage carried this concept. "" until that stage runs;
+    # "family_seed" when the hero's construction seeds a family; "single_product" when it
+    # does not -- a legitimate thing to build, carried and recorded as such, never killed.
+    carried_as: str = ""
+    family_verdict: str = ""
 
     @property
     def survives(self) -> bool:
@@ -441,6 +454,7 @@ class Candidate:
             "feeling": self.concept.feeling, "make_lane": self.concept.make_lane,
             "premise": self.concept.premise,
             "survives": self.survives, "killed_by": self.killed_by, "detail": self.detail,
+            "carried_as": self.carried_as, "family_verdict": self.family_verdict,
             "nearest": self.nearest_key, "novelty_distance": self.nearest_distance,
             "findings": [f.to_dict() if hasattr(f, "to_dict") else f for f in self.findings],
             "engine_ready": self.concept.construction in ENGINE_ROUTE
@@ -746,6 +760,8 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
     that a confident wrong answer fails loudly.
     """
     from .concept import CONSTRUCTIONS, FEELINGS, OCCASIONS, RECIPIENTS, ConceptRefused
+    from .invention import InventionRefused
+    from .preengineering import promise_for
 
     occasion = occasion_for(slot.arena.event)
     buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
@@ -794,6 +810,14 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
         except ConceptRefused as e:
             refused.append(f"{key}: {e}"[:220])
             continue
+        # #109: the emotional promise has to be executed in the object. A premise that
+        # delivers its feeling only as listing copy is refused here, at generation, like any
+        # other structural failure -- not left for a later stage to notice.
+        try:
+            promise_for(concept)
+        except InventionRefused as e:
+            refused.append(f"{key}: no emotional promise in the object: {e}"[:220])
+            continue
         out.append(Candidate(concept=concept, slot=slot))
     return out, refused
 
@@ -808,6 +832,7 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
     stopped, because a discovery run that consumes the month's model allowance is a worse
     outcome than a shorter one that can be repeated.
     """
+    from ..gateway import anthropic as gw
     from ..gateway import routing
 
     catalogue = list(catalogue or [])
@@ -824,8 +849,13 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
     stopped = False
     for slot in chosen:
         try:
-            routing.check(db, GENERATION_TASK)
-        except routing.CeilingReached as e:
+            # The one mechanism -- month, agent permission, live reservations -- in place of
+            # `routing.check`'s month-only arithmetic; the gateway reserves when it calls.
+            task, tier = routing.route(GENERATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=GENERATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
             stopped = True
             refusals.append(str(e)[:200])
             break
@@ -973,7 +1003,8 @@ def history(db, *, limit: int = 10) -> dict:
 # Which arena an expedition goes to
 
 
-def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Arena:
+def choose(found: list[Arena], *, cycle: int, today: date | None = None,
+           shares: dict[str, float] | None = None) -> Arena:
     """Pick this cycle's arena, honouring the priority programme's reservation.
 
     Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
@@ -1010,12 +1041,22 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
     # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
     # away is the one whose runway was least in danger.
-    reserved = priority_shares()["shares"]
-    priority = sorted((a for a in found if a.event in reserved),
-                      key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
-    others = sorted((a for a in found if a.event not in reserved),
-                    key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
+    # C-60 (#287): with persisted strike teams, their shares are the reservation -- the
+    # occasions that hold a team are the priority half, and the slice of the wheel they get
+    # is the capacity the teams were granted, not the compression seed's figure.
+    reserved = dict(shares) if shares else priority_shares()["shares"]
+    # C-60 (#2): within an occasion, the department the weakness hunt scored most open goes
+    # first; an arena with no rankable market score follows every scored one.
+    def _order(a):
+        arb = getattr(a, "arbitrage", None)
+        return (a.days_away, 1 if arb is None else 0, -(arb or 0.0),
+                -a.benchmark_listings, a.pod)
+
+    priority = sorted((a for a in found if a.event in reserved), key=_order)
+    others = sorted((a for a in found if a.event not in reserved), key=_order)
     if not priority or not others:
+        if any(getattr(a, "arbitrage", None) is not None for a in found):
+            found = sorted(found, key=_order)
         return found[cycle % len(found)]
 
     # The reservation the programme actually holds today, which falls as its lanes close and
@@ -1024,6 +1065,9 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     held = reservation(soonest.event,
                        lane_states(soonest.days_away, today=today or date.today()))
     share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
+    if shares:
+        share = max(MIN_PRIORITY_SHARE, min(0.75, sum(
+            float(shares.get(e, 0.0)) for e in {a.event for a in priority})))
 
     # A wheel no longer than the programme's own runway, with its slots *spread* rather than
     # blocked at the front.
@@ -1066,7 +1110,7 @@ IDEATION_BATCH = 12
 
 def field(db, *, gateway, target: int = 80, today: date | None = None,
           catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-          agent: str = "creative_director") -> dict:
+          agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
     """A wide, cheap field drawn from every reachable proven arena.
 
     Across arenas rather than within one, because the tournament is choosing what this
@@ -1079,6 +1123,7 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     everything. Depth within an arena is what makes a benchmark comparison possible at all:
     a field spread over twelve departments puts two or three concepts against each of them.
     """
+    from ..gateway import anthropic as gw
     from ..gateway import routing
 
     found = arenas(db, today=today)
@@ -1093,7 +1138,9 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     reachable: list[Slot] = []
     for arena in found:
         plan = slots(arena, catalogue=catalogue, today=today)
-        reachable.extend(plan["slot_objects"])
+        # #117: a form the saturation detector excluded (crowded, no named unmet angle) is
+        # not drawn from, however many listings prove it sells.
+        reachable.extend(s for s in plan["slot_objects"] if s.form not in exclude_forms)
     if not reachable:
         raise ProspectingRefused(
             "no proven arena has a form that can still be made in time, so a tournament "
@@ -1114,8 +1161,11 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
         if index > len(reachable) * 12:
             break
         try:
-            routing.check(db, IDEATION_TASK)
-        except routing.CeilingReached as e:
+            task, tier = routing.route(IDEATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=IDEATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
             stopped = True
             problems.append(str(e)[:200])
             break
@@ -1165,9 +1215,21 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
 }
 
 
+def _fate(run, key: str) -> str:
+    """Where one entrant's run ended: `killed at <stage>: <cause>` or `carried to <stage>`."""
+    carried = None
+    for r in run.rounds:
+        if key in r.killed:
+            return f"killed at {r.stage}: {r.killed[key]}"
+        if key in r.survived:
+            carried = r.stage
+    return f"carried to {carried}" if carried else "entered"
+
+
 def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-               agent: str = "creative_director") -> dict:
+               agent: str = "creative_director", exclude_forms: tuple[str, ...] = (),
+               seeded: list[Concept] | None = None) -> dict:
     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
 
     Only the two stages this system can honestly run today. `ideation` is the structural
@@ -1178,12 +1240,25 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     The three stages after it are not simulated. `proposition` needs a margin and an unmet
     angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
     with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
+
+    `seeded` concepts (#279: the seasonal transformations of certified catalogue products
+    derived on cadence) enter the field as entrants beside the generated ones. They face
+    every stage the generated field faces -- a transformation too close to its parent dies
+    at research as sameness, which is the honest verdict on a recolour -- and nothing about
+    being seeded carries a concept further.
     """
     from .funnel import Tournament, advance
 
     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
-                  only=only, agent=agent)
+                  only=only, agent=agent, exclude_forms=tuple(exclude_forms))
     candidates = drawn["candidates"]
+    seeded_keys = []
+    for concept in seeded or []:
+        if concept.form in exclude_forms or any(c.concept.key == concept.key
+                                                for c in candidates):
+            continue
+        candidates.append(Candidate(concept=concept, slot=None))
+        seeded_keys.append(concept.key)
     if not candidates:
         raise ProspectingRefused(
             "the field is empty, so there is nothing to run a tournament on. "
@@ -1206,9 +1281,26 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
             # rather than a skipped stage.
             examined=len(entrants))
 
+    # #112: the research jury judges the window at the arena's real distance to its event,
+    # so a make the buyer can no longer finish dies here as `shopping_window`.
+    days_to_event = None
+    if only is not None:
+        match = [a for a in arenas(db, today=today) if (a.event, a.pod) == tuple(only)]
+        days_to_event = match[0].days_away if match else None
     screened = screen(candidates, catalogue=catalogue,
                       benchmark=benchmark_comparables(db),
-                      days_to_event=None)
+                      days_to_event=days_to_event)
+    # ... and shifts late-window capacity toward the makes a buyer can still finish: the
+    # survivors are graded against the window and ideation's selection prefers the ones
+    # that continue over the ones that need a hurry.
+    window = None
+    if days_to_event is not None and screened["survivor_objects"]:
+        from ..seasonal.uncertainty import sample_count
+        from .family import shift_capacity
+
+        window = shift_capacity([c.concept for c in screened["survivor_objects"]],
+                                days_to_event=days_to_event, samples=sample_count(db),
+                                today=today)
     survivors = [c.concept.key for c in screened["survivor_objects"]]
     killed = {}
     for candidate in candidates:
@@ -1312,6 +1404,18 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
 
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
+        "days_to_event": days_to_event,
+        "window": window,
+        # #279: the seeded transformations and what the funnel did with each of them --
+        # the stage and cause that killed it, or the last stage that carried it.
+        "seeded": {k: _fate(run, k) for k in seeded_keys},
+        # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
+        # can be asked of this exact run later -- by `creative.intake` before it queues a
+        # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
+        "funnel_objects": run,
+        "funnel_rounds": [{"stage": r.stage, "survived": list(r.survived),
+                           "killed": dict(r.killed), "examined": r.examined,
+                           "entered": r.entered} for r in run.rounds],
         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
         "prototype": {k: v for k, v in built.items() if k != "survivors"},
         "release": {k: v for k, v in shipped.items() if k != "survivors"},
@@ -1319,6 +1423,9 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "rounds": [r.to_dict() for r in run.rounds],
         "survivors": [c.to_dict() for c in final],
         "survivor_objects": final,
+        # The whole field as objects, for the per-axis diversity measurement (#119). Like
+        # `survivor_objects`, never stored: the handler drops every `*_objects` key.
+        "candidate_objects": candidates,
         "research_survivors": [c.to_dict() for c in screened["survivor_objects"]],
         "research_kill_rate": research.kill_rate,
         "causes": screened["causes"],
@@ -1439,7 +1546,14 @@ def proposition(db, survivors: list[Candidate], *, pod: str,
     **Family (#111)** is deterministic and already built: `family_test` asks whether the
     hero's construction reaches enough roles, including a cheap one, or whether the
     collection would have to be forced after the hero exists -- which is exactly when the
-    answer is always yes.
+    answer is always yes. Its verdict decides *what* is carried, not *whether*: #111's own
+    rule is that a concept which fails the family test is reported as a single product, not
+    refused, and a bundle is derived from two viable roles rather than asserted. Killing
+    here was a wiring defect (#308): every fitted-garment construction fails the quick-
+    companion role, so no cardigan could ever reach the compiler, and the owner's Christmas
+    cardigan example was being refused by a check whose own note says it must not refuse.
+    A single product is carried with `carried_as="single_product"`, recorded by name in the
+    stage's result, and downstream nothing derives a collection from it.
 
     **Angle** is one-sided on purpose. It refuses a concept arriving in the department's own
     vocabulary, and it does not endorse one whose words simply do not appear: an absent word
@@ -1458,27 +1572,42 @@ def proposition(db, survivors: list[Candidate], *, pod: str,
     kept: list[Candidate] = []
     killed: dict[str, str] = {}
     detail: dict[str, dict] = {}
+    single_products: dict[str, str] = {}
+    family_seeds: list[str] = []
 
     for candidate in survivors:
         concept = candidate.concept
         fam = family_test(concept)
         angle = angle_verdict(concept, crowded)
-        detail[concept.key] = {"family": fam["verdict"], "angle": angle}
-        if not fam["seeds_a_family"]:
-            killed[concept.key] = "no_family"
-            candidate.killed_by = "no_family"
-            candidate.detail = fam["note"][:400]
-            continue
+        detail[concept.key] = {"family": fam["verdict"], "angle": angle,
+                               "bundle_possible": fam["bundle_possible"],
+                               "viable_roles": [v["role"] for v in fam["viable_roles"]]}
         if angle["crowded"]:
             killed[concept.key] = "saturation"
             candidate.killed_by = "saturation"
             candidate.detail = angle["why"][:400]
             continue
+        candidate.family_verdict = fam["verdict"]
+        if fam["seeds_a_family"]:
+            candidate.carried_as = "family_seed"
+            family_seeds.append(concept.key)
+        else:
+            # Reported as a single product, not refused (#111's own rule; #308). The record
+            # is what stops a collection being forced out of it later: `bundle_possible`
+            # stays whatever the family test said, and a bundle is derived from two viable
+            # roles or not at all.
+            candidate.carried_as = "single_product"
+            single_products[concept.key] = fam["verdict"]
         kept.append(candidate)
 
     return {
         "checks": PROPOSITION_CHECKS,
         "applied": ["family", "angle"],
+        "single_products": single_products,
+        "family_seeds": family_seeds,
+        "family_rule": ("a concept that fails the family test is carried as a single "
+                        "product, never refused (#111); the angle check is the stage's only "
+                        "kill"),
         "not_applied": {
             "margin": ("contribution after platform fees is computable and would pass every "
                        "concept, because a digital file has no marginal cost. What decides a "

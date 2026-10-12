@@ -1,0 +1,372 @@
+{
+ "cluster": "E",
+ "branch": "claude/fb1-E",
+ "head": "9e57a95 (report commit; code head is its parent)",
+ "base": "be8d416",
+ "requirements": [
+  {
+   "uid": "F-696",
+   "status": "DONE",
+   "what_changed": "/api/support requires opsauth (503 unconfigured, 401 missing/wrong). main.CUSTOMER_DATA_ROUTES declares customer-content routes; _operator_read_refusal is the shared guard. An enumeration test fetches every parameterless GET route (from app.routes) with no credential against seeded Customer/Order/SupportCase sentinels; only /api/support leaked, now closed.",
+   "producer": "src/brambleloop/core/opsauth.py::check via app/main.py::_operator_read_refusal",
+   "consumer": "app/main.py::api_support",
+   "live_root": "GET /api/support",
+   "tests": [
+    "tests/test_customer_data_auth.py::test_no_other_get_route_returns_customer_fields_without_the_credential",
+    "tests/test_customer_data_auth.py::test_customer_routes_refuse_a_missing_or_wrong_credential",
+    "tests/test_customer_data_auth.py::test_customer_routes_are_closed_when_no_credential_is_configured",
+    "tests/test_customer_data_auth.py::test_customer_routes_serve_the_operator_with_the_credential"
+   ],
+   "remaining": "The HTML dashboard and read-only aggregate routes stay unauthenticated by design (the test proves they carry no customer fields). Role-based separation beyond route-level is not built."
+  },
+  {
+   "uid": "F-689",
+   "status": "PARTIAL",
+   "what_changed": "Security half done: customer message text is no longer readable without the operator credential (same change as F-696).",
+   "producer": "support/service.py (unchanged)",
+   "consumer": "GET /api/support (guarded)",
+   "live_root": "GET /api/support",
+   "tests": [
+    "tests/test_customer_data_auth.py::test_customer_routes_refuse_a_missing_or_wrong_credential"
+   ],
+   "remaining": "The CX workspace that joins messages, orders, reviews and refunds does not exist; Etsy message/review/refund ingestion is gated on transactions_r (clusters B/D)."
+  },
+  {
+   "uid": "F-128",
+   "status": "DONE",
+   "what_changed": "ops/health.read capability signals (model_gateway, integrations, rendered_pages) now read the recorded probe rows the executor gates read (model.probe, etsy.probe, browser.probe). A configured but unproven key reads UNKNOWN; env presence is reported only as evidence.configured.",
+   "producer": "ops/health.py::capability_readings",
+   "consumer": "ops.health sweep (runtime/release.py handler, cadence health_sweep), /api/console, /api/health-signals, dashboard Health block",
+   "live_root": "cadence health_sweep -> ops.health",
+   "tests": [
+    "tests/test_health.py::test_a_configured_integration_reads_healthy",
+    "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason",
+    "tests/test_health.py::test_health_capability_signals_never_read_environment_presence_as_state"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-131",
+   "status": "DONE",
+   "what_changed": "ops/dependencies.map_state adds a per-row capability (PROVEN/UNPROVEN/UNKNOWN) from the executor gate predicates (PROBE_GATES) plus a configured_but_unproven list. 'configured' stays as a named config fact. Health matches the gate answer for the same row.",
+   "producer": "ops/dependencies.py::_capability",
+   "consumer": "GET /api/dependencies",
+   "live_root": "GET /api/dependencies; ops.dependencies sweep already used gates",
+   "tests": [
+    "tests/test_provenance.py::test_a_configured_dependency_is_unproven_until_its_gate_probe_succeeds",
+    "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason"
+   ],
+   "remaining": "The etsy_shop gate itself still ANDs ETSY_SHOP_NAME/ID with usability (GATES semantics, outside E's remit)."
+  },
+  {
+   "uid": "F-179",
+   "status": "DONE",
+   "what_changed": "executor.approval_inbox is the one owner surface. OwnerAction rows are bound to gates by requirement_key (direct or OWNER_ACTION_GATE_ALIASES) and merged into the gate card. Rows whose gate is open are withheld (satisfied_but_open). Unbound rows become standalone decision cards. The dashboard's legacy 'Owner action required' block was removed; /api/owner-actions serves the inbox.",
+   "producer": "build2/executor.py::approval_inbox",
+   "consumer": "dashboard '/', /api/owner-actions, /api/console, /api/verify",
+   "live_root": "GET / and GET /api/owner-actions",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
+    "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render"
+   ],
+   "remaining": "/api/status owner_actions_open still counts the raw table (pinned by test_status_numbers_equal_sql). It is not rendered as an owner surface."
+  },
+  {
+   "uid": "F-181",
+   "status": "DONE",
+   "what_changed": "Cards are emitted only for closed OWNER-kind gates with parked requirements (counted via gated_requirements, registry included). Gates that unblock nothing go to suppressed_unblocks_nothing; 'customers' goes to waiting_on_data.",
+   "producer": "build2/executor.py::approval_inbox",
+   "consumer": "dashboard, /api/owner-actions",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-196",
+   "status": "DONE",
+   "what_changed": "Closed gates classified EXTERNAL-BLOCKED by closure.kind_of (rendered_pages, model_bearing_render) are listed under external_capability_unavailable with closure's reason and rendered in a separate 'External capability unavailable' block. They are never owner cards.",
+   "producer": "build2/closure.py::EXTERNAL_GATES via executor.approval_inbox",
+   "consumer": "dashboard block, /api/owner-actions",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-663",
+   "status": "PARTIAL",
+   "what_changed": "One ranked queue (sorted by cost, minutes, unblocks). Each card carries evidence (the gate condition) and steps. Duplicate legacy rows for a closed gate merge into one card.",
+   "producer": "build2/executor.py::approval_inbox",
+   "consumer": "dashboard, /api/owner-actions",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplicating"
+   ],
+   "remaining": "Deploy to clear the production 19/20 duplicate. Evidence is the gate's check text, not a URL. Standalone decision cards carry only what their OwnerAction row stored."
+  },
+  {
+   "uid": "F-182",
+   "status": "DONE",
+   "what_changed": "/api/verify adds check no_satisfied_owner_action_presented: it re-evaluates each presented card's gate via GATE_BY_KEY[...].open and fails if any is open or if an external gate is presented as an owner card. Withheld stale rows are included as evidence.",
+   "producer": "app/main.py::api_verify",
+   "consumer": "GET /api/verify (post-deploy verification)",
+   "live_root": "GET /api/verify",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-185",
+   "status": "DONE",
+   "what_changed": "The headline 'Dead letters' card renders 'N expected / M defects' (dashboard_truth.dead_letter_split from st['dead_letter_refusals'/'dead_letter_defects']). The unsplit number is no longer shown.",
+   "producer": "app/dashboard_truth.py::dead_letter_split",
+   "consumer": "dashboard '/', /api/headline",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
+    "tests/test_cert_dashboard.py::test_refusal_only_dead_letters_render_zero_defects"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-189",
+   "status": "DONE",
+   "what_changed": "scale.confidence.probability returns state MEASURED/UNMEASURED, reported_probability (None while the #275 evidence gate is unmet), modelled_bound and display ('UNMEASURED / insufficient commercial evidence'). The honest_statement no longer says 'Effectively zero'. The dashboard CA$5K row renders display. The numeric 'probability' key is kept as the internal conservative bound for existing consumers.",
+   "producer": "scale/confidence.py::probability",
+   "consumer": "dashboard _scale block, /api/scale, bands()",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_scale.py::test_a_sophisticated_system_that_has_sold_nothing_reports_unmeasured",
+    "tests/test_scale.py::test_the_gate_opening_is_what_finally_allows_a_high_number",
+    "tests/test_cert_dashboard.py::test_the_ca5k_card_reads_unmeasured_rather_than_zero"
+   ],
+   "remaining": "JSON consumers that read the raw 'probability' key (finance/reinvestment, growth/weekly, scale/evidence) still see the modelled bound. They should switch to reported_probability/state (other clusters)."
+  },
+  {
+   "uid": "F-186",
+   "status": "PARTIAL",
+   "what_changed": "dashboard_truth.launch_inventory: a product is launch-cleared only if it is certified AND has an approved, hashed, unblocked ListingAsset AND is a current creative-gate survivor AND meets the gauge standard. The gauge standard is not assessable in E, so it blocks clearance (UNASSESSED is not passed). The headline shows 'Launch-cleared / certified N / M'.",
+   "producer": "app/dashboard_truth.py::launch_inventory",
+   "consumer": "dashboard headline, /api/headline",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_a_certified_product_that_fails_launch_criteria_is_not_launch_cleared"
+   ],
+   "remaining": "The canonical launch_cleared belongs in launch/readiness.py with the real gauge-in-yarn-band check (cluster C). Until then the count is 0 by construction."
+  },
+  {
+   "uid": "F-187",
+   "status": "DONE",
+   "what_changed": "Creative-gate survivors are in the top headline grid, flagged as an alarm when 0 with the dominant failure named.",
+   "producer": "creative/audit.py::audit_catalogue via dashboard_truth.creative_survivors",
+   "consumer": "dashboard headline",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_the_headline_leads_with_commercial_truth_and_demotes_volume"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-206",
+   "status": "DONE",
+   "what_changed": "The headline grid now leads with launch-cleared/certified, creative survivors, benchmark status, commercial evidence (sales with evidence_ref, orders), the owner queue and the dead-letter split. Queue, listing images, content pieces, certified releases, opex and revenue move to a 'Volume and operations' grid labelled 'not business readiness'.",
+   "producer": "app/dashboard_truth.py::headline",
+   "consumer": "dashboard '/', GET /api/headline",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_the_headline_leads_with_commercial_truth_and_demotes_volume"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-202",
+   "status": "PARTIAL",
+   "what_changed": "The dashboard header shows commit_short and branch (core.build.identity), container start time (runner worker_started_at) and the last clean /api/verify time. Each /api/verify outcome is persisted as an AuditLog 'verify.completed' row {ok, failing, commit}.",
+   "producer": "app/main.py::api_verify (VERIFY_AUDIT_ACTION)",
+   "consumer": "dashboard header",
+   "live_root": "GET /api/verify -> GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_the_header_names_the_commit_and_the_last_clean_verification"
+   ],
+   "remaining": "Deploy time is the container start (a proxy, labelled 'container started'). No platform deploy timestamp is read."
+  },
+  {
+   "uid": "F-203",
+   "status": "PARTIAL",
+   "what_changed": "Every _block renders an 'as of' query time. Each headline KPI carries evidence.as_of.",
+   "producer": "app/main.py::dashboard._block",
+   "consumer": "dashboard",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_every_block_renders_an_as_of_time"
+   ],
+   "remaining": "The as-of is the render/query time, not the latest source row time. The non-block tables (jobs, products, incidents, audit) carry no separate as-of."
+  },
+  {
+   "uid": "F-205",
+   "status": "DONE",
+   "what_changed": "Contradiction tests were added: refusal-only dead letters render '0 defects'; an open etsy_shop gate plus an open 'open shop' OwnerAction never renders and verify stays green; no external or data gate is presented as an owner card; no duplicate card for one decision.",
+   "producer": "tests/test_cert_dashboard.py",
+   "consumer": "suite",
+   "live_root": "GET /",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_refusal_only_dead_letters_render_zero_defects",
+    "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render",
+    "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-665",
+   "status": "PARTIAL",
+   "what_changed": "dashboard_truth.evidence(): an envelope {source, as_of, transform, confidence, reconciliation, external_ids} on every headline KPI. New GET /api/headline serves them.",
+   "producer": "app/dashboard_truth.py::evidence",
+   "consumer": "GET /api/headline, dashboard headline cards (source/as-of shown, transform in the title attribute)",
+   "live_root": "GET /api/headline",
+   "tests": [
+    "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope"
+   ],
+   "remaining": "The envelope is not yet on /api/console, /api/finance or /api/launch. The provenance backfill (275 unproven artefacts) needs a deploy plus ops.provenance_backfill."
+  }
+ ],
+ "tests_run": [
+  {
+   "file": "tests/test_customer_data_auth.py",
+   "passing": 6,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_dashboard.py",
+   "passing": 18,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_deploy.py",
+   "passing": 32,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_health.py",
+   "passing": 39,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_provenance.py",
+   "passing": 12,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_scale.py",
+   "passing": 13,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_calibration.py",
+   "passing": 27,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_discipline.py",
+   "passing": 15,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_orders.py",
+   "passing": 14,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_executor.py",
+   "passing": 44,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_launch.py",
+   "passing": 25,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_access.py",
+   "passing": 8,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_capability_gates.py",
+   "passing": 22,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_continuity.py",
+   "passing": 15,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_closure.py",
+   "passing": 27,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_wiring.py",
+   "passing": 16,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_reachability.py",
+   "passing": 11,
+   "failing": 0
+  }
+ ],
+ "tests_changed": [
+  {
+   "test": "tests/test_deploy.py::test_the_support_endpoint_shows_that_nothing_was_sent",
+   "uid": "F-696/F-689",
+   "why": "It read /api/support unauthenticated, which F-696 forbids. It now asserts 401 without the credential and reads with it."
+  },
+  {
+   "test": "tests/test_health.py::test_a_configured_integration_reads_healthy",
+   "uid": "F-128",
+   "why": "It asserted HEALTHY from ANTHROPIC_API_KEY presence, a self-grading label. It now asserts UNKNOWN until a recorded probe succeeds, then HEALTHY."
+  },
+  {
+   "test": "tests/test_scale.py::test_a_sophisticated_system_that_has_sold_nothing_reports_effectively_zero (renamed ..._reports_unmeasured)",
+   "uid": "F-189",
+   "why": "It pinned the words 'Effectively zero', which F-189 forbids. It now asserts state UNMEASURED, reported None and the display text; the modelled bound is still < 0.05."
+  },
+  {
+   "test": "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
+   "uid": "F-185",
+   "why": "It asserted the unsplit dead-letter total as the card value. It now asserts 'N expected / M defects' from SQL."
+  }
+ ],
+ "files_touched": [
+  "src/brambleloop/app/main.py",
+  "src/brambleloop/app/dashboard_truth.py (new)",
+  "src/brambleloop/build2/executor.py (approval_inbox + OWNER_ACTION_GATE_ALIASES/gate_for_owner_action only; GATES untouched)",
+  "src/brambleloop/ops/health.py",
+  "src/brambleloop/ops/dependencies.py",
+  "src/brambleloop/scale/confidence.py",
+  "tests/test_customer_data_auth.py (new)",
+  "tests/test_cert_dashboard.py",
+  "tests/test_health.py",
+  "tests/test_provenance.py",
+  "tests/test_scale.py",
+  "tests/test_deploy.py"
+ ],
+ "migrations": [],
+ "needs_from_others": [
+  "Cluster C: a canonical launch_cleared(product) in launch/readiness.py with the gauge-within-yarn-band standard. dashboard_truth.launch_inventory should then call it instead of treating gauge as UNASSESSED.",
+  "Cluster D (finance/reinvestment.py) and growth/scale owners: read confidence.probability()['reported_probability'] / ['state'] instead of the raw 'probability' bound where a figure is shown to a person.",
+  "Any cluster adding a route that returns customer/order/support rows: add its path to main.CUSTOMER_DATA_ROUTES and guard it with _operator_read_refusal (tests/test_customer_data_auth.py fails otherwise).",
+  "Integrator: the owner's scripts or heartbeat that call GET /api/support must now send Authorization: Bearer $BRAMBLELOOP_OPS_TOKEN."
+ ],
+ "risks": [
+  "GET /api/verify now writes one AuditLog row per call (verify.completed). A caller polling verify often will grow the audit log.",
+  "The dashboard runs creative.audit.audit_catalogue twice per render (headline and the Creative standard block).",
+  "OWNER_ACTION_GATE_ALIASES is hand-maintained. An OwnerAction key that names a gate under an unlisted alias is shown as a standalone decision; it is not hidden, so the failure mode is a possible duplicate, not a lost request.",
+  "/api/status owner_actions_open still counts the raw OwnerAction table (kept because an existing SQL-equality test pins it). The headline uses the inbox count."
+ ]
+}

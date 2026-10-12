@@ -117,22 +117,236 @@ SIGNATURES: tuple[Signature, ...] = (
 BY_KEY: dict[str, Signature] = {s.key: s for s in SIGNATURES}
 
 
-def inventory() -> dict:
+# How each signature's existence is proved from what the running system produced (C-69,
+# #44). The hand-set `exists` flags above are the plan; with a database the inventory reads
+# evidence instead, and a signature with nothing to show for it is planned whatever the plan
+# says.
+EVIDENCE_FOR: dict[str, str] = {
+    "canonical_model": "the canonical_model gate is open (an owner-approved identity)",
+    "naming_architecture": "certified products listed under their own titles",
+    "editorial_layout": "a customer PDF recorded as passed",
+    "photography_language": "a product photograph that cleared its floors",
+    "chart_style": "a chart recorded as passed with the colour cue present",
+    "tutorial_voice": "nothing measures a voice yet; UNMEASURED is not built",
+    "collection_families": "a collection assembled from certified members",
+    "deterministic_validation": "a certificate whose chain ran compile and reverse",
+    "version_aware_support": "a version-keyed support knowledge pack recorded as passed",
+    "measured_yardage": "a completed physical test that passed",
+}
+# A product-first listing is recognisable without the model when it carries at least this
+# many built non-model signatures of its own. This is a PROXY (C-80 defect 15, Codex P16): a
+# count of built artefact classes, not a judgement that the frame reads as this brand. The
+# real measurement, `measure_recognisability`, is a blind description of the product-first
+# hero frame compared with the brand bible, and it runs only while the image_vision gate is
+# open; until then it is recorded UNMEASURED beside the proxy, never as a pass.
+RECOGNISABLE_MIN = 3
+RECOGNISABILITY_PROXY = "recognisability_proxy: count of built non-model signatures"
+RECOGNISABILITY_GATE = "image_vision"
+MEASURED_ACTION = "brand.recognisability_measured"
+# How many brand-bible palette colours a blind description of the hero must name.
+BRAND_COLOURS_MIN = 2
+# Plain-language names a describer would use for the bible's palette entries.
+PALETTE_WORDS: dict[str, tuple[str, ...]] = {
+    "pine": ("pine", "forest green", "deep green", "dark green", "evergreen"),
+    "cream": ("cream", "ivory", "off-white", "linen", "oatmeal"),
+    "ink": ("ink", "navy", "midnight", "dark blue"),
+    "gold": ("gold", "mustard", "ochre", "amber"),
+    "wine": ("wine", "burgundy", "maroon", "claret"),
+}
+
+
+def measure_recognisability(db, slug: str, version: str | None = None) -> dict:
+    """The requirement's own test, measured: does a product-first frame read as this brand?
+
+    Gated on image_vision. When the gate is open, the release's stored hero frame is described
+    blind by the vision judge (`visual.inspect.inspect_image`, which never sees the caption or
+    the brand) and deterministic code compares the description with the brand bible: at least
+    BRAND_COLOURS_MIN palette colours named, no person in the frame (product-first), and no
+    third-party mark. When the gate is closed, or the frame bytes are not on disk, the answer is
+    UNMEASURED with the gate named -- the proxy stands beside it, labelled as a proxy.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from sqlalchemy import desc, select
+
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        q = select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                       ListingAsset.role == "hero")
+        if version:
+            q = q.where(ListingAsset.version == version)
+        hero = s.scalar(q.order_by(desc(ListingAsset.id)).limit(1))
+        sha = hero.sha256 if hero is not None else None
+        hero_version = hero.version if hero is not None else None
+    if not sha:
+        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                "why": "no product-first hero frame is stored for this listing"}
+    try:
+        from ..build2 import executor
+
+        vision_open = bool(executor.GATE_BY_KEY[RECOGNISABILITY_GATE].open(db))
+    except Exception:  # noqa: BLE001 - an unreadable gate is closed
+        vision_open = False
+    if not vision_open:
+        return {"status": "UNMEASURED", "gated_on": RECOGNISABILITY_GATE, "recognisable": None,
+                "frame_sha256": sha, "version": hero_version,
+                "why": "the image_vision gate is closed: no model has been proven to look at "
+                       "a picture, so the blind identification cannot run yet"}
+    try:
+        data = ArtifactStore().get(sha, db=db)
+    except ArtifactMissing as exc:
+        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                "frame_sha256": sha, "version": hero_version, "why": str(exc)[:200]}
+    from ..visual import inspect as inspection_mod
+
+    with tempfile.TemporaryDirectory(prefix="moat-hero-") as work:
+        path = Path(work) / "hero.png"
+        path.write_bytes(data)
+        try:
+            got = inspection_mod.inspect_image(str(path), db=db,
+                                               claim={"shows_finished_object": True})
+        except Exception as exc:  # noqa: BLE001 - a judge that failed measured nothing
+            return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                    "frame_sha256": sha, "version": hero_version,
+                    "why": f"{type(exc).__name__}: {exc}"[:200]}
+    description = dict(got.get("description") or {})
+    colours = str(description.get("dominant_colours") or "").lower()
+    named = sorted(k for k, words in PALETTE_WORDS.items() if any(w in colours for w in words))
+    marks = inspection_mod.marks_found(description)
+    product_first = description.get("human_present") is False
+    recognisable = (len(named) >= BRAND_COLOURS_MIN and product_first and not marks
+                    and bool(got.get("described")))
+    return {"status": "MEASURED", "gated_on": None, "recognisable": recognisable,
+            "frame_sha256": sha, "version": hero_version,
+            "brand_colours_named": named, "product_first": product_first,
+            "third_party_marks": marks, "described": bool(got.get("described")),
+            "method": ("blind description of the stored hero frame (the judge never sees the "
+                       "brand or the caption) compared with the brand bible's palette; a "
+                       "person in the frame or a third-party mark fails it"),
+            "why": (f"{len(named)} brand colour(s) named, product-first, no marks"
+                    if recognisable else
+                    f"{len(named)} brand colour(s) named (need {BRAND_COLOURS_MIN}), "
+                    f"product_first={product_first}, marks={marks}")}
+
+
+def evidence(db) -> dict:
+    """Per signature: exists (from rows), and per listed product: which signatures it shows."""
+    from sqlalchemy import select
+
+    from ..core.models import (ArtefactProvenance, AuditLog, Collection, Listing,
+                               PatternVersion, PhysicalTest, Product)
+
+    with db.session() as s:
+        # Bounded (C-80 defect 17): only the classes the signatures read, not every row daily.
+        prov = [(r.artefact_class, r.product_slug, r.validation_status)
+                for r in s.scalars(select(ArtefactProvenance).where(
+                    ArtefactProvenance.artefact_class.in_(
+                        ("pdf", "chart", "support_knowledge"))))]
+        listings = sorted({l.product_slug for l in s.scalars(
+            select(Listing).where(Listing.state != "withdrawn"))})
+        certs = {p.slug: dict(pv.certificate or {}) for pv, p in s.execute(
+            select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id)
+            .where(PatternVersion.certified.is_(True)))}
+        photos = {str((r.detail or {}).get("slug") or r.artifact or "")
+                  for r in s.scalars(select(AuditLog).where(
+                      AuditLog.action == "assets.owned_photography"))
+                  if (r.detail or {}).get("made")}
+        collections = s.scalar(select(Collection).limit(1)) is not None
+        physical = any(t.passed for t in s.scalars(select(PhysicalTest)))
+    try:
+        from ..build2 import executor
+
+        model_open = bool(executor.GATE_BY_KEY["canonical_model"].open(db))
+    except Exception:  # noqa: BLE001 - an unreadable gate is closed
+        model_open = False
+
+    def passed(cls, slug=None):
+        return any(c == cls and v == "passed" and (slug is None or sl == slug)
+                   for c, sl, v in prov)
+
+    def validated(slug):
+        stages = set((certs.get(slug) or {}).get("stages_run") or [])
+        return {"compile", "reverse"} <= stages
+
+    exists = {
+        "canonical_model": model_open,
+        "naming_architecture": bool(listings),
+        "editorial_layout": passed("pdf"),
+        "photography_language": bool(photos),
+        "chart_style": passed("chart"),
+        "tutorial_voice": False,
+        "collection_families": collections,
+        "deterministic_validation": any(validated(sl) for sl in certs),
+        "version_aware_support": passed("support_knowledge"),
+        "measured_yardage": physical,
+    }
+    per_listing = {}
+    for slug in listings:
+        shown = [k for k, ok in (
+            ("naming_architecture", True), ("editorial_layout", passed("pdf", slug)),
+            ("chart_style", passed("chart", slug)),
+            ("deterministic_validation", validated(slug)),
+            ("version_aware_support", passed("support_knowledge", slug)),
+            ("photography_language", slug in photos)) if ok]
+        measured = measure_recognisability(db, slug)
+        proxy = len(shown) >= RECOGNISABLE_MIN
+        per_listing[slug] = {
+            "signatures": shown,
+            # the field the launch gate reads: the measurement when it exists, else the proxy
+            "recognisable_without_model": (measured["recognisable"]
+                                           if measured["status"] == "MEASURED" else proxy),
+            "basis": ("measured: blind identification of the hero frame"
+                      if measured["status"] == "MEASURED" else RECOGNISABILITY_PROXY),
+            "recognisable_by_proxy": proxy,
+            "measured": measured}
+    return {"exists": exists, "per_listing": per_listing}
+
+
+def inventory(db=None) -> dict:
     """The moat as it actually stands, separating what exists from what is planned.
 
     An asset nobody has built is not a moat, and listing it beside the real ones produces a
-    page saying the company is defensible when it is aspiring.
+    page saying the company is defensible when it is aspiring. With a database, existence is
+    read from evidence (`evidence`), and recognisability on product-first listings -- the
+    requirement's own test -- is measured per listing.
     """
-    built = [s for s in SIGNATURES if s.exists]
-    planned = [s for s in SIGNATURES if not s.exists]
+    measured = evidence(db) if db is not None else None
+    signatures = (tuple(Signature(s.key, s.what, s.replication, s.why,
+                                  exists=bool(measured["exists"].get(s.key)))
+                        for s in SIGNATURES) if measured else SIGNATURES)
+    built = [s for s in signatures if s.exists]
+    planned = [s for s in signatures if not s.exists]
 
     by_band: dict[str, list[str]] = {}
     for s in built:
         by_band.setdefault(s.replication, []).append(s.key)
 
     structural = [s.key for s in built if s.replication == STRUCTURAL]
+    recognisable = None
+    if measured is not None:
+        rows = measured["per_listing"]
+        recognisable = {"listings": len(rows),
+                        "recognisable": sorted(k for k, v in rows.items()
+                                               if v["recognisable_without_model"]),
+                        "not_recognisable": sorted(k for k, v in rows.items()
+                                                   if not v["recognisable_without_model"]),
+                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows,
+                        # C-80 defect 15: which listings are judged by the proxy only, and
+                        # what gate the real measurement waits on
+                        "by_proxy_only": sorted(k for k, v in rows.items()
+                                                if v["measured"]["status"] != "MEASURED"),
+                        "measured": sorted(k for k, v in rows.items()
+                                           if v["measured"]["status"] == "MEASURED"),
+                        "proxy": RECOGNISABILITY_PROXY,
+                        "measurement_gated_on": RECOGNISABILITY_GATE}
     return {
-        "signatures": [s.to_dict() for s in SIGNATURES],
+        "measured_from_evidence": measured is not None,
+        "evidence_rules": EVIDENCE_FOR,
+        "recognisable_without_model": recognisable,
+        "signatures": [s.to_dict() for s in signatures],
         "built": [s.key for s in built],
         "planned": [s.key for s in planned],
         "built_by_replication": {band: by_band.get(band, []) for band in REPLICATION},

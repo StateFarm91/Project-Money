@@ -1,0 +1,253 @@
+{
+ "generated_at": "2026-10-07",
+ "phase": "shadow",
+ "producer": "creative.audit.audit_catalogue + creative.emotional_brief.audit_candidates",
+ "cohort": {
+  "name": "legacy_builder_catalogue",
+  "generator": "products.builder (Design: motif, palette, width, repeat) + creative.emotional_brief (recipient, occasion, moment, function)",
+  "generator_version": "builder@b4e38ed25724+briefs@3be4538b90d4",
+  "n": 11,
+  "excludes": "tournament",
+  "why": "the legacy Build-1 catalogue; concept-tournament output is a separate cohort and is not counted here"
+ },
+ "before_raw_generator": {
+  "audited": 11,
+  "survivors": [],
+  "deaths_by_critic": {
+   "emotional_appeal": 11
+  }
+ },
+ "after_catalogue": {
+  "audited": 11,
+  "survivors": [
+   "cloudline-baby-blanket",
+   "harvest-table-runner",
+   "mosaic-placemat-pair",
+   "spooky-garland",
+   "valentine-heart-garland",
+   "pet-snuggle-mat"
+  ],
+  "decisions": {
+   "winter-village-graphghan": "rejected",
+   "cloudline-baby-blanket": "needs_taste",
+   "autumn-oak-mosaic-throw": "rejected",
+   "harvest-table-runner": "needs_taste",
+   "mosaic-placemat-pair": "needs_taste",
+   "nordic-star-ornaments": "rejected",
+   "spooky-garland": "needs_taste",
+   "valentine-heart-garland": "needs_taste",
+   "pet-snuggle-mat": "needs_taste",
+   "pressed-flower-motifs": "rejected",
+   "cottage-wall-hanging": "rejected"
+  },
+  "deaths_by_critic": {
+   "emotional_appeal": 5
+  },
+  "briefs": {
+   "version": "emotional-brief/1",
+   "states": {
+    "winter-village-graphghan": {
+     "state": "held",
+     "problems": [
+      "HELD: title promises a village; the snowfall motif depicts snowflakes only (proposed: 'Winter Snowfall Graphghan')"
+     ]
+    },
+    "cloudline-baby-blanket": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "cloudline-baby-blanket",
+      "recipient": "new_parent",
+      "occasion": "new_baby",
+      "feeling": "tender",
+      "moment": "A maker counts down to a friend's due date, working one lattice repeat each evening so the blanket is folded and ready for the first visit home.",
+      "function": "wraps the baby for the first visits home, then stays folded at the foot of the cot as the first thing made for them",
+      "gifting": "Given to the new parents at the shower or on the first visit home, made by a friend or grandparent rather than bought.",
+      "sensory": [
+       "raised diamond lattice ridges under the fingertips",
+       "quiet cream and ink contrast suited to a nursery"
+      ],
+      "handmade_life": "Turns the long wait for a baby into evenings of making something the family will keep.",
+      "laura_scene": "Laura folding the finished blanket over a nursery chair in morning window light; the blanket is the subject.",
+      "premise": "A raised diamond lattice in cream and ink that small fingers can trace across the whole blanket.",
+      "title": ""
+     }
+    },
+    "autumn-oak-mosaic-throw": {
+     "state": "held",
+     "problems": [
+      "HELD: title promises oak; the fir-and-star motif depicts firs and stars (proposed: 'Fir and Star Mosaic Throw')"
+     ]
+    },
+    "harvest-table-runner": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "harvest-table-runner",
+      "recipient": "self",
+      "occasion": "thanksgiving",
+      "feeling": "nostalgic",
+      "moment": "The morning of the harvest dinner the runner comes out of the linen drawer, and the long table finally starts to look like the holiday.",
+      "function": "dresses the family table for the one dinner a year when everybody sits down together",
+      "gifting": "",
+      "sensory": [
+       "wine and gold chevron band running under the serving dishes",
+       "firm flat stitch fabric that lies straight along the table"
+      ],
+      "handmade_life": "A piece made once and brought out every autumn, so the holiday table carries the maker's own work.",
+      "laura_scene": "Laura laying the runner along a set harvest table before guests arrive; product-first, Laura's hands in frame.",
+      "premise": "A marching chevron band in wine and gold runs the full length of the harvest table under the serving dishes.",
+      "title": ""
+     }
+    },
+    "mosaic-placemat-pair": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "mosaic-placemat-pair",
+      "recipient": "host",
+      "occasion": "housewarming",
+      "feeling": "heirloom",
+      "moment": "Two people eat their first dinner in a new home on a box-strewn kitchen table, and the one finished thing in the room is a laid table for two.",
+      "function": "sets two places for the first dinner in a new home before the boxes are unpacked",
+      "gifting": "Brought to a housewarming in place of a bottle, so the first meal in the new kitchen has a laid table.",
+      "sensory": [
+       "diamond lattice texture under the plate rim",
+       "cream and wine pairing that reads as a matched set"
+      ],
+      "handmade_life": "A small, finishable make that marks a new home with something made rather than bought.",
+      "laura_scene": "Two placemats set on a bare wooden table with mismatched new-home crockery; Laura optional, setting the second place.",
+      "premise": "A matched diamond lattice pair in cream and wine sets two places at a small kitchen table.",
+      "title": ""
+     }
+    },
+    "nordic-star-ornaments": {
+     "state": "held",
+     "problems": [
+      "HELD: title promises stars; the snowfall motif depicts snowflakes (proposed: 'Nordic Snowflake Ornament Set (6)')"
+     ]
+    },
+    "spooky-garland": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "spooky-garland",
+      "recipient": "child",
+      "occasion": "halloween",
+      "feeling": "playful",
+      "moment": "On the first of October the children help hang the pumpkin flags across the front window, and the countdown to trick-or-treat night begins.",
+      "function": "turns the front window into a countdown to trick-or-treat night for the children of the house",
+      "gifting": "Made with or for the children of the house, hung on the first of October and packed away on the first of November for next year.",
+      "sensory": [
+       "round pumpkin row flags swinging along the window frame",
+       "warm wine and gold colours against the dark October glass"
+      ],
+      "handmade_life": "A family ritual the maker can repeat every autumn, with flags small enough to finish in an evening.",
+      "laura_scene": "Laura and a child's hands pinning the garland across a window at dusk; the garland reads first.",
+      "premise": "A string of pumpkin row flags in wine and gold swings across the front window for the whole of October.",
+      "title": ""
+     }
+    },
+    "valentine-heart-garland": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "valentine-heart-garland",
+      "recipient": "partner",
+      "occasion": "valentines",
+      "feeling": "romantic",
+      "moment": "The garland goes up across the bedroom doorway the night before, so the first thing a partner sees on Valentine's morning is a row of hearts.",
+      "function": "says what a card says but stays strung across the doorway for the whole of February",
+      "gifting": "Hung before a partner wakes on Valentine's morning, a surprise that took several quiet evenings to make.",
+      "sensory": [
+       "solid heart row shapes swinging in a doorway draught",
+       "cream and wine colour pairing that reads from across the room"
+      ],
+      "handmade_life": "A love note that is made rather than bought, and kept for next year instead of thrown away.",
+      "laura_scene": "Laura stringing the garland across a sunlit bedroom doorway; hearts in sharp focus, Laura soft behind.",
+      "premise": "A row of solid hearts in cream and wine is strung across the bedroom doorway for Valentine's morning.",
+      "title": ""
+     }
+    },
+    "pet-snuggle-mat": {
+     "state": "briefed",
+     "problems": [],
+     "brief": {
+      "key": "pet-snuggle-mat",
+      "recipient": "pet_owner",
+      "occasion": "winter_nesting",
+      "feeling": "tender",
+      "moment": "A rescue dog comes home in December, and the first evening there is already a mat by the fire that is unmistakably theirs.",
+      "function": "gives a pet a warm spot of its own beside the family on long winter evenings",
+      "gifting": "Made for a friend bringing home a new dog or cat, so the new arrival has a place that is already theirs.",
+      "sensory": [
+       "dense basketweave blocks with a firm padded hand",
+       "pine and gold colours that hide paw prints between washes"
+      ],
+      "handmade_life": "Making for the whole household, animals included, is part of a handmade home.",
+      "laura_scene": "A dog asleep on the mat by a hearth, Laura reading in the chair behind; the mat is the subject.",
+      "premise": "A dense basketweave mat in pine and gold marks out the dog's own spot beside the fire.",
+      "title": ""
+     }
+    },
+    "pressed-flower-motifs": {
+     "state": "held",
+     "problems": [
+      "HELD: title promises flowers; the heart-row motif depicts hearts (proposed: 'Heart Appliqu\u00e9 Motif Library (12)')"
+     ]
+    },
+    "cottage-wall-hanging": {
+     "state": "held",
+     "problems": [
+      "HELD: title promises botanical imagery; the chevron-band motif depicts chevrons (proposed: 'Cottage Chevron Wall Hanging')"
+     ]
+    }
+   },
+   "briefed": [
+    "cloudline-baby-blanket",
+    "harvest-table-runner",
+    "mosaic-placemat-pair",
+    "pet-snuggle-mat",
+    "spooky-garland",
+    "valentine-heart-garland"
+   ],
+   "held": [
+    "autumn-oak-mosaic-throw",
+    "cottage-wall-hanging",
+    "nordic-star-ornaments",
+    "pressed-flower-motifs",
+    "winter-village-graphghan"
+   ],
+   "unbriefed": []
+  }
+ },
+ "new_candidates": {
+  "cohort": "w4_moment_first_candidates",
+  "stage": "concept only: no CIR, pattern, listing or photograph exists",
+  "proposed": 8,
+  "refused_at_brief": {},
+  "judged": 8,
+  "survivors": [
+   "housewarming-key-basket",
+   "reading-nook-cable-wrap",
+   "first-christmas-stocking",
+   "mothers-day-heart-tea-cosy",
+   "teacher-chevron-pencil-roll",
+   "heart-row-ring-pillow",
+   "snowfall-advent-garland",
+   "spring-garden-kneeler"
+  ],
+  "decisions": {
+   "housewarming-key-basket": "needs_taste",
+   "reading-nook-cable-wrap": "needs_taste",
+   "first-christmas-stocking": "needs_taste",
+   "mothers-day-heart-tea-cosy": "needs_taste",
+   "teacher-chevron-pencil-roll": "needs_taste",
+   "heart-row-ring-pillow": "needs_taste",
+   "snowfall-advent-garland": "needs_taste",
+   "spring-garden-kneeler": "needs_taste"
+  },
+  "deaths_by_critic": {}
+ },
+ "note": "survivors are needs_taste (structurally clean, unjudged by a vision model), never approved"
+}

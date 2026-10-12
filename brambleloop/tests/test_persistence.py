@@ -10,6 +10,7 @@ is the one where the worker simply ceases to exist while holding a lease.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import signal
 import subprocess
@@ -340,14 +341,15 @@ def test_a_cadence_that_wrongly_said_nothing_is_retried_by_the_next_deploy():
         del retry
         pending_retry = q.claim("test-worker", ["creative.expedition"])
         assert pending_retry is not None, "the retry was never enqueued"
-        q.complete(pending_retry.id, {"ran": False, "reason": "still nothing"})
+        q.complete(pending_retry.id, {"ran": False, "reason": "still nothing"},
+                   worker="test-worker")
         os.environ["BRAMBLELOOP_COMMIT"] = "ffffffffffff"
         assert handle_queue_check(ctx)["cadences"] == ["arena_expedition"]
 
         # Once it succeeds, it is never re-enqueued again.
         latest = q.claim("test-worker", ["creative.expedition"])
         assert latest is not None
-        q.complete(latest.id, {"ran": True, "survivors": 2})
+        q.complete(latest.id, {"ran": True, "survivors": 2}, worker="test-worker")
         os.environ["BRAMBLELOOP_COMMIT"] = "eeeeeeeeeeee"
         assert handle_queue_check(ctx)["recadenced"] == 0
         assert JobStatus  # imported for the reader's benefit
@@ -370,9 +372,19 @@ def test_a_run_that_completed_having_done_nothing_counts_as_a_no_op():
     # Real work is never a no-op, whatever else is zero beside it.
     assert not did_no_work({"ran": True, "listings_known": 438, "new": 0, "reclassified": 0})
     assert not did_no_work({"ran": True, "judged": 12})
-    # A handler that reports no counters at all is not assumed idle.
-    assert not did_no_work({"ran": True})
-    assert not did_no_work({})
+    # Audit ddf9c6e H-1 reversed the old default ("a handler that reports no counters at all
+    # is not assumed idle"): proxy is not measurement, so an output that shows no work is a
+    # no-op for the usefulness judge (KPIs, SLO, soak, mission outcomes)...
+    assert did_no_work({"ran": True})
+    assert did_no_work({})
+    # ...while the narrower once-per-deploy re-drive rule keeps the old reading, so an honest
+    # "nothing to do" is not re-run on every deploy.
+    from brambleloop.runtime.pipeline import reported_no_work
+
+    assert reported_no_work({"ran": True, "proposed": 0, "survivors": 0, "cost_cad": 0.0})
+    assert reported_no_work({"ran": False, "reason": "nothing observed"})
+    assert not reported_no_work({"ran": True})
+    assert not reported_no_work({"ran": True, "listings_known": 438, "new": 0})
 
 
 def test_a_cadence_that_ran_but_did_nothing_is_re_driven_like_one_that_said_so():
@@ -431,6 +443,40 @@ def test_an_unknown_commit_does_not_re_drive_anything():
     finally:
         os.environ.update(saved)
 
+
+
+def test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect():
+    """C-14 end to end: the dead letter the Worker itself writes for CapabilityNotEnabled,
+    on a job type other than store.publish, is one thing to every reader."""
+    from datetime import datetime, timezone
+
+    from brambleloop.ops import retention
+    from brambleloop.queue.durable import deliberate_refusal
+    from brambleloop.runtime.worker import CapabilityNotEnabled, HandlerRegistry
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/refusal.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    with db.session() as s:
+        from brambleloop.core.models import Agent
+
+        a = s.scalar(select(Agent).where(Agent.name == "orchestrator"))
+        a.allowed_job_types = list(a.allowed_job_types or []) + ["etsy.publish_listing"]
+    reg = HandlerRegistry()
+
+    @reg.register("etsy.publish_listing")
+    def _refuse(ctx):
+        raise CapabilityNotEnabled("shadow mode: publication is not promoted")
+
+    q = JobQueue(db)
+    job = q.enqueue("orchestrator", "etsy.publish_listing", {})
+    Worker(db, "w", registry=reg).run_once()
+    row = q.get(job.id)
+    assert row.status == JobStatus.DEAD
+    assert deliberate_refusal(row.job_type, row.last_error) is True
+    assert q.requeue_dead()["requeued"] == []
+    plan = retention.dead_letter_plan(db, now=datetime(2027, 6, 1, tzinfo=timezone.utc))
+    assert plan["kept"]["is_a_defect"] == 0, plan
 
 if __name__ == "__main__":
     fails = 0

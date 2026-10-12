@@ -1,0 +1,285 @@
+{
+ "generated_at": "2026-10-07T00:38:12+00:00",
+ "phase": "shadow",
+ "producer": "W4-CREATIVE r2 (research/final_build/w4/handoff_CREATIVE.md)",
+ "catalogue": {
+  "before_raw_generator": {
+   "audited": 11,
+   "survived": 0,
+   "deaths": {
+    "emotional_appeal": 11
+   }
+  },
+  "after_corrected_process": {
+   "audited": 11,
+   "survived": 6,
+   "survivor_decisions": [
+    "needs_taste"
+   ],
+   "deaths": {
+    "emotional_appeal": 5
+   },
+   "held_for_product_truth": [
+    "autumn-oak-mosaic-throw",
+    "cottage-wall-hanging",
+    "nordic-star-ornaments",
+    "pressed-flower-motifs",
+    "winter-village-graphghan"
+   ]
+  },
+  "cadence_persist_catalogue_audit": {
+   "deaths": {
+    "emotional_appeal": 5
+   },
+   "lesson_kept": true
+  },
+  "dashboard_truth.creative_survivors": {
+   "count": 6,
+   "audited": 11
+  }
+ },
+ "new_candidates": {
+  "before_r2_full_gate_at_635c142": {
+   "judged": 8,
+   "refused": 8,
+   "failed_checks": {
+    "premise_thumbnail": 8,
+    "silhouette": 2,
+    "motif_grammar": 3
+   }
+  },
+  "after_r2_full_gate": {
+   "judged": 8,
+   "by_decision": {
+    "waiting": 8
+   },
+   "refused_at_brief": {},
+   "engineering_queue": [
+    "first-christmas-stocking",
+    "reading-nook-cable-wrap",
+    "mothers-day-heart-tea-cosy",
+    "snowfall-advent-garland",
+    "teacher-chevron-pencil-roll",
+    "heart-row-ring-pillow",
+    "housewarming-key-basket",
+    "spring-garden-kneeler"
+   ]
+  },
+  "per_candidate": {
+   "housewarming-key-basket": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "SHORT",
+    "demand": []
+   },
+   "reading-nook-cable-wrap": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty",
+     "grid_tournament"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "LONG",
+    "demand": [
+     {
+      "finding": "demand_by_pod",
+      "digest": "5728fb2aed",
+      "grade": "proxy",
+      "sample": 437,
+      "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+      "fit": "garments: the highest favourites median"
+     },
+     {
+      "finding": "coverage_gaps",
+      "digest": "cc58125e5d",
+      "grade": "observed",
+      "sample": 7,
+      "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+      "fit": "garments and clothing arena is uncovered"
+     }
+    ]
+   },
+   "first-christmas-stocking": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "MEDIUM",
+    "demand": [
+     {
+      "finding": "demand_by_pod",
+      "digest": "5728fb2aed",
+      "grade": "proxy",
+      "sample": 437,
+      "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+      "fit": "stockings: the underserved pod"
+     },
+     {
+      "finding": "seasonality",
+      "digest": "45dac5b8f5",
+      "grade": "proxy",
+      "sample": 441,
+      "says": "Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); the benchmark carries 10 stocking and 13 ornament listings",
+      "fit": "a Christmas stocking inside the window"
+     },
+     {
+      "finding": "coverage_gaps",
+      "digest": "cc58125e5d",
+      "grade": "observed",
+      "sample": 7,
+      "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+      "fit": "Christmas stockings arena is uncovered"
+     }
+    ]
+   },
+   "mothers-day-heart-tea-cosy": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "SHORT",
+    "demand": [
+     {
+      "finding": "coverage_gaps",
+      "digest": "cc58125e5d",
+      "grade": "observed",
+      "sample": 7,
+      "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+      "fit": "kitchen and bath arena is uncovered"
+     }
+    ]
+   },
+   "teacher-chevron-pencil-roll": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "QUICK",
+    "demand": []
+   },
+   "heart-row-ring-pillow": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "SHORT",
+    "demand": []
+   },
+   "snowfall-advent-garland": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "MEDIUM",
+    "demand": [
+     {
+      "finding": "seasonality",
+      "digest": "45dac5b8f5",
+      "grade": "proxy",
+      "sample": 441,
+      "says": "Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); the benchmark carries 10 stocking and 13 ornament listings",
+      "fit": "a Christmas make inside the window"
+     }
+    ]
+   },
+   "spring-garden-kneeler": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ],
+    "make_lane": "SHORT",
+    "demand": []
+   }
+  }
+ },
+ "needs_taste_clears": [
+  {
+   "condition": "a concept board exists for the slug, with a content digest",
+   "code": "creative.intake.board_for / board_digest_for (listing_asset frames); creative.board.make_board renders one from a prototype's digital twin",
+   "state_today": "no board for any candidate (no CIR, so no prototype twin)",
+   "class": "DATA-GATED on CIR engineering (W4-PIPE), else EXTERNAL-GATED on image generation"
+  },
+  {
+   "condition": "a working vision model: the latest model.probe vision row is ok",
+   "code": "gateway.anthropic.vision_usable",
+   "state_today": "production: 175+ intel.gallery_analysis_blocked rows, 'no vision probe has succeeded' (W4-MJS)",
+   "class": "EXTERNAL-GATED (model_provider / image_vision credential and spend authority)"
+  },
+  {
+   "condition": "a concept.judged audit row naming its judge, bound to the current board's sha256, with thumbnail_reads_small true and craft_impression >= 3.5",
+   "code": "creative.intake.judge_held -> judgement_for; jury.judge (3.5 bar unchanged)",
+   "state_today": "none recorded",
+   "class": "follows automatically from the two above (creative.intake.regate_held cadence)"
+  },
+  {
+   "condition": "LONG/FLAGSHIP only: the blind search-grid tournament verdict is clear",
+   "code": "preengineering._grid / grid_verdict_for (creative.grid_tournament, weekly)",
+   "state_today": "never run (vision-gated)",
+   "class": "EXTERNAL-GATED with the vision model"
+  },
+  {
+   "condition": "anti-clone novelty: observed competitor listings on file to compare with",
+   "code": "preengineering._novelty -> prospecting.benchmark_comparables (BenchmarkListing)",
+   "state_today": "production holds 441 MJS listings; this shadow worktree has none",
+   "class": "DATA-GATED (runs against the production database, not a code gap)"
+  }
+ ],
+ "demand_source": "W4-MJS research/final_build/w4/MJS_FINDINGS.json @ origin/claude/w4-INTEG (intel.findings; benchmark mjs_off_the_hook_designs; as of 2026-10-07)"
+}

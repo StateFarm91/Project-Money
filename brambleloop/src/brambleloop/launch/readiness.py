@@ -28,6 +28,10 @@ from typing import Iterable
 BLOCKED_BUILD = "build"
 BLOCKED_INTEGRATION = "integration"
 BLOCKED_OWNER = "owner"
+# F-071 / F-086: blocked on an independent tester or contract crocheter -- the tester roster,
+# which is outreach and never the owner. Physical validation is delegated; the owner is not
+# the tester, so a requirement waiting on a sample is not waiting on the owner.
+BLOCKED_TESTER = "tester"
 
 # A shop with three listings reads as abandoned to a browsing buyer, and section 33's
 # portfolio arithmetic assumes a spread. This is the floor for opening, not a target.
@@ -72,6 +76,9 @@ class Requirement:
 @dataclass
 class Readiness:
     requirements: list[Requirement] = field(default_factory=list)
+    # F-175: what the report does not know, named. Empty is not the goal -- an empty register
+    # without evidence is a register nobody filled in -- so it is reported as it is.
+    unknowns: list[dict] = field(default_factory=list)
 
     @property
     def ready(self) -> bool:
@@ -106,6 +113,7 @@ class Readiness:
                  "blocks": o.blocks}
                 for o in self.owner_requests()
             ],
+            "unknowns": list(self.unknowns),
         }
 
 
@@ -145,9 +153,16 @@ ETSY_PAYOUT = OwnerRequest(
     blocks="publishing, and any revenue at all",
 )
 
-# Etsy's published listing fee, and the CAD figure the estimate is built from.
-LISTING_FEE_USD = 0.20
-LISTING_FEE_CAD = 0.28
+# Etsy's listing fee, and the CAD figure the estimate is built from. Read from
+# `commerce.fee_schedule` (the dated fee reading in `gates.policy_knowledge`); `0.28` used to
+# be typed here, hand-converted from a rate written down somewhere else. Names kept as
+# aliases because other modules import them.
+from ..commerce import fee_schedule as _FS  # noqa: E402
+from ..finance.currency import ASSUMED_USD_PER_CAD as _USD_PER_CAD  # noqa: E402
+
+LISTING_FEE_USD = _FS.LISTING.amount
+LISTING_FEE_CAD = _FS.listing_fee_cad(_USD_PER_CAD)
+LISTING_PERIOD_MONTHS = _FS.LISTING_RENEWAL_MONTHS
 
 
 def listing_fees_request(listings: int) -> OwnerRequest:
@@ -168,9 +183,10 @@ def listing_fees_request(listings: int) -> OwnerRequest:
     return OwnerRequest(
         key="listing_fees",
         action=(f"Confirm you accept Etsy's listing fees for the opening catalogue: "
-                f"US${LISTING_FEE_USD:.2f} per listing for 4 months, so about "
-                f"US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings currently "
-                f"drafted, plus 6.5% transaction fee and payment processing on each sale."),
+                f"US${LISTING_FEE_USD:.2f} per listing for {LISTING_PERIOD_MONTHS} months, so "
+                f"about US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings "
+                f"currently drafted, plus {_FS.TRANSACTION.rate:.1%} transaction fee and "
+                f"payment processing on each sale (fee reading of {_FS.READ_ON})."),
         reason=("This is the first spend that leaves the account, and the directive is "
                 "explicit that no consequential spend happens without approval. It is "
                 "small, but it is not zero and it is not reversible."),
@@ -180,18 +196,57 @@ def listing_fees_request(listings: int) -> OwnerRequest:
         blocks="publishing",
     )
 
+# W4-OWNER: once the shop exists (executor gate `etsy_shop`: identifier set AND a sanctioned
+# read succeeded, 2026-09-19), asking the owner to "open the Etsy shop" asks for something
+# already done. What software still cannot see is whether KYC, payout and tax show complete
+# in Shop Manager, so the payout request becomes that confirmation.
+ETSY_PAYOUT_CONFIRM = OwnerRequest(
+    key="payout",
+    action=("Confirm in Etsy Shop Manager > Settings > Payment settings that identity "
+            "verification, the payout bank account (Canadian chequing) and tax details "
+            "(GST/HST number or the small-supplier declaration) show complete, and complete "
+            "any that do not."),
+    reason=("The shop exists, but nothing this system can read shows whether Etsy's identity "
+            "verification, payout and tax steps are complete. Banking and KYC are entered "
+            "only by the account holder, and revenue that cannot be paid out is not revenue."),
+    max_cost_cad=0.0,
+    minutes=15,
+    consequence_of_delay="Listings cannot go live and no revenue can be paid out.",
+    blocks="publishing, and any revenue at all",
+)
+
+
+def _etsy_shop_open(db) -> bool:
+    """The executor's `etsy_shop` gate, read live. Unreadable is closed, never open."""
+    try:
+        from ..build2 import executor
+
+        return bool(executor.GATE_BY_KEY["etsy_shop"].open(db, None))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+from ..gates import risk_matrix as _rm  # noqa: E402  (pure module: re + dataclasses)
+
 PHYSICAL_SAMPLE = OwnerRequest(
     key="physical_calibration",
-    action=("Crochet one sample -- the 20 cm storage basket is the best candidate, about "
-            "6-8 hours -- weigh the yarn used, and measure the finished piece across and "
-            "tall. Report: grams per colour, finished measurements, hook used, and anything "
-            "the written instructions got wrong."),
+    # F-071 / F-086 (K6): reworded from "Crochet one sample" to the risk-based evidence
+    # requirement. The truth objective is unchanged (a real, measured sample of this exact
+    # content); what the owner is asked for is the spend decision, never the crocheting.
+    action=("Approve commissioning one independent tester (not the owner) to make one "
+            "sample -- the 20 cm storage basket is the best candidate, about 6-8 hours -- "
+            "from the customer PDF, then record it through the physical.record job with "
+            "scope full_make: grams per colour, ball band, hook, finished measurements, and "
+            "anything the written instructions got wrong."),
     reason=("Yardage is an uncalibrated estimate carrying an explicit plus or minus 20%, and "
             "nothing but a real sample replaces that. It also calibrates every future "
-            "estimate at that gauge, and it is the gate Class C products cannot pass at all. "
-            "This cannot be automated: it requires hands, yarn and a hook."),
-    max_cost_cad=25.0,
-    minutes=420,
+            "estimate at that gauge, and gates.risk_matrix requires a full physical make of "
+            "this exact content before any Class C product can sell. This cannot be "
+            "automated: it requires hands, yarn and a hook -- a tester's, not the owner's."),
+    # ESTIMATED ceiling, not a sourced rate: 8 tester hours at the risk matrix's assumed fee
+    # plus the CA$25 of yarn the old owner-made sample budgeted (no tester has been paid yet).
+    max_cost_cad=round(8 * _rm.TESTER_FEE_CAD_PER_HOUR + 25.0, 2),
+    minutes=_rm.OWNER_MINUTES,
     consequence_of_delay=("Yardage stays a tolerance rather than a figure, Class C products "
                           "stay unshippable, and the first buyer becomes the tester."),
     blocks="calibrated yardage claims and any fitted garment",
@@ -273,9 +328,11 @@ BENCHMARK_PURCHASES = OwnerRequest(
 
 TRADEMARK_SCREEN = OwnerRequest(
     key="brand_clearance",
-    action=("Decide whether to run a trademark clearance search on \"Brambleloop Studio\" "
-            "before launch, and whether to file. A knock-out search on the Canadian "
-            "register is free; a filing is CA$458.05 for the first class."),
+    # W4-OWNER: the free knock-out search on the Canadian register is a public read-only
+    # search -- company work, not an owner decision. The owner's decision is the filing.
+    action=("Decide whether to file a Canadian trademark for \"Brambleloop Studio\" "
+            "(CA$458.05 for the first class). The free knock-out search on the Canadian "
+            "register is company work and is not asked of you."),
     reason=("The shop name goes on every listing, PDF and image. Discovering a conflict "
             "after the name is on a hundred customer documents is expensive in a way that "
             "checking first is not. Filing is a spend decision, so it is the owner's."),
@@ -303,8 +360,14 @@ OBJECT_STORAGE = OwnerRequest(
 
 GRADUATION = OwnerRequest(
     key="phase",
-    action=("After the checks above, set BRAMBLELOOP_PHASE to staging (then limited "
-            "production) to graduate out of shadow mode, one step at a time."),
+    action=("After the checks above, record the move to staging (then limited "
+            "production) via POST /api/owner/phase/transition with readiness and rollback "
+            "evidence refs -- the ids of a recent launch.assessed row and a recent "
+            "launch.rollback_rehearsed row (both passing from limited production up) -- "
+            "once GET /api/owner/phase/verdict shows the launch verdict ready (every move up "
+            "re-evaluates it at transition time, F-300), "
+            "and set BRAMBLELOOP_PHASE to the same value, one step at a time "
+            "(F-299: either one alone runs as the more restrictive phase)."),
     reason=("Shadow mode is enforced in code and refuses to publish, message customers or "
             "spend on advertising. Only the owner moves the phase, which is the point: the "
             "system cannot promote itself."),
@@ -327,6 +390,82 @@ def _build(key: str, description: str, ready: bool, evidence: dict) -> Requireme
     """
     return Requirement(key=key, description=description, ready=ready,
                        blocked_by=None if ready else BLOCKED_BUILD, evidence=evidence)
+
+
+# D-FB-7: the parity dimensions this company cannot answer by its own work today, and the
+# capability each waits on. HERO needs a vision model to describe the hero (`image_vision`,
+# held in shadow by the owner's provider decision); COMPETITIVE needs a blind review over
+# observed benchmark galleries, which needs the same vision path and observed benchmark data.
+_EXTERNAL_PARITY = {
+    "hero": ("image_vision",),
+    "competitive_blind_review": ("image_vision", "benchmark_observation"),
+}
+
+
+def _listing_photography(db, photo: dict) -> Requirement:
+    """Truthful customer-ready listing imagery for every certified product-first pattern.
+
+    A product counts when it has a photograph that cleared its floors or, under D-FB-7, a
+    disclosed deterministic render set that verifies against its CIR and passed every
+    listing-image QA gate (`owned_photography.coverage` counts both). Once every product has
+    one, the listing's parity verdict is read: what still blocks it is reported against who
+    can clear it -- company work stays `build`; HERO and COMPETITIVE, which wait on a vision
+    model and observed benchmark data this company does not yet hold, are `integration`
+    while their gates are closed, never folded into company work and never assumed passed.
+    """
+    description = ("every certified product-first pattern has truthful customer-ready listing "
+                   "imagery that cleared its floors (a photograph, or a verified disclosed "
+                   "render set under D-FB-7)")
+    evidence = {
+        "listable": photo["listable"], "certified": photo["certified"],
+        "with_disclosed_render": photo.get("with_disclosed_render", [])[:10],
+        "with_no_asset_at_all": photo["with_no_asset_at_all"][:5],
+        "with_only_unusable_assets": photo["with_only_unusable_assets"][:5],
+        "method_blocked_on": photo.get("method_blocked_on") or [],
+        "why_this_is_separate_from_listing_imagery": (
+            "that requirement counts approved rows in the asset table, which include "
+            "charts and schematics. This one counts customer images that passed the gates, "
+            "which is what a buyer sees")}
+    if not photo["complete"]:
+        return _build("listing_photography", description, False, evidence)
+
+    from ..creative import blind_review
+    from ..publish import listing_asset
+    from ..visual import parity
+    from ..visual.gallery import gates_now
+
+    gates = gates_now(db, keys=("image_vision", "benchmark_observation"))
+    company: dict[str, list[str]] = {}
+    external: dict[str, dict[str, list[str]]] = {}
+    for slug in photo["with_usable_asset"]:
+        review = blind_review.current_review(db, slug=slug)
+        verdict = parity.assess(listing_asset.frames_for(db, slug=slug),
+                                benchmark_quality=review)
+        for dim in verdict["failed"]:
+            company.setdefault(slug, []).append(f"{dim}: failed")
+        for dim in verdict["unjudged"]:
+            closed = [g for g in _EXTERNAL_PARITY.get(dim, ()) if not gates.get(g)]
+            if closed:
+                external.setdefault(slug, {})[dim] = closed
+            else:
+                company.setdefault(slug, []).append(f"{dim}: unjudged")
+    evidence["parity_company_work"] = company
+    evidence["parity_waiting_on_gates"] = external
+    evidence["gates"] = gates
+    if company:
+        return _build("listing_photography", description, False, evidence)
+    if external:
+        evidence["note"] = (
+            "every product's listing set is built and passes the gates this company can run; "
+            "parity still waits on " + ", ".join(sorted({d for v in external.values()
+                                                         for d in v})) +
+            ", each behind a closed gate (" + ", ".join(sorted({g for v in external.values()
+                                                                for gs in v.values()
+                                                                for g in gs})) +
+            "). Unjudged is not a pass, so the listing stays blocked")
+        return Requirement(key="listing_photography", description=description, ready=False,
+                           blocked_by=BLOCKED_INTEGRATION, evidence=evidence)
+    return _build("listing_photography", description, True, evidence)
 
 
 def _count(session, model) -> int:
@@ -373,11 +512,44 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                                  if p.id in certified_ids)
 
     # -- what the company has built for itself ------------------------------
+    #
+    # F-119 / F-120: old certification is not current readiness. Only a certified version in
+    # launch scope (Launch-0), or a legacy one re-certified under the current gauge standard,
+    # counts toward the catalogue; every other legacy certification counts zero and is
+    # reported beside the count rather than inside it. The same rule the publish path refuses
+    # on (`publish.eligibility.legacy_status`), so the readiness report cannot count a
+    # product the publish gate would refuse.
+    #
+    # J-product P-2: the floor counts PRODUCTS, not sizes. A basket sold in three sizes is one
+    # product (three CIR slugs, one Launch-0 candidate); the Master defines no rule that makes
+    # a size a separate product, so sizes collapse onto their product here exactly as
+    # `store_foundation.readiness` counts them.
+    counted, legacy_uncleared = _launch_scope_counts(db, certified)
+    listed_in_scope = [l for l in listings if l.product_slug in counted["slugs"]]
+    listed_products = sorted({product_of_slug(l.product_slug) for l in listed_in_scope})
+    certified_products = sorted(counted["products"])
     out.append(_build(
         "catalogue_depth",
-        f"at least {MIN_LISTINGS_TO_OPEN} certified patterns with listings",
-        len(listings) >= MIN_LISTINGS_TO_OPEN and len(certified) >= MIN_LISTINGS_TO_OPEN,
-        {"certified_patterns": len(certified), "listings": len(listings)}))
+        f"at least {MIN_LISTINGS_TO_OPEN} certified launch-scope products with listings "
+        f"(sizes are not counted as separate products)",
+        len(listed_products) >= MIN_LISTINGS_TO_OPEN
+        and len(certified_products) >= MIN_LISTINGS_TO_OPEN,
+        {"products_counted": len(certified_products),
+         "products": certified_products,
+         "products_with_listings": listed_products,
+         "counting_rule": ("distinct products: every size/variant CIR slug maps to its "
+                           "Launch-0 candidate (products.launch0.candidate_for_cir); the "
+                           "Master defines no rule that counts sizes as separate products"),
+         "certified_patterns": counted["versions"],
+         "certified_in_launch_scope": counted["in_launch_scope"],
+         "certified_legacy_recertified": counted["legacy_recertified"],
+         "listings": len(listings), "listings_in_scope": len(listed_in_scope),
+         "legacy_counted_zero": {"versions": len(legacy_uncleared),
+                                 "slugs": sorted({x["slug"] for x in legacy_uncleared})[:20],
+                                 "why": ("pre-calibration Build-1 certifications count zero "
+                                         "until re-certified under the current gauge "
+                                         "standard (F-119)")},
+         "certified_all_including_legacy": len(certified)}))
 
     by_listing: dict[str, list] = {}
     for a in assets:
@@ -420,27 +592,19 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # the coverage endpoint cannot drift apart again by construction.
     from ..publish import owned_photography
     from ..products.builder import for_slug
+    from ..visual.render_verification import authoritative_cir
 
     photo_slugs, photo_versions = [], {}
     for slug in certified_slugs:
-        cir = for_slug(slug)
+        # Launch-0 variants (the baskets, the coaster set) are defined in the Launch-0
+        # registry rather than the catalogue builder; the disclosed-render path verifies
+        # against that registry, so readiness resolves them from the same place.
+        cir = for_slug(slug) or authoritative_cir(slug)
         if cir is not None and owned_photography.needs_no_model(cir):
             photo_slugs.append(slug)
             photo_versions[slug] = cir.version
     photo = owned_photography.coverage(db, slugs=photo_slugs, versions=photo_versions)
-    out.append(_build(
-        "listing_photography",
-        "every certified product-first pattern has a listing photograph that cleared its "
-        "floors",
-        photo["complete"],
-        {"listable": photo["listable"], "certified": photo["certified"],
-         "with_no_asset_at_all": photo["with_no_asset_at_all"][:5],
-         "with_only_unusable_assets": photo["with_only_unusable_assets"][:5],
-         "method_blocked_on": photo.get("method_blocked_on") or [],
-         "why_this_is_separate_from_listing_imagery": (
-             "that requirement counts approved rows in the asset table, which include "
-             "charts and schematics. This one counts rendered photographs that passed "
-             "the gates, which is what a buyer sees")}))
+    out.append(_listing_photography(db, photo))
 
     unpriced = sorted(l.product_slug for l in listings if l.price_cad <= 0)
     out.append(_build(
@@ -452,10 +616,20 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         content >= len(listings) and bool(listings),
         {"content_pieces": content, "listings": len(listings)}))
 
-    store_problems = check_storefront(build_storefront())
+    store_problems = check_storefront(build_storefront(db=db))
+    # F-233: the banner/icon *briefs* existing is not a storefront; the rendered icon, the
+    # owner's canonical banner through its publication gates and the copy a buyer reads are
+    # measured by store_foundation.storefront_gate (fails closed).
+    from ..commerce.trust import shop_complete_problems
+
+    store_problems = list(dict.fromkeys(
+        store_problems + [p for p in shop_complete_problems(db) if p.startswith("asset: ")]))
     out.append(_build(
-        "storefront", "shop announcement, About and all five policies pass their checks",
-        not store_problems, {"problems": store_problems[:5]}))
+        "storefront", "shop announcement, About, all five policies, the shop SEO surface "
+                      "(F-236), the public identity (F-240) and the rendered icon/banner and "
+                      "buyer-facing copy (F-233 storefront_gate) pass their checks",
+        not store_problems, {"problems": store_problems[:8]}))
+    out.extend(_storefront_items(db))
 
     out.append(_build(
         "no_open_incidents", "no unresolved P0/P1 defect",
@@ -473,17 +647,29 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     from ..integrations.etsy import Credentials
 
     etsy_creds = Credentials.from_env() is not None
+    # F-594: the item reads the controlled round trip's own breadcrumbs instead of being
+    # hard-coded. It turns ready only on a *full* `etsy_exercise` run that finished ok
+    # against openapi.etsy.com (its status says so; a run against the local model of Etsy
+    # never counts) with every draft it created matched by a verified removal, and while
+    # this deployment still holds a credential.
+    exercise = _etsy_exercise_evidence(db)
+    proven = bool(exercise["round_trip_proven"])
+    out.append(etsy_first_sale_surfaces(db))
+
     out.append(Requirement(
         key="etsy_integration",
         description="an Etsy integration exists, is credentialled and has been exercised",
-        ready=False,
-        blocked_by=BLOCKED_INTEGRATION,
+        ready=proven and etsy_creds,
+        blocked_by=None if (proven and etsy_creds) else BLOCKED_INTEGRATION,
         evidence={"client_written": True, "credentials_present": etsy_creds,
-                  "ever_called": False,
-                  "note": "the client exists and is unit-tested against a fake transport, "
-                          "and has never been called against Etsy. Written is not "
-                          "connected: it refuses on phase, on owner authority and on "
-                          "missing credentials, and nothing here satisfies any of them"}))
+                  "ever_called": exercise["ever_called_against_etsy"],
+                  **exercise,
+                  "note": ("a full create -> read back -> delete round trip finished ok "
+                           "against openapi.etsy.com and left no draft behind"
+                           if proven else
+                           "the client exists and is tested against a fake transport; no "
+                           "full round trip against openapi.etsy.com is on record with every "
+                           "draft it created confirmed removed. Written is not connected")}))
 
     out.append(Requirement(
         key="artifact_storage",
@@ -494,19 +680,31 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         owner_request=None if storage_durable else OBJECT_STORAGE))
 
     # -- what only a person can do ------------------------------------------
+    # W4-OWNER: the shop requirement reads the executor gate instead of being hard-coded
+    # unmet, so an existing shop is not asked for again. Identity verification, payout and
+    # tax stay unmet and owner-confirmed under `payout`, because nothing here can read them.
+    shop_open = _etsy_shop_open(db)
     out.append(Requirement(
         key="etsy_shop",
-        description="an Etsy shop exists, with identity verification complete",
-        ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"note": "cannot be automated: platform identity verification"},
-        owner_request=ETSY_ACCOUNT))
+        # Ready means the shop exists; KYC/payout/tax are the payout requirement's, so a
+        # ready row never claims verification nothing here can read.
+        description=("an Etsy shop exists (identity verification, payout and tax are "
+                     "confirmed under the payout requirement)" if shop_open else
+                     "an Etsy shop exists, with identity verification complete"),
+        ready=shop_open, blocked_by=None if shop_open else BLOCKED_OWNER,
+        evidence=({"shop_exists": True, "basis": "executor gate etsy_shop (shop identifier "
+                   "AND a recorded sanctioned read)", "identity_payout_tax": "confirmed "
+                   "under the payout requirement"} if shop_open else
+                  {"note": "cannot be automated: platform identity verification"}),
+        owner_request=None if shop_open else ETSY_ACCOUNT))
 
     out.append(Requirement(
         key="payout",
         description="a payout account and tax details are on the shop",
         ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"note": "banking credentials are entered by the account holder"},
-        owner_request=ETSY_PAYOUT))
+        evidence={"note": "banking credentials are entered by the account holder",
+                  "shop_exists": shop_open},
+        owner_request=ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT))
 
     out.append(Requirement(
         key="listing_fees",
@@ -531,10 +729,29 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     out.append(Requirement(
         key="physical_calibration",
         description="at least one physical sample has calibrated the yardage estimate",
-        ready=bool(physical_done), blocked_by=None if physical_done else BLOCKED_OWNER,
+        # F-071 / F-086: waiting on an independent tester, never on the owner.
+        ready=bool(physical_done), blocked_by=None if physical_done else BLOCKED_TESTER,
         evidence={"completed_tests": len(physical_done),
                   **({} if physical_done else {"owner_parked": PHYSICAL_SAMPLE_PARKED})},
         # Never the owner's ask any more, only ever unmet. See PHYSICAL_SAMPLE_PARKED.
+        owner_request=None))
+
+    # F-073 / F-080 / F-081 / F-086: the risk-based evidence requirement that replaces "the
+    # owner must crochet a sample". Each certified release needs the evidence its effective
+    # risk tier names -- deterministic at the automated threshold for Class A, a partial
+    # physical test for B, a full make for C -- bound to its exact content. The calibration
+    # requirement above stays: the underlying truth objective is not deleted.
+    from ..gates.risk_matrix import catalogue_status
+
+    tiers = catalogue_status(db)
+    out.append(Requirement(
+        key="risk_based_physical_evidence",
+        description=("every certified release holds the physical evidence its risk tier "
+                     "requires, bound to its exact content"),
+        ready=tiers["ready"], blocked_by=None if tiers["ready"] else BLOCKED_TESTER,
+        evidence=tiers,
+        # Waiting on an independent tester (the `tester_roster` gate), never on the owner's
+        # hands; each unmet row carries the spend request the owner would approve.
         owner_request=None))
 
     out.append(Requirement(
@@ -550,31 +767,68 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # benchmark torn down, the challenge is unrunnable and therefore unpassed.
     from ..teardown.pipeline import challenge as benchmark_challenge
 
-    from ..core.models import BenchmarkProduct, Product
+    from ..core.models import Product
     from ..teardown.pipeline import ChallengeRefused
 
-    with db.session() as s:
-        representative = ""
-        for product in s.scalars(select(Product).order_by(Product.slug)):
-            if any(v.certified for v in product.versions):
-                representative = product.slug
-                break
-        # #168 asks for a *category-matched* comparison, and this catalogue does not yet
-        # carry a category per product. Matching on the slug family is the nearest honest
-        # thing: `hearthside-throw` matches a benchmark filed under `hearthside` only if
-        # somebody filed one there. Comparing against every benchmark regardless of category
-        # would be the silent degradation of the requirement rather than the meeting of it.
-        family = representative.split("-")[0] if representative else ""
-        category = family if s.scalar(select(BenchmarkProduct).where(
-            BenchmarkProduct.category == family)) is not None else ""
+    # Certification C-40 (#168). Two things made this unrunnable that were never the owner's
+    # to fix: products carried no category, so the challenge matched on a slug family that
+    # no benchmark is ever filed under; and our own scores were passed as {}, so even a torn
+    # down benchmark had nothing to be compared against. The category now comes from the
+    # concept seed the product was engineered from, one representative per category is
+    # challenged (the requirement says products, plural), and our scores are read from the
+    # audits recorded against `brambleloop:<slug>` -- unscored stays unscored, never neutral.
+    from ..runtime.pipeline import product_seed as _seed_for
+    from ..teardown.scorecard import SELF_PREFIX
 
-    try:
-        challenge_result = benchmark_challenge(
-            db, product_slug=representative, category=category, our_scores={})
-    except ChallengeRefused as e:
-        challenge_result = {"verdict": "unavailable", "comparable": False,
-                            "blocks_release": True, "product": representative,
-                            "category": category, "reason": str(e), "rows": []}
+    from ..core.models import TeardownFinding
+
+    representatives: dict[str, str] = {}
+    uncategorised: list[str] = []
+    with db.session() as s:
+        for product in s.scalars(select(Product).order_by(Product.slug)):
+            if not any(v.certified for v in product.versions):
+                continue
+            seed = _seed_for(product.slug)
+            category = (seed.category if seed is not None else "") or ""
+            if not category:
+                uncategorised.append(product.slug)
+                continue
+            representatives.setdefault(category, product.slug)
+        ours_by_slug: dict[str, dict] = {}
+        for slug in representatives.values():
+            scores: dict[str, float] = {}
+            for f in s.scalars(select(TeardownFinding).where(
+                    TeardownFinding.benchmark_ref == f"{SELF_PREFIX}{slug}")
+                    .order_by(TeardownFinding.id)):
+                scores[f.dimension] = float(f.score)   # latest recorded audit wins
+            ours_by_slug[slug] = scores
+
+    challenges = []
+    for category, slug in sorted(representatives.items()):
+        try:
+            result = benchmark_challenge(db, product_slug=slug, category=category,
+                                         our_scores=ours_by_slug.get(slug, {}))
+        except ChallengeRefused as e:
+            result = {"verdict": "unavailable", "comparable": False, "blocks_release": True,
+                      "product": slug, "category": category, "reason": str(e), "rows": []}
+        challenges.append(result)
+    if not challenges:
+        challenges.append({"verdict": "unavailable", "comparable": False,
+                           "blocks_release": True, "product": "", "category": "",
+                           "reason": "no certified product carries a category to be matched",
+                           "rows": []})
+    blocking = [c for c in challenges if c["blocks_release"]]
+    challenge_result = {
+        "verdict": "passed" if not blocking else blocking[0]["verdict"],
+        "comparable": all(c["comparable"] for c in challenges),
+        "blocks_release": bool(blocking),
+        "product": ", ".join(c["product"] for c in challenges),
+        "category": ", ".join(c["category"] for c in challenges),
+        "reason": blocking[0].get("reason", "") if blocking else "",
+        "rows": [r for c in challenges for r in c.get("rows", [])],
+        "per_category": challenges,
+        "uncategorised": uncategorised,
+    }
     # The owner's MJs protocol, enforced rather than remembered: *do not ask me to purchase
     # the benchmark set until the complete intake and analysis path is verified ready*. So
     # the purchase request is withheld while our own laboratory cannot read a page. An
@@ -612,39 +866,99 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # read, and a brand moat that does not rest on the most copyable asset in it.
     from ..brand import moat as brand_moat
 
-    moat_state = brand_moat.inventory()
+    moat_state = brand_moat.inventory(db)
+    recognisable = moat_state.get("recognisable_without_model") or {}
+    moat_ready = (bool(moat_state["structural_advantages"])
+                  and bool(recognisable.get("listings"))
+                  and not recognisable.get("not_recognisable"))
     out.append(Requirement(
         key="brand_moat",
-        description=("the brand rests on something a competitor cannot reproduce in weeks"),
-        ready=bool(moat_state["structural_advantages"]),
-        blocked_by=None if moat_state["structural_advantages"] else BLOCKED_BUILD,
+        description=("the brand rests on something a competitor cannot reproduce in weeks, "
+                     "and every product-first listing is recognisable without the model"),
+        ready=moat_ready,
+        blocked_by=None if moat_ready else BLOCKED_BUILD,
         evidence={"structural": moat_state["structural_advantages"],
                   "built": moat_state["built"], "planned": moat_state["planned"],
+                  "not_recognisable_without_model": recognisable.get("not_recognisable"),
+                  # C-80 defect 15: say which basis the recognisability rests on
+                  "recognisability_measured": recognisable.get("measured"),
+                  "recognisability_by_proxy_only": recognisable.get("by_proxy_only"),
+                  "recognisability_proxy": recognisable.get("proxy"),
+                  "recognisability_measurement_gated_on": recognisable.get(
+                      "measurement_gated_on"),
                   "why": ("the canonical model is the most visible asset and the most "
                           "copyable; a brand that is only the model is a brand with a "
                           "week's lead (#44)")}))
 
-    out.append(Requirement(
-        key="rollback_plan",
-        description="a way to withdraw everything published, without losing the evidence",
-        ready=True,
-        blocked_by=None,
-        evidence={"mechanism": ("every listing is withdrawable from its own state machine "
-                               "and the release certificate is retained, so a withdrawal is "
-                               "reversible and auditable rather than a deletion"),
-                  "proved_by": "the shadow-mode publish refusal, exercised on every run"}))
+    # C-69 (#54): the items the gate listed and never checked, each read from what the chain
+    # actually produced for every listing -- never a constant.
+    out.extend(_launch_package_items(db, listings))
 
-    analytics_ready = bool(listings)
-    out.append(Requirement(
-        key="analytics_baseline",
-        description=("a pre-launch baseline exists, so a change after launch can be read as "
-                     "a change"),
-        ready=analytics_ready,
-        blocked_by=None if analytics_ready else BLOCKED_BUILD,
-        evidence={"listings_with_a_baseline": len(listings),
-                  "why": ("a baseline taken after the change is the change measured against "
-                          "itself, which is the failure the improvement department is built "
-                          "around and it applies to launches too")}))
+    # F-329 (Sustainability Launch Gate): before launch, steady-state economics must be shown
+    # sustainable at opening prices. Reads finance.sustainability (the F-325 forecast, with
+    # its insufficient-data refusal, and F-324 break-even per product); a forecast that
+    # cannot be computed, or recurring AI/API cost that threatens contribution, blocks.
+    from ..finance import sustainability
+
+    econ = sustainability.verdict(db)
+    fc = econ["forecast"]
+    out.append(_build(
+        "sustainable_economics",
+        "estimated steady-state AI/API cost is sustainable against contribution at opening "
+        "prices, with no constant owner top-ups",
+        # RC1 audit C1: ready only on the documented criterion in
+        # `finance.sustainability` (coverage complete, unit margin positive at recorded
+        # prices with modelled fees; assumed volumes may only block), and the evidence says
+        # the verdict is MODELLED and which figures are ASSUMED.
+        bool(econ["sustainable"]) and econ.get("basis") == "MODELLED",
+        {"status": econ["status"], "why": econ["why"],
+         "basis": econ.get("basis"),
+         "criterion": econ.get("criterion"),
+         "checks": econ.get("checks"),
+         "coverage_gaps": (econ.get("coverage") or {}).get("gaps"),
+         "unit_economics": econ.get("unit_economics"),
+         "sales_per_month_needed_to_cover_recurring": econ.get(
+             "sales_per_month_needed_to_cover_recurring"),
+         "measured_orders": econ.get("measured_orders"),
+         "problems": econ.get("problems") or [],
+         "missing": fc.get("missing") or [],
+         "low_case_needs_owner_top_up": econ.get("low_case_needs_owner_top_up"),
+         "scenarios": {k: {"basis": "MODELLED", "volume_basis": "ASSUMED",
+                           "assumed_sales_per_month": v["assumptions"]["sales_per_month"],
+                           "ai_cost_monthly_cad": v["ai_cost_monthly_cad"],
+                           "contribution_monthly_cad": v["contribution_monthly_cad"],
+                           "net_monthly_cad": v["net_monthly_cad"]}
+                       for k, v in (fc.get("scenarios") or {}).items()},
+         "measured": fc.get("measured"),
+         "break_even": {slug: {"break_even_sales": r.get("break_even_sales"),
+                               "break_even_sales_is_floor": r.get("break_even_sales_is_floor"),
+                               "reading": r.get("reading"),
+                               "contribution_basis": r.get("contribution_basis"),
+                               "creation_cost_cad": r.get("creation_cost_cad"),
+                               "contribution_per_sale_cad": r.get("contribution_per_sale_cad")}
+                        for slug, r in list(sustainability.break_even(db)["products"]
+                                            .items())[:20]}}))
+
+    # F-400 / F-879 / F-136: launch is driven by the Final Master launch-critical set, computed
+    # (not summarised) by build2.final_master from the adjudicated closure snapshot that ships
+    # in the image. Post-launch rows never block; only OPEN launch-critical rows and integrity
+    # violations do. GATED rows wait on owner/data/external gates presented elsewhere.
+    from ..build2 import final_master
+
+    fm = final_master.summary(db)
+    out.append(_build(
+        "final_master_closure",
+        "every launch-critical Final Master requirement is complete or explicitly gated, and "
+        "the closure snapshot passes its integrity checks",
+        bool(fm.get("launch_ready")),
+        {"status": fm["status"], "launch_critical": fm.get("launch_critical"),
+         "launch_critical_open": fm.get("launch_critical_open"),
+         "gated_by_kind": fm.get("gated_by_kind"),
+         "post_launch_excluded": fm.get("post_launch_excluded"),
+         "integrity_violations": (fm.get("integrity_violations") or [])[:10],
+         "open_sample": [r["uid"] for r in (fm.get("items") or [])[:25]],
+         "mapping_basis": fm.get("mapping_basis"), "rule": fm.get("rule"),
+         "reason": fm.get("reason")}))
 
     out.append(Requirement(
         key="phase",
@@ -654,7 +968,301 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         evidence={"phase": phase, "providers": sorted(providers)},
         owner_request=None if phase.lower() not in ("shadow", "staging") else GRADUATION))
 
-    return Readiness(requirements=out)
+    return Readiness(requirements=out, unknowns=unknowns(db, out))
+
+
+def _storefront_items(db) -> list[Requirement]:
+    """F-238 opening grid, F-239/F-293 storefront preview, F-240 seller identity."""
+    from ..brand import seller_identity, storefront_preview
+    from ..brand.storefront import opening_grid
+
+    grid = opening_grid(db)
+    items = [_build(
+        "opening_grid",
+        "the shop's first screen holds launch-cleared products only, season first, strongest "
+        "first, more than one price rung, and reads as one shop (F-238)",
+        bool(grid["ok"]),
+        {"problems": grid["problems"][:6], "visible": [t["slug"] for t in grid["visible"]],
+         "excluded": len(grid["excluded"]), "coherence": grid["coherence"],
+         "active_events": grid["active_events"]})]
+
+    view = storefront_preview.preview(db, grid=grid)
+    items.append(_build(
+        "storefront_preview",
+        "the pre-launch storefront preview renders at phone and desktop widths and passes its "
+        "legibility checks: icon at 40/70px, banner crops, announcement opening, sections, "
+        "first tiles from certified frames (F-239/F-293)",
+        bool(view["ok"]),
+        {"problems": view["problems"][:8], "icon_basis": view["icon"]["basis"],
+         "banner_basis": view["banner"]["basis"],
+         "tiles": [{"slug": t["slug"], "status": t["status"]} for t in view["tiles"]],
+         # Not part of this requirement's verdict and never passed by it: the live shop as
+         # Etsy serves it needs a browser worker and a live shop.
+         "live_inspection": view["live_inspection"]}))
+
+    ident = seller_identity.state()
+    if ident["problems"]:
+        blocked = BLOCKED_BUILD
+    elif ident["undetermined"]:
+        blocked = BLOCKED_OWNER
+    else:
+        blocked = None
+    items.append(Requirement(
+        key="seller_identity",
+        description=("the public shop identity differs from the legal/tax identity only where "
+                     "a cited Etsy rule permits, and the legal side is confirmed by the account "
+                     "holder (F-240)"),
+        ready=blocked is None, blocked_by=blocked,
+        evidence={"problems": ident["problems"][:5], "undetermined": ident["undetermined"],
+                  "pending_rule_readings": [r["field"] for r in ident["pending_rule_readings"]],
+                  "note": ("legal, payout and tax identity are entered at Etsy KYC; the owner "
+                           "request is the etsy_shop requirement's, not repeated here")},
+        owner_request=None))
+    return items
+
+
+def product_of_slug(slug: str) -> str:
+    """The product a CIR slug belongs to: its Launch-0 candidate, else the slug itself."""
+    from ..products import launch0
+
+    cand = launch0.candidate_for_cir(slug or "")
+    return cand.slug if cand is not None else (slug or "")
+
+
+def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
+    """Certified versions split into what counts toward launch and legacy that counts zero."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..publish.eligibility import legacy_status
+
+    with db.session() as s:
+        slug_of = {p.id: p.slug for p in s.scalars(select(Product))}
+    counted = {"versions": 0, "in_launch_scope": 0, "legacy_recertified": 0,
+               "slugs": set(), "products": set()}
+    legacy: list[dict] = []
+    for pv in certified:
+        slug = slug_of.get(pv.product_id, "")
+        status = legacy_status(slug, pv.certificate)
+        if not status["cleared"]:
+            legacy.append({"slug": slug, "version": pv.version, "why": status["why"]})
+            continue
+        counted["versions"] += 1
+        counted["slugs"].add(slug)
+        counted["products"].add(product_of_slug(slug))
+        counted["in_launch_scope" if status["in_launch_scope"] else "legacy_recertified"] += 1
+    return counted, legacy
+
+
+# ---- the unknowns register (F-175) --------------------------------------------------------
+
+def unknowns(db, requirements: list[Requirement] | None = None) -> list[dict]:
+    """Every assumption and unknown the launch report rests on, collected in one place.
+
+    Each entry names where it was read from, what is not known, and what it touches. They
+    were recorded module by module -- the Etsy surface registry's unknowns, Launch-0's
+    ESTIMATED and UNKNOWN labels, the twin's uncalibrated figures, the primitives no sample has
+    measured -- and never gathered into the report the owner reads before launching. Zero is
+    not a goal: an empty register with no evidence behind it would be the worst entry of all.
+    """
+    from sqlalchemy import func, select
+
+    from ..cir.stitches import UNCALIBRATED, calibration_table
+    from ..core.models import PhysicalTest
+
+    out: list[dict] = []
+
+    def add(key: str, source: str, unknown: str, touches: str) -> None:
+        out.append({"key": key, "source": source, "unknown": unknown, "touches": touches})
+
+    with db.session() as s:
+        passed = s.scalar(select(func.count()).select_from(PhysicalTest).where(
+            PhysicalTest.passed == True)) or 0  # noqa: E712
+    if not passed:
+        add("physical_calibration", "core.models.PhysicalTest",
+            "no physical sample has been worked: every finished size, yardage and make-time "
+            "figure is arithmetic from a stated gauge (twin.calibrated is False)",
+            "size and yardage claims, Class C release, first-customer gauge_and_size_claims")
+
+    uncalibrated = sorted(c for c, st in calibration_table().items() if st == UNCALIBRATED)
+    if uncalibrated:
+        add("uncalibrated_primitives", "cir.stitches.calibration_table",
+            f"{len(uncalibrated)} stitch primitives have no measured height or yarn draw: "
+            f"{', '.join(uncalibrated)}", "any pattern using them (F-074)")
+
+    try:
+        from ..intel import etsy_surfaces
+
+        for surface, items in sorted(etsy_surfaces.coverage()["unknowns"].items()):
+            for item in items:
+                add(f"etsy_surface:{surface}", "intel.etsy_surfaces.coverage", item,
+                    f"the Etsy surface {surface!r}")
+    except Exception as e:  # noqa: BLE001 - an unreadable source is itself an unknown
+        add("etsy_surfaces", "intel.etsy_surfaces.coverage",
+            f"the surface registry could not be read: {type(e).__name__}", "Etsy surfaces")
+
+    try:
+        from ..products import launch0 as l0
+
+        for slug in l0.LAUNCH0_SLUGS:
+            cand = l0.candidate(slug)
+            if cand.price.basis in (l0.ESTIMATED, l0.UNKNOWN):
+                add(f"launch0_price:{slug}", "products.launch0.CANDIDATES",
+                    f"the price band is {cand.price.basis}, not sourced", f"{slug} pricing")
+            add(f"launch0_make_time:{slug}", "products.launch0.make_time",
+                "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until "
+                "a sample is worked", f"{slug} make-time and lead-time claims")
+    except Exception as e:  # noqa: BLE001
+        add("launch0", "products.launch0", f"could not be read: {type(e).__name__}",
+            "Launch-0")
+
+    for r in requirements or []:
+        ev = r.evidence or {}
+        if ev.get("recognisability_by_proxy_only"):
+            add(f"proxy:{r.key}", f"launch.readiness:{r.key}",
+                f"measured by proxy only ({ev.get('recognisability_proxy')})", r.description)
+        if r.key == "seller_identity":
+            for f in ev.get("undetermined") or []:
+                add(f"seller_identity:{f}", "brand.seller_identity",
+                    f"the {f} on the legal/payout/tax side is UNKNOWN until the account "
+                    f"holder confirms it at Etsy KYC", r.description)
+        if r.key == "storefront_preview":
+            add("storefront_preview:viewport", "brand.storefront_preview",
+                "the phone banner crop, announcement length and section-label width are "
+                "ASSUMED figures for Etsy's layout; the live shop is inspected only once a "
+                "browser worker exists (rendered_pages)", r.description)
+        if r.key == "model_credits" and not ev.get("probed"):
+            add("model_provider", "gateway.anthropic.last_probe",
+                "the model provider has never been probed", r.description)
+    return out
+
+
+# How recent the rollback rehearsal must be for the rollback plan to count as proved
+# (C-80 defect 10: a rehearsed withdrawal round trip per listing, not a database restore).
+ROLLBACK_PROOF_MAX_AGE_DAYS = 3
+# The audit the listing stage writes per release with its search coverage at drafting: the
+# pre-launch search baseline (#54). Traffic has no pre-launch reading -- it is UNMEASURED until
+# the first Etsy Stats export is ingested (attribution.stats), and is recorded as such.
+SEARCH_BASELINE_ACTION = "listing.query_portfolio"
+TRAFFIC_BASELINE_KIND = "attribution.stats"
+# #54's package: what must be ready before the owner is asked to open live Etsy operations.
+LAUNCH_PACKAGE_KEYS: frozenset[str] = frozenset({
+    "catalogue_depth", "digital_disclosure", "support_knowledge", "faq",
+    "pricing_promotion_plan", "launch_calendar", "analytics_baseline", "rollback_plan",
+})
+# The owner requests that open or connect live Etsy operations, withheld while the package is
+# not ready (the requirement's own ordering: package first, then the ask).
+OPENS_LIVE_ETSY_KEYS: frozenset[str] = frozenset({"etsy_shop", "payout", "listing_fees",
+                                                  "phase"})
+
+
+def _launch_package_items(db, listings) -> list[Requirement]:
+    """#54's digital disclosure, support knowledge, FAQ, pricing/promotion plan, launch
+    calendar, analytics baseline and rollback plan, each measured per listing."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..commerce.buyer_trust import listing_disclosure_finding
+    from ..core.models import (ArtefactProvenance, AuditLog, OperatingReading,
+                               PatternVersion, Product)
+    from ..ops import artefacts as provenance
+
+    releases = sorted({(l.product_slug, l.version) for l in listings})
+    have = bool(releases)
+    now = datetime.now(timezone.utc)
+
+    def aware(v):
+        return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+    with db.session() as s:
+        prov = {(r.artefact_class, r.artefact_key): r.validation_status for r in s.scalars(
+            select(ArtefactProvenance).where(ArtefactProvenance.artefact_class.in_(
+                ("support_knowledge", "release_bundle", "certificate"))))}
+        current = provenance.current_from_db(s)
+        fresh = {(v.artefact_class, v.artefact_key) for v in provenance.check(s, current=current)
+                 if v.state == provenance.FRESH}
+        audits: dict[str, set[str]] = {}
+        for action in ("pricing.positioned", "launch.planned", "launch.held",
+                       SEARCH_BASELINE_ACTION):
+            audits[action] = {str(r.artifact or "") for r in s.scalars(
+                select(AuditLog).where(AuditLog.action == action))}
+        traffic = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == TRAFFIC_BASELINE_KIND)
+            .order_by(desc(OperatingReading.id)).limit(1))
+        traffic_at = aware(traffic.at) if traffic is not None else None
+        certs = {p.slug: bool(pv.certificate) for pv, p in s.execute(
+            select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id))}
+    from . import rollback as rollback_mod
+
+    rehearsals = {f"{slug}@{v}": rollback_mod.latest(db, slug=slug, version=v, now=now,
+                                                     max_age_days=ROLLBACK_PROOF_MAX_AGE_DAYS)
+                  for slug, v in releases}
+
+    undisclosed = [f"{slug}@{v}" for slug, v in releases
+                   if listing_disclosure_finding(db, slug=slug, version=v).get("finding")
+                   or not listing_disclosure_finding(db, slug=slug, version=v).get("checked")]
+    no_support = [f"{slug}@{v}" for slug, v in releases
+                  if prov.get(("support_knowledge", f"{slug}@{v}#support")) != "passed"
+                  or ("support_knowledge", f"{slug}@{v}#support") not in fresh]
+    unpriced_plan = [l.product_slug for l in listings
+                     if l.price_cad <= 0 or l.product_slug not in audits["pricing.positioned"]]
+    uncalendared = [l.product_slug for l in listings
+                    if l.product_slug not in audits["launch.planned"]]
+    # C-80 defect 10 (Codex P12): the search baseline is the per-release coverage reading the
+    # listing stage recorded at drafting, not `seo_score > 0`; the traffic baseline is the
+    # first Stats export, UNMEASURED until one exists, and said so rather than proxied.
+    no_baseline = [f"{slug}@{v}" for slug, v in releases
+                   if f"{slug}@{v}" not in audits[SEARCH_BASELINE_ACTION]]
+    traffic_status = ("MEASURED" if traffic_at is not None else
+                      "UNMEASURED: no Etsy Stats export has been ingested; before the shop "
+                      "exists there is no traffic to baseline, and the first export is the "
+                      "baseline this gate will read")
+    uncertified = [l.product_slug for l in listings if not certs.get(l.product_slug)]
+    unrehearsed = [k for k, r in rehearsals.items() if r is None]
+    rehearsal_failed = [k for k, r in rehearsals.items() if r is not None and not r.get("ok")]
+
+    def req(key, description, bad, evidence):
+        ready = have and not bad
+        return Requirement(key=key, description=description, ready=ready,
+                           blocked_by=None if ready else BLOCKED_BUILD,
+                           evidence={**evidence, "listings": len(releases)})
+
+    return [
+        req("digital_disclosure", "every listing says, where a buyer reads first, that it is a "
+            "digital pattern and not a finished item", undisclosed,
+            {"missing_or_misplaced": undisclosed[:8]}),
+        req("support_knowledge", "every listed release has a current, version-keyed support "
+            "knowledge pack", no_support, {"without": no_support[:8]}),
+        req("faq", "every listed release's FAQ was produced and checked against its PDF and "
+            "listing (#40)", no_support, {"not_checked": no_support[:8]}),
+        req("pricing_promotion_plan", "every listing was priced by the pricing stage, which "
+            "refuses a fake discount; promotions are proposed only through the promotion "
+            "rules", unpriced_plan, {"unplanned": unpriced_plan[:8]}),
+        req("launch_calendar", "every listing has a launch date planned against its buying "
+            "window", uncalendared, {"uncalendared": uncalendared[:8]}),
+        req("analytics_baseline", "a pre-launch baseline exists: each listing's search "
+            "coverage recorded at drafting (the traffic baseline is the first Stats export, "
+            "recorded UNMEASURED until it exists)",
+            no_baseline,
+            {"releases_without_search_baseline": no_baseline[:8],
+             "search_baseline_read_from": SEARCH_BASELINE_ACTION,
+             "traffic_baseline": traffic_status,
+             "traffic_baseline_at": traffic_at.isoformat() if traffic_at else None}),
+        req("rollback_plan", "a way to withdraw everything published without losing the "
+            "evidence: every listing's certificate retained and its withdrawal round trip "
+            f"rehearsed (dry) within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
+            uncertified + [f"unrehearsed:{k}" for k in unrehearsed]
+            + [f"rehearsal_failed:{k}" for k in rehearsal_failed],
+            {"without_retained_certificate": uncertified[:8],
+             "unrehearsed": unrehearsed[:8], "rehearsal_failed": rehearsal_failed[:8],
+             "rehearsals": {k: ({"ok": r.get("ok"), "at": r.get("at"),
+                                 "failed_steps": [st["step"] for st in r.get("steps", [])
+                                                  if not st["ok"]]}
+                                if r is not None else None)
+                            for k, r in sorted(rehearsals.items())[:8]},
+             "read_from": rollback_mod.ACTION}),
+    ]
 
 
 def render(readiness: Readiness) -> str:
@@ -675,6 +1283,13 @@ def render(readiness: Readiness) -> str:
     else:
         lines.append("Nothing. Every remaining requirement needs a person or an account.")
 
+    lines += ["", "## Unknowns and assumptions (F-175)", ""]
+    if readiness.unknowns:
+        lines += [f"- **{u['key']}** ({u['source']}): {u['unknown']} -- touches {u['touches']}"
+                  for u in readiness.unknowns]
+    else:
+        lines.append("None recorded -- which is itself unverified, not a clean bill.")
+
     requests = readiness.owner_requests()
     lines += ["", "## OWNER ACTION REQUIRED", ""]
     if not requests:
@@ -689,3 +1304,263 @@ def render(readiness: Readiness) -> str:
             f"- *Blocks:* {o.blocks}", "",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _etsy_exercise_evidence(db) -> dict:
+    """What the `etsy_exercise` audit breadcrumbs prove about the Etsy round trip (F-594).
+
+    Read from the append-only ledger `integrations.etsy_exercise` writes: the finished-run
+    rows (mode, ok, status) and the draft created / removed pairs. `_status` in that module
+    starts a successful live run's status with "EXERCISED against openapi.etsy.com" and a
+    run against the local model with "RAN AGAINST A LOCAL MODEL"; only the first counts.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    live_prefix = "EXERCISED against openapi.etsy.com"
+    local_prefix = "RAN AGAINST A LOCAL MODEL"
+    created: set[str] = set()
+    removed: set[str] = set()
+    runs: list[dict] = []
+    if db is None:
+        return {"round_trip_proven": False, "ever_called_against_etsy": False,
+                "exercise_runs": 0, "drafts_created": 0, "drafts_unmatched": []}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action.in_((
+                "etsy.exercise_finished", "etsy.exercise_draft_created",
+                "etsy.exercise_draft_removed"))).order_by(AuditLog.id)):
+            detail = row.detail or {}
+            if row.action == "etsy.exercise_finished":
+                runs.append({"mode": detail.get("mode"), "ok": bool(detail.get("ok")),
+                             "status": str(detail.get("status") or ""),
+                             "at": row.at.isoformat() if row.at else None})
+            elif detail.get("listing_id"):
+                (created if row.action == "etsy.exercise_draft_created"
+                 else removed).add(str(detail["listing_id"]))
+    live_full = [r for r in runs if r["mode"] == "full" and r["ok"]
+                 and r["status"].startswith(live_prefix)]
+    unmatched = sorted(created - removed)
+    return {
+        "round_trip_proven": bool(live_full) and bool(created) and not unmatched,
+        "ever_called_against_etsy": any(r["status"] and not r["status"].startswith(
+            local_prefix) for r in runs),
+        "exercise_runs": len(runs),
+        "last_full_live_ok_at": live_full[-1]["at"] if live_full else None,
+        "drafts_created": len(created),
+        "drafts_unmatched": unmatched[:10],
+    }
+
+
+# ---- A3-07: one launch assessment, shared by the launch.readiness handler and the packet ----
+
+@dataclass
+class LaunchAssessment:
+    """The launch verdict exactly as the gate computes it.
+
+    `ready` is `readiness.ready` AND the off-device autonomy proof (#195) being PROVEN. The
+    owner's launch packet and the `launch.readiness` job both read this, so the document the
+    owner signs off on is the same computation as the gate -- same providers, same storage
+    durability, same autonomy proof.
+    """
+
+    readiness: Readiness
+    off_device: dict
+    ready: bool
+    providers: list[str]
+    storage_durable: bool
+
+    @property
+    def questions(self) -> dict:
+        """F-300: the same verdict, answered as six separate questions."""
+        return questions(self.readiness, self.off_device)
+
+
+def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
+    """Read-only: the inputs the handler uses, resolved the way the handler resolves them."""
+    from ..build2 import autonomy
+    from ..core.artifacts import ArtifactStore
+    from ..gateway.model_gateway import available_providers
+
+    try:
+        providers = list(available_providers())
+    except Exception:  # noqa: BLE001 - a gateway problem must not stop the assessment
+        providers = []
+    storage_durable = bool(ArtifactStore(artifact_dir).durable)
+    readiness = assess(db, phase=phase, providers=providers, storage_durable=storage_durable)
+    off_device = autonomy.launch_item(db)
+    ready = bool(readiness.ready) and off_device.get("status") == autonomy.PROVEN
+    return LaunchAssessment(readiness=readiness, off_device=off_device, ready=ready,
+                            providers=providers, storage_durable=storage_durable)
+
+
+# ---- F-300: the launch verdict, answered as six separate questions ---------------------------
+#
+# `readiness.ready` is a single hard gate: any unmet requirement keeps it false. F-300 asks for
+# the final challenge to answer six questions *separately*, so a "no" says which question it
+# is a "no" to. Every requirement belongs to exactly one question or to `other_hard_gates`
+# (the accounts, keys, storage and process items that are not one of the six); a requirement
+# this table does not name falls into `other_hard_gates` rather than vanishing, so adding a
+# requirement can never silently pass a question. The verdict is unchanged by the grouping:
+# ready only when every question AND every other hard gate passes.
+
+QUESTIONS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    ("findable", "Can buyers find it?",
+     frozenset({"catalogue_depth", "analytics_baseline", "launch_calendar"})),
+    ("clickable", "Will they click?",
+     frozenset({"listing_imagery", "listing_photography", "opening_grid",
+                "storefront_preview"})),
+    ("converts_honestly", "Does it convert honestly?",
+     frozenset({"pricing", "pricing_promotion_plan", "digital_disclosure", "content", "faq",
+                "sustainable_economics"})),
+    ("pattern_makes_what_is_shown", "Does the pattern make what is shown?",
+     frozenset({"imagery_truthful", "physical_calibration", "benchmark_challenge"})),
+    ("shop_trustworthy", "Is the shop trustworthy?",
+     frozenset({"storefront", "seller_identity", "brand_clearance", "brand_moat",
+                "no_open_incidents", "support_knowledge", "etsy_shop", "payout"})),
+    ("ads_measurable_bounded", "Are ads measurable and bounded?",
+     frozenset({"spend_guards", "rollback_plan"})),
+)
+OTHER_HARD_GATES = "other_hard_gates"
+OFF_DEVICE_KEY = "off_device_autonomy_proof"
+
+
+def questions(readiness: Readiness, off_device: dict | None = None, *,
+              exclude: Iterable[str] = ()) -> dict:
+    """F-300: the six launch questions answered separately, plus the other hard gates.
+
+    `exclude` names requirements deliberately left out (with the caller recording why) --
+    only the phase transition uses it, for the one requirement the transition itself
+    satisfies. "Ads measurable" also needs the measurement path: until an Etsy Stats export
+    has been ingested the analytics baseline says so, and it is counted under that question
+    as well as under findability, because ads that cannot be measured are not bounded in any
+    sense the owner can check.
+    """
+    skip = set(exclude)
+    reqs = [r for r in readiness.requirements if r.key not in skip]
+    mapped = set().union(*(keys for _k, _q, keys in QUESTIONS))
+    out: dict[str, dict] = {}
+    for key, question, keys in QUESTIONS:
+        mine = [r for r in reqs if r.key in keys]
+        if key == "ads_measurable_bounded":
+            mine += [r for r in reqs if r.key == "analytics_baseline"]
+        failing = [r.key for r in mine if not r.ready]
+        out[key] = {"question": question, "pass": bool(mine) and not failing,
+                    "checked": [r.key for r in mine], "failing": failing,
+                    "blocked_by": sorted({r.blocked_by for r in mine
+                                          if not r.ready and r.blocked_by})}
+        if not mine:
+            out[key]["why"] = "no requirement answering this question was assessed"
+    other = [r for r in reqs if r.key not in mapped]
+    failing_other = [r.key for r in other if not r.ready]
+    if off_device is not None:
+        if off_device.get("status") != "PROVEN":
+            failing_other.append(OFF_DEVICE_KEY)
+    out[OTHER_HARD_GATES] = {"question": "Every other hard gate (accounts, storage, process)",
+                             "pass": not failing_other,
+                             "checked": [r.key for r in other]
+                             + ([OFF_DEVICE_KEY] if off_device is not None else []),
+                             "failing": failing_other}
+    return {"ready": all(v["pass"] for v in out.values()),
+            "answers": out,
+            "excluded": sorted(skip),
+            "rule": "any failed hard gate blocks launch (F-300)"}
+
+
+# The requirement a phase transition itself satisfies. "the phase allows publishing" is false
+# in shadow and staging by definition; evaluating it before the owner records the move would
+# make every move refuse itself. It is the only exclusion, and it is recorded on the verdict.
+SELF_SATISFIED_BY_TRANSITION = "phase"
+
+
+def transition_verdict(db, *, to: str, artifact_dir=None, demand_plan=None) -> dict:
+    """F-300 / F-275: the launch verdict, evaluated now, for a phase move up to `to`.
+
+    The full `launch_assessment` (every readiness requirement plus the off-device autonomy
+    proof, #195) assessed at the target phase, answered as the six questions, with the one
+    self-referential requirement (`phase`) excluded and named. F-275 adds the demand-capture
+    plan: before a phase change every opening product must be linked to its search intents,
+    seasonal runway, storefront placement, organic readiness, ads plan and measurement
+    checkpoints. `ready` is True only when every question, every other hard gate and the
+    demand-capture plan pass. Read-only.
+    """
+    from datetime import datetime, timezone
+
+    from . import demand
+
+    a = launch_assessment(db, phase=to, artifact_dir=artifact_dir)
+    q = questions(a.readiness, a.off_device, exclude=(SELF_SATISFIED_BY_TRANSITION,))
+    plan = demand_plan if demand_plan is not None else demand.capture_plan(db)
+    ready = bool(q["ready"]) and bool(plan.get("complete"))
+    failing = [f"{k}:{f}" for k, v in q["answers"].items() for f in v["failing"]]
+    if not plan.get("complete"):
+        failing.append("demand_capture_plan:" + ",".join(plan.get("gaps_summary") or [])[:200])
+    return {
+        "ready": ready,
+        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluator": "launch.readiness.transition_verdict",
+        "assessed_at_phase": to,
+        "questions": {k: {"pass": v["pass"], "failing": v["failing"][:12]}
+                      for k, v in q["answers"].items()},
+        "failing": failing[:40],
+        "excluded": {SELF_SATISFIED_BY_TRANSITION: (
+            "'the phase allows publishing' is what this transition decides; it cannot be a "
+            "precondition of itself")},
+        "off_device_autonomy_proof": a.off_device.get("status"),
+        "demand_capture": {"complete": bool(plan.get("complete")),
+                           "products": plan.get("products_count"),
+                           "gaps": (plan.get("gaps_summary") or [])[:12]},
+    }
+
+
+def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
+    """F-498: the bounded Etsy launch list -- `etsy_surfaces.first_sale_blockers()`.
+
+    Every Etsy surface the registry marks required before the first sale, each with the state
+    of its evidence (FRESH / STALE / NO_EVIDENCE / NO_COLLECTOR, from the collector's latest
+    recorded reading) and the owner action that closes it. Ready only when every one has fresh
+    evidence and the shop snapshot's checks all pass. A surface no collector can observe is
+    never assumed done. Waits on the owner while any listed surface carries an owner action,
+    otherwise on the Etsy integration that collects the readings -- never on "build".
+    """
+    import time as _time
+
+    from ..intel import etsy_surfaces as es
+
+    now = now if now is not None else _time.time()
+    try:
+        from ..runtime.etsy_ops import CENSUS_READING, SHOP_READING, latest_reading
+
+        readings = {"shop_snapshot": latest_reading(db, SHOP_READING),
+                    "listing_census": latest_reading(db, CENSUS_READING)}
+    except Exception:  # noqa: BLE001 - unreadable readings are no evidence, never evidence
+        readings = {}
+    shop = readings.get("shop_snapshot") or {}
+    failing = [c.get("key") for c in ((shop.get("status") or {}).get("checks") or [])
+               if c.get("result") != es.PASS]
+    rows = []
+    for s in es.first_sale_blockers():
+        record = readings.get(s.collector) if s.collector else None
+        state = es.evidence_state(s, record, now=now)
+        rows.append({"surface": s.key, "name": s.name, "verdict": s.verdict,
+                     "work_class": s.work_class, "evidence_state": state,
+                     "owner_action": s.owner_action.key if s.owner_action else None,
+                     "why_required": s.why_required[:200]})
+    all_fresh = all(r["evidence_state"] == es.FRESH for r in rows)
+    ready = bool(rows) and all_fresh and not failing and bool(shop)
+    owner_open = sorted({r["owner_action"] for r in rows if r["owner_action"]
+                         and r["evidence_state"] != es.FRESH} | (
+        {r["owner_action"] for r in rows if r["owner_action"]} if failing else set()))
+    return Requirement(
+        key="etsy_first_sale_surfaces",
+        description=("every Etsy surface required before the first sale has fresh evidence "
+                     "(the bounded Etsy launch list, intel.etsy_surfaces)"),
+        ready=ready,
+        blocked_by=None if ready else (BLOCKED_OWNER if owner_open else BLOCKED_INTEGRATION),
+        evidence={"surfaces": rows, "count": len(rows),
+                  "not_fresh": [r["surface"] for r in rows
+                                if r["evidence_state"] != es.FRESH],
+                  "shop_checks_failing": failing,
+                  "owner_actions_open": owner_open,
+                  "source": "intel.etsy_surfaces.first_sale_blockers + etsy_ops readings"})
+

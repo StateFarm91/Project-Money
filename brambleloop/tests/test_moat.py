@@ -6,6 +6,7 @@ visible brand asset, which feels like the most valuable and is the most copyable
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from datetime import date
@@ -120,8 +121,11 @@ def test_an_asset_nobody_has_built_is_not_counted_as_a_moat():
     assert set(inventory["built"]).isdisjoint(inventory["planned"])
     assert inventory["planned"], "nothing is planned; this proves little"
     for band, keys in inventory["built_by_replication"].items():
+        _vac_124 = 0
         for key in keys:
+            _vac_124 += 1
             assert M.BY_KEY[key].exists is True, key
+        assert _vac_124, "keys was empty: the loop proved nothing (F-123)"
 
 
 def test_a_signature_states_why_it_would_take_that_long_for_somebody_else():
@@ -159,12 +163,20 @@ def test_the_launch_gate_carries_the_v14_additions():
     for key in ("brand_moat", "rollback_plan", "analytics_baseline", "brand_clearance"):
         assert key in assessed, key
 
-    # A baseline taken after the change is the change measured against itself.
+    # C-69: every item is measured from what the company produced, never a constant. An
+    # empty company has no baseline, no proven rollback and no moat anybody can see -- the
+    # old hand-set flags said two structural advantages existed before anything was built.
     assert assessed["analytics_baseline"].ready is False
-    assert "measured against itself" in assessed["analytics_baseline"].evidence["why"]
-    # The moat gate passes because two structural advantages already exist.
-    assert assessed["brand_moat"].ready is True
-    assert assessed["rollback_plan"].ready is True
+    assert assessed["analytics_baseline"].evidence["listings"] == 0
+    assert assessed["brand_moat"].ready is False
+    assert assessed["brand_moat"].evidence["structural"] == []
+    assert assessed["rollback_plan"].ready is False
+    # C-80 defect 10: the rollback plan is a rehearsed withdrawal round trip per listing, read
+    # from launch.rollback_rehearsed, not a database restore proof; with no listing there is
+    # nothing rehearsed and the traffic baseline is honestly UNMEASURED
+    assert assessed["rollback_plan"].evidence["read_from"] == "launch.rollback_rehearsed"
+    assert assessed["rollback_plan"].evidence["rehearsals"] == {}
+    assert assessed["analytics_baseline"].evidence["traffic_baseline"].startswith("UNMEASURED")
 
 
 if __name__ == "__main__":

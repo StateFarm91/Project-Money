@@ -49,8 +49,11 @@ def test_a_family_member_is_never_the_hero_in_another_palette():
 
     report = family.family_test(hero)
 
+    _vac_52 = 0
     for role in report["viable_roles"]:
+        _vac_52 += 1
         assert all(f["form"] != hero.form for f in role["forms"]), role
+    assert _vac_52, "report['viable_roles'] was empty: the loop proved nothing (F-123)"
 
 
 def test_a_motif_that_cannot_shrink_does_not_get_a_quick_companion():

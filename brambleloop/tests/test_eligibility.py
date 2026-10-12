@@ -11,6 +11,7 @@ disclaimer is never permission.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 
@@ -23,7 +24,10 @@ from brambleloop.publish import eligibility as E  # noqa: E402
 
 
 def _cand(**kw) -> E.Candidate:
-    args = dict(asset_id="a1", medium=AssetClass.AI_LIFESTYLE_CONCEPT,
+    # A twin render doing conversion work: the gate mechanics below are about the four gates
+    # and the label. An AI concept is refused in every role on its own (F-852 / PT-14), which
+    # `test_generated_product_imagery_is_refused_in_every_listing_role` asserts.
+    args = dict(asset_id="a1", medium=AssetClass.DIGITAL_TWIN_RENDER,
                 purpose=E.CONVERSION_CREATIVE, job=E.DESIRE, position=1)
     args.update(kw)
     return E.Candidate(**args)
@@ -92,9 +96,12 @@ def test_an_invented_purpose_is_refused():
 
 def test_every_job_the_requirement_names_exists():
     for job in ("DESIRE", "SCALE", "DETAIL", "CONTENTS", "DIFFICULTY", "MATERIALS",
-                "SIZING", "PATTERN_PREVIEW", "PROOF", "CROSS_SELL"):
+                "SIZING", "PATTERN_PREVIEW", "PROOF", "CROSS_SELL",
+                # F-254: alternate angle, construction detail, colour context, fit/worn view,
+                # and F-030's lifestyle/use frame.
+                "ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "FIT", "LIFESTYLE"):
         assert job in E.JOBS
-    assert len(E.JOBS) == 10
+    assert len(E.JOBS) == 15
 
 
 def test_two_frames_doing_one_job_is_the_defect_not_two_similar_images():
@@ -148,7 +155,7 @@ def test_missing_jobs_are_listed_rather_than_refused():
     """A shop adding a frame per uncovered job is padding the gallery for a checklist."""
     out = E.check_set([_cand()])
     assert out["ok"] is True
-    assert len(out["jobs_missing"]) == 9
+    assert len(out["jobs_missing"]) == len(E.JOBS) - 1
     assert "padding the gallery" in out["note"]
 
 
@@ -174,6 +181,22 @@ def test_all_four_gates_passing_exports():
     out = E.may_export(_cand(), _all_gates())
     assert out["may_export"] is True
     assert out["blockers"] == []
+
+
+def test_generated_product_imagery_is_refused_in_every_listing_role():
+    """F-852 / PT-14: an AI concept passing all four gates still never exports, in any role
+    its medium can be classified into, hero or not."""
+    for job, position in ((E.DESIRE, 1), (E.DESIRE, 2), (E.DETAIL, 3), (E.SCALE, 4),
+                          (E.CROSS_SELL, 5)):
+        concept = _cand(asset_id=f"ai-{job}", medium=AssetClass.AI_LIFESTYLE_CONCEPT,
+                        purpose=E.CONVERSION_CREATIVE, job=job, position=position)
+        out = E.may_export(concept, _all_gates(), truth_verdict=E.PASSED)
+        assert out["may_export"] is False, (job, out)
+        assert any("F-852" in b for b in out["blockers"]), out["blockers"]
+    # The same gates on a render of the CIR export: the refusal is about the medium.
+    render = _cand(medium=AssetClass.DIGITAL_TWIN_RENDER, purpose=E.CONVERSION_CREATIVE,
+                   job=E.DESIRE, position=1)
+    assert E.may_export(render, _all_gates())["may_export"] is True
 
 
 def test_a_gate_that_never_ran_has_not_passed():
@@ -286,6 +309,96 @@ def test_state_names_both_axes_and_the_chart_case():
     assert set(out["requirements"]) == {57, 58, 65, 69}
     assert "rendering is a fact about the medium" in out["note"]
     assert any("chart-as-hero" in r for r in out["refuses"])
+
+
+# ---- product publication scope (F-111, F-118, F-120) ------------------------------------
+
+
+def _release(slug, certificate, cir=None):
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import PatternVersion, Product
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/elig.sqlite")
+    db.create_all()
+    with db.session() as s:
+        p = Product(slug=slug, title=slug, status="certified")
+        s.add(p)
+        s.flush()
+        s.add(PatternVersion(product_id=p.id, version="1.0.0",
+                             cir_json=(cir.to_dict() if cir is not None else {}),
+                             release_hash="a" * 64, certified=True, certificate=certificate))
+    return db
+
+
+def test_a_legacy_catalogue_slug_is_refused_publication_until_recertified():
+    """F-111: quarantine enforced on the publish path, not only reported."""
+    from brambleloop.gates.certificate import GAUGE_STANDARD
+
+    db = _release("harvest-table-runner", {"granted": True})
+    v = E.product_publication(db, "harvest-table-runner", "1.0.0")
+    assert not v["publishable"]
+    assert [r["code"] for r in v["reasons"]] == [E.LEGACY_PRE_CALIBRATION], v["reasons"]
+    assert v["legacy"]["legacy"] and not v["legacy"]["cleared"]
+
+    db = _release("harvest-table-runner", {"granted": True, "gauge_standard": GAUGE_STANDARD})
+    v = E.product_publication(db, "harvest-table-runner", "1.0.0")
+    assert v["publishable"], v["reasons"]
+    assert v["legacy"]["cleared"] and not v["legacy"]["in_launch_scope"]
+    # A stamp on a refused certificate clears nothing.
+    assert not E.legacy_status("harvest-table-runner",
+                               {"granted": False, "gauge_standard": GAUGE_STANDARD})["cleared"]
+
+
+def test_an_uncertified_release_is_refused():
+    import tempfile
+
+    from brambleloop.core.db import Database
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/none.sqlite")
+    db.create_all()
+    v = E.product_publication(db, "cloudline-baby-blanket", "1.0.0",
+                              first_customer=lambda *a, **k: [])
+    assert E.NOT_CERTIFIED in [r["code"] for r in v["reasons"]]
+
+
+def test_a_launch0_slug_is_held_to_the_first_customer_gate():
+    """F-118: gates.first_customer.blocking() is on the publish path for Launch-0 slugs."""
+    from brambleloop.products import launch0 as l0
+
+    cir = l0.cir_for("hexagon_coasters")
+    db = _release(cir.slug, {"granted": True}, cir)
+    calls = []
+
+    def gate(c, **kw):
+        calls.append((c.slug, kw))
+        return [{"area": "gauge_and_size_claims", "state": "UNRESOLVED",
+                 "detail": "twin.calibrated is False"}]
+
+    v = E.product_publication(db, cir.slug, "1.0.0", listing={"title": "t"},
+                              first_customer=gate)
+    assert calls and calls[0][0] == cir.slug and calls[0][1]["listing"] == {"title": "t"}
+    assert not v["publishable"]
+    assert [r["code"] for r in v["reasons"]] == [E.FIRST_CUSTOMER_BLOCKING]
+    assert v["owner_review_required"] is True
+    assert not v["legacy"]["legacy"]
+
+    # Nothing blocking: publishable as far as software can say, and still owner-reviewed.
+    v = E.product_publication(db, cir.slug, "1.0.0", first_customer=lambda c, **k: [])
+    assert v["publishable"] and v["owner_review_required"]
+
+
+def test_the_real_first_customer_gate_blocks_launch0_today():
+    """The default gate, unstubbed: UNRESOLVED physical claims block publication (F-118)."""
+    from brambleloop.products import launch0 as l0
+
+    cir = l0.cir_for("hexagon_coasters")
+    db = _release(cir.slug, {"granted": True}, cir)
+    v = E.product_publication(db, cir.slug, "1.0.0")
+    assert not v["publishable"]
+    areas = {b["area"]: b["state"] for b in v["first_customer_blocking"]}
+    assert areas.get("gauge_and_size_claims") == "UNRESOLVED", areas
 
 
 if __name__ == "__main__":

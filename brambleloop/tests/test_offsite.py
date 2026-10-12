@@ -234,6 +234,122 @@ def test_the_state_reports_the_last_real_round_trip_not_the_variables() -> None:
     assert "a backup nobody has restored is a hope" in state["why_a_round_trip"]
 
 
+# ---------------------------------------------------------------------------
+# RELENG 2026-10-11: the archive seals what it uploads, and refuses without a key
+
+
+NO_KEY = {k: v for k, v in CONFIGURED.items() if k != offsite.ENCRYPTION_KEY_VAR}
+
+
+def _db_with_product() -> Database:
+    db = _db()
+    with db.session() as s:
+        s.add(Product(slug="releng-plaintext-marker", title="Releng plaintext marker"))
+    return db
+
+
+def test_the_bytes_the_bucket_receives_are_ciphertext() -> None:
+    db = _db_with_product()
+    bucket = _Bucket()
+    record = offsite.archive(db, env=CONFIGURED, transport=(bucket.put, bucket.get))
+    assert record["ok"] is True, record.get("reason")
+    assert record["encrypted"] is True
+    [blob] = bucket.objects.values()
+    assert blob.startswith(offsite.ENCRYPTION_HEADER)
+    assert not blob.startswith(b"\x1f\x8b"), "a gzip stream reached the bucket"
+    assert b"releng-plaintext-marker" not in blob
+    try:
+        gzip.decompress(blob)
+    except Exception:  # noqa: BLE001
+        pass
+    else:
+        raise AssertionError("the stored object decompresses without the key")
+    assert record["ciphertext_sha256"] == offsite._sha256(blob)
+    opened = gzip.decompress(offsite.unseal(blob, offsite.encryption_key(CONFIGURED)))
+    assert b"releng-plaintext-marker" in opened
+
+
+def test_the_default_transport_puts_ciphertext_on_the_wire() -> None:
+    db = _db_with_product()
+    store: dict = {}
+
+    def _fake_call(dest, method, key, payload=b"", **kw):
+        if method == "PUT":
+            store[key] = payload
+            return b""
+        return store[key]
+
+    original = offsite._call
+    offsite._call = _fake_call
+    try:
+        record = offsite.archive(db, env=CONFIGURED)
+    finally:
+        offsite._call = original
+    assert record["ok"] is True, record.get("reason")
+    [wire] = store.values()
+    assert wire.startswith(offsite.ENCRYPTION_HEADER)
+    assert b"releng-plaintext-marker" not in wire
+
+
+def test_without_a_key_nothing_is_uploaded_and_the_variable_is_named() -> None:
+    db = _db_with_product()
+    sent: list = []
+
+    def _send(key, payload, *, env=None):
+        sent.append(payload)
+        return {"bytes": len(payload)}
+
+    record = offsite.archive(db, env=NO_KEY, transport=(_send, lambda k, env=None: b""))
+    assert sent == [], "bytes left the system without an encryption key"
+    assert record["ok"] is False and record["stage"] == "configuration"
+    assert offsite.ENCRYPTION_KEY_VAR in record["reason"]
+    assert offsite.usable(db) is False
+
+
+def test_a_stored_ciphertext_that_changed_is_caught_before_decrypting() -> None:
+    db = _db_with_product()
+    bucket = _Bucket()
+
+    def _flip(key, *, env=None):
+        b = bytearray(bucket.objects[key])
+        b[-1] ^= 1
+        return bytes(b)
+
+    record = offsite.archive(db, env=CONFIGURED, transport=(bucket.put, _flip))
+    assert record["ok"] is False and record["stage"] == "read_back"
+
+
+def test_the_state_says_archives_are_refused_without_the_key() -> None:
+    db = _db()
+    st = offsite.state(db, env=NO_KEY)
+    assert st["configured"] is True and st["encryption_key_present"] is False
+    assert st["will_archive"] is False and st["archives_refused_without_key"] is True
+    assert st["encryption"].startswith("NOT ACTIVE")
+    assert "gets ciphertext" not in st["encryption"]
+    st = offsite.state(db, env=CONFIGURED)
+    assert st["will_archive"] is True and "gets ciphertext" in st["encryption"]
+
+
+def test_a_key_that_cannot_delete_leaves_archives_and_says_so() -> None:
+    db = _db()
+    with db.session() as s:
+        for i in range(4):
+            s.add(AuditLog(actor="orchestrator", action=offsite.PROBE_ACTION,
+                           artifact=f"k{i}", detail={"ok": True, "key": f"continuity/k{i}"}))
+
+    def _forbid(dest, method, key, payload=b"", **kw):
+        raise offsite.OffsiteRefused("archive store 401: not entitled (deleteFiles)")
+
+    original = offsite._call
+    offsite._call = _forbid
+    try:
+        result = offsite.prune(db, env=CONFIGURED, keep=1)
+    finally:
+        offsite._call = original
+    assert result["deleted"] == 0 and result["delete_refused"] == 3
+    assert "lifecycle" in result["delete_refused_means"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -54,10 +54,16 @@ def test_the_requirements_own_examples_reach_the_lane_it_names():
                 L.Profile("winter-ebook", "collections", "SHORT", "A", pattern_count=5),
                 L.Profile("cabled-cardigan", "garments", "FLAGSHIP", "C", components=4,
                           sizes=5)]
+    _vac_57 = 0
     for p in fast:
+        _vac_57 += 1
         assert L.assign(p, qa=STABLE)["lane"] == L.FAST, p.slug
+    _vac_59 = 0
+    assert _vac_57, "fast was empty: the loop proved nothing (F-123)"
     for p in flagship:
+        _vac_59 += 1
         assert L.assign(p, qa=STABLE)["lane"] == L.FLAGSHIP, p.slug
+    assert _vac_59, "flagship was empty: the loop proved nothing (F-123)"
 
 
 def test_a_garment_cannot_be_argued_into_the_fast_lane():
@@ -77,10 +83,13 @@ def test_the_two_lanes_cannot_both_admit_the_same_product():
              L.Profile("advent-calendar", "seasonal_gift", "LONG", "B", components=24),
              L.Profile("winter-ebook", "collections", "SHORT", "A", pattern_count=5),
              L.Profile("mosaic-rug", "home_decor", "MEDIUM", "B", colours=6)]
+    _vac_80 = 0
     for p in cases:
+        _vac_80 += 1
         card = L.assign(p, qa=STABLE)
         both = not card["fast_refusals"] and not card["flagship_refusals"]
         assert not both, p.slug
+    assert _vac_80, "cases was empty: the loop proved nothing (F-123)"
 
 
 def test_flagship_is_never_merely_not_fast():

@@ -1,0 +1,133 @@
+{
+ "note": "the gate ran on the full-size draws (digests in v1grad_manifest.json); half-size previews are tracked here, the full files stay in the session scratchpad and are not listing assets",
+ "draws": {
+  "oa15_hifi_1.png": {
+   "full_sha256": "b4b58a2e05dc899a3ab33376d0c7404843a8d86bcaf8edd309a6a0c2722e9be8",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "a9a4657bd60276d9516e8e07efbdb638c955d9c291a340a01314445788a3b787"
+  },
+  "oa15_hifi_2.png": {
+   "full_sha256": "368da88ff4295af3d94d301f7a58cab26126dcb6419e3d209fa4d3594e5d693e",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "9f5bd6115a24d285a5c7d6aa3677ade886bec35209f3cb37872dde56e696cf84"
+  },
+  "oa15_hifi_3.png": {
+   "full_sha256": "94483378b012722ba8406d03362aa9461a39d9cc83960f84ee6a464e7e1cdb59",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "e0fd3d1abd6c8d24bad808a1915e375030334c39d5f259f32d2e12457b3f1c33"
+  },
+  "oa15_hifi_4.png": {
+   "full_sha256": "8afc8545a2ba482c3ebff1cbfa1dbbf5e76c15e02fa89a3b464d4f6d1ad354a0",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "865fb3f18e736e7d2a9b044c08d07cd1e11eceea362febf83ecfadcc12e370a5"
+  },
+  "oa15_hifi_5.png": {
+   "full_sha256": "54f83ad1ad76becd0b75621599a2e1c8896bc490bedaac2e6106e1eb49279761",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "e812d261b20fe6d54cccdc3147ee0d2c8545580a7c876e5c23f276b23e0c81a4"
+  },
+  "oa15_hifi_6.png": {
+   "full_sha256": "e7900928a63f3224344de27776749a9ddc7f471b94d9a64c29a98ed3243d208e",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "80f6a06f0455ec7aa9075adf5da794c30679c577ac99854f1dfc1c010da1af3e"
+  },
+  "oa15_hifi_7.png": {
+   "full_sha256": "89a3eeaaef64f8c8266b9112f1adcfbd9f0f5d8723607e0eddb6c601771c268e",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "7cd803eb3a23d3e0d0f4afc24ab07099f318e76e1bfc0e76cba14977e968345f"
+  },
+  "oa15_hifi_8.png": {
+   "full_sha256": "70b0559f84bc0ecc443654ad29b2167c2774f0dc23f10eafb7a25caf7ae49a2a",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "acee97c59c42dcb5a6817ab248c03f5504b158a37242660f184caa1b300197c3"
+  },
+  "oa15_hifi_9.png": {
+   "full_sha256": "868cc09f5c2f741eff8a924408c0b00462d624ec8c635e1d6332ef7a87011eec",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "24c711094c0a747c5b386d3054f85aefde8371effe08f4472dcd4c237fb1669c"
+  },
+  "oa15_hifi_10.png": {
+   "full_sha256": "27ebd7c9399e4bd64cf3518388ac5883a6903396e7af57cf8eac754af8bb0161",
+   "full_size": [
+    1024,
+    1536
+   ],
+   "preview_sha256": "c3b627366a914ffba1260d4cde226e648476fea816d6e5ffb9e98892473f5db7"
+  },
+  "oa15_hifi_11.png": {
+   "full_sha256": "72238ba24b40021c3b584cfe728670ab6bf26c86a1c9820c31bb02cf1609a2e3",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "a7a31d2ca3cba8d355be216bf7160c55615d27bb9210ea03a95047c9df979a34"
+  },
+  "oa15_hifi_12.png": {
+   "full_sha256": "edea2a8266d8235e9b175862155c23ef1265d1674116175dc0f75acf604ed513",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "544410fb02f24068562946b9c2a46f33e06d2cf15cb37e7d8d36a0e6bf1176d8"
+  },
+  "oa15_hifi_13.png": {
+   "full_sha256": "31bddd25b58c70904b97ba7d9a78064c93bf25493001aceb91bd064f444c3d27",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "142e32582854ffde908e9b15311507a95748b23b145eb484ff2e7a4a91bb253f"
+  },
+  "oa15_hifi_14.png": {
+   "full_sha256": "47b899ff9f0c4ccab73b5e6232fa00213dc7896a922ca8b0b55983706cce8460",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "4aa6e8bab21c7a6020f7a282e37e595f3d477acd574bf3bfdf336a511b16664d"
+  },
+  "oa15_hifi_15.png": {
+   "full_sha256": "a54c96ac6e29cda2ba0e88c2c6f9b96f7e2ad18ad8c30abb031669e0dd4a2777",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "683899d83e3180b556f4971b0dcde120891adb8ffc4d28d5a8224018f19fb6ff"
+  },
+  "oa15_hifi_16.png": {
+   "full_sha256": "d4ed9270615f3d797db4421785c055b58024d942f008722c1bafc7792a5b18fc",
+   "full_size": [
+    1536,
+    1024
+   ],
+   "preview_sha256": "7d564539cdc4572a1e3e08116bcc8af5cc8b3f0af6df685cadbeba4fe8fa63c1"
+  }
+ }
+}

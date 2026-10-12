@@ -1,0 +1,1142 @@
+{
+ "cluster": "H2",
+ "branch": "claude/fb2-H2",
+ "head": "d8a8b3d",
+ "base": "85fdca0",
+ "governing_decision": "D-FB-7 (owner Visual ruling 2026-10-05)",
+ "summary": "A qualified producer/verifier pair now exists for disclosed deterministic whole-product renders of the three Launch-0 products. The producer draws one glyph per compiled twin cell on certified gauge geometry; the verifier ignores the manifest and re-measures the exact bytes against compiler-derived expectations. structural_floor PASSes such a frame only on the verifier's PASS on the sha256-bound bytes. The assets.build handler produces, durably files and serves the set; parity PRODUCT_TRUTH and MOBILE_GRID now pass on it. Parity as a whole still blocks on HERO (no vision description), LIFESTYLE_QUALITY (photographic standard, F-221/F-229B/F-856) and COMPETITIVE (no benchmark) -- unchanged gates this work does not answer and does not weaken.",
+ "per_product": {
+  "nursery-nesting-baskets": {
+   "verdict": "PASS: disclosed listing set produced, verified and QA-clean for every variant",
+   "variants": {
+    "market-basket-small": {
+     "cir_fingerprint": "8986670f0108",
+     "usable_as_listing_asset": true,
+     "launch_blocked": [],
+     "frames": [
+      {
+       "view": "hero",
+       "structural_truth": "PASS",
+       "px_per_cm": 102.5,
+       "extent_cm": {
+        "measured": 15.25,
+        "expected": 15.28
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.761,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 12,
+        "per_face": 10
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5471,
+        "colour_share": {
+         "cream": 0.458,
+         "wine": 0.3794
+        }
+       },
+       "wall_height_cm": {
+        "measured": 8.68,
+        "expected": 8.7
+       }
+      },
+      {
+       "view": "scale",
+       "structural_truth": "PASS",
+       "px_per_cm": 102.0,
+       "extent_cm": {
+        "measured": 15.27,
+        "expected": 15.28
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.7647,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 12,
+        "per_face": 10
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.383,
+        "colour_share": {
+         "cream": 0.4947,
+         "wine": 0.3396
+        }
+       },
+       "wall_height_cm": {
+        "measured": 8.68,
+        "expected": 8.7
+       }
+      },
+      {
+       "view": "detail",
+       "structural_truth": "PASS",
+       "px_per_cm": 104.25,
+       "extent_cm": {
+        "measured": [
+         [
+          15.23,
+          13.19
+         ]
+        ],
+        "expected": [
+         [
+          15.28,
+          13.23
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.7251
+        ],
+        "expected": [
+         0.7257
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 10
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5553,
+        "colour_share": {
+         "cream": 0.792
+        }
+       }
+      }
+     ],
+     "qa": {
+      "layout_qa": true,
+      "asset_truth": true,
+      "frame_set": true,
+      "mobile_contexts": true,
+      "hero_thumbnail": {
+       "ok": true,
+       "contrast_ratio": 10.3353,
+       "subject_coverage": 0.633,
+       "coverage_ceiling": 1.0
+      }
+     }
+    },
+    "market-basket-medium": {
+     "cir_fingerprint": "8a9b8f3c7586",
+     "usable_as_listing_asset": true,
+     "launch_blocked": [],
+     "frames": [
+      {
+       "view": "hero",
+       "structural_truth": "PASS",
+       "px_per_cm": 63.5714,
+       "extent_cm": {
+        "measured": 19.84,
+        "expected": 19.86
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.7629,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 22,
+        "per_face": 13
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.441,
+        "colour_share": {
+         "cream": 0.4992,
+         "wine": 0.1963
+        }
+       },
+       "wall_height_cm": {
+        "measured": 15.92,
+        "expected": 15.94
+       }
+      },
+      {
+       "view": "scale",
+       "structural_truth": "PASS",
+       "px_per_cm": 78.6,
+       "extent_cm": {
+        "measured": 19.82,
+        "expected": 19.86
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.7634,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 22,
+        "per_face": 13
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5305,
+        "colour_share": {
+         "cream": 0.5611,
+         "wine": 0.1993
+        }
+       },
+       "wall_height_cm": {
+        "measured": 15.92,
+        "expected": 15.94
+       }
+      },
+      {
+       "view": "detail",
+       "structural_truth": "PASS",
+       "px_per_cm": 80.2,
+       "extent_cm": {
+        "measured": [
+         [
+          19.81,
+          17.14
+         ]
+        ],
+        "expected": [
+         [
+          19.86,
+          17.2
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.7344
+        ],
+        "expected": [
+         0.7346
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 13
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5553,
+        "colour_share": {
+         "cream": 0.7386
+        }
+       }
+      }
+     ],
+     "qa": {
+      "layout_qa": true,
+      "asset_truth": true,
+      "frame_set": true,
+      "mobile_contexts": true,
+      "hero_thumbnail": {
+       "ok": true,
+       "contrast_ratio": 10.4653,
+       "subject_coverage": 0.5714,
+       "coverage_ceiling": 1.0
+      }
+     }
+    },
+    "market-basket-large": {
+     "cir_fingerprint": "f0d764deaf92",
+     "usable_as_listing_asset": true,
+     "launch_blocked": [],
+     "frames": [
+      {
+       "view": "hero",
+       "structural_truth": "PASS",
+       "px_per_cm": 46.1111,
+       "extent_cm": {
+        "measured": 24.35,
+        "expected": 24.45
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.759,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 32,
+        "per_face": 16
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.392,
+        "colour_share": {
+         "cream": 0.4043,
+         "wine": 0.1514
+        }
+       },
+       "wall_height_cm": {
+        "measured": 23.12,
+        "expected": 23.19
+       }
+      },
+      {
+       "view": "scale",
+       "structural_truth": "PASS",
+       "px_per_cm": 56.0,
+       "extent_cm": {
+        "measured": 24.45,
+        "expected": 24.45
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.7679,
+        "expected": 0.7639
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 32,
+        "per_face": 16
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.4856,
+        "colour_share": {
+         "cream": 0.5021,
+         "wine": 0.1429
+        }
+       },
+       "wall_height_cm": {
+        "measured": 23.18,
+        "expected": 23.19
+       }
+      },
+      {
+       "view": "detail",
+       "structural_truth": "PASS",
+       "px_per_cm": 65.1667,
+       "extent_cm": {
+        "measured": [
+         [
+          24.38,
+          21.1
+         ]
+        ],
+        "expected": [
+         [
+          24.45,
+          21.17
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.7393
+        ],
+        "expected": [
+         0.7401
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 16
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5553,
+        "colour_share": {
+         "cream": 0.6774
+        }
+       }
+      }
+     ],
+     "qa": {
+      "layout_qa": true,
+      "asset_truth": true,
+      "frame_set": true,
+      "mobile_contexts": true,
+      "hero_thumbnail": {
+       "ok": true,
+       "contrast_ratio": 10.4653,
+       "subject_coverage": 0.5509,
+       "coverage_ceiling": 1.0
+      }
+     }
+    }
+   }
+  },
+  "cloudline-baby-blanket": {
+   "verdict": "PASS: disclosed listing set produced, verified and QA-clean for every variant",
+   "variants": {
+    "cloudline-baby-blanket": {
+     "cir_fingerprint": "ae84a8e8ec5a",
+     "usable_as_listing_asset": true,
+     "launch_blocked": [],
+     "frames": [
+      {
+       "view": "hero",
+       "structural_truth": "PASS",
+       "px_per_cm": 14.2,
+       "extent_cm": {
+        "measured": [
+         79.08,
+         97.04
+        ],
+        "expected": [
+         79.2,
+         97.1
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.8099,
+        "expected": 0.8
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rows": 70,
+        "stitches_per_row": 99
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": "PASS",
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.392,
+        "colour_share": {
+         "cream": 0.0806,
+         "ink": 0.4108
+        }
+       }
+      },
+      {
+       "view": "scale",
+       "structural_truth": "PASS",
+       "px_per_cm": 13.5,
+       "extent_cm": {
+        "measured": [
+         79.04,
+         96.89
+        ],
+        "expected": [
+         79.2,
+         97.1
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.8148,
+        "expected": 0.8
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rows": 70,
+        "stitches_per_row": 99
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": "PASS",
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.387,
+        "colour_share": {
+         "cream": 0.0466,
+         "ink": 0.3413
+        }
+       }
+      },
+      {
+       "view": "detail",
+       "structural_truth": "PASS",
+       "px_per_cm": 54.0,
+       "extent_cm": {
+        "measured": [
+         30.33,
+         25.31
+        ],
+        "expected": [
+         30.4,
+         25.36
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": 0.7963,
+        "expected": 0.8
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rows": 19,
+        "stitches_per_row": 38
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": "PASS",
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5668,
+        "colour_share": {
+         "cream": 0.3437,
+         "ink": 0.395
+        }
+       }
+      }
+     ],
+     "qa": {
+      "layout_qa": true,
+      "asset_truth": true,
+      "frame_set": true,
+      "mobile_contexts": true,
+      "hero_thumbnail": {
+       "ok": true,
+       "contrast_ratio": 10.4653,
+       "subject_coverage": 0.5448,
+       "coverage_ceiling": 0.8157
+      }
+     }
+    }
+   }
+  },
+  "hexagon-coaster-set": {
+   "verdict": "PASS: disclosed listing set produced, verified and QA-clean for every variant",
+   "variants": {
+    "hexagon-coaster-set": {
+     "cir_fingerprint": "d6fc93aece3f",
+     "usable_as_listing_asset": true,
+     "launch_blocked": [],
+     "frames": [
+      {
+       "view": "hero",
+       "structural_truth": "PASS",
+       "px_per_cm": 78.2,
+       "extent_cm": {
+        "measured": [
+         [
+          9.16,
+          7.95
+         ],
+         [
+          9.16,
+          7.95
+         ],
+         [
+          9.16,
+          7.95
+         ],
+         [
+          9.16,
+          7.95
+         ]
+        ],
+        "expected": [
+         [
+          9.22,
+          7.98
+         ],
+         [
+          9.22,
+          7.98
+         ],
+         [
+          9.22,
+          7.98
+         ],
+         [
+          9.22,
+          7.98
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.6109,
+         0.6113,
+         0.6109,
+         0.6109
+        ],
+        "expected": [
+         0.6115,
+         0.6115,
+         0.6115,
+         0.6115
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 7
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 4,
+        "coverage": 0.5471,
+        "colour_share": {
+         "cream": 0.5016,
+         "wine": 0.2289
+        }
+       }
+      },
+      {
+       "view": "scale",
+       "structural_truth": "PASS",
+       "px_per_cm": 162.6667,
+       "extent_cm": {
+        "measured": [
+         [
+          9.19,
+          7.97
+         ]
+        ],
+        "expected": [
+         [
+          9.22,
+          7.98
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.6117
+        ],
+        "expected": [
+         0.6115
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 7
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5116,
+        "colour_share": {
+         "cream": 0.6376,
+         "wine": 0.2279
+        }
+       }
+      },
+      {
+       "view": "detail",
+       "structural_truth": "PASS",
+       "px_per_cm": 172.6667,
+       "extent_cm": {
+        "measured": [
+         [
+          9.2,
+          7.96
+         ]
+        ],
+        "expected": [
+         [
+          9.22,
+          7.98
+         ]
+        ]
+       },
+       "stitch_pitch_cm": {
+        "measured": [
+         0.6116
+        ],
+        "expected": [
+         0.6115
+        ]
+       },
+       "stitch_counts": {
+        "status": "PASS",
+        "rounds": 7
+       },
+       "colour_placement": "PASS",
+       "raised_stitch_placement": null,
+       "caption_iou": 1.0,
+       "off_palette_share": 0.0,
+       "readable_at_grid": true,
+       "disclosure": {
+        "in_image": true,
+        "in_alt_text": true
+       },
+       "legibility_340": {
+        "ok": true,
+        "pieces": 1,
+        "coverage": 0.5553,
+        "colour_share": {
+         "cream": 0.6534,
+         "wine": 0.2265
+        }
+       }
+      }
+     ],
+     "qa": {
+      "layout_qa": true,
+      "asset_truth": true,
+      "frame_set": true,
+      "mobile_contexts": true,
+      "hero_thumbnail": {
+       "ok": true,
+       "contrast_ratio": 10.4653,
+       "subject_coverage": 0.633,
+       "coverage_ceiling": 1.0
+      }
+     }
+    }
+   }
+  }
+ },
+ "adversarial_controls": {
+  "result": "every control FAIL or UNKNOWN, none PASS (tests/test_disclosed_render.py)",
+  "controls": [
+   {
+    "control": "missing stitch (blanket hero, basket hero, coaster detail)",
+    "result": "FAIL stitch_counts"
+   },
+   {
+    "control": "two stitches merged (coaster scale)",
+    "result": "FAIL stitch_counts"
+   },
+   {
+    "control": "stitch recoloured (basket scale, blanket detail, coaster hero)",
+    "result": "FAIL colour_placement"
+   },
+   {
+    "control": "raised post added where the pattern works sc (blanket detail)",
+    "result": "FAIL raised_stitch_placement"
+   },
+   {
+    "control": "scale bar 10% off; product drawn 8% too large",
+    "result": "FAIL extent_cm / not PASS"
+   },
+   {
+    "control": "swapped product (medium as small, large-detail as medium, coaster as blanket, blanket as coaster)",
+    "result": "FAIL"
+   },
+   {
+    "control": "elevation frame claimed as oblique hero",
+    "result": "not PASS"
+   },
+   {
+    "control": "generative-looking redraw: blur, noise, bicubic resample, JPEG q92",
+    "result": "FAIL contract_palette / not PASS"
+   },
+   {
+    "control": "caption removed; caption truncated",
+    "result": "FAIL disclosure_in_image"
+   },
+   {
+    "control": "manifest lie: small-basket manifest over medium-basket pixels (honestly hashed)",
+    "result": "FAIL"
+   },
+   {
+    "control": "manifest fingerprint of another design; frame/manifest slug split; role != view",
+    "result": "FAIL"
+   },
+   {
+    "control": "image digest not bound; bytes absent from store",
+    "result": "FAIL; UNKNOWN"
+   },
+   {
+    "control": "photo/generated/model/provider/realism-carrying/composited frame with a copied manifest",
+    "result": "UNKNOWN (no benefit)"
+   },
+   {
+    "control": "unqualified renderer version",
+    "result": "UNKNOWN"
+   },
+   {
+    "control": "motif mismatch on a valid disclosed frame; pixel tamper on a stored frame",
+    "result": "FAIL (existing refusal kept)"
+   },
+   {
+    "control": "340px: wrong piece count; colour band that vanishes at thumbnail",
+    "result": "legibility FAIL"
+   }
+  ]
+ },
+ "tolerances": {
+  "counts_colours_raised_placement": "exact (discrete)",
+  "extent": "+-2% or 6px: outline inset ~1px/side + scale read <0.5px over >=400px; a missing round in a 15-round piece is ~7%",
+  "pitch": "+-4% median of centroid spacings; quantisation <1px on 9-180px pitches",
+  "height": "+-3% or 4px",
+  "off_palette": "<=0.1% of pixels (contract renders are unantialiased; any redraw/resample exceeds by orders of magnitude)",
+  "caption_iou": ">=0.98 vs contract wording rendered in the contract face/position"
+ },
+ "disclosure": {
+  "wording": "Digital rendering of the pattern's finished design, not a photograph",
+  "why": "names the medium (digital rendering), what it shows (the finished design the pattern makes; we sell a pattern, not an object) and what it is not (a photograph). Avoids 'AI'/'generated': no model is in the path and Etsy AI-disclosure wording would misdirect while still not saying it is not a photograph. Matches the spirit of publish.eligibility.RENDER_LABEL.",
+  "enforced_in": [
+   "image pixels (caption IoU check by the verifier)",
+   "alt text (starts with the wording; <=500 chars)",
+   "listing copy (gates.platform_policy DISCLOSURES['disclosed_render'], written by listing.draft via classify_release(disclosed=...))"
+  ],
+  "export_gate": "publish.disclosed_listing.export_images is the only exporter for disclosed frames and refuses unless the wording is in pixels, alt text and copy AND structural_floor is PASS on the exact bytes; runtime.etsy_ops.certified_images refuses a disclosed frame (it cannot carry alt text); EtsyClient.publish now carries alt text in (name, bytes, alt_text) entries."
+ },
+ "requirements": [
+  {
+   "uid": "F-854",
+   "status": "PARTIAL",
+   "what_changed": "deterministic whole-product render encodes stitch counts per row/round, colour placement, raised-stitch (dc) placement, polygon shaping, wall rounds and finished dimensions; verified from pixels",
+   "producer": "visual/disclosed_render.py",
+   "consumer": "visual/render_verification.py -> visual/product_authority.structural_floor -> visual/parity.assess",
+   "live_root": "runtime/release.py assets.build -> _disclosed_render_set; publish/listing_asset.make (product-first path)",
+   "tests": [
+    "tests/test_disclosed_render.py::test_every_launch0_frame_verifies_against_its_cir"
+   ],
+   "remaining": "stitch appearance is a stylised sc 'v' glyph with a raised-post mark, not yarn-level geometry; drape is not modelled"
+  },
+  {
+   "uid": "F-227",
+   "status": "DONE",
+   "what_changed": "for disclosed frames, stitch structure, motif/repeat placement, shaping, dimensions and colour placement are checked against the CIR; any deviation FAILs",
+   "producer": "visual/disclosed_render.py",
+   "consumer": "structural_floor",
+   "live_root": "assets.build",
+   "tests": [
+    "tests/test_disclosed_render.py::test_a_missing_stitch_fails",
+    "tests/test_disclosed_render.py::test_wrong_colour_placement_fails",
+    "tests/test_disclosed_render.py::test_a_raised_post_where_the_pattern_has_none_fails"
+   ],
+   "remaining": "seams/joins/edging/garment fit not applicable to Launch-0 (single piece, no assembly)"
+  },
+  {
+   "uid": "F-677",
+   "status": "DONE",
+   "what_changed": "a frame that changes stitch family/count, colour placement, dimensions or construction fails the verifier regardless of disclosure",
+   "tests": [
+    "tests/test_disclosed_render.py::test_wrong_scale_or_dimensions_fail",
+    "tests/test_disclosed_render.py::test_a_swapped_product_fails"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-852",
+   "status": "DONE",
+   "what_changed": "no generative redraw anywhere in the path; the product-first fallback is the deterministic render",
+   "tests": [
+    "tests/test_final_visual_authority.py (10/10 unchanged)"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-853",
+   "status": "PARTIAL",
+   "what_changed": "the certified render bytes are bound by sha256 from producer to gate to export; nothing re-renders or composites them",
+   "remaining": "no photoreal presentation layer exists (V2, out of scope)"
+  },
+  {
+   "uid": "F-856",
+   "status": "PARTIAL",
+   "what_changed": "structural Product Truth can now PASS for qualified disclosed renders",
+   "remaining": "photographic realism gate untouched; parity LIFESTYLE_QUALITY stays unjudged for renders -> needs owner/integrator adjudication of F-221/F-229(B)/F-856 vs D-FB-7"
+  },
+  {
+   "uid": "F-851",
+   "status": "PARTIAL",
+   "what_changed": "deterministic product rendering exists and is qualified for Launch-0",
+   "remaining": "protected photoreal presentation (V2) not built"
+  },
+  {
+   "uid": "F-674",
+   "status": "PARTIAL",
+   "what_changed": "CIR -> deterministic render -> independent Product Truth -> approved listing asset is live for Launch-0",
+   "remaining": "3D + AI photoreal stages omitted per D-FB-7"
+  },
+  {
+   "uid": "F-675",
+   "status": "PARTIAL",
+   "what_changed": "silhouette, dimensions, construction, stitch counts, shaping, colour placement preserved and verified",
+   "remaining": "not 3D; no macro drape"
+  },
+  {
+   "uid": "F-855",
+   "status": "NOT_STARTED",
+   "what_changed": "no AI enhancement is applied, deliberately",
+   "remaining": "n/a under D-FB-7"
+  },
+  {
+   "uid": "F-232",
+   "status": "DONE",
+   "what_changed": "render never represented as a photograph; disclosure in pixels, alt text and copy",
+   "tests": [
+    "tests/test_disclosed_render.py::test_disclosure_is_enforced_in_image_alt_text_and_copy",
+    "tests/test_disclosed_render.py::test_policy_classification_writes_the_disclosure_into_the_copy"
+   ],
+   "remaining": ""
+  },
+  {
+   "uid": "F-239",
+   "status": "PARTIAL",
+   "what_changed": "listing thumbnails verified on mobile: four mobile contexts rendered and stored, 340px legibility check added, hero thumbnail gate run",
+   "remaining": "icon, banner crop, announcement, sections, first shop grid are shop-surface items outside this task"
+  },
+  {
+   "uid": "F-233",
+   "status": "NOT_STARTED",
+   "what_changed": "",
+   "remaining": "shop surfaces out of scope for H2"
+  },
+  {
+   "uid": "F-777",
+   "status": "DONE",
+   "what_changed": "the only claims an image makes are dimensions 'at the stated gauge' read from the twin; asset_truth check_assets passes them",
+   "remaining": "twin.calibrated is False for all Launch-0 (stated)"
+  },
+  {
+   "uid": "F-779",
+   "status": "DONE",
+   "what_changed": "the hero/thumbnail is a verified frame; ordering/cropping cannot change pixels without failing the verifier",
+   "remaining": ""
+  },
+  {
+   "uid": "F-221",
+   "status": "BLOCKED",
+   "what_changed": "",
+   "remaining": "D-FB-7 says photorealism is not launch-critical for disclosed renders; F-221 says every customer image must pass a photo-realism gate. Integrator/owner must adjudicate; parity LIFESTYLE_QUALITY therefore still blocks."
+  }
+ ],
+ "legacy_tests": {
+  "tests/test_parity.py": {
+   "passing": 6,
+   "failing": 2,
+   "failing_tests": [
+    {
+     "test": "test_all_eight_are_judged_and_a_partial_set_cannot_produce_a_verdict",
+     "why": "fixture _clean_set frames carry motif-only evidence and model/photo frames; PRODUCT_TRUTH is unjudged (judged=7, verdict UNJUDGED). A disclosed render cannot stand in for model-bearing photo frames, so H2 does not change it."
+    },
+    {
+     "test": "test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it",
+     "why": "asserts judged == 8; PRODUCT_TRUTH is unjudged for the same motif-only fixture (first case: identity fail -> FAIL verdict but judged 7)."
+    }
+   ],
+   "same_as_base": true
+  },
+  "tests/test_owned_photography.py": {
+   "passing": 18,
+   "failing": 12,
+   "same_as_base_85fdca0": true,
+   "failing_tests": [
+    "test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image (KeyError 'verdict': redraw refused before judging)",
+    "test_a_picture_that_does_not_show_what_the_pattern_says_is_not_usable (KeyError 'verdict')",
+    "test_a_product_whose_listing_needs_the_model_is_refused_for_the_true_reason (AssertionError)",
+    "test_an_asset_that_cleared_its_checks_is_a_release_that_has_one (AssertionError: self-declared usable flag no longer counts)",
+    "test_an_unmade_realism_check_is_not_a_pass (KeyError 'verdict')",
+    "test_coverage_counts_the_catalogue_rather_than_the_job (AssertionError: usable-flag coverage)",
+    "test_coverage_is_complete_only_when_every_certified_product_has_a_usable_asset (AssertionError)",
+    "test_fabric_nobody_could_see_blocks_too_and_says_what_it_needs (KeyError 'motif')",
+    "test_it_is_an_illustration_and_it_says_so_everywhere (AssertionError: requires generative redraw success)",
+    "test_the_checkerboard_that_started_this_is_blocked (KeyError 'verdict')",
+    "test_the_generator_is_shown_the_chart_it_will_be_judged_against (KeyError 'refs')",
+    "test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set (AssertionError)"
+   ],
+   "why": "all assume owned_photography.make reaches a generator/judge or count self-declared usable flags; F-852 refuses before that (Codex H). H2 does not route owned_photography.make itself to renders (listing_asset.make does), so these are unchanged. Not edited."
+  }
+ },
+ "tests_run": [
+  {
+   "file": "tests/test_disclosed_render.py",
+   "passing": 22,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_disclosed_render_runtime.py",
+   "passing": 3,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_final_visual_authority.py",
+   "passing": 10,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_parity.py",
+   "passing": 6,
+   "failing": 2,
+   "note": "same 2 as base; see legacy_tests"
+  },
+  {
+   "file": "tests/test_owned_photography.py",
+   "passing": 18,
+   "failing": 12,
+   "note": "identical to base 85fdca0"
+  },
+  {
+   "file": "tests/test_platform_policy.py",
+   "passing": 13,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy.py",
+   "passing": 17,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_publish_execution_gate.py",
+   "passing": 8,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_readback_observe.py",
+   "passing": 22,
+   "failing": 15,
+   "note": "identical 22/15 at base 85fdca0 (PUBLISH_EXECUTION_REFUSED: PDF_HASH_DRIFT / owner authority absent); not caused by H2"
+  }
+ ],
+ "runtime_evidence": {
+  "committed_test": "tests/test_disclosed_render_runtime.py: gate.certify + assets.build via Worker.run_once on temp sqlite, sockets refused, cloudline-baby-blanket: 3 frames filed durably, structural_floor PASS on each persisted frame, parity product_truth=pass, mobile_grid=pass, gallery=pass; unjudged = hero, lifestyle_quality, competitive_blind_review",
+  "scratch_runs": "same chain run for hexagon-coaster-set and market-basket-medium with the Launch-0 CIR passed to gate.certify: assets.build DONE, 3/3 frames structural PASS, parity product_truth=pass"
+ },
+ "tests_changed": [],
+ "files_touched": [
+  "src/brambleloop/visual/render_contract.py (new)",
+  "src/brambleloop/visual/disclosed_render.py (new)",
+  "src/brambleloop/visual/render_verification.py (new)",
+  "src/brambleloop/publish/disclosed_listing.py (new)",
+  "src/brambleloop/visual/product_authority.py",
+  "src/brambleloop/publish/listing_asset.py",
+  "src/brambleloop/runtime/release.py",
+  "src/brambleloop/gates/platform_policy.py",
+  "src/brambleloop/runtime/etsy_ops.py",
+  "src/brambleloop/integrations/etsy.py",
+  "tests/test_disclosed_render.py (new)",
+  "tests/test_disclosed_render_runtime.py (new)",
+  "research/final_build/waves/fb2_H2.json",
+  "research/final_build/waves/h2_samples/*.png"
+ ],
+ "migrations": [],
+ "needs_from_others": [
+  "Integrator/owner: adjudicate F-221/F-229(B)/F-856 photographic-realism gate vs D-FB-7 for disclosed renders. Until then parity LIFESTYLE_QUALITY is unjudged and blocks every Launch-0 listing.",
+  "Parity HERO needs a vision description of the hero (inspection.described); vision gate closed in shadow, so it is unjudged.",
+  "Parity COMPETITIVE needs a blind-review row (creative.blind_review) for these products.",
+  "Release chain: the listing-set certificate / release_gates / etsy_ops.certified_images certify the assets.build chart frames, not the disclosed set. Decide whether disclosed frames join that certificate (with alt text carried through pipeline publish -> EtsyClient.publish 3-tuples) or are uploaded via disclosed_listing.export_images; today the certified path refuses them.",
+  "Runtime catalogue: pipeline.ENGINEERED resolves market-basket-trio / hexie-coaster-set, not the Launch-0 slugs market-basket-{small,medium,large} / hexagon-coaster-set; disclosed sets are produced only for Launch-0 scope slugs. Cluster owning certification should confirm which slugs Launch-0 releases certify under.",
+  "Legacy test adjudication: tests/test_parity.py (2) and tests/test_owned_photography.py (12), unchanged from base."
+ ],
+ "risks": [
+  "Twin rounds are circular arithmetic; stacked increases are drawn as hexagons with corners on the twin radii, so side pitch is 3/pi (0.955) of gauge and round centreline pitch is 7-11% under gauge width. The listing's across-the-points dimension is honoured exactly. Disclosed in the manifest's modelling_notes.",
+  "Basket walls are drawn as a hexagonal prism (geometry.corners=6 on the base); a worked basket may round out. The twin and CIR give no wall-shape evidence beyond this.",
+  "Flat rows draw every stitch at its row's height (the twin carries row heights only); a dc is marked as a raised post. Twin is uncalibrated (twin.calibrated False) for all Launch-0.",
+  "Disclosed-set build adds ~25-35 s per release to assets.build, dominated by existing pure-Python layout_qa/mobile loops (not changed).",
+  "Caption and verifier depend on DejaVuSans (contract font); a missing font makes the render refuse and the verifier UNKNOWN (fail closed).",
+  "The commerce.thumbnail THUMB_TEXT check is not applied to the 34px disclosure caption (it is not grid text, per the owner's 'small unobtrusive caption'); recorded in each record's qa.hero_thumbnail.text_check for the integrator to confirm."
+ ]
+}

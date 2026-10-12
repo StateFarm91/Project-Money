@@ -1,0 +1,1679 @@
+{
+ "results": [
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "draw": 1,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4y_1.png",
+   "output_sha256": "66fe3c896bcb382312ca9e455086e4dda11126cdbc529147aea545731f1e173a",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 8,
+    "untestable": 17,
+    "failed_stitches": [],
+    "mean_iou": 0.891,
+    "alignment": {
+     "scale": 0.9496943036454352,
+     "shift_px": [
+      -2.0637959699399175,
+      19.135709802580664
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.805,
+      "reference_iou": 0.928,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.763,
+      "reference_iou": 0.96,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.903,
+      "reference_iou": 0.943,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r2p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r2p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.29411764705882354
+     },
+     "r3p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r3p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.966,
+      "reference_iou": 0.972,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "PASS",
+      "iou": 0.947,
+      "reference_iou": 0.974,
+      "row": 4,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.916,
+      "reference_iou": 0.941,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.94,
+      "reference_iou": 0.988,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r5p4": {
+      "status": "PASS",
+      "iou": 0.888,
+      "reference_iou": 0.978,
+      "row": 5,
+      "position": 4,
+      "family": "sc"
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "PASS",
+      "evidence": {
+       "iou_aligned": 0.8480237890328962,
+       "alignment": {
+        "scale": 0.9496943036454352,
+        "shift_px": [
+         -2.0637959699399175,
+         19.135709802580664
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.248138957816377,
+       "aspect_gen": 0.7916241062308478,
+       "drift": 0.36575643178721334
+      }
+     },
+     "colour_regions": {
+      "status": "PASS",
+      "evidence": {
+       "hue_spread_gen_deg": 9.184819738418017
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.755,
+        "2": 0.903,
+        "3": 0.966,
+        "4": 0.925,
+        "5": 0.894
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "FAIL",
+      "evidence": {
+       "ncc_aligned": 0.03939645725823604
+      }
+     },
+     "construction_cues": {
+      "status": "FAIL",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.8480237890328962,
+       "ncc": 0.03939645725823604
+      }
+     },
+     "macro_deformation": {
+      "status": "FAIL",
+      "evidence": {
+       "iou": 0.8480237890328962,
+       "ncc": 0.03939645725823604
+      }
+     },
+     "handedness": {
+      "status": "UNKNOWN",
+      "evidence": {
+       "ncc_certified": 0.03939645725823604,
+       "ncc_mirrored": -0.0652549899663456,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "PASS",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "The spherical prop looks very uniform with little visible grain, and the crochet loops are quite even.",
+   "judge_response_id": "chatcmpl-ESEqNaXiwWmizG2Hx2jmShvURM1t5"
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "draw": 2,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4y_2.png",
+   "output_sha256": "cfd132378bbbfa1097fafe04b47f127a289e596d268b99e6c67d51174f66156c",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 8,
+    "untestable": 17,
+    "failed_stitches": [],
+    "mean_iou": 0.9163749999999999,
+    "alignment": {
+     "scale": 0.9609470809369104,
+     "shift_px": [
+      5.041669133748883,
+      8.031981109510411
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.9,
+      "reference_iou": 0.928,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.828,
+      "reference_iou": 0.96,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.955,
+      "reference_iou": 0.943,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r2p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r2p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.29411764705882354
+     },
+     "r3p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r3p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.968,
+      "reference_iou": 0.972,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "PASS",
+      "iou": 0.949,
+      "reference_iou": 0.974,
+      "row": 4,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.956,
+      "reference_iou": 0.941,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.953,
+      "reference_iou": 0.988,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r5p4": {
+      "status": "PASS",
+      "iou": 0.822,
+      "reference_iou": 0.978,
+      "row": 5,
+      "position": 4,
+      "family": "sc"
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "PASS",
+      "evidence": {
+       "iou_aligned": 0.8876267349148538,
+       "alignment": {
+        "scale": 0.9609470809369104,
+        "shift_px": [
+         5.041669133748883,
+         8.031981109510411
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.248138957816377,
+       "aspect_gen": 0.9310344827586207,
+       "drift": 0.2540618358812641
+      }
+     },
+     "colour_regions": {
+      "status": "PASS",
+      "evidence": {
+       "hue_spread_gen_deg": 10.252687363988871
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.847,
+        "2": 0.955,
+        "3": 0.968,
+        "4": 0.948,
+        "5": 0.906
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_aligned": 0.371205471374198
+      }
+     },
+     "construction_cues": {
+      "status": "PASS",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.8876267349148538,
+       "ncc": 0.371205471374198
+      }
+     },
+     "macro_deformation": {
+      "status": "PASS",
+      "evidence": {
+       "iou": 0.8876267349148538,
+       "ncc": 0.371205471374198
+      }
+     },
+     "handedness": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_certified": 0.371205471374198,
+       "ncc_mirrored": 0.1293397553250075,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "FAIL",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "FAIL",
+    "synthetic_stitch_texture": "FAIL",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "The strands look glossy and uniformly ribbed with little visible fiber, and the stitches are extremely regular, giving a plastic, generated feel.",
+   "judge_response_id": "chatcmpl-ESEqe0b4ZkWRx3k8Zk7vIf7PwK2kd"
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "draw": 3,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4y_3.png",
+   "output_sha256": "71c8851faa60e23f5bfb92057eec32cf37936ab1de6f4d77861631e146b27eb4",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 8,
+    "untestable": 17,
+    "failed_stitches": [],
+    "mean_iou": 0.8845000000000001,
+    "alignment": {
+     "scale": 0.8512515612290585,
+     "shift_px": [
+      68.95355337067491,
+      25.621133199396354
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.933,
+      "reference_iou": 0.928,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.691,
+      "reference_iou": 0.96,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.99,
+      "reference_iou": 0.943,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r2p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r2p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.29411764705882354
+     },
+     "r3p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r3p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.97,
+      "reference_iou": 0.972,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "PASS",
+      "iou": 0.961,
+      "reference_iou": 0.974,
+      "row": 4,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.975,
+      "reference_iou": 0.941,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.752,
+      "reference_iou": 0.988,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r5p4": {
+      "status": "PASS",
+      "iou": 0.804,
+      "reference_iou": 0.978,
+      "row": 5,
+      "position": 4,
+      "family": "sc"
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "FAIL",
+      "evidence": {
+       "iou_aligned": 0.7998137453436336,
+       "alignment": {
+        "scale": 0.8512515612290585,
+        "shift_px": [
+         68.95355337067491,
+         25.621133199396354
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.248138957816377,
+       "aspect_gen": 0.978021978021978,
+       "drift": 0.21641579096847482
+      }
+     },
+     "colour_regions": {
+      "status": "FAIL",
+      "evidence": {
+       "hue_spread_gen_deg": 14.5440136601785
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.765,
+        "2": 0.99,
+        "3": 0.97,
+        "4": 0.962,
+        "5": 0.813
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "FAIL",
+      "evidence": {
+       "ncc_aligned": 0.2604801364688699
+      }
+     },
+     "construction_cues": {
+      "status": "FAIL",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.7998137453436336,
+       "ncc": 0.2604801364688699
+      }
+     },
+     "macro_deformation": {
+      "status": "FAIL",
+      "evidence": {
+       "iou": 0.7998137453436336,
+       "ncc": 0.2604801364688699
+      }
+     },
+     "handedness": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_certified": 0.2604801364688699,
+       "ncc_mirrored": 0.01298182124852753,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "PASS",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "",
+   "judge_response_id": "chatcmpl-ESEqwwM0JN1pXkP9gUrAk8HfzRY2T"
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "draw": 4,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4y_4.png",
+   "output_sha256": "1fbbad7ebdc3712eca62fd35adcd64d408f5ad62b113b84fd27165fc944cc91e",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 8,
+    "untestable": 17,
+    "failed_stitches": [],
+    "mean_iou": 0.90325,
+    "alignment": {
+     "scale": 0.9251997761205212,
+     "shift_px": [
+      28.80166076672117,
+      30.223836111626042
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.11764705882352941
+     },
+     "r1p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.896,
+      "reference_iou": 0.928,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.7,
+      "reference_iou": 0.96,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.975,
+      "reference_iou": 0.943,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r2p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r2p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.29411764705882354
+     },
+     "r3p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r3p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r3p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.977,
+      "reference_iou": 0.972,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "PASS",
+      "iou": 0.965,
+      "reference_iou": 0.974,
+      "row": 4,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.975,
+      "reference_iou": 0.941,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r4p0": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.955,
+      "reference_iou": 0.988,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p2": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.4117647058823529
+     },
+     "r5p3": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r5p4": {
+      "status": "PASS",
+      "iou": 0.783,
+      "reference_iou": 0.978,
+      "row": 5,
+      "position": 4,
+      "family": "sc"
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "PASS",
+      "evidence": {
+       "iou_aligned": 0.8510801277099748,
+       "alignment": {
+        "scale": 0.9251997761205212,
+        "shift_px": [
+         28.80166076672117,
+         30.223836111626042
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.248138957816377,
+       "aspect_gen": 0.6565961732124874,
+       "drift": 0.47393984531882216
+      }
+     },
+     "colour_regions": {
+      "status": "PASS",
+      "evidence": {
+       "hue_spread_gen_deg": 10.821489913946008
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.756,
+        "2": 0.975,
+        "3": 0.977,
+        "4": 0.963,
+        "5": 0.893
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "FAIL",
+      "evidence": {
+       "ncc_aligned": 0.12559110048753344
+      }
+     },
+     "construction_cues": {
+      "status": "FAIL",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.8510801277099748,
+       "ncc": 0.12559110048753344
+      }
+     },
+     "macro_deformation": {
+      "status": "FAIL",
+      "evidence": {
+       "iou": 0.8510801277099748,
+       "ncc": 0.12559110048753344
+      }
+     },
+     "handedness": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_certified": 0.12559110048753344,
+       "ncc_mirrored": -0.20755968420506132,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "PASS",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "FAIL",
+    "synthetic_stitch_texture": "FAIL",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "The yarn looks like a flat, plastic-like ribbon without twist. The loops are extremely uniform and glossy, which can read as generated.",
+   "judge_response_id": "chatcmpl-ESEr3QAawQrpM0fpOPiufr8cRSicc"
+  },
+  {
+   "kind": "sc",
+   "view": "camera",
+   "draw": 1,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_camera_e4y_1.png",
+   "output_sha256": "3b2cdd9a7372b0dcdf44a6f910a3c3e608bdaeb842ebb50b899d318a79bc5e0c",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 22,
+    "untestable": 3,
+    "failed_stitches": [],
+    "mean_iou": 0.9356818181818182,
+    "alignment": {
+     "scale": 0.9705825772501188,
+     "shift_px": [
+      4.635678646925953,
+      9.178658552491811
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "PASS",
+      "iou": 0.905,
+      "reference_iou": 0.924,
+      "row": 1,
+      "position": 0,
+      "family": "sc"
+     },
+     "r1p1": {
+      "status": "PASS",
+      "iou": 0.921,
+      "reference_iou": 0.903,
+      "row": 1,
+      "position": 1,
+      "family": "sc"
+     },
+     "r1p2": {
+      "status": "PASS",
+      "iou": 0.912,
+      "reference_iou": 0.903,
+      "row": 1,
+      "position": 2,
+      "family": "sc"
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.853,
+      "reference_iou": 0.902,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.884,
+      "reference_iou": 0.943,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "PASS",
+      "iou": 0.958,
+      "reference_iou": 0.956,
+      "row": 2,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.971,
+      "reference_iou": 0.924,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "PASS",
+      "iou": 0.979,
+      "reference_iou": 0.92,
+      "row": 2,
+      "position": 2,
+      "family": "sc"
+     },
+     "r2p1": {
+      "status": "PASS",
+      "iou": 0.976,
+      "reference_iou": 0.918,
+      "row": 2,
+      "position": 1,
+      "family": "sc"
+     },
+     "r2p0": {
+      "status": "PASS",
+      "iou": 0.946,
+      "reference_iou": 0.948,
+      "row": 2,
+      "position": 0,
+      "family": "sc"
+     },
+     "r3p0": {
+      "status": "PASS",
+      "iou": 0.934,
+      "reference_iou": 0.97,
+      "row": 3,
+      "position": 0,
+      "family": "sc"
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p2": {
+      "status": "PASS",
+      "iou": 0.97,
+      "reference_iou": 0.959,
+      "row": 3,
+      "position": 2,
+      "family": "sc"
+     },
+     "r3p3": {
+      "status": "PASS",
+      "iou": 0.974,
+      "reference_iou": 0.962,
+      "row": 3,
+      "position": 3,
+      "family": "sc"
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.931,
+      "reference_iou": 0.969,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.96,
+      "reference_iou": 0.927,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "PASS",
+      "iou": 0.942,
+      "reference_iou": 0.924,
+      "row": 4,
+      "position": 2,
+      "family": "sc"
+     },
+     "r4p1": {
+      "status": "PASS",
+      "iou": 0.943,
+      "reference_iou": 0.949,
+      "row": 4,
+      "position": 1,
+      "family": "sc"
+     },
+     "r4p0": {
+      "status": "PASS",
+      "iou": 0.927,
+      "reference_iou": 0.967,
+      "row": 4,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.945,
+      "reference_iou": 0.973,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "PASS",
+      "iou": 0.933,
+      "reference_iou": 0.968,
+      "row": 5,
+      "position": 1,
+      "family": "sc"
+     },
+     "r5p2": {
+      "status": "PASS",
+      "iou": 0.904,
+      "reference_iou": 0.933,
+      "row": 5,
+      "position": 2,
+      "family": "sc"
+     },
+     "r5p3": {
+      "status": "PASS",
+      "iou": 0.917,
+      "reference_iou": 0.931,
+      "row": 5,
+      "position": 3,
+      "family": "sc"
+     },
+     "r5p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "PASS",
+      "evidence": {
+       "iou_aligned": 0.9164468902502336,
+       "alignment": {
+        "scale": 0.9705825772501188,
+        "shift_px": [
+         4.635678646925953,
+         9.178658552491811
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.004158004158004,
+       "aspect_gen": 0.8374233128834356,
+       "drift": 0.16604427847425965
+      }
+     },
+     "colour_regions": {
+      "status": "PASS",
+      "evidence": {
+       "hue_spread_gen_deg": 7.141905352856416
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.9,
+        "2": 0.958,
+        "3": 0.942,
+        "4": 0.945,
+        "5": 0.923
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_aligned": 0.45244132878238885
+      }
+     },
+     "construction_cues": {
+      "status": "PASS",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.9164468902502336,
+       "ncc": 0.45244132878238885
+      }
+     },
+     "macro_deformation": {
+      "status": "PASS",
+      "evidence": {
+       "iou": 0.9164468902502336,
+       "ncc": 0.45244132878238885
+      }
+     },
+     "handedness": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_certified": 0.45244132878238885,
+       "ncc_mirrored": 0.08299902154418058,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "UNKNOWN",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "The yarn surface shows a very uniform cross\u2011hatch texture that looks less like natural fibers.",
+   "judge_response_id": "chatcmpl-ESErLDF0XQdYSqYzhEb4D1d4ESMSF"
+  },
+  {
+   "kind": "sc",
+   "view": "camera",
+   "draw": 2,
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_camera_e4y_2.png",
+   "output_sha256": "27aa602644c33d3a07652e45443bb6fafbf816115e816c9d77ccf7fe5a0d97b9",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   ],
+   "local": {
+    "status": "PASS",
+    "tested": 22,
+    "untestable": 3,
+    "failed_stitches": [],
+    "mean_iou": 0.891,
+    "alignment": {
+     "scale": 0.9725482393761026,
+     "shift_px": [
+      -2.32835141407179,
+      -12.760047519435545
+     ]
+    },
+    "per_stitch": {
+     "r1p0": {
+      "status": "PASS",
+      "iou": 0.864,
+      "reference_iou": 0.924,
+      "row": 1,
+      "position": 0,
+      "family": "sc"
+     },
+     "r1p1": {
+      "status": "PASS",
+      "iou": 0.868,
+      "reference_iou": 0.903,
+      "row": 1,
+      "position": 1,
+      "family": "sc"
+     },
+     "r1p2": {
+      "status": "PASS",
+      "iou": 0.838,
+      "reference_iou": 0.903,
+      "row": 1,
+      "position": 2,
+      "family": "sc"
+     },
+     "r1p3": {
+      "status": "PASS",
+      "iou": 0.785,
+      "reference_iou": 0.902,
+      "row": 1,
+      "position": 3,
+      "family": "sc"
+     },
+     "r1p4": {
+      "status": "PASS",
+      "iou": 0.83,
+      "reference_iou": 0.943,
+      "row": 1,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p4": {
+      "status": "PASS",
+      "iou": 0.918,
+      "reference_iou": 0.956,
+      "row": 2,
+      "position": 4,
+      "family": "sc"
+     },
+     "r2p3": {
+      "status": "PASS",
+      "iou": 0.922,
+      "reference_iou": 0.924,
+      "row": 2,
+      "position": 3,
+      "family": "sc"
+     },
+     "r2p2": {
+      "status": "PASS",
+      "iou": 0.919,
+      "reference_iou": 0.92,
+      "row": 2,
+      "position": 2,
+      "family": "sc"
+     },
+     "r2p1": {
+      "status": "PASS",
+      "iou": 0.921,
+      "reference_iou": 0.918,
+      "row": 2,
+      "position": 1,
+      "family": "sc"
+     },
+     "r2p0": {
+      "status": "PASS",
+      "iou": 0.912,
+      "reference_iou": 0.948,
+      "row": 2,
+      "position": 0,
+      "family": "sc"
+     },
+     "r3p0": {
+      "status": "PASS",
+      "iou": 0.922,
+      "reference_iou": 0.97,
+      "row": 3,
+      "position": 0,
+      "family": "sc"
+     },
+     "r3p1": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     },
+     "r3p2": {
+      "status": "PASS",
+      "iou": 0.929,
+      "reference_iou": 0.959,
+      "row": 3,
+      "position": 2,
+      "family": "sc"
+     },
+     "r3p3": {
+      "status": "PASS",
+      "iou": 0.939,
+      "reference_iou": 0.962,
+      "row": 3,
+      "position": 3,
+      "family": "sc"
+     },
+     "r3p4": {
+      "status": "PASS",
+      "iou": 0.913,
+      "reference_iou": 0.969,
+      "row": 3,
+      "position": 4,
+      "family": "sc"
+     },
+     "r4p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.35294117647058826
+     },
+     "r4p3": {
+      "status": "PASS",
+      "iou": 0.882,
+      "reference_iou": 0.927,
+      "row": 4,
+      "position": 3,
+      "family": "sc"
+     },
+     "r4p2": {
+      "status": "PASS",
+      "iou": 0.891,
+      "reference_iou": 0.924,
+      "row": 4,
+      "position": 2,
+      "family": "sc"
+     },
+     "r4p1": {
+      "status": "PASS",
+      "iou": 0.917,
+      "reference_iou": 0.949,
+      "row": 4,
+      "position": 1,
+      "family": "sc"
+     },
+     "r4p0": {
+      "status": "PASS",
+      "iou": 0.908,
+      "reference_iou": 0.967,
+      "row": 4,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p0": {
+      "status": "PASS",
+      "iou": 0.917,
+      "reference_iou": 0.973,
+      "row": 5,
+      "position": 0,
+      "family": "sc"
+     },
+     "r5p1": {
+      "status": "PASS",
+      "iou": 0.897,
+      "reference_iou": 0.968,
+      "row": 5,
+      "position": 1,
+      "family": "sc"
+     },
+     "r5p2": {
+      "status": "PASS",
+      "iou": 0.847,
+      "reference_iou": 0.933,
+      "row": 5,
+      "position": 2,
+      "family": "sc"
+     },
+     "r5p3": {
+      "status": "PASS",
+      "iou": 0.863,
+      "reference_iou": 0.931,
+      "row": 5,
+      "position": 3,
+      "family": "sc"
+     },
+     "r5p4": {
+      "status": "UNKNOWN",
+      "why": "not visible enough at this camera",
+      "visible_fraction": 0.47058823529411764
+     }
+    },
+    "bar": 0.6
+   },
+   "global": {
+    "status": "FAIL",
+    "items": {
+     "silhouette": {
+      "status": "PASS",
+      "evidence": {
+       "iou_aligned": 0.879840561192024,
+       "alignment": {
+        "scale": 0.9725482393761026,
+        "shift_px": [
+         -2.32835141407179,
+         -12.760047519435545
+        ]
+       }
+      }
+     },
+     "major_proportions": {
+      "status": "FAIL",
+      "evidence": {
+       "aspect_ref": 1.004158004158004,
+       "aspect_gen": 0.8304794520547946,
+       "drift": 0.17295938625599125
+      }
+     },
+     "colour_regions": {
+      "status": "PASS",
+      "evidence": {
+       "hue_spread_gen_deg": 8.139071904330326
+      }
+     },
+     "row_placement": {
+      "status": "PASS",
+      "evidence": {
+       "per_row_iou": {
+        "1": 0.846,
+        "2": 0.907,
+        "3": 0.911,
+        "4": 0.895,
+        "5": 0.884
+       },
+       "bar": 0.72
+      }
+     },
+     "structure_placement": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_aligned": 0.5635340951859614
+      }
+     },
+     "construction_cues": {
+      "status": "PASS",
+      "evidence": {
+       "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
+       "iou": 0.879840561192024,
+       "ncc": 0.5635340951859614
+      }
+     },
+     "macro_deformation": {
+      "status": "PASS",
+      "evidence": {
+       "iou": 0.879840561192024,
+       "ncc": 0.5635340951859614
+      }
+     },
+     "handedness": {
+      "status": "PASS",
+      "evidence": {
+       "ncc_certified": 0.5635340951859614,
+       "ncc_mirrored": 0.10925474352300671,
+       "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
+      }
+     }
+    }
+   },
+   "structural": "FAIL",
+   "judge": {
+    "fabric_folds_naturally": "UNKNOWN",
+    "lighting_is_realistic": "PASS",
+    "shadows_are_coherent": "PASS",
+    "has_ordinary_photographic_imperfection": "PASS",
+    "melted_yarn": "FAIL",
+    "synthetic_stitch_texture": "FAIL",
+    "catalogue_perfect_sterility": "PASS"
+   },
+   "judge_notes": "Yarn surface looks plasticky with a uniform ridged microtexture and no loose fibres. Stitch loops are highly regular and identical, reading as generated.",
+   "judge_response_id": "chatcmpl-ESErkGB95LpyeGs3VB8kFsZiHRcYe"
+  }
+ ],
+ "judge_cost_usd": 0.0867
+}

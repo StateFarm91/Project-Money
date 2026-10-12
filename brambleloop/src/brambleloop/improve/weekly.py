@@ -321,4 +321,11 @@ def state() -> dict:
                  "org chart forever, one individually defensible step at a time. Three of "
                  "the four moves subtract, and a week that only added is asked why -- the "
                  "same question improve.velocity asks of a review that stops nothing"),
+        # Codex M09: what the cycle enacts by itself, and what only reaches the owner.
+        "enacts": {"stale experiments": "stopped on the row (#53)"},
+        "owner_cards_only": [
+            "adding a specialist (#194): a permission change, never granted automatically",
+            "merging or retiring an agent (#192)",
+            "stopping a cadence, query or polishing loop (#53)",
+        ],
     }

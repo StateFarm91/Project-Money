@@ -1,0 +1,33 @@
+== test_cert_orders
+rc=0
+PASS: 0 failing
+== test_cert_commerce_readings
+rc=0
+PASS: 0 failing
+== test_cost_governance_wave2
+rc=0
+== test_swarm_runtime
+rc=0
+== test_swarm
+rc=0
+== test_persistence
+rc=0
+== test_closure
+rc=1
+FAIL a covered row whose library only a static state() route touches is OPEN, and naming a runtime root beside it does not count as reach (C-65)  -- {'modules': ['commerce/offers.py', 'runtime/release.py', 'app/main.py'], 'existing': ['commerce/offers.py', 'runtime/release.py', 'app/main.py'], 'tested': ['commerce/offers.py', 'runtime/release.py', 'app/main.py'], 'tests': ['tests/test_offers.py'], 'reached': ['commerce/offers.py'], 'unreached': {}, 'proven': True}
+  21 passing, 1 failing
+== test_reachability
+rc=1
+FAIL test_the_real_package_still_reaches_its_handlers_libraries AssertionError()
+FAIL: 1 failing
+== test_platform
+rc=0
+OK   test_permanent_failure_skips_retries
+== test_capability_gates
+rc=0
+OK   test_a_model_answering_the_wrong_question_is_counted_as_a_failure
+OK   test_a_vision_probe_with_no_image_refuses_rather_than_passing
+== test_cert_orchestration
+rc=0
+0 failure(s)
+== test_cert_commerce

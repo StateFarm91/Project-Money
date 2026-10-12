@@ -1,0 +1,297 @@
+{
+ "cluster": "D",
+ "branch": "claude/fb1-D",
+ "head": "76fa06d (code); report commit follows",
+ "base": "be8d416",
+ "requirements": [
+  {
+   "uid": "F-608",
+   "status": "PARTIAL",
+   "what_changed": "Books.profit_and_loss reads orders_ingest.source_state (gate open AND a completed read audited). Sales reading measured|INCOMPLETE (lower bound)|UNMEASURED; when UNMEASURED every sales-derived field in to_dict (gross/net sales, fees, orders, customers, contribution, profit, cash, tax reserve) is None with sales_why, all_figures_observed False; operating cost stays measured. cfo_challenge and trajectory say UNMEASURED instead of CA$0.00 / 'no orders exist'. unit_economics customers None when unmeasured. Etsy fee entries referencing a receipt/transaction with no internal order open one idempotent reconciliation incident (finance.reconciliation.etsy_vs_orders).",
+   "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss; commerce/orders_ingest.py::source_state; finance/reconcile.py::reconciliation_incident",
+   "consumer": "/api/finance (app/main.py::api_finance via pl.to_dict), runtime/pipeline.py finance.reconcile / finance.challenge / plan.strategy handlers",
+   "live_root": "GET /api/finance; cadenced finance.reconcile, finance.challenge, plan.strategy; commerce.orders_ingest (6h) for the incident",
+   "tests": [
+    "tests/test_finance.py::test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed",
+    "tests/test_finance.py::test_a_connected_source_that_was_never_read_is_still_unmeasured",
+    "tests/test_finance.py::test_recorded_sales_with_the_source_closed_are_a_labelled_lower_bound",
+    "tests/test_finance.py::test_an_empty_business_with_a_connected_order_source_reports_measured_zeroes",
+    "tests/test_finance.py::test_the_cfo_and_trajectory_say_unmeasured_rather_than_zero",
+    "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast",
+    "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
+    "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident"
+   ],
+   "remaining": "No reconciliation against monthly statements / payouts or future accounting integrations; no check that each internal order has a matching ledger entry after N days (the reverse disagreement)."
+  },
+  {
+   "uid": "F-609",
+   "status": "PARTIAL",
+   "what_changed": "Additive LedgerEntry columns source, external_id, currency, amount_original (nullable), classification, basis, fees_basis, reconciliation_state (defaults unknown/unreconciled, so legacy rows never read as measured). Additive Order columns fees_basis, offsite_ads_fee_cad (None = not read). Ingest writes sale rows with source etsy_receipts, external_id, receipt currency/amount, classification sale, basis measured, fees_basis modelled, reconciliation_state unreconciled. P&L reports platform_fees_basis and platform_fees_by_basis {measured, modelled, unknown}; modelled fees make all_figures_observed False.",
+   "producer": "core/models.py (LedgerEntry, Order); commerce/orders_ingest.py::_record_line",
+   "consumer": "finance/books.py::Books.profit_and_loss (fees_by_basis) -> /api/finance",
+   "live_root": "commerce.orders_ingest cadence; GET /api/finance",
+   "tests": [
+    "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+    "tests/test_money_truth.py::test_the_ledger_columns_are_added_to_an_existing_table_without_touching_its_rows",
+    "tests/test_finance.py::test_modelled_fees_are_labelled_and_never_counted_as_observed"
+   ],
+   "remaining": "No writers for payouts, owner funding, subscriptions, adjustments; AI/model spend still lives only in cost_entries (not mirrored into the ledger)."
+  },
+  {
+   "uid": "F-558",
+   "status": "PARTIAL",
+   "what_changed": "EtsyReceiptReader.ledger_entries reads getShopPaymentAccountLedgerEntries through the existing EtsyClient _require/_call (same scope refusal, transport, error taxonomy). After each ingest, finance.reconcile.apply classifies entries by ledger_type, matches fees to orders by reference_id (transaction-level to the line, receipt-level shared by price), and incrementally (entry ids stored on the order) replaces the modelled fee with the charged one: order and ledger row fees_basis -> measured, reconciliation_state matched_etsy_ledger|partial_etsy_ledger, contribution recomputed. Unclassified entries are reported, never counted. Readers without the method, or a failed read, leave fees modelled with the reason. Receipt status recorded; canceled/fully refunded receipts keep no revenue.",
+   "producer": "commerce/orders_ingest.py::_reconcile_fees, EtsyReceiptReader.ledger_entries; finance/reconcile.py::apply",
+   "consumer": "finance/books.py (fees by basis); commerce/order_readings (contribution_cad)",
+   "live_root": "commerce.orders_ingest (6h cadence, gated on transactions_r)",
+   "tests": [
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "tests/test_money_truth.py::test_a_receipt_level_fee_is_shared_across_its_lines_by_price",
+    "tests/test_money_truth.py::test_a_cancelled_receipt_keeps_no_revenue",
+    "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
+   ],
+   "remaining": "UNVERIFIED against a live shop: ledger_type strings and minor-unit amount (finance/reconcile.py LEDGER_AMOUNT_DIVISOR, _FEE_EXACT) must be checked on the first real read. Digital delivery state, buyer-issue linkage and case state are not reconciled. getShopPaymentByReceiptId (Payment amount_fees/adjusted) not used because it is absent from etsy_oauth.SCOPES_REQUIRED (cluster B)."
+  },
+  {
+   "uid": "F-283",
+   "status": "DONE",
+   "what_changed": "Ingest writes acquisition_source 'unknown' on customer and order. finance.sources.attribute is the one writer of a known source and refuses without evidence (history kept). finance.sources.record_first_sale writes OperatingReading commerce.first_sale once (never replaced by a later order), with source, channel, evidence and 'possibility, not scale' note, refreshed with history when evidence arrives (e.g. Offsite Ads fee).",
+   "producer": "commerce/orders_ingest.py::ingest -> finance/sources.py::record_first_sale, attribute",
+   "consumer": "OperatingReading commerce.first_sale; Order.acquisition_source read by order_readings loops, growth.mix, scale.evidence",
+   "live_root": "commerce.orders_ingest cadence",
+   "tests": [
+    "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+    "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+    "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused"
+   ],
+   "remaining": "Owner / Stats-export attribution route (sources.attribute is callable; no API route because app/main.py is cluster E)."
+  },
+  {
+   "uid": "F-289",
+   "status": "PARTIAL",
+   "what_changed": "finance.sources.table: orders/revenue/contribution for etsy_organic, etsy_ads, offsite_ads, owned_direct and an explicit unattributed bucket (legacy 'etsy' maps to unattributed), total = sum of rows, unattributed_share. Exposed as profit_and_loss.sales_by_source in /api/finance (None when sales UNMEASURED).",
+   "producer": "finance/sources.py::table",
+   "consumer": "finance/books.py -> /api/finance",
+   "live_root": "GET /api/finance",
+   "tests": [
+    "tests/test_money_truth.py::test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket",
+    "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader"
+   ],
+   "remaining": "Dashboard rendering of sales_by_source (cluster E)."
+  },
+  {
+   "uid": "F-273",
+   "status": "DONE",
+   "what_changed": "An offsite_ads_fee ledger entry matched to an order sets Order.offsite_ads_fee_cad and offsite_ad_attributed, is included in the measured fee and deducted from contribution_cad, and attributes the order to offsite_ads with the entry id as evidence. Not read = None, never 0.",
+   "producer": "finance/reconcile.py::apply (via orders_ingest._reconcile_fees)",
+   "consumer": "Order.contribution_cad / offsite_ad_attributed -> order_readings, growth_ops ads, sources.table",
+   "live_root": "commerce.orders_ingest cadence (gated on transactions_r)",
+   "tests": [
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally"
+   ],
+   "remaining": "Live verification of the offsite fee ledger_type string (etsy_surfaces notes the ledger description enum may not name an ad fee)."
+  },
+  {
+   "uid": "F-541",
+   "status": "DONE",
+   "what_changed": "orders_ingest catches EtsyAuthNeedsOwner on the receipt read and the ledger read; needs_owner() classifies (refresh_refused, access_revoked, scope_drift, sealing_key_changed, no_credential) and upserts one OwnerAction etsy.oauth.reauthorise (restated when open, never reopened when done) plus one P2 incident etsy.oauth.needs_owner (report_count incremented). Run returns UNMEASURED, no orders.",
+   "producer": "commerce/orders_ingest.py::needs_owner",
+   "consumer": "owner_actions queue; incidents",
+   "live_root": "commerce.orders_ingest cadence",
+   "tests": [
+    "tests/test_money_truth.py::test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident",
+    "tests/test_money_truth.py::test_an_auth_failure_never_reopens_an_action_the_owner_closed"
+   ],
+   "remaining": "Orders side only; publish side (runtime/pipeline.py::handle_store_publish) is another cluster."
+  },
+  {
+   "uid": "F-324",
+   "status": "DONE",
+   "what_changed": "finance.sustainability.break_even: per product, creation cost = AI/API spend tagged to the product before its first live listing (floor), contribution per sale measured from orders or modelled at listed price (labelled), break_even_sales = ceil(creation/contribution), None with reason when contribution <= 0; maintenance so far kept separate as recurring.",
+   "producer": "finance/sustainability.py::break_even",
+   "consumer": "launch/readiness.py sustainable_economics evidence.break_even",
+   "live_root": "launch.readiness daily cadence (runtime/release.py::handle_launch_readiness)",
+   "tests": [
+    "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+   ],
+   "remaining": "Depends on product_slug tagging of cost rows; untagged product work is counted as platform spend."
+  },
+  {
+   "uid": "F-325",
+   "status": "DONE",
+   "what_changed": "finance.sustainability.forecast: low/base/high named scenarios (catalogue size, sales/month, support rate, new products/month, platform factor) x measured unit costs (platform monthly spend, creation per product, maintenance per listing, support per case); refuses with INSUFFICIENT_DATA (<14 days history, <20 costed calls, no product-tagged creation cost, no priced listing), showing only the measured platform floor.",
+   "producer": "finance/sustainability.py::forecast",
+   "consumer": "sustainability.verdict -> launch/readiness.py",
+   "live_root": "launch.readiness daily cadence",
+   "tests": [
+    "tests/test_money_truth.py::test_the_forecast_refuses_on_thin_data_and_shows_only_a_floor",
+    "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost"
+   ],
+   "remaining": "Scenario assumptions are constants in SCENARIOS; no owner-editable input."
+  },
+  {
+   "uid": "F-329",
+   "status": "DONE",
+   "what_changed": "launch/readiness.assess gains 'sustainable_economics' (blocked_by build): ready only when the forecast computes and the base case nets positive with AI/API <= 50% of contribution; evidence carries status, problems, missing, scenario totals, measured inputs, low-case top-up flag and break-even per product.",
+   "producer": "finance/sustainability.py::verdict",
+   "consumer": "launch/readiness.py::assess",
+   "live_root": "launch.readiness daily cadence; readiness API",
+   "tests": [
+    "tests/test_money_truth.py::test_launch_readiness_carries_the_sustainable_economics_requirement",
+    "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
+    "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people"
+   ],
+   "remaining": "With production's current development spend the gate may read blocked until spend is tagged/wound down; that is the intended behaviour."
+  },
+  {
+   "uid": "F-321",
+   "status": "PARTIAL",
+   "what_changed": "finance.sustainability.listing_maintenance_cost: AI/API spend tagged to a product after its first live listing, per listing per month; UNMEASURED with reason while no listing is live. Feeds the forecast.",
+   "producer": "finance/sustainability.py::listing_maintenance_cost",
+   "consumer": "sustainability.forecast -> readiness",
+   "live_root": "launch.readiness daily cadence",
+   "tests": [
+    "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+   ],
+   "remaining": "Maintenance jobs (observation, revalidation, refresh, support) must pass product_slug to spend_report.record for attribution; live-at uses Listing.created_at as a floor (no published_at column)."
+  },
+  {
+   "uid": "F-322",
+   "status": "NOT_STARTED",
+   "what_changed": "",
+   "producer": "",
+   "consumer": "",
+   "live_root": "",
+   "tests": [],
+   "remaining": "Fix is in visual/reliability.py / publish/model_photography.py (not cluster D ownership): add judging cost to spent_cad as judging_cad."
+  }
+ ],
+ "tests_run": [
+  {
+   "file": "tests/test_money_truth.py",
+   "passing": 18,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_finance.py",
+   "passing": 21,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_launch.py",
+   "passing": 25,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_orders.py",
+   "passing": 14,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_deploy.py",
+   "passing": 32,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_acceptance_gates.py",
+   "passing": 23,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_wiring.py",
+   "passing": 16,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_reachability.py",
+   "passing": 11,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_moat.py",
+   "passing": 11,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_paid_media_economics.py",
+   "passing": 9,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_growth.py",
+   "passing": 13,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cohorts.py",
+   "passing": 5,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_rebuild_chain.py",
+   "passing": 10,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_scale.py",
+   "passing": 13,
+   "failing": 0
+  }
+ ],
+ "tests_changed": [
+  {
+   "test": "tests/test_finance.py::test_an_empty_business_reports_zeroes_rather_than_nothing",
+   "uid": "F-608",
+   "why": "Pinned CA$0.00/0 orders as observed with no order source connected; replaced by test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed plus a measured-zero test with the source connected and read."
+  },
+  {
+   "test": "tests/test_deploy.py::test_the_finance_endpoint_reports_observed_figures_and_no_forecast",
+   "uid": "F-608",
+   "why": "Pinned gross_sales_cad 0.0 and all_figures_observed True for a disconnected source; renamed ..._reports_unmeasured_sales_and_no_forecast and asserts UNMEASURED/None."
+  },
+  {
+   "test": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader",
+   "uid": "F-283/F-289",
+   "why": "Asserted the etsy_organic loop was credited 43 orders from the blanket 'etsy' label; now asserts unattributed orders credit no loop and every ingested order is 'unknown'."
+  },
+  {
+   "test": "tests/test_launch.py::_stock (fixture)",
+   "uid": "F-329",
+   "why": "'A company that has done its half' now also records 30 days of measured AI/API spend so the new sustainable_economics requirement can compute; no assertion weakened."
+  }
+ ],
+ "files_touched": [
+  "src/brambleloop/core/models.py",
+  "src/brambleloop/commerce/orders_ingest.py",
+  "src/brambleloop/finance/books.py",
+  "src/brambleloop/finance/reconcile.py (new)",
+  "src/brambleloop/finance/sources.py (new)",
+  "src/brambleloop/finance/sustainability.py (new)",
+  "src/brambleloop/launch/readiness.py (sustainable_economics only)",
+  "tests/test_money_truth.py (new)",
+  "tests/test_finance.py",
+  "tests/test_deploy.py",
+  "tests/test_cert_orders.py",
+  "tests/test_launch.py"
+ ],
+ "migrations": [
+  "ledger: +source VARCHAR(40) '' ,+external_id VARCHAR(120) '', +currency VARCHAR(3) 'CAD', +amount_original FLOAT NULL, +classification VARCHAR(40) '', +basis VARCHAR(12) 'unknown', +fees_basis VARCHAR(12) 'unknown', +reconciliation_state VARCHAR(24) 'unreconciled' (+indexes on source, external_id, reconciliation_state)",
+  "orders: +fees_basis VARCHAR(12) 'unknown', +offsite_ads_fee_cad FLOAT NULL",
+  "All via core/migrate.py additive ADD COLUMN + literal-default backfill; no data rewritten."
+ ],
+ "needs_from_others": [
+  "Cluster B (integrations/etsy.py, etsy_oauth.py): add a public EtsyClient.get_payment_account_ledger_entries(min_created, max_created, limit, offset) so orders_ingest.EtsyReceiptReader.ledger_entries can stop calling client._call; add 'getShopPaymentByReceiptId': ('transactions_r',) (and getShopPaymentAccountLedgerEntry, getPaymentAccountLedgerEntryPayments) to SCOPES_REQUIRED so per-receipt Payment amount_fees/adjusted_fees can be read.",
+  "Cluster E (app/main.py api_finance + dashboard): docstring 'Every figure observed' is now false; render profit_and_loss.sales_reading/sales_why (show 'UNMEASURED' not CA$0.00 when gross_sales_cad is null), platform_fees_basis + platform_fees_by_basis (label modelled fees 'modelled, not charged'), and a traffic-source table from profit_and_loss.sales_by_source.channels with the 'unattributed' row always shown. Add POST route for owner/Stats attribution calling finance.sources.attribute(db, external_ref, source, evidence=..., by='owner') and GET for finance.sources.first_sale(db).",
+  "runtime/orders.py::handle_orders_ingest (owner unassigned in my brief): include got['fees'] (read, orders_measured, orphan_fee_entries, reconciliation_incident), got['first_sale'] and got['auth_failure'] in the commerce.orders_ingested audit summary.",
+  "Visual cluster: F-322 judging cost in visual/reliability.py.",
+  "Cost writers for maintenance jobs (observation/revalidation/support): pass product_slug to spend_report.record so F-321/F-324 attribution is not a floor."
+ ],
+ "risks": [
+  "Etsy payment-account ledger field semantics (ledger_type values, amount units) are UNVERIFIED until transactions_r is granted; wrong guesses leave entries unclassified (reported) rather than miscounted, but a wrong divisor would misstate measured fees -- verify on first real read.",
+  "sustainable_economics may block launch in production because current platform spend includes R&D; intended per F-329 but the owner should expect it.",
+  "books.profit_and_loss now queries OAuthCredential/AuditLog on every call (small cost; used by handlers and /api/finance).",
+  "Order/ledger rows from before this change keep fees_basis 'unknown' and acquisition_source 'etsy' (mapped to unattributed in the table); none exist in production today (no transactions_r)."
+ ]
+}

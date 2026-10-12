@@ -76,6 +76,45 @@ def test_twin_refuses_to_model_a_broken_pattern():
         assert "failed compilation" in str(e)
 
 
+def test_flat_twin_carries_a_cumulative_height_at_the_top_of_every_row():
+    """row_top_cm: each row adds its own height, and the last row is the finished height."""
+    from brambleloop.cir.geometry import _row_height_cm
+
+    cir = fixtures.good_mosaic_panel()
+    result = compile_cir(cir)
+    twin = build_twin(cir, result)
+    rows = [r for r in result.rows if r.component == twin.component]
+    assert sorted(twin.row_top_cm) == [r.index for r in rows]
+    tops = [twin.row_top_cm[r.index] for r in rows]
+    assert tops == sorted(tops) and tops[0] > 0
+    # Row 2 is worked with dc and row 1 in sc only, so row 2 adds more height than row 1.
+    assert tops[1] - tops[0] > tops[0]
+    assert abs(tops[0] - _row_height_cm(rows[0], cir)) < 1e-3
+    assert abs(tops[-1] - twin.height_cm) < 0.1
+
+    # A piece worked in the round has no rows to stack; its heights live on the rings.
+    sphere = fixtures.good_sphere()
+    assert build_twin(sphere, compile_cir(sphere)).row_top_cm == {}
+
+
+def test_a_cable_crossing_side_is_front_back_or_unstated_and_only_on_cables():
+    from brambleloop.cir import stitches as S
+
+    for code in ("cable2x2", "cable1x1"):
+        st = S.get(code)
+        assert st.is_cable and st.crossing is None     # the definitions name no side
+    assert S.get("sc").crossing is None and not S.get("sc").is_cable
+    S.Stitch("cable2x2f", "x", "x", consumes=4, produces=4, height=3.0, crossing="front")
+    S.Stitch("cable2x2b", "x", "x", consumes=4, produces=4, height=3.0, crossing="back")
+    for bad in ({"code": "cable2x2s", "crossing": "left"}, {"code": "sc2", "crossing": "front"}):
+        try:
+            S.Stitch(bad["code"], "x", "x", consumes=1, produces=1, height=1.0,
+                     crossing=bad["crossing"])
+        except ValueError:
+            continue
+        raise AssertionError(f"accepted {bad}")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

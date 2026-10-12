@@ -144,6 +144,20 @@ CABLE_TWIST = _m(
     "a crossing twist that reads as a cable in texture rather than colour")
 
 
+# W4-PIPE2 (2026-10-07), for the spring-garden-kneeler candidate: a diagonal trellis whose
+# two lines cross at the centre of the repeat, with a tulip head -- a cup and three petal
+# points -- standing on the crossing. Built from geometry like every motif here; worked
+# bottom-up, chart line 0 first, so the cup sits below its petals and the tulip is upright.
+TULIP_TRELLIS = _m(
+    "tulip-trellis", "Tulip Trellis",
+    [
+        "100000000001", "010000000010", "001000000100", "000100001000",
+        "000011110000", "000111111000", "000111111000", "000101101000",
+        "000100001000", "001000000100", "010000000010", "100000000001",
+    ],
+    "a diagonal trellis with a tulip head on every crossing")
+
+
 # ---- assembling the library ------------------------------------------------
 
 

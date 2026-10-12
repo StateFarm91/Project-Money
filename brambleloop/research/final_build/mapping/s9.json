@@ -1,0 +1,4076 @@
+[
+ {
+  "uid": "F-749",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "IP/provenance firewall: a sellable pattern must not be a purchased pattern",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::specification_findings -> cir/specification.py::refuse_a_benchmark_in_our_clothes; teardown/library.py::retrieve (role quarantine)",
+  "durable_state": "pattern_versions.certificate (certify findings); quarantined BENCHMARK_LIBRARY outside repo; benchmark_products (hashes only)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "certificate refused for a benchmark relabelled as Brambleloop; generation/listing roles get PermissionError on benchmark files",
+  "tests": [
+   "tests/test_cert_design.py::test_benchmark_relabelled_as_ours_is_refused",
+   "tests/test_cert_design.py::test_garment_modules_import_nothing_from_benchmarks_or_research",
+   "tests/test_originality.py::test_a_light_derivative_of_benchmark_2_is_escalated_for_redesign",
+   "tests/test_originality.py::test_the_review_compares_against_both_purchased_benchmarks",
+   "tests/test_specification.py::test_the_benchmark_relabelled_as_brambleloop_is_refused_at_every_size",
+   "tests/test_specification.py::test_trimming_or_padding_a_few_rows_does_not_evade_the_firewall",
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library"
+  ],
+  "evidence": [
+   "module_reachability: cir/specification.py reached via gate.certify path; teardown/library.py reached (api_teardown_intake)",
+   "fcb982d gates/certificate.py has no 'specification' stage -> not deployed",
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)",
+   "w3 lane K triage R: originality compares against benchmark 1 AND benchmark 2"
+  ],
+  "build2_rows": [
+   "#149 COMPLETE+PROVEN",
+   "#167 COMPLETE+PROVEN",
+   "#87 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Encode the purchased Mini Star Stitch Cardigan as a read-only benchmark comparison CIR in cir/benchmarks.py (from research/bench2/product_truth.py numbers, authored='benchmark') so specification.benchmark_matches covers it; add a test that a star-stitch Brambleloop design carrying its piece tables is refused",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): originality compares against benchmark 1 AND benchmark 2"
+ },
+ {
+  "uid": "F-750",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth must encode construction; wrong construction = wrong product",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (cir/topology: work direction, construction steps)",
+  "durable_state": "CIR JSON in pattern_versions (fingerprinted)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "a release whose joins do not close or whose construction facts are unstated is not certified",
+  "tests": [
+   "tests/test_assembly.py::test_a_join_compares_the_length_of_both_edges",
+   "tests/test_assembly.py::test_grain_decides_which_way_a_panel_lies_on_the_object",
+   "tests/test_k9_graded_truth.py::test_work_direction_is_written_read_back_and_held_to_the_rows",
+   "tests/test_reverse.py::test_a_hold_and_its_resume_are_read_back",
+   "tests/test_specification.py::test_a_brambleloop_design_must_state_panel_orientation"
+  ],
+  "evidence": [
+   "products/garments.py raglan_top_down / drop_shoulder_flat encode direction only implicitly in row order",
+   "cir/assembly.py reached; grain/holds post-date fcb982d (Build 2 work)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#103 COMPLETE+PROVEN",
+   "#63 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-751",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "stitch structure is Product Truth when appearance depends on it",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::stitch_semantics_findings (cir/stitches.ANATOMY)",
+  "durable_state": "CIR in pattern_versions",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "a pattern whose stitch arithmetic or loop placement disagrees is not certified; reverse compiler flags a flipped loop",
+  "tests": [
+   "tests/test_k9_rows.py::test_a_star_stitch_compiles_to_its_eyes_legs_and_bases",
+   "tests/test_render.py::test_loop_targeting_changes_the_drawing",
+   "tests/test_reverse.py::test_a_flipped_loop_is_a_mismatch_not_a_nuance",
+   "tests/test_texture.py::test_a_crossing_consumes_four_stitches_and_produces_four",
+   "tests/test_texture.py::test_a_name_claiming_a_technique_the_fabric_does_not_work_is_refused",
+   "tests/test_texture.py::test_post_stitches_cost_the_compiler_nothing_and_buy_ribbing"
+  ],
+  "evidence": [
+   "products/texture.py (names claiming cable/bobble/rib refused unless the fabric works them)",
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#103 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-752",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "D-FB-7 lists stitch/fabric identity as a launch gate for every customer-facing image.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/render_verification.py (raised_stitch_placement, counts); src/brambleloop/visual/product_authority.py::structural_floor",
+  "durable_state": null,
+  "consumer": "src/brambleloop/visual/parity.py::assess (PRODUCT_TRUTH)",
+  "protected_effect": "a listing image with the wrong stitch structure (or unverifiable structure) cannot clear PRODUCT_TRUTH",
+  "tests": [
+   "tests/test_disclosed_render.py::test_a_raised_post_where_the_pattern_has_none_fails",
+   "tests/test_disclosed_render.py::test_generative_looking_redraws_fail",
+   "tests/test_final_visual_authority.py::test_motif_match_and_self_asserted_construction_pass_do_not_clear_parity",
+   "tests/test_final_visual_authority.py::test_star_proxy_keeps_historical_thresholds_and_refuses_unknown_envelope"
+  ],
+  "evidence": [
+   "module_reachability: visual/stitch_identity.py reached=False, not in fcb982d",
+   "visual/parity.py lines ~196-204 (F-752/F-760/F-856 comment)",
+   "w3 lane K triage R: PRODUCT_TRUTH needs deterministic structural_floor PASS"
+  ],
+  "build2_rows": [
+   "#75 COMPLETE+PROVEN",
+   "#79 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "For Launch-0 none beyond keeping generated imagery out; before any photographic/generated frame is admitted: wire visual/stitch_identity.diagnose (per family, UNKNOWN outside envelope) into product_authority.structural_floor for non-render frames and add families beyond star; test a seed/waffle fabric labelled star fails.",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): PRODUCT_TRUTH needs deterministic structural_floor PASS"
+ },
+ {
+  "uid": "F-753",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "gauge determines finished size and visible scale",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/asset_truth.py::check_asset (gates/stitch_scale reading; Component.gauge)",
+  "durable_state": "CIR in pattern_versions",
+  "consumer": "src/brambleloop/runtime/release.py listing assets",
+  "protected_effect": "finished dimensions and PDF gauge statement derive from stored gauge",
+  "tests": [
+   "tests/test_assembly.py::test_a_chain_that_adds_width_says_so_when_the_chain_gauge_is_unknown",
+   "tests/test_k9_rows.py::test_a_generated_image_with_the_wrong_stitch_scale_is_not_certified",
+   "tests/test_render.py::test_the_stitch_aspect_comes_from_the_gauge",
+   "tests/test_twin.py"
+  ],
+  "evidence": [
+   "fcb982d cir/model.py Gauge has hook_mm/yarn_weight (stored part deployed)",
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/): gauge perturbation test PASS/FAIL in research",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#79 COMPLETE+PROVEN",
+   "#60 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-754",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Correct patterns/Product Truth: gauge per region drives every length and size claim (latent for Launch-0 single-gauge items).",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::component_gauge_findings",
+  "durable_state": null,
+  "consumer": "runtime consumer per reachability: certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_fb4_lc.py::test_certify_refuses_a_component_gauge_that_differs_from_the_main_gauge"
+  ],
+  "evidence": [
+   "cir/model.py: only `gauge: Gauge | None` on CIR (line ~487); no change to cir/model.py since 019ebf0 touches gauge regions",
+   "w3 lane K triage R: fail-closed: certify refuses a component gauge differing from the main gauge (per-region support stays F-753)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Add optional Component.gauge (and stitch identity) to cir/model.py with to/from_dict; use it in cir/twin.py, cir/assembly.py and dimensions; print per-region gauge in publish/pdf.py; until then make certify refuse a CIR/brief that declares region gauges; test a ribbed band whose row gauge differs from the body.",
+  "confidence": "HIGH",
+  "searched": "cir/*.py for region_gauge/component.gauge/multi gauge; tests and waves for F-754 | w4-FM re-map on fee1cfe (FOLD-R): fail-closed: certify refuses a component gauge differing from the main gauge (per-region support stays F-753)"
+ },
+ {
+  "uid": "F-755",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "graded-size errors are pattern defects sold to customers",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/reader.py::read (size_family all_size_parse / freeze_render_size)",
+  "durable_state": "CIR per size",
+  "consumer": "src/brambleloop/teardown intake",
+  "protected_effect": "a size that cannot be built/ monotonic is refused before render/release",
+  "tests": [
+   "tests/test_cert_design.py::test_fresh_raglan_survives_whole_release_chain_at_every_size",
+   "tests/test_cert_grading.py",
+   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_k9_rows.py::test_the_teardown_reader_reports_the_size_family",
+   "tests/test_k9_rows.py::test_the_whole_size_family_is_parsed_before_one_size_is_frozen"
+  ],
+  "evidence": [
+   "module_reachability: cir/graded.py reached (api_seasonal_cycle), not in fcb982d",
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#308 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-756",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "schematic/measurement conflicts are sizing claims to customers",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (grading_problems) + teardown/size_family.schematic_cross_check",
+  "durable_state": "release artefacts",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "a listing size card contradicting geometry blocks export",
+  "tests": [
+   "tests/test_cert_publish_gates.py::test_a_listing_copy_size_that_contradicts_the_geometry_is_caught",
+   "tests/test_dimensions.py::test_two_numbers_disagreeing_about_the_same_thing_is_the_headline_defect",
+   "tests/test_k9_rows.py::test_a_schematic_disagreement_is_a_conflict_never_a_choice",
+   "tests/test_schematic.py"
+  ],
+  "evidence": [
+   "publish/schematic.py reached but not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#60 COMPLETE+PROVEN",
+   "#59 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-757",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Truthful listing representation: images must state which configuration they show.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/listing_set.py::certify",
+  "durable_state": null,
+  "consumer": "runtime consumer per reachability: CertifiedFrame.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/e",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_dimensions.py::test_a_size_variant_is_required_only_where_the_product_has_variants",
+   "tests/test_fb4_lc.py::test_configuration_roundtrips_and_certify_refuses_bad_blocks_and_mismatched_claims",
+   "tests/test_fb4_lc.py::test_listing_set_certificate_records_and_enforces_the_represented_variant"
+  ],
+  "evidence": [
+   "grep variant/optional_feature in cir/model.py, publish/listing_set.py, visual/disclosed_render.py, publish/disclosed_listing.py: none",
+   "w3 lane K triage R: cir/model.py variant configuration; represented_variant enforced in certificate"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Add a feature-configuration block to cir/model.py (optional features with defaults), record the represented configuration in disclosed_render manifests and ListingCertificate frames, and have listing_set.certify refuse a frame whose configuration differs from the listing's claimed variant; test hood/button toggles.",
+  "confidence": "HIGH",
+  "searched": "cir/model.py, publish/listing_set.py, visual/disclosed_render.py, publish/disclosed_listing.py | w4-FM re-map on fee1cfe (FOLD-R): cir/model.py variant configuration; represented_variant enforced in certificate"
+ },
+ {
+  "uid": "F-758",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Applies to generators reproducing a reference; F-852/D-FB-7 removed generative product imagery from the launch path (no generator consumes the reference).",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No code classifies a generator-reproduced defect as an upstream reference error, versions the reference, or requires a regression test; practice only (DECISION_LOG D-B1-4).",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "no src/tests/waves hit for F-758 or reference_defect"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "With V2: record the reference digest per generated draw and add a 'reference_defect' finding class that fails the reference version (not the draw), requiring a new reference version plus a regression test before regeneration.",
+  "confidence": "MEDIUM",
+  "searched": "src, tests, waves for F-758 / reference_defect"
+ },
+ {
+  "uid": "F-759",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Gates promotion of distinctive stitch families; Launch-0 uses basic sc/dc only and the renderer refuses unsupported constructions.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "visual/stitch_identity.py carries star-family positive truth plus negative controls (hdc, seed, knit, Bench1 waffle reference) and a self-test; the test asserts star passes and hdc fails. No other families, no maintained benchmark-set registry, and no promotion gate that marks a family production-supported only after every negative is rejected; module unreached.",
+  "producer": "src/brambleloop/visual/stitch_identity.py::selftest / diagnose",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_visual_authority.py::test_star_proxy_keeps_historical_thresholds_and_refuses_unknown_envelope",
+   "tests/test_topology_adversarial.py",
+   "tests/test_stitch_identity.py"
+  ],
+  "evidence": [
+   "module_reachability: visual/stitch_identity.py reached=False"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Add a stitch-family support registry (visual/stitch_families.py) with per-family positive/negative fixtures, mark a family supported only when diagnose rejects every negative, and have disclosed_render/certify refuse CIRs using an unsupported distinctive family; tests.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-760",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "listing image must pass truth and realism independently",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/parity.py::assess (eight dimensions, unjudged blocks); publish/model_photography.py six floors",
+  "durable_state": "audit_log listing.parity rows",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish -> _listing_parity",
+  "protected_effect": "listing export refused unless every dimension passes; unjudged blocks",
+  "tests": [
+   "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+   "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
+   "tests/test_model_photography.py::test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds",
+   "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it",
+   "tests/test_parity.py::test_unjudged_blocks_exactly_as_a_failure_does_and_is_reported_apart_from_one"
+  ],
+  "evidence": [
+   "fcb982d runtime/pipeline.py computes _listing_parity before the phase check (deployed)",
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: store.publish_refused 165 (phase refusal; parity verdict per attempt not separately evidenced)",
+   "w3 lane K triage R: dual pass: structural floor + realism, independent"
+  ],
+  "build2_rows": [
+   "#75 COMPLETE+PROVEN",
+   "#79 COMPLETE+PROVEN",
+   "#58 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Replace the motif-only truth leg with the deterministic stitch-identity + apparent-gauge instrument (F-752/F-753) so the structural pass is independent of any vision model",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): dual pass: structural floor + realism, independent"
+ },
+ {
+  "uid": "F-761",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "the PDF is the product the customer buys",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py::package_requirements / build_pattern_pdf",
+  "durable_state": "release PDF artefacts (ArtefactProvenance)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "protected_effect": "customer receives a generated, validated PDF",
+  "tests": [
+   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set",
+   "tests/test_deliverable_qa.py",
+   "tests/test_k9_graded_truth.py::test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete",
+   "tests/test_layout_qa.py"
+  ],
+  "evidence": [
+   "fcb982d publish/pdf.py has Special stitches, Substituting the yarn, Checking your progress, Terms and support; no Schematic heading",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#7 COMPLETE+PROVEN",
+   "#152 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-762",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "graded pattern correctness across sizes",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py::GradedDesign.build (CIR.grading size matrix)",
+  "durable_state": "CIR per size",
+  "consumer": "src/brambleloop/creative/garment_design.py -> gates/certificate.certify",
+  "protected_effect": "a non-monotonic or unproducible size is refused",
+  "tests": [
+   "tests/test_cert_grading.py",
+   "tests/test_graded.py::test_a_transposed_body_table_is_refused",
+   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_k9_graded_truth.py::test_every_graded_size_carries_the_whole_size_matrix"
+  ],
+  "evidence": [
+   "cir/graded.py reached, not in fcb982d; cir/grading.py in production",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-763",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "fit/ease misstatement is a refund-class claim",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py::FitIntent + gates/policy.py FIT_CLAIMS",
+  "durable_state": "CIR/graded design",
+  "consumer": "src/brambleloop/gates/policy.py::check_listing; publish/pdf fit/ease table",
+  "protected_effect": "negative ease/unknown measurements refused",
+  "tests": [
+   "tests/test_cert_design.py::test_fitted_premise_is_class_c_and_blocked_without_physical_test",
+   "tests/test_graded.py::test_negative_ease_and_unknown_measurements_are_refused",
+   "tests/test_k9_graded_truth.py::test_a_fit_word_must_match_the_stated_ease"
+  ],
+  "evidence": [
+   "Launch-0 has no garments",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-764",
+  "launch_class": "MATURE",
+  "launch_class_reason": "substitution guidance is 'where useful' customer value, not a first-sale blocker",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/substitution.py::guidance (gauge-band arithmetic, refuses without gauge, swatch required)",
+  "durable_state": "PDF",
+  "consumer": "src/brambleloop/publish/pdf.py 'Substituting the yarn'",
+  "protected_effect": "PDF tells the maker to swatch and gives weight/yardage guidance",
+  "tests": [
+   "tests/test_substitution.py"
+  ],
+  "evidence": [
+   "fcb982d publish/pdf.py contains 'Substituting the yarn'"
+  ],
+  "build2_rows": [
+   "#7 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-765",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Correct, usable pattern product.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py::construction_overview",
+  "durable_state": "artifact store (pattern PDF)",
+  "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf (runtime/release.py::handle_assets_build)",
+  "protected_effect": "customer understands construction before row-level instructions",
+  "tests": [
+   "tests/test_schematic.py::test_a_garment_pdf_explains_its_construction_before_the_instructions"
+  ],
+  "evidence": [
+   "waves/fb1_C.json F-765 DONE",
+   "git show fcb982d:.../publish/pdf.py has no construction_overview -> not DEPLOYED",
+   "w3 lane K triage R: construction_overview placed before instructions"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Emit an overview for single-component garments whose component has sections/resumes/holds (from cir.components construction metadata); test a one-piece yoke garment gets one and a coaster does not.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): construction_overview placed before instructions"
+ },
+ {
+  "uid": "F-766",
+  "launch_class": "MATURE",
+  "launch_class_reason": "needs testing/support failure data",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "progress checkpoints exist; teardown traps attach to support cases; no loop turns tester/support failures into in-pattern tips at the failure point",
+  "producer": "src/brambleloop/teardown/enforce.py::apply_pattern_help; publish/pdf.py 'Checking your progress'",
+  "durable_state": null,
+  "consumer": "support.triage",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_value_stack.py::test_progress_milestones_state_a_number_a_maker_can_count"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#155 COMPLETE+PROVEN",
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "support/tester failure signals do not exist before launch"
+  },
+  "defect": null,
+  "next_action": "Add a tips field to the CIR release (keyed to row ranges) fed from recurring support themes/PhysicalTest notes and render it inline in publish/pdf.py",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-767",
+  "launch_class": "MATURE",
+  "launch_class_reason": "video is post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "video modules are keyed to 'tutorial:{slug}@{version}' but not to a size, and no PDF/listing text names the demonstrated size/version; no videos exist",
+  "producer": "src/brambleloop/growth/video.py::plan",
+  "durable_state": "operating reading of growth.distribution",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_growth_distribution",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_video.py::test_a_clip_goes_stale_when_the_design_it_was_cut_from_moves"
+  ],
+  "evidence": [
+   "runtime/growth_ops.py not in fcb982d"
+  ],
+  "build2_rows": [
+   "#248 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no video surface exists"
+  },
+  "defect": null,
+  "next_action": "Add demonstrated_size to growth/video.Module and require PDF/listing copy to state it when a module exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-768",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release QA must independently recompute the pattern (correct patterns)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (grading_findings)",
+  "durable_state": "certificate stages",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "release refused when written text disagrees with CIR",
+  "tests": [
+   "tests/test_cir_roundtrip.py",
+   "tests/test_k9_graded_truth.py::test_certify_recomputes_the_size_and_rechecks_the_family",
+   "tests/test_reverse.py::test_dropped_row_is_caught",
+   "tests/test_reverse.py::test_repeat_count_mutation_is_caught"
+  ],
+  "evidence": [
+   "fcb982d gates/certificate.py stages include write, reverse",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#8 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-769",
+  "launch_class": "MATURE",
+  "launch_class_reason": "gallery evidence requires customers/testers",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "buyer_trust.record_image and quality/proof ladder distinguish physical proof; no gallery of real finished objects exists",
+  "producer": "src/brambleloop/commerce/buyer_trust.py::record_image; quality/proof.py",
+  "durable_state": "assets.image_provenance",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_proof.py::test_proof_accumulates_and_does_not_leapfrog"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#258 DATA-GATED",
+   "#36 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs real finished projects"
+  },
+  "defect": null,
+  "next_action": "none now; wire tester/customer project images into proof ladder when PhysicalTest rows arrive",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-770",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "customer support/remedy path is launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py support_scope (Terms and support)",
+  "durable_state": "support_knowledge artefacts; support cases",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "protected_effect": "customer questions routed with purchased version",
+  "tests": [
+   "tests/test_cert_unique_value.py",
+   "tests/test_k9_graded_truth.py::test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete",
+   "tests/test_trust.py"
+  ],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED",
+   "#42 COMPLETE+PROVEN",
+   "#259 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-771",
+  "launch_class": "MATURE",
+  "launch_class_reason": "free-to-paid content ladder is growth",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "growth/free_to_paid.py has no live caller",
+  "producer": "src/brambleloop/growth/free_to_paid.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_free_to_paid.py"
+  ],
+  "evidence": [
+   "module_reachability: growth/free_to_paid.py not reached"
+  ],
+  "build2_rows": [
+   "#10 OWNER-GATED",
+   "#233 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no owned content surface"
+  },
+  "defect": null,
+  "next_action": "Wire free_to_paid checks into growth_ops.handle_growth_distribution when a free asset is planned",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-772",
+  "launch_class": "MATURE",
+  "launch_class_reason": "multi-storefront is post-launch",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "only Etsy exists; canonical release -> Etsy listing sync via chain.rebuild; no second storefront",
+  "producer": "src/brambleloop/runtime/release.py (chain.rebuild keeps listing in sync with release)",
+  "durable_state": "pattern_versions/listings",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#29 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "second storefront needs owner accounts"
+  },
+  "defect": null,
+  "next_action": "Defer; when a second channel is authorised add a channel adapter keyed on the canonical release",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-773",
+  "launch_class": "MATURE",
+  "launch_class_reason": "video strategy is post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "plans only; demand/complexity/ROI selection of which patterns justify video not measured",
+  "producer": "src/brambleloop/growth/video.py::plan",
+  "durable_state": "growth.distribution reading",
+  "consumer": "runtime/growth_ops.py::handle_growth_distribution",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_video.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#248 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no video channel"
+  },
+  "defect": null,
+  "next_action": "none pre-launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-774",
+  "launch_class": "MATURE",
+  "launch_class_reason": "collections are growth",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/seasonal/collections.py; creative/family.py",
+  "durable_state": "collection releases",
+  "consumer": "gate.certify -> enqueue_member_collections (C-73)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_collections.py::test_a_recolour_cannot_be_a_second_member",
+   "tests/test_family.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#289 COMPLETE+PROVEN",
+   "#143 COMPLETE+PROVEN",
+   "#111 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-775",
+  "launch_class": "MATURE",
+  "launch_class_reason": "attach-rate optimisation is growth",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "cross-sell pairs/bundles exist; tutorial and materials links are not part of the graph",
+  "producer": "src/brambleloop/commerce/bundles.py; seasonal/collections.py cross-sell",
+  "durable_state": "bundle readings",
+  "consumer": "ops.capacity/commerce readings",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_collections.py::test_cross_sell_pairs_differ_in_commitment_rather_than_in_colour",
+   "tests/test_cert_orders.py::test_bundle_pairs_come_from_certified_product_facts"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#234 COMPLETE+PROVEN",
+   "#45 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add lesson/material edges when the Learn knowledge graph (F-815) exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-776",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "listing assets must be owned (IP/marketplace compliance)",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/asset_truth.py (ASSET_COMPETITOR_SOURCE, ASSET_SOURCE_UNRECOGNISED)",
+  "durable_state": "assets.image_provenance",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "competitor-sourced imagery blocks publication",
+  "tests": [
+   "tests/test_gates.py::test_missing_provenance_is_rejected"
+  ],
+  "evidence": [
+   "fcb982d gates/asset_truth.py contains ASSET_COMPETITOR_SOURCE"
+  ],
+  "build2_rows": [
+   "#305 COMPLETE+PROVEN",
+   "#36 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-777",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "unsupported listing claims are marketplace/customer harm",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/policy.py::check_listing (claim_findings)",
+  "durable_state": "certificate findings",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "listing claims beyond evidence refused",
+  "tests": [
+   "tests/test_gates.py::test_unsupported_material_claim_is_blocked",
+   "tests/test_k9_graded_truth.py::test_each_untraceable_claim_word_is_refused",
+   "tests/test_proof.py::test_language_is_checked_against_the_level_not_against_intention"
+  ],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#103 COMPLETE+PROVEN",
+   "#8 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-778",
+  "launch_class": "MATURE",
+  "launch_class_reason": "needs reviews/support data",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "review themes are counted; conversion into bounded product improvements + regression tests is not closed",
+  "producer": "src/brambleloop/intel/observe.py (complaint themes); commerce/reviews.py::distribution",
+  "durable_state": "benchmark_observations; commerce.readings",
+  "consumer": "runtime/commerce_readings.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_complaints.py::test_only_recurring_themes_reach_the_learning_radar"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#257 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "no own reviews exist"
+  },
+  "defect": null,
+  "next_action": "none pre-launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-779",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "optimisation must not distort product truth in listings",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/listing_tests.py::activate_variant / variant_findings",
+  "durable_state": "brief records",
+  "consumer": "src/brambleloop/commerce/listing_tests.py (listing-test treatments)",
+  "protected_effect": "invention in creative refused",
+  "tests": [
+   "tests/test_brief.py::test_invention_is_caught_in_each_category_not_only_motifs",
+   "tests/test_brief.py::test_showing_more_than_the_truth_is_invention",
+   "tests/test_k9_rows.py::test_a_listing_variant_may_not_distort_product_truth"
+  ],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#63 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-780",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "originality of designs/assets is part of IP safety",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/scorecard.py (composite, parity refused); creative/blinded.py novelty/twin",
+  "durable_state": "teardown_findings; blind review rows",
+  "consumer": "cir.draft intake gate",
+  "protected_effect": "near-clone concepts refused before engineering",
+  "tests": [
+   "tests/test_teardown.py::test_the_composite_refuses_to_be_one_sellers_product_with_extra_steps",
+   "tests/test_blinded.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#162 COMPLETE+PROVEN",
+   "#87 COMPLETE+PROVEN",
+   "#227 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-781",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "quarantine prevents competitor content entering sellable output (not superseded: F-792 keeps the file out of drafting)",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/library.py::retrieve (ANALYST_ROLES), check_derived; teardown/reader.py returns no document text",
+  "durable_state": "quarantined library outside repo; benchmark_products (hashes)",
+  "consumer": "teardown/intake.py::receive",
+  "protected_effect": "generation/listing/support roles cannot read benchmark files",
+  "tests": [
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library",
+   "tests/test_teardown_reader.py::test_nothing_it_returns_is_a_substring_of_the_document"
+  ],
+  "evidence": [
+   "fcb982d teardown/library.py has retrieve role refusal",
+   "research/bench2 keeps the designer PDF outside the repo (test_bench2)"
+  ],
+  "build2_rows": [
+   "#149 COMPLETE+PROVEN",
+   "#167 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-782",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "derivative rewrite would be IP infringement",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::specification_findings",
+  "durable_state": "certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "benchmark-derived stitch tables refused",
+  "tests": [
+   "tests/test_originality.py::test_a_renamed_copy_of_a_purchased_file_is_refused_by_its_bytes",
+   "tests/test_originality.py::test_the_teardown_reader_fingerprints_wording_and_keeps_no_text",
+   "tests/test_originality.py::test_wording_overlap_is_measured_from_hashes_and_escalates",
+   "tests/test_specification.py::test_renaming_the_pieces_does_not_launder_the_counts",
+   "tests/test_specification.py::test_the_counts_tier_survives_relabelling_the_stitch"
+  ],
+  "evidence": [
+   "specification stage not in fcb982d",
+   "w3 lane K triage R: wording shingles / numeric runs / features / construction vs both benchmarks"
+  ],
+  "build2_rows": [
+   "#167 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Store hashed n-gram/numeric-sequence fingerprints of benchmark documents at intake (teardown/reader, no text retained) and compare Brambleloop PDFs at certify; add the s76 paraphrase-attempt test",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): wording shingles / numeric runs / features / construction vs both benchmarks"
+ },
+ {
+  "uid": "F-783",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "originality provenance required for release",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py (stamps cir.provenance)",
+  "durable_state": "CIR provenance block",
+  "consumer": "none at release (not required by gate.certify)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_design.py::test_garment_provenance_names_the_concept_and_no_benchmark",
+   "tests/test_cir_roundtrip.py",
+   "tests/test_originality.py::test_a_brambleloop_release_without_provenance_is_refused",
+   "tests/test_originality.py::test_every_catalogue_cir_carries_complete_design_provenance"
+  ],
+  "evidence": [
+   "cir/model.py Provenance class absent in fcb982d",
+   "w3 lane K triage R: provenance required for authored designs; catalogue backfilled"
+  ],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Backfill Provenance for every catalogue CIR (products/*.py) and make gates/certificate.py require a complete Provenance for authored='brambleloop'; test a release without provenance is refused",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): provenance required for authored designs; catalogue backfilled"
+ },
+ {
+  "uid": "F-784",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "similarity review before release (superseded in detail by F-795)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/originality.py::similarity_review + presentation_review",
+  "durable_state": "certificate",
+  "consumer": "src/brambleloop/publish/release_gates.py::originality_gate (store.publish)",
+  "protected_effect": "matches refused",
+  "tests": [
+   "tests/test_k9_rows.py::test_presentation_is_a_similarity_dimension_read_from_the_library",
+   "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
+  ],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#87 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-785",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "seller imagery as generation input is IP misuse",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/asset_truth.py (ASSET_COMPETITOR_SOURCE)",
+  "durable_state": "assets.image_provenance",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "competitor-derived assets blocked",
+  "tests": [
+   "tests/test_gates.py::test_missing_provenance_is_rejected",
+   "tests/test_image_reference_hash_failclosed.py",
+   "tests/test_originality.py::test_a_benchmark_or_seller_image_is_refused_as_a_generation_reference"
+  ],
+  "evidence": [
+   "VISUAL_BENCH1/2: seller images used for measurement only, not model input (research practice)",
+   "w3 lane K triage R: benchmark/seller image refused as a generation reference before bytes read"
+  ],
+  "build2_rows": [
+   "#305 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a reference-input allowlist in gateway/images.py (only frozen model pack, deterministic charts/twin renders) and a test that passing a benchmark/seller image path as reference is refused (s76 test)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): benchmark/seller image refused as a generation reference before bytes read"
+ },
+ {
+  "uid": "F-786",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Provenance / IP firewall.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/licence.py::capture_purchase (teardown/intake.py::receive)",
+  "durable_state": "benchmark_licences",
+  "consumer": "src/brambleloop/gates/originality.py::release_findings (gates/certificate.py certify; publish/release_gates.py); teardown/library.py::retrieve(db=, use=)",
+  "protected_effect": "a certify/release consulting a benchmark whose licence refuses the use is blocked, read at execution",
+  "tests": [
+   "tests/test_fb4_lc.py::test_the_upload_route_records_supplied_licence_terms_and_refuses_bad_ones",
+   "tests/test_originality.py::test_intake_captures_the_licence_and_it_survives_a_restart",
+   "tests/test_originality.py::test_the_library_refuses_a_use_the_licence_does_not_grant",
+   "tests/test_originality.py::test_unknown_terms_read_conservatively_and_never_permissively",
+   "tests/test_originality_runtime.py::test_licence_revocation_is_read_at_execution"
+  ],
+  "evidence": [
+   "waves/fb1_G.json F-786",
+   "teardown/licence.py not in fcb982d",
+   "w3 lane K triage R: upload route accepts machine-readable licence terms"
+  ],
+  "build2_rows": [
+   "#150 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Accept licence_terms (JSON form field) in app/main.py api_teardown_intake and pass to intake.receive; pass db to reader.read in teardown/proof_run.py; test both.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): upload route accepts machine-readable licence terms"
+ },
+ {
+  "uid": "F-787",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "IP firewall (independent authorship).",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/licence.py::register_public_source",
+  "durable_state": "benchmark_licences",
+  "consumer": "src/brambleloop/gates/originality.py::release_findings (live, but has no public-source rows to read)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_fb4_lc.py::test_an_observed_public_listing_produces_a_pattern_rights_none_licence_row",
+   "tests/test_originality.py::test_a_public_source_can_never_grant_a_publishing_use",
+   "tests/test_teardown.py::test_an_observation_that_is_really_the_competitors_pattern_is_refused"
+  ],
+  "evidence": [
+   "grep register_public_source: defined only in teardown/licence.py",
+   "w3 lane K triage R: observed public listings register pattern_rights=none licences"
+  ],
+  "build2_rows": [
+   "#217 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "Call licence.register_public_source from intel/observe.py (and any research ingest that records a public tutorial/video URL) when the source is public; test that an observation from a public tutorial produces a pattern_rights='none' licence row.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): observed public listings register pattern_rights=none licences"
+ },
+ {
+  "uid": "F-788",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "IP firewall.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/licence.py (Licence.finished_item_rights / pattern_rights; captured at intake.receive)",
+  "durable_state": "benchmark_licences",
+  "consumer": "src/brambleloop/teardown/licence.py::Licence.permits (via gates/originality.py::release_findings)",
+  "protected_effect": "finished-item permission never implies pattern rights; no use grants both",
+  "tests": [
+   "tests/test_originality.py::test_finished_item_rights_and_pattern_rights_are_separate_fields"
+  ],
+  "evidence": [
+   "waves/fb1_G.json F-788 DONE",
+   "commerce/terms.py separates Brambleloop's own finished-item sale vs redistribution"
+  ],
+  "build2_rows": [
+   "#40 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-789",
+  "launch_class": "MATURE",
+  "launch_class_reason": "a permission for private R&D depth, not a first-sale capability",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "reader ingests every page and analyses dimensions/construction but does not reconstruct full graded architecture in src (bench2 did so in research)",
+  "producer": "src/brambleloop/teardown/reader.py; teardown/audits.py",
+  "durable_state": "benchmark_products; teardown_findings",
+  "consumer": "teardown/lab.py::record_audit (api_teardown_qa)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_teardown_reader.py::test_it_reads_every_page_through_the_quarantine"
+  ],
+  "evidence": [
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)"
+  ],
+  "build2_rows": [
+   "#148 COMPLETE+PROVEN",
+   "#152 COMPLETE+PROVEN",
+   "#317 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Move bench2's functional reconstruction (numbers only) behind teardown/reader so private R&D output is durable in the DB",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-790",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "sellable work must be Brambleloop-authored",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::specification_findings; products/garments.py (no benchmark imports)",
+  "durable_state": "certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_design.py::test_garment_modules_import_nothing_from_benchmarks_or_research",
+   "tests/test_originality.py::test_a_ledger_of_superficial_changes_is_refused",
+   "tests/test_originality.py::test_a_superficial_change_labelled_material_is_still_superficial"
+  ],
+  "evidence": [
+   "w3 lane K triage R: material-change aspects + design-difference ledger for competitor-informed designs"
+  ],
+  "build2_rows": [
+   "#215 COMPLETE+PROVEN",
+   "#306 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "See F-791/F-794",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): material-change aspects + design-difference ledger for competitor-informed designs"
+ },
+ {
+  "uid": "F-791",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "IP firewall: competitor-informed design must be materially original.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/originality.py::redesign_verdict (creative/preengineering.py::_redesign)",
+  "durable_state": "design_difference_ledgers",
+  "consumer": "src/brambleloop/creative/preengineering.py::gate_concept (cir.draft handler); gates/certificate certify (REDESIGN_NOT_MEANINGFUL)",
+  "protected_effect": "competitor-informed concepts with only superficial changes (colour, yarn, wording, size labels, button count, <10% dimensions, <=4 rows) are refused before engineering and at certify",
+  "tests": [
+   "tests/test_originality.py::test_a_ledger_of_superficial_changes_is_refused",
+   "tests/test_originality.py::test_a_superficial_change_labelled_material_is_still_superficial",
+   "tests/test_originality.py::test_pre_engineering_refuses_a_competitor_informed_concept_without_a_real_redesign",
+   "tests/test_originality.py::test_certify_requires_the_ledger_when_provenance_lists_benchmarks"
+  ],
+  "evidence": [
+   "waves/fb1_G.json F-791 DONE",
+   "Classification is keyword/magnitude based; a determined mislabel using material vocabulary can pass (owner/analyst review is the backstop).",
+   "creative/preengineering.py reached via cir.draft; not in fcb982d"
+  ],
+  "build2_rows": [
+   "#87 COMPLETE+PROVEN",
+   "#308 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-792",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "instructions must come from own CIR",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (gates/spec_freeze)",
+  "durable_state": "PDF",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "no path from benchmark text to written instructions",
+  "tests": [
+   "tests/test_cir_roundtrip.py",
+   "tests/test_k9_rows.py::test_a_competitor_informed_spec_is_frozen_before_the_writer_runs",
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library"
+  ],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [
+   "#149 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-793",
+  "launch_class": "MATURE",
+  "launch_class_reason": "permission clause; enforceable part is not over-blocking standard technique",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/specification.py (two-tier identifying match: plain rectangles are not matches)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_specification.py::test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
+   "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-794",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Provenance for competitor-informed products.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py GradedDesign provenance -> gates/originality ledger",
+  "durable_state": "design_difference_ledgers",
+  "consumer": "src/brambleloop/gates/originality.py::release_findings",
+  "protected_effect": "certify refuses DESIGN_LEDGER_MISSING / REDESIGN_NOT_MEANINGFUL for competitor-informed CIRs",
+  "tests": [
+   "tests/test_k9_graded_truth.py::test_a_benchmark_informed_graded_garment_needs_its_ledger",
+   "tests/test_originality.py::test_certify_requires_the_ledger_when_provenance_lists_benchmarks",
+   "tests/test_originality.py::test_the_ledger_is_made_durable_when_the_gate_records_its_verdict",
+   "tests/test_originality_runtime.py::test_licence_revocation_is_read_at_execution"
+  ],
+  "evidence": [
+   "waves/fb1_G.json F-794; 0f3f5d1 'certify() given the DB at both callers'",
+   "cir/graded.py line ~315 Provenance(..., benchmarks_consulted=())",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-795",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "similarity review before sale",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/originality.py::similarity_review + presentation_review",
+  "durable_state": "certificate",
+  "consumer": "src/brambleloop/publish/release_gates.py::originality_gate; gates/certificate.certify",
+  "protected_effect": "material numeric overlap refused (not escalated for redesign)",
+  "tests": [
+   "tests/test_k9_rows.py::test_presentation_is_a_similarity_dimension_read_from_the_library",
+   "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
+  ],
+  "evidence": [
+   "specification stage not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close"
+ },
+ {
+  "uid": "F-796",
+  "launch_class": "MATURE",
+  "launch_class_reason": "weakness mining is competitive improvement",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "teardown audits turn traps into 'prevent' requirements and strengths into 'exceed'; not all listed dimensions (accessibility, grading breadth) enumerated",
+  "producer": "src/brambleloop/teardown/enforce.py; teardown/audits.py",
+  "durable_state": "teardown_findings",
+  "consumer": "support.triage / pdf requirements",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_teardown_audits.py",
+   "tests/test_cert_competitive_weakness.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#153 COMPLETE+PROVEN",
+   "#163 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "full set of purchased benchmarks"
+  },
+  "defect": null,
+  "next_action": "none pre-launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-797",
+  "launch_class": "MATURE",
+  "launch_class_reason": "permission statement (deep private analysis encouraged)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/reader.py (reads every page)",
+  "durable_state": "benchmark_products",
+  "consumer": "teardown/intake.py::receive",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_teardown_reader.py::test_it_reads_every_page_through_the_quarantine"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#148 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-798",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release readiness must include originality provenance",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py (originality + specification stages)",
+  "durable_state": "certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "release withheld on originality/benchmark findings",
+  "tests": [
+   "tests/test_cert_design.py::test_benchmark_relabelled_as_ours_is_refused",
+   "tests/test_gates.py::test_policy_blocks_unsupported_claims_and_ip",
+   "tests/test_originality.py::test_a_brambleloop_release_without_provenance_is_refused",
+   "tests/test_originality.py::test_certify_requires_the_ledger_when_provenance_lists_benchmarks"
+  ],
+  "evidence": [
+   "w3 lane K triage R: originality-provenance certificate stage"
+  ],
+  "build2_rows": [
+   "#87 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Make gates/certificate.py require Provenance completeness (F-783) and, for competitor-informed products, the ledger (F-794) and similarity pass (F-795)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): originality-provenance certificate stage"
+ },
+ {
+  "uid": "F-799",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names Learn architecture and the ability to queue education work as launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/runtime.py",
+  "durable_state": "learn_nodes, learn_edges, learn_gaps, learn_lessons (learn/models.py)",
+  "consumer": "`learn.scan` handler (`learn/runtime.py`, hourly cadence) audits `metrics` each run; `improve.measure` (daily cadence) records the new `learn` cell via `measure_learn`; `learn.improvement_status.summary()[\"department\"]` (Command Center provider `improvement`); `GET /api/learn/metrics` (editor auth)",
+  "protected_effect": "education work is queued from real pattern/support sources without generating or publishing anything",
+  "tests": [
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities",
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state",
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_w3_k10_learn.py::test_f799_department_metrics_are_derived_from_rows",
+   "tests/test_w3_k10_learn.py::test_f799_learn_is_an_improvement_cell_measured_nightly",
+   "tests/test_w3_k10_learn.py::test_f799_metrics_route_is_editor_only",
+   "tests/test_w3_k10_learn.py::test_f799_runtime_consumers_carry_learn_metrics"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w3 handoff_K10.md claim: | F-799 Learn Department | COMPLETE | `test_f799_department_metrics_are_derived_from_rows`, `test_f799_learn_is_an_improvement_cell_measured_nightly`, `test_f799_runtime_consumers_carry_learn_metrics`, `test_f799_metrics_route_is_editor_only` | `learn.scan` handler (`learn/runtime.py`, hourly cadenc"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch completion: add Learn metrics (gap age, covered/queued counts) as an operating reading and register Learn in the improve/ department cells so RUN/GROW/IMPROVE applies; editorial calendar/experiments are s84 post-launch. Launch part needs no further build.",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K10']"
+ },
+ {
+  "uid": "F-800",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84: curriculum depth is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no curriculum/track model",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "After F-799, seed track taxonomy (foundations..advanced) as data; expand from demand post-launch",
+  "confidence": "HIGH",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-801",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names content-gap detection launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py",
+  "durable_state": "learn_gaps (one row per topic, evidence = pattern_version_id + cir_digest)",
+  "consumer": "`learn.service.scan` (worker `learn.scan`) now uses `pattern_topics`; same function feeds PDF/listing/support help links",
+  "protected_effect": "a new pattern's uncovered stitch/technique becomes exactly one QUEUED gap; revoked coverage reopens it",
+  "tests": [
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state",
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap",
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_w3_k10_learn.py::test_f801_finishing_seaming_blocking_and_gauge_change_are_topics",
+   "tests/test_w3_k10_learn.py::test_f801_real_launch0_pattern_creates_finishing_gaps_through_scan",
+   "tests/test_w3_k10_learn.py::test_f801_toy_cir_without_components_is_unchanged"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "cir/model.py Op dataclass serialises key 'stitch' and 'loop', so topics() works on real CIR.to_dict(), not only the test dict",
+   "w3 handoff_K10.md claim: | F-801 Pattern-to-Lesson Trigger | COMPLETE | `test_f801_finishing_seaming_blocking_and_gauge_change_are_topics`, `test_f801_real_launch0_pattern_creates_finishing_gaps_through_scan` (real Launch-0 `basket_small` CIR), `test_f801_toy_cir_without_components_is_unchanged` | `learn.service.scan` (work"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Extend learn/service.py::topics to emit finishing/seaming/blocking topics from CIR finishing/assembly fields and add a test that a real certified CIR (e.g. a Launch-0 product) yields its special-stitch gaps",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K10']"
+ },
+ {
+  "uid": "F-802",
+  "launch_class": "MATURE",
+  "launch_class_reason": "support clustering needs customer data; s84 content-gap detection covers pattern trigger",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "support themes feed search clusters (growth/clusters.py) and pattern help, but nothing proposes a lesson/FAQ experiment",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/growth/clusters.py (complaint themes -> clusters)"
+  ],
+  "build2_rows": [
+   "#247 OWNER-GATED",
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "own support signals arrive after launch"
+  },
+  "defect": null,
+  "next_action": "Have learn.gap_scan read recurring support/review themes (intel/observe RECURRING_AT) and propose LearnTask(kind=faq|tutorial|clarification)",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-803",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84: search-led articles post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "SEO query sets exist for listings but are not compared with a Learn graph",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#247 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "After F-815, compare commerce/seo + insights queries against lesson coverage",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-804",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84 lists videos, email sequences, social derivatives and search-led articles as post-launch; the launch-relevant core (one canonical, digest-bound lesson spec) is already enforced via F-799/F-805",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "one canonical lesson specification exists (Lesson.spec, revision = sha256 of spec; any change resets reviews and revokes approval), but only two derived surfaces consume it (public /learn/{slug} read and PDF 'Technique help' links); no article/FAQ/printable/diagram/video/email/social/clip derivation and therefore no drift check across formats",
+  "producer": "src/brambleloop/learn/service.py::save_lesson",
+  "durable_state": "learn_lessons (spec, revision digest, reviews, state)",
+  "consumer": "src/brambleloop/learn/api.py::read_lesson; src/brambleloop/learn/service.py::pdf_help_links",
+  "protected_effect": "every served/linked lesson is the exact reviewed revision of the canonical spec",
+  "tests": [
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap",
+   "tests/test_learn_launch.py::test_direct_spec_tamper_cannot_retain_approval",
+   "tests/test_learn_publish_contract.py::test_omitted_revision_serves_only_current_reviewed_spec_never_stale_pdf_target"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: add learn/formats.py deriving each format from Lesson.spec with the source revision embedded, and a drift test that a spec change invalidates every derived artefact (reuse ops/artefacts lineage)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-805",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names correctness QA launch-critical; tutorials must be tested like patterns",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py",
+  "durable_state": "learn_lessons",
+  "consumer": "`save_lesson` / `eligible` (gates public read, help links); `GET /learn/{slug}` serves `swatch_instructions` written from the compiled CIR",
+  "protected_effect": "a lesson whose counts or terminology disagree with canonical stitch semantics cannot be saved or served",
+  "tests": [
+   "tests/test_learn_input_shapes.py::test_null_and_malformed_shapes_raise_valueerror_preserve_review",
+   "tests/test_learn_input_shapes.py::test_real_draft_endpoint_maps_malformed_shapes_to422",
+   "tests/test_learn_launch.py::test_invalid_count_and_licence_refused",
+   "tests/test_w3_k10_learn.py::test_f805_clean_swatch_is_accepted_and_served_written_from_cir",
+   "tests/test_w3_k10_learn.py::test_f805_edited_swatch_text_is_refused_by_reverse_compiler",
+   "tests/test_w3_k10_learn.py::test_f805_swatch_must_work_taught_stitch_and_match_assumptions",
+   "tests/test_w3_k10_learn.py::test_f805_tampered_stored_swatch_loses_eligibility",
+   "tests/test_w3_k10_learn.py::test_f805_uk_swatch_reverse_compiles_in_uk_terms",
+   "tests/test_w3_k10_learn.py::test_f805_wrong_row_total_is_refused"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w3 handoff_K10.md claim: | F-805 Education Product Truth | COMPLETE | `test_f805_*` (6 tests: wrong row total refused, edited text refused by reverse compiler, taught stitch/hook/yarn reconcile, UK terms, stored tamper loses eligibility) | `validate_spec` → `save_lesson` / `eligible` (gates public read, help links); `GET /l"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "In learn/service.py::validate_spec, require any multi-row swatch in a lesson to be a CIR fragment compiled by cir/compiler.py and reverse-compiled by cir/reverse.py; add a test that a swatch with a wrong row total is refused",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K10']"
+ },
+ {
+  "uid": "F-806",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 correctness QA; incorrect technique imagery is customer-facing misinformation",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/technique.py::render / read_drawing",
+  "durable_state": "learn_lessons.reviews",
+  "consumer": "GET /learn/{slug}/technique/{stitch}.svg (learn/api.py, mounted in app/main.py); learn/service.validate_spec asset rules",
+  "protected_effect": "no lesson is approved or linked unless a distinct reviewer attests visual accuracy for that exact revision",
+  "tests": [
+   "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision",
+   "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
+   "tests/test_w3_k10_learn.py::test_f806_dc_diagram_drawn_as_sc_fails",
+   "tests/test_w3_k10_learn.py::test_f806_every_supported_diagram_verifies_and_is_deterministic",
+   "tests/test_w3_k10_learn.py::test_f806_human_visual_attestation_is_still_required",
+   "tests/test_w3_k10_learn.py::test_f806_lesson_assets_refuse_photos_generic_images_and_other_stitch_diagrams",
+   "tests/test_w3_k10_learn.py::test_f806_public_route_serves_only_verified_declared_diagram",
+   "tests/test_w3_k10_learn.py::test_f806_wrong_insertion_point_wrong_post_and_orientation_fail"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w4-FM close on 8b67414 (FOLD): learn/technique renders a deterministic diagram per supported stitch and read_drawing verifies loops, insertion point, post and orientation; GET /learn/{slug}/technique/{stitch}.svg (learn/api.py:143) re-renders and verifies before serving (fail-closed 404); lesson assets refuse photos, generic images and another stitch's diagram. The human attestation remains an additional floor, no longer the only evidence -- the recorded proxy defect is repaired"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Before lesson images are served: generate technique diagrams deterministically (extend visual/disclosed_render glyphs or visual/render.py loop targets per stitch) and verify them with visual/render_verification-style pixel checks; add a test that a dc diagram drawn as sc fails",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
+  "uid": "F-807",
+  "launch_class": "MATURE",
+  "launch_class_reason": "difficulty ladder depth is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "publish/difficulty.py derives a pattern difficulty but no prerequisite graph",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/publish/difficulty.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add prerequisite edges to the knowledge graph after F-815",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-808",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names pattern/support links launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "PDF links are wired at both runtime render sites (assets.build and store.publish re-render) from approved, revision-bound lessons, but emit nothing until BRAMBLELOOP_LEARN_PUBLIC_ORIGIN (an owned HTTPS origin) is configured; listings and support answers do not link lessons (no help_links caller in support/ or listing copy)",
+  "producer": "src/brambleloop/learn/service.py::pdf_help_links",
+  "durable_state": "learn_lessons",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build; src/brambleloop/runtime/pipeline.py::handle_store_publish -> publish/pdf.py::build_pattern_pdf ('Technique help')",
+  "protected_effect": "the customer PDF links only approved lesson revisions, and a changed approval trips the PDF hash gate rather than shipping a stale link",
+  "tests": [
+   "tests/test_learn_launch.py::test_pdf_links_require_configured_origin_and_approved_revision",
+   "tests/test_learn_launch.py::test_actual_pdf_render_threads_revision_bound_help_to_layout",
+   "tests/test_learn_publish_contract.py::test_both_runtime_pdf_render_sites_pass_same_learn_resolver",
+   "tests/test_learn_publish_contract.py::test_approved_links_repeat_exact_bytes_and_changed_approval_trips_hash_gate"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "links appear only once an owned HTTPS Learn origin is deployed and configured (BRAMBLELOOP_LEARN_PUBLIC_ORIGIN); listing/support links are buildable now"
+  },
+  "defect": null,
+  "next_action": "Buildable now: call learn.service.help_links from support/concierge answer composition and from listing description assembly (runtime/release.py listing draft) with a test that an approved lesson is linked and an unapproved one is not; owner: provide the owned Learn origin when a lesson is approved",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-809",
+  "launch_class": "MATURE",
+  "launch_class_reason": "gauge education depth is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "gauge teaching exists only inside the PDF ('Gauge, and why it matters here') and substitution arithmetic",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/publish/pdf.py gauge section",
+   "src/brambleloop/growth/tools.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Build gauge lesson from LessonSpec post-launch; calculators reuse publish/substitution",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-810",
+  "launch_class": "MATURE",
+  "launch_class_reason": "lead magnets are post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "growth/tools.py has answer-first tools; no lead magnet asset with goal/provenance/version/attribution",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/growth/tools.py"
+  ],
+  "build2_rows": [
+   "#255 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no owned site/email surface"
+  },
+  "defect": null,
+  "next_action": "Post-launch",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-811",
+  "launch_class": "MATURE",
+  "launch_class_reason": "free-to-paid is post-launch",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "free_to_paid unreached; no education content",
+  "producer": "src/brambleloop/growth/free_to_paid.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_free_to_paid.py"
+  ],
+  "evidence": [
+   "module_reachability: not reached"
+  ],
+  "build2_rows": [
+   "#10 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no owned surface"
+  },
+  "defect": null,
+  "next_action": "Wire when Learn content exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-812",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84: videos post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "video plans track recurring problems; search demand, support burden and ROI per lesson not tracked",
+  "producer": "src/brambleloop/growth/video.py::plan",
+  "durable_state": "growth.distribution reading",
+  "consumer": "runtime/growth_ops.py::handle_growth_distribution",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_video.py::test_the_plan_only_answers_problems_that_recur"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#248 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no video channel"
+  },
+  "defect": null,
+  "next_action": "Post-launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-813",
+  "launch_class": "MATURE",
+  "launch_class_reason": "no video at launch",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "value_stack names video as gated rather than promised; size/version statement for videos absent (see F-767)",
+  "producer": "src/brambleloop/publish/value_stack.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_value_stack.py::test_video_is_named_as_gated_rather_than_promised"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#248 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "See F-767",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-814",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84: derivatives/social post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "marketing ecosystem drafts listing/article/pins/video/email per product and holds them; no lesson/gauge-help/FAQ/internal-link members and no value filter per asset",
+  "producer": "src/brambleloop/growth/content.py::build_ecosystem",
+  "durable_state": "marketing plan artefacts",
+  "consumer": "src/brambleloop/runtime/release.py::handle_marketing_schedule",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_growth.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#20 DATA-GATED",
+   "#246 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add Learn members once F-799/F-815 exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-815",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names the canonical knowledge graph launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py::scan; src/brambleloop/learn/service.py::save_lesson",
+  "durable_state": "learn_nodes, learn_edges",
+  "consumer": "runtime consumer per reachability: graph is live: module body app/main.py -> app/main.py:<module> -> learn/api.py:router",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_fb4_lc.py::test_adding_a_graph_edge_changes_which_lessons_help_links_returns",
+   "tests/test_fb4_lc.py::test_graph_read_is_db_backed_and_behind_learn_editor_auth",
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_learn_launch.py::test_support_sources_do_not_copy_customer_pii"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "grep: LearnEdge/LearnNode are only merged in learn/service.py and selected in tests/test_learn_launch.py",
+   "w3 lane K triage R: graph read route + consumers follow edges (fb4-LC)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a DB-computing read (GET /api/learn/graph in learn/api.py, and use edges in help_links/support routing) plus a test that a consumer decision changes when an edge is added; add search-cluster (growth/clusters) and FAQ nodes",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): graph read route + consumers follow edges (fb4-LC)"
+ },
+ {
+  "uid": "F-816",
+  "launch_class": "MATURE",
+  "launch_class_reason": "internal linking is post-launch SEO",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "none",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch after F-815",
+  "confidence": "HIGH",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-817",
+  "launch_class": "MATURE",
+  "launch_class_reason": "education SEO is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "none for Learn pages (listing SEO exists in commerce/seo.py)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/commerce/seo.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-818",
+  "launch_class": "MATURE",
+  "launch_class_reason": "content freshness is maturity",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "artefact staleness by fingerprint exists for PDFs/video modules; no lesson monitoring (no lessons)",
+  "producer": "src/brambleloop/ops/artefacts.py; improve/freshness.py",
+  "durable_state": "artefact_provenance",
+  "consumer": "hourly sentinel",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_freshness.py",
+   "tests/test_video.py::test_a_clip_goes_stale_when_the_design_it_was_cut_from_moves"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#171 COMPLETE+PROVEN",
+   "#173 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Register LessonSpec artefacts with ops/artefacts once they exist",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-819",
+  "launch_class": "MATURE",
+  "launch_class_reason": "email funnel is post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "CASL consent gate and lifecycle flows exist; no email service, no lesson engagement tracking",
+  "producer": "src/brambleloop/growth/owned.py; growth/tools.py (flows, frequency cap)",
+  "durable_state": null,
+  "consumer": "app/main.py::api_owned",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_owned.py::test_implied_consent_expires_on_its_own_and_a_list_cannot_keep_it_alive",
+   "tests/test_tools.py::test_every_send_goes_through_the_casl_gate"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#251 OWNER-GATED",
+   "#20 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "no email provider/list"
+  },
+  "defect": null,
+  "next_action": "Post-launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-820",
+  "launch_class": "MATURE",
+  "launch_class_reason": "community is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "none (no community surface)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#258 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs community/customer projects"
+  },
+  "defect": null,
+  "next_action": "Post-launch",
+  "confidence": "HIGH",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-821",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names provenance launch-critical; copying competitor education breaches the IP non-negotiable",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py::validate_spec",
+  "durable_state": "learn_lessons.spec.assets",
+  "consumer": "src/brambleloop/learn/service.py::eligible",
+  "protected_effect": "a lesson declaring competitor or unlicensed assets cannot be saved or approved",
+  "tests": [
+   "tests/test_fb4_lc.py::test_a_corpus_match_found_after_drafting_is_refused_at_review",
+   "tests/test_fb4_lc.py::test_a_lesson_asset_matching_a_benchmark_file_is_refused_at_save",
+   "tests/test_learn_launch.py::test_invalid_count_and_licence_refused"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w3 lane K triage R: byte-level lesson asset provenance vs benchmark corpus (fb4-LC)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "In save_lesson, resolve each asset sha256 in the ArtifactStore and run the existing benchmark byte check used by gateway/images (benchmark-quarantine hash lookup) so a competitor-sourced asset is refused; add the test",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): byte-level lesson asset provenance vs benchmark corpus (fb4-LC)"
+ },
+ {
+  "uid": "F-822",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names correctness QA launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py::review_lesson (via POST /api/learn/lessons/{slug}/review)",
+  "durable_state": "learn_lessons.reviews/state",
+  "consumer": "src/brambleloop/learn/service.py::eligible -> learn/api.py::read_lesson, service.help_links, service.pdf_help_links",
+  "protected_effect": "no lesson is served or linked before a distinct authenticated reviewer records PASS on all seven dimensions (correctness, completeness, sequencing, clarity, accessibility, visual_accuracy, executable_skill) for the exact revision",
+  "tests": [
+   "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities",
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "review is human attestation (evidence_class human_attestation, automated_truth_proof False); no reviewer credential is configured in production and no real review exists"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "learn_reviewer",
+   "detail": "exercising it needs a designated reviewer identity/credential (BRAMBLELOOP_LEARN_REVIEW_TOKEN, BRAMBLELOOP_LEARN_REVIEWER_ID); not needed before first sale since no lesson is required"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch (exercise when the first lesson is drafted)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-823",
+  "launch_class": "MATURE",
+  "launch_class_reason": "adversarial beginner simulation is QA depth after first lessons",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "none; reverse compiler mutation tests (dropped row, turning chain) are the reusable mechanism",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "tests/test_reverse.py::test_turning_chain_removal_is_caught"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: reuse cir/reverse mutation operators as beginner-mistake simulations for foundational lessons",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-824",
+  "launch_class": "MATURE",
+  "launch_class_reason": "education pages do not exist at launch; PDF accessibility already handled",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "accessibility exists for pattern charts (colour-independent cues); no educational pages to apply it to",
+  "producer": "src/brambleloop/publish/charts.py (colour-independent symbols)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_accessibility.py"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Apply the same accessibility checks to Learn pages when built",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-825",
+  "launch_class": "MATURE",
+  "launch_class_reason": "content economics requires traffic",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no content cost/benefit tracking beyond generic spend attribution",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "traffic/sales needed"
+  },
+  "defect": null,
+  "next_action": "Post-launch; attribute learn agent spend via finance/spend_report dimensions",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-826",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84: the ability to queue *valuable* education work; filler is a launch risk to brand trust",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py",
+  "durable_state": "learn_gaps",
+  "consumer": "`PUT /api/learn/lessons/{slug}` gap check; `scan` decision WATCH",
+  "protected_effect": "no content without a pattern/support-backed learner need",
+  "tests": [
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities",
+   "tests/test_learn_launch.py::test_no_sources_watch_not_filler",
+   "tests/test_w3_k10_learn.py::test_f826_draft_without_source_backed_gap_is_refused_422",
+   "tests/test_w3_k10_learn.py::test_f826_scan_never_generates_and_watches_when_all_covered"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w3 handoff_K10.md claim: | F-826 No Content Mill | COMPLETE | `test_f826_draft_without_source_backed_gap_is_refused_422` (the missing 422 test, incl. mixed real+filler topics), `test_f826_scan_never_generates_and_watches_when_all_covered` | `PUT /api/learn/lessons/{slug}` gap check; `scan` decision WATCH |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a test in tests/test_learn_launch.py that PUT /api/learn/lessons/{slug} with a topic that is not a LearnGap returns 422; post-launch add growth search clusters as a gap source",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K10']"
+ },
+ {
+  "uid": "F-827",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Studio dashboard polish is post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no Learn dashboard card",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: add Learn card to app/main.py dashboard computed from DB",
+  "confidence": "HIGH",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-828",
+  "launch_class": "MATURE",
+  "launch_class_reason": "the launch part (Pattern supplies technical truth, CX supplies confusion signals) is in place; Marketing/SEO packaging and Finance economics of education are s84 post-launch growth",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Pattern (PatternVersion CIR) and CX (SupportCase specialist labels) feed learn.scan; Visual is only a review dimension; no Marketing/SEO, Research or Finance inputs; LearnGap.owner is always 'learn' with no routing to Pattern/Visual departments",
+  "producer": "src/brambleloop/learn/service.py::scan",
+  "durable_state": "learn_gaps, learn_edges",
+  "consumer": "src/brambleloop/learn/api.py::router",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state",
+   "tests/test_learn_launch.py::test_support_sources_do_not_copy_customer_pii"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: route gaps by need (technical truth -> pattern, diagrams -> visual) via LearnGap.owner, add growth/clusters search demand and finance cost inputs, with routing tests",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-829",
+  "launch_class": "MATURE",
+  "launch_class_reason": "continuous teaching improvement needs traffic",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "improvement loop exists (improve/cells) but no Learn cell",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/improve/cells.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: add a Learn improvement cell in improve/cells.py",
+  "confidence": "MEDIUM",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-830",
+  "launch_class": "MATURE",
+  "launch_class_reason": "compounding knowledge is a maturity outcome",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "support answers become stored support_knowledge artefacts per release; no cross-product reusable knowledge base beyond that",
+  "producer": "src/brambleloop/runtime/release.py::_support_knowledge",
+  "durable_state": "support_knowledge artefacts (ArtefactProvenance)",
+  "consumer": "support/concierge.py (support.triage)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_unique_value.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#101 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Feed solved questions into the F-815 knowledge graph",
+  "confidence": "LOW",
+  "searched": "grep src/ and tests/ for learn/lesson/curriculum/knowledge graph/content gap: no Learn department, lesson model, curriculum or knowledge graph exists; nearest precursors are growth/clusters.py, growth/video.py, growth/tools.py, growth/content.py, support/concierge.py"
+ },
+ {
+  "uid": "F-831",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract F-831..F-850",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "research/b2_resume/closure_state.json",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_reachability.py::test_a_module_behind_a_static_state_route_is_not_reached",
+   "tests/test_w3_final_master_gate.py::test_complete_needs_a_named_producer_and_consumer"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-59, C-65, C-74, C-86",
+   "research/b2_resume/reports/independent_audit_15c5d1b.md",
+   "research/final_build/mapping/MAPPING_BRIEF.md (producer/consumer/effect schema)",
+   "w3 handoff_TOOLS.md claim: | F-831, F-832 | COMPLETE | `::test_complete_needs_a_named_producer_and_consumer` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Aggregate mapping/s1..s9.json into research/final_build/closure_matrix.json and add a validator (tests/test_final_closure.py) that refuses COMPLETE+PROVEN unless producer, durable_state, consumer, protected_effect and a named test are present and producer/consumer functions are reached",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-832",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "closure_state.json",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_reachability.py::test_a_module_used_only_inside_an_audit_receipt_is_not_reached",
+   "tests/test_w3_final_master_gate.py::test_complete_needs_a_named_producer_and_consumer"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-60 (55 invalid rows found by function-level audit)",
+   "w3 handoff_TOOLS.md claim: | F-831, F-832 | COMPLETE | `::test_complete_needs_a_named_producer_and_consumer` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Apply the same refusal in the Final Build closure validator (see F-831)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-833",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/reachability.py::reached",
+  "durable_state": "research/final_build/module_reachability.json",
+  "consumer": "build2/closure.py::classify",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_reachability.py::test_a_handler_only_a_manual_post_enqueues_is_not_live",
+   "tests/test_reachability.py::test_a_route_that_computes_from_the_database_reaches_its_module"
+  ],
+  "evidence": [
+   "build2/reachability.py not in fcb982d",
+   "w3 handoff_TOOLS.md claim: | F-833 | COMPLETE | `test_w3_reachability_dynamic` (3 tests) |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Extend build2/reachability.py to report function-level reachability (call graph already built) and use it for producer/consumer fields in the Final Build matrix",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-834",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a production_producer and failure_test receipt, a suite receipt whose head/run match the packet (the release record names 5dfd1ac, the packet 0417f35), an execution_gate receipt on protected rows, and an independent_review by a reviewer other than the emitter. The rehearsal records job outcomes only, so the emitter can supply producer + live_root receipts and nothing else",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
+   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+   "tests/test_final_proof.py::test_required_receipt_mutations"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
+   "research/final_build/aggregate.py (no consumer check)",
+   "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
+   "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven",
+   "w4-FMGATE on 0417f35: runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-835",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract (protected actions)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "durable_state": "audit_log store.publish_refused",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "no upload when a gate/incident/withholding changed after planning",
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_withholding_survives_every_rebuild_path_through_the_worker",
+   "tests/test_cert_publish_gates.py::test_a_halting_incident_blocks_store_publish_before_any_upload",
+   "tests/test_cert_publish_gates.py::test_a_moved_upstream_blocks_publication_and_the_sentinel_enqueues_the_graph_rebuild",
+   "tests/test_draft_intent_precreate_refusal.py::test_revoked_grant_is_refused",
+   "tests/test_operating_cost_basis.py::test_revoke_or_mutate_during_reservation_refuses_external_effect"
+  ],
+  "evidence": [
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: 165 publish refusals in production (fcb982d, phase check at execution)",
+   "research/BUILD2_CERTIFICATION.md C-84",
+   "w3 lane K triage R: _revalidate_publish_effect at execution (pipeline.py:1586)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a test that plans a publish with an open authority/SpendLimit, revokes it, then runs store.publish and ads.campaign and asserts refusal; add the same for paid image calls (gateway/images.generate reservation)",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): _revalidate_publish_effect at execution (pipeline.py:1586)"
+ },
+ {
+  "uid": "F-836",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof refuses evidence_class fixture/static and requires a production_producer receipt, but evidence_class is self-declared in the packet; no automated detector that a durable_state cited as evidence has a non-test writer reached from a live root; never run on real packets",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py",
+   "aggregate.py caps INTEGRATED on reachability of the producer module, which partially guards fixture-only claims"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "honour-system: packet's evidence_class is asserted by its author, not derived",
+  "next_action": "Add to the closure validator a static check that each row's durable_state table has a writer outside tests/ in a module module_reachability marks reached; seed a test-only fact and assert it is refused",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-837",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof requires direct=True ('proxy cannot satisfy direct proof') but 'direct' is self-declared; aggregate.py has no proxy field; proxies are labelled case by case in runtime (e.g. learn automated_truth_proof=false, compose certifies_construction=false)",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused",
+   "tests/test_final_visual_authority.py::test_preserved_authoritative_pixels_never_certify_unknown_construction"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py",
+   "src/brambleloop/visual/compose.py verify returns certifies_construction False"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "honour-system: 'direct' is asserted by the packet author",
+  "next_action": "Add a proxy flag to matrix rows/evidence and make aggregate.py refuse INTEGRATED+ when every cited evidence item is proxy-flagged; add the test",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-838",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "closure_state.json",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_closure.py",
+   "tests/test_w3_final_master_gate.py::test_only_an_explicit_keyed_gate_takes_work_out_of_open"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-74",
+   "w3 handoff_TOOLS.md claim: | F-838 | COMPLETE | `::test_only_an_explicit_keyed_gate_takes_work_out_of_open` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Reuse build2/closure.py semantics for the Final Master matrix (gate kinds from executor.GATES, explicit gate per row, live gate read)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-839",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/reachability.py::reached (per-function trace from the runtime roots)",
+  "durable_state": "research/final_build/module_reachability.json (basis HEAD 0417f35)",
+  "consumer": "research/final_build/aggregate.py::cap (INTEGRATED needs a reached producer); src/brambleloop/build2/closure.py::proof_of (live dashboard)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused",
+   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached",
+   "tests/test_reachability.py::test_the_real_package_still_reaches_its_handlers_libraries"
+  ],
+  "evidence": [
+   "research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json",
+   "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+   "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+   "w4-FMGATE on 0417f35: the reachability audit was re-run on the final effective source tree: a clean detached worktree at the deployed 0417f35 (research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json; installed as module_reachability.json): 656 modules, 564 reached from a live root, none lost against 2f36fe0, gained app/command_center/launch_packet.py, launch/packet.py, growth/free_assets.py, growth/free_to_paid.py; aggregate.py re-adjudicated every row on it and final_proof.py ran on 0417f35 with the 0417f35 rehearsal packets (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json). Independent function-level review of the same deployable tree (2c6d775 == 5dfd1ac == 0417f35 src/): research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (NO BLOCKER), on top of INDEPENDENT_REAUDIT_7421ef6.md"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none for 0417f35; a material successor re-runs the same audit before it is frozen",
+  "confidence": "HIGH",
+  "searched": " | w4-FMLEDGER close | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-840",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py::summary (live launch gate: ready iff zero launch-critical rows OPEN, whatever the suite says); research/final_build/aggregate.py::cap (a green suite never raises maturity)",
+  "durable_state": "src/brambleloop/build2/final_master_closure.json (in the image)",
+  "consumer": "src/brambleloop/launch/readiness.py::assess (final_master check) -> /api/build final_master; executor report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason",
+   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+   "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open",
+   "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure",
+   "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
+  ],
+  "evidence": [
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_build_20261011T1439Z.json final_master",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_api_status_20261011T1439Z.json boot_guard",
+   "research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json",
+   "research/final_build/CANDIDATE_0417f35.json",
+   "w4-FMGATE on 0417f35: in production the green suite is demonstrably not sufficient: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) booted on a release-eligible green full suite (boot_guard ok, 7877 passing) and its live launch gate still reads /api/build final_master {status DEGRADED, launch_ready false, launch_critical COMPLETE 355 / GATED 126 / OPEN 9} -- build2/final_master.py refuses launch while any launch-critical row lacks requirement-level proof. The candidate's full-suite record and the final_proof report for the same SHA are cited together in research/final_build/CANDIDATE_0417f35.json and research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json (917 rows, certified false: a green suite certifies none of them)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: the rule is enforced in the running launch gate",
+  "confidence": "MEDIUM",
+  "searched": " | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-841",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/release_record.py::known_good_predecessor (reads the shipped release/DEPLOYED_HISTORY.json: the baseline is the last reviewed, deployed commit)",
+  "durable_state": "release/DEPLOYED_HISTORY.json; audit_log ops.truth.sweep",
+  "consumer": "src/brambleloop/ops/assurance.py::rollback_baseline (ops.health sweep); ops/deploy_guard.py rollback-commit (targets only a listed SHA)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_rc1_own_release.py::test_the_real_history_names_production_and_the_runbook_exists",
+   "tests/test_w3_deploy_evidence.py::test_the_history_ships_in_the_image",
+   "tests/test_w3_deploy_evidence.py::test_the_known_good_predecessor_comes_from_the_shipped_deployed_history"
+  ],
+  "evidence": [
+   "release/DEPLOYED_HISTORY.json (fcb982d, 0417f35)",
+   "research/final_build/CANDIDATE_0417f35.json",
+   "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md",
+   "research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json",
+   "w4-FMGATE on 0417f35: an explicitly reviewed successor to 019ebf0 now exists and runs: 0417f35 (release record RELEASE_5dfd1ac, freeze check 0 refusals in CANDIDATE_0417f35.json, independent security review of the identical deployable tree INDEPENDENT_SECREVIEW_2c6d775.md NO BLOCKER, migration/rollback proof MIGRATION_ROLLBACK_2c6d775.md) and is deployed (production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z)); release/DEPLOYED_HISTORY.json records it, and the runtime treats the deployed history as the only sanctioned rollback baseline (known_good_predecessor; ops.truth.sweep rollback_baseline recoverable:true on 0417f35)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: 0417f35 is the reviewed successor baseline; the next one is appended after its own review and verified deploy",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-842",
+  "launch_class": "NA",
+  "launch_class_reason": "purpose statement; enforceable parts are F-843..F-850 and F-870..F-879",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "statement only",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/final_build/FINAL_BUILD_STATE.md"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — tracked through F-843..F-850",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-843",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "closure_matrix.json maps all 866 registry records (aggregated, test-pinned) with maturity, evidence, gate and next_action; rows are being re-verified against 6f9a2f7 by this remap wave (many rows still carry 019ebf0-era mapping); basis label stale",
+  "producer": "research/final_build/aggregate.py::main",
+  "durable_state": "research/final_build/closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+   "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse"
+  ],
+  "evidence": [
+   "research/final_build/closure_matrix.json",
+   "research/final_build/mapping/*.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "matrix basis field says 019ebf0 though reachability/suite are 6f9a2f7",
+  "next_action": "Fold the remap_r* outputs into mapping slices, set basis to the measured head in aggregate.py, re-aggregate and re-run tests/test_final_closure_matrix.py",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-844",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": null,
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_maturity.py::test_a_rung_above_a_failure_is_a_failure_rather_than_a_fresh_start",
+   "tests/test_maturity.py::test_the_suite_cannot_satisfy_the_production_rung",
+   "tests/test_w3_final_master_gate.py::test_the_ladder_keeps_every_rung_distinct_and_unknown_rungs_are_open"
+  ],
+  "evidence": [
+   "build2/maturity.py present in fcb982d",
+   "w3 handoff_TOOLS.md claim: | F-382, F-844 | COMPLETE | `::test_the_ladder_keeps_every_rung_distinct...` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add INTEGRATED (reached + consumer) and COMMERCIALLY_EVIDENCED (order ledger rows) rungs to build2/maturity.py and run it over the Final Master matrix",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-845",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)",
+  "producer": null,
+  "durable_state": "research/BUILD2_CERTIFICATION.md (Build 2 precedent)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git branch -a: only build2-candidate-63f2493",
+   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z",
+   "w4-PACKETREL: freeze ref recorded -- branch claude/final-candidate-7421ef6 on origin points at 7421ef6215588659da314cced213a848ffc8e567 (a tag push was refused by the git proxy, so the ref is a branch, not tag final-candidate-7421ef6). The closing event also requires the defect ledger, and none exists for 7421ef6 (no DEFECT_LEDGER_7421ef6.json or CANDIDATE_7421ef6.json). scripts/freeze_candidate.py --dry-run on 7421ef6 refuses (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6.json): the only suite record is for 3967f40, not exactly 7421ef6, and its tests_failing_reported is 2, although the log has no FAIL test lines; the 2 are OK lines whose text contains 'FAIL'. Not closed: the ref exists, but the freeze tool refuses and no defect ledger is open",
+   "w4-PACKETREL (integrator decision): the closing event is met on 7421ef6. Freeze ref: refs/heads/claude/final-candidate-7421ef6 points at 7421ef6215588659da314cced213a848ffc8e567. Defect ledger opened in research/final_build/DEFECT_LEDGER_7421ef6.json (8 open: re-audit D-1 MEDIUM, L-1, L-2 and L-3 with repairs on claude/w4-AUDITFIX; shadow-rehearsal blockers search_certificate_not_pass, grant_snapshot_refused, past_shadow_publish_blocked and order_version_unmapped). Candidate record: research/final_build/CANDIDATE_7421ef6.json. scripts/freeze_candidate.py now binds the suite by the deploy guard's rule (G.release_proof: exact SHA, or the same deployable-tree digest with an ancestor record SHA). It recounts failing tests from the pinned log, so the 2 lines run_tests.sh miscounted as failures, now fixed, no longer refuse. Its dry run on a clean checkout of 7421ef6 returns refusals [] (research/final_build/w4/evidence_PACKETREL/freeze_candidate_dryrun_7421ef6_after.json). The adjudicator still caps this tooling row at TESTED, below INTEGRATED. It computes COMPLETE only with the completion_target TESTED override proposed in w4/OVERRIDES_PROPOSED_PACKETREL.json (dry run: COMPLETE), which awaits integrator acceptance into overrides.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it",
+  "confidence": "HIGH",
+  "searched": " | w4-PACKETREL"
+ },
+ {
+  "uid": "F-846",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "scripts/freeze_candidate.py (freeze + defect ledger) -> research/final_build/DEFECT_LEDGER_<sha7>.json",
+  "durable_state": "research/final_build/codex_reconciliation/*.json; research/final_build/waves/*.json; RUN_6f9a2f7_full_suite.json",
+  "consumer": "integrator release loop: independent re-audit and successor full suite before deploy (ops/deploy_guard.py check)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_freeze_candidate.py::test_exact_clean_eligible_evidence_freezes_locally_and_opens_the_ledger"
+  ],
+  "evidence": [
+   "research/final_build/codex_reconciliation/build2_assist_reconciliation.json",
+   "research/final_build/codex_reconciliation/codex_fb_verification.json",
+   "FINAL_BUILD_STATE.md RESUME 2026-10-05",
+   "w4-FMGATE on 0417f35: one full loop has run: freeze 7421ef6 (CANDIDATE/DEFECT_LEDGER_7421ef6) -> independent re-audit (INDEPENDENT_REAUDIT_7421ef6.md: D-1, L-1..L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_*) -> full suite on the successor (RELEASE_5dfd1ac: 7877 passing) -> independent re-audit (INDEPENDENT_SECREVIEW_2c6d775.md: all four fixed, NO BLOCKER) -> deployed 0417f35. The next loop is open: DEFECT_LEDGER_0417f35.json (5 rehearsal blockers carrying owner/external gates, 3 production-readback defects; 2 repaired on claude/w4-FMGATE)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "integrator: the producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction; accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_FMGATE.json (same basis as F-843/F-845/F-847)",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-847",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "D-FB-5 rule plus launch_class per matrix row; new questions are recorded as owner decisions rather than scope (D-FB-9 catalogue_depth); no enforced record or check rejects/schedules a new idea",
+  "producer": null,
+  "durable_state": "research/final_build/closure_matrix.json (launch_class); DECISION_LOG.md D-FB-5, D-FB-9",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "DECISION_LOG.md D-FB-5, D-FB-7, D-FB-9"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a launch_scope ledger (launch-critical / post-launch scheduled / rejected) to FINAL_BUILD_STATE with a test that every non-registry wave item is classified",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-848",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "approval -> simulated publish is not exercised. Two blockers carry real gates: the grant needs a certified Etsy taxonomy (owner etsy_api: production listing.taxonomy_refresh got 403 at 2026-10-11T14:05Z) and the phase transition needs launch readiness, whose owner items (seller_identity, etsy_shop, payout, brand_clearance, benchmark_challenge, ...) are open. But the rehearsal evaluates readiness on a FRESH scratch DB holding one product, where findable:catalogue_depth, clickable:storefront_preview and converts_honestly:sustainable_economics can never pass whatever the owner does: as built, the step cannot open",
+  "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "durable_state": "jobs / audit_log",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
+   "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
+  ],
+  "evidence": [
+   "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json (production mode, head 7421ef6, tree clean, 352.8 s, network guard installed, no Etsy, no spend): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger. REFUSED_AS_EXPECTED: store.publish[shadow]. BLOCKED: owner_publication_grant (ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited -- waits on the external Etsy taxonomy read) and store.publish[past-shadow] (no grant, so still refused as SHADOW). blocking_defects: search_certificate_not_pass (stored search verdict REFUSED), grant_snapshot_refused, past_shadow_publish_blocked, order_version_unmapped (new: the fixture receipt could not map to cloudline-baby-blanket@1.2.0 because no draft listing id existed, downstream of the grant refusal). Rehearsal ran on the candidate but is not complete; requirement not proven",
+   "w4-FMGATE on 0417f35: scripts/shadow_rehearsal.py on a clean detached worktree at the deployed 0417f35, production mode, 457.9 s (research/final_build/w4/evidence_FMGATE_0417f35/shadow_rehearsal_0417f35.json; also research/final_build/evidence/): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger; store.publish[shadow] REFUSED_AS_EXPECTED; BLOCKED: owner_phase_transition (readiness not ready), owner_publication_grant (taxonomy UNKNOWN), store.publish[past-shadow]"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "company: make owner_phase_transition cite the readiness verdict of a production-shaped state (seed the scratch DB from a continuity export, or read production's live launch.assessed row) instead of a one-product fresh DB; then the remaining blockers are exactly the owner etsy_api / readiness gates",
+  "confidence": "HIGH",
+  "searched": " | w4-FMLEDGER close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-849",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
+  "producer": "src/brambleloop/app/main.py::_startup (embedded scheduler/worker)",
+  "durable_state": "jobs (runtime.started rows)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
+   "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
+   "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact"
+  ],
+  "evidence": [
+   "research/final_build/RUN_6f9a2f7_full_suite.json (independence suite passed)",
+   "9a5a5a7 stall-based wait fix",
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)",
+   "w4-FMGATE on 0417f35: owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "production_window",
+   "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+  },
+  "defect": null,
+  "next_action": "Buildable now: re-run tests/test_cert_claude_independence.py on the frozen candidate and commit the evidence; owner: authorise the production_window for the 24h unattended run",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-850",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract (runtime durability)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "leases, conditional-UPDATE fencing, idempotency keys and dead letters are integrated and proven by SIGKILL/restart tests (basic leases/idempotency also exist in fcb982d; the conditional-lease fencing is post-fcb982d); no restart during publish/orders.ingest on the candidate and no live restart drill",
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "durable_state": "jobs",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "protected_effect": "no lost or duplicated work across restarts",
+  "tests": [
+   "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
+   "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts",
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it"
+  ],
+  "evidence": [
+   "module_reachability: queue/durable.py reached, in fcb982d",
+   "w4-FMGATE on 0417f35: same as F-135: a live restart drill, not the 24h window, closes this"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "live_restart_drill",
+   "detail": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate"
+  },
+  "defect": null,
+  "next_action": "Buildable now: add a restart test that kills the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ingest and asserts exactly one listing/ledger effect; owner: authorise a live restart drill",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-851",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "listing imagery must come from product-authoritative rendering to be truthful",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "main line has the deterministic half only in 2D (twin/chart heroes disclosed as renders, visual/render.py fabric raster); protected photoreal presentation (C) and a 3D product-authoritative renderer (B) exist only as R&D on codex/visual-v2-rnd, where continuous yarn topology FAILS",
+  "producer": "src/brambleloop/visual/render.py; publish/listing_assets.py (twin-sourced heroes)",
+  "durable_state": "release listing assets",
+  "consumer": "runtime/release.py::handle_assets_build",
+  "protected_effect": "customer sees truthful disclosed render, not a photoreal claim",
+  "tests": [
+   "tests/test_cert_hero_title_safe.py",
+   "tests/test_render.py::test_the_raster_is_deterministic_for_a_given_seed"
+  ],
+  "evidence": [
+   "codex/visual-v2-rnd @ 035ff0c research/visual_v2/CURRENT_STATE.md + VISUAL_V2_ARCHITECTURE.md (R&D only, not on 019ebf0): B+C recommended; V2-P06 FAIL, V2-P07 structural UNKNOWN; composition preserved 12,008 opaque pixels",
+   "research/BUILD2_CERTIFICATION.md C-58 (hero render disclosure)",
+   "w4-FM close on 8b67414 (REGATE): V1 generative redraw is refused (F-852) on the main line; the B+C photoreal presentation waits on V2 provider capability (D-FB-7)"
+  ],
+  "build2_rows": [
+   "#72 EXTERNAL-BLOCKED",
+   "#300 EXTERNAL-BLOCKED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "V1 redraw refused; protected photoreal presentation waits on V2 R&D"
+  },
+  "defect": null,
+  "next_action": "external gate visual_v1_provider_capability: V1 redraw refused; protected photoreal presentation waits on V2 R&D",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
+ },
+ {
+  "uid": "F-852",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful Visual representation (D-FB-7)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/product_authority.py::redraw_refusal (returned first by publish/owned_photography.py::make and publish/model_photography.py::make)",
+  "durable_state": "artifacts/audit_log (refusal records)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (generated frames classified/refused by gates.platform_policy) and visual/parity.py",
+  "protected_effect": "no generative model is asked to draw the product; launch imagery is the disclosed deterministic render",
+  "tests": [
+   "tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart",
+   "tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image",
+   "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope"
+  ],
+  "evidence": [
+   "module_reachability: visual/product_authority.py reached via seasonal.cycle_proof -> listing_asset.make; not in fcb982d",
+   "DECISION_LOG D-FB-7, D-FB-9; fb3-V fa5ff94",
+   "remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-853",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful Visual representation (D-FB-7)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/product_authority.py::structural_floor",
+  "durable_state": "listing frames with protected_product / disclosed_render manifests (artifact store)",
+  "consumer": "src/brambleloop/visual/parity.py::assess; src/brambleloop/publish/disclosed_listing.py",
+  "protected_effect": "a frame whose authoritative product pixels changed fails structural truth",
+  "tests": [
+   "tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails",
+   "tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes",
+   "tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling",
+   "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass"
+  ],
+  "evidence": [
+   "module_reachability: visual/compose.py and visual/product_authority.py reached; not in fcb982d",
+   "w3 lane K triage R: disclosed renders: every pixel from certified CIR/twin, sha256-bound"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch (photoreal): integrate a protected-region compositor from the V2 R&D lane only after it graduates (F-857); nothing further needed for the disclosed-render launch path",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): disclosed renders: every pixel from certified CIR/twin, sha256-bound"
+ },
+ {
+  "uid": "F-854",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth in imagery (D-FB-7 requires stitch/fabric identity)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/disclosed_render.py::listing_set",
+  "durable_state": "artifact store (PNG + construction manifest)",
+  "consumer": "src/brambleloop/visual/render_verification.py::verify via visual/product_authority.py::disclosed_render_floor",
+  "protected_effect": "listing images show the certified stitch count/heights/colours/posts at true scale",
+  "tests": [
+   "tests/test_disclosed_render.py::test_a_missing_stitch_fails",
+   "tests/test_disclosed_render.py::test_a_raised_post_where_the_pattern_has_none_fails",
+   "tests/test_disclosed_render.py::test_every_launch0_frame_verifies_against_its_cir",
+   "tests/test_disclosed_render.py::test_two_stitches_merged_into_one_fails",
+   "tests/test_disclosed_render.py::test_unsupported_constructions_are_refused_not_guessed"
+  ],
+  "evidence": [
+   "module_reachability: visual/disclosed_render.py reached via seasonal.cycle_proof -> listing_asset.make; render_verification reached; neither in fcb982d",
+   "waves/fb2_H2.json",
+   "w3 lane K triage R: glyph per twin cell, raised posts, verifier"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch/V2: continuous yarn/loop rendering (R&D next step: material-coordinate yarn, one-post DC coupon) and extend crochet_topology beyond sc/hdc; for launch, extend the renderer only if a Launch-0 product needs a construction it currently refuses",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): glyph per twin cell, raised posts, verifier"
+ },
+ {
+  "uid": "F-855",
+  "launch_class": "MATURE",
+  "launch_class_reason": "material enhancement is optional polish after structure is protected",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no bounded material-enhancement stage; R&D option D untested",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "codex/visual-v2-rnd @ 035ff0c research/visual_v2/CURRENT_STATE.md + VISUAL_V2_ARCHITECTURE.md (R&D only, not on 019ebf0) option D: image-space yarn repaint unsafe; bounded UV/material untested"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch R&D: only after F-853 preservation verifier exists, test UV/material-only enhancement with revalidation",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-856",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "structural and photographic truth are separate hard gates",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/parity.py::assess; publish/model_photography.py FLOORS",
+  "durable_state": "audit_log listing.parity; assets.model_photography rows",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "listing export refused unless both pass",
+  "tests": [
+   "tests/test_final_visual_authority.py::test_motif_match_and_self_asserted_construction_pass_do_not_clear_parity",
+   "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
+   "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it"
+  ],
+  "evidence": [
+   "fcb982d runtime/pipeline.py _listing_parity",
+   "w3 lane K triage R: structural PRODUCT_TRUTH independent of realism leg"
+  ],
+  "build2_rows": [
+   "#75 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Make the structural gate deterministic (F-752/F-853) and add the s92 'blind original with exact repeated structure' test",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): structural PRODUCT_TRUTH independent of realism leg"
+ },
+ {
+  "uid": "F-857",
+  "launch_class": "MATURE",
+  "launch_class_reason": "D-FB-7: photoreal Visual V2 is not launch-critical; with F-852 refusing product redraw no photoreal product image can be published, so the graduation only binds before photoreal imagery is introduced (D-FB-4 condition)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no V2 graduation gate/harness in src; V1 blind-original graduation on Heirloom ran in research (0/16 certified); V2 R&D frozen at codex/visual-v2-rnd 035ff0c (not on main line)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "DECISION_LOG D-FB-4, D-FB-7",
+   "codex/visual-v2-rnd @ 035ff0c (R&D only)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "research software; realism judging may later need image_vision (owner)"
+  },
+  "defect": null,
+  "next_action": "Post-launch: define the V2 product-only graduation harness (Brambleloop original, no finished-product reference, both gates, UNKNOWN blocks) on the R&D lane before any photoreal integration",
+  "confidence": "HIGH",
+  "searched": "grep src/ tests/ for graduation/blind/V2 gate: none on main line"
+ },
+ {
+  "uid": "F-858",
+  "launch_class": "MATURE",
+  "launch_class_reason": "on-model imagery is not a first-sale requirement (Launch-0 is non-wearable)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "identity + product floors exist; the ordering 'only after product-only lock' is not enforced",
+  "producer": "src/brambleloop/publish/model_photography.py; visual/freeze.py",
+  "durable_state": "assets.model_photography rows; ModelIdentity",
+  "consumer": "runtime/release.py assets.model_photography handler",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_model_photography.py::test_a_drifted_face_and_a_drifted_body_each_block_on_their_own"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#72 EXTERNAL-BLOCKED",
+   "#202 EXTERNAL-BLOCKED",
+   "#201 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "no provider has rendered a certified structure faithfully"
+  },
+  "defect": null,
+  "next_action": "Require a product-only V2 lock record before model_photography may run for a product",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-859",
+  "launch_class": "MATURE",
+  "launch_class_reason": "visual economics is optimisation",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "per-call spend is reserved/recorded and experiments report yields in research manifests; no cost-per-certified-listing-set or rejection-reason aggregate",
+  "producer": "src/brambleloop/gateway/images.py (reserving generate); finance/spend_report.py",
+  "durable_state": "cost records",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_cost.py",
+   "tests/test_spend_governance.py"
+  ],
+  "evidence": [
+   "research/VISUAL_BENCH1.md, VISUAL_BENCH2.md cost lines"
+  ],
+  "build2_rows": [
+   "#31 DATA-GATED",
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a visual economics reading (yield, rejection reasons, latency, spend per certified set) computed from assets.* audit rows",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-860",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "lane isolation keeps unrelated launch work moving",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": "jobs",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_lanes_capacity.py",
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
+   "tests/test_w3_final_master_gate.py::test_executor_reports_parked_work_split_by_kind_and_the_final_master"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-68",
+   "w3 handoff_TOOLS.md claim: | F-130, F-860 | COMPLETE | `::test_executor_reports_parked_work_split_by_kind_and_the_final_master` |"
+  ],
+  "build2_rows": [
+   "#5 COMPLETE+PROVEN",
+   "#30 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a worker-level test: saturate visual.* jobs blocked on image_vision and assert cir.compile/gate.certify/listing jobs still drain",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-861",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "BUILD_STATE.md, DECISION_LOG.md, research/final_build/FINAL_BUILD_STATE.md, research/b2_resume/",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "FINAL_BUILD_STATE.md 'context is a cache; this file is the memory'"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — keep practice",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-862",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "research/b2_resume/RESUME_MANIFEST.md; patches/*.mbox; FINAL_BUILD_STATE.md assignments",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "RESUME_MANIFEST.md sections 0/0a"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — keep practice",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-863",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "FINAL_BUILD_STATE.md; codex visual_v2/CURRENT_STATE.md",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "FINAL_BUILD_STATE.md 'Read this first after any compaction/restart'"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — keep practice",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-864",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "checkpointing is manual (patches/*.mbox, uncommitted.diff snapshots); no automatic checkpoint before session limits",
+  "producer": null,
+  "durable_state": "research/b2_resume/patches/",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "RESUME_MANIFEST.md (wave patches)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Instruct mapping/implementation workers to write partial output early (as this brief does)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-865",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "research/final_build/mapping/MAPPING_BRIEF.md + s1..s9_uids.json (disjoint slices, one integrator)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "FINAL_BUILD_STATE.md assignments"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — keep practice",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-866",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "research/codex_b2_integration_pack (on 035ff0c history); ledger C-74..C-86 adjudicated",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-74, C-75, C-78, C-81"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none — keep practice",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-867",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": null,
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_required_receipt_mutations",
+   "tests/test_w3_final_master_gate.py::test_an_override_needs_a_reason_and_an_accepting_integrator"
+  ],
+  "evidence": [
+   "DECISION_LOG D-FB-8",
+   "research/final_build/aggregate.py wave overlay comment (F-867)",
+   "MAPPING_BRIEF: integrator certifies",
+   "w3 handoff_TOOLS.md claim: | F-867 | COMPLETE | `::test_an_override_needs_a_reason_and_an_accepting_integrator` and `test_w3_overrides_proposed` (6 tests) |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Require an independent_review receipt (different session/model) in the final_proof packets of every launch-critical COMPLETE row and run the validator on the candidate",
+  "confidence": "HIGH",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ },
+ {
+  "uid": "F-868",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "runtime model routing/league exists for production agents (gateway/routing.py, improve/league.py); development-model routing by measured outcome is not recorded",
+  "producer": "src/brambleloop/gateway/routing.py; improve/league.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_league.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#95 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Record per-session model/outcome/cost in FINAL_BUILD_STATE to route by evidence",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-869",
+  "launch_class": "MATURE",
+  "launch_class_reason": "development-process discipline, not a customer-protective runtime capability",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no measurement of development approval prompts",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Log approval-prompt counts per session in FINAL_BUILD_STATE",
+  "confidence": "MEDIUM",
+  "searched": "repo grep for approval friction/prompt counts"
+ },
+ {
+  "uid": "F-870",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility and authority gates",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/approvals.py",
+  "durable_state": "owner_actions / gate state",
+  "consumer": "each card has `why_software_cannot` (from `GATE_PACKETS`, or the new OwnerAction column), `requirement_kind`, `packet_missing` and `packet_complete`. A spend gate with no stated ceiling gets `max_cost_basis=UNKNOWN` instead of CA$0 \"free\"",
+  "protected_effect": "owner sees batched cards; unrelated work continues",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_injected_defect_an_owner_only_surface_with_nothing_asked_of_the_owner",
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_w3_k7_owner_queue.py::test_packets_and_gate_inventory",
+   "tests/test_w3_k7_owner_queue.py::test_spend_gate_without_stated_cost_is_not_free"
+  ],
+  "evidence": [
+   "fcb982d executor.py approval_inbox has consequence_of_waiting",
+   "module_reachability: intel/etsy_surfaces.py not reached",
+   "w3 handoff_K7.md claim: | F-870 Owner action packets | COMPLETE | `test_packets_and_gate_inventory`, `test_spend_gate_without_stated_cost_is_not_free` → each card has `why_software_cannot` (from `GATE_PACKETS`, or the new OwnerAction column), `requirement_kind`, `packet_missing` and `packet_complete`. A spend gate with no "
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add why_software_cannot to executor.approval_inbox cards (from Gate/OwnerAction) and wire intel/etsy_surfaces.owner_queue into the dashboard",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
+ },
+ {
+  "uid": "F-871",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "spend authority and ceilings",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-module, not a standard record (see F-877)",
+  "producer": "src/brambleloop/finance/spend_policy.py; gateway/model_gateway.py; ops/funding.py; build2/executor.py model_provider gate",
+  "durable_state": "cost records; SpendLimit",
+  "consumer": "gateway calls refuse beyond ceiling",
+  "protected_effect": "no provider call beyond owner ceiling",
+  "tests": [
+   "tests/test_spend_governance.py",
+   "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_with_no_cap_before_any_request",
+   "tests/test_funding.py"
+  ],
+  "evidence": [
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN",
+   "#86 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "model_provider",
+   "detail": "provider/vision credit is owner funding"
+  },
+  "defect": null,
+  "next_action": "Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-872",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "order truth depends on transactions_r",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the gate checks stored grant scope AND a recorded etsy.probe; readback of a real receipt after reauthorisation not yet possible",
+  "producer": "src/brambleloop/build2/executor.py Gate('transactions_r')::_transactions_readable; commerce/orders_ingest.py",
+  "durable_state": "oauth grant; etsy.probe audit rows",
+  "consumer": "src/brambleloop/runtime/orders.py::handle_orders_ingest",
+  "protected_effect": "no receipt read or trusted until scope proven",
+  "tests": [
+   "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-64, C-79",
+   "fcb982d executor has no transactions_r gate"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#12 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "owner re-authorises the Etsy app with transactions_r (CA$0, ~3 min)"
+  },
+  "defect": null,
+  "next_action": "Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-873",
+  "launch_class": "MATURE",
+  "launch_class_reason": "concerns competitor browser/vision acceptance wording, not first-sale protection",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "ruling not yet given",
+  "producer": "src/brambleloop/build2/executor.py Gate('acceptance_ruling'); app/main.py owner decision route",
+  "durable_state": "owner_actions (ACCEPTANCE_RULING_KEY)",
+  "consumer": "build2/closure.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_owner_decision.py::test_the_owner_decision_route_records_and_refuses_what_it_should"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md C-57"
+  ],
+  "build2_rows": [
+   "#189 OWNER-GATED",
+   "#221 OWNER-GATED",
+   "#222 OWNER-GATED",
+   "#320 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "acceptance_ruling",
+   "detail": "owner rules whether API+vision traversal satisfies #189/#221/#222/#320"
+  },
+  "defect": null,
+  "next_action": "Owner action: record the acceptance ruling",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-874",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "marketplace compliance / owner-action sequencing for first sale",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (from intel/etsy_surfaces.py::owner_queue)",
+  "durable_state": "owner_actions (requirement_key etsy surface prefix)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "protected_effect": "KYC/tax requested only as a first-sale blocker, never executed by software",
+  "tests": [
+   "tests/test_etsy_readback_observe.py::test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences",
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+   "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_come_first_and_are_the_ones_that_block",
+   "tests/test_fb4_ops.py::test_a_shadow_shop_is_not_asked_for_kyc_until_the_step_before_first_sale"
+  ],
+  "evidence": [
+   "runtime/worker.py:408 launch_readiness daily cadence",
+   "module_reachability: runtime/etsy_ops.py reached, not in fcb982d; intel/etsy_surfaces.py in fcb982d",
+   "FINAL_BUILD_STATE owner batch asks only for the publication grant",
+   "w3 lane K triage R: first-sale-only KYC asks deferred until a listing exists"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Defer seeding first-sale-only owner actions (legal_and_tax_setup, payment_settings_setup) until a release holds a valid publication grant or passes readiness except for them; add a test that a fresh shadow DB's owner queue does not ask for KYC",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): first-sale-only KYC asks deferred until a listing exists"
+ },
+ {
+  "uid": "F-875",
+  "launch_class": "MATURE",
+  "launch_class_reason": "brief: Ads disabled until owner authority (F-875) are MATURE",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/executor.py Gate('ad_authority'); commerce/paid_media.py Caps",
+  "durable_state": "SpendLimit('ads')",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_campaign",
+  "protected_effect": "no ad spend without a positive owner cap",
+  "tests": [
+   "tests/test_paid_media_economics.py::test_no_path_enqueues_or_authorises_ad_spend"
+  ],
+  "evidence": [
+   "prod_api_verify 2026-09-28T0816Z: no_paid_advertising ad_spend_cad 0.0",
+   "fcb982d executor has ad_authority gate"
+  ],
+  "build2_rows": [
+   "#242 OWNER-GATED",
+   "#294 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "ad_authority",
+   "detail": "owner sets an ads SpendLimit"
+  },
+  "defect": null,
+  "next_action": "none — at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-876",
+  "launch_class": "MATURE",
+  "launch_class_reason": "physical proof requests are owner/tester logistics",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "proof ladder states what each rung proves/does not; physical_proof gate is generic (any completed PhysicalTest) and requests are not tied to a specific unresolved property",
+  "producer": "src/brambleloop/quality/proof.py LADDER; quality/testers.py::plan",
+  "durable_state": "physical_tests",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_proof.py::test_every_rung_states_what_it_does_not_prove"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#64 OWNER-GATED",
+   "#43 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "testers are the owner's to recruit"
+  },
+  "defect": null,
+  "next_action": "Make quality/testers.plan emit requests naming the unresolved property (drape, gauge, yardage, fit) and its evidence use",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-877",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "spend control on paid visual experiments",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/spend_plan.py",
+  "durable_state": "audit rows visual.provider_trial",
+  "consumer": "runtime consumer per reachability: validate is live: handler visual.provider_trial (enqueued by app/main.py:_startup) -> runtime/release.py:handle_provider_trial -> visual/provider_trial.py:run",
+  "protected_effect": "no paid render beyond the declared ceiling",
+  "tests": [
+   "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_a_call_whose_worst_case_passes_the_cap",
+   "tests/test_provider_trial.py::test_the_ceiling_is_checked_before_the_render_not_after",
+   "tests/test_w3_k12_model_photography.py::test_f877_paid_experiments_carry_a_complete_plan",
+   "tests/test_w3_k12_model_photography.py::test_f877_provider_trial_runs_under_its_plan"
+  ],
+  "evidence": [
+   "w3 handoff_K12.md claim: | **F-877** Bounded visual spend | **COMPLETE** | `visual.spend_plan`: `build`, `problems`/`validate` (hypothesis, provider/model, call count, max spend, pass and fail criteria, price × calls ≤ cap) and `guard` (per-call count and ceiling). `rnd.loop.experiment` stores `paid_plan` on every GATED_SPE"
+  ],
+  "build2_rows": [
+   "#99 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add VisualExperiment record (hypothesis, provider, model, max_calls, max_spend, pass/fail) required by gateway/images.generate for any non-production visual spend; test refusal without it",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K12']"
+ },
+ {
+  "uid": "F-878",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "owner needs a truthful launch packet",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE (launch/packet.py release-record citation + CC builder passes the image's release/ root), not yet released",
+  "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
+  "durable_state": "audit_log; operating readings",
+  "consumer": "app/main.py dashboard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
+  ],
+  "evidence": [
+   "launch/rollback.py not in fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+   "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven",
+   "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "integrator: full suite + release record + deploy of the successor carrying the PACKETREL packet fix; then read /api/cc/launch/packet recorded_suite with the owner credential and commit it",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-879",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch is decided by customer-protective gates only",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
+  "durable_state": null,
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people",
+   "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open",
+   "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure"
+  ],
+  "evidence": [
+   "w3 handoff_TOOLS.md claim: | F-400, F-879 | COMPLETE | `::test_post_launch_rows_never_block...` and `::test_the_launch_readiness_gate_consumes_the_closure` |"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Drive launch/readiness blocking items from the Final closure matrix rows with launch_class LAUNCH-CRITICAL",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
+ }
+]

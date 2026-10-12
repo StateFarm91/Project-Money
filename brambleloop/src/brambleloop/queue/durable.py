@@ -13,11 +13,14 @@ Design constraints that matter because nobody is watching at 3am:
 from __future__ import annotations
 
 import random
+import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import (DateTime, Integer, case, cast, func, literal, or_, select,
+                        text, update)
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from ..core.db import Database, is_postgres
@@ -27,28 +30,148 @@ DEFAULT_LEASE_SECONDS = 300
 BACKOFF_BASE_SECONDS = 2
 BACKOFF_CAP_SECONDS = 3600
 
+# Bounded aging (C-15). A due job's effective priority improves by one point for every
+# AGING_STEP_SECONDS it has waited past `run_after`, by at most AGING_CAP points. So bands
+# order fresh work exactly as before (under ten minutes of waiting nothing moves), and a job
+# of band P overtakes fresh band-B work after at most (P - B + 1) * AGING_STEP_SECONDS of
+# waiting: a band-200 job beats a steady band-10 stream within 191 * 600 s ~= 31.8 hours.
+# The cap (200) keeps the credit bounded, so it cannot turn an ancient job into an arbitrarily
+# negative priority that out-ranks everything forever.
+AGING_STEP_SECONDS = 600
+AGING_CAP = 200
+
+# A claim retries the conditional lease write at most this many times. After the first lost
+# write on SQLite this connection holds the write lock, so the second attempt reads
+# authoritative state; the bound only matters under Postgres SKIP LOCKED.
+CLAIM_ATTEMPTS = 8
+
+# SQLite's busy handler is not fair: under many concurrent writers on a loaded host a waiter
+# can lose the lock race for longer than the driver's 5 s timeout and see "database is
+# locked". A queue write that fails that way rolled back completely, so it is retried as a
+# whole transaction. Without this a lost `complete` became a handler exception, the worker
+# failed the job, and the backed-off retry ran it a second time -- a duplicate execution
+# arriving through the lock instead of through the claim (C-11).
+LOCK_RETRIES = 12
+
 
 # Dead letters that are the system working rather than the system failing.
 #
-# Two of them, and the second one only appeared on 2026-09-21. Shadow mode refusing to
-# publish was always the first. The second is a job standing aside because it was stamped
-# for a build other than the one that claimed it -- a rolling deploy runs two commits at
-# once, and standing aside is how the right one gets the work. Both are refusals; neither
-# is a death anybody needs to explain.
+# ONE classifier, `classify_dead_letter`, answers every question anybody asks about a dead
+# letter; `deliberate_refusal` and `JobQueue.requeue_dead` are both read from it. They used to
+# be two lists -- `DELIBERATE_REFUSAL_*` here and `JobQueue.REFUSAL_MARKERS` below -- and a
+# value that lives in two places disagrees with itself: the Worker's own
+# `capability not enabled: shadow mode` dead letter on any type other than store.publish was
+# "refused on purpose, never re-drive" to `requeue_dead` and a DEFECT to `ops.health`,
+# `/api/verify` and `ops.retention` (certification finding C-14, 2026-09-27).
 #
-# Defined once because it is asked in two places, and a value that lives in two places
-# disagrees with itself: `/api/verify` went red for a stand-aside while the autonomy proof
-# counted it correctly, which is one signal contradicting another about the same row.
+# Three kinds, because there are two questions and they differ on one real row:
+#
+#   REFUSED     a closed gate said no (shadow mode, a capability nobody granted). Not a
+#               defect, and never re-driven -- re-driving it is asking a closed gate to open.
+#   STOOD_ASIDE a job stamped for a build other than the one that claimed it, failing so the
+#               right replica takes it (2026-09-21). Not a defect, and IS re-drivable: the
+#               right build should get the work.
+#   DEFECT      everything else. Work the company still owes; re-driven once fixed.
+REFUSED = "refused"
+STOOD_ASIDE = "stood_aside"
+DEFECT = "defect"
+
+# Job types whose every dead letter is a refusal (shadow mode refusing to publish).
 DELIBERATE_REFUSAL_TYPES: frozenset[str] = frozenset({"store.publish"})
 
-DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = ("another replica",)
+# A closed gate's words. Written by the Worker as `capability not enabled: ...` and by the
+# capability layer's shadow-mode refusals. Matched case-insensitively.
+#
+# A permission denial is deliberately NOT here. It reads like a refusal and is usually a
+# misconfiguration: the operational heartbeat was scheduled against an agent that had no
+# permission for it and dead-lettered every fifteen minutes from the first boot. Once the
+# registry is corrected that work is owed, and re-driving it is safe regardless, because the
+# worker re-authorises on every dispatch.
+CAPABILITY_REFUSAL_MARKERS: tuple[str, ...] = ("capability not enabled", "shadow mode")
+
+# Two markers for the pack stand-aside, because the row it produced in production carries
+# the *front* of the message and not always the back: `last_error` is the exception text and
+# the "another replica" clause is its last sentence, so a truncated or reformatted copy kept
+# "asked for pack" and lost the marker that classified it. Either phrase is the same refusal.
+STAND_ASIDE_MARKERS: tuple[str, ...] = ("another replica", "asked for pack")
+
+# Every marker that makes a dead letter "not a defect". Kept for callers that read it.
+DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = CAPABILITY_REFUSAL_MARKERS + STAND_ASIDE_MARKERS
+
+
+def classify_dead_letter(job_type: str, last_error: str = "") -> str:
+    """REFUSED, STOOD_ASIDE or DEFECT. The single source every dead-letter reader uses."""
+    if job_type in DELIBERATE_REFUSAL_TYPES:
+        return REFUSED
+    error = (last_error or "").lower()
+    if any(marker in error for marker in CAPABILITY_REFUSAL_MARKERS):
+        return REFUSED
+    if any(marker in error for marker in STAND_ASIDE_MARKERS):
+        return STOOD_ASIDE
+    return DEFECT
 
 
 def deliberate_refusal(job_type: str, last_error: str = "") -> bool:
     """Whether this dead letter is a refusal working rather than a defect."""
-    if job_type in DELIBERATE_REFUSAL_TYPES:
-        return True
-    return any(marker in (last_error or "") for marker in DELIBERATE_REFUSAL_MARKERS)
+    return classify_dead_letter(job_type, last_error) != DEFECT
+
+
+def redrivable(job_type: str, last_error: str = "") -> bool:
+    """Whether re-driving this dead letter is recovery rather than asking a closed gate again."""
+    return classify_dead_letter(job_type, last_error) != REFUSED
+
+
+def dead_letter_digest(jobs) -> list[dict]:
+    """Group dead letters by job type: count, latest time and the latest error's first line.
+
+    W4-FINHEALTH: `/api/verify` listed only the job types, so a type that died once and one
+    that died seventeen times read the same. The error head is the first line only, cut at
+    200 characters -- enough to name the defect, short of carrying a full SQL statement or
+    provider body into a public reading.
+    """
+    groups: dict[str, dict] = {}
+    for job in jobs:
+        at = _aware(getattr(job, "finished_at", None) or getattr(job, "created_at", None))
+        g = groups.setdefault(job.job_type, {"job_type": job.job_type, "count": 0,
+                                             "last_at": None, "last_error": ""})
+        g["count"] += 1
+        if g["last_at"] is None or (at is not None and at >= g["last_at"]):
+            g["last_at"] = at
+            g["last_error"] = ((job.last_error or "").strip().splitlines() or [""])[0][:200]
+    return [{**g, "last_at": g["last_at"].isoformat() if g["last_at"] else None}
+            for g in sorted(groups.values(), key=lambda g: (-g["count"], g["job_type"]))]
+
+
+# W4-AUTONOMY (2026-10-11): `jobs.idempotency_key` is VARCHAR(200). SQLite ignores the length,
+# Postgres enforces it, so a key built from a variable-length set (the stale-artefact
+# sentinel's rebuild key carries every moved fingerprint) passed every SQLite test and raised
+# StringDataRightTruncation in production -- the sentinel dead-lettered on every attempt and
+# the rebuild work it exists to enqueue never reached the queue. A key that does not fit is
+# shortened deterministically: a readable prefix plus a digest of the WHOLE key, so the same
+# long key always maps to the same stored key (idempotency kept) and two different long keys
+# sharing a prefix never collide (plain truncation would merge them).
+IDEMPOTENCY_KEY_MAX = 200
+
+
+def fit_idempotency_key(key: str | None) -> str | None:
+    """`key` unchanged when it fits the column, else prefix + '#' + sha256 digest (<= 200)."""
+    if key is None or len(key) <= IDEMPOTENCY_KEY_MAX:
+        return key
+    import hashlib
+
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
+    return f"{key[:IDEMPOTENCY_KEY_MAX - len(digest) - 1]}#{digest}"
+
+
+# F-489: duplicate work avoided -- enqueues refused by the idempotency key, per job type, since
+# this process started. Process-local and labelled so; a duplicate refused is work not done
+# twice, which is the parallelism efficiency the counter exists to show.
+DEDUPE_HITS: dict[str, int] = {}
+DEDUPE_SINCE = datetime.now(timezone.utc)
+
+
+def note_dedupe(job_type: str) -> None:
+    DEDUPE_HITS[job_type] = DEDUPE_HITS.get(job_type, 0) + 1
 
 
 class DuplicateJob(Exception):
@@ -67,10 +190,32 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _is_lock_error(exc: BaseException) -> bool:
+    text_ = str(exc).lower()
+    return "database is locked" in text_ or "database table is locked" in text_
+
+
 class JobQueue:
     def __init__(self, db: Database, lease_seconds: int = DEFAULT_LEASE_SECONDS):
         self.db = db
         self.lease_seconds = lease_seconds
+
+    def _txn(self, fn):
+        """Run `fn(session)` in one transaction, retrying the whole of it on a SQLite lock."""
+        if is_postgres(self.db.engine):
+            with self.db.session() as s:
+                return fn(s)
+        delay = 0.02
+        for attempt in range(LOCK_RETRIES):
+            try:
+                with self.db.session() as s:
+                    return fn(s)
+            except OperationalError as exc:
+                if not _is_lock_error(exc) or attempt == LOCK_RETRIES - 1:
+                    raise
+                time.sleep(delay * (1.0 + random.random()))
+                delay = min(delay * 2, 1.0)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     # ---- producing -----------------------------------------------------
     def enqueue(
@@ -79,18 +224,35 @@ class JobQueue:
         job_type: str,
         inputs: dict | None = None,
         *,
-        priority: int = 100,
+        priority: int | None = None,
         idempotency_key: str | None = None,
         max_attempts: int = 3,
         run_after: datetime | None = None,
         session: Session | None = None,
     ) -> Job:
+        # An omitted priority is the job type's band (C-46). The old default of 100 sat below
+        # every band (the highest is 95), so every follow-on job enqueued through
+        # `JobContext.enqueue` -- gate.certify, listing.draft, store.publish, support.* -- ran
+        # after housekeeping. An explicit priority still wins.
+        if priority is None:
+            from ..swarm.orchestrate import priority_for
+
+            # #187: the band, then the deadline and business value the inputs carry, under
+            # the incumbent job-priority policy the registry holds.
+            try:
+                priority = priority_for(job_type, inputs or None, db=self.db)
+            except Exception:  # noqa: BLE001 - a priority reading never blocks an enqueue
+                priority = priority_for(job_type)
+
+        idempotency_key = fit_idempotency_key(idempotency_key)
+
         def _do(s: Session) -> Job:
             if idempotency_key:
                 existing = s.scalar(
                     select(Job).where(Job.idempotency_key == idempotency_key)
                 )
                 if existing:
+                    note_dedupe(job_type)
                     raise DuplicateJob(idempotency_key, existing.id)
             job = Job(
                 agent=agent,
@@ -109,6 +271,7 @@ class JobQueue:
                 existing = s.scalar(
                     select(Job).where(Job.idempotency_key == idempotency_key)
                 )
+                note_dedupe(job_type)
                 raise DuplicateJob(idempotency_key or "", existing.id if existing else -1)
             return job
 
@@ -118,65 +281,128 @@ class JobQueue:
             return _do(s)
 
     # ---- consuming -----------------------------------------------------
+    def _effective_priority(self, now: datetime):
+        """`priority` less a bounded aging credit for time spent waiting (C-15).
+
+        Claim order was strictly (priority, run_after, id), so a steady stream of band-10
+        work starved a band-200 job for ever. Now a due job's effective priority improves by
+        one point per AGING_STEP_SECONDS it has waited since `run_after`, capped at
+        AGING_CAP points. Fresh work (waited < one step) still orders strictly by band.
+        """
+        if is_postgres(self.db.engine):
+            waited = func.extract("epoch", literal(now, DateTime(timezone=True)) - Job.run_after)
+            steps = func.floor(waited / AGING_STEP_SECONDS)
+        else:
+            waited = (func.julianday(literal(now, DateTime(timezone=True)))
+                      - func.julianday(Job.run_after)) * 86400.0
+            steps = cast(waited / AGING_STEP_SECONDS, Integer)
+        credit = case((steps > AGING_CAP, AGING_CAP), (steps < 0, 0), else_=steps)
+        return Job.priority - credit
+
+    @staticmethod
+    def _claim_tier():
+        """Protected bands first (Codex CB2-G02): customer_incident job types, then
+        truth_defect job types, then all other work. Declared in `swarm.orchestrate`
+        (PROTECTED_KINDS / claim_tier); aging and stored priority order work only *within* a
+        tier, so neither a steered priority nor a long wait lets ordinary work be claimed
+        while runnable protected work waits."""
+        from ..swarm.orchestrate import ORDINARY_TIER, protected_job_types
+
+        whens = [(Job.job_type.in_(sorted(types)), tier)
+                 for tier, types in enumerate(protected_job_types().values()) if types]
+        return case(*whens, else_=ORDINARY_TIER)
+
     def claim(self, worker: str, job_types: Sequence[str] | None = None) -> Job | None:
         """Atomically lease one runnable job, or return None.
 
         Runnable means: pending (or failed and due for retry), scheduled time has arrived, and
-        not currently held by a live lease. Postgres uses SKIP LOCKED; SQLite relies on its
-        write lock plus a conditional update, which is correct because SQLite serialises
-        writers anyway.
+        not currently held by a live lease -- or RUNNING on a lease that has expired.
+
+        The lease is taken by a *conditional* UPDATE that re-states the condition the row was
+        chosen on (same status, same `attempts`, still due / still expired) and succeeds only
+        when exactly one row changed. The old path read a row and then updated it by id
+        unconditionally; on SQLite two workers read the same row between each other's writes
+        and both ran it -- 56 of 120 jobs twice under six threads on a WAL file (C-11). A
+        losing UPDATE leaves this connection holding SQLite's write lock, so the re-read that
+        follows it is authoritative and the next attempt cannot lose the same way. Postgres
+        additionally takes the candidate row FOR UPDATE SKIP LOCKED.
         """
-        now = utcnow()
-        with self.db.session() as s:
-            q = (
-                select(Job)
-                .where(
-                    Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]),
-                    Job.run_after <= now,
-                )
-                .order_by(Job.priority.asc(), Job.run_after.asc(), Job.id.asc())
-                .limit(1)
-            )
-            if job_types:
-                q = q.where(Job.job_type.in_(list(job_types)))
-            if is_postgres(self.db.engine):
-                q = q.with_for_update(skip_locked=True)
+        pg = is_postgres(self.db.engine)
 
-            # Expired leases are looked at first, not only when nothing else is runnable.
-            #
-            # This ran the reclaim only when the pending query came back empty, so a job
-            # whose worker died holding the lease was recoverable exactly while the queue
-            # was idle. Under a backlog -- which is when a worker is most likely to be
-            # killed, and the only time losing work costs anything -- every claim found
-            # newer pending work first and the orphan stayed RUNNING behind it,
-            # indefinitely. Nothing reports a job stuck in RUNNING, so it is not a delay
-            # anybody would see; it is work that quietly stops existing.
-            #
-            # Taking it first is also the right order on its own terms: a reclaimable job
-            # was enqueued before everything in the pending queue and has already waited a
-            # whole lease. It cannot spin -- `claim` increments `attempts`, so a job that
-            # keeps dying reaches `max_attempts` and dead-letters like any other.
-            job = self._reclaim_expired(s, now, job_types) or s.scalar(q)
-            if job is None:
-                return None
+        def _do(s: Session) -> Job | None:
+            now = utcnow()
+            for _ in range(CLAIM_ATTEMPTS):
+                # Expired leases first, not only when nothing else is runnable. A job whose
+                # worker died holding the lease was otherwise recoverable only while the
+                # queue was idle -- under a backlog, when a worker is most likely to be
+                # killed, the orphan stayed RUNNING behind newer work indefinitely. It cannot
+                # spin: `claim` increments `attempts`, so a job that keeps dying reaches
+                # `max_attempts` and dead-letters like any other.
+                taken = self._reclaim_expired(s, now, job_types, worker)
+                if taken is None:
+                    q = (
+                        select(Job.id, Job.attempts)
+                        .where(
+                            Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]),
+                            Job.run_after <= now,
+                        )
+                        .order_by(self._claim_tier().asc(),
+                                  self._effective_priority(now).asc(),
+                                  Job.run_after.asc(), Job.id.asc())
+                        .limit(1)
+                    )
+                    if job_types:
+                        q = q.where(Job.job_type.in_(list(job_types)))
+                    if pg:
+                        q = q.with_for_update(skip_locked=True, of=Job)
+                    row = s.execute(q).first()
+                    if row is None:
+                        return None
+                    taken = self._take(s, row.id, row.attempts, worker, now, reclaim=False)
+                if taken is not None:
+                    job = s.get(Job, taken, populate_existing=True)
+                    s.flush()
+                    s.expunge(job)
+                    # When THIS attempt's lease began. `started_at` is the first attempt's
+                    # (coalesced), so anything windowed on "what did this run do" -- the
+                    # provenance backstop -- reads this instead (C-52). Not a column: it
+                    # describes the claim that returned this object, nothing persisted.
+                    job.attempt_started_at = now
+                    return job
+            return None
 
-            job.status = JobStatus.RUNNING
-            job.leased_by = worker
-            job.lease_expires_at = now + timedelta(seconds=self.lease_seconds)
-            job.attempts += 1
-            job.started_at = job.started_at or now
-            s.flush()
-            s.expunge(job)
-            return job
+        return self._txn(_do)
+
+    def _take(self, s: Session, job_id: int, attempts: int, worker: str, now: datetime,
+              *, reclaim: bool) -> int | None:
+        """The conditional lease write. Returns the id when this call won the row."""
+        cond = [Job.id == job_id, Job.attempts == attempts]
+        if reclaim:
+            cond += [Job.status == JobStatus.RUNNING, Job.lease_expires_at <= now]
+        else:
+            cond += [Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]),
+                     Job.run_after <= now]
+        res = s.execute(
+            update(Job).where(*cond).values(
+                status=JobStatus.RUNNING,
+                leased_by=worker,
+                # A fresh token per claim (v1.1 lane A): the fence below compares it, so two
+                # workers that happen to share a name still cannot complete each other's run.
+                lease_token=uuid.uuid4().hex,
+                lease_expires_at=now + timedelta(seconds=self.lease_seconds),
+                attempts=Job.attempts + 1,
+                started_at=func.coalesce(Job.started_at, now),
+            ).execution_options(synchronize_session=False))
+        return job_id if res.rowcount == 1 else None
 
     def _reclaim_expired(
-        self, s: Session, now: datetime, job_types: Sequence[str] | None
-    ) -> Job | None:
-        """Take back a job whose worker died holding the lease."""
+        self, s: Session, now: datetime, job_types: Sequence[str] | None, worker: str
+    ) -> int | None:
+        """Take back a job whose worker died holding the lease. Returns the id taken."""
         q = (
-            select(Job)
-            .where(Job.status == JobStatus.RUNNING)
-            .order_by(Job.priority.asc(), Job.id.asc())
+            select(Job.id, Job.attempts, Job.max_attempts)
+            .where(Job.status == JobStatus.RUNNING, Job.lease_expires_at <= now)
+            .order_by(self._claim_tier().asc(), Job.priority.asc(), Job.id.asc())
         )
         if job_types:
             q = q.where(Job.job_type.in_(list(job_types)))
@@ -185,39 +411,176 @@ class JobQueue:
         # job -- which is precisely the double-execution `idempotency_key` exists to make
         # impossible, arriving through the recovery path instead of the enqueue path.
         if is_postgres(self.db.engine):
-            q = q.with_for_update(skip_locked=True)
-        for job in s.scalars(q):
-            exp = _aware(job.lease_expires_at)
-            if exp is not None and exp <= now:
-                if job.attempts >= job.max_attempts:
-                    job.status = JobStatus.DEAD
-                    job.last_error = (job.last_error or "") + " | lease expired, retries exhausted"
-                    job.finished_at = now
-                    continue
-                return job
+            q = q.with_for_update(skip_locked=True, of=Job)
+        for row in s.execute(q).all():
+            if row.attempts >= row.max_attempts:
+                s.execute(
+                    update(Job).where(Job.id == row.id, Job.attempts == row.attempts,
+                                      Job.status == JobStatus.RUNNING,
+                                      Job.lease_expires_at <= now)
+                    .values(status=JobStatus.DEAD,
+                            last_error=func.coalesce(Job.last_error, "")
+                            + " | lease expired, retries exhausted",
+                            finished_at=now)
+                    .execution_options(synchronize_session=False))
+                continue
+            taken = self._take(s, row.id, row.attempts, worker, now, reclaim=True)
+            if taken is not None:
+                # Audit ddf9c6e M-3: a reclaim means the handler body runs again after an
+                # attempt that never finished (killed or stalled). That is the at-least-once
+                # moment; the soak's "no duplicated external effect" criterion reads it.
+                from ..core.models import AuditLog
+
+                s.add(AuditLog(actor="queue", action="queue.lease_reclaimed", job_id=row.id,
+                               detail={"attempt": int(row.attempts) + 1,
+                                       "reclaimed_by": worker[:64]}))
+                return taken
         return None
 
     # ---- completing ----------------------------------------------------
-    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0) -> None:
-        with self.db.session() as s:
+    # ---- fencing ---------------------------------------------------------
+    #
+    # A lease that expired was reclaimed, and the job now belongs to whoever reclaimed it.
+    # The original worker does not know that: it was slow, not dead, and when its handler
+    # returns it will try to mark the job done -- over the top of the second run, which may
+    # still be executing, and with outputs from a run the queue had already given up on.
+    # That is two writers believing they own one row, which is the exact thing a lease is
+    # for preventing. So a completion or failure names the worker it comes from, and one
+    # from a worker that no longer holds the lease is refused and recorded rather than
+    # applied.
+    #
+    # `worker=None` is for a job nobody is running. It used to be unconditional, so an
+    # unnamed caller overwrote a job another worker held on a live lease (C-12). It is now
+    # refused whenever the job is RUNNING on a live lease somebody holds; an operator who
+    # really means to override a running job passes `administrative=True`, and that override
+    # is itself audited.
+    def _fenced(self, s: Session, job: Job, worker: str | None, what: str,
+                administrative: bool = False, lease_token: str | None = None) -> bool:
+        """True when `worker` may write this job's outcome; audits and refuses otherwise.
+
+        `lease_token` (v1.1 lane A, ported from Codex 8877f05) is the stronger fence: when a
+        caller presents the token its claim returned, the write is accepted only while the
+        job is still RUNNING on that same claim. Worker names are not unique across
+        containers -- the embedded runner named itself `web-<pid>`, and two containers in an
+        overlapping deploy can share a PID -- so a name match alone could let a stale attempt
+        complete the run that replaced it.
+        """
+        from ..core.models import AuditLog
+
+        now = utcnow()
+        if lease_token is not None:
+            if job.status == JobStatus.RUNNING and job.lease_token == lease_token:
+                return True
+            s.add(AuditLog(actor="queue", action="queue.stale_lease_refused",
+                           artifact=job.job_type, job_id=job.id,
+                           detail={"attempted_by": worker, "lease_held_by": job.leased_by,
+                                   "attempted": what,
+                                   "status": getattr(job.status, "value", str(job.status)),
+                                   "why": ("the lease token presented is not the job's "
+                                           "current claim: this attempt was reclaimed and "
+                                           "its outcome belongs to the current holder")}))
+            return False
+        exp = _aware(job.lease_expires_at)
+        live_holder = (job.status == JobStatus.RUNNING and bool(job.leased_by)
+                       and exp is not None and exp > now)
+        status = getattr(job.status, "value", str(job.status))
+        if worker is None:
+            if not live_holder:
+                return True
+            if administrative:
+                s.add(AuditLog(actor="queue", action="queue.administrative_override",
+                               artifact=job.job_type, job_id=job.id,
+                               detail={"attempted": what, "lease_held_by": job.leased_by,
+                                       "lease_expires_at": exp.isoformat(),
+                                       "status": status,
+                                       "why": ("an unnamed administrative caller wrote the "
+                                               "outcome of a job another worker holds on a "
+                                               "live lease")}))
+                return True
+            s.add(AuditLog(actor="queue", action="queue.unfenced_write_refused",
+                           artifact=job.job_type, job_id=job.id,
+                           detail={"attempted": what, "lease_held_by": job.leased_by,
+                                   "lease_expires_at": exp.isoformat(), "status": status,
+                                   "why": ("an unnamed caller tried to write the outcome "
+                                           "of a job another worker holds on a live lease; "
+                                           "pass worker= or administrative=True")}))
+            return False
+        # Held by this worker, or held by nobody while still running (a row written before
+        # leases carried a name). A job that is no longer RUNNING was finished or re-queued
+        # by somebody else, and a late report from this worker would overwrite that.
+        if job.status == JobStatus.RUNNING and (not job.leased_by or job.leased_by == worker):
+            return True
+        s.add(AuditLog(actor="queue", action="queue.stale_lease_refused",
+                       artifact=job.job_type, job_id=job.id,
+                       detail={"attempted_by": worker, "lease_held_by": job.leased_by,
+                               "attempted": what, "status": status,
+                               "why": ("this worker's lease expired and the job was "
+                                       "reclaimed; its outcome belongs to the current "
+                                       "holder, not to a run the queue already gave up on")}))
+        return False
+
+    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0,
+                 *, worker: str | None = None, administrative: bool = False,
+                 lease_token: str | None = None) -> bool:
+        """Mark a job done. Returns False, changing nothing, when the write is fenced off."""
+        def _do(s: Session) -> bool:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
+            if not self._fenced(s, job, worker, "complete", administrative, lease_token):
+                return False
             job.status = JobStatus.DONE
             job.outputs = outputs or {}
             job.finished_at = utcnow()
             job.leased_by = None
+            job.lease_token = None
             job.lease_expires_at = None
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
+            return True
 
-    def fail(self, job_id: int, error: str, *, retry: bool = True) -> Job:
-        """Record a failure and either schedule a backed-off retry or dead-letter the job."""
-        with self.db.session() as s:
+        done = self._txn(_do)
+        if done:
+            # F-659: a completed job has nothing to resume. Best effort and after the commit,
+            # so a checkpoint cleanup can never turn a completed job back into a failure.
+            try:
+                from . import checkpoints
+
+                checkpoints.clear(self.db, job_id)
+            except Exception:  # noqa: BLE001
+                pass
+        return done
+
+    def checkpoint(self, job_id: int, key: str, state: dict, *,
+                   lease_token: str | None = None) -> dict:
+        """F-659: record a running job's progress under `key` (fenced to the lease holder)."""
+        from . import checkpoints
+
+        return checkpoints.save(self.db, job_id, key, state, lease_token=lease_token)
+
+    def restore(self, job_id: int, key: str) -> dict | None:
+        """F-659: the last checkpoint under `key`, or None when the step never finished."""
+        from . import checkpoints
+
+        return checkpoints.load(self.db, job_id, key)
+
+    def fail(self, job_id: int, error: str, *, retry: bool = True,
+             worker: str | None = None, administrative: bool = False,
+             lease_token: str | None = None) -> Job | None:
+        """Record a failure and either schedule a backed-off retry or dead-letter the job.
+
+        Returns None, changing nothing, when the write is fenced off: a failure reported by a
+        run the queue already reclaimed must not dead-letter or back off the run that
+        replaced it.
+        """
+        def _do(s: Session) -> Job | None:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
+            if not self._fenced(s, job, worker, "fail", administrative, lease_token):
+                return None
             job.last_error = error[:4000]
             job.leased_by = None
+            job.lease_token = None
             job.lease_expires_at = None
 
             if not retry or job.attempts >= job.max_attempts:
@@ -235,12 +598,32 @@ class JobQueue:
             s.expunge(job)
             return job
 
-    def heartbeat(self, job_id: int) -> None:
-        """Extend a lease for a job that is legitimately still running."""
-        with self.db.session() as s:
-            job = s.get(Job, job_id)
-            if job and job.status == JobStatus.RUNNING:
-                job.lease_expires_at = utcnow() + timedelta(seconds=self.lease_seconds)
+        return self._txn(_do)
+
+    def heartbeat(self, job_id: int, *, worker: str | None = None,
+                  lease_token: str | None = None) -> bool:
+        """Extend a lease for a job that is legitimately still running. True when extended.
+
+        Fenced like `complete` (C-13): a named worker extends only a lease it holds (or an
+        unnamed legacy lease). A stale worker's renewal thread used to keep extending the
+        lease on a job another worker had reclaimed, so if that worker then died its orphan
+        stayed unreclaimable for as long as the stale thread kept ticking. `worker=None` is
+        the unnamed legacy path and extends any RUNNING job.
+        """
+        cond = [Job.id == job_id, Job.status == JobStatus.RUNNING]
+        if worker is not None:
+            cond.append(or_(Job.leased_by.is_(None), Job.leased_by == worker))
+        if lease_token is not None:
+            cond.append(Job.lease_token == lease_token)
+
+        def _do(s: Session) -> bool:
+            res = s.execute(
+                update(Job).where(*cond)
+                .values(lease_expires_at=utcnow() + timedelta(seconds=self.lease_seconds))
+                .execution_options(synchronize_session=False))
+            return res.rowcount == 1
+
+        return self._txn(_do)
 
     # ---- inspection ----------------------------------------------------
     def counts(self) -> dict[str, int]:
@@ -269,16 +652,8 @@ class JobQueue:
                 s.expunge(j)
             return jobs
 
-    # Errors that mean "a closed gate said no". Re-driving one is not recovery, it is an
-    # operator repeatedly asking a system in shadow mode to go live.
-    #
-    # A permission denial is deliberately NOT in this list. It reads like a refusal and is
-    # usually a misconfiguration: the operational heartbeat was scheduled against an agent
-    # that had no permission for it and dead-lettered every fifteen minutes from the first
-    # boot. Once the registry is corrected that work is owed, and re-driving it is safe
-    # regardless, because the worker re-authorises on every dispatch -- a job whose permission
-    # is still missing simply fails again rather than sneaking through.
-    REFUSAL_MARKERS = ("capability not enabled", "shadow mode")
+    # Kept for callers that read it; the decision is `classify_dead_letter`'s (C-14).
+    REFUSAL_MARKERS = CAPABILITY_REFUSAL_MARKERS
 
     def requeue_dead(self, *, job_types: list[str] | None = None,
                      ids: list[int] | None = None, reset_attempts: bool = True) -> dict:
@@ -300,10 +675,18 @@ class JobQueue:
             if ids:
                 q = q.where(Job.id.in_(ids))
             for job in s.scalars(q):
-                error = (job.last_error or "").lower()
-                if any(m in error for m in self.REFUSAL_MARKERS):
+                if not redrivable(job.job_type, job.last_error or ""):
                     skipped.append({"id": job.id, "job_type": job.job_type,
                                     "reason": "refused on purpose, not a failure"})
+                    continue
+                # #34: a call the thrash breaker tripped is not retried under the same
+                # hypothesis (the same build).
+                from ..swarm.orchestrate import retry_allowed
+
+                gate = retry_allowed(self.db, job)
+                if not gate["allowed"]:
+                    skipped.append({"id": job.id, "job_type": job.job_type,
+                                    "reason": gate["why"]})
                     continue
                 job.status = JobStatus.PENDING
                 job.leased_by = None

@@ -1,0 +1,3168 @@
+From 7c3ad9d5f900e4e5019e88141b507c19c4eadd00 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 12:47:38 +0000
+Subject: [PATCH 1/3] C-61 WIP: winner intake, brief generation, funnel gate at
+ cir.draft
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/creative/ideation.py      |  84 +-
+ .../src/brambleloop/creative/intake.py        | 808 ++++++++++++++++++
+ .../brambleloop/creative/preengineering.py    | 102 ++-
+ .../src/brambleloop/creative/prospecting.py   |  38 +-
+ .../src/brambleloop/runtime/pipeline.py       |  48 ++
+ .../src/brambleloop/runtime/release.py        |  79 +-
+ brambleloop/tests/test_cert_ideation.py       |   8 +-
+ brambleloop/tests/test_cert_preengineering.py |  13 +-
+ 8 files changed, 1155 insertions(+), 25 deletions(-)
+ create mode 100644 brambleloop/src/brambleloop/creative/intake.py
+
+diff --git a/brambleloop/src/brambleloop/creative/ideation.py b/brambleloop/src/brambleloop/creative/ideation.py
+index e0fe2cf..91d3fed 100644
+--- a/brambleloop/src/brambleloop/creative/ideation.py
++++ b/brambleloop/src/brambleloop/creative/ideation.py
+@@ -401,6 +401,39 @@ def culture(db, forms) -> dict:
+                        "develop" if live else "the culture engine holds no live candidate")}
+ 
+ 
++def vision(db, pod: str) -> dict:
++    """#278: judged competitor photography for this department, as concept evidence.
++
++    Read from `gallery_image_observation` rows the vision pods recorded. With none, the state
++    says UNMEASURED and nothing is invented -- absence of a reading is not a reading.
++    """
++    from .intake import vision_readings
++
++    return vision_readings(db, pod)
++
++
++SKILL_GAP_ACTION = "radar.skill_gap"
++
++
++def skill_gap(db) -> dict:
++    """#114: the radar's latest measured skill gap for the wave, consumed as a brief."""
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == SKILL_GAP_ACTION)
++                       .order_by(desc(AuditLog.id)).limit(1))
++        if row is None:
++            return {"source": None, "missing": [], "over": [],
++                    "reason": "the radar has not measured a skill gap in any wave"}
++        detail = dict(row.detail or {})
++        return {"source": f"radar.skill_gap row {row.id}",
++                "missing": list(detail.get("missing") or []),
++                "over": list(detail.get("over") or []),
++                "brief": detail.get("brief", ""), "as_of": detail.get("as_of")}
++
++
+ # ---------------------------------------------------------------------------
+ # The plan
+ 
+@@ -432,6 +465,8 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
+         "role": role(db),
+         "floor": floor,
+         "culture": culture(db, forms),
++        "vision": vision(db, pod),
++        "skill_gap": skill_gap(db),
+     }
+     out["briefs"] = _rotation(out)
+     return out
+@@ -482,6 +517,20 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
+     lines.append(f"- portfolio role: {r['role']} -- {r['brief']}")
+     for h in p["white_space"]["hypotheses"][:1]:
+         lines.append(f"- buyers say: {h['proposal']}")
++    seen = p.get("vision") or {}
++    if seen.get("judged_images"):
++        # #278: what this department's competitor photography was judged to show. Evidence
++        # of what sells, never a photograph or a design to reproduce.
++        lines.append("- observed in this department's competitor photography (evidence of "
++                     "what sells; never copy a photograph or a design): "
++                     + "; ".join(f"{k.replace('_', ' ')}: {', '.join(v[:3])}"
++                                 for k, v in sorted((seen.get("attributes") or {}).items())
++                                 if v)[:600])
++    gap = p.get("skill_gap") or {}
++    if gap.get("missing"):
++        # #114: the radar measured the wave and found a skill level missing.
++        lines.append(f"- this seasonal wave is missing {', '.join(gap['missing'])} work; a "
++                     f"concept that fills it is preferred")
+     for form, angle in sorted(p["saturation"]["angles"].items()):
+         lines.append(f"- if the form is {form.replace('_', ' ')}, enter only on this angle: "
+                      f"{angle}")
+@@ -599,8 +648,14 @@ def quotas(ordered: list, *, share: float = universe.DOMINANCE_ALARM) -> dict:
+             "fixed_by_arena": [a for a in universe.DIVERSITY_AXES if a not in varied]}
+ 
+ 
+-def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
+-    """Apply the floor, the quotas and the role to what survived, and name the winner."""
++def select(ideation_plan: dict, *, candidates: list, survivors: list,
++           window: dict | None = None) -> dict:
++    """Apply the floor, the quotas and the role to what survived, and name the winner.
++
++    `window` is `family.shift_capacity` over the survivors at the arena's real days to the
++    event (#112): a survivor whose buyer can still comfortably finish it is preferred over one
++    that needs a hurry, and the radar's missing skill level (#114) is preferred next.
++    """
+     field_diversity = universe.diversity([_entrant(c) for c in candidates])
+     required = ideation_plan["floor"]["floor"]
+     below = [c for c in survivors if c.nearest_distance < required]
+@@ -610,7 +665,16 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
+     admitted = quota["admitted"]
+     lanes = ideation_plan["role"]["lanes"]
+     fitting = [c for c in admitted if c.concept.make_lane in lanes]
+-    winner = (fitting or admitted or [None])[0]
++    pool = fitting or admitted
++    hurry = {g["concept"] for g in ((window or {}).get("hurry") or [])}
++    comfortable = [c for c in pool if c.concept.key not in hurry]
++    if comfortable:
++        pool = comfortable
++    from .preengineering import skill_level_for_make_lane
++
++    missing = set((ideation_plan.get("skill_gap") or {}).get("missing") or [])
++    filling = [c for c in pool if skill_level_for_make_lane(c.concept.make_lane) in missing]
++    winner = (filling or pool or [None])[0]
+     return {
+         "field_diversity": field_diversity,
+         "shortlist_diversity": universe.diversity([_entrant(c) for c in admitted]),
+@@ -626,12 +690,16 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
+                     "form": winner.concept.form, "make_lane": winner.concept.make_lane,
+                     "novelty_distance": winner.nearest_distance,
+                     "role": ideation_plan["role"]["role"],
+-                    "role_fit": winner.concept.make_lane in lanes}
++                    "role_fit": winner.concept.make_lane in lanes,
++                    "fills_skill_gap": bool(filling) and winner in filling,
++                    "window_hurry": winner.concept.key in hurry}
+                    if winner is not None else None),
++        "window_deferred": sorted(hurry & {c.concept.key for c in admitted}),
+     }
+ 
+ 
+-def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation") -> dict:
++def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation",
++                         brief: dict | None = None) -> dict:
+     """Present the winner to the pre-engineering gate before anything reaches engineering.
+ 
+     ### PRE-ENGINEERING GATE CALL SITE ###
+@@ -664,7 +732,11 @@ def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation") -> d
+                 "reason": ("creative.*.gate_concept does not exist yet; the winner is held "
+                            "and is not sent to engineering")}
+     try:
+-        verdict = gate(db, winner.concept)
++        # The brief (#88 storyboard, #110 motifs, #115 wow, #108 qualifiers, #290 trend
++        # domain) is generated deterministically from the winner by `creative.intake`; a
++        # gate called without one fails its brief checks by absence, which is C-61.
++        verdict = (gate(db, winner.concept, brief=brief) if brief is not None
++                   else gate(db, winner.concept))
+     except Exception as e:  # noqa: BLE001 - a gate that errors blocks, it does not pass
+         return {"gate": f"creative.{where}.gate_concept", "cleared_for_engineering": False,
+                 "error": f"{type(e).__name__}: {e}"[:300]}
+diff --git a/brambleloop/src/brambleloop/creative/intake.py b/brambleloop/src/brambleloop/creative/intake.py
+new file mode 100644
+index 0000000..45dda1f
+--- /dev/null
++++ b/brambleloop/src/brambleloop/creative/intake.py
+@@ -0,0 +1,808 @@
++"""Winner intake: from a tournament winner to an engineering job, with nothing guessed (C-61).
++
++The certification audit of 9434c53 found the original-design pipeline severed at its most
++important joint. `creative.tournament` chose a winner, presented it to the pre-engineering
++gate with no brief, and stopped: every winner failed "no thumbnail storyboard" (#88) and
++"declared no motifs" (#110) by construction, every flagship failed "no WOW mechanism" (#115),
++nothing asked the funnel whether the winner had been carried to prototype (#3), and nothing
++ever queued `cir.draft`. The creative engine could only ever produce audit rows.
++
++This module is that joint, and every field it produces is **derived by a stated rule from
++the concept and the evidence in the database** -- never asked of a model, never a constant:
++
++- the **thumbnail storyboard** (#88) is what the concept says the object is, framed the way
++  this department's judged competitor photography frames its hero shots (#278), or the
++  catalogue's own hero framing when no photograph has been judged;
++- the **motifs** (#110) are the words of the concept that belong to its season's motif
++  grammar, so a concept that names nothing from the grammar still fails -- honestly;
++- the **WOW mechanism and its grounding** (#115) are read from the premise's own words and
++  the construction, and a flagship whose words carry no mechanism still fails;
++- the **emotional promise** (#109) is the premise delivering the feeling through a named
++  part of the object, and a premise that is listing copy is refused;
++- the **half-life** (#290), the **window at the real days to the event** (#112) and the
++  **make time per maker skill** (#283) come from the calendar, the lead-time engine and the
++  recorded physical tests;
++- the **buyer language** (#293) is the six-facet map run against observed listings, with
++  every phrase labelled observed or assumed.
++
++Then, in order: the funnel is asked `may_engineer` (#3), the pre-engineering gate is run with
++the brief, and only a winner that clears both is queued as `cir.draft`. A winner waiting on a
++judgement only a vision model can make (#88's mobile-grid question, the jury's taste) waits
++*unpassed*, and `regate_held` re-presents it on cadence the day a judgement is recorded.
++"""
++from __future__ import annotations
++
++import hashlib
++import re
++from dataclasses import replace
++from datetime import date
++from types import SimpleNamespace
++
++from .concept import GENERIC_TOKENS, Concept
++
++INTAKE_ACTION = "creative.winner_intake"
++# The contract a vision judge writes when it has looked at a concept board: the two fields
++# `Concept` reserves for "a model that can look at an image" (`thumbnail_reads_small`,
++# `craft_impression`) plus the judge's name. Nothing in this module writes it.
++JUDGED_ACTION = "concept.judged"
++
++ENGINEERING = "engineering"
++WAITING = "waiting"
++REFUSED = "refused"
++NOT_CARRIED = "not_carried"
++
++# How many held winners one cadence run re-presents, and how far back it looks.
++REGATE_LIMIT = 20
++REGATE_ROWS = 200
++
++_WORD = re.compile(r"[a-z]+")
++
++# What a buyer calls each form, for the storyboard and the facet map.
++FORM_NOUN: dict[str, str] = {
++    "flat_panel": "panel", "rectangle_throw": "throw", "round_disc": "round mat",
++    "tube": "tube", "cone": "cone", "sphere": "ball", "basket": "basket",
++    "fitted_garment": "cardigan", "draped_garment": "shawl", "stocking": "stocking",
++    "ornament": "ornament", "bag": "bag", "hat": "hat", "scarf": "scarf",
++    "pillow": "pillow", "wall_hanging": "wall hanging", "runner": "runner",
++    "coaster": "coaster", "toy": "amigurumi", "wreath": "wreath", "garland": "garland",
++    "pouch": "pouch",
++}
++# A fitted garment's noun is read from the concept's own words when it names one.
++_GARMENT_WORDS = ("cardigan", "sweater", "pullover", "jumper", "vest", "top", "tee")
++
++# Words that name a grammar motif without being spelled like it. Singular forms are handled
++# by stripping a plural "s"; this table is for the rest.
++MOTIF_SYNONYMS: dict[str, str] = {
++    "snowflake": "snow", "snowy": "snow", "pine": "tree", "fir": "tree", "evergreen": "tree",
++    "spruce": "tree", "deer": "reindeer", "cane": "candy", "peppermint": "candy",
++    "ribbon": "bow", "bauble": "ornament", "forest": "woodland", "woods": "woodland",
++    "gnome": "woodland", "stars": "star", "starry": "star", "leaves": "leaf",
++    "autumn": "leaf", "toadstool": "mushroom", "gourd": "pumpkin", "haunted": "haunted_architecture",
++    "mansion": "haunted_architecture", "castle": "haunted_architecture", "flower": "floral",
++    "flowers": "floral", "blossom": "floral", "bloom": "floral", "bunny": "rabbit",
++    "bunnies": "rabbit", "hare": "rabbit", "chickens": "chick", "garden": "garden_life",
++    "seashell": "shell", "lemon": "citrus", "orange": "citrus", "boat": "sailboat",
++    "wildflowers": "wildflower", "hedgehogs": "hedgehog", "foxes": "fox",
++    "lanterns": "lantern", "candles": "candle", "bells": "bell", "sleighs": "sleigh",
++    "wreaths": "wreath", "mittens": "mitten", "stockings": "stocking",
++}
++
++# The WOW mechanisms a premise can declare in its own words (#115), first match wins, then
++# the construction's own mechanism. Every entry is a physical property of the object.
++WOW_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("surprising_transformation", ("transforms", "becomes", "converts", "reversible",
++                                   "unfolds", "reveals", "turns")),
++    ("modular_reveal", ("modular", "assembles", "assembled", "joins", "panels")),
++    ("unusual_but_useful_function", ("pocket", "pockets", "holds", "stores", "hides",
++                                     "doubles")),
++    ("personalization_architecture", ("name", "initial", "initials", "monogram",
++                                      "personalised", "personalized")),
++    ("strong_character_system", ("character", "characters", "face", "faces", "creature",
++                                 "creatures")),
++    ("collection_storytelling", ("collection", "series", "siblings")),
++    ("dimensional_construction", ("dimensional", "sculpted", "sculptural", "standing")),
++    ("exceptional_motif_composition", ("figures", "procession", "herd", "parade", "scene",
++                                       "motif", "motifs")),
++    ("striking_texture", ("bobble", "bobbles", "cable", "cables", "cabled", "textured",
++                          "relief", "popcorn", "puff")),
++    ("premium_silhouette", ("cropped", "silhouette", "sculpted", "balloon", "yoke")),
++)
++WOW_BY_CONSTRUCTION: dict[str, str] = {
++    "modular_panels": "modular_reveal", "motif_join": "modular_reveal",
++    "amigurumi_shaping": "dimensional_construction", "cable_panel": "striking_texture",
++    "mosaic_overlay": "exceptional_motif_composition",
++    "tapestry": "exceptional_motif_composition",
++}
++# The silhouette qualifier (#108) each WOW mechanism is visible as at thumbnail size.
++QUALIFIER_OF_WOW: dict[str, str] = {
++    "surprising_transformation": "transformation",
++    "exceptional_motif_composition": "motif_composition",
++    "striking_texture": "dimensional_texture",
++    "dimensional_construction": "dimensional_texture",
++    "unusual_but_useful_function": "unusual_function",
++    "strong_character_system": "character_system",
++    "modular_reveal": "modular_reveal",
++}
++
++# Technique words the jury's complexity critic counts (#83): each distinct one beyond the
++# construction is one more thing a maker has to know.
++TECHNIQUE_WORDS: frozenset[str] = frozenset({
++    "bobble", "bobbles", "cable", "cables", "puff", "popcorn", "tapestry", "mosaic",
++    "applique", "embroidery", "embroidered", "fringe", "intarsia", "beaded", "felted",
++    "colourwork", "colorwork", "surface", "crossed"})
++
++# #283: the maker skills the lead-time engine knows, and which one a skill level's pattern is
++# planned for. A beginner pattern is made by beginners, and a beginner needs longer.
++MAKER_SKILLS: tuple[str, ...] = ("beginner", "adventurous_beginner", "intermediate",
++                                 "experienced")
++MAKER_SKILL_OF_LEVEL: dict[str, str] = {
++    "beginner_quick_win": "beginner", "intermediate": "intermediate",
++    "advanced_heirloom": "experienced",
++}
++
++# #278: the judged observation fields a concept brief can learn from. Each is a judgement
++# about how an offer is built to sell, never about what a competitor's product depicts.
++VISION_FIELDS: tuple[str, ...] = (
++    "silhouette_strength", "motif_legibility", "transformation", "characterisation",
++    "collection_logic", "surprising_function", "palette_role", "thumbnail_readability",
++    "emotional_merchandising", "scale_communication")
++
++
++class IntakeRefused(ValueError):
++    """A winner that cannot be presented to engineering at all."""
++
++
++def _words(text: str) -> list[str]:
++    return _WORD.findall((text or "").lower())
++
++
++def _specific(text: str) -> list[str]:
++    return [w for w in _words(text) if w not in GENERIC_TOKENS]
++
++
++def _slugify(text: str, limit: int = 48) -> str:
++    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", (text or "").lower())).strip("-")[:limit]
++
++
++def design_slug(concept: Concept) -> str:
++    """A stable, unique name for the winning design.
++
++    Tournament keys (`t3-hats-hat-0`) repeat across runs and name a slot, not a design; a
++    CIR, a product row and a provenance record need the design itself. The title for a human
++    and a digest of everything that makes the idea this idea, so the same concept always
++    gets the same slug and a different one never does.
++    """
++    digest = hashlib.sha1("|".join((
++        concept.title, concept.premise, concept.pod, concept.form, concept.construction,
++        concept.motif, concept.recipient, concept.occasion, concept.function,
++        concept.make_lane)).encode()).hexdigest()[:8]
++    return f"{_slugify(concept.title, 40) or 'design'}-{digest}"
++
++
++# ---------------------------------------------------------------------------
++# Evidence readers
++
++
++def vision_readings(db, pod: str) -> dict:
++    """#278: what this department's judged competitor photography shows.
++
++    Read from `gallery_image_observation` rows (recorded only when a model actually looked
++    at the image). With none, the state is UNMEASURED and nothing is invented.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import BenchmarkListing, BenchmarkObservation
++
++    with db.session() as s:
++        refs = {(r.benchmark_key, r.listing_ref) for r in s.scalars(
++            select(BenchmarkListing).where(BenchmarkListing.pod == pod))}
++        rows = [(r.benchmark_key, r.listing_ref, dict(r.detail or {})) for r in s.scalars(
++            select(BenchmarkObservation).where(
++                BenchmarkObservation.kind == "gallery_image_observation"))]
++    observations = [(ref, (d.get("observation") or {})) for key, ref, d in rows
++                    if (key, ref) in refs]
++    if not observations:
++        return {"pod": pod, "judged_images": 0, "listings": 0, "attributes": {},
++                "shot_types": {}, "dominant_shot": None,
++                "state": ("UNMEASURED: no competitor photograph in this department has been "
++                          "judged, so no photographic evidence reaches the brief")}
++    shots: dict[str, int] = {}
++    attributes: dict[str, list[str]] = {}
++    for _ref, obs in observations:
++        shot = str(obs.get("shot_type") or "").strip()
++        if shot:
++            shots[shot] = shots.get(shot, 0) + 1
++        for name in VISION_FIELDS:
++            value = str(obs.get(name) or "").strip()
++            if value and value not in attributes.setdefault(name, []):
++                attributes[name].append(value[:80])
++    dominant = max(sorted(shots), key=lambda k: shots[k]) if shots else None
++    return {"pod": pod, "judged_images": len(observations),
++            "listings": len({ref for ref, _ in observations}),
++            "attributes": {k: v[:5] for k, v in attributes.items() if v},
++            "shot_types": dict(sorted(shots.items(), key=lambda kv: -kv[1])),
++            "dominant_shot": dominant,
++            "state": f"{len(observations)} judged image(s) in this department"}
++
++
++def judgement_for(db, key: str) -> dict | None:
++    """The vision judgements recorded about this design, or None when nobody has looked.
++
++    Two sources, both written only by a model that looked at an image: the blind search
++    grid's verdict on the concept board (#126: a `clear` means it holds its own at grid
++    size) and a `concept.judged` row carrying the taste fields and the judge's name. A row
++    without a named judge is not a judgement.
++    """
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++    from .preengineering import grid_verdict_for
++
++    out: dict = {"sources": []}
++    grid = grid_verdict_for(db, key)
++    if grid and grid.get("verdict") == "clear":
++        out["thumbnail_reads_small"] = True
++        out["sources"].append(f"creative.grid_tournament row {grid.get('audit_id')}")
++    elif grid and grid.get("below_threshold"):
++        out["thumbnail_reads_small"] = False
++        out["sources"].append(f"creative.grid_tournament row {grid.get('audit_id')}")
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == JUDGED_ACTION,
++                                              AuditLog.artifact == key)
++                       .order_by(desc(AuditLog.id)).limit(1))
++        detail = dict(row.detail or {}) if row is not None else {}
++        row_id = row.id if row is not None else None
++    if detail and str(detail.get("judge") or "").strip():
++        if isinstance(detail.get("thumbnail_reads_small"), bool) \
++                and "thumbnail_reads_small" not in out:
++            out["thumbnail_reads_small"] = detail["thumbnail_reads_small"]
++        if isinstance(detail.get("craft_impression"), (int, float)):
++            out["craft_impression"] = float(detail["craft_impression"])
++        out["sources"].append(f"{JUDGED_ACTION} row {row_id} by {detail['judge']}")
++    return out if out["sources"] else None
++
++
++def culture_domain(db, culture_id: int | None) -> str:
++    """The trend domain a culture-derived winner came from (#290), or "" for none."""
++    if not culture_id:
++        return ""
++    from sqlalchemy import select
++
++    from ..core.models import CultureConcept, CultureSignal
++
++    with db.session() as s:
++        cc = s.get(CultureConcept, int(culture_id))
++        if cc is None:
++            return ""
++        sig = s.scalar(select(CultureSignal).where(CultureSignal.key == cc.signal_key))
++        return (sig.domain or "") if sig is not None else ""
++
++
++# ---------------------------------------------------------------------------
++# The brief, one rule per field
++
++
++def season_of(concept: Concept, event: str = "") -> str | None:
++    from ..seasonal.remerchandising import MOTIF_SEASON
++    from .preengineering import GRAMMAR_SEASON
++
++    return GRAMMAR_SEASON.get(concept.occasion) or MOTIF_SEASON.get(event) or None
++
++
++def motifs_for(concept: Concept, season: str | None) -> list[str]:
++    """#110: the concept's own words that belong to its season's motif grammar, in order."""
++    from .invention import MOTIF_GRAMMAR
++
++    if not season or season not in MOTIF_GRAMMAR:
++        return []
++    grammar = set(MOTIF_GRAMMAR[season])
++    text = " ".join((concept.motif, concept.title, concept.premise)).lower()
++    words = _words(text)
++    found: list[str] = []
++    candidates = []
++    for i, w in enumerate(words):
++        candidates.append(w)
++        if i + 1 < len(words):
++            candidates.append(f"{w}_{words[i + 1]}")
++    for w in candidates:
++        for form in (w, MOTIF_SYNONYMS.get(w, ""), w[:-1] if w.endswith("s") else ""):
++            if form and form in grammar and form not in found:
++                found.append(form)
++                break
++    return found
++
++
++def wow_for(concept: Concept) -> tuple[str | None, str]:
++    """#115: the WOW mechanism the concept's own words or construction carry, and its basis."""
++    words = set(_words(concept.premise)) | set(_words(concept.title))
++    for mechanism, needles in WOW_WORDS:
++        hit = sorted(words & set(needles))
++        if hit:
++            return mechanism, f"the premise names {', '.join(hit)}"
++    mechanism = WOW_BY_CONSTRUCTION.get(concept.construction)
++    if mechanism:
++        return mechanism, f"the {concept.construction.replace('_', ' ')} construction"
++    return None, ""
++
++
++def storyboard_for(concept: Concept, vision: dict | None) -> str:
++    """#88: what the square mobile-grid thumbnail shows, derived from the concept.
++
++    Framed the way this department's judged competitor photography frames its hero shots
++    when any has been judged (#278); otherwise as the catalogue's own hero product shot.
++    """
++    noun = noun_for(concept)
++    shot = ((vision or {}).get("dominant_shot") or "hero_product_only").replace("_", " ")
++    palette = concept.palette_story.strip()
++    return (f"{shot} square crop: one {noun} fills the frame, the {concept.motif} reading as "
++            f"its focal shape in {palette}, {concept.construction.replace('_', ' ')} "
++            f"construction visible; {concept.premise.strip().rstrip('.')}")
++
++
++def noun_for(concept: Concept) -> str:
++    if concept.form == "fitted_garment":
++        for w in _words(f"{concept.title} {concept.premise}"):
++            if w in _GARMENT_WORDS:
++                return w
++    return FORM_NOUN.get(concept.form, concept.form.replace("_", " "))
++
++
++def techniques_for(concept: Concept) -> int:
++    words = set(_words(f"{concept.premise} {concept.motif}"))
++    return 1 + len(words & TECHNIQUE_WORDS)
++
++
++def make_time_for(db, concept: Concept, *, event: str, event_date: date | None,
++                  today: date) -> dict:
++    """#283: make time per maker skill, and the launch dates for the skill it is written for.
++
++    Hours are the lane's nominal hours (the same table `seasonal.cycle` uses) until a CIR's
++    own twin replaces them; the interval narrows only with recorded physical tests.
++    """
++    from ..seasonal.leadtime import compile_launch, effective_make_days
++    from ..seasonal.uncertainty import sample_count
++    from .preengineering import _LANE_HOURS, skill_level_for_make_lane
++
++    hours = dict(_LANE_HOURS)[concept.make_lane]
++    level = skill_level_for_make_lane(concept.make_lane)
++    target = MAKER_SKILL_OF_LEVEL.get(level or "", "intermediate")
++    samples = sample_count(db)
++    by_skill = {skill: {"effective_make_days": effective_make_days(hours, skill)}
++                for skill in MAKER_SKILLS}
++    out = {"make_hours": hours, "make_hours_basis": "the make lane's nominal hours; the CIR "
++           "twin replaces them once a pattern exists", "skill_level": level,
++           "planned_for_skill": target, "samples": samples, "by_skill": by_skill,
++           "plan": None}
++    if event_date is None:
++        out["why_no_plan"] = f"{concept.occasion} names no calendar event: no launch deadline"
++        return out
++    for skill in MAKER_SKILLS:
++        plan = compile_launch(event or concept.occasion, event_date, make_hours=hours,
++                              skill=skill, samples=samples)
++        by_skill[skill].update({"latest_effective_launch":
++                                plan.latest_effective_launch.isoformat(),
++                                "status": plan.status(today)})
++    plan = compile_launch(event or concept.occasion, event_date, make_hours=hours,
++                          skill=target, samples=samples)
++    action, why = plan.recommendation(today)
++    out["plan"] = {"event": event, "event_date": event_date.isoformat(),
++                   "skill": target, "status": plan.status(today),
++                   "preferred_launch": plan.preferred_launch.isoformat(),
++                   "latest_effective_launch": plan.latest_effective_launch.isoformat(),
++                   "work_must_start_by": plan.work_must_start_by.isoformat(),
++                   "recommendation": action, "because": why}
++    return out
++
++
++def buyer_language(db, concept: Concept, *, event: str, skill_level: str | None) -> dict:
++    """#293: the product mapped to buyer facets, and which phrases buyers were seen using."""
++    from ..commerce import intent
++
++    facets = {"object": noun_for(concept),
++              "technique": ENGINE_TECHNIQUE.get(concept.construction, ""),
++              "recipient_or_use": RECIPIENT_USE.get(concept.recipient, ""),
++              "season_event": (event or concept.occasion).split(" (")[0].replace("'s", "")
++              .replace("_", " ").lower(),
++              "skill_feature": "beginner" if skill_level == "beginner_quick_win" else ""}
++    try:
++        mapped = intent.map_product(**{k: v for k, v in facets.items() if v})
++    except intent.IntentRefused as exc:
++        return {"mapped": False, "facets": facets, "why": str(exc)[:300]}
++    got = intent.strategy(db, facet_map=mapped)
++    return {"mapped": True, "facets": mapped,
++            "observed": [r["phrase"] for r in got["observed"]],
++            "assumed": [r["phrase"] for r in got["assumed"]],
++            "observed_share": got["observed_share"], "note": got["note"]}
++
++
++ENGINE_TECHNIQUE: dict[str, str] = {
++    "tapestry": "tapestry", "mosaic_overlay": "mosaic", "cable_panel": "cable",
++    "granny_square": "granny square", "corner_to_corner": "c2c",
++    "amigurumi_shaping": "amigurumi", "top_down_yoke": "top down",
++    "seamless_tube": "seamless",
++}
++RECIPIENT_USE: dict[str, str] = {
++    "self": "women", "partner": "gift", "new_parent": "baby", "child": "kids",
++    "teen": "teen", "grandparent": "gift", "host": "hostess gift", "pet_owner": "pet",
++    "colleague": "gift", "teacher": "teacher gift", "friend_who_has_everything": "gift",
++    "newlyweds": "wedding gift", "student": "gift",
++}
++
++
++def brief_for(db, concept: Concept, *, event: str = "", event_date: date | None = None,
++              days_to_event: int | None = None, vision: dict | None = None,
++              trend_domain: str = "", today: date | None = None) -> dict:
++    """Every brief field the pre-engineering gate reads, each derived by a stated rule."""
++    from .family import FamilyRefused, window_fit
++    from .invention import InventionRefused
++    from .preengineering import (half_life_for, promise_for, skill_level_for_make_lane)
++
++    today = today or date.today()
++    season = season_of(concept, event)
++    mechanism, wow_basis = wow_for(concept)
++    grounding = " ".join(w for w in _specific(concept.premise))
++    qualifiers = sorted({QUALIFIER_OF_WOW[m] for m, needles in WOW_WORDS
++                         if m in QUALIFIER_OF_WOW
++                         and set(_words(concept.premise)) & set(needles)}
++                        | ({QUALIFIER_OF_WOW[WOW_BY_CONSTRUCTION[concept.construction]]}
++                           if concept.construction in WOW_BY_CONSTRUCTION
++                           and WOW_BY_CONSTRUCTION[concept.construction] in QUALIFIER_OF_WOW
++                           else set()))
++    level = skill_level_for_make_lane(concept.make_lane)
++    make_time = make_time_for(db, concept, event=event, event_date=event_date, today=today)
++    try:
++        promise = promise_for(concept).to_dict()
++    except InventionRefused as exc:
++        promise = {"refused": str(exc)[:300]}
++    brief = {
++        "thumbnail_storyboard": storyboard_for(concept, vision),
++        "motifs": motifs_for(concept, season),
++        "season": season,
++        "wow_mechanism": mechanism,
++        "wow_grounding": grounding if mechanism else "",
++        "silhouette_qualifiers": qualifiers,
++        "techniques": techniques_for(concept),
++        "trend_domain": trend_domain or "",
++    }
++    window = {}
++    if days_to_event is not None and days_to_event >= 0:
++        for skill in MAKER_SKILLS:
++            try:
++                fit = window_fit(concept, days_to_event=days_to_event, skill=skill,
++                                 samples=make_time["samples"], today=today)
++                window[skill] = {"verdict": fit["verdict"],
++                                 "latest_optimistic_launch": fit["latest_optimistic_launch"]}
++            except FamilyRefused as exc:
++                window[skill] = {"verdict": "unknown", "why": str(exc)[:200]}
++    derivation = {
++        "storyboard": ("framed as this department's judged competitor hero shots"
++                       if (vision or {}).get("dominant_shot") else
++                       "framed as a hero product shot: no competitor photograph in this "
++                       "department has been judged"),
++        "motifs": f"the concept's words found in the {season} motif grammar" if season
++        else "no seasonal grammar applies to this occasion",
++        "wow": wow_basis or "no mechanism named by the premise or the construction",
++    }
++    return {**brief, "skill_level": level, "promise": promise,
++            "half_life": half_life_for(concept, brief), "make_time": make_time,
++            "days_to_event": days_to_event, "window_by_skill": window,
++            "vision": {k: (vision or {}).get(k) for k in ("judged_images", "dominant_shot",
++                                                          "state")},
++            "buyer_language": buyer_language(db, concept, event=event, skill_level=level),
++            "derivation": derivation}
++
++
++GATE_BRIEF_FIELDS: tuple[str, ...] = (
++    "thumbnail_storyboard", "motifs", "season", "wow_mechanism", "wow_grounding",
++    "silhouette_qualifiers", "techniques", "trend_domain")
++
++
++# ---------------------------------------------------------------------------
++# #3: the funnel, asked about this exact run
++
++
++def tournament_from_rounds(rounds: list[dict]):
++    from .funnel import Round, Tournament
++
++    return Tournament(opportunity="recorded run", rounds=[
++        Round(stage=r["stage"], entered=int(r.get("entered") or 0),
++              survived=list(r.get("survived") or []), killed=dict(r.get("killed") or {}),
++              examined=r.get("examined")) for r in rounds or []])
++
++
++def funnel_verdict(rounds: list[dict] | None, key: str) -> dict:
++    """`funnel.may_engineer` on the recorded run: was this concept carried to prototype?"""
++    from .funnel import FunnelRefused, may_engineer
++
++    if rounds is None:
++        return {"carried": False, "stage_reached": None,
++                "why": ("this winner came from an expedition, which is discovery rather than "
++                        "the staged funnel; nothing reaches engineering without the funnel "
++                        "carrying it to prototype (#3)")}
++    run = tournament_from_rounds(rounds)
++    try:
++        may_engineer(run, key)
++    except FunnelRefused as exc:
++        return {"carried": False, "stage_reached": run.stage_reached, "why": str(exc)}
++    return {"carried": True, "stage_reached": run.stage_reached,
++            "why": f"{key} survived the prototype stage of this run"}
++
++
++# ---------------------------------------------------------------------------
++# The intake
++
++
++def _event_for(concept: Concept, arena, today: date) -> tuple[str, date | None, int | None]:
++    from datetime import timedelta
++
++    from .preengineering import _EVENT_OF_OCCASION, _days_to_event
++    from .prospecting import EVENT_OCCASION
++
++    if arena is not None and EVENT_OCCASION.get(arena.event) == concept.occasion:
++        return arena.event, today + timedelta(days=arena.days_away), arena.days_away
++    days = _days_to_event(concept.occasion, today)
++    if days is None:
++        return "", None, None
++    return _EVENT_OF_OCCASION.get(concept.occasion, ""), today + timedelta(days=days), days
++
++
++def _gap_for(db, pod: str):
++    from sqlalchemy import select
++
++    from ..core.models import CoverageGap
++
++    with db.session() as s:
++        gap = s.scalar(select(CoverageGap).where(CoverageGap.pod == pod)
++                       .order_by(CoverageGap.id).limit(1))
++        return (gap.id, gap.state) if gap is not None else (None, None)
++
++
++def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "") -> dict:
++    """Move the pod's coverage gap forward along #314's lifecycle, never backward here."""
++    from ..intel import coverage
++
++    gap_id, state = _gap_for(db, pod)
++    if gap_id is None:
++        return {"gap": None, "why": "no coverage gap is open for this department"}
++    order = list(coverage.STATES[:6])
++    if state not in order or to not in order or order.index(to) <= order.index(state):
++        return {"gap": gap_id, "state": state, "moved": False}
++    moves = []
++    try:
++        while order.index(state) < order.index(to):
++            state = coverage.advance(db, gap_id, order[order.index(state) + 1],
++                                     reason=reason, product_slug=product_slug)
++            moves.append(state)
++    except coverage.GapRefused as exc:
++        return {"gap": gap_id, "state": state, "moved": bool(moves), "refused": str(exc)}
++    return {"gap": gap_id, "state": state, "moved": True, "moves": moves}
++
++
++def _payload(designed: Concept, brief: dict, *, source: str, original_key: str,
++             mjs_event_id, pod: str) -> dict:
++    return {"slug": designed.key, "title": designed.title, "version": "1.0.0",
++            "concept": designed.to_dict(),
++            "brief": {k: brief.get(k) for k in GATE_BRIEF_FIELDS},
++            "funnel": {"key": original_key, "intake": INTAKE_ACTION},
++            "source": source, "pod": pod, "mjs_event_id": mjs_event_id}
++
++
++def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
++           funnel_rounds: list[dict] | None = None, mjs_event_id: int | None = None,
++           culture_id: int | None = None, today: date | None = None) -> dict:
++    """Take one winner as far toward engineering as the evidence allows, and record why."""
++    from . import ideation
++
++    db = ctx.db
++    today = today or date.today()
++    concept: Concept = candidate.concept
++    original_key = concept.key
++    slug = design_slug(concept)
++    designed = replace(concept, key=slug,
++                       provenance=f"{source}:{original_key}"[:120])
++    judged = judgement_for(db, slug)
++    if judged:
++        designed = replace(designed, **{k: judged[k] for k in ("thumbnail_reads_small",
++                                                                "craft_impression")
++                                        if k in judged})
++    event, event_date, days = _event_for(designed, arena, today)
++    brief = brief_for(db, designed, event=event, event_date=event_date, days_to_event=days,
++                      vision=plan.get("vision"), trend_domain=culture_domain(db, culture_id),
++                      today=today)
++    funnel = funnel_verdict(funnel_rounds, original_key)
++    gate = ideation.pre_engineering_gate(
++        db, SimpleNamespace(concept=designed), ctx=ctx, source=source,
++        brief={k: brief.get(k) for k in GATE_BRIEF_FIELDS})
++    verdict = gate.get("verdict") or {}
++    decision = (REFUSED if verdict.get("decision") == "refused" or gate.get("error") else
++                NOT_CARRIED if not funnel["carried"] else
++                ENGINEERING if gate.get("cleared_for_engineering") else WAITING)
++
++    # #101: the provenance of the winning design, keyed on the design rather than the run.
++    from ..improve import roi
++
++    lesson_ids = tuple((plan.get("lessons") or {}).get("lesson_ids") or ())
++    try:
++        provenance = roi.design_provenance(db, product_slug=slug, lesson_ids=lesson_ids,
++                                           brief=f"winner of {source} ({original_key})")
++    except roi.RoiRefused as exc:
++        provenance = {"refused": str(exc)[:200]}
++
++    pod = designed.pod
++    gap = advance_gap(db, pod, "concepting",
++                      reason=f"{source} selected {slug} for this department")
++    lesson = response_lesson(db, pod=pod, event=event or designed.occasion,
++                             noun=noun_for(designed), slug=slug, mjs_event_id=mjs_event_id)
++
++    payload = _payload(designed, brief, source=source, original_key=original_key,
++                       mjs_event_id=mjs_event_id, pod=pod)
++    detail = {
++        "decision": decision, "source": source, "original_key": original_key,
++        "concept": designed.to_dict(), "brief": brief, "funnel": funnel,
++        "funnel_rounds": funnel_rounds or [],
++        "gate": {k: verdict.get(k) for k in ("decision", "failed", "unmeasured",
++                                              "waiting_on", "reasons")},
++        "judgement": judged, "mjs_event_id": mjs_event_id, "culture_id": culture_id,
++        "provenance": provenance, "coverage": gap, "pod_lesson": lesson,
++        "payload": payload, "job": ctx.job.id,
++    }
++    ctx.audit(INTAKE_ACTION, artifact=slug, detail=detail)
++    job = None
++    if decision == ENGINEERING:
++        job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
++                          idempotency_key=f"draft:{slug}")
++        detail["coverage"] = advance_gap(db, pod, "engineering",
++                                         reason=f"{slug} cleared the funnel and the "
++                                                f"pre-engineering gate; cir.draft queued",
++                                         product_slug=slug)
++    return {"slug": slug, "decision": decision, "funnel": funnel["carried"],
++            "gate_call": gate,
++            "gate": verdict.get("decision"), "waiting_on": verdict.get("waiting_on"),
++            "cir_draft_job": getattr(job, "id", None), "motifs": brief["motifs"],
++            "wow_mechanism": brief["wow_mechanism"], "skill_level": brief["skill_level"],
++            "days_to_event": days, "coverage": detail["coverage"],
++            "why": (funnel["why"] if decision == NOT_CARRIED else
++                    "; ".join(verdict.get("reasons") or [])[:400] if decision == REFUSED else
++                    f"waiting, unpassed, on {verdict.get('waiting_on')}"
++                    if decision == WAITING else "queued for engineering")}
++
++
++def intake_rows(db, *, slug: str | None = None, mjs_event_id: int | None = None,
++                limit: int = REGATE_ROWS) -> list[tuple[int, str, dict]]:
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++
++    q = select(AuditLog).where(AuditLog.action == INTAKE_ACTION)
++    if slug:
++        q = q.where(AuditLog.artifact == slug)
++    with db.session() as s:
++        rows = [(r.id, r.artifact or "", dict(r.detail or {}))
++                for r in s.scalars(q.order_by(desc(AuditLog.id)).limit(limit))]
++    if mjs_event_id is not None:
++        rows = [r for r in rows if r[2].get("mjs_event_id") == mjs_event_id]
++    return rows
++
++
++def verify_funnel(db, slug: str) -> dict:
++    """What `cir.draft` asks before drafting a new creative concept (#3)."""
++    rows = intake_rows(db, slug=slug, limit=5)
++    if not rows:
++        return {"carried": False, "why": (f"{slug} has no winner intake: a concept reaches "
++                                          f"engineering only as a tournament winner (#3)")}
++    _id, _slug, detail = rows[0]
++    got = funnel_verdict(detail.get("funnel_rounds") or None, detail.get("original_key", ""))
++    return {**got, "intake_row": _id}
++
++
++def regate_held(ctx, *, today: date | None = None) -> dict:
++    """Re-present winners that waited on a judgement, now that one may exist.
++
++    Only a winner the funnel carried and the gate left *waiting* is eligible: a refusal is a
++    refusal, and a winner the funnel did not carry is not re-opened by a judgement.
++    """
++    from . import ideation
++
++    latest: dict[str, dict] = {}
++    for row_id, slug, detail in intake_rows(ctx.db):
++        latest.setdefault(slug, {"id": row_id, **detail})
++    presented, queued = [], []
++    for slug, detail in list(latest.items()):
++        if len(presented) >= REGATE_LIMIT:
++            break
++        if detail.get("decision") != WAITING:
++            continue
++        judged = judgement_for(ctx.db, slug)
++        if not judged:
++            continue
++        known = detail.get("judgement") or {}
++        if all(known.get(k) == judged.get(k) for k in ("thumbnail_reads_small",
++                                                       "craft_impression")):
++            continue
++        concept = Concept(**{k: v for k, v in (detail.get("concept") or {}).items()
++                             if k in Concept.__dataclass_fields__})
++        concept = replace(concept, **{k: judged[k] for k in ("thumbnail_reads_small",
++                                                            "craft_impression")
++                                      if k in judged})
++        brief = {k: (detail.get("brief") or {}).get(k) for k in GATE_BRIEF_FIELDS}
++        gate = ideation.pre_engineering_gate(ctx.db, SimpleNamespace(concept=concept),
++                                             ctx=ctx, source="creative.regate", brief=brief)
++        verdict = gate.get("verdict") or {}
++        decision = (REFUSED if verdict.get("decision") == "refused" else
++                    ENGINEERING if gate.get("cleared_for_engineering") else WAITING)
++        payload = {**(detail.get("payload") or {}), "concept": concept.to_dict()}
++        new = {**{k: v for k, v in detail.items() if k != "id"}, "decision": decision,
++               "judgement": judged, "payload": payload, "regated_from": detail["id"],
++               "gate": {k: verdict.get(k) for k in ("decision", "failed", "unmeasured",
++                                                     "waiting_on", "reasons")}}
++        ctx.audit(INTAKE_ACTION, artifact=slug, detail=new)
++        presented.append({"slug": slug, "decision": decision})
++        if decision == ENGINEERING:
++            job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
++                              idempotency_key=f"draft:{slug}")
++            advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
++                        reason=f"{slug} cleared the pre-engineering gate on re-presentation")
++            queued.append({"slug": slug, "job": getattr(job, "id", None)})
++    return {"presented": presented, "queued": queued}
++
++
++# ---------------------------------------------------------------------------
++# #316: a Brambleloop response is an interpretation the pod holds, tested by outcomes
++
++RESPONSE_PREFIX = "response:"
++
++
++def response_subject(event: str) -> str:
++    return f"{RESPONSE_PREFIX}{_slugify(event, 40)}"
++
++
++def response_lesson(db, *, pod: str, event: str, noun: str, slug: str,
++                    mjs_event_id: int | None) -> dict:
++    """Record the pod's interpretation that its seasonal response will sell, per event.
++
++    It starts with no standing: only launches, conversion, complaints and owner vetoes move
++    it (`intel.memory`), which `mission_runtime.response_outcomes` records on cadence.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import MjsMissionEvent, PodLesson
++    from ..intel import memory, pods
++
++    if pod not in pods.POD_KEYS or pod == pods.UNCLASSIFIED:
++        return {"learned": False, "why": f"{pod!r} is not a specialist pod"}
++    subject = response_subject(event)
++    with db.session() as s:
++        row = s.scalar(select(PodLesson).where(PodLesson.pod == pod,
++                                               PodLesson.subject == subject,
++                                               PodLesson.active == True)  # noqa: E712
++                       .order_by(PodLesson.id).limit(1))
++        lesson_id = row.id if row is not None else None
++    learned = False
++    if lesson_id is None:
++        try:
++            lesson_id = memory.learn(
++                db, pod=pod, subject=subject,
++                statement=(f"Brambleloop responses to {event} demand in the {pod} "
++                           f"department sell when they launch by their preferred launch "
++                           f"date"),
++                mechanism="seasonal_timing", origin="brambleloop_response")
++            learned = True
++        except (memory.MemoryRefused, pods.MechanismRefused) as exc:
++            return {"learned": False, "why": str(exc)[:200]}
++    with db.session() as s:
++        row = s.get(PodLesson, lesson_id)
++        detail = dict(row.detail or {})
++        slugs = list(detail.get("slugs") or [])
++        if slug not in slugs:
++            slugs.append(slug)
++        row.detail = {**detail, "slugs": slugs, "polarity": "present", "event": event,
++                      "kind": "brambleloop_response"}
++        if mjs_event_id:
++            ev = s.get(MjsMissionEvent, int(mjs_event_id))
++            if ev is not None:
++                steps = dict(ev.steps or {})
++                mem = dict(steps.get("memory") or {})
++                ids = sorted(set(mem.get("lesson_ids") or []) | {lesson_id})
++                steps["memory"] = {**mem, "lesson_ids": ids}
++                ev.steps = steps
++    return {"learned": learned, "lesson_id": lesson_id, "subject": subject}
+diff --git a/brambleloop/src/brambleloop/creative/preengineering.py b/brambleloop/src/brambleloop/creative/preengineering.py
+index d2ce35d..984a20d 100644
+--- a/brambleloop/src/brambleloop/creative/preengineering.py
++++ b/brambleloop/src/brambleloop/creative/preengineering.py
+@@ -43,12 +43,14 @@ PASSED, REFUSED, WAITING, EXEMPT = "passed", "refused", "waiting", "exempt"
+ PASS, FAIL, UNMEASURED, NOT_APPLICABLE = "pass", "fail", "unmeasured", "not_applicable"
+ 
+ CHECKS: tuple[str, ...] = ("premise_thumbnail", "jury", "novelty", "silhouette",
+-                           "motif_grammar", "wow", "top_decile", "grid_tournament")
++                           "motif_grammar", "wow", "top_decile", "grid_tournament",
++                           "emotional_promise", "half_life")
+ 
+ # Which requirement each check is the runtime form of.
+ REQUIREMENT: dict[str, int] = {
+     "premise_thumbnail": 88, "jury": 83, "novelty": 87, "silhouette": 108,
+     "motif_grammar": 110, "wow": 115, "top_decile": 125, "grid_tournament": 126,
++    "emotional_promise": 109, "half_life": 290,
+ }
+ 
+ # #126: "before CIR engineering for *expensive* concepts". Expensive is the make lane, which
+@@ -76,7 +78,7 @@ _EVENT_OF_OCCASION: dict[str, str] = {
+ BRIEF_FIELDS: tuple[str, ...] = (
+     "thumbnail_storyboard", "silhouette_qualifiers", "motifs", "wow_mechanism",
+     "wow_grounding", "strength_score", "strength_score_source", "benchmark_scores",
+-    "board_image", "techniques", "season",
++    "board_image", "techniques", "season", "trend_domain",
+ )
+ 
+ _CONCEPT_FIELDS: tuple[str, ...] = (
+@@ -391,6 +393,100 @@ def _grid(db, concept: Concept, brief: dict) -> dict:
+                    needs="image_vision", request_grid=bool(board) and not found)
+ 
+ 
++# #109: the emotional promise, executed in the object. Which part of the object carries the
++# feeling is read from the premise's own words, first match wins; a premise naming none of
++# them delivers it through what it depicts. The table is the rule, stated.
++EXECUTION_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("texture", ("bobble", "bobbles", "cable", "cables", "cabled", "ribbed", "rib",
++                 "textured", "texture", "relief", "puff", "popcorn", "pile", "waffle",
++                 "bumps", "loops")),
++    ("colour_relationship", ("stripe", "stripes", "striped", "band", "bands", "banding",
++                             "colourwork", "colorwork", "contrast", "ombre", "gradient",
++                             "blocked", "blocking")),
++    ("scale", ("oversized", "giant", "tiny", "miniature", "mini", "huge", "chunky")),
++    ("finish", ("edging", "edge", "trim", "button", "buttons", "border", "fringe", "tassel",
++                "tassels", "pompom", "picot", "scallop", "scalloped")),
++    ("structure", ("fold", "folds", "folded", "pocket", "pockets", "pleat", "yoke", "panel",
++                   "panels", "unfold", "unfolds", "opens", "nest", "nests", "stack",
++                   "stacks", "reversible", "transforms", "converts", "hood", "cuff",
++                   "collar", "cropped", "silhouette", "shaped")),
++)
++
++
++def execution_of(concept: Concept) -> str:
++    """Which part of the object delivers the feeling, read from the premise (#109)."""
++    words = _WORD.findall((concept.premise or "").lower())
++    motif_words = set(_specific(concept.motif))
++    for word in words:
++        if word in motif_words:
++            return "motif"
++        for execution, needles in EXECUTION_WORDS:
++            if word in needles:
++                return execution
++    return "motif"
++
++
++def promise_for(concept: Concept):
++    """The concept's emotional promise and the physical thing that delivers it (#109).
++
++    Raises `InventionRefused` when the premise is listing copy rather than an object -- the
++    failure the requirement names ("cosy" achieved by writing *cosy*).
++    """
++    from .invention import promise
++
++    return promise(concept.feeling, execution_of(concept), concept.premise)
++
++
++def _emotional_promise(concept: Concept, brief: dict) -> dict:
++    """#109: the promise must be visible in the object, not added as listing copy."""
++    from .invention import InventionRefused
++
++    try:
++        made = promise_for(concept)
++    except InventionRefused as exc:
++        return _result(FAIL, [str(exc)], feeling=concept.feeling)
++    return _result(PASS, **made.to_dict())
++
++
++# #290: the occasions that are calendar events. A concept for one of these is a recurring
++# seasonal product; anything else is evergreen unless it was translated from a trend, in
++# which case the trend's own domain decides (a film moment is not a recurring season).
++SEASONAL_OCCASIONS: frozenset[str] = frozenset({
++    "christmas", "halloween", "easter", "valentines", "thanksgiving", "mothers_day",
++    "fathers_day", "back_to_school", "graduation"})
++
++
++def half_life_for(concept: Concept, brief: dict) -> dict:
++    """The half-life class of this concept, with its basis (#290)."""
++    from ..seasonal.fastlane import FastLaneRefused, classify_half_life
++
++    domain = str(brief.get("trend_domain") or "").strip()
++    try:
++        if domain:
++            return classify_half_life(domain=domain)
++        if concept.occasion in SEASONAL_OCCASIONS:
++            return classify_half_life(domain="", season=concept.occasion)
++        return classify_half_life(domain="", evergreen=True)
++    except FastLaneRefused as exc:
++        return {"half_life": None, "basis": f"unclassified trend domain {domain!r}",
++                "why": str(exc)}
++
++
++def _half_life(concept: Concept, brief: dict) -> dict:
++    """#290: no flagship engineering on a trend likely to expire before a maker finishes."""
++    from ..seasonal.calendar import CalendarRefused, check_half_life
++
++    got = half_life_for(concept, brief)
++    if got.get("half_life") is None:
++        return _result(FAIL, [got.get("why") or "an unclassified trend gets whatever effort "
++                              "somebody felt like spending"], **got)
++    try:
++        check_half_life(got["half_life"], concept.make_lane)
++    except CalendarRefused as exc:
++        return _result(FAIL, [str(exc)], make_lane=concept.make_lane, **got)
++    return _result(PASS, make_lane=concept.make_lane, **got)
++
++
+ # ---------------------------------------------------------------------------
+ # The gate
+ 
+@@ -427,6 +523,8 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
+         checks["wow"] = _wow(built, brief)
+         checks["top_decile"] = _top_decile(built, brief)
+         checks["grid_tournament"] = _grid(db, built, brief)
++        checks["emotional_promise"] = _emotional_promise(built, brief)
++        checks["half_life"] = _half_life(built, brief)
+ 
+     failed = [n for n in CHECKS if checks[n]["status"] == FAIL]
+     unmeasured = [n for n in CHECKS if checks[n]["status"] == UNMEASURED]
+diff --git a/brambleloop/src/brambleloop/creative/prospecting.py b/brambleloop/src/brambleloop/creative/prospecting.py
+index 940e57c..791d079 100644
+--- a/brambleloop/src/brambleloop/creative/prospecting.py
++++ b/brambleloop/src/brambleloop/creative/prospecting.py
+@@ -746,6 +746,8 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
+     that a confident wrong answer fails loudly.
+     """
+     from .concept import CONSTRUCTIONS, FEELINGS, OCCASIONS, RECIPIENTS, ConceptRefused
++    from .invention import InventionRefused
++    from .preengineering import promise_for
+ 
+     occasion = occasion_for(slot.arena.event)
+     buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
+@@ -794,6 +796,14 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
+         except ConceptRefused as e:
+             refused.append(f"{key}: {e}"[:220])
+             continue
++        # #109: the emotional promise has to be executed in the object. A premise that
++        # delivers its feeling only as listing copy is refused here, at generation, like any
++        # other structural failure -- not left for a later stage to notice.
++        try:
++            promise_for(concept)
++        except InventionRefused as e:
++            refused.append(f"{key}: no emotional promise in the object: {e}"[:220])
++            continue
+         out.append(Candidate(concept=concept, slot=slot))
+     return out, refused
+ 
+@@ -1218,9 +1228,26 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+             # rather than a skipped stage.
+             examined=len(entrants))
+ 
++    # #112: the research jury judges the window at the arena's real distance to its event,
++    # so a make the buyer can no longer finish dies here as `shopping_window`.
++    days_to_event = None
++    if only is not None:
++        match = [a for a in arenas(db, today=today) if (a.event, a.pod) == tuple(only)]
++        days_to_event = match[0].days_away if match else None
+     screened = screen(candidates, catalogue=catalogue,
+                       benchmark=benchmark_comparables(db),
+-                      days_to_event=None)
++                      days_to_event=days_to_event)
++    # ... and shifts late-window capacity toward the makes a buyer can still finish: the
++    # survivors are graded against the window and ideation's selection prefers the ones
++    # that continue over the ones that need a hurry.
++    window = None
++    if days_to_event is not None and screened["survivor_objects"]:
++        from ..seasonal.uncertainty import sample_count
++        from .family import shift_capacity
++
++        window = shift_capacity([c.concept for c in screened["survivor_objects"]],
++                                days_to_event=days_to_event, samples=sample_count(db),
++                                today=today)
+     survivors = [c.concept.key for c in screened["survivor_objects"]]
+     killed = {}
+     for candidate in candidates:
+@@ -1324,6 +1351,15 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+ 
+     return {
+         "arena": f"{only[0]}/{only[1]}" if only else "",
++        "days_to_event": days_to_event,
++        "window": window,
++        # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
++        # can be asked of this exact run later -- by `creative.intake` before it queues a
++        # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
++        "funnel_objects": run,
++        "funnel_rounds": [{"stage": r.stage, "survived": list(r.survived),
++                           "killed": dict(r.killed), "examined": r.examined,
++                           "entered": r.entered} for r in run.rounds],
+         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
+         "prototype": {k: v for k, v in built.items() if k != "survivors"},
+         "release": {k: v for k, v in shipped.items() if k != "survivors"},
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index e8e27e4..37e91f2 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -370,6 +370,22 @@ def handle_cir_draft(ctx: JobContext) -> dict:
+                     "reasons": gate["reasons"][:5], "unmeasured": gate["unmeasured"],
+                     "consequence": gate["consequence"], "effects": effects}
+ 
++    creative = (isinstance(ctx.job.inputs.get("concept"), dict)
++                and not preengineering.established(ctx.db, slug))
++    if creative:
++        # #3: a new creative concept is engineered only when the staged funnel carried it to
++        # prototype. Asked of the recorded run behind this slug's winner intake, never of the
++        # job's own inputs, so a caller cannot enqueue its way past the tournament.
++        from ..creative import intake as winner_intake
++
++        funnel = winner_intake.verify_funnel(ctx.db, slug)
++        if not funnel["carried"]:
++            ctx.audit("cir.draft_refused", artifact=slug,
++                      detail={"reason": funnel["why"][:400], "gate": "funnel.may_engineer"})
++            return {"artifact": slug, "drafted": False, "gate": "funnel",
++                    "reasons": [funnel["why"][:300]]}
++        return _draft_creative(ctx, slug)
++
+     engineered = _engineered_cir(slug)
+     if engineered is not None:
+         ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
+@@ -396,6 +412,38 @@ def handle_cir_draft(ctx: JobContext) -> dict:
+     return {"artifact": f"{cir.slug}@{cir.version}", "rows": len(cir.components[0].rows)}
+ 
+ 
++def _draft_creative(ctx: JobContext, slug: str) -> dict:
++    """Author the CIR a tournament winner describes, deterministically (C-61).
++
++    The geometry is computed, never asked for: a garment is a graded design from sourced body
++    tables (`creative.garment_design`), everything else is authored from its form's finished
++    size and the yarn's published gauge (`creative.prototype.author`). A form or
++    construction the engine has no rule for is refused by name.
++    """
++    from ..creative.concept import Concept as CreativeConcept
++    from ..creative.prototype import PrototypeRefused, author
++
++    raw = dict(ctx.job.inputs["concept"])
++    concept = CreativeConcept(**{k: v for k, v in raw.items()
++                                 if k in CreativeConcept.__dataclass_fields__})
++    try:
++        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"))
++    except PrototypeRefused as exc:
++        ctx.audit("cir.draft_refused", artifact=slug,
++                  detail={"reason": str(exc)[:400], "gate": "engine"})
++        return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
++    cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
++    ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
++              detail={"source": "tournament winner", "form": concept.form,
++                      "construction": cir.construction, "pod": concept.pod,
++                      "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
++                      "rows": sum(len(c.rows) for c in cir.components)})
++    ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
++                idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
++    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
++            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
++
++
+ @handlers.register("cir.compile")
+ def handle_cir_compile(ctx: JobContext) -> dict:
+     cir = CIR.from_dict(ctx.job.inputs["cir"])
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index af83411..d5625ff 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -2715,9 +2715,16 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+     from ..gateway.anthropic import AnthropicProvider
+     from ..gateway.model_gateway import ModelGateway
+ 
++    # C-61: winners that waited on a vision judgement are re-presented first, so a judgement
++    # recorded since the last run reaches engineering without waiting for a new winner.
++    from ..creative import intake as winner_intake
++
++    regated = winner_intake.regate_held(ctx)
++
+     found = prospecting.arenas(ctx.db)
+     if not found:
+-        return {"ran": False, "reason": "no benchmark listing has been observed yet"}
++        return {"ran": False, "reason": "no benchmark listing has been observed yet",
++                "regated": regated}
+ 
+     week = int(utcnow().timestamp() // (7 * 24 * 3600))
+     arena = prospecting.choose(found, cycle=week)
+@@ -2730,7 +2737,13 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+     breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
+     if breakthrough:
+         match = [a for a in found if a.pod == breakthrough.get("pod")]
+-        if match:
++        # The mission names the seasonal event its response is for (#309: demand and season
++        # fit). When that event is one of the pod's proven arenas it is the arena; the wheel
++        # only chooses when the mission named none it can still reach.
++        targeted = [a for a in match if a.event == breakthrough.get("seasonal_target")]
++        if targeted:
++            arena = targeted[0]
++        elif match:
+             # The same chooser as the wheel, over the release's pod only, so an arena whose
+             # event can no longer be made in time is not picked just because it matched.
+             arena = prospecting.choose(match, cycle=week) or arena
+@@ -2765,13 +2778,20 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+                 "reason": str(e)[:200]}
+ 
+     selection = ideation.select(plan, candidates=result.get("candidate_objects") or [],
+-                                survivors=result.get("survivor_objects") or [])
+-    # The single call into the pre-engineering gate: nothing reaches engineering from here
+-    # without it, and while the gate does not exist the winner is recorded as held.
+-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
+-                                         source="creative.tournament")
++                                survivors=result.get("survivor_objects") or [],
++                                window=result.get("window"))
++    # C-61: the winner is taken into engineering intake -- a brief generated from it and its
++    # evidence, the funnel asked whether it was carried to prototype (#3), the
++    # pre-engineering gate run with that brief, and `cir.draft` queued only for a winner
++    # that clears both. Nothing reaches engineering from here any other way.
++    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
++                                source="creative.tournament",
++                                funnel_rounds=result.get("funnel_rounds") or [],
++                                mjs_event_id=inputs.get("mjs_event_id"))
+     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
+                                          gate=gate)
++    result["intake"] = took
++    result["regated"] = regated
+ 
+     with ctx.db.session() as s:
+         from ..core.models import AuditLog
+@@ -2780,6 +2800,15 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+                        detail={k: v for k, v in result.items()
+                                if not k.endswith("_objects")}))
+ 
++    # #309: the MJs response this tournament answers moves along its pipeline now, rather
++    # than at the next daily sentinel.
++    pipeline_moves = None
++    if inputs.get("mjs_event_id"):
++        from ..intel import mission_runtime
++
++        pipeline_moves = mission_runtime.advance_pipeline(
++            ctx.db, event_ids=[int(inputs["mjs_event_id"])])
++
+     generated = result["field"]["generated"]
+     attempted = generated > 0 or result["cost_cad"] > 0
+     return {"ran": attempted, "arena": f"{arena.event}/{arena.pod}",
+@@ -2794,6 +2823,8 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+             "winner": result["ideation"]["winner"],
+             "role": plan["role"]["role"],
+             "cleared_for_engineering": gate["cleared_for_engineering"],
++            "intake": took, "days_to_event": result.get("days_to_event"),
++            "pipeline": pipeline_moves,
+             **({} if attempted else
+                {"reason": "every batch came back malformed; nothing was generated or spent"})}
+ 
+@@ -2838,6 +2869,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
+                                               cycle=week)
+     if plan is None:
+         return moved_from
++    from ..creative import intake as winner_intake
++
++    winner_intake.regate_held(ctx)
+     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
+     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
+ 
+@@ -2861,10 +2895,13 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
+     # survivors are objects here, so the field diversity is measured over what it proposed
+     # and survived, and says so through `entrants`.
+     selection = ideation.select(plan, candidates=survivors, survivors=survivors)
+-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
+-                                         source="creative.expedition")
++    # An expedition is discovery, not the staged funnel: its winner gets the same generated
++    # brief and gate, and `may_engineer` refuses it engineering (#3) -- recorded, not skipped.
++    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
++                                source="creative.expedition", funnel_rounds=None)
+     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
+                                          gate=gate)
++    result["intake"] = took
+ 
+     prospecting.store(ctx.db, result)
+ 
+@@ -2878,13 +2915,35 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
+             "proposed": result["proposed"], "survivors": len(result["survivors"]),
+             "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
+             "answered_the_arena": result["answered_the_arena"],
+-            "winner": result["ideation"]["winner"],
++            "winner": result["ideation"]["winner"], "intake": took,
+             "role": plan["role"]["role"],
+             "cleared_for_engineering": gate["cleared_for_engineering"],
+             **({} if attempted else
+                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+ 
+ 
++def _winner_intake(ctx: JobContext, selection: dict, plan: dict, *, gateway, arena,
++                   source: str, funnel_rounds, mjs_event_id=None) -> tuple[dict, dict | None]:
++    """The winner through `creative.intake`, as the gate block `ideation.record` stores."""
++    from ..creative import intake as winner_intake
++
++    winner = selection.get("winner_object")
++    if winner is None:
++        return ({"gate": "not_called", "reason": "no winner",
++                 "cleared_for_engineering": False}, None)
++    took = winner_intake.intake(
++        ctx, candidate=winner, plan=plan, source=source, arena=arena,
++        funnel_rounds=funnel_rounds, mjs_event_id=mjs_event_id,
++        culture_id=gateway.culture_origin(winner.concept.title))
++    call = took.pop("gate_call")
++    if selection.get("winner"):
++        selection["winner"]["design_slug"] = took["slug"]
++    gate = {**call, "cleared_for_engineering": took["decision"] == winner_intake.ENGINEERING,
++            "gate_cleared": bool(call.get("cleared_for_engineering")),
++            "funnel_carried": took["funnel"], "intake_decision": took["decision"]}
++    return gate, took
++
++
+ def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
+     """The ideation plan for this cycle's arena, moving arena if saturation empties it (#117).
+ 
+diff --git a/brambleloop/tests/test_cert_ideation.py b/brambleloop/tests/test_cert_ideation.py
+index 2e5cfba..217a642 100644
+--- a/brambleloop/tests/test_cert_ideation.py
++++ b/brambleloop/tests/test_cert_ideation.py
+@@ -419,7 +419,9 @@ def test_the_winner_meets_the_real_pre_engineering_gate_and_is_not_cleared_unmea
+     with db.session() as s:
+         verdicts = [r.artifact for r in s.scalars(select(AuditLog))
+                     if r.action.startswith("concept.gate_")]
+-    assert block["winner"]["key"] in verdicts, "the gate verdict was not recorded"
++    # C-61: the verdict is recorded against the winning *design* (its stable design slug),
++    # not the tournament slot key, which repeats across runs.
++    assert block["winner"]["design_slug"] in verdicts, "the gate verdict was not recorded"
+ 
+ 
+ def test_the_gate_is_called_with_the_winner_and_a_raising_gate_blocks():
+@@ -429,12 +431,12 @@ def test_the_gate_is_called_with_the_winner_and_a_raising_gate_blocks():
+     saved = preengineering.gate_concept
+     try:
+         preengineering.gate_concept = (
+-            lambda db, concept: seen.append(concept.key) or {"engineer": True})
++            lambda db, concept, **kw: seen.append(concept.key) or {"engineer": True})
+         got = ideation.pre_engineering_gate(None, _cand("winner-1"))
+         assert got["gate"] == "creative.preengineering.gate_concept"
+         assert seen == ["winner-1"] and got["cleared_for_engineering"] is True
+ 
+-        def boom(db, concept):
++        def boom(db, concept, **kw):
+             raise RuntimeError("gate unavailable")
+         preengineering.gate_concept = boom
+         got = ideation.pre_engineering_gate(None, _cand("winner-2"))
+diff --git a/brambleloop/tests/test_cert_preengineering.py b/brambleloop/tests/test_cert_preengineering.py
+index bde205f..92c848c 100644
+--- a/brambleloop/tests/test_cert_preengineering.py
++++ b/brambleloop/tests/test_cert_preengineering.py
+@@ -328,7 +328,13 @@ def test_a_grid_that_cannot_be_built_leaves_the_concept_waiting():
+     assert not v["engineer"]
+ 
+ 
+-def test_a_passed_concept_is_engineered_through_cir_draft():
++def test_a_passed_concept_enqueued_directly_is_refused_by_the_funnel():
++    """C-61 / #3 strengthened this test. It used to assert that a concept which passes every
++    gate check is engineered when `cir.draft` is enqueued with it directly. The funnel's
++    `may_engineer` now stands at the same entry: a concept reaches engineering only as a
++    tournament winner the staged funnel carried to prototype (the positive path is proved
++    through `creative.tournament` in test_cert_design_pipeline.py). The gate still runs first
++    and passes here -- the refusal names the funnel, not the gate."""
+     db = _db()
+     _benchmarks(db)
+     restore = _fixture_judges(0.8)
+@@ -343,8 +349,9 @@ def test_a_passed_concept_is_engineered_through_cir_draft():
+         "title": GOOD["title"], "category": "stocking",
+         "stitch_repeat": [["sc", 2], ["dc", 2]], "width_stitches": 40, "rows": 8,
+         "colors": {"pine": "#244A3A", "ember": "#C49545"}}, key="pass")
+-    assert out.get("artifact", "").startswith(GOOD["key"]), out
+-    assert _jobs(db, "cir.compile"), "a concept that passed every check was not engineered"
++    assert out["drafted"] is False and out["gate"] == "funnel", out
++    assert "winner intake" in out["reasons"][0]
++    assert not _jobs(db, "cir.compile"), "a concept reached engineering outside the funnel"
+ 
+ 
+ def test_the_release_side_grid_verdict_is_recorded_per_product():
+-- 
+2.43.0
+
+
+From 6df21318e9bcae5d1ec937a29e15480d194d53b1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 12:54:19 +0000
+Subject: [PATCH 2/3] C-61 WIP: pipeline walker, response outcomes, gap
+ components, mission status, buyer language, skill make-time
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/app/main.py       |  19 ++
+ .../src/brambleloop/commerce/intent.py        | 102 +++++++
+ brambleloop/src/brambleloop/improve/roi.py    |  17 +-
+ brambleloop/src/brambleloop/intel/mission.py  | 101 +++++++
+ .../src/brambleloop/intel/mission_runtime.py  | 274 ++++++++++++++++++
+ brambleloop/src/brambleloop/intel/observe.py  |  76 ++++-
+ .../src/brambleloop/publish/release_gates.py  |  14 +-
+ .../src/brambleloop/runtime/release.py        |  38 ++-
+ .../src/brambleloop/seasonal/leadtime.py      |  44 ++-
+ 9 files changed, 665 insertions(+), 20 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/app/main.py b/brambleloop/src/brambleloop/app/main.py
+index 8eabfb4..b115601 100644
+--- a/brambleloop/src/brambleloop/app/main.py
++++ b/brambleloop/src/brambleloop/app/main.py
+@@ -4740,6 +4740,25 @@ def dashboard() -> str:
+              f"{backlog['pending_images']} (CA${backlog['estimated_cad_total']:.2f})"),
+             ("scan cadence", f"every {cadence.interval_hours}h"),
+             ("coverage gaps", str(report["gap_queue"]["total"])),
++            ("last successful scan", str(report["last_successful_scan"] or "never")),
++            ("changed / new (last scan)",
++             ", ".join(f"{k}: {v}" for k, v in
++                       report["listings_changed_new"]["last_scan"].items()) or "none"),
++            ("pod assignments", ", ".join(f"{k}: {v}" for k, v in
++                                          report["pod_assignments"].items()) or "none"),
++            ("top uncovered", "; ".join(f"{g['arena']} ({g['score']:.2f})" for g in
++                                        report["top_uncovered_opportunities"][:5]) or "none"),
++            ("seasonal adaptations", "; ".join(
++                f"{a['arena']} for {a['event']}: {a['winner'] or 'no winner yet'}"
++                f" (stopped at {a['pipeline_stopped_at'] or '-'})"
++                for a in report["upcoming_seasonal_adaptations"][:5]) or "none"),
++            ("launch deadlines", "; ".join(
++                f"{d['arena']} / {d['event']}: latest {d['latest_effective_launch']}"
++                for d in report["launch_deadlines"][:5]) or "none"),
++            ("comparison results", str(report["comparison_results"])[:300]),
++            ("products launched", str(report["products_launched"]["published_listings"])),
++            ("conversion / revenue", str(report["conversion_revenue"])[:200]),
++            ("mission incidents", str(len(report["mission_incidents"]))),
+         ], [["Mission", "State"]], "")
+ 
+     def _seasonal() -> str:
+diff --git a/brambleloop/src/brambleloop/commerce/intent.py b/brambleloop/src/brambleloop/commerce/intent.py
+index 44ca490..bc2d117 100644
+--- a/brambleloop/src/brambleloop/commerce/intent.py
++++ b/brambleloop/src/brambleloop/commerce/intent.py
+@@ -344,3 +344,105 @@ def arena_language(db, *, pod: str, benchmark_key: str = "",
+                  "dropped: 'pattern' and 'pdf' describe nothing and are most of what a "
+                  "shopper types, so they belong in a search strategy and not in a brief."),
+     }
++
++
++# ---------------------------------------------------------------------------
++# #293 at launch: the listing's search strategy is built from observed buyer language
++#
++# `listing.seo` used to build its query set from templates alone. This maps the product to the
++# six facets from its own facts (its category or winning concept, its season, its techniques,
++# the difficulty its PDF prints), asks `strategy` which of the resulting phrases buyers were
++# actually seen using, and hands back the observed ones as queries and tags. Demand is the
++# share of observed listing titles carrying the phrase; competition is the captured search
++# density where one exists and UNMEASURED otherwise -- in which case the phrase is tagged on
++# the strength of being observed, and says so.
++
++CATEGORY_USE: dict[str, str] = {
++    "baby": "baby", "pet": "pet", "ornament": "tree", "coaster": "kitchen",
++    "placemat": "kitchen", "runner": "home decor", "pillow": "home decor",
++    "wall_decor": "home decor", "basket": "home decor", "blanket": "home decor",
++    "mosaic_blanket": "home decor", "graphghan": "home decor",
++    "seasonal_decor": "home decor", "flower": "home decor", "scarf": "women",
++}
++CATEGORY_OBJECT: dict[str, str] = {
++    "mosaic_blanket": "blanket", "graphghan": "blanket", "seasonal_decor": "decor",
++    "wall_decor": "wall hanging", "baby": "baby blanket", "pet": "pet bed",
++}
++
++
++def _serp_density(db, phrase: str) -> int | None:
++    from sqlalchemy import desc, select
++
++    from ..core.models import SerpSnapshot
++
++    with db.session() as s:
++        row = s.scalar(select(SerpSnapshot).where(SerpSnapshot.query == phrase)
++                       .order_by(desc(SerpSnapshot.id)).limit(1))
++        return row.total_count if row is not None else None
++
++
++def listing_language(db, *, slug: str, category: str, season: str | None,
++                     difficulty: str, techniques: list[str] | None = None,
++                     max_tags: int = 4) -> dict:
++    """Observed buyer phrases for one product about to be listed (#293)."""
++    import math
++
++    from sqlalchemy import select
++
++    from ..core.models import BenchmarkListing
++    from .search import TAG_MAX_CHARS, Query
++
++    brief = None
++    try:
++        from ..creative.intake import intake_rows
++
++        rows = intake_rows(db, slug=slug, limit=1)
++        brief = ((rows[0][2].get("brief") or {}).get("buyer_language") if rows else None)
++    except Exception:  # noqa: BLE001 - a product with no intake maps from its own facts
++        brief = None
++    if brief and brief.get("mapped"):
++        facets = dict(brief["facets"])
++        source = "the winning concept's facet map"
++    else:
++        facets = {
++            "object": CATEGORY_OBJECT.get(category, category.replace("_", " ")),
++            "technique": " ".join(t for t in (techniques or []) if t not in ("texture",)),
++            "recipient_or_use": CATEGORY_USE.get(category, ""),
++            "season_event": (season or "").split(" (")[0].replace("'s", "").lower(),
++            "skill_feature": "beginner" if difficulty == "beginner" else "",
++        }
++        source = "the product's category, season, techniques and printed difficulty"
++    try:
++        mapped = map_product(**{k: v for k, v in facets.items() if v})
++    except IntentRefused as exc:
++        return {"mapped": False, "source": source, "facets": facets, "why": str(exc)[:300],
++                "queries": [], "tags": []}
++    got = strategy(db, facet_map=mapped)
++    with db.session() as s:
++        titles = [(r.title or "").lower() for r in s.scalars(select(BenchmarkListing))]
++    queries, tags, rows_out = [], [], []
++    for row in got["observed"]:
++        phrase = row["phrase"]
++        words = phrase.split()
++        share = (sum(1 for t in titles if all(w in t for w in words)) / len(titles)
++                 if titles else 0.0)
++        density = _serp_density(db, phrase)
++        competition = (round(min(1.0, math.log10(max(1, density)) / 5.0), 3)
++                       if density is not None else None)
++        if competition is not None:
++            # Only a phrase whose competition was measured enters the scored query model; an
++            # unmeasured one is tagged on the evidence that buyers use it, never given a
++            # competition figure nobody observed.
++            queries.append(Query(phrase, round(min(1.0, share), 4), competition, "product"))
++        fitted = phrase if len(phrase) <= TAG_MAX_CHARS else " ".join(
++            w for i, w in enumerate(words) if len(" ".join(words[:i + 1])) <= TAG_MAX_CHARS)
++        if fitted and len(fitted.split()) >= 2 and fitted not in tags and len(tags) < max_tags:
++            tags.append(fitted)
++        rows_out.append({"phrase": phrase, "pattern": row["pattern"],
++                         "observed_title_share": round(share, 4),
++                         "serp_density": density,
++                         "competition": competition if competition is not None
++                         else "UNMEASURED"})
++    return {"mapped": True, "source": source, "facets": mapped, "observed": rows_out,
++            "assumed": [r["phrase"] for r in got["assumed"]], "queries": queries,
++            "tags": tags, "observed_share": got["observed_share"], "note": got["note"]}
+diff --git a/brambleloop/src/brambleloop/improve/roi.py b/brambleloop/src/brambleloop/improve/roi.py
+index 1f2ed47..a67b2ec 100644
+--- a/brambleloop/src/brambleloop/improve/roi.py
++++ b/brambleloop/src/brambleloop/improve/roi.py
+@@ -235,12 +235,22 @@ def compounding_report(db) -> dict:
+     from ..core.models import AuditLog
+ 
+     with db.session() as s:
+-        rows = [a.detail or {} for a in s.scalars(select(AuditLog).where(
+-            AuditLog.action == "design.provenance"))]
++        raw = [(a.artifact or "", a.detail or {}) for a in s.scalars(select(AuditLog).where(
++            AuditLog.action == "design.provenance").order_by(AuditLog.id))]
++
++    # #101 counts *designs*, not runs. An `ideation:<kind>:<arena>` row is the brief a run was
++    # assembled with, recorded once per distinct lesson set; it is not a design and would
++    # count the same weekly run many times. A design is counted once, at its latest record.
++    briefs = [d for artifact, d in raw if artifact.startswith("ideation:")]
++    latest: dict[str, dict] = {}
++    for artifact, d in raw:
++        if not artifact.startswith("ideation:"):
++            latest[artifact] = d
++    rows = list(latest.values())
+ 
+     if not rows:
+         return {"measurable": False,
+-                "designs": 0,
++                "designs": 0, "briefs_recorded": len(briefs),
+                 "reason": ("no design has recorded what it drew on, so whether the company "
+                            "is compounding or restarting cannot be told apart"),
+                 "note": ""}
+@@ -249,6 +259,7 @@ def compounding_report(db) -> dict:
+     return {
+         "measurable": True,
+         "designs": len(rows),
++        "briefs_recorded": len(briefs),
+         "designs_using_accumulated_knowledge": len(used),
+         "share": round(len(used) / len(rows), 3),
+         "mean_lessons_per_design": round(
+diff --git a/brambleloop/src/brambleloop/intel/mission.py b/brambleloop/src/brambleloop/intel/mission.py
+index 88c684d..d5d4191 100644
+--- a/brambleloop/src/brambleloop/intel/mission.py
++++ b/brambleloop/src/brambleloop/intel/mission.py
+@@ -172,6 +172,8 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+         } for o in observations],
+         "pods": [{"key": p.key, "name": p.name, "rubric": list(p.rubric)} for p in pods.PODS],
+         "gap_queue": coverage.summary(db, benchmark_key),
++        # #318's remaining fields, each computed from the rows the mission writes.
++        **mission_status(db, benchmark_key=benchmark_key, observations=observations),
+         # #224, on the dashboard rather than in a footnote: the mission cannot look busy
+         # while the capability that would make it real does not exist.
+         "honest_statement": (
+@@ -182,3 +184,102 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+             if not capability else
+             "Observation capability is configured; coverage above is measured, not assumed."),
+     }
++
++
++def mission_status(db, *, benchmark_key: str = benchmarks.MJS_KEY,
++                   observations: list | None = None) -> dict:
++    """#318: the command-centre fields beyond coverage, from rows. Unmeasured says so."""
++    from collections import Counter
++
++    from sqlalchemy import desc, func, select
++
++    from ..core.models import (AuditLog, BenchmarkObservation, Incident, Listing,
++                               MjsMissionEvent, Order)
++    from ..creative.intake import intake_rows
++
++    with db.session() as s:
++        if observations is None:
++            observations = list(s.scalars(
++                select(BenchmarkObservation)
++                .where(BenchmarkObservation.benchmark_key == benchmark_key)
++                .order_by(desc(BenchmarkObservation.id)).limit(20)))
++        scans = [o for o in observations if o.kind == "official_api_read"]
++        changes = Counter()
++        for o in scans[:1]:
++            for c in (o.detail or {}).get("changes") or []:
++                changes[str(c.get("what") or "other")] += 1
++        events = list(s.scalars(select(MjsMissionEvent).where(
++            MjsMissionEvent.benchmark_key == benchmark_key)
++            .order_by(desc(MjsMissionEvent.id)).limit(200)))
++        assignments = Counter(e.pod for e in events)
++        adaptations, deadlines = [], []
++        for e in events:
++            target = (e.seasonal or {}).get("target") or {}
++            if not (e.entered and target):
++                continue
++            winner = intake_rows(db, mjs_event_id=e.id, limit=50)
++            win = winner[0] if winner else None
++            adaptations.append({
++                "event_id": e.id, "arena": e.arena, "pod": e.pod,
++                "event": target.get("event"),
++                "lenses": sorted((((e.seasonal or {}).get("seasonalise") or {})
++                                  .get("lenses") or {}).keys())
++                if isinstance(((e.seasonal or {}).get("seasonalise") or {}).get("lenses"),
++                              dict) else [],
++                "winner": win[1] if win else None,
++                "winner_decision": win[2].get("decision") if win else None,
++                "pipeline_stopped_at": ((e.pipeline or {}).get("stopped") or {}).get("stage"),
++            })
++            deadlines.append({"event_id": e.id, "arena": e.arena, "event": target.get("event"),
++                              "preferred_launch": target.get("preferred_launch"),
++                              "latest_effective_launch": target.get("latest_effective_launch"),
++                              "status": ((e.sentinel or {}).get("status")
++                                         or target.get("status"))})
++        winners = sorted({a["winner"] for a in adaptations if a["winner"]})
++        comparisons = {}
++        for action in ("creative.blinded", "creative.grid_tournament",
++                       "creative.benchmark_challenge"):
++            row = s.scalar(select(AuditLog).where(AuditLog.action == action)
++                           .order_by(desc(AuditLog.id)).limit(1))
++            if row is not None:
++                d = dict(row.detail or {})
++                comparisons[action] = {"at": row.at.isoformat() if row.at else None,
++                                       "verdict": d.get("verdict"),
++                                       "pods": {k: (v or {}).get("verdict")
++                                                for k, v in (d.get("pods") or {}).items()}}
++        published = list(s.scalars(select(Listing).where(Listing.state == "published")))
++        orders = [(o.product_slug, float(o.revenue_cad or 0.0))
++                  for o in s.scalars(select(Order).where(Order.refunded == False))]  # noqa: E712
++        incidents = [{"id": i.id, "severity": i.severity, "signature": i.signature,
++                      "summary": (i.summary or "")[:200]}
++                     for i in s.scalars(select(Incident).where(
++                         Incident.resolved == False,  # noqa: E712
++                         (Incident.signature.like("mjs.%")
++                          | Incident.signature.like("benchmark.%"))))]
++        last_scan = scans[0].at.isoformat() if scans else None
++        n_orders = s.scalar(select(func.count()).select_from(Order)) or 0
++    mission_orders = [o for o in orders if o[0] in winners]
++    return {
++        "last_successful_scan": last_scan,
++        "listings_changed_new": {"last_scan": dict(changes),
++                                 "events_processed": len(events)},
++        "pod_assignments": dict(assignments.most_common()),
++        "top_uncovered_opportunities": [
++            {k: g[k] for k in ("arena", "pod", "score", "components")}
++            for g in coverage.queue(db, benchmark_key, states=(coverage.UNCOVERED,),
++                                    limit=10)],
++        "upcoming_seasonal_adaptations": adaptations[:20],
++        "launch_deadlines": sorted(deadlines, key=lambda d: d.get("latest_effective_launch")
++                                   or "9999")[:20],
++        "comparison_results": comparisons or {
++            "state": "UNMEASURED: no blinded comparison or search-grid tournament has run"},
++        "products_launched": {"published_listings": len(published),
++                              "mission_responses": winners,
++                              "mission_responses_published": sorted(
++                                  {p.product_slug for p in published} & set(winners))},
++        "conversion_revenue": ({"orders": len(orders), "revenue_cad": round(
++            sum(r for _s, r in orders), 2), "mission_orders": len(mission_orders),
++            "mission_revenue_cad": round(sum(r for _s, r in mission_orders), 2)}
++            if n_orders else {"state": "UNMEASURED: no order has been recorded"}),
++        "mission_incidents": incidents,
++    }
+diff --git a/brambleloop/src/brambleloop/intel/mission_runtime.py b/brambleloop/src/brambleloop/intel/mission_runtime.py
+index a47ad71..5c5f2d2 100644
+--- a/brambleloop/src/brambleloop/intel/mission_runtime.py
++++ b/brambleloop/src/brambleloop/intel/mission_runtime.py
+@@ -1333,3 +1333,277 @@ def seasonal_sentinel(db, *, today: date | None = None) -> dict:
+             "incidents_resolved": life["resolved"],
+             "needs_tournament": [r["event_id"] for r in rows_out
+                                  if any(x.get("queue") for x in r["reallocated"])]}
++
++
++# ---------------------------------------------------------------------------
++# #309 after the tournament: the rest of the pipeline, walked from the rows each stage writes
++#
++# `process_listing` walks the first five stages when a listing arrives and stops at the
++# seasonal tournament, because that tournament has not run yet. Everything after it --
++# make-time, launch dates, CIR engineering, certification, assets, the benchmark challenge,
++# SEO, launch and measurement -- happens in other handlers on other days. This re-walks the
++# whole sequence for every entered event from what those handlers recorded, so the event's
++# pipeline says where its Brambleloop response actually is, and stops at the first stage
++# whose gate has not passed, with the evidence either way. No stage is ever marked done by
++# this function; each is read from the row the stage itself writes.
++
++# Days a launched response is given before "no sale" counts as an outcome (#316).
++LAUNCH_VERDICT_DAYS = 60
++
++
++def _winner_for(db, event_id: int) -> dict | None:
++    from ..creative.intake import intake_rows
++
++    rows = intake_rows(db, mjs_event_id=event_id)
++    if not rows:
++        return None
++    row_id, slug, detail = rows[0]
++    return {"slug": slug, "row": row_id, **detail}
++
++
++def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> list:
++    """(stage, passed, evidence) for every stage from the seasonal tournament onward."""
++    from sqlalchemy import func, select
++
++    from ..core.models import (AuditLog, Listing, ListingAsset, Order, PatternVersion,
++                               Product)
++
++    seasonalised = ((ev.seasonal or {}).get("seasonalise") or {})
++    out = []
++    got = bool(seasonalised.get("complete")) and winner is not None
++    out.append(("seasonal_tournament", got,
++                f"winner {winner['slug']} (intake row {winner['row']}, "
++                f"{winner.get('decision')})" if winner else
++                ("the tournament ran and produced no winner" if tournament_done else
++                 "no seasonal tournament has produced a winner for this event yet")))
++    if winner is None:
++        return out
++    slug = winner["slug"]
++    make = (winner.get("brief") or {}).get("make_time") or {}
++    out.append(("make_time_estimate", bool(make.get("by_skill")),
++                f"{make.get('make_hours')} h nominal; planned for "
++                f"{make.get('planned_for_skill')} makers"))
++    plan = make.get("plan") or {}
++    out.append(("launch_dates", bool(plan.get("preferred_launch")
++                                     and plan.get("latest_effective_launch")),
++                f"preferred {plan.get('preferred_launch')}, latest "
++                f"{plan.get('latest_effective_launch')} ({plan.get('status')})"
++                if plan else make.get("why_no_plan", "no launch plan")))
++    with db.session() as s:
++        drafted = s.scalar(select(AuditLog.id).where(
++            AuditLog.action == "cir.drafted", AuditLog.artifact.like(f"{slug}@%")).limit(1))
++        product = s.scalar(select(Product).where(Product.slug == slug))
++        certified = (product is not None and s.scalar(select(PatternVersion.id).where(
++            PatternVersion.product_id == product.id,
++            PatternVersion.certified == True).limit(1)) is not None)  # noqa: E712
++        assets = s.scalar(select(func.count()).select_from(ListingAsset).where(
++            ListingAsset.product_slug == slug)) or 0
++        listing = s.scalar(select(Listing).where(Listing.product_slug == slug)
++                           .order_by(Listing.id.desc()).limit(1))
++        listing_state = listing.state if listing is not None else None
++        orders = s.scalar(select(func.count()).select_from(Order).where(
++            Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
++    out.append(("cir_engineering", drafted is not None,
++                f"cir.drafted row {drafted}" if drafted else
++                f"no CIR drafted: the winner intake decided {winner.get('decision')!r}"))
++    out.append(("certification", certified,
++                "a certified pattern version exists" if certified else
++                "no certified pattern version"))
++    out.append(("premium_assets", assets > 0,
++                f"{assets} Brambleloop-owned listing asset(s)" if assets else
++                "no Brambleloop-owned listing asset has been filed"))
++    challenge = _challenge_for(db, slug) if assets else {"passed": False,
++                                                         "why": "no assets to challenge"}
++    out.append(("benchmark_challenge", challenge["passed"], challenge["why"]))
++    out.append(("seo_content", listing is not None,
++                f"listing drafted ({listing_state})" if listing is not None else
++                "no listing drafted"))
++    out.append(("launch", listing_state == "published",
++                "published" if listing_state == "published" else
++                "not published: launch is owner-gated and refused in shadow mode"))
++    out.append(("measurement", orders > 0,
++                f"{orders} order(s) attributed" if orders else
++                "UNMEASURED: no order has been recorded for this product"))
++    return out
++
++
++def _challenge_for(db, slug: str) -> dict:
++    from ..teardown.pipeline import ChallengeRefused, challenge
++
++    try:
++        got = challenge(db, product_slug=slug, category="", our_scores={})
++    except (ChallengeRefused, Exception) as exc:  # noqa: BLE001 - unrunnable is unpassed
++        return {"passed": False, "why": f"unrunnable: {exc}"[:300]}
++    return {"passed": not got.get("blocks_release", True),
++            "why": str(got.get("verdict") or got.get("reason") or "")[:300]}
++
++
++def advance_pipeline(db, *, event_ids: list[int] | None = None,
++                     today: date | None = None) -> dict:
++    """Re-walk #309 for entered events, from the rows every later stage writes."""
++    from sqlalchemy import select
++
++    from ..core.models import Job, JobStatus, MjsMissionEvent
++    from ..creative.intake import advance_gap
++
++    today = today or datetime.now(timezone.utc).date()
++    with db.session() as s:
++        q = select(MjsMissionEvent).where(MjsMissionEvent.tournament_job_id.is_not(None))
++        if event_ids:
++            q = select(MjsMissionEvent).where(MjsMissionEvent.id.in_(event_ids))
++        ids = [e.id for e in s.scalars(q)]
++    moved = []
++    for event_id in ids:
++        with db.session() as s:
++            ev = s.get(MjsMissionEvent, event_id)
++            job = s.get(Job, ev.tournament_job_id) if ev.tournament_job_id else None
++            tournament_done = job is not None and job.status == JobStatus.DONE
++            s.expunge(ev)
++        winner = _winner_for(db, event_id)
++        run = response.PipelineRun(signal=(ev.pipeline or {}).get("signal")
++                                   or f"{ev.benchmark_key}/{ev.listing_ref}")
++        early = [
++            ("observation", ev.observation_id is not None, f"observation {ev.observation_id}"),
++            ("pod_routing", ev.pod != pods.UNCLASSIFIED, ev.pod),
++            ("market_decomposition",
++             bool(((ev.steps or {}).get("decomposition") or {}).get("mechanisms")),
++             "recorded mechanisms"),
++            ("demand_and_season_fit",
++             bool(ev.proven) and bool((ev.seasonal or {}).get("target")),
++             f"target {((ev.seasonal or {}).get('target') or {}).get('event', 'none')}"),
++        ]
++        stopped = None
++        for stage, passed, evidence in early + _stage_evidence(
++                db, winner, ev, tournament_done=tournament_done):
++            res = run.advance(stage, gate_passed=passed, evidence=str(evidence))
++            if not res["advanced"]:
++                stopped = {**res, "evidence": str(evidence)}
++                break
++        state = {**run.to_dict(), "stopped": stopped, "as_of": today.isoformat(),
++                 "winner": (winner or {}).get("slug")}
++        coverage_move = None
++        if winner is not None and ev.pod:
++            done = set(run.completed)
++            to = ("launched" if "launch" in done else "certified" if "certification" in done
++                  else "engineering" if "cir_engineering" in done else None)
++            if to:
++                coverage_move = advance_gap(db, ev.pod, to, product_slug=winner["slug"],
++                                            reason=f"the MJs response {winner['slug']} "
++                                                   f"reached {to} (#309)")
++        with db.session() as s:
++            row = s.get(MjsMissionEvent, event_id)
++            row.pipeline = state
++        moved.append({"event_id": event_id, "stopped_at": (stopped or {}).get("stage"),
++                      "completed": list(run.completed), "winner": state["winner"],
++                      "coverage": coverage_move})
++    return {"events": moved, "as_of": today.isoformat()}
++
++
++# ---------------------------------------------------------------------------
++# #316: Brambleloop's own responses are outcomes for the pods' memory
++
++
++def response_outcomes(db, *, today: date | None = None) -> dict:
++    """Record what happened to every Brambleloop response a pod holds an interpretation of.
++
++    Outcomes only, from rows: an order is `launch_sold`; a response published for
++    LAUNCH_VERDICT_DAYS with no order is `launch_failed`; an escalated support case on the
++    product is `customer_complaint`. With nothing launched every interpretation stays at no
++    standing and the report says UNMEASURED -- nothing is inferred from a design passing a
++    gate. A contradicted interpretation raises a challenger about commercial execution, which
++    wins on outcomes or not at all.
++    """
++    from sqlalchemy import func, select
++
++    from ..core.models import Listing, Order, PodLesson, SupportCase
++    from ..creative.intake import RESPONSE_PREFIX
++
++    today = today or datetime.now(timezone.utc).date()
++    with db.session() as s:
++        lessons = [(r.id, r.pod, r.subject, r.origin, dict(r.detail or {}),
++                    [e.get("evidence_ref") for e in list(r.supported_by or [])
++                     + list(r.contradicted_by or [])])
++                   for r in s.scalars(select(PodLesson).where(
++                       PodLesson.subject.like(f"{RESPONSE_PREFIX}%")))]
++    recorded, launched = [], 0
++    for lesson_id, pod, subject, origin, detail, seen in lessons:
++        if origin == "challenger":
++            continue
++        for slug in detail.get("slugs") or []:
++            with db.session() as s:
++                orders = s.scalar(select(func.count()).select_from(Order).where(
++                    Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
++                listing = s.scalar(select(Listing).where(
++                    Listing.product_slug == slug, Listing.state == "published")
++                    .order_by(Listing.id).limit(1))
++                published_at = listing.created_at if listing is not None else None
++                complaints = [c.id for c in s.scalars(select(SupportCase).where(
++                    SupportCase.product_slug == slug,
++                    SupportCase.escalated == True))]  # noqa: E712
++            if listing is not None:
++                launched += 1
++            events = []
++            if orders:
++                events.append(("launch_sold", f"orders:{slug}"))
++            elif published_at is not None:
++                at = published_at if published_at.tzinfo else published_at.replace(
++                    tzinfo=timezone.utc)
++                days = (datetime.now(timezone.utc) - at).days
++                if days >= LAUNCH_VERDICT_DAYS:
++                    events.append(("launch_failed", f"listing:{slug}:no_sale"))
++            events += [("customer_complaint", f"support_case:{c}") for c in complaints]
++            for kind, ref in events:
++                if ref in seen:
++                    continue
++                recorded.append(memory.outcome(db, lesson_id, kind, evidence_ref=ref))
++                seen.append(ref)
++    challengers = []
++    for pod in sorted({p for _i, p, *_rest in lessons}):
++        challengers += _response_challengers(db, pod=pod)
++    return {"interpretations": len([x for x in lessons if x[3] != "challenger"]),
++            "responses_launched": launched, "outcomes_recorded": recorded,
++            "challengers": challengers,
++            "state": ("UNMEASURED: no Brambleloop response has launched, so no pod "
++                      "interpretation of a response has an outcome yet" if not launched
++                      else f"{len(recorded)} outcome(s) recorded this run")}
++
++
++def _response_challengers(db, *, pod: str) -> list[dict]:
++    """A contradicted response interpretation gets a commercial-execution challenger."""
++    from sqlalchemy import select
++
++    from ..core.models import PodLesson
++    from ..creative.intake import RESPONSE_PREFIX
++
++    with db.session() as s:
++        rows = [(r.id, r.subject, r.origin, r.active, len(r.supported_by or []),
++                 len(r.contradicted_by or []), list(r.supported_by or []),
++                 list(r.contradicted_by or []), dict(r.detail or {}))
++                for r in s.scalars(select(PodLesson).where(
++                    PodLesson.pod == pod, PodLesson.subject.like(f"{RESPONSE_PREFIX}%")))]
++    by_subject: dict[str, list] = {}
++    for r in rows:
++        by_subject.setdefault(r[1], []).append(r)
++    raised = []
++    for subject, group in by_subject.items():
++        if any(r[2] == "challenger" for r in group):
++            continue
++        incumbent = next((r for r in group if r[3]), group[0])
++        lid, _s, _o, _a, sup, con, _sup_rows, _con_rows, detail = incumbent
++        if con - sup < CHALLENGE_MARGIN:
++            continue
++        cid = memory.challenge(
++            db, lid, mechanism="seasonal_timing",
++            statement=(f"Brambleloop responses to {detail.get('event', 'this event')} demand "
++                       f"in the {pod} department sell only as faster makes launched well "
++                       f"before the preferred launch date"))
++        _set_detail(db, cid, polarity="absent", kind="brambleloop_response",
++                    slugs=detail.get("slugs") or [], event=detail.get("event"))
++        # Nothing is inherited: the incumbent's failures are not the challenger's successes
++        # under another outcome's name. It stands on its own record from here, and it
++        # replaces the incumbent only because the incumbent's outcomes went net negative.
++        resolved = memory.resolve(db, pod=pod, subject=subject)
++        raised.append({"subject": subject, "incumbent": lid, "challenger": cid,
++                       "resolved_to": resolved.get("active_lesson_id"),
++                       "changed": resolved.get("changed")})
++    return raised
+diff --git a/brambleloop/src/brambleloop/intel/observe.py b/brambleloop/src/brambleloop/intel/observe.py
+index 44f3b9b..ed02119 100644
+--- a/brambleloop/src/brambleloop/intel/observe.py
++++ b/brambleloop/src/brambleloop/intel/observe.py
+@@ -311,9 +311,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
+ def _open_gaps(db, benchmark_key: str) -> list[str]:
+     """One gap per pod the benchmark sells into and Brambleloop does not.
+ 
+-    Scored only on components the scan can actually observe. Make time, contribution and
+-    creative potential are left absent rather than guessed, so the queue's own
+-    `evidence_weight` says how much of each score is real.
++    Scored on every component the database can answer: apparent demand and portfolio fit
++    from the scan, seasonal timing from the calendar and lead-time engine, search opportunity
++    from captured search-result density, and make time from the arena's make hours (#314).
++    Expected contribution and creative potential have no evidence yet and stay absent rather
++    than guessed, so the queue's own `evidence_weight` says how much of each score is real.
+     """
+     from sqlalchemy import select
+ 
+@@ -346,17 +348,79 @@ def _open_gaps(db, benchmark_key: str) -> list[str]:
+         demand = min(1.0, (sum(favourites) / 2000.0)) if favourites else 0.0
+         components = {"apparent_demand": round(demand, 3),
+                       "portfolio_fit": min(1.0, len(listings) / 10.0)}
++        extra, basis = gap_components(db, pod_key, listings)
++        components.update(extra)
+         coverage.upsert(db, benchmark_key=benchmark_key, arena=pod.name, pod=pod_key,
+                         components=components,
+                         evidence={"benchmark_listings": len(listings),
+                                   "total_favourites": sum(favourites),
+-                                  "note": "scored only on what the scan observed; make time, "
+-                                          "contribution and creative potential are absent "
+-                                          "rather than guessed"})
++                                  "basis": basis,
++                                  "note": "expected contribution and creative potential are "
++                                          "absent rather than guessed"})
+         opened.append(pod.name)
+     return opened
+ 
+ 
++# #314's computable components. The status each lead-time plan reads as, scored: a window a
++# maker can still comfortably hit is worth most, a missed one nothing.
++TIMING_SCORE: dict[str, float] = {"on_track": 1.0, "past_preferred": 0.6, "at_risk": 0.3,
++                                  "missed": 0.0}
++# Search results at which a department's shelf counts as fully crowded (log scale).
++SERP_CROWDED_AT = 100_000
++# A make this long scores zero on make time: nobody finishes it for a near occasion.
++MAKE_HOURS_CEILING = 90.0
++
++
++def gap_components(db, pod_key: str, listings: list) -> tuple[dict, dict]:
++    """Seasonal timing, search opportunity and make time for one pod, from rows (#314)."""
++    import math
++
++    from sqlalchemy import desc, select
++
++    from ..core.models import SerpSnapshot
++    from ..radar.market import SEASONAL_EVENTS
++    from ..seasonal.calendar import DEFAULT_DEPARTMENTS, EVENT_DEPARTMENTS
++    from ..seasonal.leadtime import compile_launch, next_occurrence
++    from .mission_runtime import ARENA_MAKE_HOURS, arena_for
++
++    out: dict[str, float] = {}
++    basis: dict[str, str] = {}
++    arenas: dict[str, int] = {}
++    for row in listings:
++        a = arena_for(row.title or "", pod_key)
++        if a:
++            arenas[a] = arenas.get(a, 0) + 1
++    hours = [ARENA_MAKE_HOURS[a] for a in arenas if a in ARENA_MAKE_HOURS]
++    if hours:
++        mid = sorted(hours)[len(hours) // 2]
++        out["make_time"] = round(max(0.0, 1.0 - mid / MAKE_HOURS_CEILING), 3)
++        basis["make_time"] = f"median arena make time {mid} h (assumed, radar.market)"
++        today = datetime.now(timezone.utc).date()
++        events = [e for e in SEASONAL_EVENTS
++                  if pod_key in EVENT_DEPARTMENTS.get(e.name, DEFAULT_DEPARTMENTS)]
++        if events:
++            soonest = min(events, key=lambda e: next_occurrence(e.event_date, today))
++            plan = compile_launch(soonest.name, next_occurrence(soonest.event_date, today),
++                                  make_hours=mid)
++            status = plan.status(today)
++            out["seasonal_timing"] = TIMING_SCORE.get(status, 0.0)
++            basis["seasonal_timing"] = (f"{soonest.name}: {status}, latest effective launch "
++                                        f"{plan.latest_effective_launch.isoformat()}")
++    spec = pods.BY_KEY.get(pod_key)
++    words = {w.lower() for w in (spec.keywords if spec is not None else ()) if w} | set(arenas)
++    with db.session() as s:
++        snaps = [(r.query.lower(), r.total_count) for r in s.scalars(
++            select(SerpSnapshot).order_by(desc(SerpSnapshot.id)).limit(500))]
++    counts = [n for q, n in snaps if n is not None and any(w in q for w in words)]
++    if counts:
++        density = max(counts)
++        out["search_opportunity"] = round(max(0.0, 1.0 - math.log10(max(1, density))
++                                              / math.log10(SERP_CROWDED_AT)), 3)
++        basis["search_opportunity"] = (f"{density} results on the most crowded captured "
++                                       f"query naming this department")
++    return out, basis
++
++
+ # ---------------------------------------------------------------------------
+ # #313: the scan interval follows the benchmark shop's own posting behaviour
+ 
+diff --git a/brambleloop/src/brambleloop/publish/release_gates.py b/brambleloop/src/brambleloop/publish/release_gates.py
+index e7b7f72..8f8f3ec 100644
+--- a/brambleloop/src/brambleloop/publish/release_gates.py
++++ b/brambleloop/src/brambleloop/publish/release_gates.py
+@@ -631,13 +631,21 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
+     from ..seasonal.harvest import adjusted_assumptions
+ 
+     event_base = adjusted_assumptions(db, event.name, base)
+-    estimate = lt.estimate_for(cir, compile_cir(cir), base)
++    compiled = compile_cir(cir)
++    estimate = lt.estimate_for(cir, compiled, base)
+     when = lt.next_occurrence(event.event_date, today)
+-    plan = lt.compile_launch(event.name, when, make_hours=estimate.to_dict()["hours"],
+-                             assumptions=event_base)
++    # #283: planned for the maker the pattern's printed difficulty is bought by, not a
++    # default intermediate; the whole skill distribution rides beside the decision.
++    skill, printed = lt.maker_skill_for(cir, compiled)
++    hours = estimate.to_dict()["hours"]
++    plan = lt.compile_launch(event.name, when, make_hours=hours, assumptions=event_base,
++                             skill=skill)
+     action, why = plan.recommendation(today)
+     pivoted = action == lt.PIVOT_EVERGREEN and positioning == "evergreen"
+     return {"slug": slug, "occasion": occasion, "event_date": when.isoformat(),
++            "skill": skill, "difficulty": printed,
++            "make_time_by_skill": lt.skill_distribution(event.name, when, make_hours=hours,
++                                                        today=today, assumptions=event_base),
+             "status": plan.status(today), "action": action, "why": why,
+             "latest_effective_launch": plan.latest_effective_launch.isoformat(),
+             "positioning": positioning or "seasonal",
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index d5625ff..c2aa13f 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -464,9 +464,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
+     # most common way a new listing is invisible.
+     techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
+     queries = search_mod.build_query_set(category, motifs, season, techniques)
++    # #293: the phrases buyers were observed using for this product's facets join the query
++    # set, and the ones that fit a tag are spent first -- the search strategy starts from
++    # what buyers already type, and stays accurate because the facets are the product's own.
++    from ..commerce import intent as intent_mod
++
++    buyer = intent_mod.listing_language(ctx.db, slug=slug, category=category, season=season,
++                                        difficulty=_difficulty(twin, cir),
++                                        techniques=techniques)
++    queries = queries + list(buyer["queries"])
+     title = seo_mod.build_title(cir.title, category, motifs, season,
+                                 sizes=len(i.get("sizes") or []) or 1)
+-    tags = search_mod.choose_tags(queries)
++    tags = search_mod.choose_tags(queries, must_include=buyer["tags"])
+     # #240: a slot spent on a phrase another listing of ours already spends one on is our
+     # own listings ranked against each other. Re-chosen from the remaining queries, never
+     # fewer slots, and the swap is recorded with the catalogue reading below.
+@@ -562,6 +571,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
+               detail={"title_len": len(copy.title), "tags": len(copy.tags),
+                       "search_share": coverage.share, "gaps": coverage.gaps[:5],
+                       "blocking": blocking[:5],
++                      "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
+                       "disclosures_owed": (classification.disclosures
+                                            if classification else None),
+                       "rights_screen": rights_reading})
+@@ -2019,11 +2029,17 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
+     """
+     from ..intel import mission_runtime
+ 
++    # #316: Brambleloop's own responses -- launches, sales, failures, complaints -- are
++    # outcomes on the pods' interpretations, recorded before capability is computed from them.
++    responses = mission_runtime.response_outcomes(ctx.db)
++    ctx.audit("mjs.response_outcomes", detail=responses)
+     result = mission_runtime.pod_capability(ctx.db)
+     ctx.audit("mjs.pod_capability", detail=result)
+     return {"pods": len(result["pods"]), "records": result["records"],
+             "judgements": result["judgements"],
+-            "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
++            "measured": sorted(p for p, r in result["pods"].items() if r["measured"]),
++            "responses": {k: responses[k] for k in ("interpretations", "responses_launched",
++                                                     "state")}}
+ 
+ 
+ @handlers.register("mjs.seasonal_sentinel")
+@@ -2048,8 +2064,10 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
+             with ctx.db.session() as s:
+                 ev = s.get(MjsMissionEvent, event_id)
+                 arena, pod, ref, key = ev.arena, ev.pod, ev.listing_ref, ev.benchmark_key
++                target = ((ev.seasonal or {}).get("target") or {}).get("event", "")
+             inputs = breakthrough.release_brief(ctx.db, arena=arena, pod=pod, listing_ref=ref)
+-            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel"})
++            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel",
++                           "seasonal_target": target})
+             job = ctx.enqueue("creative_director", "creative.tournament", inputs,
+                               priority=priority_for("mjs.seasonal_sentinel"),
+                               idempotency_key=f"mjs.at_risk:{key}:{event_id}:{today}")
+@@ -2057,10 +2075,20 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
+                 with ctx.db.session() as s:
+                     s.get(MjsMissionEvent, event_id).tournament_job_id = job.id
+                 queued.append(job.id)
+-    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued})
++    # #309: every entered event's response is walked forward from what the later stages
++    # recorded, and winners that waited on a vision judgement are re-presented (C-61).
++    from ..creative import intake as winner_intake
++
++    regated = winner_intake.regate_held(ctx, today=today)
++    pipeline = mission_runtime.advance_pipeline(ctx.db, today=today)
++    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued,
++                                               "pipeline": pipeline["events"][:50],
++                                               "regated": regated})
+     return {"opportunities": result["opportunities"], "counts": result["counts"],
+             "incidents_opened": result["incidents_opened"], "queued": queued,
+-            "reallocated": sum(len(r["reallocated"]) for r in result["rows"])}
++            "reallocated": sum(len(r["reallocated"]) for r in result["rows"]),
++            "pipeline": [{k: e[k] for k in ("event_id", "stopped_at", "winner")}
++                         for e in pipeline["events"]], "regated": regated}
+ 
+ 
+ # Thumbnail judgements per run. Small on purpose: market_radar's CA$4.00 daily ceiling also
+diff --git a/brambleloop/src/brambleloop/seasonal/leadtime.py b/brambleloop/src/brambleloop/seasonal/leadtime.py
+index d070819..624da91 100644
+--- a/brambleloop/src/brambleloop/seasonal/leadtime.py
++++ b/brambleloop/src/brambleloop/seasonal/leadtime.py
+@@ -629,6 +629,37 @@ def next_occurrence(event_date: date, today: date) -> date:
+     return when
+ 
+ 
++# #283: the maker skill a pattern's printed difficulty is bought by. A beginner pattern is made
++# by beginners, who need the most calendar time; the launch plan is compiled for that maker,
++# and the whole distribution across skills is reported beside it.
++PATTERN_MAKER_SKILL: dict[str, str] = {
++    "beginner": "beginner", "confident beginner": "adventurous_beginner",
++    "intermediate": "intermediate",
++}
++
++
++def maker_skill_for(cir, compiled) -> tuple[str, str]:
++    """(maker skill the launch is planned for, the difficulty the pattern prints)."""
++    from ..cir.twin import build_twin
++    from ..publish.difficulty import difficulty
++
++    level = difficulty(cir, build_twin(cir, compiled))
++    return PATTERN_MAKER_SKILL.get(level, "intermediate"), level
++
++
++def skill_distribution(event: str, event_date: date, *, make_hours: float, today: date,
++                       assumptions: Assumptions = DEFAULT) -> dict:
++    """Make days and the latest launch for every maker skill (#283)."""
++    out = {}
++    for skill in sorted(assumptions.skill_factor):
++        plan = compile_launch(event, event_date, make_hours=make_hours, skill=skill,
++                              assumptions=assumptions)
++        out[skill] = {"effective_make_days": plan.effective_make_days,
++                      "latest_effective_launch": plan.latest_effective_launch.isoformat(),
++                      "status": plan.status(today)}
++    return out
++
++
+ def catalogue_plans(db, today: date | None = None,
+                     assumptions: Assumptions | None = None) -> dict:
+     """Every certified pattern against every seasonal event, as a war room (#296, #311).
+@@ -660,11 +691,13 @@ def catalogue_plans(db, today: date | None = None,
+                 cir = CIR.from_dict(version.cir_json)
+                 compiled = compile_cir(cir)
+                 estimate = estimate_for(cir, compiled, base)
++                skill, printed = maker_skill_for(cir, compiled)
+             except Exception as e:  # noqa: BLE001 - one bad pattern must not empty the room
+                 products.append({"slug": product.slug, "error": f"{type(e).__name__}: {e}"})
+                 continue
+             products.append({"slug": product.slug, "version": version.version,
+-                             "estimate": estimate.to_dict()})
++                             "estimate": estimate.to_dict(), "skill": skill,
++                             "difficulty": printed})
+ 
+     # A product is scheduled against the occasion it is for, and only that one. Every
+     # certified product used to be scheduled against every event, so an evergreen placemat
+@@ -694,9 +727,14 @@ def catalogue_plans(db, today: date | None = None,
+             from .harvest import adjusted_assumptions
+             event_base = adjusted_assumptions(db, event.name, base)
+             plan = compile_launch(event.name, when,
+-                                  make_hours=entry["estimate"]["hours"], assumptions=event_base)
++                                  make_hours=entry["estimate"]["hours"], assumptions=event_base,
++                                  skill=entry["skill"])
+             action, why = plan.recommendation(today)
+             row = {"slug": entry["slug"], **plan.to_dict(),
++                   "difficulty": entry["difficulty"],
++                   "make_time_by_skill": skill_distribution(
++                       event.name, when, make_hours=entry["estimate"]["hours"], today=today,
++                       assumptions=event_base),
+                    "event_year": when.year,
+                    "status": plan.status(today),
+                    "days_to_preferred": plan.days_to_preferred(today),
+@@ -711,7 +749,7 @@ def catalogue_plans(db, today: date | None = None,
+                     following = when + timedelta(days=365)
+                 nxt = compile_launch(event.name, following,
+                                      make_hours=entry["estimate"]["hours"],
+-                                     assumptions=event_base)
++                                     assumptions=event_base, skill=entry["skill"])
+                 row["next_window"] = {
+                     "event_date": following.isoformat(),
+                     "preferred_launch": nxt.preferred_launch.isoformat(),
+-- 
+2.43.0
+
+
+From 7195d265da682396682973a6d2ac6e315424f826 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 13:08:41 +0000
+Subject: [PATCH 3/3] C-61: design pipeline tests, retention entries,
+ tournament names its MJs event
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/intel/mission_runtime.py  |  16 +
+ brambleloop/src/brambleloop/ops/retention.py  |  12 +
+ .../src/brambleloop/runtime/release.py        |   1 +
+ .../tests/test_cert_design_pipeline.py        | 707 ++++++++++++++++++
+ 4 files changed, 736 insertions(+)
+ create mode 100644 brambleloop/tests/test_cert_design_pipeline.py
+
+diff --git a/brambleloop/src/brambleloop/intel/mission_runtime.py b/brambleloop/src/brambleloop/intel/mission_runtime.py
+index 5c5f2d2..ee69927 100644
+--- a/brambleloop/src/brambleloop/intel/mission_runtime.py
++++ b/brambleloop/src/brambleloop/intel/mission_runtime.py
+@@ -1427,6 +1427,20 @@ def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> li
+     return out
+ 
+ 
++def _tournament_ran_for(db, event_id: int) -> bool:
++    """Whether any creative.tournament run answered this event (its row names the event)."""
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++
++    with db.session() as s:
++        for row in s.scalars(select(AuditLog).where(AuditLog.action == "creative.tournament")
++                             .order_by(desc(AuditLog.id)).limit(50)):
++            if (row.detail or {}).get("mjs_event_id") == event_id:
++                return True
++    return False
++
++
+ def _challenge_for(db, slug: str) -> dict:
+     from ..teardown.pipeline import ChallengeRefused, challenge
+ 
+@@ -1460,6 +1474,8 @@ def advance_pipeline(db, *, event_ids: list[int] | None = None,
+             tournament_done = job is not None and job.status == JobStatus.DONE
+             s.expunge(ev)
+         winner = _winner_for(db, event_id)
++        if not tournament_done:
++            tournament_done = _tournament_ran_for(db, event_id)
+         run = response.PipelineRun(signal=(ev.pipeline or {}).get("signal")
+                                    or f"{ev.benchmark_key}/{ev.listing_ref}")
+         early = [
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index e717405..180aa94 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -190,6 +190,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+     "runtime.started": ("windowed",
+                         "ops.health.container_starts reads a 24-hour window to tell a "
+                         "restart from a deploy"),
++    # C-61: the original-design pipeline.
++    "creative.winner_intake": ("lifetime_total",
++                               "cir.draft verifies a design's funnel run from its winner "
++                               "intake, and regate re-presents held winners from it; a pruned "
++                               "intake makes a held winner unengineerable"),
++    "concept.judged": ("lifetime_total",
++                       "creative.intake reads the vision judgement recorded per design; a "
++                       "pruned judgement silently returns a design to unjudged"),
++    "radar.skill_gap": ("latest", "creative.ideation reads the latest measured wave gap"),
++    "cir.drafted": ("lifetime_total",
++                    "intel.mission_runtime reads whether a response's CIR was ever drafted "
++                    "to walk #309's pipeline"),
+ }
+ 
+ PROTECTED_ACTIONS: frozenset[str] = frozenset(
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index c2aa13f..e58b75f 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -2820,6 +2820,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
+                                          gate=gate)
+     result["intake"] = took
+     result["regated"] = regated
++    result["mjs_event_id"] = inputs.get("mjs_event_id")
+ 
+     with ctx.db.session() as s:
+         from ..core.models import AuditLog
+diff --git a/brambleloop/tests/test_cert_design_pipeline.py b/brambleloop/tests/test_cert_design_pipeline.py
+new file mode 100644
+index 0000000..8d4f880
+--- /dev/null
++++ b/brambleloop/tests/test_cert_design_pipeline.py
+@@ -0,0 +1,707 @@
++"""Certification: the original-design pipeline, from tournament winner to engineering (C-61).
++
++The audit of 9434c53 found the creative engine severed at its most important joint: a
++tournament winner met the pre-engineering gate with no brief (so it failed "no thumbnail
++storyboard", "no motifs" and "no WOW mechanism" by construction), nothing asked the funnel
++whether it had been carried to prototype, and nothing ever queued `cir.draft`.
++
++Every test here drives the runtime -- `creative.tournament`, `cir.draft`, `cir.compile`,
++`mjs.scan`, `mjs.seasonal_sentinel`, `intel.pod_learning`, `listing.seo`, `launch.plan`
++through the worker or the handler registry with a real JobContext on a real database -- with
++only the model call substituted by a fixture generator. Every competitor listing, vision
++judgement, order and listing row seeded here is a test fixture, never an observation or a
++customer.
++"""
++from __future__ import annotations
++
++import os
++import sys
++import tempfile
++from datetime import datetime, timedelta, timezone
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++sys.path.insert(0, str(ROOT / "tests"))
++
++os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
++
++from sqlalchemy import select  # noqa: E402
++
++from brambleloop.agents.registry import Registry  # noqa: E402
++from brambleloop.core.db import Database  # noqa: E402
++from brambleloop.core.models import (  # noqa: E402
++    AuditLog, BenchmarkListing, BenchmarkObservation, CoverageGap, CultureConcept,
++    CultureSignal, Job, JobStatus, Listing, MjsMissionEvent, Order, Customer, PodLesson,
++    SerpSnapshot,
++)
++from brambleloop.creative import intake  # noqa: E402
++from brambleloop.intel import benchmarks  # noqa: E402
++from brambleloop.queue.durable import JobQueue  # noqa: E402
++from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
++from brambleloop.runtime import release  # noqa: E402,F401 - registers handlers
++from brambleloop.runtime.worker import JobContext, Worker, handlers  # noqa: E402
++
++CONS = {"stocking": ("flat_rows", "in_the_round", "seamless_tube"),
++        "ornament": ("flat_rows", "in_the_round", "amigurumi_shaping")}
++RECIPIENTS = ("self", "partner", "new_parent", "child", "teen", "grandparent", "host",
++              "pet_owner", "colleague", "teacher", "friend_who_has_everything", "newlyweds",
++              "student")
++MOTIFS = ("gingerbread", "lantern", "bell", "sleigh", "nutcracker", "holly", "candle",
++          "mitten", "wreath", "ornament", "bow", "candy", "woodland")
++FEELINGS = ("nostalgic", "festive", "heirloom", "whimsical", "celebratory", "playful",
++            "tender", "folkloric")
++WORDS = ("acorn birch cinder dapple ember fennel garnet hazel indigo juniper kestrel linden "
++         "meadow nutmeg oriel pebble quill russet sorrel thistle umber vervain willow yarrow "
++         "zephyr alder bramble clover damson elder fern gorse heath iris jasper kelp larch "
++         "myrtle nettle olive pine quince rowan sloe tansy").split()
++
++
++def _db() -> Database:
++    db = Database(f"sqlite:///{tempfile.mkdtemp(prefix='cert_design_')}/design.sqlite")
++    db.create_all()
++    Registry(db).seed_defaults()
++    return db
++
++
++def _stockings(db, n: int = 12, pod: str = "stockings") -> None:
++    """Fixture benchmark listings: a proven Christmas stockings department."""
++    with db.session() as s:
++        for i in range(n):
++            s.add(BenchmarkListing(
++                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"S{i}",
++                title=("Festive Christmas Stocking Crochet Pattern",
++                       "Christmas Ornament Crochet Pattern")[i % 2],
++                pod=pod, price_cad=8.0, audit_state="audited",
++                detail={"num_favorers": 90}))
++
++
++def _unique(j: int, t: int) -> str:
++    # Letters only: the premise tokeniser reads [a-z]+, so a digit suffix would collapse.
++    return f"{WORDS[(j * 5 + t) % len(WORDS)]}q{chr(97 + j % 26)}{chr(97 + j // 26)}"
++
++
++def stocking_field(copy_language_every: int = 0):
++    """A fixture generator for a genuinely varied Christmas field.
++
++    Each concept varies construction, recipient, motif and function and states a premise in
++    its own words -- the shape a field needs to survive the sibling gate (#119). The model is
++    the only thing substituted; every gate downstream is the real one.
++    """
++    count = {"n": 0, "form": {}}
++
++    def gen(values, _call):
++        form = values["form"].replace(" ", "_")
++        out = []
++        for _ in range(int(values.get("count") or 1)):
++            j = count["n"]
++            count["n"] += 1
++            q = count["form"].setdefault(form, 0)
++            count["form"][form] += 1
++            u = [_unique(j, t) for t in range(4)]
++            m = MOTIFS[j % len(MOTIFS)]
++            premise = f"a {form} whose {m} {u[0]} {u[1]} {u[2]} {u[3]} cuff"
++            if copy_language_every and j % copy_language_every == 0:
++                premise = f"a {form} that is perfect for cosy nights and makes a great gift"
++            out.append({
++                "title": f"{u[0].title()} {m.title()} {form.title()}",
++                "premise": premise,
++                "construction": CONS.get(form, ("in_the_round",))[q % 3],
++                "motif": f"{m} {u[1]}", "palette_story": "cranberry, cream and gold",
++                "recipient": RECIPIENTS[q % len(RECIPIENTS)], "occasion": "christmas",
++                "feeling": FEELINGS[j % len(FEELINGS)],
++                "function": f"holds {u[2]} treats by the {u[3]} hearth", "wow": "cuff"})
++        return {"concepts": out}
++    return gen
++
++
++def _patched(generator):
++    from brambleloop.gateway import model_gateway
++
++    saved = model_gateway.ModelGateway.complete_json
++    asked: list[dict] = []
++
++    def fake(self, ref, *, agent, values, required=None):
++        asked.append(dict(values))
++        return generator(values, len(asked))
++    model_gateway.ModelGateway.complete_json = fake
++    return saved, asked
++
++
++def _handler(db, job_type: str, inputs: dict | None = None, *, generator=None,
++             agent: str = "creative_director") -> tuple[dict, list]:
++    """Enqueue, then dispatch through the handler registry with a real JobContext."""
++    from brambleloop.gateway import model_gateway
++
++    q = JobQueue(db)
++    job = q.enqueue(agent, job_type, inputs or {},
++                    idempotency_key=f"t:{job_type}:{os.urandom(4).hex()}")
++    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=None)
++    handler = handlers.get(job_type)
++    assert handler is not None, f"{job_type} has no registered handler"
++    saved, asked = _patched(generator or stocking_field())
++    try:
++        return handler(ctx), asked
++    finally:
++        model_gateway.ModelGateway.complete_json = saved
++
++
++def _drain(db, job_type: str, limit: int = 10) -> list[dict]:
++    """Run queued jobs of one type through the real worker."""
++    out = []
++    for _ in range(limit):
++        if not Worker(db, "cert-design", job_types=[job_type]).run_once():
++            break
++    with db.session() as s:
++        for j in s.scalars(select(Job).where(Job.job_type == job_type)):
++            out.append({"id": j.id, "status": j.status, "inputs": dict(j.inputs or {}),
++                        "outputs": dict(j.outputs or {}), "error": j.last_error})
++    return out
++
++
++def _rows(db, action: str) -> list[tuple[int, str, dict]]:
++    with db.session() as s:
++        return [(r.id, r.artifact or "", dict(r.detail or {})) for r in s.scalars(
++            select(AuditLog).where(AuditLog.action == action).order_by(AuditLog.id))]
++
++
++def _jobs(db, job_type: str) -> list[Job]:
++    with db.session() as s:
++        rows = [j for j in s.scalars(select(Job).where(Job.job_type == job_type))]
++        s.expunge_all()
++        return rows
++
++
++def _judge(db, slug: str, *, reads=True, craft=4.3) -> None:
++    """A vision judge's recorded verdict on a concept board -- a fixture standing in for the
++    model_provider/image_vision judge that does not exist in shadow."""
++    with db.session() as s:
++        s.add(AuditLog(actor="creative_director", action=intake.JUDGED_ACTION, artifact=slug,
++                       detail={"thumbnail_reads_small": reads, "craft_impression": craft,
++                               "judge": "fixture vision judge"}))
++
++
++def _tournament(db, **kw) -> tuple[dict, dict]:
++    result, asked = _handler(db, "creative.tournament", **kw)
++    rows = _rows(db, intake.INTAKE_ACTION)
++    return result, (rows[-1][2] if rows else {})
++
++
++# ---- C-61 core: the winner gets a generated brief and meets the gate with it ------------
++
++
++def test_winner_brief_is_generated_and_the_gate_reads_it_88_110_115():
++    """#88 #110 #115: the storyboard, the motifs and the WOW slot are produced from the
++    winner, and the gate's deterministic brief checks pass on a real brief."""
++    db = _db()
++    _stockings(db)
++    result, row = _tournament(db)
++    assert result["ran"] is True and result["winner"], result
++    brief = row["brief"]
++    words = [w for w in brief["thumbnail_storyboard"].split() if len(w) > 3]
++    assert len(words) >= 6 and row["concept"]["premise"].rstrip(".") in \
++        brief["thumbnail_storyboard"]
++    assert brief["motifs"] and set(brief["motifs"]) <= set(
++        __import__("brambleloop.creative.invention", fromlist=["x"]).MOTIF_GRAMMAR["christmas"])
++    assert brief["season"] == "christmas"
++    gate = row["gate"]
++    assert "premise_thumbnail" not in (gate["failed"] or [])
++    assert "motif_grammar" not in (gate["failed"] or []), gate
++    assert "emotional_promise" not in (gate["failed"] or [])
++    # Taste is unjudged in shadow, so the honest decision is waiting on a vision model.
++    assert gate["decision"] == "waiting" and "image_vision" in gate["waiting_on"]
++    # The gate verdict is recorded against the winning design's slug.
++    assert any(a == row["concept"]["key"] for _i, a, _d in _rows(db, "concept.gate_waiting"))
++
++
++def test_a_carried_judged_winner_is_queued_drafted_and_compiled_3_277_281():
++    """#3 #277 #281: the funnel carried the winner to prototype; once a vision judgement is
++    recorded the held winner is re-presented on cadence, passes, and `cir.draft` authors a
++    CIR the compiler accepts."""
++    db = _db()
++    _stockings(db)
++    result, row = _tournament(db)
++    slug = row["concept"]["key"]
++    assert row["funnel"]["carried"] is True, row["funnel"]
++    assert row["decision"] == intake.WAITING and not _jobs(db, "cir.draft")
++    _judge(db, slug)
++    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    assert {"slug": slug, "decision": "engineering"} in out["regated"]["presented"], out
++    drafts = _jobs(db, "cir.draft")
++    assert len(drafts) == 1 and drafts[0].inputs["slug"] == slug
++    assert drafts[0].inputs["brief"]["motifs"] == row["brief"]["motifs"]
++    done = _drain(db, "cir.draft")
++    assert done[0]["status"] == JobStatus.DONE and done[0]["outputs"]["drafted"] is True, done
++    assert any(a.startswith(f"{slug}@") for _i, a, _d in _rows(db, "cir.drafted"))
++    compiled = _drain(db, "cir.compile")
++    assert compiled and compiled[0]["outputs"]["compiled"] is True, compiled
++    assert _jobs(db, "gate.certify"), "a compiled winner was not sent to certification"
++
++
++def test_a_winner_the_funnel_did_not_carry_is_never_engineered_3():
++    """#3: a narrow field dies at research; its winner is not carried to prototype, so no
++    judgement, however good, re-opens it and `cir.draft` refuses it by name."""
++    from test_cert_ideation import _db as hats_db
++
++    from test_cert_ideation import _run as ideation_run
++
++    db = hats_db()
++
++    result, _asked = ideation_run(db, "creative.tournament")
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    assert row["decision"] == intake.NOT_CARRIED, row["decision"]
++    assert "prototype" in row["funnel"]["why"]
++    slug = row["concept"]["key"]
++    _judge(db, slug)
++    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    assert not out["regated"]["queued"] and not _jobs(db, "cir.draft")
++    # And enqueued directly, the engineering entry refuses it at the funnel.
++    JobQueue(db).enqueue("crochet_engineer", "cir.draft", {
++        **row["payload"], "concept": {**row["payload"]["concept"],
++                                      "thumbnail_reads_small": True,
++                                      "craft_impression": 4.5}}, idempotency_key="direct")
++    done = _drain(db, "cir.draft")
++    assert done[0]["outputs"]["drafted"] is False
++    assert not _jobs(db, "cir.compile")
++
++
++def test_copy_language_premises_are_refused_at_generation_109():
++    """#109: a premise that delivers its feeling only as listing copy never becomes a
++    concept, and the gate's promise check names the object part that carries it."""
++    db = _db()
++    _stockings(db)
++    result, row = _tournament(db, generator=stocking_field(copy_language_every=4))
++    rows = [r for r in _rows(db, "creative.tournament")][-1][2]
++    problems = rows["field"]["problems"]
++    assert any("no emotional promise in the object" in p for p in problems), problems[:3]
++    assert "perfect for" not in row["concept"]["premise"]
++    assert row["brief"]["promise"]["execution"] in (
++        "motif", "structure", "texture", "colour_relationship", "scale", "finish")
++    assert row["brief"]["promise"]["feeling"] == row["concept"]["feeling"]
++
++
++def test_the_tournament_judges_the_real_window_and_plans_make_time_per_skill_112_283():
++    """#112: research is judged at the arena's real days to the event, and late-window
++    capacity is graded; #283: make time is estimated per maker skill with launch dates."""
++    db = _db()
++    _stockings(db)
++    result, row = _tournament(db)
++    t = _rows(db, "creative.tournament")[-1][2]
++    assert isinstance(t["days_to_event"], int) and t["days_to_event"] == result["days_to_event"]
++    assert t["window"] is not None and "new_work_should_be_no_heavier_than" in t["window"]
++    make = row["brief"]["make_time"]
++    days = {k: v["effective_make_days"] for k, v in make["by_skill"].items()}
++    assert set(days) == set(intake.MAKER_SKILLS)
++    assert days["beginner"] > days["experienced"], days
++    assert make["planned_for_skill"] == "beginner"      # a QUICK lane is beginner work
++    assert make["plan"]["preferred_launch"] < make["plan"]["latest_effective_launch"]
++    assert set(row["brief"]["window_by_skill"]) == set(intake.MAKER_SKILLS)
++
++
++def test_a_flagship_carries_a_wow_from_its_own_words_and_one_without_fails_115_290():
++    """#115: the WOW mechanism is read from the winner's premise; a flagship whose words
++    carry none still fails by name. #290: a flagship on a short trend is refused."""
++    from brambleloop.creative.concept import Concept
++    from brambleloop.creative.prospecting import Candidate
++
++    db = _db()
++    q = JobQueue(db)
++    ctx = JobContext(job=q.enqueue("creative_director", "creative.tournament", {}), db=db,
++                     queue=q, registry=Registry(db), phase=None)
++    base = dict(pod="blankets", form="rectangle_throw", construction="modular_panels",
++                motif="woodland lantern procession", palette_story="forest and gold",
++                recipient="grandparent", occasion="housewarming", feeling="heirloom",
++                function="covers a sofa and becomes a wall of lanterns", make_lane="FLAGSHIP")
++    good = Candidate(concept=Concept(
++        key="t1-x-0", title="Lantern Procession Throw",
++        premise="a throw whose modular lantern panels unfold into a woodland procession",
++        **base), slot=None)
++    plan = {"lessons": {"lesson_ids": []}, "vision": None}
++    got = intake.intake(ctx, candidate=good, plan=plan, source="test", funnel_rounds=[])
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    from brambleloop.creative.invention import WOW_MECHANISMS
++
++    assert row["brief"]["wow_mechanism"] in WOW_MECHANISMS, row["brief"]
++    assert "modular" in row["brief"]["derivation"]["wow"]
++    assert "wow" not in (row["gate"]["failed"] or [])
++    assert got["decision"] == intake.NOT_CARRIED       # no funnel run, no engineering
++    plain = Candidate(concept=Concept(
++        key="t1-x-1", title="Plain Throw",
++        premise="a warm soft throw in two quiet colours for the sofa at night",
++        **{**base, "construction": "flat_rows", "motif": "quiet colours",
++           "function": "covers a sofa"}), slot=None)
++    intake.intake(ctx, candidate=plain, plan=plan, source="test", funnel_rounds=[])
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    assert row["brief"]["wow_mechanism"] is None and "wow" in row["gate"]["failed"]
++    # #290: the same flagship translated from a film moment (short seasonal) is refused.
++    with db.session() as s:
++        s.add(CultureSignal(key="fixture-film", topic="a film", domain="film"))
++        cc = CultureConcept(signal_key="fixture-film", slug="fixture-film-throw",
++                            family="blanket", premise="p")
++        s.add(cc)
++        s.flush()
++        cc_id = cc.id
++    intake.intake(ctx, candidate=good, plan=plan, source="test", funnel_rounds=[],
++                  culture_id=cc_id)
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    assert row["brief"]["half_life"]["half_life"] == "short_seasonal"
++    assert "half_life" in row["gate"]["failed"] and row["decision"] == intake.REFUSED
++
++
++def test_vision_readings_reach_the_briefs_and_the_storyboard_278():
++    """#278: judged competitor photography is concept evidence -- it reaches every model
++    brief and frames the storyboard -- and with none the plan says UNMEASURED."""
++    db = _db()
++    _stockings(db)
++    result, row = _tournament(db)
++    assert "UNMEASURED" in _rows(db, "creative.tournament")[-1][2]["ideation"]["vision"]["state"]
++    assert "hero product only" in row["brief"]["thumbnail_storyboard"]
++    db = _db()
++    _stockings(db)
++    with db.session() as s:
++        for i in range(4):
++            s.add(BenchmarkObservation(
++                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"S{i}",
++                kind="gallery_image_observation",
++                detail={"observation": {"shot_type": "hero_styled",
++                                        "silhouette_strength": "a clear hooked outline",
++                                        "motif_legibility": "one large motif per cuff"}}))
++    result, asked = _handler(db, "creative.tournament")
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    block = _rows(db, "creative.tournament")[-1][2]["ideation"]
++    assert block["vision"]["judged_images"] == 4
++    assert all("competitor photography" in a["brief"] for a in asked)
++    assert all("one large motif per cuff" in a["brief"] for a in asked)
++    assert row["brief"]["thumbnail_storyboard"].startswith("hero styled")
++
++
++def test_the_radar_skill_gap_brief_is_consumed_by_ideation_114():
++    """#114: the radar's measured skill gap is read by the next tournament, reaches the
++    model's brief, and steers the winner toward the missing level."""
++    db = _db()
++    _stockings(db)
++    with db.session() as s:
++        s.add(AuditLog(actor="market_radar", action="radar.skill_gap", detail={
++            "missing": ["beginner_quick_win"], "over": ["advanced_heirloom"],
++            "brief": "ideate new concepts at ['beginner_quick_win'] for this wave",
++            "as_of": "2026-09-27"}))
++    result, asked = _handler(db, "creative.tournament")
++    block = _rows(db, "creative.tournament")[-1][2]["ideation"]
++    assert block["skill_gap"]["missing"] == ["beginner_quick_win"]
++    assert block["skill_gap"]["source"].startswith("radar.skill_gap row")
++    assert all("missing beginner_quick_win work" in a["brief"] for a in asked)
++    assert block["winner"]["fills_skill_gap"] is True
++
++
++def test_design_provenance_is_keyed_on_the_winning_design_101():
++    """#101: the provenance names the winning design, and compounding counts designs."""
++    from brambleloop.improve import bus, roi
++
++    db = _db()
++    _stockings(db)
++    lesson = bus.publish(db, origin_cell="product_creativity", subject="creative_rejection",
++                         statement=("stocking concepts whose cuffs repeat the same fold were "
++                                    "killed as sameness, so vary the cuff construction"),
++                         evidence_ref="test:autopsy:1")
++    _tournament(db)
++    _tournament(db)
++    slugs = {r[2]["concept"]["key"] for r in _rows(db, intake.INTAKE_ACTION)}
++    prov = {a: d for _i, a, d in _rows(db, "design.provenance")}
++    assert slugs <= set(prov), (slugs, list(prov))
++    assert all(lesson in prov[s]["lesson_ids"] for s in slugs)
++    report = roi.compounding_report(db)
++    assert report["designs"] == len(slugs) and report["briefs_recorded"] >= 1
++    assert report["designs_using_accumulated_knowledge"] == len(slugs)
++
++
++# ---- #314 #316 #318: the mission reads the design pipeline ------------------------------
++
++
++def _mjs_mission(db, listings_extra=()):
++    """The MJs fixture mission from test_cert_mjs: one new cropped cardigan listing."""
++    import test_cert_mjs as M
++
++    M.benchmarks.seed(db)
++    M._scan(db, M.BASELINE)
++    M._scan(db, M.BASELINE + [M.CROPPED, *listings_extra])
++    saved = M._no_credential()
++    try:
++        out, _ = _handler(db, "mjs.scan", {"as_of": M.AS_OF}, agent="market_radar")
++    finally:
++        M._restore(saved)
++    return out
++
++
++def test_gap_queue_scores_timing_search_and_make_time_and_advances_314():
++    """#314: the gap queue scores seasonal timing, search opportunity and make time from
++    rows, and a winner moves its department's gap past `concepting`."""
++    db = _db()
++    with db.session() as s:
++        s.add(SerpSnapshot(query="christmas cardigan crochet pattern", total_count=4200))
++    _mjs_mission(db)
++    with db.session() as s:
++        gap = s.scalar(select(CoverageGap).where(CoverageGap.pod == "garments"))
++        components = dict(gap.components["components"])
++        missing = list(gap.components["missing"])
++    assert {"seasonal_timing", "search_opportunity", "make_time"} <= set(components), components
++    assert 0.0 < components["search_opportunity"] < 1.0
++    assert set(missing) == {"expected_contribution", "creative_potential"}
++    # A stockings department winner that clears engineering moves its gap to engineering.
++    db2 = _db()
++    _stockings(db2)
++    from brambleloop.intel import coverage
++    coverage.upsert(db2, benchmark_key=benchmarks.MJS_KEY, arena="Christmas stockings",
++                    pod="stockings", components={"apparent_demand": 0.5})
++    _r, row = _tournament(db2)
++    _judge(db2, row["concept"]["key"])
++    _handler(db2, "mjs.seasonal_sentinel", {}, agent="market_radar")
++    with db2.session() as s:
++        gap = s.scalar(select(CoverageGap).where(CoverageGap.pod == "stockings"))
++        assert gap.state == "engineering" and gap.product_slug == row["concept"]["key"]
++
++
++def test_pod_memory_is_fed_by_brambleloop_responses_and_challenged_316():
++    """#316: a winner is an interpretation the pod holds; its launch outcomes move it, and a
++    contradicted interpretation gets a commercial-execution challenger."""
++    db = _db()
++    _stockings(db)
++    _r, row = _tournament(db)
++    slug = row["concept"]["key"]
++    lesson = row["pod_lesson"]
++    assert lesson["subject"] == "response:christmas"
++    out, _ = _handler(db, "intel.pod_learning", {}, agent="market_radar")
++    assert out["responses"]["state"].startswith("UNMEASURED"), out
++    # A fixture launch 70 days old with no order is a failed launch; a second response the
++    # same is a second contradiction, which raises a challenger.
++    _r2, row2 = _tournament(db, generator=stocking_field(copy_language_every=0))
++    old = datetime.now(timezone.utc) - timedelta(days=70)
++    with db.session() as s:
++        for sl in {slug, row2["concept"]["key"]}:
++            s.add(Listing(product_slug=sl, version="1.0.0", title="t", description="d",
++                          state="published", created_at=old))
++    _handler(db, "intel.pod_learning", {}, agent="market_radar")
++    with db.session() as s:
++        rows = list(s.scalars(select(PodLesson).where(
++            PodLesson.pod == "stockings", PodLesson.subject == "response:christmas")))
++        incumbent = next(r for r in rows if r.origin == "brambleloop_response")
++        kinds = [e["kind"] for e in incumbent.contradicted_by or []]
++        challengers = [r for r in rows if r.origin == "challenger"]
++    slugs = set(incumbent.detail["slugs"])
++    assert kinds.count("launch_failed") == len(slugs), kinds
++    if len(slugs) >= 2:
++        assert challengers and challengers[0].active, "a contradicted response was not challenged"
++    # An order is a sale: it supports the interpretation.
++    with db.session() as s:
++        c = Customer(customer_ref="fixture-customer")
++        s.add(c)
++        s.flush()
++        s.add(Order(customer_id=c.id, external_ref="fixture-order-1", product_slug=slug,
++                    revenue_cad=8.0))
++    _handler(db, "intel.pod_learning", {}, agent="market_radar")
++    with db.session() as s:
++        inc = s.get(PodLesson, incumbent.id)
++        assert any(e["kind"] == "launch_sold" for e in inc.supported_by or [])
++
++
++def test_mission_report_carries_every_318_field_from_rows():
++    db = _db()
++    _mjs_mission(db)
++    from brambleloop.intel.mission import mission_report
++
++    report = mission_report(db)
++    for field in ("last_successful_scan", "listings_changed_new", "pod_assignments",
++                  "top_uncovered_opportunities", "upcoming_seasonal_adaptations",
++                  "launch_deadlines", "comparison_results", "products_launched",
++                  "conversion_revenue", "mission_incidents"):
++        assert field in report, field
++    assert report["last_successful_scan"]
++    assert report["listings_changed_new"]["last_scan"].get("new listing") == 1
++    assert report["pod_assignments"].get("garments") == 1
++    assert report["upcoming_seasonal_adaptations"][0]["event"] == "Christmas"
++    assert report["launch_deadlines"][0]["latest_effective_launch"]
++    assert report["conversion_revenue"]["state"].startswith("UNMEASURED")
++    assert "UNMEASURED" in str(report["comparison_results"])
++    # The owner's command centre (the `/` route) renders them from the same database.
++    from brambleloop.app import main
++
++    saved = main.db
++    main.db = db
++    try:
++        html = main.dashboard()
++    finally:
++        main.db = saved
++    for label in ("last successful scan", "pod assignments", "top uncovered",
++                  "seasonal adaptations", "launch deadlines", "comparison results",
++                  "products launched", "conversion / revenue", "mission incidents"):
++        assert label in html, label
++
++
++# ---- #308 / #309: the MJs response, end to end as far as software goes -----------------
++
++
++def test_mjs_response_is_walked_from_listing_to_engineering_309():
++    """#309: an MJs stockings listing becomes a Christmas response tournament, the winner
++    passes intake once judged, `cir.draft` runs, and the event's pipeline walks past
++    make-time, launch dates and CIR engineering from the rows those stages wrote -- and stops
++    where the next gate has genuinely not passed, saying why."""
++    import test_cert_mjs as M
++
++    db = _db()
++    _stockings(db)
++    stocking = M._listing(1101, "Christmas Stocking Crochet Pattern, Cuffed Holiday Stocking",
++                          320)
++    M.benchmarks.seed(db)
++    M._scan(db, M.BASELINE)
++    M._scan(db, M.BASELINE + [stocking])
++    saved = M._no_credential()
++    try:
++        _handler(db, "mjs.scan", {"as_of": M.AS_OF}, agent="market_radar")
++    finally:
++        M._restore(saved)
++    with db.session() as s:
++        ev = s.scalar(select(MjsMissionEvent).where(MjsMissionEvent.listing_ref == "1101"))
++        assert ev is not None and ev.entered, "the stocking listing was not entered"
++        job = s.get(Job, ev.tournament_job_id)
++        inputs, event_id = dict(job.inputs), ev.id
++    assert inputs["seasonal_target"] == "Christmas"
++    result, _ = _handler(db, "creative.tournament", inputs)
++    assert result["arena"] == "Christmas/stockings", result["arena"]
++    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
++    assert row["mjs_event_id"] == event_id
++    slug = row["concept"]["key"]
++    _judge(db, slug)
++    _handler(db, "mjs.seasonal_sentinel", {"as_of": M.AS_OF}, agent="market_radar")
++    _drain(db, "cir.draft")
++    _drain(db, "cir.compile")
++    _handler(db, "mjs.seasonal_sentinel", {"as_of": M.AS_OF}, agent="market_radar")
++    with db.session() as s:
++        pipe = s.get(MjsMissionEvent, event_id).pipeline
++    assert pipe["winner"] == slug
++    assert pipe["completed"][:8] == ["observation", "pod_routing", "market_decomposition",
++                                     "demand_and_season_fit", "seasonal_tournament",
++                                     "make_time_estimate", "launch_dates",
++                                     "cir_engineering"], pipe["completed"]
++    assert pipe["stopped"] is not None and pipe["stopped"]["evidence"]
++
++
++def test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308():
++    """#308: the MJs cropped-cardigan listing becomes a Christmas garments tournament with
++    Christmas cardigans in the field; the funnel's proposition stage applies #111's family
++    test, which no fitted cardigan construction passes (no quick companion), so no cardigan
++    is carried to prototype and none is engineered. The pipeline records exactly that stop.
++    This is a real owner-rule conflict, reported rather than bypassed."""
++    db = _db()
++    _mjs_mission(db)
++    with db.session() as s:
++        ev = s.scalar(select(MjsMissionEvent).where(MjsMissionEvent.listing_ref == "1001"))
++        inputs, event_id = dict(s.get(Job, ev.tournament_job_id).inputs), ev.id
++    assert inputs["seasonal_target"] == "Christmas"
++
++    count = {"n": 0}
++
++    def cardigans(values, _call):
++        out = []
++        for _ in range(int(values.get("count") or 1)):
++            j = count["n"]
++            count["n"] += 1
++            u = [_unique(j, t) for t in range(4)]
++            out.append({
++                "title": f"{u[0].title()} Cropped Cardigan",
++                "premise": (f"a cropped cardigan with {u[0]} {u[1]} {u[2]} {u[3]} "
++                            f"{_unique(j, 5)} {_unique(j, 6)} woodland banding"),
++                "construction": ("top_down_yoke", "cable_panel", "bottom_up",
++                                 "modular_panels")[j % 4],
++                "motif": f"woodland star {u[1]}",
++                "palette_story": "forest, cranberry, cream and gold",
++                "recipient": RECIPIENTS[j % len(RECIPIENTS)], "occasion": "christmas",
++                "feeling": FEELINGS[j % len(FEELINGS)],
++                "function": f"a {u[2]} layer for {u[3]} mornings", "wow": "yoke"})
++        return {"concepts": out}
++
++    result, _ = _handler(db, "creative.tournament", inputs, generator=cardigans)
++    assert result["arena"] == "Christmas/garments", result["arena"]
++    t = _rows(db, "creative.tournament")[-1][2]
++    rounds = {r["stage"]: r for r in t["rounds"]}
++    assert rounds["research"]["survived"] >= 35, rounds["research"]
++    assert rounds["proposition"]["causes"].get("no_family"), rounds["proposition"]
++    assert "prototype" not in t["stages_run"]
++    assert not _jobs(db, "cir.draft")
++    with db.session() as s:
++        pipe = s.get(MjsMissionEvent, event_id).pipeline
++    assert pipe["stopped"]["stage"] == "seasonal_tournament", pipe
++    assert "no winner" in pipe["stopped"]["evidence"]
++
++
++# ---- #293 / #283 at launch: buyer language and skill-aware windows ------------------------
++
++
++OBSERVED_TITLES = ("Christmas Blanket Crochet Pattern", "Christmas Ornament Crochet Pattern",
++                   "Christmas Decor Crochet Pattern", "Christmas Coaster Crochet Pattern",
++                   "Christmas Pillow Crochet Pattern", "Christmas Runner Crochet Pattern",
++                   "Christmas Stocking Crochet Pattern", "Christmas Garland Crochet Pattern")
++
++
++def test_launch_path_uses_observed_buyer_language_and_the_patterns_own_skill_293_283():
++    """One full shadow release cycle (plan.cycle drained through the worker).
++
++    #293: `listing.seo` maps each product to buyer facets from its own facts and tags the
++    phrases buyers were observed using. #283: `launch.plan`'s window decision and the
++    seasonal sentinel's war room are planned for the maker the pattern's printed difficulty
++    is bought by, with the whole skill distribution recorded."""
++    from test_shadow import boot, drain
++
++    from brambleloop.seasonal.leadtime import catalogue_plans
++
++    db = boot()
++    with db.session() as s:
++        for i, title in enumerate(OBSERVED_TITLES * 2):
++            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"B{i}",
++                                   title=title, pod="home_decor", price_cad=7.0))
++    JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
++    drain(db)
++    seo = [d for _i, _a, d in _rows(db, "listing.seo_drafted")]
++    assert seo, "no listing reached listing.seo"
++    mapped = [d["buyer_language"] for d in seo if (d.get("buyer_language") or {}).get("mapped")]
++    assert mapped, [d.get("buyer_language") for d in seo][:2]
++    observed_tags = {t for bl in mapped for t in bl["tags"]}
++    with db.session() as s:
++        tagged = {t for lst in s.scalars(select(Listing)) for t in (lst.tags or [])}
++    assert observed_tags and observed_tags <= tagged, (observed_tags, sorted(tagged)[:20])
++    assert all(o["competition"] == "UNMEASURED" or isinstance(o["competition"], float)
++               for bl in mapped for o in bl["observed"])
++
++    room = catalogue_plans(db)
++    assert room["plans"], "no certified seasonal product was scheduled"
++    for plan in room["plans"]:
++        assert plan["skill"] in ("beginner", "adventurous_beginner", "intermediate")
++        assert plan["difficulty"] and len(plan["make_time_by_skill"]) == 4
++        assert plan["effective_make_days"] == \
++            plan["make_time_by_skill"][plan["skill"]]["effective_make_days"]
++    decisions = [d.get("window_decision") for _i, _a, d in _rows(db, "launch.planned")
++                 if isinstance(d.get("window_decision"), dict)]
++    decisions += [j.outputs.get("window_decision") for j in _jobs(db, "launch.plan")
++                  if isinstance((j.outputs or {}).get("window_decision"), dict)]
++    seasonal = [w for w in decisions if w.get("make_time_by_skill")]
++    assert seasonal, "no launch.plan window decision carried the skill distribution"
++    assert all(w["skill"] in ("beginner", "adventurous_beginner", "intermediate")
++               for w in seasonal)
++
++
++if __name__ == "__main__":
++    failed = 0
++    passed = 0
++    only = sys.argv[1:] or None
++    for name, fn in sorted(globals().items()):
++        if name.startswith("test_") and callable(fn) and (not only or name in only):
++            try:
++                fn()
++                passed += 1
++                print(f"OK   {name}")
++            except Exception as exc:  # noqa: BLE001
++                failed += 1
++                import traceback
++                traceback.print_exc()
++                print(f"FAIL {name}: {exc}")
++    print(f"{passed} passing, {failed} failing")
++    sys.exit(1 if failed else 0)
+-- 
+2.43.0
+

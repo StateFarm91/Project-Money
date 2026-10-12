@@ -1,0 +1,927 @@
+[
+ {
+  "uid": "F-799",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names Learn architecture and the ability to queue education work as launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Learn exists as a scheduled, durable department (hourly learn.scan, own agent, gap queue, graph, lesson store, authenticated editor/reviewer API) but has no metrics, experiments, calendar or RUN/GROW/IMPROVE participation (no 'learn' cell in improve/; zero-spend agent only runs learn.scan)",
+  "producer": "src/brambleloop/learn/service.py::scan",
+  "durable_state": "learn_nodes, learn_edges, learn_gaps, learn_lessons (learn/models.py)",
+  "consumer": "src/brambleloop/learn/api.py::router (GET /api/learn/queue reads learn_gaps)",
+  "protected_effect": "education work is queued from real pattern/support sources without generating or publishing anything",
+  "tests": [
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state",
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch completion: add Learn metrics (gap age, covered/queued counts) as an operating reading and register Learn in the improve/ department cells so RUN/GROW/IMPROVE applies; editorial calendar/experiments are s84 post-launch. Launch part needs no further build.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-801",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names content-gap detection launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "topics() extracts only explicit CIR keys (stitch, construction, front/back loop, gauge, yarn weight, hook mm); finishing/seaming/blocking methods and 'gauge issue' as a distinct problem are not extracted; coverage is exact-topic match to an approved lesson (no 'adequately covered' judgement); trigger is an hourly scan of all PatternVersions rather than an event on certification (acceptable latency)",
+  "producer": "src/brambleloop/learn/service.py::scan (topics() over PatternVersion.cir_json)",
+  "durable_state": "learn_gaps (one row per topic, evidence = pattern_version_id + cir_digest)",
+  "consumer": "src/brambleloop/learn/api.py::router (queue; draft PUT requires topics that are existing gaps)",
+  "protected_effect": "a new pattern's uncovered stitch/technique becomes exactly one QUEUED gap; revoked coverage reopens it",
+  "tests": [
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap",
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "cir/model.py Op dataclass serialises key 'stitch' and 'loop', so topics() works on real CIR.to_dict(), not only the test dict"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Extend learn/service.py::topics to emit finishing/seaming/blocking topics from CIR finishing/assembly fields and add a test that a real certified CIR (e.g. a Launch-0 product) yields its special-stitch gaps",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-804",
+  "launch_class": "MATURE",
+  "launch_class_reason": "s84 lists videos, email sequences, social derivatives and search-led articles as post-launch; the launch-relevant core (one canonical, digest-bound lesson spec) is already enforced via F-799/F-805",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "one canonical lesson specification exists (Lesson.spec, revision = sha256 of spec; any change resets reviews and revokes approval), but only two derived surfaces consume it (public /learn/{slug} read and PDF 'Technique help' links); no article/FAQ/printable/diagram/video/email/social/clip derivation and therefore no drift check across formats",
+  "producer": "src/brambleloop/learn/service.py::save_lesson",
+  "durable_state": "learn_lessons (spec, revision digest, reviews, state)",
+  "consumer": "src/brambleloop/learn/api.py::read_lesson; src/brambleloop/learn/service.py::pdf_help_links",
+  "protected_effect": "every served/linked lesson is the exact reviewed revision of the canonical spec",
+  "tests": [
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap",
+   "tests/test_learn_launch.py::test_direct_spec_tamper_cannot_retain_approval",
+   "tests/test_learn_publish_contract.py::test_omitted_revision_serves_only_current_reviewed_spec_never_stale_pdf_target"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: add learn/formats.py deriving each format from Lesson.spec with the source revision embedded, and a drift test that a spec change invalidates every derived artefact (reuse ops/artefacts lineage)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-805",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names correctness QA launch-critical; tutorials must be tested like patterns",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "validate_spec machine-checks per-step counts against cir.stitches semantics (consumes/produces x repeat), US/UK terminology against the taxonomy, and explicit hook/yarn assumptions; diagrams and demonstrations reconcile only via human attestation (review dimension), and lesson swatches are not compiled/reverse-compiled through cir/compiler.py + cir/reverse.py (no row-to-row reconciliation)",
+  "producer": "src/brambleloop/learn/service.py::validate_spec (called by save_lesson and eligible)",
+  "durable_state": "learn_lessons",
+  "consumer": "src/brambleloop/learn/service.py::eligible (gates read_lesson, help_links, pdf_help_links)",
+  "protected_effect": "a lesson whose counts or terminology disagree with canonical stitch semantics cannot be saved or served",
+  "tests": [
+   "tests/test_learn_launch.py::test_invalid_count_and_licence_refused",
+   "tests/test_learn_input_shapes.py::test_real_draft_endpoint_maps_malformed_shapes_to422",
+   "tests/test_learn_input_shapes.py::test_null_and_malformed_shapes_raise_valueerror_preserve_review"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "In learn/service.py::validate_spec, require any multi-row swatch in a lesson to be a CIR fragment compiled by cir/compiler.py and reverse-compiled by cir/reverse.py; add a test that a swatch with a wrong row total is refused",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-806",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 correctness QA; incorrect technique imagery is customer-facing misinformation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "visual correctness is enforced only as a required human-attested review dimension (visual_accuracy must be PASS; UNKNOWN withholds), labelled automated_truth_proof=false; no deterministic technique-diagram generator or loop/insertion-point verifier exists for lessons; note the public lesson route does not serve assets at all, so no lesson image can currently reach a customer",
+  "producer": "src/brambleloop/learn/service.py::review_lesson",
+  "durable_state": "learn_lessons.reviews",
+  "consumer": "src/brambleloop/learn/service.py::eligible",
+  "protected_effect": "no lesson is approved or linked unless a distinct reviewer attests visual accuracy for that exact revision",
+  "tests": [
+   "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
+   "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured",
+  "next_action": "Before lesson images are served: generate technique diagrams deterministically (extend visual/disclosed_render glyphs or visual/render.py loop targets per stitch) and verify them with visual/render_verification-style pixel checks; add a test that a dc diagram drawn as sc fails",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-808",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names pattern/support links launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "PDF links are wired at both runtime render sites (assets.build and store.publish re-render) from approved, revision-bound lessons, but emit nothing until BRAMBLELOOP_LEARN_PUBLIC_ORIGIN (an owned HTTPS origin) is configured; listings and support answers do not link lessons (no help_links caller in support/ or listing copy)",
+  "producer": "src/brambleloop/learn/service.py::pdf_help_links",
+  "durable_state": "learn_lessons",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build; src/brambleloop/runtime/pipeline.py::handle_store_publish -> publish/pdf.py::build_pattern_pdf ('Technique help')",
+  "protected_effect": "the customer PDF links only approved lesson revisions, and a changed approval trips the PDF hash gate rather than shipping a stale link",
+  "tests": [
+   "tests/test_learn_launch.py::test_pdf_links_require_configured_origin_and_approved_revision",
+   "tests/test_learn_launch.py::test_actual_pdf_render_threads_revision_bound_help_to_layout",
+   "tests/test_learn_publish_contract.py::test_both_runtime_pdf_render_sites_pass_same_learn_resolver",
+   "tests/test_learn_publish_contract.py::test_approved_links_repeat_exact_bytes_and_changed_approval_trips_hash_gate"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "links appear only once an owned HTTPS Learn origin is deployed and configured (BRAMBLELOOP_LEARN_PUBLIC_ORIGIN); listing/support links are buildable now"
+  },
+  "defect": null,
+  "next_action": "Buildable now: call learn.service.help_links from support/concierge answer composition and from listing description assembly (runtime/release.py listing draft) with a test that an approved lesson is linked and an unapproved one is not; owner: provide the owned Learn origin when a lesson is approved",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-815",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names the canonical knowledge graph launch-critical",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "learn_nodes/learn_edges are written (pattern->topic 'needs_help', support->specialist topic, lesson->topic 'teaches', with CIR digest/version evidence) but nothing in the runtime reads the edges (no graph API, no agent consumer; only tests select LearnEdge); videos, FAQs, search queries and stitch/technique/yarn/hook inter-relations are absent",
+  "producer": "src/brambleloop/learn/service.py::scan; src/brambleloop/learn/service.py::save_lesson",
+  "durable_state": "learn_nodes, learn_edges",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence",
+   "tests/test_learn_launch.py::test_support_sources_do_not_copy_customer_pii"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "grep: LearnEdge/LearnNode are only merged in learn/service.py and selected in tests/test_learn_launch.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "write-only graph: producer is live (learn.scan) but the graph exists so agents can reuse knowledge and no runtime consumer reads it",
+  "next_action": "Add a DB-computing read (GET /api/learn/graph in learn/api.py, and use edges in help_links/support routing) plus a test that a consumer decision changes when an edge is added; add search-cluster (growth/clusters) and FAQ nodes",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-821",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names provenance launch-critical; copying competitor education breaches the IP non-negotiable",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "validate_spec requires every lesson asset to declare rights in {brambleloop_original, licensed}, a source, a sha256 and (if licensed) a licence_ref, and the reviewer attests; declarations are not verified (sha256 is not checked against real bytes or against the benchmark/competitor corpus, licence not verified externally)",
+  "producer": "src/brambleloop/learn/service.py::validate_spec",
+  "durable_state": "learn_lessons.spec.assets",
+  "consumer": "src/brambleloop/learn/service.py::eligible",
+  "protected_effect": "a lesson declaring competitor or unlicensed assets cannot be saved or approved",
+  "tests": [
+   "tests/test_learn_launch.py::test_invalid_count_and_licence_refused"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "proxy: provenance is a self-declaration attested by a reviewer, not a byte-level check",
+  "next_action": "In save_lesson, resolve each asset sha256 in the ArtifactStore and run the existing benchmark byte check used by gateway/images (benchmark-quarantine hash lookup) so a competitor-sourced asset is refused; add the test",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-822",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84 names correctness QA launch-critical",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/service.py::review_lesson (via POST /api/learn/lessons/{slug}/review)",
+  "durable_state": "learn_lessons.reviews/state",
+  "consumer": "src/brambleloop/learn/service.py::eligible -> learn/api.py::read_lesson, service.help_links, service.pdf_help_links",
+  "protected_effect": "no lesson is served or linked before a distinct authenticated reviewer records PASS on all seven dimensions (correctness, completeness, sequencing, clarity, accessibility, visual_accuracy, executable_skill) for the exact revision",
+  "tests": [
+   "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities",
+   "tests/test_learn_launch.py::test_revision_change_revokes_help_and_reopens_gap"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "review is human attestation (evidence_class human_attestation, automated_truth_proof False); no reviewer credential is configured in production and no real review exists"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "learn_reviewer",
+   "detail": "exercising it needs a designated reviewer identity/credential (BRAMBLELOOP_LEARN_REVIEW_TOKEN, BRAMBLELOOP_LEARN_REVIEWER_ID); not needed before first sale since no lesson is required"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (exercise when the first lesson is drafted)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-826",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "s84: the ability to queue *valuable* education work; filler is a launch risk to brand trust",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "nothing generates lessons (scan reports generated:0/published:0, WATCH when no QUEUED gap); drafts require a learner_problem and topics that are existing source-backed gaps; search opportunities are not a gap source, and the gap-required draft refusal (422 'Lesson needs a source-backed content gap') has no test",
+  "producer": "src/brambleloop/learn/service.py::scan",
+  "durable_state": "learn_gaps",
+  "consumer": "src/brambleloop/learn/api.py::router (draft PUT refuses topics without a LearnGap)",
+  "protected_effect": "no content without a pattern/support-backed learner need",
+  "tests": [
+   "tests/test_learn_launch.py::test_no_sources_watch_not_filler",
+   "tests/test_learn_launch.py::test_authenticated_draft_review_serving_has_distinct_identities"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a test in tests/test_learn_launch.py that PUT /api/learn/lessons/{slug} with a topic that is not a LearnGap returns 422; post-launch add growth search clusters as a gap source",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-828",
+  "launch_class": "MATURE",
+  "launch_class_reason": "the launch part (Pattern supplies technical truth, CX supplies confusion signals) is in place; Marketing/SEO packaging and Finance economics of education are s84 post-launch growth",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Pattern (PatternVersion CIR) and CX (SupportCase specialist labels) feed learn.scan; Visual is only a review dimension; no Marketing/SEO, Research or Finance inputs; LearnGap.owner is always 'learn' with no routing to Pattern/Visual departments",
+  "producer": "src/brambleloop/learn/service.py::scan",
+  "durable_state": "learn_gaps, learn_edges",
+  "consumer": "src/brambleloop/learn/api.py::router",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_learn_launch.py::test_real_worker_scanner_reads_production_pattern_state",
+   "tests/test_learn_launch.py::test_support_sources_do_not_copy_customer_pii"
+  ],
+  "evidence": [
+   "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
+   "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
+   "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch: route gaps by need (technical truth -> pattern, diagrams -> visual) via LearnGap.owner, add growth/clusters search demand and finance cost inputs, with routing tests",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-834",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "build2/final_proof.py requires a consumer/decision/effect chain bound by evidence edges before a row is REVIEWABLE, but it is an offline CLI (unreached), has never been run on real packets (no packets file or report committed), and real matrix rows lack the protected_action_applicability field it requires; aggregate.py does not check consumers at all",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+   "tests/test_final_proof.py::test_required_receipt_mutations"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
+   "research/final_build/aggregate.py (no consumer check)",
+   "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Build cluster J: produce evidence packets for launch-critical rows (consumer identity + receipt), add protected_action_applicability to matrix rows, run final_proof.py --matrix closure_matrix.json on the candidate head and commit the report; add the s92 'disable a consumer -> proof reopens' test",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-836",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof refuses evidence_class fixture/static and requires a production_producer receipt, but evidence_class is self-declared in the packet; no automated detector that a durable_state cited as evidence has a non-test writer reached from a live root; never run on real packets",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py",
+   "aggregate.py caps INTEGRATED on reachability of the producer module, which partially guards fixture-only claims"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "honour-system: packet's evidence_class is asserted by its author, not derived",
+  "next_action": "Add to the closure validator a static check that each row's durable_state table has a writer outside tests/ in a module module_reachability marks reached; seed a test-only fact and assert it is refused",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-837",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof requires direct=True ('proxy cannot satisfy direct proof') but 'direct' is self-declared; aggregate.py has no proxy field; proxies are labelled case by case in runtime (e.g. learn automated_truth_proof=false, compose certifies_construction=false)",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused",
+   "tests/test_final_visual_authority.py::test_preserved_authoritative_pixels_never_certify_unknown_construction"
+  ],
+  "evidence": [
+   "src/brambleloop/build2/final_proof.py",
+   "src/brambleloop/visual/compose.py verify returns certifies_construction False"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "honour-system: 'direct' is asserted by the packet author",
+  "next_action": "Add a proxy flag to matrix rows/evidence and make aggregate.py refuse INTEGRATED+ when every cited evidence item is proxy-flagged; add the test",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-839",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite ran on 6f9a2f7; function-level re-mapping is in progress (this remap); no frozen launch candidate yet, so the final-head audit has not been performed on it; closure_matrix.json basis still reads '019ebf0 (+ Final Build registry commits)'",
+  "producer": "src/brambleloop/build2/reachability.py",
+  "durable_state": "research/final_build/module_reachability.json (basis 'HEAD 6f9a2f7')",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached",
+   "tests/test_final_proof.py::test_mutations_refused"
+  ],
+  "evidence": [
+   "research/final_build/module_reachability.json basis HEAD 6f9a2f7",
+   "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "closure_matrix.json basis label is stale (says 019ebf0) while reachability is 6f9a2f7",
+  "next_action": "After this remap: update aggregate.py basis to the measured head, freeze the candidate (F-845), regenerate reachability and re-run the function-level audit on that exact SHA by an independent session",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-840",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), and a green suite exists on 6f9a2f7; the requirement-level runtime proof on the same SHA (final_proof report) does not exist yet",
+  "producer": "research/final_build/aggregate.py::cap",
+  "durable_state": "research/final_build/closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+   "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason",
+   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks"
+  ],
+  "evidence": [
+   "research/final_build/RUN_6f9a2f7_full_suite.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Final verdict must cite the candidate's full-suite record and the final_proof.py report for the same SHA",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-841",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": null,
+  "durable_state": "research/final_build/FINAL_BUILD_STATE.md (Fixed facts: 019ebf0 certified baseline)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "FINAL_BUILD_STATE.md fixed facts; DECISION_LOG D-FB-1; Final Build commits on claude/visual-investigation after 019ebf0; production branch untouched at fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none \u2014 hold 019ebf0 as baseline until the reviewed successor candidate is frozen (F-845)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-843",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "closure_matrix.json maps all 866 registry records (aggregated, test-pinned) with maturity, evidence, gate and next_action; rows are being re-verified against 6f9a2f7 by this remap wave (many rows still carry 019ebf0-era mapping); basis label stale",
+  "producer": "research/final_build/aggregate.py::main",
+  "durable_state": "research/final_build/closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+   "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse"
+  ],
+  "evidence": [
+   "research/final_build/closure_matrix.json",
+   "research/final_build/mapping/*.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": "matrix basis field says 019ebf0 though reachability/suite are 6f9a2f7",
+  "next_action": "Fold the remap_r* outputs into mapping slices, set basis to the measured head in aggregate.py, re-aggregate and re-run tests/test_final_closure_matrix.py",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-845",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)",
+  "producer": null,
+  "durable_state": "research/BUILD2_CERTIFICATION.md (Build 2 precedent)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "git branch -a: only build2-candidate-63f2493",
+   "FINAL_BUILD_STATE.md Progress 2026-10-05 ~19:00Z"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "After the remap, freeze the candidate SHA as branch/tag final-candidate-<sha> and open a defect ledger against it",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-846",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candidate with an independent re-audit",
+  "producer": null,
+  "durable_state": "research/final_build/codex_reconciliation/*.json; research/final_build/waves/*.json; RUN_6f9a2f7_full_suite.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/final_build/codex_reconciliation/build2_assist_reconciliation.json",
+   "research/final_build/codex_reconciliation/codex_fb_verification.json",
+   "FINAL_BUILD_STATE.md RESUME 2026-10-05"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Run freeze -> independent audit -> defect ledger -> repair -> regression -> full suite -> independent re-audit on the frozen candidate",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-847",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "D-FB-5 rule plus launch_class per matrix row; new questions are recorded as owner decisions rather than scope (D-FB-9 catalogue_depth); no enforced record or check rejects/schedules a new idea",
+  "producer": null,
+  "durable_state": "research/final_build/closure_matrix.json (launch_class); DECISION_LOG.md D-FB-5, D-FB-9",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "DECISION_LOG.md D-FB-5, D-FB-7, D-FB-9"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Add a launch_scope ledger (launch-critical / post-launch scheduled / rejected) to FINAL_BUILD_STATE with a test that every non-registry wave item is classified",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-848",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "chain legs are integrated and tested individually (release chain to shadow store.publish refusal in real processes; orders/refund truth after fb2-O; disclosed listing set; owner publication grant), but no single recorded rehearsal of opportunity -> design -> pattern -> QA -> Visual -> listing -> pricing -> approval -> publish refusal -> order -> support -> accounting on the head/candidate; scripts/shadow_rehearsal.py does not exist (scripts/shadow_dossier.py is a Build-1-era flagship dossier)",
+  "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "durable_state": "jobs / audit_log",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish",
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session"
+  ],
+  "evidence": [
+   "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Build scripts/shadow_rehearsal.py: boot the production start command on a fresh DB at the candidate SHA, drive one Launch-0 product through to store.publish refusal (and a grant-approved simulated publish against tests/fake_etsy), inject a fake-Etsy receipt through orders.ingest, a support case and the ledger, and commit a dated evidence JSON",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-849",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "on 6f9a2f7 the production start command is proven in real OS processes (scrubbed env, kill/resume) and the import closure carries no session artefact; production fcb982d has run its cadences unattended (prod_api_verify artefacts) but that is the old tree; no launch-certification proof on a frozen Final candidate and no 24h off-device window",
+  "producer": "src/brambleloop/app/main.py::_startup (embedded scheduler/worker)",
+  "durable_state": "jobs (runtime.started rows)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
+   "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
+   "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state"
+  ],
+  "evidence": [
+   "research/final_build/RUN_6f9a2f7_full_suite.json (independence suite passed)",
+   "9a5a5a7 stall-based wait fix",
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (fcb982d runtime, 165 refusals)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "deploying the candidate and a 24h unattended window is the owner's authorisation"
+  },
+  "defect": null,
+  "next_action": "Buildable now: re-run tests/test_cert_claude_independence.py on the frozen candidate and commit the evidence; owner: authorise the production_window for the 24h unattended run",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-850",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract (runtime durability)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "leases, conditional-UPDATE fencing, idempotency keys and dead letters are integrated and proven by SIGKILL/restart tests (basic leases/idempotency also exist in fcb982d; the conditional-lease fencing is post-fcb982d); no restart during publish/orders.ingest on the candidate and no live restart drill",
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "durable_state": "jobs",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "protected_effect": "no lost or duplicated work across restarts",
+  "tests": [
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
+   "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
+  ],
+  "evidence": [
+   "module_reachability: queue/durable.py reached, in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "restarting the live service disturbs production; owner authorises"
+  },
+  "defect": null,
+  "next_action": "Buildable now: add a restart test that kills the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ingest and asserts exactly one listing/ledger effect; owner: authorise a live restart drill",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-852",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful Visual representation (D-FB-7)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/product_authority.py::redraw_refusal (returned first by publish/owned_photography.py::make and publish/model_photography.py::make)",
+  "durable_state": "artifacts/audit_log (refusal records)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (generated frames classified/refused by gates.platform_policy) and visual/parity.py",
+  "protected_effect": "no generative model is asked to draw the product; launch imagery is the disclosed deterministic render",
+  "tests": [
+   "tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart",
+   "tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image",
+   "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope"
+  ],
+  "evidence": [
+   "module_reachability: visual/product_authority.py reached via seasonal.cycle_proof -> listing_asset.make; not in fcb982d",
+   "DECISION_LOG D-FB-7, D-FB-9; fb3-V fa5ff94",
+   "remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-853",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful Visual representation (D-FB-7)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the launch path is a disclosed render whose every pixel is derived from the certified CIR/twin and verified on its sha256-bound bytes, so product geometry is authoritative through presentation; for composited presentation only an exact-preservation verifier exists (visual/compose.py verify/protect: any changed protected pixel FAILs), with no main-line compositor producing protected photoreal frames (B+C remains on codex/visual-v2-rnd @ 035ff0c, R&D only)",
+  "producer": "src/brambleloop/visual/product_authority.py::structural_floor",
+  "durable_state": "listing frames with protected_product / disclosed_render manifests (artifact store)",
+  "consumer": "src/brambleloop/visual/parity.py::assess; src/brambleloop/publish/disclosed_listing.py",
+  "protected_effect": "a frame whose authoritative product pixels changed fails structural truth",
+  "tests": [
+   "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+   "tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling",
+   "tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes",
+   "tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails"
+  ],
+  "evidence": [
+   "module_reachability: visual/compose.py and visual/product_authority.py reached; not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch (photoreal): integrate a protected-region compositor from the V2 R&D lane only after it graduates (F-857); nothing further needed for the disclosed-render launch path",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-854",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth in imagery (D-FB-7 requires stitch/fabric identity)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the disclosed renderer encodes one glyph per twin cell, per-stitch row height, colour placement, raised posts, ring/polygon geometry and scale, and refuses unsupported constructions; the independent verifier fails missing/merged stitches, wrong colour, spurious posts, wrong scale; it is a stylised glyph drawing, not yarn/loop fabric (no texture, loop structure or cable pitch), and 3D crochet_topology (sc/hdc only) stays unreached",
+  "producer": "src/brambleloop/visual/disclosed_render.py::listing_set",
+  "durable_state": "artifact store (PNG + construction manifest)",
+  "consumer": "src/brambleloop/visual/render_verification.py::verify via visual/product_authority.py::disclosed_render_floor",
+  "protected_effect": "listing images show the certified stitch count/heights/colours/posts at true scale",
+  "tests": [
+   "tests/test_disclosed_render.py::test_a_missing_stitch_fails",
+   "tests/test_disclosed_render.py::test_two_stitches_merged_into_one_fails",
+   "tests/test_disclosed_render.py::test_a_raised_post_where_the_pattern_has_none_fails",
+   "tests/test_disclosed_render.py::test_unsupported_constructions_are_refused_not_guessed",
+   "tests/test_disclosed_render.py::test_every_launch0_frame_verifies_against_its_cir"
+  ],
+  "evidence": [
+   "module_reachability: visual/disclosed_render.py reached via seasonal.cycle_proof -> listing_asset.make; render_verification reached; neither in fcb982d",
+   "waves/fb2_H2.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Post-launch/V2: continuous yarn/loop rendering (R&D next step: material-coordinate yarn, one-post DC coupon) and extend crochet_topology beyond sc/hdc; for launch, extend the renderer only if a Launch-0 product needs a construction it currently refuses",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-857",
+  "launch_class": "MATURE",
+  "launch_class_reason": "D-FB-7: photoreal Visual V2 is not launch-critical; with F-852 refusing product redraw no photoreal product image can be published, so the graduation only binds before photoreal imagery is introduced (D-FB-4 condition)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no V2 graduation gate/harness in src; V1 blind-original graduation on Heirloom ran in research (0/16 certified); V2 R&D frozen at codex/visual-v2-rnd 035ff0c (not on main line)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "DECISION_LOG D-FB-4, D-FB-7",
+   "codex/visual-v2-rnd @ 035ff0c (R&D only)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "research software; realism judging may later need image_vision (owner)"
+  },
+  "defect": null,
+  "next_action": "Post-launch: define the V2 product-only graduation harness (Brambleloop original, no finished-product reference, both gates, UNKNOWN blocks) on the R&D lane before any photoreal integration",
+  "confidence": "HIGH",
+  "searched": "grep src/ tests/ for graduation/blind/V2 gate: none on main line"
+ },
+ {
+  "uid": "F-867",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "final_proof.py refuses a packet whose independent reviewer equals the implementer; aggregate.py keeps worker wave claims beside maturity rather than folding them in; D-FB-8 makes Codex a worker, not certifier; but no adjudication record is required by tooling for any real row and final_proof has never run on real packets",
+  "producer": "src/brambleloop/build2/final_proof.py::validate",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_required_receipt_mutations"
+  ],
+  "evidence": [
+   "DECISION_LOG D-FB-8",
+   "research/final_build/aggregate.py wave overlay comment (F-867)",
+   "MAPPING_BRIEF: integrator certifies"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Require an independent_review receipt (different session/model) in the final_proof packets of every launch-critical COMPLETE row and run the validator on the candidate",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-874",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "marketplace compliance / owner-action sequencing for first sale",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "nothing in the runtime requires identity/banking/tax before shadow, certification or publication-grant steps; legal_and_tax_setup is queued by the daily launch.readiness cadence with blocks='first sale' and closes only on evidence; but it is seeded into the owner queue immediately (first-sale blockers sorted first) rather than deferred until the step before first sale",
+  "producer": "src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (from intel/etsy_surfaces.py::owner_queue)",
+  "durable_state": "owner_actions (requirement_key etsy surface prefix)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "protected_effect": "KYC/tax requested only as a first-sale blocker, never executed by software",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_come_first_and_are_the_ones_that_block",
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+   "tests/test_etsy_readback_observe.py::test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences"
+  ],
+  "evidence": [
+   "runtime/worker.py:408 launch_readiness daily cadence",
+   "module_reachability: runtime/etsy_ops.py reached, not in fcb982d; intel/etsy_surfaces.py in fcb982d",
+   "FINAL_BUILD_STATE owner batch asks only for the publication grant"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "Defer seeding first-sale-only owner actions (legal_and_tax_setup, payment_settings_setup) until a release holds a valid publication grant or passes readiness except for them; add a test that a fresh shadow DB's owner queue does not ask for KYC",
+  "confidence": "MEDIUM",
+  "searched": null
+ }
+]

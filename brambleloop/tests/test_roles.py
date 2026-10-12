@@ -8,6 +8,7 @@ function that cannot do it.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 
@@ -355,7 +356,9 @@ def test_every_registered_handler_is_runnable_by_some_agent():
 # tolerated silently, because "permitted" reads as "available" to anybody auditing it, and
 # because a new one appearing by accident should fail rather than join the crowd.
 DECLARED_BUT_UNBUILT: frozenset[str] = frozenset({
-    "ads.adjust", "ads.campaign", "assets.render", "cir.reverse", "cir.revise",
+    # ads.adjust / ads.campaign left this list in C-60: both are handled now, behind the
+    # owner's ad-authority gate and the caps, and neither can spend in shadow.
+    "assets.render", "cir.reverse", "cir.revise",
     "cir.twin", "content.draft", "gate.asset_truth", "gate.policy", "gate.quality",
     "pricing.experiment", "radar.competitor_snapshot", "store.update",
 })

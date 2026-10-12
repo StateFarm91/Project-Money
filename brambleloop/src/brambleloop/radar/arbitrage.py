@@ -84,15 +84,72 @@ WEAKNESS_SIGNALS: dict[str, str] = {
                  "wants two has to buy twice",
 }
 
-# The two weaknesses the requirement names that no amount of text can answer. Kept in the
-# vocabulary rather than dropped, because a list quietly shortened to what is measurable
-# today is how a requirement gets reported as met.
-NEEDS_VISION: dict[str, str] = {
-    "weak_branding": "whether the shop and its listings read as one coherent thing, which "
-                     "is a judgement about rendered pages and photographs",
-    "stale_aesthetics": "whether the styling looks like this year, which is a judgement "
-                        "about photographs",
+# The two weaknesses the requirement names that no amount of text can answer, now answered
+# from the photographs: the vision observation records `brand_coherence` and
+# `aesthetic_currency` per judged image (`intel.vision.OBSERVATION_FIELDS`), and the hunt
+# reads them as measured openings. They were carried as `needs_vision` until the vocabulary
+# carried them; a list quietly shortened to what is measurable is how a requirement gets
+# reported as met, and a list that never grows when the measurement arrives is the other way.
+VISION_SIGNALS: dict[str, tuple[str, str]] = {
+    "weak_branding": ("brand_coherence",
+                      "whether the shop and its listings read as one coherent thing, judged "
+                      "per photograph by the vision model"),
+    "stale_aesthetics": ("aesthetic_currency",
+                         "whether the styling looks like this year, judged per photograph by "
+                         "the vision model"),
 }
+WEAKNESS_SIGNALS.update({k: v[1] for k, v in VISION_SIGNALS.items()})
+
+# Phrases in those two fields that read as the weakness. A short closed reading of a short
+# closed phrase, on top of the blind review's markers; nothing is inferred beyond it.
+_VISION_NEGATIVE = ("dated", "stale", "outdated", "old-fashioned", "old fashioned",
+                    "inconsistent", "incoherent", "mismatched", "generic", "disjointed")
+
+
+def _reads_weak(phrase: str) -> bool:
+    from ..creative.blind_review import reads_negative
+
+    text = str(phrase or "").strip().lower()
+    return reads_negative(text) or any(m in text for m in _VISION_NEGATIVE)
+
+
+def _vision_openings(db, refs: list[str]) -> dict:
+    """weak_branding and stale_aesthetics, measured from recorded gallery observations.
+
+    A listing counts when at least one of its judged images carries the field; it is weak
+    when most of those phrases read as the weakness. A listing nobody judged is excluded,
+    for the reason video is: our unjudged backlog is not their weakness.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkObservation
+
+    phrases: dict[str, dict[str, list[str]]] = {k: {} for k in VISION_SIGNALS}
+    if refs:
+        with db.session() as s:
+            for row in s.scalars(select(BenchmarkObservation).where(
+                    BenchmarkObservation.kind == "gallery_image_observation",
+                    BenchmarkObservation.listing_ref.in_(refs))):
+                observation = (row.detail or {}).get("observation") or {}
+                for signal, (fld, _why) in VISION_SIGNALS.items():
+                    value = str(observation.get(fld) or "").strip()
+                    if value:
+                        phrases[signal].setdefault(row.listing_ref, []).append(value)
+    out: dict[str, dict] = {}
+    for signal, (fld, _why) in VISION_SIGNALS.items():
+        judged = phrases[signal]
+        weak = sorted(ref for ref, ps in judged.items()
+                      if sum(1 for p in ps if _reads_weak(p)) * 2 > len(ps))
+        out[signal] = {
+            "field": fld, "measurable": bool(judged), "judged_listings": len(judged),
+            "weak": len(weak), "refs": weak[:50],
+            "share": round(len(weak) / len(judged), 3) if judged else None,
+            "reason": ("" if judged else
+                       f"no judged image of these listings carries `{fld}`, so this is "
+                       f"unmeasured -- which is not the same as no weakness"),
+        }
+    return out
+
 
 # Fewer images than this and a buyer cannot judge a pattern they will never hold.
 THIN_MEDIA_BELOW = 5
@@ -303,6 +360,8 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         "share": round(len(bundled) / len(listings), 3),
     }
 
+    vision_openings = _vision_openings(db, [r["ref"] for r in listings])
+
     return {
         "measurable": True,
         "listings": len(listings),
@@ -314,7 +373,8 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         "sizes": sizes,
         "bundles": bundles,
         "signals": WEAKNESS_SIGNALS,
-        "needs_vision": NEEDS_VISION,
+        "branding": vision_openings["weak_branding"],
+        "aesthetics": vision_openings["stale_aesthetics"],
         "note": (f"{len(thin)} of {len(listings)} observed listings carry fewer than "
                  f"{THIN_MEDIA_BELOW} images, which is fewer than a buyer needs to judge a "
                  f"pattern they will never hold. Video and recurring complaints are "
@@ -391,6 +451,10 @@ def _opportunity(hunt: dict) -> float | None:
     bundles = hunt.get("bundles") or {}
     if bundles.get("measurable"):
         openings.append(1.0 - bundles["share"])
+    for key in ("branding", "aesthetics"):
+        signal = hunt.get(key) or {}
+        if signal.get("measurable") and signal.get("share") is not None:
+            openings.append(signal["share"])
     if not openings:
         return None
     return round(sum(openings) / len(openings), 4)
@@ -415,6 +479,54 @@ def _buildable_share(db, pod: str, benchmark_key: str) -> float | None:
     return round(buildable / total, 4)
 
 
+DENSITY_LABEL = "api_index_count"
+
+
+def listing_density(db) -> dict:
+    """Listing density per micro-market keyword, from the API index's result count (#2).
+
+    Read from `SerpSnapshot.total_count`, the `count` Etsy's `findAllListingsActive` returns
+    for the keyword. It is labelled `api_index_count` everywhere it surfaces: it is how many
+    active listings the API's search index matches, not a claim about the rendered search
+    page. A keyword nobody has searched is absent -- unmeasured, not zero competition.
+    """
+    from ..intel import serp
+
+    by_query = serp.density(db)
+    pod_of = {t["query"]: t for t in serp.target_queries()}
+    keywords, pods_counts = {}, {}
+    for query, reading in sorted(by_query.items()):
+        target = pod_of.get(query) or {}
+        keywords[query] = {**reading, "label": DENSITY_LABEL, "pod": target.get("pod"),
+                           "keyword": target.get("keyword")}
+        if target.get("pod"):
+            pods_counts.setdefault(target["pod"], []).append(reading["count"])
+    by_pod = {pod: {"median_count": _median([float(c) for c in counts]),
+                    "keywords": len(counts), "label": DENSITY_LABEL}
+              for pod, counts in pods_counts.items()}
+    return {
+        "measurable": bool(keywords),
+        "label": DENSITY_LABEL,
+        "keywords": keywords,
+        "by_pod": by_pod,
+        "reason": ("" if keywords else
+                   "no marketplace search has been captured, so listing density is "
+                   "unmeasured -- which is not the same as an empty market"),
+    }
+
+
+def _density_values(density: dict) -> dict[str, float]:
+    """Oriented so fewer competing listings is a higher number, relative to the densest pod."""
+    by_pod = density.get("by_pod") or {}
+    ceiling = max((v["median_count"] for v in by_pod.values()), default=0.0)
+    out: dict[str, float] = {}
+    for pod, reading in by_pod.items():
+        relative = _relative(reading["median_count"], ceiling)
+        if relative is not None:
+            out[pod] = round(1.0 - relative, 4)
+    return out
+
+
 def score_observed(db, *, benchmark_key: str = "") -> dict:
     """Score every observed department on the dimensions observation supports.
 
@@ -422,9 +534,11 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
     dimensions are filled -- demand, the opening in the incumbents' offers, what the market
     charges, and whether the construction can be machine-checked -- which is 52% of the
     weight, above the floor and comparable across departments because every department is
-    scored from the same source. The other five are named: listing density needs more than
-    one catalogue, season timing belongs to a chosen occasion, differentiation is a claim
-    about us rather than them, and the last two need orders.
+    scored from the same source. Listing density joins them for a department whose
+    keywords the SERP laboratory has searched (`api_index_count`, never the rendered page).
+    The rest are named: listing density elsewhere needs a captured search, season timing
+    belongs to a chosen occasion, differentiation is a claim about us rather than them, and
+    the last two need orders.
     """
     from sqlalchemy import select
 
@@ -468,6 +582,15 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
             "buildable_share": _buildable_share(db, pod, benchmark_key),
         }
 
+    # Listing density from the API index's result counts, where a pod's keywords have been
+    # searched. A pod whose keywords nobody searched keeps the dimension unmeasured.
+    density = listing_density(db)
+    density_values = _density_values(density)
+    # C-60 (#2 / #15): differentiation -- how often the index's top results for this pod's
+    # queries fall short of what every Brambleloop release ships -- from SERP positioning.
+    from ..intel import serp as _serp
+    differentiation = _serp.differentiation_by_pod(db)
+
     favourite_ceiling = max((v["median_favourites"] or 0.0) for v in raw.values())
     price_ceiling = max((v["median_price_cad"] or 0.0) for v in raw.values())
 
@@ -487,6 +610,13 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
             values["offer_quality"] = measured["opportunity"]
         if measured["buildable_share"] is not None:
             values["verifiability"] = measured["buildable_share"]
+        if pod in differentiation:
+            values["differentiation"] = differentiation[pod]["value"]
+            measured = {**measured, "differentiation": differentiation[pod]}
+        if pod in density_values:
+            values["listing_density"] = density_values[pod]
+            measured = {**measured, "listing_density": {
+                **density["by_pod"][pod], "value": density_values[pod]}}
         card = score_market(pod, values=values)
         card["observed"] = measured
         scored.append(card)
@@ -507,6 +637,7 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
         "ranking": ranking,
         "ranking_refused": refused,
         "departments_too_thin_to_score": too_thin,
+        "listing_density": density,
         "relative_to": {
             "median_favourites": favourite_ceiling,
             "median_price_cad": price_ceiling,
@@ -518,9 +649,72 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
         },
         "note": ("Scored from one benchmark catalogue. That is first-party evidence about "
                  "where a proven seller concentrates and what it charges, and it is not the "
-                 "whole market -- which is why listing density stays unmeasured rather than "
-                 "being taken from a single shop's shelf space"),
+                 "whole market -- which is why listing density is never taken from a single "
+                 "shop's shelf space: it comes from the API index's result count per "
+                 "keyword (`api_index_count`) where a search has been captured, and stays "
+                 "unmeasured where none has"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Steering (C-60, #2): the scores decide what gets made, rather than sitting in an endpoint.
+
+# How much of a concept's selection score the observed market score may move. A quarter:
+# enough that a department the hunt found open outranks one it found crowded at the same
+# base score, not so much that one catalogue's evidence overrides the portfolio's own
+# structural constraints -- those still bind in `select_portfolio`.
+STEER_WEIGHT = 0.25
+
+
+def steering(db) -> dict[str, dict]:
+    """Per pod: the observed market score, only where it is rankable. Unscored pods absent.
+
+    A pod below the confidence floor, or scored when the departments' confidences are too
+    far apart to rank, does not steer anything -- the same refusal `rank` makes, applied to
+    the one place the score is acted on.
+    """
+    try:
+        report = score_observed(db)
+    except Exception:  # noqa: BLE001 - steering never breaks the selector it feeds
+        return {}
+    if not report.get("measurable") or report.get("ranking_refused"):
+        return {}
+    return {card["market"]: {"score": card["score"], "confidence": card["confidence"],
+                             "measured": card["measured"]}
+            for card in report["scored"] if card["rankable"] and card["score"] is not None}
+
+
+def pod_of_concept(title: str, category: str = "") -> str:
+    return pods.route(f"{title} {category.replace('_', ' ')}")
+
+
+def steer_concepts(db, scored: list) -> tuple[list, dict]:
+    """Blend each concept's score with its department's observed market score (#2).
+
+    Returns new `ScoredConcept`s (components carry `market_arbitrage` where it applied) and a
+    report naming which concepts moved and which had no rankable market score -- the latter
+    keep their base score unchanged rather than being pulled toward a neutral value.
+    """
+    from dataclasses import replace
+
+    steer = steering(db)
+    out, moved, unscored = [], [], []
+    for c in scored:
+        pod = pod_of_concept(c.seed.title, c.seed.category)
+        card = steer.get(pod)
+        if card is None:
+            unscored.append(c.seed.slug)
+            out.append(c)
+            continue
+        blended = round((1 - STEER_WEIGHT) * c.score + STEER_WEIGHT * float(card["score"]), 4)
+        comps = {**c.components, "market_arbitrage": round(float(card["score"]), 4)}
+        out.append(replace(c, score=blended, components=comps,
+                           notes=list(c.notes) + [
+                               f"market arbitrage ({pod}): {card['score']} at "
+                               f"{card['confidence']:.0%} confidence"]))
+        moved.append({"slug": c.seed.slug, "pod": pod, "from": c.score, "to": blended})
+    return out, {"steered": moved, "no_rankable_market_score": unscored,
+                 "weight": STEER_WEIGHT, "pods_scored": sorted(steer)}
 
 
 def state(db, *, pod: str = "") -> dict:
@@ -533,6 +727,7 @@ def state(db, *, pod: str = "") -> dict:
     hunt = weakness_hunt(db, pod=pod)
     return {
         "pod": pod,
+        "listing_density": listing_density(db),
         "dimensions": [{"dimension": d.key, "what": d.what, "weight": d.weight,
                         "needs": d.needs} for d in DIMENSIONS],
         "weakness_hunt": hunt,

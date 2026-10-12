@@ -42,6 +42,18 @@ class ListingSetRefused(ValueError):
     """A certificate for a set whose gates did not all run, or whose inputs are unrecorded."""
 
 
+DISCLOSED_RENDER = "disclosed_render"
+# F-030 / F-254: a disclosed gallery frame (MATERIALS, COLOUR_CONTEXT, CONSTRUCTION, SIZING,
+# ANGLE) drawn from the certified CIR and re-verified on its bytes
+# (`visual.launch_imagery.check_supplement`). Held to the same disclosure rules as a
+# disclosed render. Mirrors `visual.launch_imagery.SUPPLEMENT_KIND`.
+DISCLOSED_SUPPLEMENT = "disclosed_gallery_frame"
+# W4-VISUAL2: the medium of the CONTENTS supplement (pages of the certified pattern PDF).
+PREVIEW_MEDIUM = "PATTERN_PREVIEW"   # gates.asset_truth.AssetClass.PATTERN_PREVIEW.value
+# Mirrors `cir.model.SINGLE_VARIANT`: a product with no optional features has one variant.
+SINGLE_VARIANT = "single"
+
+
 def fingerprint(payload: dict) -> str:
     """A stable hash of whatever the certificate was issued against."""
     return hashlib.sha256(
@@ -61,8 +73,47 @@ class CertifiedFrame:
     medium: str
     honesty_label: str = ""
     measurement_sources: tuple[str, ...] = ()
+    # D-FB-7: a disclosed deterministic render is certified as what it is, and its alt text --
+    # which carries the disclosure -- is part of what was approved, so it travels with the
+    # bytes to the upload rather than being re-derived there.
+    kind: str = ""
+    alt_text: str = ""
+    # F-757: which configuration of the product this frame shows (`cir.model.variant_key`).
+    # Empty means unrecorded, which only a legacy single-variant frame may be.
+    represented_variant: str = ""
 
     def __post_init__(self) -> None:
+        if self.kind == DISCLOSED_SUPPLEMENT and self.medium == PREVIEW_MEDIUM:
+            # W4-VISUAL2: the CONTENTS frame previews the certified pattern PDF. It is not a
+            # render of the finished design, so it carries the pattern-preview label
+            # (`eligibility.PREVIEW_LABEL`, the label its medium computes) first in its alt
+            # text and as its honesty label -- never the render disclosure, which would
+            # describe something it does not show -- and it may do CONTENTS only.
+            from .disclosed_listing import ALT_TEXT_MAX
+
+            if self.job != eligibility.CONTENTS:
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview supplement does "
+                                        f"CONTENTS only, not {self.job}")
+            if self.honesty_label != eligibility.PREVIEW_LABEL or not (
+                    self.alt_text or "").startswith(eligibility.PREVIEW_LABEL):
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview is certified only "
+                                        f"with the preview label as its honesty label and "
+                                        f"first in its alt text")
+            if len(self.alt_text) > ALT_TEXT_MAX:
+                raise ListingSetRefused(f"{self.asset_id}: alt text longer than Etsy allows")
+        elif self.kind in (DISCLOSED_RENDER, DISCLOSED_SUPPLEMENT):
+            from .disclosed_listing import ALT_TEXT_MAX, DISCLOSURE, _phrase_in
+
+            if not _phrase_in(self.alt_text):
+                raise ListingSetRefused(
+                    f"{self.asset_id}: a disclosed render is certified only with the "
+                    f"disclosure in its alt text")
+            if len(self.alt_text) > ALT_TEXT_MAX:
+                raise ListingSetRefused(f"{self.asset_id}: alt text longer than Etsy allows")
+            if self.honesty_label != DISCLOSURE:
+                raise ListingSetRefused(
+                    f"{self.asset_id}: a disclosed render carries the disclosure wording as "
+                    f"its honesty label")
         if self.position < 1:
             raise ListingSetRefused(f"{self.asset_id}: frame positions start at 1")
         if len(self.sha256) < 16:
@@ -78,7 +129,10 @@ class CertifiedFrame:
         return {"position": self.position, "asset_id": self.asset_id,
                 "sha256": self.sha256, "job": self.job, "purpose": self.purpose,
                 "medium": self.medium, "honesty_label": self.honesty_label,
-                "measurement_sources": list(self.measurement_sources)}
+                "measurement_sources": list(self.measurement_sources)} | (
+                    {"kind": self.kind, "alt_text": self.alt_text} if self.kind else {}) | (
+                    {"represented_variant": self.represented_variant}
+                    if self.represented_variant else {})
 
 
 @dataclass(frozen=True)
@@ -95,6 +149,8 @@ class ListingCertificate:
     platform_policy: dict = field(default_factory=dict)
     disclosures: tuple[str, ...] = ()
     issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # F-757: the one configuration every frame in this set represents.
+    represented_variant: str = SINGLE_VARIANT
 
     @property
     def frame_order(self) -> tuple[str, ...]:
@@ -111,6 +167,7 @@ class ListingCertificate:
             "policy_version": self.policy_version,
             "platform_policy": dict(self.platform_policy),
             "disclosures": list(self.disclosures),
+            "represented_variant": self.represented_variant,
             "issued_at": self.issued_at.isoformat(),
             "measurement_sources": sorted({s for f in self.frames
                                            for s in f.measurement_sources}),
@@ -120,10 +177,29 @@ class ListingCertificate:
 def certify(*, slug: str, version: str, frames: list[CertifiedFrame],
             gate_results: dict, geometry: dict, claims: dict,
             policy_version: str, platform_policy: dict | None = None,
-            disclosures: tuple[str, ...] = ()) -> ListingCertificate:
-    """Issue a certificate, refusing one for a set that was not fully checked."""
+            disclosures: tuple[str, ...] = (),
+            variant: str | None = None) -> ListingCertificate:
+    """Issue a certificate, refusing one for a set that was not fully checked.
+
+    `variant` is the configuration the listing claims (F-757). Every frame must represent
+    exactly that configuration; a frame recording none is read as the single variant, which
+    is what every frame drawn before configurations existed showed. With `variant` None the
+    frames must agree among themselves and the certificate records what they agree on.
+    """
     if not frames:
         raise ListingSetRefused(f"{slug}: a listing set with no frames is not a set")
+    shown = {f.asset_id: (f.represented_variant or SINGLE_VARIANT) for f in frames}
+    claimed = variant if variant is not None else (
+        next(iter(shown.values())) if len(set(shown.values())) == 1 else None)
+    if claimed is None:
+        raise ListingSetRefused(
+            f"{slug}: the frames show different configurations {sorted(set(shown.values()))} "
+            f"and the listing does not say which it represents (F-757)")
+    wrong = sorted(a for a, v in shown.items() if v != claimed)
+    if wrong:
+        raise ListingSetRefused(
+            f"{slug}: frames {wrong} show a configuration other than the {claimed!r} the "
+            f"listing claims; an image must state the configuration it shows (F-757)")
 
     unknown = sorted(set(gate_results) - set(eligibility.GATES))
     if unknown:
@@ -155,7 +231,176 @@ def certify(*, slug: str, version: str, frames: list[CertifiedFrame],
         claims_fingerprint=fingerprint(claims or {}),
         policy_version=policy_version,
         platform_policy=dict(platform_policy or {}),
-        disclosures=tuple(disclosures))
+        disclosures=tuple(disclosures), represented_variant=claimed)
+
+
+# ---- D-FB-7: the disclosed-render listing set -----------------------------------------------
+
+_DISCLOSED_PURPOSE = {"hero": eligibility.CONVERSION_CREATIVE,
+                      "scale": eligibility.CUSTOMER_INFORMATION,
+                      "detail": eligibility.ENGINEERING_EVIDENCE}
+
+
+def _ok(block) -> bool | None:
+    return bool(block["ok"]) if isinstance(block, dict) and "ok" in block else None
+
+
+def _outcome(*readings: bool | None) -> str:
+    if any(r is False for r in readings):
+        return eligibility.FAILED
+    if any(r is None for r in readings) or not readings:
+        return eligibility.NOT_RUN
+    return eligibility.PASSED
+
+
+def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | None,
+                           supplement_qa: dict | None = None) -> dict:
+    """The four promotion gates, read off the disclosed set's own evidence.
+
+    DATA_TRUTH         structural truth PASS on every frame, Asset Truth, and the listing's
+                       dimensions consistent with the certified geometry
+    LAYOUT_QA          layout QA over the ordered set and 340 px legibility of every frame
+    COMMERCIAL_QA      the frame set (#65), the rendered mobile contexts (#66), the hero
+                       thumbnail
+    POLICY_PROVENANCE  `disclosed_listing.export_images` passed: the bytes are the frames on
+                       record and the disclosure is in the pixels, the alt text and the copy
+    """
+    qa = rec.get("qa") or {}
+    frames = rec.get("frames") or []
+    truth = [((f.get("structural_truth") or {}).get("status") == "PASS") for f in frames]
+    legible = [_ok(((qa.get("frames") or {}).get(f.get("view")) or {}).get("legibility_340"))
+               for f in frames]
+    # Supplement frames (F-030/F-254) add their own readings; they never replace the set's.
+    # `supplement_qa` is {"verified": [bool per frame], "layout_qa": {"ok"}, "frame_set": {"ok"}}
+    # measured over the whole ordered set including them.
+    sq = supplement_qa or {}
+    s_truth = [bool(v) for v in sq.get("verified") or []]
+    s_layout = [_ok(sq.get("layout_qa"))] if supplement_qa else []
+    s_set = [_ok(sq.get("frame_set"))] if supplement_qa else []
+    # W4-VISUALSEO: the supplements' own phone/full-gallery and label readings, when the
+    # certifying path measured them (`release_gates.supplement_presentation`). Additive only.
+    s_mobile = [_ok(sq.get("mobile"))] if "mobile" in sq else []
+    s_label = [_ok(sq.get("disclosure"))] if "disclosure" in sq else []
+    return {
+        eligibility.DATA_TRUTH: _outcome(*(truth or [None]), _ok(qa.get("asset_truth")),
+                                         dimensions_ok, *s_truth),
+        eligibility.LAYOUT_QA: _outcome(_ok(qa.get("layout_qa")), *(legible or [None]),
+                                        *s_layout),
+        eligibility.COMMERCIAL_QA: _outcome(_ok(qa.get("frame_set")), _ok(qa.get("mobile")),
+                                            _ok(qa.get("hero_thumbnail")), *s_set,
+                                            *s_mobile),
+        eligibility.POLICY_PROVENANCE: _outcome(bool(exported), *s_label),
+    }
+
+
+def disclosed_frames(rec: dict, images: list[tuple[str, bytes, str]], *,
+                     slug: str) -> list[CertifiedFrame]:
+    """One CertifiedFrame per disclosed frame, bound to the exact bytes the exporter released.
+
+    `images` is `disclosed_listing.export_images`' output -- the only proof that each frame's
+    disclosure is in its pixels, alt text and the copy and that its structural truth is PASS
+    on these bytes. A frame the exporter did not release cannot be certified.
+    """
+    from ..gates.asset_truth import AssetClass
+    from .disclosed_listing import DISCLOSURE
+
+    ordered = sorted(rec.get("frames") or [], key=lambda f: int(f.get("position") or 0))
+    if len(images) != len(ordered):
+        raise ListingSetRefused(f"{slug}: the exporter released {len(images)} of "
+                                f"{len(ordered)} disclosed frames")
+    out = []
+    for f, (_name, data, alt) in zip(ordered, images):
+        sha = hashlib.sha256(data).hexdigest()
+        if sha != (f.get("image") or {}).get("sha256"):
+            raise ListingSetRefused(f"{slug}: frame {f.get('position')} bytes are not the "
+                                    f"frame on record")
+        if alt != f.get("alt_text"):
+            raise ListingSetRefused(f"{slug}: frame {f.get('position')} alt text differs "
+                                    f"from the one filed with it")
+        manifest = f.get("disclosed_render") or {}
+        job = manifest.get("job") or ""
+        purpose = _DISCLOSED_PURPOSE.get(f.get("view") or "", "")
+        dims = manifest.get("finished_dimensions_cm") or {}
+        shown = (manifest.get("represented_variant") or {}).get("key") or SINGLE_VARIANT
+        out.append(CertifiedFrame(
+            position=int(f["position"]), asset_id=f"{slug}-disclosed-{f.get('view')}",
+            sha256=sha, job=job, purpose=purpose,
+            medium=AssetClass.DIGITAL_TWIN_RENDER.value, honesty_label=DISCLOSURE,
+            measurement_sources=(("finished.width", "finished.length")
+                                 if dims.get("width") and dims.get("height") else ()),
+            kind=DISCLOSED_RENDER, alt_text=alt, represented_variant=shown))
+    return out
+
+
+def certify_disclosed(*, slug: str, version: str, rec: dict,
+                      images: list[tuple[str, bytes, str]], geometry: dict, claims: dict,
+                      policy_version: str, platform_policy: dict | None = None,
+                      dimensions_ok: bool | None,
+                      listing_variant: str | None = None,
+                      supplements: list[CertifiedFrame] | tuple = (),
+                      supplement_qa: dict | None = None) -> ListingCertificate:
+    """Certify a disclosed-render listing set through the same `certify` every set goes through.
+
+    Nothing is relaxed: the four gates must each have run and passed, the frames are bound by
+    hash, and the certificate records the disclosure. The extra precondition is the
+    exporter's: no frame enters a certificate unless `export_images` released it.
+    """
+    if rec.get("kind") != DISCLOSED_RENDER or rec.get("version") != version \
+            or rec.get("slug") != slug:
+        raise ListingSetRefused(f"{slug}@{version}: the record is not this release's disclosed set")
+    if not rec.get("usable_as_listing_asset"):
+        raise ListingSetRefused(f"{slug}: the disclosed set is launch-blocked: "
+                                f"{(rec.get('launch_blocked') or [])[:3]}")
+    # F-757 / PT-13: the configuration the LISTING declares -- the certified release's own
+    # variant, supplied by the caller -- must be the one the set was rendered for. Taking it
+    # from the record alone compared the record with itself.
+    filed = rec.get("represented_variant") or SINGLE_VARIANT
+    if listing_variant is not None and listing_variant != filed:
+        raise ListingSetRefused(
+            f"{slug}@{version}: the listing declares configuration {listing_variant!r} and the "
+            f"disclosed set was rendered for {filed!r}; a listing may only show the "
+            f"configuration it sells (F-757)")
+    frames = disclosed_frames(rec, images, slug=slug)
+    # F-030 / F-254: verified supplement frames follow the disclosed set, in order, each a
+    # different job, each certified as a disclosed gallery frame with its readings recorded.
+    supplements = list(supplements or ())
+    if supplements:
+        if supplement_qa is None or len(supplement_qa.get("verified") or []) != len(supplements):
+            raise ListingSetRefused(f"{slug}: supplement frames offered without a verification "
+                                    f"reading for each")
+        expected = list(range(len(frames) + 1, len(frames) + 1 + len(supplements)))
+        if sorted(f.position for f in supplements) != expected:
+            raise ListingSetRefused(f"{slug}: supplement frames must follow the disclosed set "
+                                    f"at positions {expected}")
+        taken = {f.job for f in frames}
+        for f in supplements:
+            preview = f.medium == PREVIEW_MEDIUM and f.job == eligibility.CONTENTS
+            if f.kind != DISCLOSED_SUPPLEMENT or (f.medium != frames[0].medium
+                                                  and not preview):
+                raise ListingSetRefused(f"{f.asset_id}: only a disclosed gallery frame may "
+                                        f"supplement a disclosed set")
+            if f.job in taken:
+                raise ListingSetRefused(f"{f.asset_id}: {f.job} is already done by another "
+                                        f"frame; a second frame doing one job is the defect")
+            taken.add(f.job)
+        frames = frames + supplements
+    shown = {f.represented_variant for f in frames}
+    if listing_variant is not None and shown - {listing_variant}:
+        raise ListingSetRefused(
+            f"{slug}@{version}: frames show {sorted(shown)}, the listing declares "
+            f"{listing_variant!r} (F-757)")
+    from .disclosed_listing import DISCLOSURE
+
+    return certify(slug=slug, version=version, frames=frames,
+                   gate_results=disclosed_gate_results(rec, exported=True,
+                                                       dimensions_ok=dimensions_ok,
+                                                       supplement_qa=supplement_qa
+                                                       if supplements else None),
+                   geometry=geometry, claims=claims, policy_version=policy_version,
+                   platform_policy=platform_policy,
+                   disclosures=(DISCLOSURE,) + ((eligibility.PREVIEW_LABEL,) if any(
+                       f.medium == PREVIEW_MEDIUM for f in frames) else ()),
+                   variant=listing_variant if listing_variant is not None else filed)
 
 
 VALID = "valid"
@@ -222,6 +467,7 @@ def state() -> dict:
             "a certificate with no geometry recorded, which could never be invalidated",
             "two frames claiming one position",
             "a frame with no recorded asset hash",
+            "a frame showing a configuration other than the one the listing claims (F-757)",
         ],
         "note": ("validity is recomputed from the current inputs, never read from a flag. "
                  "The same mechanism as ops.artefacts for derived files and improve.upgrades "

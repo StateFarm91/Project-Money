@@ -1,0 +1,29 @@
+{
+  "base": "5bb2c76",
+  "scope": "maturity._tested_modules and new private cached parser only; no closure/reachability/status changes",
+  "before": "process-local lru_cache returns alpha after test file changes to bravo, preserving size+mtime",
+  "after": "read current bytes, cache parse result by absolute root plus sorted filenames and exact bytes; content/add/remove/root changes invalidate; read errors propagate; SyntaxError remains skipped",
+  "compatibility": [
+    "cache_clear",
+    "cache_info",
+    "unchanged AST import algorithm"
+  ],
+  "tests": {
+    "test_maturity_cache_freshness.py": "4/4 passed twice after final source edit",
+    "test_maturity.py::test_an_ordinary_import_counts_as_a_test": "PASS",
+    "test_maturity.py::test_notes_that_name_a_table_rather_than_a_function_still_name_a_module": "FAIL unchanged Windows path separator: scale\\runrate.py versus scale/runrate.py; resolver not edited",
+    "test_maturity.py::test_a_note_that_names_no_module_reaches_no_rung_and_fails_none": "INTERRUPTED after discovering function invokes full report; not PASS"
+  },
+  "measurement": {
+    "warm_current_bytes_seconds": 0.0562459,
+    "old_unkeyed_warm_seconds": 2.1e-06,
+    "meaning": "freshness repair, not speed improvement; repeated readers still perform I/O. No mtime shortcut allowed."
+  },
+  "limits": [
+    "No full dashboard or closure matrix performance validation",
+    "Other process-local reachability/handler caches not changed or certified",
+    "No production writes/status promotion/paid calls",
+    "Read snapshot is current captured file bytes; no cross-file atomic filesystem transaction claimed"
+  ],
+  "next": "Integrator review; optimize request-scoped evidence capture only in separate approved scope with explicit mutation invalidation and no stale PASS."
+}

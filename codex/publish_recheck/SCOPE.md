@@ -1,0 +1,2 @@
+# Protected draft execution recheck
+Base081c47e fast-forwarded to root2b5ca0147553a33c5fc57a8077a50db5376d4557. Own pipeline publish helper/final callback, integrations.etsy.publish before_create, new tests and isolated old crash fixture patch. No activation/currency/intent state edits. Current phase/owner env, parity/release, certified release and actual payload/PDF/image bytes rechecked after durable reservation. Failure retains uncertain intent; no blind retry. FakeHTTP tests only, no spend/effects.

@@ -114,6 +114,31 @@ class ContextRender:
                 "why": CONTEXT_MEANS[self.context]["why"]}
 
 
+def title_safe_ink(image, *, px: int = MOBILE_THUMB_PX) -> float:
+    """Share of the title-safe band that carries ink, measured at the size a shopper sees.
+
+    Measured on the pixels with `layout_qa`'s own background and ink rules, at `px` on the
+    short edge, so the number is the one a `ContextRender` records rather than a guess.
+    """
+    from .layout_qa import _dominant, _ink_mask
+
+    rgb = image.convert("RGB")
+    w, h = rgb.size
+    scale = px / min(w, h)
+    thumb = rgb.resize((max(1, round(w * scale)), max(1, round(h * scale))))
+    mask = _ink_mask(thumb, _dominant(thumb)[0]).load()
+    tw, th = thumb.size
+    bx, by = max(1, round(tw * TITLE_SAFE_MARGIN)), max(1, round(th * TITLE_SAFE_MARGIN))
+    inked = counted = 0
+    for x in range(tw):
+        for y in range(th):
+            if x < bx or x >= tw - bx or y < by or y >= th - by:
+                counted += 1
+                if mask[x, y]:
+                    inked += 1
+    return inked / counted if counted else 0.0
+
+
 def first_three(frames: list[eligibility.Candidate]) -> dict:
     """Whether the three frames a phone shows first can carry the listing on their own.
 

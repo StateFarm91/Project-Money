@@ -36,6 +36,25 @@ def _client() -> TestClient:
     return TestClient(app_main.app)
 
 
+_OPS_TOKEN = "deploy-test-operator-" + "k" * 24
+
+
+class _operator:
+    """The operator credential, configured and presented (A3-02: every mutating route is
+    default-deny). Restores whatever the environment held before."""
+
+    def __enter__(self) -> dict:
+        self._old = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+        os.environ["BRAMBLELOOP_OPS_TOKEN"] = _OPS_TOKEN
+        return {"Authorization": f"Bearer {_OPS_TOKEN}"}
+
+    def __exit__(self, *_exc) -> None:
+        if self._old is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = self._old
+
+
 def test_health_reports_a_real_database_check():
     with _client() as c:
         r = c.get("/health")
@@ -114,9 +133,10 @@ def test_the_container_runs_the_company_by_itself():
 
 
 def test_a_planning_cycle_can_be_started_on_demand_and_is_idempotent_per_date():
-    with _client() as c:
-        first = c.post("/api/plan-cycle?as_of=2027-01-20").json()
-        second = c.post("/api/plan-cycle?as_of=2027-01-20").json()
+    with _client() as c, _operator() as h:
+        assert c.post("/api/plan-cycle?as_of=2027-01-20").status_code == 401
+        first = c.post("/api/plan-cycle?as_of=2027-01-20", headers=h).json()
+        second = c.post("/api/plan-cycle?as_of=2027-01-20", headers=h).json()
     assert first["enqueued"] is True and first["job_id"]
     assert second["enqueued"] is False, "the same date enqueued twice"
 
@@ -131,28 +151,45 @@ def test_the_catalogue_endpoint_is_explicit_that_nothing_is_published():
         assert key in body, key
 
 
-def test_the_finance_endpoint_reports_observed_figures_and_no_forecast():
+def test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast():
+    """F-608: with no order source connected the endpoint used to report CA$0.00 as
+    observed. Missing data is UNKNOWN, never silently zero."""
     with _client() as c:
         body = c.get("/api/finance").json()
-    assert body["profit_and_loss"]["all_figures_observed"] is True
-    assert body["profit_and_loss"]["gross_sales_cad"] == 0.0
+    assert body["profit_and_loss"]["all_figures_observed"] is False
+    assert body["profit_and_loss"]["sales_reading"] == "UNMEASURED"
+    assert body["profit_and_loss"]["gross_sales_cad"] is None
+    assert "transactions_r" in body["profit_and_loss"]["sales_why"]
     assert body["trajectory"]["is_forecast"] is False
     assert body["unit_economics"]["cost_per_acquired_customer_cad"] is None
     assert isinstance(body["cfo_challenges"], list)
 
 
 def test_the_support_endpoint_shows_that_nothing_was_sent():
-    with _client() as c:
-        body = c.get("/api/support").json()
+    # F-696 / F-689: the case text is customer content, so the operator credential is
+    # required to read it; without one the route refuses rather than serving it.
+    token = "d" * 40
+    old = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = token
+    try:
+        with _client() as c:
+            assert c.get("/api/support").status_code == 401
+            body = c.get("/api/support", headers={"Authorization": f"Bearer {token}"}).json()
+    finally:
+        if old is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = old
     assert body["nothing_sent"] is True
     assert all(case["sent"] is False for case in body["cases"])
 
 
 def test_a_chain_rebuild_can_be_started_on_demand():
     """The cadence is hourly, which is slow when a deploy has just landed a fix."""
-    with _client() as c:
-        first = c.post("/api/chain-rebuild").json()
-        second = c.post("/api/chain-rebuild").json()
+    with _client() as c, _operator() as h:
+        assert c.post("/api/chain-rebuild").status_code == 401
+        first = c.post("/api/chain-rebuild", headers=h).json()
+        second = c.post("/api/chain-rebuild", headers=h).json()
     assert first["enqueued"] is True
     assert second["enqueued"] is False, "two rebuilds queued at once"
 
@@ -340,10 +377,26 @@ def test_verify_fails_loudly_rather_than_reporting_green_on_ephemeral_storage():
 
 
 def test_scheduler_tick_endpoint_is_idempotent_within_a_window():
-    with _client() as c:
-        first = c.post("/api/scheduler/tick").json()["enqueued"]
-        second = c.post("/api/scheduler/tick").json()["enqueued"]
-    assert second == [], f"a repeated tick re-enqueued {second} (first was {first})"
+    """A repeated tick re-enqueues nothing whose cadence window is unchanged.
+
+    The windows are wall-clock (now // period), so two calls can legitimately straddle a
+    boundary -- the full suite on 0de125e caught exactly that for the two 15-minute cadences.
+    Only a cadence whose window actually advanced between the calls may be enqueued again.
+    """
+    import time as _time
+
+    from brambleloop.runtime.worker import CADENCES
+
+    periods = {name: period for name, _agent, _job, period in CADENCES}
+    with _client() as c, _operator() as h:
+        assert c.post("/api/scheduler/tick").status_code == 401
+        t0 = _time.time()
+        first = c.post("/api/scheduler/tick", headers=h).json()["enqueued"]
+        second = c.post("/api/scheduler/tick", headers=h).json()["enqueued"]
+        t1 = _time.time()
+    advanced = {n for n, p in periods.items() if int(t0 // p) != int(t1 // p)}
+    unexpected = [n for n in second if n not in advanced]
+    assert unexpected == [], f"a repeated tick re-enqueued {unexpected} (first was {first})"
 
 
 def test_platform_database_url_is_normalised():
@@ -435,8 +488,8 @@ def test_the_owner_queue_is_written_by_the_system_not_by_hand():
             if not worker.run_once():
                 break
 
-    with _client() as c:
-        c.post("/api/scheduler/tick")
+    with _client() as c, _operator() as h:
+        c.post("/api/scheduler/tick", headers=h)
         JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
                                       idempotency_key="test:launch-readiness")
         drain()
@@ -569,6 +622,23 @@ def test_a_reworded_owner_action_is_restated_in_place_not_queued_twice():
                 "drained the queue itself, so this is the handler not running rather than a "
                 "worker that was too busy to reach it")
 
+    # #54 (C-80) withholds every ask that opens live Etsy -- the fee approval included --
+    # while any launch-package item is still ours to build, and this suite's warehouse has
+    # built none. Withholding is proved in test_launch; this test is about the RESTATE path
+    # of a request that is made, so the withholding key set is emptied for its duration.
+    from brambleloop.launch import readiness as _readiness
+
+    saved_keys = _readiness.OPENS_LIVE_ETSY_KEYS
+    _readiness.OPENS_LIVE_ETSY_KEYS = frozenset()
+    try:
+        _restate_in_place(run_readiness, fee_rows)
+    finally:
+        _readiness.OPENS_LIVE_ETSY_KEYS = saved_keys
+
+
+def _restate_in_place(run_readiness, fee_rows) -> None:
+    from brambleloop.core.models import Listing
+
     run_readiness("test:restate-1")
     first = fee_rows()
     assert len(first) == 1, first
@@ -626,9 +696,9 @@ def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_m
     for _ in range(3):
         _clear_this_minute()
         started = datetime.now(timezone.utc).minute
-        with _client() as c:
-            first = c.post("/api/launch-readiness").json()
-            second = c.post("/api/launch-readiness").json()
+        with _client() as c, _operator() as h:
+            first = c.post("/api/launch-readiness", headers=h).json()
+            second = c.post("/api/launch-readiness", headers=h).json()
         if datetime.now(timezone.utc).minute == started:
             break
     else:  # pragma: no cover - three consecutive boundary crossings

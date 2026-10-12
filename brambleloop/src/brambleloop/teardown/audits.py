@@ -41,7 +41,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .library import check_derived
-from .scorecard import ADVANTAGES, DIMENSIONS, SCALE, Finding, ScoreRefused
+from .scorecard import ADVANTAGES, DIMENSIONS, SCALE, SELF_PREFIX, Finding, ScoreRefused
 
 PRESENCE = "presence"
 QUALITY = "quality"
@@ -522,7 +522,7 @@ def observe(spec_key: str, benchmark_ref: str, answers: dict, *,
                  unmatched_strengths=unmatched)
 
 
-def record(db, audit: Audit) -> dict:
+def record(db, audit: Audit, *, confidence=None, raw_notes: str = "") -> dict:
     """Persist the audit as scorecard findings, with the element detail kept alongside.
 
     The findings land in the same table the twelve-dimension scorecard and the composite
@@ -530,7 +530,12 @@ def record(db, audit: Audit) -> dict:
     parallel one that would disagree with it next month.
     """
     from ..core.models import TeardownFinding
+    from .scorecard import check_confidence
 
+    stated = check_confidence(confidence)
+    notes = (raw_notes or "").strip()
+    if notes:
+        check_derived(notes)
     ids: list[int] = []
     with db.session() as s:
         for f, o in zip(audit.findings(),
@@ -538,6 +543,7 @@ def record(db, audit: Audit) -> dict:
             row = TeardownFinding(
                 benchmark_ref=f.benchmark_ref, dimension=f.dimension, score=float(f.score),
                 mechanism=f.mechanism, improvement=f.improvement,
+                confidence=stated, raw_notes=notes,
                 detail={"audit": audit.spec.key, "requirement": audit.spec.requirement,
                         "element": o.element, "element_score": o.score,
                         "advantage": o.advantage, "source": o.source})
@@ -566,7 +572,8 @@ def publishing_requirements(db) -> dict:
 
     with db.session() as s:
         rows = [r for r in s.scalars(select(TeardownFinding))
-                if (r.detail or {}).get("element")]
+                if (r.detail or {}).get("element")
+                and not r.benchmark_ref.startswith(SELF_PREFIX)]
 
     if not rows:
         return {"derivable": False,
@@ -617,8 +624,16 @@ def coverage(db) -> dict:
     from ..core.models import BenchmarkProduct, TeardownFinding
 
     with db.session() as s:
+        # Video applies when the listing promised it (in either vocabulary: intake stores
+        # `has_video`, the promise audit says `video_included`) or a delivered file is one.
+        # Reading only `video_included` meant the video audit was never outstanding for a
+        # product intake had registered.
+        from .library import inferred_from_files
+
         benchmarks = [{"ref": b.ref, "inferred_video": bool(
-            (b.listing_promises or {}).get("video_included"))}
+            (b.listing_promises or {}).get("video_included")
+            or (b.listing_promises or {}).get("has_video")
+            or inferred_from_files(list(b.files or []))["has_video"])}
             for b in s.scalars(select(BenchmarkProduct))]
         done: set[tuple[str, str]] = set()
         for r in s.scalars(select(TeardownFinding)):

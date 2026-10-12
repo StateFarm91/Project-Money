@@ -209,27 +209,102 @@ def is_variant(cir, colourway: dict) -> dict:
 def forecast(db, *, pod: str = "", benchmark_key: str = "", today: date | None = None) -> dict:
     """The dated palette layer, with the two sources this company does not have named.
 
-    Marketplace evidence is here and free. Fashion and home signals are an external feed
-    nobody has granted, and Brambleloop's own colour performance needs sales -- both named
-    rather than filled with something plausible, because a forecast resting on one source
-    presented as resting on three is the most confident kind of wrong.
+    Marketplace evidence is here and free. Fashion and home signals come from the connected
+    culture feed (Wikimedia reference reading of colour names and fashion/interior topics), a
+    labelled proxy rather than a fashion forecast; Brambleloop's own colour performance needs
+    sales. Each is named for what it is rather than filled with something plausible, because
+    a forecast resting on one source presented as resting on three is the most confident kind
+    of wrong.
     """
     palette = observed_palette(db, pod=pod, benchmark_key=benchmark_key)
     return {
         "as_of": (today or date.today()).isoformat(),
         "marketplace_evidence": palette,
-        "fashion_and_home_signals": {
-            "measurable": False,
-            "reason": ("no external trend feed is connected. A colour forecast invented "
-                       "from nothing is indistinguishable from one drawn from a source, and "
-                       "only one of those can be wrong in a way anybody notices"),
-        },
+        "fashion_and_home_signals": fashion_and_home_signals(db),
         "brambleloop_performance": {
             "measurable": False,
             "reason": ("no colourway of ours has sold, so which of our colours performs is "
                        "unknown. Parked on the customers gate"),
         },
-        "note": ("One of the three sources the requirement names is available, and the other "
-                 "two say so. A forecast resting on one source presented as resting on three "
+        "note": ("Each of the three sources the requirement names says what it measured or why "
+                 "it could not. A forecast resting on one source presented as resting on three "
                  "is the most confident kind of wrong (#280)."),
     }
+
+
+# ---------------------------------------------------------------------------------------------
+# #280's fashion-and-home half (W4-B2). The culture feed (culture/feeds.py, Wikimedia
+# pageviews, free and sanctioned) has been connected since the culture_feed gate opened, yet
+# this layer went on saying "no external trend feed is connected" -- executable work reported
+# as waiting. What the feed can honestly say about colour is how much people are looking colour
+# names and fashion/interior topics up, and in which direction. That is reference reading, not
+# fashion sales, search volume or a trend forecast, and every reading carries that label.
+
+COLOUR_SIGNAL_PREFIX = "colour:"
+HOME_FASHION_SIGNALS = {"Interior_design": "home:interior_design"}
+# Real article titles (checked against the pageviews endpoint 2026-10-07). A title the feed
+# cannot read is refused and named by `feeds.sweep`, never recorded as zero interest.
+COLOUR_TOPICS: dict[str, str] = {
+    "Teal": "teal", "Burgundy_(color)": "burgundy", "Mauve": "mauve",
+    "Terracotta": "terracotta", "Forest_green": "forest_green", "Olive_(color)": "olive",
+    "Mustard_(color)": "mustard", "Rust_(color)": "rust", "Sage_green": "sage_green",
+    "Cream_(colour)": "cream",
+}
+# The standing culture sweep already reads "Fashion" under this key.
+FASHION_KEY = "fashion"
+PROXY_BASIS = ("reference reading (Wikimedia pageviews) of colour names and fashion/interior "
+               "topics: a labelled proxy for colour attention, not fashion sales, search "
+               "volume or a trend forecast")
+
+
+def colour_signal_keys() -> dict[str, str]:
+    keys = {a: COLOUR_SIGNAL_PREFIX + k for a, k in COLOUR_TOPICS.items()}
+    keys.update(HOME_FASHION_SIGNALS)
+    return keys
+
+
+def sweep_colour_signals(db, *, today: date | None = None, get=None) -> dict:
+    """Read the colour and home topics through the culture feed, each with its source."""
+    from ..culture import feeds
+
+    keys = colour_signal_keys()
+    out = feeds.sweep(db, list(keys), today=today, get=get, signal_keys=keys)
+    return {"recorded": out["recorded"], "attempted": out["attempted"],
+            "failures": out["failures"], "source": out["source"], "basis": PROXY_BASIS}
+
+
+def fashion_and_home_signals(db) -> dict:
+    """Direction of reference interest per colour, from sourced culture observations."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation
+    from ..culture import radar
+
+    wanted = set(colour_signal_keys().values()) | {FASHION_KEY}
+    with db.session() as s:
+        present = sorted({k for (k,) in s.execute(
+            select(CultureObservation.signal_key).where(
+                CultureObservation.signal_key.in_(wanted),
+                CultureObservation.channel == "reference",
+                CultureObservation.source != "")).all()})
+    colours, context = [], []
+    for key in present:
+        m = radar.momentum(db, key, channel="reference")
+        item = {"signal_key": key, "observations": m["observations"],
+                "measurable": m["measurable"]}
+        if m["measurable"]:
+            item.update(direction=m["direction"], latest=m["latest"], peak=m["peak"],
+                        from_peak=m["from_peak"], latest_on=m["series"][-1]["on"])
+        (colours if key.startswith(COLOUR_SIGNAL_PREFIX) else context).append(item)
+    measured = [c for c in colours if c["measurable"]]
+    if not measured:
+        return {"measurable": False, "basis": PROXY_BASIS, "colours": colours,
+                "context": context,
+                "reason": (f"{len(colours)} colour topic(s) observed and none has two dated "
+                           "readings yet; direction needs two points. The culture sweep reads "
+                           "them daily, so this fills by itself")}
+    return {"measurable": True, "basis": PROXY_BASIS, "colours": colours, "context": context,
+            "rising": sorted((c["signal_key"][len(COLOUR_SIGNAL_PREFIX):] for c in measured
+                              if c["direction"] == "rising")),
+            "falling": sorted((c["signal_key"][len(COLOUR_SIGNAL_PREFIX):] for c in measured
+                               if c["direction"] == "falling"))}

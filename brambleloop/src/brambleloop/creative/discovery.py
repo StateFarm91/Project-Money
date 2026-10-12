@@ -239,3 +239,82 @@ def transfer(mechanism: str, *, from_season: str, to_season: str,
                  "convert at Halloween, Christmas explores modular character pockets -- not "
                  "the Halloween product with a hat on it (#120)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Runtime readers: what the ideation handlers feed these machines from the database.
+#
+# The three machines above are pure, and for most of Build 2 nothing called them with real
+# inputs. These are the translations from stored evidence to their closed vocabularies --
+# deterministic keyword maps rather than a model, so a classification is reproducible and a
+# complaint is never paraphrased.
+
+# Which unmet angle designing a complaint out of the product amounts to (#117, #118). A
+# crowded archetype may be entered on one of these; `poor_styling` has no product angle,
+# because better photographs do not make a different product.
+COMPLAINT_ANGLE: dict[str, str] = {
+    "excessive_sewing": "construction_fix",
+    "awkward_construction": "construction_fix",
+    "bad_sizing": "sizing_extension",
+    "missing_variant": "unserved_context",
+    "weak_personalization": "personalization",
+    "low_giftability": "giftability",
+    "absent_combination": "collection_scale",
+}
+
+# The observed review themes (`intel.observe.COMPLAINT_THEMES`) that are complaints about the
+# product itself. Service themes -- slow support, a broken download -- are not product briefs
+# and are deliberately not mapped.
+REVIEW_THEME_KIND: dict[str, str] = {
+    "sizing_wrong": "bad_sizing",
+    "instructions_unclear": "awkward_construction",
+    "counts_wrong": "awkward_construction",
+    "photos_misleading": "poor_styling",
+}
+
+_COMPLAINT_SIGNS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("excessive_sewing", ("sewing", "seams", "sew together", "so many pieces", "stitch together")),
+    ("bad_sizing", ("too small", "too big", "size range", "larger size", "sizing", "didn't fit",
+                    "does not fit", "doesn't fit")),
+    ("missing_variant", ("other size", "another version", "is there a version", "variant",
+                         "do you have one")),
+    ("weak_personalization", ("personalis", "personaliz", "add a name", "initial", "monogram")),
+    ("low_giftability", ("as a gift", "gift ready", "wrap it", "gift box")),
+    ("absent_combination", ("matching", "go with", "set of", "pair with")),
+    ("awkward_construction", ("confusing", "fiddly", "hard to follow", "awkward", "struggl")),
+    ("poor_styling", ("photo", "picture")),
+)
+
+
+def classify_complaint(text: str) -> str | None:
+    """The complaint kind a buyer's own words describe, or None when they describe none."""
+    lowered = (text or "").lower()
+    for kind, signs in _COMPLAINT_SIGNS:
+        if any(sign in lowered for sign in signs):
+            return kind
+    return None
+
+
+# How a transferable mechanism shows up in a concept's own words (#120). Deliberately
+# structural vocabulary: a mechanism is recognised by how the object works, never by what it
+# depicts, so a design cannot be smuggled across as a "mechanism".
+MECHANISM_SIGNS: dict[str, tuple[str, ...]] = {
+    "modular_character_pockets": ("pocket", "modular"),
+    "low_sew_construction": ("no-sew", "low-sew", "low sew", "no sew", "seamless",
+                             "without seam", "fewer seams", "one piece"),
+    "quick_make_late_season": ("quick make", "in an evening", "last-minute", "last minute",
+                               "mini"),
+    "collection_attach": ("set of", "collection", "sibling", "matching", "companion"),
+    "personalization_slot": ("name", "initial", "monogram", "date", "personalis",
+                             "personaliz"),
+    "dimensional_relief": ("relief", "texture", "bobble", "popcorn", "cable", "raised",
+                           "dimensional"),
+    "nesting_storage": ("nest", "stores itself", "folds into", "stackable", "stack"),
+}
+
+
+def detect_mechanisms(text: str) -> list[str]:
+    """Which transferable mechanisms a concept's own description exhibits."""
+    lowered = (text or "").lower()
+    return sorted(m for m, signs in MECHANISM_SIGNS.items()
+                  if any(sign in lowered for sign in signs))

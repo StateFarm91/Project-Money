@@ -174,6 +174,32 @@ def test_every_mapped_dependency_names_what_stops_and_how_it_returns():
     assert len(D.DEPENDENCIES) >= 9
 
 
+def test_a_configured_dependency_is_unproven_until_its_gate_probe_succeeds():
+    """F-128 / F-131: `configured` is a variable; capability is the executor gate's probe."""
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog
+
+    db = Database("sqlite://")
+    db.create_all()
+    env = {"ANTHROPIC_API_KEY": "sk-set-but-cannot-serve", "ETSY_SHOP_ID": "123"}
+    state = D.map_state(db, env=env)
+    rows = {d["key"]: d for d in state["dependencies"]}
+    assert rows["model_provider"]["configured"] is True
+    assert rows["model_provider"]["capability"]["state"] == "UNPROVEN"
+    assert rows["model_provider"]["capability"]["gate"] == "model_provider"
+    assert "model_provider" in state["configured_but_unproven"]
+    assert "etsy_account" in state["configured_but_unproven"]
+    # A dependency with no probe is UNKNOWN, never inferred from its variable.
+    assert rows["postgres"]["capability"]["state"] == "UNKNOWN"
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action="model.probe", detail={"ok": True}))
+    rows = {d["key"]: d for d in D.map_state(db, env=env)["dependencies"]}
+    assert rows["model_provider"]["capability"]["state"] == "PROVEN"
+    # Without a database nothing is proven, whatever is configured.
+    rows = {d["key"]: d for d in D.map_state(env=env)["dependencies"]}
+    assert rows["model_provider"]["capability"]["state"] == "UNKNOWN"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

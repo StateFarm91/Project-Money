@@ -15,13 +15,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Etsy's published Canadian rates as observed 2026-09-17. Listing fees are per-listing and
-# amortised separately; these are the per-sale charges.
-TRANSACTION_FEE = 0.065
-PAYMENT_PERCENT = 0.030
-PAYMENT_FLAT_CAD = 0.25
-LISTING_FEE_CAD = 0.20          # USD 0.20, charged per listing and per renewal
-LISTING_RENEWAL_MONTHS = 4      # a listing runs four months before it renews
+from ..finance.currency import ASSUMED_USD_PER_CAD
+from . import fee_schedule as FS
+
+# Etsy's per-sale charges, read from the company's dated reading of Etsy's fee pages
+# (`gates.policy_knowledge.TOPICS["fees"]`, via `commerce.fee_schedule`) rather than typed
+# here. The names are kept because other modules import them; the numbers are the schedule's,
+# and each carries its source, read date and evidence grade there. Listing fees are
+# per-listing and amortised separately; these are the per-sale charges.
+TRANSACTION_FEE = FS.TRANSACTION.rate
+PAYMENT_PERCENT = FS.PAYMENT_PROCESSING.rate
+PAYMENT_FLAT_CAD = FS.PAYMENT_PROCESSING.amount
+LISTING_FEE_USD = FS.LISTING.amount
+# This used to read `LISTING_FEE_CAD = 0.20  # USD 0.20`: a USD figure under a CAD name, so
+# the amortised listing fee was understated by the exchange rate. Converted once, at the
+# stated assumed rate, in the one place the conversion lives.
+LISTING_FEE_CAD = FS.listing_fee_cad(ASSUMED_USD_PER_CAD)
+LISTING_RENEWAL_MONTHS = FS.LISTING_RENEWAL_MONTHS  # "lasts four months", per the reading
 
 # Regulatory floor: the offer must be a real offer. A reference price we never charged is a
 # deceptive discount whatever the category does.
@@ -48,22 +58,35 @@ MIN_PRICE_CAD = 3.00
 # consumer of this module can quote a take rate as complete.
 
 #: (key, what it is, basis, rate if the secondary source is right, when it applies)
+#:
+#: The rates come from `commerce.fee_schedule` where the reading states one. The basis line of
+#: each says why it is *unmodelled*, which is a different question from how well its rate is
+#: evidenced: the Offsite Ads rate is PRIMARY (it is in a verbatim excerpt of Etsy's help page)
+#: and it is still unmodelled, because Etsy's OpenAPI document has no offsite endpoint and no
+#: fee line, so which orders carry it cannot be read back from a settlement.
 UNMODELLED_FEES: tuple[tuple[str, str, str, float, str], ...] = (
     ("offsite_ads",
      "Etsy's fee on an order it attributes to an advert it placed off Etsy",
-     "SECONDARY -- third-party reports of 12% or 15%; etsy.com/legal/fees is 403 from here",
-     0.15,
-     "only on attributed orders, and reportedly compulsory below a revenue threshold"),
+     f"SECONDARY as a per-order charge: the {FS.OFFSITE_ADS.rate:.0%} rate itself is "
+     f"{FS.OFFSITE_ADS.evidence} (excerpt of {FS.OFFSITE_ADS.source_url}, read "
+     f"{FS.OFFSITE_ADS.checked_on}), but attribution has no API surface and no settlement "
+     f"line, so whether a given order carries it is unreadable from here",
+     FS.OFFSITE_ADS.rate,
+     "only on attributed orders, and compulsory once the shop passes US$10,000 in any "
+     "365 days (advertising_rules reading)"),
     ("regulatory_operating_fee",
      "a country-specific operating fee Etsy charges in some jurisdictions",
-     "SECONDARY and contested -- some third-party sources report ~1.15% for Canada and "
-     "others report none",
+     f"SECONDARY and contested -- third-party reports (2026-09-25) of ~1.15% for Canada and "
+     f"others report none; the company's reading of Etsy's fee page (read "
+     f"{FS.REGULATORY_OPERATING.checked_on}) records the Canadian figure as "
+     f"{FS.REGULATORY_OPERATING.evidence}, so this is a stress assumption, not a fee fact",
      0.0115,
      "every order, if Canada carries it at all"),
     ("currency_conversion",
      "Etsy's conversion charge when the buyer pays in a currency other than the shop's",
-     "SECONDARY -- commonly reported at 2.5%; unreadable from here",
-     0.025,
+     f"SECONDARY -- the reading states {FS.CURRENCY_CONVERSION.rate:.1%} without a verbatim "
+     f"excerpt (read {FS.CURRENCY_CONVERSION.checked_on}); unreadable from here",
+     FS.CURRENCY_CONVERSION.rate,
      "orders paid in a currency other than CAD, which for an international pattern shop is "
      "most of them"),
 )
@@ -110,7 +133,8 @@ class FeeBreakdown:
                 "total_fees": self.total_fees, "net_cad": self.net_cad,
                 "take_rate": self.take_rate,
                 "unmodelled_fees": list(self.unmodelled),
-                "take_rate_is_a_floor": True}
+                "take_rate_is_a_floor": True,
+                "fee_schedule": {"read_on": FS.READ_ON, "basis": FS.BASIS}}
 
 
 def fees(price_cad: float, expected_sales_per_listing_period: float = 10.0) -> FeeBreakdown:
@@ -168,12 +192,57 @@ class PriceDecision:
     take_rate: float
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    net_contribution: dict = field(default_factory=dict)
+    # Why this price may NOT be acted on, or "" (CB2-O08). A refusal is not a warning: the
+    # consumer (`pricing.position`) stops the chain on it rather than listing at a price
+    # that cannot clear the net floor.
+    refused: str = ""
 
     def to_dict(self) -> dict:
         return {"slug": self.slug, "price_cad": self.price_cad, "floor_cad": self.floor_cad,
                 "ceiling_cad": self.ceiling_cad, "net_cad": self.net_cad,
                 "take_rate": self.take_rate, "reasons": list(self.reasons),
-                "warnings": list(self.warnings)}
+                "warnings": list(self.warnings), "refused": self.refused,
+                "net_contribution": dict(self.net_contribution)}
+
+
+# #269: the price is decided on net contribution, not on the sticker. A price whose net
+# contribution per sale -- after every modelled fee class including currency conversion at
+# the share of orders actually paid in another currency -- is below this is raised inside the
+# band until it clears, and refused as a warning when the band cannot.
+MIN_NET_CONTRIBUTION_CAD = 1.00
+# A measured price point needs this many visits before its contribution per visitor can
+# choose between prices; below it the point is a few people.
+MIN_POINT_VISITS = 100
+
+
+def net_contribution(price_cad: float, *, rate=None, foreign_share: float | None = None,
+                     expected_sales: float = 10.0) -> dict:
+    """Net contribution per sale in CAD, via `finance.currency.contribution` (#269).
+
+    Currency conversion is charged on orders paid in a currency other than the shop's; its
+    share is measured from ingested orders when there are any, and assumed to be every order
+    (the conservative reading, labelled as such) when there are none.
+    """
+    from ..finance import currency
+
+    share = 1.0 if foreign_share is None else max(0.0, min(1.0, float(foreign_share)))
+    schedule = currency.FeeSchedule(currency_conversion=round(
+        FS.CURRENCY_CONVERSION.rate * share, 6))
+    got = currency.contribution(currency.Money(round(price_cad, 2), currency.REPORTING_CURRENCY),
+                                rate=rate, schedule=schedule,
+                                expected_sales_per_listing_period=expected_sales)
+    got["foreign_share"] = {"value": share,
+                            "basis": ("measured from ingested orders" if foreign_share
+                                      is not None else
+                                      "assumed: every order paid in another currency, "
+                                      "because no order has been ingested")}
+    return got
+
+
+def _net(price: float, rate, foreign_share, expected_sales) -> float:
+    return float(net_contribution(price, rate=rate, foreign_share=foreign_share,
+                                  expected_sales=expected_sales)["net_contribution"]["amount"])
 
 
 class DeceptivePricing(ValueError):
@@ -184,7 +253,9 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
                  proposed_cad: float, has_video: bool = False,
                  sizes_offered: int = 1, is_bundle: bool = False,
                  bundle_members_cad: list[float] | None = None,
-                 expected_sales: float = 10.0) -> PriceDecision:
+                 expected_sales: float = 10.0, rate=None,
+                 foreign_share: float | None = None,
+                 price_points: list[dict] | None = None) -> PriceDecision:
     """Land on a defensible price inside the observed band, with the reasoning recorded.
 
     Deliberately conservative about premiums. The category's top sellers charge CA$8.50-14 for
@@ -238,6 +309,47 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
             f"for the same patterns bought separately -- a real saving against prices we "
             f"actually charge, not a struck-through reference price")
 
+    # #269: decided on net contribution. First, where this product's own price history has
+    # measured contribution per visitor at more than one price inside the band, the price
+    # with the best contribution per visitor wins -- revenue per visitor would pick the
+    # higher sticker whenever conversion drops less than the price rises, which is not the
+    # same thing once fees are counted.
+    measured = [p for p in (price_points or [])
+                if int(p.get("visits") or 0) >= MIN_POINT_VISITS
+                and lo <= float(p.get("price_cad") or 0.0) <= hi]
+    if len({round(float(p["price_cad"]), 2) for p in measured}) >= 2 and not is_bundle:
+        best = max(measured, key=lambda p: float(p.get("contribution_cad") or 0.0)
+                   / int(p["visits"]))
+        if round(float(best["price_cad"]), 2) != round(price, 2):
+            reasons.append(
+                f"CA${float(best['price_cad']):.2f} earned the most contribution per visitor "
+                f"of {len(measured)} measured price points "
+                f"(CA${float(best.get('contribution_cad') or 0.0) / int(best['visits']):.4f} "
+                f"a visitor), so it replaces the proposed CA${price:.2f}")
+            price = round(float(best["price_cad"]), 2)
+    # Second, the floor on net contribution per sale is binding, not advisory.
+    net_now = _net(price, rate, foreign_share, expected_sales)
+    refused = ""
+    if net_now < MIN_NET_CONTRIBUTION_CAD:
+        candidate = round(price, 2)
+        while candidate < hi and _net(candidate, rate, foreign_share,
+                                      expected_sales) < MIN_NET_CONTRIBUTION_CAD:
+            candidate = round(candidate + 0.01, 2)
+        if _net(candidate, rate, foreign_share, expected_sales) >= MIN_NET_CONTRIBUTION_CAD:
+            reasons.append(
+                f"raised from CA${price:.2f} to CA${candidate:.2f}: at CA${price:.2f} the net "
+                f"contribution per sale was CA${net_now:.2f}, below the "
+                f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} floor the price is decided on")
+            price = candidate
+        else:
+            refused = (f"no price inside the band CA${lo:.2f}-CA${hi:.2f} clears "
+                       f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net contribution per sale; "
+                       f"CA${price:.2f} nets CA${net_now:.2f}. The floor is binding: this "
+                       f"product is not listed at this price")
+            warnings.append(refused)
+    net_block = net_contribution(price, rate=rate, foreign_share=foreign_share,
+                                 expected_sales=expected_sales)
+
     f = fees(price, expected_sales)
     if f.net_cad < 1.0:
         warnings.append(f"net CA${f.net_cad:.2f} per sale after fees: this SKU earns its "
@@ -261,7 +373,8 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
             f"would cost money to fulfil")
     return PriceDecision(slug=slug, price_cad=round(price, 2), floor_cad=round(lo, 2),
                          ceiling_cad=round(hi, 2), net_cad=f.net_cad, take_rate=f.take_rate,
-                         reasons=reasons, warnings=warnings)
+                         reasons=reasons, warnings=warnings, net_contribution=net_block,
+                         refused=refused)
 
 
 def check_no_fake_discount(price_cad: float, reference_price_cad: float | None,

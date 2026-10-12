@@ -399,14 +399,28 @@ def check_assembly(cir: CIR, findings: list[Finding]) -> None:
 
     # A multi-piece pattern whose joins do not say where they go is the bag-of-pieces
     # failure with extra steps: every piece correct, and no way to arrive at the object.
+    #
+    # A join onto a piece's `opening` is placed by the opening itself when that piece is
+    # worked flat and its rows make exactly one bridged opening: the bridge row IS where the
+    # join goes (a neckband round a slash neck), and the specification gate already accepts
+    # it as placed. Warning on it made the two gates disagree (certification audit C-9).
+    def _located_by_opening(seam) -> bool:
+        host = by_name.get(seam.piece_b)
+        if seam.edge_b != "opening" or host is None or host.construction != "flat_rows":
+            return False
+        bridges = [r.index for r in host.rows
+                   if any(getattr(o, "spans", 0) for o in r.ops)]
+        return len(bridges) == 1
+
     unplaced = [i for i, seam in enumerate(cir.assembly, start=1)
-                if not seam.is_self_seam and not seam.is_placed]
+                if not seam.is_self_seam and not seam.is_placed
+                and not _located_by_opening(seam)]
     if unplaced and len(names) > 1:
         findings.append(Finding(
             WARNING, "ASSEMBLY_UNPLACED",
             f"assembly steps {unplaced} join two different pieces without saying where on "
-            f"the second piece the join happens. A maker can follow every round and still "
-            f"not know where the ears go"))
+            f"the second piece the join happens. A maker can follow every row and still "
+            f"not know where one piece goes on the other"))
 
 
 def check_holds(cir: CIR, rows: list, findings: list[Finding]) -> None:

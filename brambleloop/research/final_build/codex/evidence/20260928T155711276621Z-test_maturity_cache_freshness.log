@@ -1,0 +1,5 @@
+PASS test_same_size_same_mtime_mutation_cannot_reuse_obsolete_import
+PASS test_add_remove_malformed_and_root_switch
+PASS test_read_failure_does_not_return_warm_pass
+PASS test_unchanged_corpus_matches_original_ast_algorithm
+4 passed

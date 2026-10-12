@@ -1,0 +1,21 @@
+{
+  "commit": "8e954b4",
+  "pdfs": {
+    "US": {
+      "working": "75830454b88817f11d87adb6cc0992a26093aae13de414a3d47a4d6545b7970f",
+      "committed": "75830454b88817f11d87adb6cc0992a26093aae13de414a3d47a4d6545b7970f",
+      "recorded": "75830454b88817f11d87adb6cc0992a26093aae13de414a3d47a4d6545b7970f",
+      "match": true,
+      "working_bytes": 787534,
+      "committed_bytes": 787534
+    },
+    "UK": {
+      "working": "286f7de4df824cedaab95cca0a23f69da574e2ba3d84cb248a43c4564fbaad7e",
+      "committed": "286f7de4df824cedaab95cca0a23f69da574e2ba3d84cb248a43c4564fbaad7e",
+      "recorded": "286f7de4df824cedaab95cca0a23f69da574e2ba3d84cb248a43c4564fbaad7e",
+      "match": true,
+      "working_bytes": 787521,
+      "committed_bytes": 787521
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T152923811784Z-test_cert_commerce",
+  "sha": "8e2dbf3f895715285fe7fe6183aca1f2e79370db",
+  "suite": "tests/test_cert_commerce.py",
+  "started": "2026-09-28T15:29:23.811784+00:00",
+  "tree_before": "",
+  "source_before": "0be16673368207c30a5ca0a73a4539975a4239f1b2f256ff2141c53a3b2320b4",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "failed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 1,
+  "finished": "2026-09-28T15:29:29.441131+00:00",
+  "source_after": "0be16673368207c30a5ca0a73a4539975a4239f1b2f256ff2141c53a3b2320b4",
+  "head_after": "8e2dbf3f895715285fe7fe6183aca1f2e79370db",
+  "log": "20260928T152923811784Z-test_cert_commerce.log",
+  "log_sha256": "5739c45c871d70128345c2dc0057af150621ced21815ff50bb1afff9ccdd703e"
+}

@@ -29,7 +29,9 @@ class Prompt:
     system: str
     template: str
     output_schema: tuple[str, ...] = ()
-    max_output_tokens: int = 2048
+    # F-316: no default. An output budget is sized to the shape asked for, by whoever writes
+    # the prompt, and `register` refuses a prompt that leaves it unset or above the cap.
+    max_output_tokens: int = 0
 
     @property
     def ref(self) -> str:
@@ -58,6 +60,17 @@ def _placeholders(template: str) -> list[str]:
 _REGISTRY: dict[str, Prompt] = {}
 
 
+# F-316 (Output Token Discipline): the largest output any prompt or routing task may ask for.
+# The largest declared shape is a concept field (CONCEPT_FIELD, `concept_generation`), and a
+# budget beyond it is room for a model to ramble at our expense rather than room an answer
+# needs. `routing.OUTPUT_TOKEN_CAP` is this same number.
+OUTPUT_TOKEN_CAP = 4000
+
+
+class PromptRefused(ValueError):
+    """A prompt with no output schema or an output budget nobody sized."""
+
+
 def register(prompt: Prompt) -> Prompt:
     if prompt.ref in _REGISTRY:
         existing = _REGISTRY[prompt.ref]
@@ -67,6 +80,18 @@ def register(prompt: Prompt) -> Prompt:
                 f"instead of editing a released one, or last month's output becomes "
                 f"unexplainable.")
         return existing
+    # F-316: every paid answer is a closed JSON shape with a budget sized to it. A prompt with
+    # no required fields accepts any JSON object, and one with no budget (or a vast one) pays
+    # for whatever the model chooses to write -- both are refused here, at definition time.
+    if not prompt.output_schema:
+        raise PromptRefused(
+            f"{prompt.ref} declares no output_schema: a paid answer must be a closed JSON "
+            f"shape, so a prose or half-populated reply is rejected rather than billed and "
+            f"passed on")
+    if not 0 < int(prompt.max_output_tokens) <= OUTPUT_TOKEN_CAP:
+        raise PromptRefused(
+            f"{prompt.ref} max_output_tokens={prompt.max_output_tokens!r}: it must be set "
+            f"explicitly, sized to its schema, and at most {OUTPUT_TOKEN_CAP}")
     _REGISTRY[prompt.ref] = prompt
     return prompt
 
@@ -96,7 +121,8 @@ CONCEPT_NAMING = register(Prompt(
             "from you. Reply with JSON only."),
     template=("Category: {category}\nMotifs: {motifs}\nSeason: {season}\n"
               "Propose three names. JSON: {{\"names\": [\"...\", \"...\", \"...\"]}}"),
-    output_schema=("names",)))
+    output_schema=("names",),
+    max_output_tokens=200))
 
 LISTING_POLISH = register(Prompt(
     name="listing.polish", version="1",
@@ -107,7 +133,8 @@ LISTING_POLISH = register(Prompt(
             "only."),
     template=("Description:\n{description}\n\n"
               "JSON: {{\"description\": \"...\", \"changed_facts\": false}}"),
-    output_schema=("description", "changed_facts")))
+    output_schema=("description", "changed_facts"),
+    max_output_tokens=2048))
 
 REVIEW_MINING = register(Prompt(
     name="review.mining", version="1",
@@ -116,7 +143,8 @@ REVIEW_MINING = register(Prompt(
     template=("Messages:\n{messages}\n\n"
               "JSON: {{\"themes\": [{{\"theme\": \"...\", \"count\": 0, "
               "\"is_defect_report\": false}}]}}"),
-    output_schema=("themes",)))
+    output_schema=("themes",),
+    max_output_tokens=1500))
 
 
 # The blinded head-to-head (#94). Two product ideas in the same closed vocabulary, and one

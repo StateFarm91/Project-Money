@@ -33,6 +33,7 @@ cross-sell placement. That gap is reported, never papered over (#224).
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 import urllib.parse
@@ -54,7 +55,20 @@ ALLOWED: dict[str, str] = {
     "listing_images": "/v3/application/listings/{listing_id}/images",
     "listing_videos": "/v3/application/listings/{listing_id}/videos",
     "ping": "/v3/application/openapi-ping",
+    # findAllListingsActive, added 2026-09-27 (#2 listing density, #15 SERP laboratory, #98
+    # search behaviour). A read-only public search of the marketplace's active listings,
+    # marked `api_key`-only in Etsy's published OpenAPI exactly as the nine above are, and
+    # already recorded as such in `intel.etsy_surfaces` (search_visibility). It widens what
+    # is read, not what is authorised: same credential, no OAuth scope, no Authorization
+    # header, nothing written. Its ranking is the API index's `sort_on=score` order and its
+    # `count` is the API index's result count -- neither is a claim about the rendered
+    # etsy.com search page, and every consumer labels them so.
+    "search_listings": "/v3/application/listings/active",
 }
+
+# The orderings `findAllListingsActive` accepts that the mission uses. `score` is the
+# API's relevance order; `created` and `price` are the plain sorts.
+SEARCH_SORTS: tuple[str, ...] = ("score", "created", "price")
 
 KEYSTRING_VAR = "ETSY_API_KEY"
 SECRET_VAR = "ETSY_SHARED_SECRET"
@@ -73,6 +87,95 @@ class EndpointRefused(RuntimeError):
 
 class ReadFailed(RuntimeError):
     """Etsy refused or could not answer. Carries the status, never the credential."""
+
+    def __init__(self, message: str = "", *, status: int | None = None,
+                 etsy_error: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.etsy_error = etsy_error
+
+    @property
+    def credential_refused(self) -> bool:
+        """401/403: Etsy refused the credential itself. Asking again gives the same answer."""
+        return self.status in AUTH_REFUSED
+
+
+# W4-PRODDIAG: the HTTP statuses with which Etsy refuses the credential itself. Not transient:
+# the same key gets the same answer, so a scan must not keep knocking (see `auth_refused`).
+AUTH_REFUSED = (401, 403)
+
+# W4-ETSYCOMM: Etsy's own refusal text, kept (redacted, capped) instead of discarded. Production
+# probed `ping` successfully every six hours from 2026-09-19 to 2026-10-07T06:00Z and has been
+# refused with HTTP 403 since 12:00Z that day, with no deploy in between -- and the record said
+# only "HTTP 403", because the body was thrown away. Etsy distinguishes the causes in that body
+# ("Invalid API key: should be in the format 'keystring:shared_secret'." versus "API key not
+# found or not active, or incorrect shared secret for API key."), which is the difference
+# between a configuration defect here and an owner/Etsy action. The text is Etsy's fixed
+# message, not data; it still passes the redactor so a credential echoed back cannot be stored.
+ETSY_ERROR_CHARS = 200
+
+
+def etsy_error_text(body: Any, secrets: tuple[str, ...] = ()) -> str:
+    """Etsy's `error` (or `error_description`) from a refusal body, redacted and capped."""
+    if not isinstance(body, dict):
+        return ""
+    text = body.get("error") or body.get("error_description") or ""
+    if not isinstance(text, str):
+        text = json.dumps(text, default=str)
+    text = " ".join(text.split())
+    if not text:
+        return ""
+    from ..integrations.http import Redactor
+
+    return Redactor(secrets).string(text)[:ETSY_ERROR_CHARS]
+
+
+def refusal_hint(status: int | None, etsy_error: str = "") -> str:
+    """What a 401/403 on the API-key path can mean, without guessing which one it is.
+
+    The old hint ("check ETSY_SHARED_SECRET") assumed a configuration typo, which a credential
+    that worked for eighteen days and then stopped is not: Etsy's own text is what decides.
+    """
+    if status not in AUTH_REFUSED:
+        return ""
+    said = f" Etsy said: \"{etsy_error}\"" if etsy_error else " Etsy gave no reason text"
+    return (f" —{said}. Either the keystring is no longer active on Etsy's side or the "
+            f"shared secret no longer matches {SECRET_VAR} (Etsy v3 needs x-api-key as "
+            f"keystring:shared_secret); the app's status is visible only to the owner at "
+            f"etsy.com/developers/your-apps")
+
+
+# W4-ETSY403: whether the configured values are *shaped* like an Etsy keystring and shared
+# secret, reported as booleans only -- never a value, length, prefix or fingerprint. Etsy
+# answers the same 403 ("API key not found or not active, or incorrect shared secret") for a
+# deactivated app and for a mistyped value, so the only way to tell a paste error (quotes,
+# an inner space or newline, "keystring:secret" pasted into one variable, a second keystring
+# also set) from an Etsy-side state is to check the shape here.
+_TOKEN = re.compile(r"^[A-Za-z0-9]+$")
+
+
+def credential_shape(env: dict[str, str] | None = None) -> dict:
+    e = env if env is not None else os.environ
+    key = (e.get(KEYSTRING_VAR) or "").strip()
+    secret = (e.get(SECRET_VAR) or "").strip()
+    alt = (e.get("ETSY_KEYSTRING") or "").strip()
+    raw_key, raw_secret = e.get(KEYSTRING_VAR) or "", e.get(SECRET_VAR) or ""
+
+    def odd(v: str) -> bool:
+        return bool(v) and not _TOKEN.match(v)
+
+    return {
+        "keystring_alphanumeric": bool(key) and not odd(key),
+        "secret_alphanumeric": bool(secret) and not odd(secret),
+        "colon_inside_a_value": ":" in key or ":" in secret,
+        "quotes_inside_a_value": any(q in key + secret for q in "\"'`"),
+        "inner_whitespace": any(c.isspace() for c in key + secret),
+        "outer_whitespace_trimmed": raw_key != raw_key.strip() or raw_secret != raw_secret.strip(),
+        # Two modules once read different names; a second keystring that disagrees is a
+        # configuration the integrations would resolve differently.
+        "etsy_keystring_also_set": bool(alt),
+        "etsy_keystring_differs": bool(alt) and alt != key,
+    }
 
 
 class Transport(Protocol):
@@ -197,9 +300,12 @@ class PublicReader:
                 return body or {}
 
             kind = classify_http(status)
-            hint = (f" — Etsy v3 requires x-api-key as keystring:shared_secret; check "
-                    f"{SECRET_VAR}" if status in (401, 403) else "")
-            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}")
+            secrets = ((self.credential.keystring, self.credential.shared_secret)
+                       if self.credential else ())
+            etsy_error = etsy_error_text(body, secrets)
+            hint = refusal_hint(status, etsy_error)
+            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}", status=status,
+                              etsy_error=etsy_error)
             if kind is not TransientError:
                 raise last
             self.throttled += status == 429
@@ -244,6 +350,10 @@ class PublicReader:
                 break
         return out
 
+    def shop(self, shop_id: int | str) -> dict:
+        """One shop's public record (`getShop`): its name and its stated location (#219)."""
+        return self.get("get_shop", path={"shop_id": shop_id})
+
     def listing(self, listing_id: int | str) -> dict:
         return self.get("get_listing", path={"listing_id": listing_id})
 
@@ -272,6 +382,28 @@ class PublicReader:
     def sections(self, shop_id: int | str) -> list[dict]:
         return (self.get("shop_sections",
                          path={"shop_id": shop_id}).get("results") or [])
+
+    def search(self, keywords: str = "", *, taxonomy_id: int | None = None,
+               sort_on: str = "score", limit: int = PAGE_MAX, offset: int = 0) -> dict:
+        """One page of the public marketplace search (`findAllListingsActive`).
+
+        Returns Etsy's body unchanged: `count` is the API index's total result count for
+        the query and `results` is this page in `sort_on` order. Both describe the API's
+        search index, not the rendered etsy.com search page -- a caller that reports either
+        says `api_index`, never "Etsy search shows".
+        """
+        if sort_on not in SEARCH_SORTS:
+            raise EndpointRefused(
+                f"sort_on={sort_on!r} is not one of {SEARCH_SORTS}; an ordering nobody "
+                f"declared is a ranking nobody can compare against the last one")
+        if not str(keywords or "").strip() and taxonomy_id is None:
+            raise EndpointRefused(
+                "a marketplace search needs keywords or a taxonomy_id; an unscoped search "
+                "is the whole marketplace and answers no question the mission asks")
+        query = {"keywords": str(keywords).strip() or None, "taxonomy_id": taxonomy_id,
+                 "sort_on": sort_on, "sort_order": "desc" if sort_on == "score" else None,
+                 "limit": max(1, min(int(limit), PAGE_MAX)), "offset": max(0, int(offset))}
+        return self.get("search_listings", query=query)
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +454,12 @@ MANDATE_COVERAGE: dict[str, dict] = {
                "type, composition, styling or thumbnail legibility",
         "alternative": "fetch the public image URL and analyse it with the approved model "
                        "provider — no browser, no scraping, inside the authorised ceiling",
+    },
+    "marketplace_search_index": {
+        "requirement": 15, "available": True,
+        "how": "findAllListingsActive with keywords, taxonomy_id and sort_on=score gives the "
+               "API index's ranked results and its result count -- a directional proxy for "
+               "search placement and listing density, never the rendered search page",
     },
     "rendered_page_presentation": {
         "requirement": 208, "available": False,
@@ -393,6 +531,12 @@ def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
             body = reader.get(PROBE_ENDPOINT)
         except Exception as exc:  # noqa: BLE001 - the reason is the point, whatever it is
             record["reason"] = f"{type(exc).__name__}: {exc}"[:400]
+            if getattr(exc, "status", None) is not None:
+                record["status"] = exc.status
+            if getattr(exc, "etsy_error", ""):
+                record["etsy_error"] = exc.etsy_error
+            if getattr(exc, "credential_refused", False):
+                record["credential_shape"] = credential_shape(env)
         else:
             record["ok"] = True
             # The application id identifies the developer application, not the credential,
@@ -415,6 +559,21 @@ def last_probe(db) -> dict | None:
         rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "etsy.probe")
                               .order_by(desc(AuditLog.id)).limit(1)))
     return dict(rows[0].detail or {}) if rows else None
+
+
+def auth_refused(state: dict | None) -> bool:
+    """Whether a probe record says Etsy refused the credential (HTTP 401/403).
+
+    W4-PRODDIAG: records written before `status` existed carry it only in the reason text
+    ("ping returned HTTP 403 ..."), so that is read too."""
+    import re
+
+    if not state or state.get("ok"):
+        return False
+    if state.get("status") in AUTH_REFUSED:
+        return True
+    m = re.search(r"HTTP (\d{3})", str(state.get("reason") or ""))
+    return bool(m and int(m.group(1)) in AUTH_REFUSED)
 
 
 def usable(db) -> bool:

@@ -130,9 +130,16 @@ def _series(db, signal_key: str) -> list[dict]:
                  "listings": r.competitor_listings} for r in rows]
 
 
-def momentum(db, signal_key: str) -> dict:
-    """Direction and distance from peak, from the readings rather than from a feeling."""
+def momentum(db, signal_key: str, *, channel: str | None = None) -> dict:
+    """Direction and distance from peak, from the readings rather than from a feeling.
+
+    `channel` restricts the series to one source. The reference feed and the marketplace
+    series are on different scales, and a peak taken across both compares a pageview ratio
+    with a weekly listing share -- so the exit check passes the channel it is judging.
+    """
     series = _series(db, signal_key)
+    if channel:
+        series = [p for p in series if p["channel"] == channel]
     if len(series) < 2:
         return {"measurable": False, "observations": len(series),
                 "reason": ("one reading is a level, not a momentum. Direction needs two "
@@ -157,6 +164,10 @@ def momentum(db, signal_key: str) -> dict:
 
 # ---------------------------------------------------------------------------
 # Lead and lag (#140)
+
+
+# A maximum reached on this many distinct dates or more is a plateau, not a peak (#140).
+PLATEAU_MIN_DATES = 3
 
 
 def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
@@ -184,6 +195,28 @@ def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
                            f"lead anything"),
                 "culture_readings": len(culture), "demand_readings": len(demand)}
 
+    # W4-B2GATE2, 2026-10-11: a maximum held on PLATEAU_MIN_DATES or more distinct dates is
+    # a level, not a peak. `max()` then returns whichever of the tied readings came first,
+    # which is the day observation started -- so the "peak" measures when the scanner began,
+    # not when demand peaked. Production (GET /api/culture at 0417f35, read 2026-10-11)
+    # showed exactly that: the etsy series of crochet, crochet_hook and granny_square sit at
+    # 1.0 from 2026-09-13 to 2026-09-19 (the single-pass catalogue baseline), and halloween's
+    # reference series holds 1.0 on nine dates (a rising topic re-normalised to its own window
+    # each day), so all four lead_days measured when observation began. That is refused by
+    # name rather than reported as a lag.
+    for name, points in (("culture", culture), ("demand", demand)):
+        top_value = max(p["interest"] for p in points)
+        tied = sorted({str(p["on"]) for p in points if p["interest"] == top_value})
+        if len(tied) >= PLATEAU_MIN_DATES:
+            return {"measurable": False,
+                    "reason": (f"the {name} series holds its maximum ({top_value}) on "
+                               f"{len(tied)} dates ({tied[0]} .. {tied[-1]}): a plateau has "
+                               f"no peak date, and taking its first day would measure when "
+                               f"observation began, not when interest peaked"),
+                    "culture_readings": len(culture), "demand_readings": len(demand),
+                    "plateau": {"series": name, "value": top_value, "dates": len(tied),
+                                "from": tied[0], "to": tied[-1]}}
+
     def peak_date(points):
         top = max(points, key=lambda p: p["interest"])
         return date.fromisoformat(top["on"])
@@ -210,7 +243,7 @@ def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
 
 
 def exit_check(db, signal_key: str, *, days_to_event: int | None = None,
-               conversion: float | None = None) -> dict:
+               conversion: float | None = None, channel: str | None = None) -> dict:
     """Should capacity move to the next wave? Any one condition is sufficient.
 
     Conversion is passed rather than assumed, and `None` means unmeasured rather than bad:
@@ -218,7 +251,7 @@ def exit_check(db, signal_key: str, *, days_to_event: int | None = None,
     every trend on day one.
     """
     reasons: list[dict] = []
-    m = momentum(db, signal_key)
+    m = momentum(db, signal_key, channel=channel)
 
     if m["measurable"] and m["from_peak"] <= DECLINE_THRESHOLD:
         reasons.append({"condition": "declining_interest", "from_peak": m["from_peak"],
@@ -273,33 +306,57 @@ def exit_signal(db, signal_key: str, reason: str, *, lesson: str = "") -> dict:
 # Memory (#144) and the honest empty state (#133)
 
 
+# A second sighting counts toward recurrence only this long after the first: far enough that
+# it is the next occurrence of the thing rather than the same autumn seen twice.
+RECURRENCE_MIN_GAP_DAYS = 300
+
+
 def memory(db, *, recurring_within_days: int = 400) -> dict:
     """What the radar knows, as distinct from what it can currently see.
 
     The recurrence answer is the one that compounds: a signal first seen roughly a year ago
-    and seen again is an annual territory, and knowing that is the difference between
+    and **seen again** is an annual territory, and knowing that is the difference between
     researching retro Halloween once and researching it every autumn forever.
+
+    Seen again is the whole condition. This used to mark a signal recurring from the age of
+    its `first_seen` alone, so a one-week fad recorded last October became an "annual
+    territory" this October without anybody having seen it since (#144, proof audit
+    2026-09-26). Now a signal recurs only with a sighting -- a momentum reading -- in a later
+    calendar year than its first, at least RECURRENCE_MIN_GAP_DAYS after it, and no more than
+    `recurring_within_days` after the sighting before it, so a gap of years reads as a
+    revival rather than a rhythm.
     """
     from sqlalchemy import select
 
-    from ..core.models import CultureSignal
+    from ..core.models import CultureObservation, CultureSignal
 
     with db.session() as s:
         rows = list(s.scalars(select(CultureSignal)))
+        sightings: dict[str, list[str]] = {}
+        for obs in s.scalars(select(CultureObservation)):
+            if obs.observed_on:
+                sightings.setdefault(obs.signal_key, []).append(obs.observed_on)
         signals = [{"key": r.key, "topic": r.topic, "domain": r.domain, "lane": r.lane,
                     "state": r.state, "first_seen": r.first_seen,
                     "protected": len(r.protected_tokens or []),
                     "exit_reason": r.exit_reason,
                     "lesson": (r.outcome or {}).get("lesson", "")} for r in rows]
 
-    today = date.today()
-    recurring = []
+    recurring, evidence = [], {}
     for sig in signals:
         if not sig["first_seen"]:
             continue
-        age = (today - date.fromisoformat(sig["first_seen"])).days
-        if 300 <= age <= recurring_within_days:
-            recurring.append(sig["key"])
+        first = date.fromisoformat(sig["first_seen"])
+        seen = sorted({first, *(date.fromisoformat(d)
+                                for d in sightings.get(sig["key"], []))})
+        for earlier, later in zip(seen, seen[1:]):
+            gap = (later - earlier).days
+            if (later.year > first.year and (later - first).days >= RECURRENCE_MIN_GAP_DAYS
+                    and gap <= recurring_within_days):
+                recurring.append(sig["key"])
+                evidence[sig["key"]] = {"first_seen": first.isoformat(),
+                                        "seen_again": later.isoformat()}
+                break
 
     by_lane = {ORIGINAL: 0, DIRECT: 0}
     for sig in signals:
@@ -310,6 +367,7 @@ def memory(db, *, recurring_within_days: int = 400) -> dict:
         "by_state": {st: sum(1 for x in signals if x["state"] == st) for st in STATES},
         "by_lane": by_lane,
         "recurring_annually": recurring,
+        "recurrence_evidence": evidence,
         "exited_with_a_lesson": [x["key"] for x in signals if x["exit_reason"]],
         "all": signals,
         "note": ("The value of a culture radar is almost entirely in its second year. A "
@@ -474,6 +532,31 @@ def route_findings(db, *, today=None, limit: int = 20) -> dict:
             skipped.append({"signal": signal, "why": str(exc)[:200]})
             continue
         recorded.append({"signal": signal, "summary": summary})
+        # ...and onto the lesson bus, whose subjects route to the departments #147 names:
+        # a territory to Market Radar, Creativity, SEO and Portfolio; its timing to Market
+        # Radar, Growth (content), Portfolio and Creativity. Those departments read their
+        # inboxes where they decide (radar.score, listing.seo, seasonal.engine via
+        # seasonal.daily.culture_lessons, marketing.schedule via
+        # growth.content.apply_cultural_timing), and record
+        # acting on it; idempotent per signal and direction.
+        from ..improve import bus
+
+        words = signal.replace("_", " ").replace("-", " ")
+        try:
+            bus.publish(db, origin_cell="product_creativity", subject="cultural_territory",
+                        statement=(f"cultural territory {words} ({words} crochet) is "
+                                   f"{direction} in public interest and worth pursuing where "
+                                   f"it fits the catalogue"),
+                        evidence_ref=f"culture:{signal}:{direction}", confidence="observed")
+            if lag.get("measurable"):
+                bus.publish(db, origin_cell="product_creativity", subject="cultural_timing",
+                            statement=(f"{words} interest peaks {lag.get('lead_days')} days "
+                                       f"relative to the benchmark's entry; time {words} "
+                                       f"launches and content to that lead"),
+                            evidence_ref=f"culture_timing:{signal}:{lag.get('lead_days')}",
+                            confidence="measured")
+        except bus.LessonRefused as exc:
+            skipped.append({"signal": signal, "why": f"bus: {str(exc)[:160]}"})
 
     return {
         "recorded": len(recorded),

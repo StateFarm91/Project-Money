@@ -1,0 +1,121 @@
+{
+ "schema": "wave4.gate_clearance_infra.v1",
+ "lane": "W4-GATESI",
+ "authority": "D-FB-19",
+ "observed_at": "2026-10-07T02:05Z",
+ "production": {
+  "railway_project": "brambleloop",
+  "railway_service": "brambleloop-os",
+  "railway_environment": "production",
+  "deployed_commit": "fcb982d57e29",
+  "deployed_branch": "claude/repository-setup-nc9x6o",
+  "method": "GET-only public endpoints (/health, /api/status, /api/model, /api/offsite, /api/image-generation, /api/capabilities/probes, /api/policy); Railway MCP list-projects/list-services only. No variable values read, nothing set, deployed or restarted."
+ },
+ "fx_basis": "USD->CAD 1.37 (the code's assumed rate, gateway price_basis); card FX/tax UNKNOWN",
+ "gates": [
+  {
+   "gate": "model_provider",
+   "kind": "OWNER-GATED",
+   "clears_in_code": "build2.executor._model_usable -> gateway.anthropic.usable(db): latest model.probe audit row ok=true. Probe runs on the existing cadence; opens by itself.",
+   "production_fact": "/api/model: key_present=true; last_probe 2026-10-07T00:01:03Z ok=false 'anthropic 400 ... Your credit balance is too low'. Ceiling CA$100/month in code.",
+   "repo_fix": "none needed",
+   "owner_action": {
+    "provider": "Anthropic (console.anthropic.com -> Billing -> Buy credits)",
+    "plan": "prepaid usage credits (no subscription); credit card + billing address",
+    "cost_cad": "minimum US$5 (~CA$6.85); recommended CA$25 (OWNER_ACTIONS fund_model); spend capped in code at CA$100/month",
+    "cost_source": "https://support.anthropic.com/en/articles/8977456-how-do-i-pay-for-my-api-usage",
+    "env_vars": [],
+    "env_vars_note": "ANTHROPIC_API_KEY already present on brambleloop-os (key_present=true); no variable change",
+    "minutes": 5,
+    "unlocks_requirements": [94]
+   },
+   "same_action_also_opens": ["image_vision"]
+  },
+  {
+   "gate": "image_vision",
+   "kind": "OWNER-GATED",
+   "clears_in_code": "executor._vision_usable -> gateway.anthropic.vision_usable(db): latest vision.probe ok=true over a real Etsy gallery URL, and a reply describing no image is a failure.",
+   "production_fact": "/api/capabilities/probes: vision.probe 2026-10-07T00:03:20Z ok=false, same 'credit balance is too low' 400 on a real i.etsystatic.com image.",
+   "repo_fix": "none needed",
+   "owner_action": {
+    "provider": "Anthropic -- the SAME top-up as model_provider; no second action",
+    "cost_cad": "included in model_provider (vision ~6000 tokens/image, inside the CA$100/month ceiling)",
+    "env_vars": [],
+    "minutes": 0,
+    "unlocks_requirements": [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309]
+   }
+  },
+  {
+   "gate": "image_generation",
+   "kind": "OWNER-GATED (deploy only)",
+   "clears_in_code": "executor._image_generation_usable -> gateway.images.usable(db): latest image.probe ok=true.",
+   "production_fact": "/api/image-generation: credentialled=[flux-2-pro, gpt-image-2, nano-banana-2]; last_probe 2026-10-07T00:03:21Z provider flux-2-pro ok=false reason 'generate() needs a work_dir' -- a code defect, not a provider or credit fault.",
+   "repo_fix": {
+    "status": "FIXED on claude/w4-GATESI",
+    "what": "images.probe now owns a core.workspace.work_dir for its one render and passes work_dir to generate(); the directory is removed after the probe.",
+    "files": ["brambleloop/src/brambleloop/gateway/images.py"],
+    "tests": "tests/test_w4_gatesi.py (5 checks on the probe), tests/test_rc1_spend.py, tests/test_w3_k12_model_photography.py"
+   },
+   "owner_action": {
+    "provider": "none new; deploy of this fix (owner deploy package, lane CC / production_window)",
+    "cost_cad": "CA$0.0274 per probe image (flux-2-pro assumed price) inside existing ceilings; BFL account credit balance UNKNOWN until the deployed probe runs",
+    "env_vars": [],
+    "env_vars_note": "per-account keys BRAMBLELOOP_IMAGE_KEY_<ACCOUNT> already credentialled on brambleloop-os",
+    "minutes": 0,
+    "unlocks_requirements": [],
+    "note": "gate carries no requirement ids (kept as evidence, executor.py); opening it re-proves rendering after the leak fix"
+   }
+  },
+  {
+   "gate": "offsite_storage",
+   "kind": "OWNER-GATED",
+   "clears_in_code": "executor._offsite_archive_written -> core.offsite.usable(db): latest continuity.offsite_write recorded the full round trip (export, encrypt, upload, read back, decrypt, digest, restore into scratch DB).",
+   "production_fact": "/api/offsite: configured=false, encryption_key_present=false; last archive 2026-10-07T00:02:14Z ok=false stage=configuration 'no BRAMBLELOOP_ARCHIVE_URL in this environment'.",
+   "repo_fix": {
+    "status": "FIXED on claude/w4-GATESI",
+    "what": "SigV4 region is derived from the endpoint host (B2 s3.<region>.backblazeb2.com, R2 -> auto, AWS, Wasabi) instead of defaulting to us-west-004; an explicit BRAMBLELOOP_ARCHIVE_REGION still wins. Previously any bucket outside us-west-004 failed its first signed write.",
+    "files": ["brambleloop/src/brambleloop/core/offsite.py"],
+    "tests": "tests/test_w4_gatesi.py (10 region checks), tests/test_offsite.py 14/14"
+   },
+   "owner_action": {
+    "provider": "Backblaze B2 (recommended; S3-compatible). Cloudflare R2 also works (region auto now handled).",
+    "plan": "B2 pay-as-you-go: first 10 GB free, then US$6.95/TB-month; no minimum duration",
+    "cost_cad": "CA$0 expected (14 retained gzipped encrypted exports, well under 10 GB); above that ~CA$9.52/TB-month",
+    "cost_source": "https://www.backblaze.com/cloud-storage/pricing",
+    "steps": "create account; create a PRIVATE bucket; create an application key restricted to that bucket with read+write+delete (delete is used for 14-archive retention); generate a long passphrase and keep an offline copy (without it no archive can ever be decrypted)",
+    "railway_service": "brambleloop-os",
+    "env_vars": ["BRAMBLELOOP_ARCHIVE_URL", "BRAMBLELOOP_ARCHIVE_BUCKET", "BRAMBLELOOP_ARCHIVE_KEY_ID", "BRAMBLELOOP_ARCHIVE_SECRET", "BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY"],
+    "env_vars_optional": ["BRAMBLELOOP_ARCHIVE_REGION (only if the endpoint host does not carry it)"],
+    "env_var_example": "BRAMBLELOOP_ARCHIVE_URL=https://s3.<region>.backblazeb2.com (the bucket's S3 endpoint shown in B2)",
+    "minutes": 15,
+    "unlocks_requirements": [51],
+    "consequence_of_waiting": "a hosting-provider loss loses the archive with it"
+   }
+  },
+  {
+   "gate": "rendered_pages",
+   "kind": "EXTERNAL-BLOCKED (etsy.com/legal) with a sanctioned partial path (help.etsy.com)",
+   "clears_in_code": "executor._rendered_pages_usable -> intel.browser.usable(db): latest browser.probe ok=true. No honest automated reader can satisfy it for etsy.com/legal.",
+   "production_fact": "/api/capabilities/probes: browser.probe 2026-10-07T00:03:20Z ok=false 'no BRAMBLELOOP_BROWSER_URL'. /api/policy: all 6 watched sources never_checked, 8 workflows blocked. Re-proven 2026-10-07 from this container: etsy.com/legal/sellers/ -> 403 (DataDome); Help Center article API -> 200 for 115015663347 (image requirements, edited 2026-05-04) and 360000336307 (tags/search, edited 2026-04-21).",
+   "repo_fix": {
+    "status": "FIXED on claude/w4-GATESI",
+    "what": "new gates/policy_reader.py reads the Help-Center-hosted watched sources (listing_image_rules, search_guidance) through the public Zendesk article API (robots-allowed, identifying UA, 3 s gap, one GET each, no retry past refusal), recorded as basis help_center_api with material-change compared on the same basis; wired into release.handle_policy_watch, on only in the hosted container (BRAMBLELOOP_POLICY_READER=0 disables). listing_image_rules URL corrected from article 360000343508 ('How to Download Your Listing Information') to 115015663347.",
+    "files": ["brambleloop/src/brambleloop/gates/policy_reader.py", "brambleloop/src/brambleloop/gates/platform_policy.py", "brambleloop/src/brambleloop/runtime/release.py"],
+    "tests": "tests/test_w4_gatesi.py (19 reader/watch checks), test_platform_policy 13/13, test_policy_knowledge 20/20, test_policy_intake 8/8"
+   },
+   "owner_action": {
+    "provider": "none purchasable without evasion. A person reads the 5 etsy.com/legal sources (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby = policy_reader.external_sources()) in a normal browser and records each via POST /api/policy/snapshot, every <=30 days",
+    "cost_cad": "CA$0",
+    "env_vars": [],
+    "minutes": 15,
+    "minutes_note": "per 30-day cycle",
+    "unlocks_requirements": [35, 39],
+    "note": "#39 stays parked on rendered_pages until the legal sources are recorded by a person; a headless browser against DataDome is refused (CAPTCHA/anti-bot never bypassed). BRAMBLELOOP_BROWSER_URL would not help: the worker would meet the same 403."
+   }
+  }
+ ],
+ "wiring_requests": [
+  {"owner": "B2/FM (build2/closure.py)", "what": "EXTERNAL_GATES['rendered_pages'] text says help.etsy.com returns 403 to every honest reader; the Help Center article API answers 200 (re-proven 2026-10-07) and is now read by gates.policy_reader. Narrow the text to etsy.com/legal + Etsy search pages."},
+  {"owner": "CC (deploy package)", "what": "image_generation and the Help Center policy reader take effect only after deploying this branch; production runs fcb982d."}
+ ]
+}

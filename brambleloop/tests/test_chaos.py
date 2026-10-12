@@ -9,6 +9,7 @@ The bar for each: detect, contain, retry *safely*, preserve state, escalate only
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from datetime import timedelta
@@ -297,6 +298,136 @@ def test_worker_survives_a_handler_that_hangs_then_is_reclaimed():
     assert q.claim("healthy-worker") is not None
 
 
+def test_a_reclaimed_jobs_original_worker_cannot_complete_it():
+    """Lease fencing. The first worker was slow, not dead: its lease expired, a second
+    worker reclaimed the job, and the first one's late completion must be refused rather
+    than written over the run that replaced it."""
+    db = boot()
+    q = JobQueue(db, lease_seconds=1)
+    job = q.enqueue("validator", "cir.compile", {})
+    assert q.claim("slow-worker").id == job.id
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+    assert q.claim("second-worker").id == job.id
+
+    assert q.complete(job.id, {"from": "slow"}, worker="slow-worker") is False
+    assert q.fail(job.id, "late failure", worker="slow-worker") is None
+    held = q.get(job.id)
+    assert held.status == JobStatus.RUNNING and held.leased_by == "second-worker"
+    assert held.outputs in (None, {}), held.outputs
+    with db.session() as s:
+        refused = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "queue.stale_lease_refused")))
+    assert len(refused) == 2
+    assert refused[0].detail["attempted_by"] == "slow-worker"
+    assert refused[0].detail["lease_held_by"] == "second-worker"
+
+    # The holder completes normally, and afterwards the slow worker still cannot overwrite.
+    assert q.complete(job.id, {"from": "second"}, worker="second-worker") is True
+    assert q.complete(job.id, {"from": "slow"}, worker="slow-worker") is False
+    assert q.get(job.id).outputs == {"from": "second"}
+    # The unfenced administrative path is unchanged.
+    assert q.complete(job.id, {"from": "admin"}) is True
+
+
+def test_a_worker_whose_lease_was_reclaimed_mid_handler_does_not_record_completion():
+    """End to end through `Worker.run_once`: the handler outlives its lease, another worker
+    takes the job, and the original worker's result is refused and not audited as done."""
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot()
+    registry = HandlerRegistry()
+    allow(db, "orchestrator", "chaos.slow")
+
+    def slow(ctx):
+        # Simulate the lease expiring and being reclaimed while this handler runs.
+        with db.session() as s:
+            s.get(Job, ctx.job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+        assert JobQueue(db).claim("thief") is not None
+        return {"late": True}
+
+    registry.register("chaos.slow")(slow)
+    job = JobQueue(db).enqueue("orchestrator", "chaos.slow", {})
+    worker = Worker(db, "original", registry=registry)
+    assert worker.run_once() is True
+    assert worker.stats.completed == 0 and worker.stats.skipped == 1
+    held = JobQueue(db).get(job.id)
+    assert held.status == JobStatus.RUNNING and held.leased_by == "thief"
+    with db.session() as s:
+        done = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "job.completed:chaos.slow")))
+    assert not done
+
+
+def test_a_heartbeat_keeps_a_long_handler_from_being_reclaimed():
+    from brambleloop.runtime.worker import JobContext
+
+    db = boot()
+    q = JobQueue(db, lease_seconds=300)
+    job = q.enqueue("validator", "cir.compile", {})
+    claimed = q.claim("long-worker")
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() + timedelta(seconds=2)
+    ctx = JobContext(job=claimed, db=db, queue=q, registry=Registry(db), phase=None)
+    ctx.heartbeat()
+    extended = q.get(job.id).lease_expires_at
+    if extended.tzinfo is None:
+        from datetime import timezone
+        extended = extended.replace(tzinfo=timezone.utc)
+    assert extended > utcnow() + timedelta(seconds=200)
+
+
+
+def test_the_worker_renews_a_long_handlers_lease_so_its_result_is_kept():
+    """Fencing refuses a completion from a worker that lost its lease. A legitimate handler
+    longer than the lease must therefore keep it: the worker renews it while the handler
+    runs, and nobody can reclaim the job meanwhile."""
+    import time as _time
+
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    import tempfile as _tf
+
+    # A file database: renewal runs on its own thread, and an in-memory SQLite database is
+    # one connection that a second thread cannot share. Production is Postgres.
+    db = boot(f"sqlite:///{_tf.mkdtemp()}/renewal.sqlite")
+    registry = HandlerRegistry()
+    allow(db, "orchestrator", "chaos.long")
+    stolen = []
+
+    def long_running(ctx):
+        _time.sleep(4.5)                       # past a 3-second lease
+        stolen.append(JobQueue(db).claim("thief"))
+        return {"finished": True}
+
+    registry.register("chaos.long")(long_running)
+    job = JobQueue(db).enqueue("orchestrator", "chaos.long", {})
+    worker = Worker(db, "original", registry=registry)
+    worker.queue.lease_seconds = 3
+    assert worker.run_once() is True
+    assert stolen == [None], "the job was reclaimable while its handler was still running"
+    assert worker.stats.completed == 1
+    assert JobQueue(db).get(job.id).status == JobStatus.DONE
+
+
+def test_lease_renewal_stops_at_its_cap_so_a_hung_handler_stays_reclaimable():
+    import time as _time
+
+    from brambleloop.runtime.worker import _LeaseRenewal
+
+    class _Q:
+        lease_seconds = 3
+        calls = 0
+
+        def heartbeat(self, job_id):
+            _Q.calls += 1
+
+    r = _LeaseRenewal(_Q(), 1, cap_seconds=0)
+    r.start()
+    _time.sleep(2.5)
+    r.stop()
+    assert _Q.calls == 0, "a renewal past its cap would let a hung handler hold its lease forever"
+
 # ---- budget exhaustion ---------------------------------------------------
 
 
@@ -471,6 +602,285 @@ def test_purge_refuses_to_operate_without_explicit_job_types():
             pass
         assert q.purge_dead(job_types=["nothing.matches.this"]) == 0
 
+
+
+# ---- certification repairs C-11..C-15 (2026-09-27) ---------------------------------------
+
+
+def test_concurrent_workers_on_a_file_database_run_every_job_exactly_once():
+    """C-11: the SQLite claim read a row then UPDATEd it by id unconditionally, so two
+    workers between each other's writes both leased and ran it (56 of 120 twice)."""
+    import threading
+    from collections import Counter
+
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/race.sqlite")
+        allow(db, "orchestrator", "chaos.count")
+        reg = HandlerRegistry()
+        runs: Counter = Counter()
+        lock = threading.Lock()
+
+        @reg.register("chaos.count")
+        def _count(ctx):
+            with lock:
+                runs[ctx.job.id] += 1
+            return {}
+
+        q = JobQueue(db)
+        ids = [q.enqueue("orchestrator", "chaos.count", {"i": i}).id for i in range(150)]
+        errors: list = []
+        barrier = threading.Barrier(8)
+
+        def run(k):
+            w = Worker(db, f"racer-{k}", registry=reg)
+            barrier.wait()
+            try:
+                while w.run_once():
+                    pass
+            except Exception as e:  # noqa: BLE001
+                errors.append(repr(e))
+
+        ts = [threading.Thread(target=run, args=(k,)) for k in range(8)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        assert not errors, errors[:3]
+        assert {i: runs[i] for i in ids if runs[i] != 1} == {}, "a job ran other than once"
+        assert q.counts()["done"] == 150
+
+
+def test_an_unnamed_write_cannot_overwrite_a_live_lease_unless_administrative():
+    """C-12: worker=None is for a job nobody is running."""
+    db = boot()
+    q = JobQueue(db, lease_seconds=300)
+    job = q.enqueue("validator", "cir.compile", {})
+    q.claim("holder")
+    assert q.complete(job.id, {"by": "nobody"}) is False
+    assert q.fail(job.id, "unnamed failure", retry=False) is None
+    held = q.get(job.id)
+    assert held.status == JobStatus.RUNNING and held.leased_by == "holder"
+    with db.session() as s:
+        refused = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "queue.unfenced_write_refused")))
+    assert len(refused) == 2 and refused[0].detail["lease_held_by"] == "holder"
+    # The explicit administrative path works, and is itself on the record.
+    assert q.complete(job.id, {"by": "operator"}, administrative=True) is True
+    assert q.get(job.id).outputs == {"by": "operator"}
+    with db.session() as s:
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "queue.administrative_override")) is not None
+    # An expired lease is nobody running it: the unnamed path applies without the flag.
+    other = q.enqueue("validator", "cir.compile", {"n": 2})
+    q.claim("dead-holder")
+    with db.session() as s:
+        s.get(Job, other.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+    assert q.fail(other.id, "operator cleared it", retry=False) is not None
+
+
+def test_a_heartbeat_extends_only_the_holders_lease():
+    """C-13: a stale worker's renewal must not keep somebody else's job alive."""
+    from brambleloop.runtime.worker import _LeaseRenewal
+
+    # A file database: the renewal runs on its own thread, and an in-memory SQLite database
+    # is per-connection, so that thread would see no tables at all.
+    db = boot(f"sqlite:///{tempfile.mkdtemp()}/hb.sqlite")
+    q = JobQueue(db, lease_seconds=300)
+    job = q.enqueue("validator", "cir.compile", {})
+    q.claim("A")
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+    q.claim("B")
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+    assert q.heartbeat(job.id, worker="A") is False
+    exp = q.get(job.id).lease_expires_at
+    assert (exp if exp.tzinfo else exp.replace(tzinfo=utcnow().tzinfo)) <= utcnow()
+    assert q.heartbeat(job.id, worker="B") is True
+    # A renewal thread that is refused has lost the job and stops asking.
+    r = _LeaseRenewal(q, job.id, worker="A")
+    r.interval = 0.05
+    r.start()
+    r._thread.join(2)
+    assert r.lost is True and r.renewals == 0
+
+
+def test_aging_claims_a_low_band_job_within_the_stated_bound():
+    """C-15: effective priority = priority - min(AGING_CAP, floor(waited / AGING_STEP)).
+    A band-200 job overtakes fresh band-10 work once it has waited 191 steps, and not
+    before; fresh work still orders strictly by band."""
+    from brambleloop.queue import durable
+
+    step = durable.AGING_STEP_SECONDS
+    assert durable.AGING_CAP >= 191 and step * 191 <= 36 * 3600, "stated bound is 36h"
+
+    def race(waited_steps: float) -> bool:
+        db = boot()
+        q = JobQueue(db)
+        low = q.enqueue("a", "t", priority=200,
+                        run_after=utcnow() - timedelta(seconds=waited_steps * step))
+        q.enqueue("a", "t", priority=10)
+        return q.claim("w").id == low.id
+
+    assert race(191.5) is True, "a band-200 job past the bound lost to fresh band-10 work"
+    assert race(189.5) is False, "aging is faster than stated"
+
+    db = boot()
+    q = JobQueue(db)
+    q.enqueue("a", "t", priority=200)
+    urgent = q.enqueue("a", "t", priority=10)
+    assert q.claim("w").id == urgent.id, "fresh work no longer orders by band"
+
+    # The cap: an ancient low-band job cannot out-rank fresh band -1 work for ever.
+    db = boot()
+    q = JobQueue(db)
+    q.enqueue("a", "t", priority=200, run_after=utcnow() - timedelta(days=365))
+    top = q.enqueue("a", "t", priority=-1)
+    assert q.claim("w").id == top.id
+
+
+def test_one_classifier_decides_refusal_and_redrive():
+    """C-14: `deliberate_refusal` and `requeue_dead` are read from one function."""
+    from brambleloop.queue.durable import (
+        DEFECT, REFUSED, STOOD_ASIDE, classify_dead_letter, deliberate_refusal, redrivable)
+
+    cap = "capability not enabled: shadow mode: publication is not promoted"
+    stand = "RuntimeError: this job asked for pack 'v6'; failing so another replica takes it"
+    assert classify_dead_letter("etsy.publish_listing", cap) == REFUSED
+    assert classify_dead_letter("x", "Capability Not Enabled: SHADOW MODE") == REFUSED
+    assert classify_dead_letter("creative.model_reference_pack", stand) == STOOD_ASIDE
+    assert classify_dead_letter("x", "TypeError: boom") == DEFECT
+    assert classify_dead_letter("x", "permission denied: nope") == DEFECT
+    for jt, err in (("etsy.publish_listing", cap), ("store.publish", ""), ("m", stand),
+                    ("x", "TypeError"), ("x", "permission denied: y")):
+        kind = classify_dead_letter(jt, err)
+        assert deliberate_refusal(jt, err) is (kind != DEFECT)
+        assert redrivable(jt, err) is (kind != REFUSED)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/live.sqlite")
+        q = JobQueue(db)
+        rows = {}
+        for jt, err in (("etsy.publish_listing", cap), ("creative.model_reference_pack", stand),
+                        ("radar.scan", "TypeError: fixed since")):
+            job = q.enqueue("orchestrator", jt, {"e": err})
+            with db.session() as s:
+                j = s.get(Job, job.id)
+                j.status, j.last_error = JobStatus.DEAD, err
+            rows[jt] = job.id
+        out = q.requeue_dead()
+        assert sorted(out["requeued"]) == sorted(
+            [rows["creative.model_reference_pack"], rows["radar.scan"]])
+        assert [x["id"] for x in out["skipped"]] == [rows["etsy.publish_listing"]]
+
+
+def test_an_omitted_priority_is_the_job_types_band_not_below_every_band():
+    """C-46: the default of 100 sat below every band (highest is 95), so follow-on work
+    enqueued without a priority -- a customer reply, a certification -- ran after
+    housekeeping. An explicit priority still wins."""
+    from brambleloop.swarm.orchestrate import BAND_BY_KIND, priority_for
+
+    db = boot()
+    q = JobQueue(db)
+    worst_band = max(BAND_BY_KIND.values())
+    for jt in ("support.reply", "gate.certify", "store.publish", "some.unmapped.type"):
+        job = q.enqueue("a", jt, {})
+        assert job.priority == priority_for(jt), (jt, job.priority)
+        assert job.priority <= worst_band, f"{jt} enqueued below every band"
+    assert q.enqueue("a", "support.reply", {"x": 1}, priority=77).priority == 77
+
+    # The consequence, not just the number: a reply enqueued with no priority is claimed
+    # ahead of housekeeping enqueued at a band.
+    db = boot()
+    q = JobQueue(db)
+    q.enqueue("a", "ops.retention", {}, priority=priority_for("ops.retention"))
+    reply = q.enqueue("a", "support.reply", {})
+    assert q.claim("w").id == reply.id
+
+
+def test_a_permanent_error_is_terminal_on_its_first_attempt():
+    """C-51: PDF hash drift (a PermanentError) sat FAILED at 1/3 and was re-rendered and
+    refused again. A permanent error is the same on the next attempt."""
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot(f"sqlite:///{tempfile.mkdtemp()}/perm.sqlite")
+    allow(db, "orchestrator", "chaos.perm")
+    allow(db, "orchestrator", "chaos.corrupt")
+    allow(db, "orchestrator", "chaos.transient")
+    reg = HandlerRegistry()
+    reg.register("chaos.perm")(lambda ctx: (_ for _ in ()).throw(
+        PermanentError("PDF_HASH_DRIFT: re-render differs from the certified hash")))
+    reg.register("chaos.corrupt")(lambda ctx: (_ for _ in ()).throw(
+        CorruptArtifact("stored bytes do not match")))
+    reg.register("chaos.transient")(lambda ctx: (_ for _ in ()).throw(
+        TransientError("provider 503")))
+    q = JobQueue(db)
+    perm = q.enqueue("orchestrator", "chaos.perm", {}, max_attempts=3)
+    corrupt = q.enqueue("orchestrator", "chaos.corrupt", {}, max_attempts=3)
+    transient = q.enqueue("orchestrator", "chaos.transient", {}, max_attempts=3)
+    w = Worker(db, "w", registry=reg)
+    for _ in range(3):
+        w.run_once()
+    for job in (perm, corrupt):
+        row = q.get(job.id)
+        assert row.status == JobStatus.DEAD and row.attempts == 1, (row.status, row.attempts)
+    # A transient error still backs off and retries.
+    assert q.get(transient.id).status == JobStatus.FAILED
+
+
+def test_the_provenance_backstop_is_windowed_to_this_attempt():
+    """C-52: `started_at` is the FIRST attempt's; a retried job's backstop counted every
+    artefact other jobs wrote in between and dead-lettered it for them."""
+    from brambleloop.ops import artefacts as provenance
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot(f"sqlite:///{tempfile.mkdtemp()}/window.sqlite")
+    allow(db, "orchestrator", "chaos.retry")
+    reg = HandlerRegistry()
+    calls = {"n": 0}
+
+    @reg.register("chaos.retry")
+    def _h(ctx):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TransientError("bundle not yet certified")
+        return {}
+
+    seen = []
+    real = provenance.assert_instrumented
+
+    def spy(s, *, since, job_id=None):
+        seen.append(since)
+        return real(s, since=since, job_id=job_id)
+
+    q = JobQueue(db)
+    job = q.enqueue("orchestrator", "chaos.retry", {}, max_attempts=3)
+    w = Worker(db, "w", registry=reg)
+    provenance.assert_instrumented = spy
+    try:
+        w.run_once()
+        with db.session() as s:
+            s.get(Job, job.id).run_after = utcnow() - timedelta(seconds=1)
+        before_second = utcnow()
+        w.run_once()
+    finally:
+        provenance.assert_instrumented = real
+    row = q.get(job.id)
+    assert row.status == JobStatus.DONE and row.attempts == 2
+    first = row.started_at if row.started_at.tzinfo else row.started_at.replace(
+        tzinfo=before_second.tzinfo)
+    assert seen, "the backstop never ran"
+    since = seen[-1] if seen[-1].tzinfo else seen[-1].replace(tzinfo=before_second.tzinfo)
+    assert since >= before_second > first, (since, before_second, first)
+
+    # And the claim says so for any caller, not only the worker.
+    q2 = JobQueue(db)
+    j2 = q2.enqueue("orchestrator", "chaos.retry", {"n": 2})
+    t0 = utcnow()
+    got = q2.claim("x", ["chaos.retry"])
+    assert got.id == j2.id and got.attempt_started_at >= t0
 
 if __name__ == "__main__":
     fails = 0

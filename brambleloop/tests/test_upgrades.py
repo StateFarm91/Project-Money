@@ -11,6 +11,7 @@ gathered hours earlier, at which point the evidence describes a version that no 
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from datetime import datetime, timezone

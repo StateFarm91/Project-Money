@@ -1,0 +1,31 @@
+{
+  "base": "e8cf29a",
+  "scope": "private ContextVar exact-source snapshot; maturity.report/closure.matrix wrappers only",
+  "implementation": "Each call captures exact root/path/bytes, parses or reuses exact-key cache, exposes immutable import set within context, recaptures exact source before return. Mutation or unreadable final evidence raises RuntimeError; finally resets previous context. Standalone lookup still resnapshots.",
+  "tests": {
+    "test_maturity_request_snapshot.py": "5/5",
+    "test_maturity_cache_freshness.py": "4/4",
+    "test_maturity_path_portability.py": "2/2"
+  },
+  "controls": [
+    "28 lookups exactly2 captures",
+    "separate calls refresh",
+    "same metadata content mutation/add/remove/readfailure deny result",
+    "nested exception restores parent context",
+    "parallel threads keep separate snapshot and changed old thread aborts",
+    "real report/matrix outputs equal undecorated outputs for unchanged2-row fixture with unrelated graph isolated"
+  ],
+  "actual_report_subset_measurement": {
+    "rows": 12,
+    "module_lookups": 28,
+    "content_captures": 2,
+    "elapsed_seconds": 1.7565,
+    "isolation": "jobs_reaching empty to omit unrelated runtime graph; real registry rows/imports/resolver retained"
+  },
+  "limits": [
+    "No total dashboard/suite speedup or causal attribution claimed",
+    "Two boundary snapshots are not an atomic filesystem transaction; temporary change restored before final check is outside guarantee",
+    "Other graph/handler caches unchanged",
+    "No requirement statuses/thresholds/production/Visual changes"
+  ]
+}

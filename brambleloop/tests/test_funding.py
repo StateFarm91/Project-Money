@@ -102,7 +102,15 @@ def test_a_spent_balance_stops_the_spending_it_cannot_check():
     cir = for_slug("cloudline-baby-blanket")
     record = owned_photography.make(db, cir, build_twin(cir, compile_cir(cir)))
     assert record["made"] is False
-    assert record["waiting_on"] == "model_provider_balance"
+    # Since e6b6d47 (F-852) the generative product redraw is refused unconditionally, before
+    # the funding check is reached: it now waits on a qualified protected renderer rather
+    # than on the balance. That is a stricter stop, not a looser one -- nothing renders and
+    # nothing is spent either way -- so this pins "refused, generated nothing" and accepts
+    # either reason. The funding gate itself is still pinned on the reference pack below.
+    assert record.get("generated") is not True
+    assert record["waiting_on"] in ("model_provider_balance",
+                                    "qualified_protected_product_renderer")
+    assert "spent_cad" not in record or record["spent_cad"] == 0.0
 
     pack = reference_pack.build(db)
     assert pack["built"] is False

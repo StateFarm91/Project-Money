@@ -16,6 +16,8 @@ nothing it can act on.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import dataclass
 
 # What a gallery observation is allowed to conclude (#209). Each is something a different
@@ -24,6 +26,25 @@ OBSERVATION_FIELDS: tuple[str, ...] = (
     "shot_type", "composition", "product_visibility", "model_product_relationship",
     "setting", "scale_communication", "detail_coverage", "infographic_use", "typography",
     "palette_role", "thumbnail_readability", "emotional_merchandising",
+    # #2's two weaknesses no text can answer, asked of the photograph: whether the shop and
+    # its listings read as one coherent thing, and whether the styling looks like this year.
+    # Recorded as short phrases; `radar.arbitrage` reads them as measured openings.
+    "brand_coherence", "aesthetic_currency",
+    # #86's abstract commercial attributes, learned from legitimate current examples and
+    # stored as attributes rather than as anything that could reproduce the product. Each is
+    # a judgement about how the offer is *built to sell*, never about what it depicts:
+    # `motif_legibility` is whether a motif reads at a glance, not what the motif is.
+    "transformation", "silhouette_strength", "motif_legibility", "characterisation",
+    "minimalism", "gift_narrative", "modularity", "low_sew_appeal", "surprising_function",
+    "collection_logic",
+)
+
+# The #86 vocabulary on its own, so the creativity benchmark memory can read exactly the
+# attributes the requirement names and nothing borrowed from the merchandising fields.
+COMMERCIAL_ATTRIBUTE_FIELDS: tuple[str, ...] = (
+    "transformation", "silhouette_strength", "motif_legibility", "characterisation",
+    "minimalism", "gift_narrative", "modularity", "low_sew_appeal", "surprising_function",
+    "collection_logic",
 )
 
 SHOT_TYPES: tuple[str, ...] = (
@@ -65,11 +86,19 @@ class PendingAnalysis:
                 "rank": self.rank, "image_url": self.image_url, "key": self.key}
 
 
-def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis]:
+def pending(db, benchmark_key: str, *, limit: int = 200,
+            prefer_pods: frozenset[str] | set[str] | None = None) -> list[PendingAnalysis]:
     """Gallery images that have been inventoried and not yet judged.
 
     Ordered by listing recency so a release run is analysed before an eighteen-month-old
     listing, which is the order the commercial value arrives in.
+
+    `prefer_pods` (W4-B2VISION, 2026-10-12): breadth-first for the pods our own catalogue is
+    judged in. Production judges ~4 images a run inside its daily ceiling, and listing-major
+    order spent them on one listing's whole gallery, so a pod reached the blind review's
+    floor (6 judged images across 3 listings) only after hundreds of calls -- every
+    competitive review read UNKNOWN. With it, every listing's hero image in a preferred pod
+    comes first, then second images, and so on; other pods follow in the same shape.
     """
     from sqlalchemy import desc, select
 
@@ -81,6 +110,22 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
             .where(BenchmarkListing.benchmark_key == benchmark_key,
                    BenchmarkListing.audit_state == "audited")
             .order_by(desc(BenchmarkListing.last_seen))))
+
+    if prefer_pods is not None:
+        ranked: list[tuple[int, int, int, PendingAnalysis]] = []
+        for order, row in enumerate(rows):
+            detail = row.detail or {}
+            if detail.get("gallery_analysed"):
+                continue
+            done = set(detail.get("gallery_ranks_judged") or [])
+            tried = detail.get("gallery_ranks_failed") or {}
+            for rank, url in enumerate(detail.get("image_urls") or [], start=1):
+                if (url and rank not in done
+                        and int(tried.get(str(rank), 0)) < FAILED_ATTEMPTS):
+                    ranked.append((0 if (row.pod or "") in prefer_pods else 1, rank, order,
+                                   PendingAnalysis(benchmark_key, row.listing_ref, url, rank)))
+        ranked.sort(key=lambda t: t[:3])
+        return [t[3] for t in ranked[:limit]]
 
     out: list[PendingAnalysis] = []
     for row in rows:
@@ -101,6 +146,32 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
     return out
 
 
+def image_counts(rows) -> dict:
+    """Unjudged / judged / given-up image slots over `BenchmarkListing` rows already read.
+
+    W4-MJSCOUNT (F-191): the one arithmetic for gallery image counts, so `pending_count`,
+    `plan` and the mission snapshot cannot disagree about the same backlog.
+    """
+    unjudged = judged = stuck = slots = 0
+    for row in rows:
+        if row.audit_state != "audited":
+            continue
+        detail = row.detail or {}
+        urls = [u for u in (detail.get("image_urls") or []) if u]
+        done = set(detail.get("gallery_ranks_judged") or [])
+        tried = detail.get("gallery_ranks_failed") or {}
+        slots += len(urls)
+        judged += len(done)
+        for rank in range(1, len(urls) + 1):
+            if rank in done:
+                continue
+            if int(tried.get(str(rank), 0)) >= FAILED_ATTEMPTS:
+                stuck += 1
+            else:
+                unjudged += 1
+    return {"unjudged": unjudged, "judged": judged, "given_up_on": stuck, "image_slots": slots}
+
+
 def pending_count(db, benchmark_key: str) -> dict:
     """How many images are genuinely unjudged, and how many have failed repeatedly.
 
@@ -115,24 +186,11 @@ def pending_count(db, benchmark_key: str) -> dict:
 
     from ..core.models import BenchmarkListing
 
-    unjudged = judged = stuck = 0
     with db.session() as s:
-        for row in s.scalars(select(BenchmarkListing).where(
-                BenchmarkListing.benchmark_key == benchmark_key,
-                BenchmarkListing.audit_state == "audited")):
-            detail = row.detail or {}
-            urls = [u for u in (detail.get("image_urls") or []) if u]
-            done = set(detail.get("gallery_ranks_judged") or [])
-            tried = detail.get("gallery_ranks_failed") or {}
-            judged += len(done)
-            for rank in range(1, len(urls) + 1):
-                if rank in done:
-                    continue
-                if int(tried.get(str(rank), 0)) >= FAILED_ATTEMPTS:
-                    stuck += 1
-                else:
-                    unjudged += 1
-    return {"unjudged": unjudged, "judged": judged, "given_up_on": stuck}
+        c = image_counts(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.audit_state == "audited")))
+    return {k: c[k] for k in ("unjudged", "judged", "given_up_on")}
 
 
 def check_observation(observation: dict) -> None:
@@ -164,22 +222,102 @@ def plan(db, benchmark_key: str, env: dict[str, str] | None = None) -> dict:
     per_call = routing.estimate_cad("gallery_observation")
     capable = access.available("model_provider", env)
     budget = routing.budget(db)
+    # F-191: the backlog is counted over the whole catalogue (`pending_count`), not as the
+    # length of a 200-row page of it, which saturated and disagreed with the snapshot.
+    counts = pending_count(db, benchmark_key)
 
     affordable = int(budget.remaining_cad / per_call) if per_call else 0
     return {
         "state": PENDING if capable else BLOCKED,
-        "pending_images": len(queue),
+        "pending_images": counts["unjudged"],
+        "judged_images": counts["judged"],
+        "given_up_on": counts["given_up_on"],
         "estimated_cad_per_image": per_call,
-        "estimated_cad_total": round(len(queue) * per_call, 4),
+        "estimated_cad_total": round(counts["unjudged"] * per_call, 4),
         "affordable_this_month": affordable,
         "capability_available": capable,
         "next": [p.to_dict() for p in queue[:10]],
+        # F-193: measured cost per judged image, the purpose's share of the month and the
+        # drain ETA at the cadence's ceiling-derived rate. UNKNOWN (None) where unmeasured.
+        "forecast": forecast(db, benchmark_key, counts=counts),
         "note": ("Ready to run: the backlog drains in listing-recency order, newest first, "
                  "because that is the order commercial value arrives in."
                  if capable else
                  "No model provider is configured, so no image has been judged and none has "
                  "been guessed at. The backlog is real work waiting, not a gap being "
                  "papered over (#224)."),
+    }
+
+
+GALLERY_CADENCE_NAME = "gallery_analysis"
+
+
+def forecast(db, benchmark_key: str, *, counts: dict | None = None,
+             now: datetime | None = None) -> dict:
+    """F-193: what the gallery backlog costs and when it drains, from measurements.
+
+    * cost per image: recorded spend on purpose `gallery_observation` divided by images judged.
+      Both are this system's own rows; with either at zero the figure is UNKNOWN (None), never
+      a guess and never 0.
+    * allocation: the purpose's share of the month (`spend_policy.ALLOCATION`) and what is left.
+    * ETA: images per run (`spend_policy.work_that_fits`, the same sizing the cadence uses) x
+      runs per day (`runtime.worker.CADENCES`), and how many days the unjudged backlog needs at
+      that rate; and the cost to drain at the measured (else estimated) price per image.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry
+    from ..finance import spend_policy
+
+    c = counts or pending_count(db, benchmark_key)
+    with db.session() as s:
+        spent, rows = s.execute(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0),
+                                       func.count()).where(CostEntry.purpose == TASK)).one()
+    spent = float(spent or 0.0)
+    measured = round(spent / c["judged"], 6) if spent > 0 and c["judged"] > 0 else None
+    estimate = per_image_estimate_cad()
+    try:
+        from ..runtime.worker import CADENCES
+
+        period = next((p for n, _a, _j, p in CADENCES if n == GALLERY_CADENCE_NAME), None)
+    except Exception:  # noqa: BLE001
+        period = None
+    allowance = spend_policy.may_spend(db, TASK, now=now)
+    per_run = None
+    why_rate = None
+    if period:
+        try:
+            fit = spend_policy.work_that_fits(db, agent=AGENT, purpose=TASK,
+                                              period_seconds=int(period),
+                                              unit_cost_cad=estimate, now=now)
+            per_run = int(fit["units"])
+            why_rate = fit.get("why")
+        except Exception as exc:  # noqa: BLE001
+            why_rate = f"rate unreadable: {type(exc).__name__}"
+    runs_per_day = round(86400 / period, 4) if period else None
+    per_day = (round(per_run * runs_per_day, 2) if per_run is not None and runs_per_day
+               else None)
+    unjudged = c["unjudged"]
+    eta_days = (round(unjudged / per_day, 1) if per_day else None) if unjudged else 0.0
+    price = measured if measured is not None else estimate
+    return {
+        "measured_cad_per_image": measured,
+        "measured_basis": (f"CA${spent:.4f} over {rows} cost row(s) / {c['judged']} judged "
+                           f"image(s)" if measured is not None else
+                           "UNKNOWN: no recorded gallery spend or no judged image yet"),
+        "estimated_cad_per_image": estimate,
+        "allocation": {k: allowance.get(k) for k in ("share_of_ceiling", "allowed_cad",
+                                                      "spent_cad", "may_spend", "why")},
+        "images_per_run": per_run, "runs_per_day": runs_per_day, "images_per_day": per_day,
+        "rate_why": why_rate,
+        "unjudged": unjudged,
+        "eta_days": eta_days,
+        "eta_basis": ("backlog empty" if not unjudged else
+                      "UNKNOWN: the cadence can judge nothing at the current ceiling"
+                      if not per_day else
+                      f"{unjudged} unjudged / {per_day} per day at the ceiling-derived rate"),
+        "cost_to_drain_cad": round(unjudged * price, 4),
+        "cost_to_drain_basis": "measured" if measured is not None else "estimated",
     }
 
 
@@ -335,7 +473,10 @@ def analysis_prompt() -> str:
         + "\n".join(f"- {field}" for field in OBSERVATION_FIELDS)
         + f"\n\n`shot_type`, when present, must be exactly one of: "
         + ", ".join(SHOT_TYPES)
-        + "\n\nEvery other value is one short phrase. Omit any key you cannot judge."
+        + "\n\nEvery other value is one short phrase. Omit any key you cannot judge. "
+        + "`motif_legibility` is whether a motif reads at a glance, never what the motif is; "
+        + "`brand_coherence` is whether this frame reads as the same shop as a typical "
+        + "listing of its kind; `aesthetic_currency` is whether the styling looks current."
     )
 
 
@@ -366,9 +507,19 @@ def parse_observation(text: str) -> dict:
     return observation
 
 
+def method_version() -> str:
+    """The analysis method's identity: system prompt, user prompt and token budget."""
+    import hashlib
+
+    blob = f"{ANALYSIS_SYSTEM}\x00{analysis_prompt()}\x00{ANALYSIS_MAX_TOKENS}"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
+
+
 def analyse(db, benchmark_key: str, *, limit: int = 10,
             provider=None, env: dict[str, str] | None = None,
-            job_id: int | None = None) -> dict:
+            job_id: int | None = None,
+            prefer_pods: frozenset[str] | set[str] | None = None,
+            should_stop=None) -> dict:
     """Judge up to `limit` pending gallery images, one call each, and record what was seen.
 
     One image per call rather than a batch. A batch is cheaper per image and makes a single
@@ -389,12 +540,30 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     # A probe's model is not an analysis model, and the two sharing a constant is how the
     # substitution happened without anybody choosing it.
     provider = provider or gw.provider_for(TASK)
-    queue = pending(db, benchmark_key, limit=limit)
+    # F-318: the backlog before the run, counted the same way as after it, so a run that
+    # paid and left the backlog where it was is visible as exactly that.
+    pending_before = pending_count(db, benchmark_key)["unjudged"]
+    # F-309: this handler's method for the shared systematic-failure breaker. A prompt or
+    # parser change is a new method; a parse floor that never once passes under one method
+    # stops `check_budget` paying for it again.
+    from ..finance import systematic
+
+    method = method_version()
+    systematic.declare(TASK, method)
+    queue = pending(db, benchmark_key, limit=limit, prefer_pods=prefer_pods)
 
     judged, failures, spent = 0, [], 0.0
     reserved, tokens_in, tokens_out = 0.0, 0, 0
     stopped_by = ""
     for item in queue:
+        # F-473: between images (never mid-call), a cooperative yield to waiting
+        # higher-band work. Every judged image is already recorded, so stopping here loses
+        # nothing; the remaining backlog is the checkpoint.
+        if should_stop is not None and judged + len(failures) > 0:
+            why = should_stop()
+            if why:
+                stopped_by = "preempted"
+                break
         estimate = 0.0
         held = None
         try:
@@ -459,14 +628,25 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
             _mark_failed(db, item)
+            systematic.record(db, TASK, method, {"closed_vocabulary_observation": "fail"},
+                              agent=AGENT)
             continue
+        systematic.record(db, TASK, method, {"closed_vocabulary_observation": "pass"},
+                          agent=AGENT)
         judged += 1
 
     _bill(db, spent, judged, job_id, provider=provider, reserved=reserved,
           tokens_in=tokens_in, tokens_out=tokens_out)
     backlog = pending_count(db, benchmark_key)
+    from ..finance import spend_hygiene
+
+    spend_hygiene.note_backlog_run(db, processor=f"{TASK}:{benchmark_key}",
+                                   pending_before=pending_before,
+                                   pending_after=backlog["unjudged"], processed=judged,
+                                   cost_cad=spent, agent=AGENT, job_id=job_id)
     return {
         "benchmark": benchmark_key,
+        "pending_before": pending_before,
         "model": provider.model,
         "tier": TASK,
         "judged": judged,

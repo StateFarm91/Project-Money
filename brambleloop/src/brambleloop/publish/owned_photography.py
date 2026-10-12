@@ -146,8 +146,12 @@ def claim_for(cir, twin) -> dict:
     }
 
 
-def prompt_for(cir, twin, *, occasion: str = "") -> str:
-    """The render brief, derived from the CIR rather than written beside it."""
+def prompt_for(cir, twin, *, occasion: str = "", constraints: tuple[str, ...] = ()) -> str:
+    """The render brief, derived from the CIR rather than written beside it.
+
+    `constraints` are the #81 rung's additions (C-80 defect 8): the failed checks named for
+    a constrained regeneration, or a changed composition. They are appended, never
+    substituted, so the brief still states the certified object."""
     # The colour *names*, not the hex values the twin renders with. `cir.colors` maps a
     # name to a hex code, and a prompt asking for "#1A2B3C" describes nothing to a
     # generator and nothing to a reader of this prompt either.
@@ -166,6 +170,7 @@ def prompt_for(cir, twin, *, occasion: str = "") -> str:
         f"crocheted fabric lies.{occasion_line} No people, no hands, no text, no logos, no "
         f"brand marks, no packaging. The object is the entire subject of the frame. "
         f"{FABRIC_DIRECTION}"
+        + "".join(f" {c.strip()}" for c in constraints if str(c).strip())
     )
 
 
@@ -231,7 +236,8 @@ def motif_sentence(cir) -> str:
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
          work_dir: str | None = None, provider_key: str = "", generator=None,
-         inspector=None, motif_judger=None) -> dict:
+         inspector=None, motif_judger=None, rung: str = "",
+         constraints: tuple[str, ...] = ()) -> dict:
     """Render one owned product image and judge it. Returns a record, never an assertion.
 
     A caller that supplies no `work_dir` gets one for the length of the render rather than a
@@ -241,13 +247,17 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     judged against nothing. The render's bytes are in the artifact store before this returns,
     so the directory has nothing left to hold.
     """
+    from ..visual.product_authority import redraw_refusal
+    return redraw_refusal(cir.slug)
+
+    # Historical Visual V1 implementation retained for evidence, unreachable in production.
     from ..core import workspace
 
     if not work_dir:
         with workspace.work_dir(None, prefix="owned-asset-") as work:
             return make(db, cir, twin, occasion=occasion, env=env, work_dir=work,
                         provider_key=provider_key, generator=generator, inspector=inspector,
-                        motif_judger=motif_judger)
+                        motif_judger=motif_judger, rung=rung, constraints=constraints)
 
     from ..gateway import images
     from ..visual import inspect as inspection_mod
@@ -271,7 +281,7 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
 
     from . import motif_fidelity
 
-    prompt = prompt_for(cir, twin, occasion=occasion)
+    prompt = prompt_for(cir, twin, occasion=occasion, constraints=tuple(constraints))
     claim = claim_for(cir, twin)
 
     # Named explicitly, because `generate` without one falls back to
@@ -341,6 +351,10 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
             else (inspected.get("description") or {}).get("clarity") != "unreadable"),
         "form": form_of(cir),
         "occasion": occasion or None,
+        # C-80 defect 8: which #81 rung this render was, if any. A rung attempt has its own
+        # budget (`rung_attempts`) and is excluded from the ordinary per-release budget.
+        "rung": rung or None,
+        "rung_constraints": list(constraints) or None,
         "prompt": prompt,
         "claim": claim,
         "image": tournament._keep(image_ref),
@@ -433,10 +447,22 @@ def assets_for(db, *, slug: str, version: str) -> list[dict]:
     return out
 
 
+def rung_attempts(db, *, slug: str, version: str, rung: str) -> list[dict]:
+    """The assets one #81 rung made for this release: the rung's own budget (C-80 defect 8)."""
+    return [a for a in assets_for(db, slug=slug, version=version) if a.get("rung") == rung]
+
+
+def ordinary_attempts(db, *, slug: str, version: str) -> list[dict]:
+    """The assets the daily cadence made for this release, not the escalation rungs."""
+    return [a for a in assets_for(db, slug=slug, version=version) if not a.get("rung")]
+
+
 def usable_asset(db, *, slug: str, version: str) -> dict | None:
     """An asset that actually cleared its checks. The only kind a listing may use."""
+    from ..visual.product_authority import structural_floor
+
     for asset in assets_for(db, slug=slug, version=version):
-        if asset.get("usable_as_listing_asset"):
+        if asset.get("usable_as_listing_asset") and structural_floor(asset)["status"] == "PASS":
             return asset
     return None
 
@@ -503,7 +529,10 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
                         f"never once passed. What needs changing is the method, and a new "
                         f"METHOD_VERSION is what tells this check the method changed")}
 
-    spent = len(assets_for(db, slug=slug, version=version))
+    # C-80 defect 8: the ordinary budget counts the cadence's own attempts. A #81 rung is a
+    # different strategy with its own one-attempt budget (`rung_attempts`), so a rung is
+    # neither refused by an exhausted ordinary budget nor charged to it.
+    spent = len(ordinary_attempts(db, slug=slug, version=version))
     if spent >= ATTEMPTS:
         return {"render": False, "reason": "attempts_exhausted", "attempts": spent,
                 "why": (f"{spent} assets for {slug} {version} were rendered by "
@@ -525,7 +554,9 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
     catalogue-wide count is the difference between "the photography job ran" and "the
     catalogue can be listed".
     """
-    usable, unusable, missing = [], [], []
+    from . import disclosed_listing
+
+    usable, unusable, missing, disclosed = [], [], [], []
     # Why each failure failed, not just that it did. Without this the next decision --
     # render the rest, or fix the method first -- cannot be made without spending to find
     # out, and tonight's whole lesson is that a method which fails every time it is asked
@@ -535,6 +566,12 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         version = versions.get(slug, "")
         if usable_asset(db, slug=slug, version=version):
             usable.append(slug)
+        elif disclosed_listing.usable_set(db, slug=slug, version=version):
+            # D-FB-7: a disclosed deterministic render set that verifies against the CIR on
+            # its bound bytes and passed every listing-image QA gate is customer-ready
+            # imagery. Counted here so the launch gate and the coverage endpoint agree.
+            usable.append(slug)
+            disclosed.append(slug)
         elif (tried := assets_for(db, slug=slug, version=version)):
             unusable.append(slug)
             latest = tried[0]
@@ -567,11 +604,18 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
                 found["third_party_marks"] = list(truth.get("third_party_marks") or ())
                 found["unmade"] = list(truth.get("unmade") or ())
             diagnosis[slug] = found
+        elif ((rendered := disclosed_listing.last_asset(db, slug=slug))
+              and rendered.get("version") == version):
+            unusable.append(slug)
+            diagnosis[slug] = {"kind": "disclosed_render", "detail": "recorded",
+                               "why": "; ".join(rendered.get("launch_blocked") or [])[:300]
+                               or "structural truth is not PASS on the bound bytes now"}
         else:
             missing.append(slug)
     return {
         "certified": len(slugs),
         "with_usable_asset": sorted(usable),
+        "with_disclosed_render": sorted(disclosed),
         "with_only_unusable_assets": sorted(unusable),
         "with_no_asset_at_all": sorted(missing),
         "why_each_unusable_one_failed": diagnosis,

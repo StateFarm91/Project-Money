@@ -1,0 +1,788 @@
+{
+ "head": "8b67414",
+ "written": [
+  {
+   "uid": "F-005",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gate"
+   },
+   "checked": "runtime/etsy_ops.certified_payload refuses UNKNOWN taxonomy and reads the certified verdict that search.judge_hero writes back (release.py:1255, release_gates.py:1005) -- no fixture forces PASS any more",
+   "test_files": [
+    "tests/test_search_hero_publish.py",
+    "tests/test_search_truth.py"
+   ]
+  },
+  {
+   "uid": "F-007",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "set_listing_property wired (pipeline); node property schema read needs etsy_api"
+   },
+   "checked": "runtime/pipeline.py:1844 sends each canonical property through EtsyClient.set_listing_property (the 'never transmitted' defect is repaired)",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_r2_product_listing_writes.py"
+   ]
+  },
+  {
+   "uid": "F-081",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "tester_roster",
+    "detail": "physical intake fixed (fb4-PUB); Class C needs an independent tester's make"
+   },
+   "checked": "gates/certificate.certify binds physical evidence (binding['passed'] sets physical_test_passed), so the gate is no longer fail-closed forever",
+   "test_files": [
+    "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)",
+    "tests/test_gates.py"
+   ]
+  },
+  {
+   "uid": "F-118",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "tester_roster",
+    "detail": "first_customer gate wired via eligibility; calibration needs a recruited tester"
+   },
+   "checked": "gates/first_customer is called from publish/eligibility.py:588 and runtime/pipeline.py:682 (it had no runtime caller)",
+   "test_files": [
+    "tests/test_eligibility.py",
+    "tests/test_first_customer_gate.py",
+    "tests/test_launch0.py",
+    "tests/test_physical.py"
+   ]
+  },
+  {
+   "uid": "F-160",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "owner",
+    "key": "credential_rotation",
+    "detail": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act"
+   },
+   "checked": "ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner",
+   "test_files": [
+    "tests/test_credential_register.py",
+    "tests/test_fb4_ops.py"
+   ]
+  },
+  {
+   "uid": "F-253",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "image_vision",
+    "detail": "Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain"
+   },
+   "checked": "generative product redraw is refused in every role (publish/eligibility.py:449, F-852); Launch-0 uses disclosed renders, so the path is no longer the defect",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_owned_photography.py"
+   ]
+  },
+  {
+   "uid": "F-273",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "transactions_r",
+    "detail": "offsite-ads fee set from ledger evidence; real rows need transactions_r"
+   },
+   "checked": "finance/reconcile.py:484 and finance/sources.py:100 set offsite_ad_attributed from ledger evidence; contribution deducts it",
+   "test_files": [
+    "tests/test_money_truth.py",
+    "tests/test_paid_media_economics.py"
+   ]
+  },
+  {
+   "uid": "F-321",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing"
+   },
+   "checked": "runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)",
+   "test_files": [
+    "tests/test_money_truth.py",
+    "tests/test_w3_spend_attribution.py"
+   ]
+  },
+  {
+   "uid": "F-461",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "owner",
+    "key": "deploy_trigger_config",
+    "detail": "guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting"
+   },
+   "checked": "ops/hooks/pre-push and ops/deploy.sh run ops/deploy_guard.py on a push to the production branch; a client hook can be skipped, so server-side enforcement is the owner's Railway/GitHub setting",
+   "test_files": [
+    "tests/test_deploy_guard.py",
+    "tests/test_deploy_path.py"
+   ]
+  },
+  {
+   "uid": "F-515@v0.16",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_shop",
+    "detail": "daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build"
+   },
+   "checked": "runtime/etsy_ops.handle_shop_snapshot (daily) feeds intel/etsy_surfaces.assess_shop (etsy_ops.py:894) -- remote verification is wired",
+   "test_files": [
+    "tests/test_brand.py",
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py"
+   ]
+  },
+  {
+   "uid": "F-524",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "store.publish sends certified images; hero experiments need a live listing"
+   },
+   "checked": "store.publish reads etsy_ops.certified_images and sends the certified bytes in certificate order before anything is created (pipeline.py:1587-1611)",
+   "test_files": [
+    "tests/test_cert_listing_frames.py",
+    "tests/test_etsy_readback_observe.py"
+   ]
+  },
+  {
+   "uid": "F-540",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build"
+   },
+   "checked": "etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key",
+   "test_files": [
+    "tests/test_etsy_oauth_callback.py",
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_oauth_security_audit.py"
+   ]
+  },
+  {
+   "uid": "F-542",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "store.publish reads back fields/properties/files; the controlled round trip is owner-authorised"
+   },
+   "checked": "store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_transport.py"
+   ]
+  },
+  {
+   "uid": "F-543",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "publication_authority",
+    "detail": "store.activate built with revalidated authority; going live is the owner's grant + phase change"
+   },
+   "checked": "store.publish passes the certified image bytes (F-524) and store.activate re-validates authority at execution",
+   "test_files": [
+    "tests/test_etsy_exercise.py",
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_transport.py"
+   ]
+  },
+  {
+   "uid": "F-556",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "external",
+    "key": "no_messages_api",
+    "detail": "SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API"
+   },
+   "checked": "support/response_watch (fb4-OPS) times buyer messages from the owner's opsauth intake; Etsy exposes no conversation API",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_fb4_ops.py"
+   ]
+  },
+  {
+   "uid": "F-577",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "payout",
+    "detail": "drift monitor built; owner completes Etsy Payments onboarding"
+   },
+   "checked": "the daily shop snapshot judges is_etsy_payments_onboarded and reopens the owner action on drift",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_launch.py"
+   ]
+  },
+  {
+   "uid": "F-594",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains"
+   },
+   "checked": "launch/readiness reads _etsy_exercise_evidence (readiness.py:611-623) instead of a hard-coded False",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_first_customer_gate.py",
+    "tests/test_launch.py"
+   ]
+  },
+  {
+   "uid": "F-674",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability",
+    "detail": "generative redraw refused (F-852); B+C photoreal stays R&D, not launch-critical under D-FB-7"
+   },
+   "checked": "the generative-redraw direction is refused in every role (F-852: publish/eligibility.py:449, visual/product_authority.py); the protected photoreal stage is R&D (D-FB-7) awaiting provider capability",
+   "test_files": [
+    "tests/test_owned_photography.py",
+    "tests/test_parity.py"
+   ]
+  },
+  {
+   "uid": "F-676",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "external",
+    "key": "model_bearing_render",
+    "detail": "F-852 refusal; protected-region enhancement waits on V2/provider fidelity"
+   },
+   "checked": "generative product redraw refused (F-852); protected-region enhancement waits on provider fidelity at stitch scale",
+   "test_files": [
+    "tests/test_model_photography.py",
+    "tests/test_provider_trial.py"
+   ]
+  },
+  {
+   "uid": "F-733",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "same as F-718: production approval row / OA-CANON-1"
+   },
+   "checked": "visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row",
+   "test_files": [
+    "tests/test_asset_manifest.py",
+    "tests/test_cert_identity.py",
+    "tests/test_model_freeze.py"
+   ]
+  },
+  {
+   "uid": "F-734",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "external",
+    "key": "model_bearing_render",
+    "detail": "no provider renders a model-bearing frame clearing every floor"
+   },
+   "checked": "the product floor is refused for generated product imagery (F-852); a model-bearing frame clearing every floor needs provider capability",
+   "test_files": [
+    "tests/test_model_photography.py"
+   ]
+  },
+  {
+   "uid": "F-851",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "external",
+    "key": "visual_v1_provider_capability",
+    "detail": "V1 redraw refused; protected photoreal presentation waits on V2 R&D"
+   },
+   "checked": "V1 generative redraw is refused (F-852) on the main line; the B+C photoreal presentation waits on V2 provider capability (D-FB-7)",
+   "test_files": [
+    "tests/test_cert_hero_title_safe.py",
+    "tests/test_render.py"
+   ]
+  },
+  {
+   "uid": "F-568",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "the owner-intake half the claim left to W1 is mounted: commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); commerce/policy_violations ranks P0/P1/P2, sets deadline, remediation owner, legal-review owner action and closure proof; census escalates overdue items",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_w3_laura_cc_providers.py"
+   ]
+  },
+  {
+   "uid": "F-585",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "commerce/shop_options.evaluate judges 8 controls (value, desired state, consequence, authority) inside the daily etsy.shop_snapshot and detects DRIFT/CHANGED/label changes; the browser-only half is the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential)",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_k8_shop_cx.py"
+   ]
+  },
+  {
+   "uid": "F-592",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "commerce/shop_security.posture runs inside the daily etsy.credential_health (runtime/etsy_ops._security_posture): scope drift, credential replaced outside a refresh, rotation age, callback config; apps and shared-access readings come from the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); never echoes credentials",
+   "test_files": [
+    "tests/test_continuity.py",
+    "tests/test_etsy_oauth_callback.py",
+    "tests/test_k8_shop_cx.py"
+   ]
+  },
+  {
+   "uid": "F-689",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "external",
+    "key": "no_messages_api",
+    "detail": "Etsy exposes no conversation API"
+   },
+   "checked": "support/workspace.workspace joins messages, orders, reviews, refunds, risks and upstream fixes per buyer; the operator view the claim left to W1 is served at GET /api/cx/workspace (operator credential, app/main.py:776 CUSTOMER_DATA_ROUTES); the recorded defect (unauthenticated /api/support) is repaired (test_customer_data_auth). Etsy has no messages API, so messages enter through the owner intake (F-556 gate)",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_departments.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_w3_laura_cc_providers.py"
+   ]
+  },
+  {
+   "uid": "F-535",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "transactions_r",
+    "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+   },
+   "checked": "commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k8_shop_cx.py"
+   ]
+  },
+  {
+   "uid": "F-203",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "the dashboard half the claim left as a wiring request landed (W3-WIRE4 1c): app/main.py _newest_row_line states query time and newest row for the jobs, products, incidents and audit tables; CC cards carry observation_window (providers.validate -> ops/truth.observation_window, mixed_snapshot)",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_w3_k7_ops_truth.py",
+    "tests/test_w3_wire4.py"
+   ]
+  },
+  {
+   "uid": "F-287",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "no live listing exists (shadow mode)"
+   },
+   "checked": "the Command Center card the claim left to lane F is wired: providers.PROVIDERS['visibility'] = launch.visibility.summary; GET /api/owner/phase/visibility serves the full view (app/phase_api). Impressions, clicks, conversion and ads read UNMEASURED with their reason until live listings exist",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_health.py",
+    "tests/test_w3_k4_launch_verdict.py",
+    "tests/test_w3_laura_cc_providers.py"
+   ]
+  },
+  {
+   "uid": "F-176",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "deploy the candidate so the baseline is recorded on it"
+   },
+   "checked": "ops/assurance.rollback_baseline binds code SHA, tree digest, schema digest, config names (never values), coverage map, release-record tests, restore proof and rollback target, and names each missing component; record_baseline writes it once per digest on the ops.health sweep (ops/truth.py:353). It reads recoverable=false locally: code SHA, release-record tests and restore proof exist only on a deployed build",
+   "test_files": [
+    "tests/test_cert_rebuild_chain.py",
+    "tests/test_continuity.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ]
+  },
+  {
+   "uid": "F-806",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "learn/technique renders a deterministic diagram per supported stitch and read_drawing verifies loops, insertion point, post and orientation; GET /learn/{slug}/technique/{stitch}.svg (learn/api.py:143) re-renders and verifies before serving (fail-closed 404); lesson assets refuse photos, generic images and another stitch's diagram. The human attestation remains an additional floor, no longer the only evidence -- the recorded proxy defect is repaired",
+   "test_files": [
+    "tests/test_learn_launch.py",
+    "tests/test_w3_k10_learn.py"
+   ]
+  },
+  {
+   "uid": "F-331",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "EXERCISED",
+   "gate": null,
+   "checked": "the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested",
+   "test_files": [
+    "tests/test_board_restart.py (checks 'the board names every lane of the night it never saw in this process')",
+    "tests/test_persistence.py",
+    "tests/test_w3_suite_job_identity.py"
+   ]
+  },
+  {
+   "uid": "F-333",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": null,
+   "checked": "the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested",
+   "test_files": [
+    "tests/test_chaos.py",
+    "tests/test_persistence.py",
+    "tests/test_w3_suite_job_identity.py"
+   ]
+  },
+  {
+   "uid": "F-335",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "EXERCISED",
+   "gate": null,
+   "checked": "the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested",
+   "test_files": [
+    "tests/test_board.py (checks 'a finished job nobody acknowledged becomes COMPLETE_UNREPORTED')",
+    "tests/test_persistence.py",
+    "tests/test_w3_suite_job_identity.py"
+   ]
+  },
+  {
+   "uid": "F-341",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested",
+   "test_files": [
+    "tests/test_board_restart.py (check 'a completion acted on before the restart is still COMPLETE_REPORTED after it')",
+    "tests/test_persistence.py",
+    "tests/test_w3_suite_job_identity.py"
+   ]
+  },
+  {
+   "uid": "F-158",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "deploying the frozen candidate builds the image from the lock"
+   },
+   "checked": "ops/deploy_guard record embeds the lock verification, an SBOM and the change record derived from requirements.lock at the SHA (tests/test_w3_supply_chain.py); the Dockerfile installs only the hash-checked lock. The image has never been built from the lock because no candidate has been deployed",
+   "test_files": [
+    "tests/test_dependency_lock.py",
+    "tests/test_w3_supply_chain.py"
+   ]
+  },
+  {
+   "uid": "F-159",
+   "source": "FOLD",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan",
+   "test_files": [
+    "tests/test_secret_scan.py"
+   ]
+  },
+  {
+   "uid": "F-260",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "a listing test needs a live listing and its exposure"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_growth_seasonal.py",
+    "tests/test_cert_publish_gates.py",
+    "tests/test_k3_listing_outcomes.py",
+    "tests/test_listing_tests.py"
+   ]
+  },
+  {
+   "uid": "F-261",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "stages need exposure data"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ]
+  },
+  {
+   "uid": "F-282",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "exposure data"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ]
+  },
+  {
+   "uid": "F-135",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "the drill runs on the deployed candidate"
+   },
+   "checked": "lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed",
+   "test_files": [
+    "tests/test_acceptance_gates.py",
+    "tests/test_chaos.py",
+    "tests/test_executor.py",
+    "tests/test_persistence.py",
+    "tests/test_v11_autonomy_recovery.py"
+   ]
+  },
+  {
+   "uid": "F-416",
+   "source": "FOLD",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
+   "test_files": [
+    "tests/test_dependency_lock.py",
+    "tests/test_w3_supply_chain.py"
+   ]
+  },
+  {
+   "uid": "F-030",
+   "source": "FOLD",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing",
+   "test_files": [
+    "tests/test_brand.py (MISSING_FRAME)",
+    "tests/test_listing_set.py"
+   ]
+  },
+  {
+   "uid": "F-254",
+   "source": "FOLD",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_eligibility.py"
+   ]
+  },
+  {
+   "uid": "F-558",
+   "source": "REMAP",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "transactions_r",
+    "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+   },
+   "checked": "commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_money_truth.py"
+   ]
+  },
+  {
+   "uid": "F-608",
+   "source": "REMAP",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed",
+    "detail": "a real bank / Etsy payment-ledger feed needs the owner"
+   },
+   "checked": "finance/accounting/reconciliation imports bank / Etsy-ledger / processor statements, matches payouts to deposits, raises unmatched lines and charged-fee mismatches as exceptions and compares with the books (compare_with_books); the Accountant cycle runs every 6 h (runtime/worker.py:731 finance.accounting.cycle). No real statement feed is connected",
+   "test_files": [
+    "tests/test_deploy.py",
+    "tests/test_finance.py",
+    "tests/test_money_truth.py",
+    "tests/test_v11_accounting_controller.py",
+    "tests/test_v11_accounting_reconciliation.py"
+   ]
+  },
+  {
+   "uid": "F-609",
+   "source": "REMAP",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "LedgerEntry now carries source, currency, basis and fees_basis (core/models.py LedgerEntry; modelled fees marked modelled, orders_ingest.py:964); the v1.1 journal (finance/accounting/models AcctJournalEntry/AcctPosting) carries source table/id/ref, per-line basis, currency and amount_original, sealed append-only with reversals; spend and statement lines post into it (posting_rules). The defect (modelled fees read as charged) is repaired",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_finance.py",
+    "tests/test_v11_accounting_ledger.py"
+   ]
+  }
+ ],
+ "kept_open": [],
+ "counts": {
+  "written": 47,
+  "kept": 0,
+  "by_verdict": {
+   "GATED": 33,
+   "COMPLETE": 10,
+   "OPEN": 4
+  }
+ }
+}

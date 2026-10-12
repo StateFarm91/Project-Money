@@ -1,0 +1,79 @@
+{
+ "_source": "GET https://brambleloop-os-production.up.railway.app/api/build (read-only)",
+ "_commit": "fcb982d",
+ "_read_at": "2026-10-07",
+ "gates": {
+  "benchmark_observation": {
+   "open": true,
+   "what": "read-only Etsy API credentials that can actually serve a request"
+  },
+  "model_provider": {
+   "open": false,
+   "what": "a model provider that can actually serve a request"
+  },
+  "etsy_shop": {
+   "open": true,
+   "what": "a live Etsy shop, which only the account holder can open"
+  },
+  "etsy_api": {
+   "open": true,
+   "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+  },
+  "image_vision": {
+   "open": false,
+   "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns"
+  },
+  "rendered_pages": {
+   "open": false,
+   "what": "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for"
+  },
+  "tester_roster": {
+   "open": false,
+   "what": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode"
+  },
+  "image_generation": {
+   "open": false,
+   "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt"
+  },
+  "canonical_model": {
+   "open": true,
+   "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it"
+  },
+  "benchmark_purchases": {
+   "open": false,
+   "what": "roughly ten purchased competitor patterns"
+  },
+  "offsite_storage": {
+   "open": false,
+   "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself"
+  },
+  "owned_surfaces": {
+   "open": false,
+   "what": "a site or a Pinterest account this company can publish to, which only the owner can create"
+  },
+  "live_listings": {
+   "open": false,
+   "what": "a listing that exists on the marketplace, which shadow mode forbids by design"
+  },
+  "customers": {
+   "open": false,
+   "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are"
+  },
+  "physical_proof": {
+   "open": false,
+   "what": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one"
+  },
+  "second_market_benchmark": {
+   "open": false,
+   "what": "a benchmark shop outside the United States, which is a choice of shop rather than a credential or a capability"
+  },
+  "culture_feed": {
+   "open": true,
+   "what": "a connected source of cultural signal -- search interest, social or trend data -- which this company has never had"
+  },
+  "ad_authority": {
+   "open": false,
+   "what": "an approved advertising budget"
+  }
+ }
+}

@@ -196,8 +196,16 @@ def movement(cohorts: list[dict]) -> dict:
     }
 
 
-def lifetime_value(buyers: list[dict]) -> dict:
-    """Contribution per buyer over their whole relationship, or what it needs."""
+def lifetime_value(buyers: list[dict], *, min_buyers: int = 1) -> dict:
+    """Contribution per buyer over their whole relationship, or what it needs.
+
+    `min_buyers` is the floor a *cohort* reading needs (#12): a lifetime value over four
+    buyers is a lifetime value about those four people. The default of one keeps the
+    single-relationship reading, which is what the ladder itself asks; `commerce.cohorts`
+    passes its own floor and reports UNMEASURED beneath it.
+    """
+    if min_buyers < 1:
+        raise LadderRefused("a minimum of fewer than one buyer is not a minimum")
     if not buyers:
         return {"measurable": False, "buyers": 0,
                 "why": ("lifetime value needs a lifetime, which needs a second purchase. "
@@ -210,9 +218,19 @@ def lifetime_value(buyers: list[dict]) -> dict:
                 "why": ("every buyer has bought once, so this is an average order value with "
                         "a longer name rather than a lifetime value"),
                 "needs": ["a second purchase by somebody"]}
+    if len(buyers) < min_buyers:
+        return {"measurable": False, "buyers": len(buyers), "repeat_buyers": len(repeat),
+                "why": (f"{len(buyers)} buyer(s) against a floor of {min_buyers}: a lifetime "
+                        f"value over this few is a fact about these people, not about the "
+                        f"cohort, and one large order moves it by itself"),
+                "needs": [f"{min_buyers - len(buyers)} more buyer(s) in this cohort"],
+                "floor": min_buyers}
     total = sum(float(b.get("contribution_cad", 0.0)) for b in buyers)
+    repeat_total = sum(float(b.get("contribution_cad", 0.0)) for b in repeat)
     return {"measurable": True, "buyers": len(buyers), "repeat_buyers": len(repeat),
-            "contribution_per_buyer_cad": round(total / len(buyers), 2)}
+            "contribution_per_buyer_cad": round(total / len(buyers), 2),
+            "contribution_per_repeat_buyer_cad": round(repeat_total / len(repeat), 2),
+            "floor": min_buyers}
 
 
 def state() -> dict:

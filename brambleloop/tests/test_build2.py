@@ -6,6 +6,7 @@ remaining work shrinks. These tests exist to make both of those fail loudly.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 
@@ -34,12 +35,15 @@ def test_every_requirement_carries_its_spec_text_and_a_reason():
     A status with no note is an opinion. Each entry keeps the requirement's own words so a
     future session can re-judge the classification without reopening the PDF.
     """
+    _vac_38 = 0
     for r in R.load():
+        _vac_38 += 1
         assert r.title.strip(), r.id
         assert r.body.strip(), r.id
         assert r.note.strip(), r.id
         assert r.version.startswith("v1."), (r.id, r.version)
         assert r.status in R.STATUSES, (r.id, r.status)
+    assert _vac_38, "R.load() was empty: the loop proved nothing (F-123)"
 
 
 def test_remaining_work_excludes_nothing_that_claude_can_actually_build():
@@ -202,6 +206,16 @@ def test_a_shop_gate_does_not_open_on_a_variable_alone():
     # The name alone must not be enough, with no successful probe on file.
     assert gate.open(db, {"ETSY_SHOP_NAME": "brambleloopstudio"}) is False
     assert "not a shop" in gate.how
+
+
+
+def test_the_console_separates_ready_work_from_work_parked_on_a_gate():
+    """45 partial rows all parked on gates were shown as 45 'executable left' (2026-09-27).
+    The split must add up, and a parked row must never be counted as ready."""
+    cov = R.coverage()
+    assert cov["executable_unparked"] + cov["executable_parked_on_a_gate"] == cov["executable_remaining"]
+    parked = [r for r in R.executable() if r.parked_on]
+    assert cov["executable_parked_on_a_gate"] == len(parked)
 
 
 if __name__ == "__main__":

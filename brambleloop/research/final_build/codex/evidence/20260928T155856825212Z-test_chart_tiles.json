@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T155856825212Z-test_chart_tiles",
+  "sha": "45784569e6bd5fb5c6cef5f244acbbd2ae4bd116",
+  "suite": "tests/test_chart_tiles.py",
+  "started": "2026-09-28T15:58:56.825212+00:00",
+  "tree_before": "?? brambleloop/research/final_build/codex/evidence/20260928T155301571279Z-test_money_truth.json\n?? brambleloop/research/final_build/codex/evidence/20260928T155301571279Z-test_money_truth.log\n?? brambleloop/research/final_build/codex/evidence/20260928T155303365598Z-test_spend_policy.json\n?? brambleloop/research/final_build/codex/evidence/20260928T155303365598Z-test_spend_policy.log\n?? brambleloop/research/final_build/codex/evidence/20260928T155711276621Z-test_maturity_cache_freshness.json\n?? brambleloop/research/final_build/codex/evidence/20260928T155711276621Z-test_maturity_cache_freshness.log",
+  "source_before": "ab836684fbdb4d836a29c6b798de994faec9af5add6804a3434b8492d37cb789",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T15:59:08.929859+00:00",
+  "source_after": "ab836684fbdb4d836a29c6b798de994faec9af5add6804a3434b8492d37cb789",
+  "head_after": "45784569e6bd5fb5c6cef5f244acbbd2ae4bd116",
+  "log": "20260928T155856825212Z-test_chart_tiles.log",
+  "log_sha256": "da4a11165050d9ca8ee41bff30c466f12b4abaf1358035962b103dd1e3237cad"
+}

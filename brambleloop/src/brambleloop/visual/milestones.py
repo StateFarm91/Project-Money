@@ -18,11 +18,18 @@ finished turned out to be.
 from __future__ import annotations
 
 PASS, PARTIAL, FAIL, NOT_STARTED = "PASS", "PARTIAL", "FAIL", "NOT_STARTED"
+UNMEASURED = "UNMEASURED"
 BLOCKED = "BLOCKED_ON_EARLIER"
 
 
-def assess(size: str = "S") -> dict:
-    """Run the benchmark end to end and report where the pipeline actually stands."""
+def assess(size: str = "S", *, measure_d: bool = False, d_result: dict | None = None) -> dict:
+    """Run the benchmark end to end and report where the pipeline actually stands.
+
+    Milestone D is measured by `milestone_d.assess`, which drapes the certified swatch on a
+    form and takes about two minutes; it runs here only when `measure_d` is set or a result
+    is passed in. Otherwise D reports UNMEASURED -- not FAIL, not PASS -- because a status
+    this module did not measure on this call is not a status it can report.
+    """
     from ..cir import assembly, benchmarks as B
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
@@ -79,23 +86,31 @@ def assess(size: str = "S") -> dict:
     # --- D and E: not started, and said so rather than shown empty --------
     from . import final_standard as F
 
-    out.append({
-        "milestone": "D", "name": "photographic presentation without structural drift",
-        "status": FAIL,
-        "evidence": ("2D glyph rendering failed (B-704); the yarn-level spike then "
-                     "failed on TOPOLOGY, not rendering (B-705): Mitsuba PBR, material and "
-                     "neighbour-aware relaxation all work at CA$0.00 per image in-container, "
-                     "but hand-authored crochet stitch geometry reads as netting. Next "
-                     "increment is a stitch-type yarn tile library, awaiting authorisation. "
-                     "Prior detail: three "
-                     "attempts: glyph raster reads as plastic mesh; corrected density reads "
-                     "as machine-woven textile; per-pixel lighting was buggy and removed "
-                     "rather than shipped. Structure was correct in all three -- the failure "
-                     "is that a lattice of identical glyphs reads as a lattice, which no "
-                     "lighting model fixes. Spend on this milestone so far: CA$0.00. Both "
-                     "product locks hold deterministically, so the next increment is an "
-                     "owner decision about technique, not a retry"),
-    })
+    if d_result is None and measure_d:
+        from . import milestone_d
+        d_result = milestone_d.assess("hdc")
+    if d_result is not None:
+        from . import milestone_d
+        d_status = {milestone_d.PASS: PASS, milestone_d.PARTIAL: PARTIAL,
+                    milestone_d.FAIL: FAIL}.get(d_result["status"], FAIL)
+        out.append({
+            "milestone": "D", "name": "photographic presentation without structural drift",
+            "status": d_status,
+            "evidence": milestone_d.summary(d_result),
+            "unknown": d_result.get("unknown", []), "failed": d_result.get("failed", []),
+        })
+    else:
+        out.append({
+            "milestone": "D", "name": "photographic presentation without structural drift",
+            "status": UNMEASURED,
+            "evidence": ("not measured on this call. `milestone_d.assess()` drapes the "
+                         "certified swatch on a form, re-validates it and renders it (about "
+                         "two minutes); pass measure_d=True or its result. History: 2D glyphs "
+                         "failed (B-704); the yarn-level spike failed on topology (B-705); the "
+                         "drape solver's reported motion was free drift and the frictionless "
+                         "force law took stitches apart once it was not -- see "
+                         "visual/milestone_d.py and research/VISUAL_MILESTONE_D.md"),
+        })
     out.append({
         "milestone": "E", "name": "listing asset clearing all three floors at once",
         "status": NOT_STARTED,
@@ -128,7 +143,7 @@ def _ladder(rows: list[dict]) -> dict:
         "milestones": rows,
         "highest_passed": reached[-1] if reached else None,
         "current": next((r["milestone"] for r in rows
-                         if r["status"] in (PARTIAL, FAIL, NOT_STARTED)), None),
+                         if r["status"] in (PARTIAL, FAIL, NOT_STARTED, UNMEASURED)), None),
         "business_objective": "listable products: 0 of 10",
         "rule": ("stop and diagnose at the first failed milestone rather than building later "
                  "layers on an invalid earlier one"),

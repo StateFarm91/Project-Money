@@ -76,7 +76,8 @@ class FakeEtsy:
                  image_failure: tuple[int, str] | None = None,
                  delete_failure: tuple[int, str] | None = None,
                  delete_is_soft: bool = False,
-                 echo_token_in_error: bool = False) -> None:
+                 echo_token_in_error: bool = False,
+                 shop_body: dict[str, Any] | None = None) -> None:
         self.keystring = keystring
         self.shared_secret = shared_secret
         self.shop_id = str(shop_id)
@@ -106,8 +107,21 @@ class FakeEtsy:
         # When true, an error body carries a token-shaped string, which is how a real API
         # leaks one: inside prose nobody predicted. The redaction test uses it.
         self.echo_token_in_error = echo_token_in_error
+        # What getShop returns. None keeps the historical minimal body; a test that exercises
+        # the shop snapshot passes the fields it is about (F-515, F-577, F-585).
+        self.shop_body = shop_body
         self.listings: dict[str, dict[str, Any]] = {}
         self.images: dict[str, list[dict[str, Any]]] = {}
+        # W3-I: what the server actually received, kept out of every response body (Etsy
+        # returns no hash). listing_id -> [{"rank", "sha256", "bytes", "filename"}]. A test
+        # compares these with what the client sent, so "uploaded" means "these exact bytes
+        # arrived" rather than "a 201 came back".
+        self.received_images: dict[str, list[dict[str, Any]]] = {}
+        self.received_files: dict[str, list[dict[str, Any]]] = {}
+        # getAllListingFiles (F-559): Etsy's ShopListingFile rows, with `size_bytes` and no
+        # hash, because Etsy's schema has none.
+        self.files: dict[str, list[dict[str, Any]]] = {}
+        self.next_file_id = 800001
         self.requests: list[dict[str, Any]] = []
         self.token_requests: list[dict[str, Any]] = []
         self.next_id = 700000001
@@ -242,7 +256,35 @@ class FakeEtsy:
         }
         self.listings[listing_id] = record
         self.images[listing_id] = []
+        self.files[listing_id] = []
         return record
+
+
+def _image_dimensions(data: bytes) -> tuple[int, int]:
+    """(width, height) from a PNG IHDR or a JPEG SOF header; (1, 1) when unreadable, which is
+    what this server reported for every image before W3-I and what the old tests' fixture
+    bytes (a PNG signature with no IHDR) still get."""
+    import struct
+
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24 and data[12:16] == b"IHDR":
+        w, h = struct.unpack(">II", data[16:24])
+        return int(w), int(h)
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD,
+                          0xCE, 0xCF):
+                h, w = struct.unpack(">HH", data[i + 5:i + 9])
+                return int(w), int(h)
+            i += 2 + struct.unpack(">H", data[i + 2:i + 4])[0]
+    return 1, 1
 
 
 def _split(value: str) -> list[str]:
@@ -373,6 +415,15 @@ class _Handler(BaseHTTPRequestHandler):
         params = dict(urllib.parse.parse_qsl(query))
         fake = self.fake
 
+        if len(parts) == 7 and parts[2] == "shops" and parts[4] == "listings" and parts[6] == "properties":
+            self._record("getListingProperties")
+            if not self._guard(("listings_r",)):
+                return
+            listing = fake.listings.get(parts[5])
+            if listing is None:
+                return self._send(404, {"error": "Listing not found"})
+            return self._send(200, {"results": listing.get("properties", [])})
+
         if path == "/v3/application/openapi-ping":
             self._record("ping")
             if not self._guard(()):
@@ -412,6 +463,8 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if parts[3] != fake.shop_id:
                 return self._send(404, {"error": "Shop not found."})
+            if fake.shop_body is not None:
+                return self._send(200, {"shop_id": int(fake.shop_id), **fake.shop_body})
             return self._send(200, {"shop_id": int(fake.shop_id),
                                     "shop_name": "FakeShopForTests",
                                     "is_vacation": False, "currency_code": "CAD"})
@@ -433,6 +486,16 @@ class _Handler(BaseHTTPRequestHandler):
             if "Images" in params.get("includes", ""):
                 body["images"] = list(fake.images.get(parts[3], []))
             return self._send(200, body)
+
+        # GET /v3/application/shops/{shop_id}/listings/{listing_id}/files -- getAllListingFiles
+        if len(parts) == 7 and parts[2] == "shops" and parts[6] == "files":
+            self._record("getAllListingFiles")
+            if not self._guard(("listings_r",)):
+                return
+            if parts[5] not in fake.listings:
+                return self._send(404, {"error": "Listing not found."})
+            rows = list(fake.files.get(parts[5], []))
+            return self._send(200, {"count": len(rows), "results": rows})
 
         if len(parts) == 5 and parts[2] == "listings" and parts[4] == "images":
             self._record("getListingImages")
@@ -510,12 +573,19 @@ class _Handler(BaseHTTPRequestHandler):
                 # refusal there is a finding about the fixture and not about the transport.
                 status, message = fake.image_failure
                 return self._send(status, {"error": message})
+            width, height = _image_dimensions(data)
             image = {"listing_image_id": 900000 + len(fake.images[listing_id]) + 1,
                      "listing_id": int(listing_id),
                      "rank": int(float(text.get("rank", "1") or 1)),
                      "alt_text": text.get("alt_text", ""),
-                     "full_height": 1, "full_width": 1}
+                     # Etsy's ListingImage carries the full-size dimensions. W3-I: reported
+                     # from the received bytes (was a constant 1x1), so a read-back can
+                     # compare them with what was sent.
+                     "full_height": height, "full_width": width}
             fake.images[listing_id].append(image)
+            fake.received_images.setdefault(listing_id, []).append(
+                {"rank": image["rank"], "filename": filename, "bytes": len(data),
+                 "sha256": hashlib.sha256(data).hexdigest()})
             return self._send(201, image)
 
         # POST /v3/application/shops/{shop_id}/listings/{listing_id}/files
@@ -535,10 +605,40 @@ class _Handler(BaseHTTPRequestHandler):
                                                  f"{sorted(files)}."})
             filename, data = files["file"]
             fake.listings[listing_id]["file_data"] = filename
-            return self._send(201, {"listing_file_id": 800001, "listing_id": int(listing_id),
-                                    "filename": filename, "filesize": str(len(data))})
+            row = {"listing_file_id": fake.next_file_id, "listing_id": int(listing_id),
+                   "rank": len(fake.files.setdefault(listing_id, [])) + 1,
+                   "filename": filename, "filesize": f"{len(data) / 1024:.0f} KB",
+                   "size_bytes": len(data), "filetype": "application/pdf",
+                   "create_timestamp": int(time.time())}
+            fake.next_file_id += 1
+            fake.files[listing_id].append(row)
+            fake.received_files.setdefault(listing_id, []).append(
+                {"filename": filename, "bytes": len(data),
+                 "sha256": hashlib.sha256(data).hexdigest()})
+            return self._send(201, dict(row))
 
         self._send(404, {"error": f"no such endpoint: {path}"})
+
+    def do_PUT(self):
+        parts = [p for p in self.path.partition("?")[0].strip("/").split("/") if p]
+        if len(parts) == 8 and parts[2] == "shops" and parts[4] == "listings" and parts[6] == "properties":
+            self._record("updateListingProperty")
+            if not self._guard(("listings_w",)):
+                return
+            fields = self._form()
+            if fields is None:
+                return
+            listing = self.fake.listings.get(parts[5])
+            if listing is None:
+                return self._send(404, {"error": "Listing not found"})
+            prop = {"property_id": int(parts[7]),
+                    "value_ids": [int(v) for v in fields.get("value_ids", "").split(",") if v],
+                    "values": [v for v in fields.get("values", "").split(",") if v],
+                    "scale_id": int(fields["scale_id"]) if fields.get("scale_id") else None}
+            if not getattr(self.fake, "ignore_property_writes", False):
+                listing["properties"] = [p for p in listing.get("properties", []) if p["property_id"] != prop["property_id"]] + [prop]
+            return self._send(200, prop)
+        return self._send(404, {"error": "unknown PUT endpoint"})
 
     def do_PATCH(self) -> None:   # noqa: N802
         path = self.path.partition("?")[0]
@@ -622,6 +722,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             fake.listings.pop(parts[3])
             fake.images.pop(parts[3], None)
+            fake.files.pop(parts[3], None)
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self.end_headers()

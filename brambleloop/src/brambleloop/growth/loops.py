@@ -53,6 +53,7 @@ class Loop:
     latency_days: int = 0
     scalable: bool = True
     note: str = ""
+    contribution_cad: float = 0.0
 
     def __post_init__(self) -> None:
         if self.strength not in STRENGTHS:
@@ -75,11 +76,29 @@ class Loop:
     def conversion(self) -> float | None:
         return round(self.orders / self.visits, 4) if self.visits else None
 
+    @property
+    def confidence(self) -> float:
+        """How far this loop's evidence goes, derived from its strength and sample (#271).
+
+        Not a probability that the loop works: the share of the evidence bar it has cleared.
+        Untested is 0; attempted is its share of the measured sample, capped below the
+        measured rung; measured and repeatable are 0.6 and 1.0 by construction.
+        """
+        if self.strength == REPEATABLE:
+            return 1.0
+        if self.strength == MEASURED:
+            return 0.6
+        if self.strength == ATTEMPTED:
+            return round(min(0.5, 0.5 * self.visits / MEASURED_SAMPLE), 3)
+        return 0.0
+
     def to_dict(self) -> dict:
         return {"key": self.key, "name": self.name, "strength": self.strength,
                 "visits": self.visits, "orders": self.orders,
                 "cost_per_visit_cad": self.cost_per_visit_cad,
                 "conversion": self.conversion, "latency_days": self.latency_days,
+                "contribution_cad": round(self.contribution_cad, 2),
+                "confidence": self.confidence,
                 "scalable": self.scalable, "counts_as_evidence": self.counts_as_evidence,
                 "note": self.note}
 
@@ -163,6 +182,45 @@ def observe(db, key: str, *, visits: int, orders: int = 0, cost_cad: float = 0.0
         return row.strength
 
 
+def reconcile(db, key: str, *, orders: int, contribution_cad: float,
+              visits: int | None = None) -> dict:
+    """Set a loop's order-derived counters to what the reconciled orders say (CB2-O06).
+
+    `observe` adds; a refund, a cancellation or a re-attribution needs the counters to go
+    *down*, so this sets them from facts and reports the signed correction it applied.
+    `visits` is set only when given (its fact source is the caller's, not the orders').
+    Strength is re-derived from the visits the row now holds: `measured` and `repeatable`
+    need the sample, `attempted` needs any visit or order, and a loop with neither is
+    `untested` -- a strength that stayed `measured` after its evidence was corrected away
+    would be the optimistic field this registry exists to refuse.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import GrowthLoop
+
+    with db.session() as s:
+        row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
+        if row is None:
+            raise LoopRefused(f"unknown loop {key!r}: add it to REGISTRY deliberately")
+        delta = {"orders": int(orders) - int(row.orders or 0),
+                 "contribution_cad": round(float(contribution_cad)
+                                           - float(row.contribution_cad or 0.0), 2),
+                 "visits": 0 if visits is None else int(visits) - int(row.visits or 0)}
+        row.orders = int(orders)
+        row.contribution_cad = round(float(contribution_cad), 2)
+        if visits is not None:
+            row.visits = int(visits)
+        was = row.strength
+        if row.visits >= MEASURED_SAMPLE:
+            row.strength = REPEATABLE if was in (MEASURED, REPEATABLE) else MEASURED
+        elif row.visits > 0 or row.orders > 0:
+            row.strength = ATTEMPTED
+        else:
+            row.strength = UNTESTED
+        return {"key": key, "delta": delta, "strength": row.strength,
+                "strength_was": was, "changed": any(delta.values()) or was != row.strength}
+
+
 def from_db(db) -> tuple[Loop, ...]:
     from sqlalchemy import select
 
@@ -174,7 +232,8 @@ def from_db(db) -> tuple[Loop, ...]:
         return REGISTRY
     return tuple(Loop(key=r.key, name=r.name, strength=r.strength, visits=r.visits,
                       orders=r.orders, cost_cad=r.cost_cad, latency_days=r.latency_days,
-                      scalable=r.scalable, note=r.note) for r in rows)
+                      scalable=r.scalable, note=r.note,
+                      contribution_cad=float(r.contribution_cad or 0.0)) for r in rows)
 
 
 def evidence_summary(loops: tuple[Loop, ...] = REGISTRY) -> dict:
@@ -218,6 +277,24 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
     term is from its ceiling: the biggest gap is often the slowest to close, and a week spent
     on it buys less than a week spent somewhere cheaper.
     """
+    # A term passed as None is UNMEASURED. The weekly job passes every term and None where no
+    # source exists; ranking an unmeasured term as zero would pick "qualified visits" because
+    # nobody measured anything, and reallocate agents on that (C-48).
+    unmeasured = [t for t in TERMS if t in observed and observed[t] is None]
+    if unmeasured:
+        return {
+            "identifiable": False,
+            "current_monthly_cad": None,
+            "target_cad": target_cad,
+            "primary_constraint": None,
+            "secondary_constraints": [],
+            "unmeasured": unmeasured,
+            "ranked": [],
+            "note": (f"{', '.join(unmeasured)} ha{'s' if len(unmeasured) == 1 else 've'} no "
+                     f"source this week, so no term can be ranked by marginal contribution. "
+                     f"The first unmeasured term in the chain ({unmeasured[0]}) is what the "
+                     f"week can learn, not what it can optimise."),
+        }
     visits = float(observed.get("qualified_visits") or 0.0)
     conversion = float(observed.get("conversion_rate") or 0.0)
     aov = float(observed.get("aov_cad") or 0.0)
@@ -245,9 +322,12 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
 
     zeroed = [r["term"] for r in ranked if not observed.get(r["term"])]
     return {
+        "identifiable": True,
         "current_monthly_cad": round(current, 2),
         "target_cad": target_cad,
         "primary_constraint": ranked[0]["term"] if ranked else None,
+        # #264: one primary and a small number of secondaries, the next best uses of a week.
+        "secondary_constraints": [r["term"] for r in ranked[1:3]],
         "ranked": ranked,
         "note": (
             "Every term is zero, so the product of them is zero and no single term can move "
@@ -259,3 +339,37 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
             if zeroed else
             "Ranked by expected monthly contribution per week of effort."),
     }
+
+
+# Where a week of effort goes for each primary constraint (#264's reallocation). The owners are
+# the agents whose work moves that term; the function is `scale.allocation`'s capacity lane.
+REALLOCATION: dict[str, dict] = {
+    "qualified_visits": {"function": "distribution", "owners": ["growth", "listing"],
+                         "experiments": ("search", "pinterest_content")},
+    "conversion_rate": {"function": "product", "owners": ["publishing", "pricing"],
+                        "experiments": ("thumbnail", "price")},
+    "aov_cad": {"function": "product", "owners": ["pricing", "growth"],
+                "experiments": ("bundle",)},
+    "repeat_rate": {"function": "distribution", "owners": ["growth"],
+                    "experiments": ()},
+}
+
+
+def reallocation(solved: dict) -> dict:
+    """What the solver recommends moving, written down so the week can be checked (#264).
+
+    With no identifiable constraint the recommendation is explicitly *no move*: a
+    reallocation toward a term nobody measured is a reallocation toward whatever was going
+    to happen anyway.
+    """
+    if not solved.get("identifiable") or not solved.get("primary_constraint"):
+        return {"move": False, "toward": None, "owners": [], "experiments": [],
+                "why": ("no primary constraint is identifiable, so nothing is reallocated: "
+                        + str(solved.get("note", "")))}
+    term = solved["primary_constraint"]
+    plan = REALLOCATION.get(term, {"function": None, "owners": [], "experiments": ()})
+    return {"move": True, "toward": term, "function": plan["function"],
+            "owners": list(plan["owners"]), "experiments": list(plan["experiments"]),
+            "secondary": list(solved.get("secondary_constraints") or []),
+            "why": (f"{term} has the highest expected monthly contribution per week of "
+                    f"effort; experiments and owners on it take priority this week")}

@@ -1,0 +1,85 @@
+{
+ "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/basket_large_structural.png",
+ "planned_usd_list_price": 0.16,
+ "prompt_reference_arms": "Product photograph for a handmade craft marketplace listing of the crocheted basket shown in the reference image. Keep the basket exactly as shown: the same shape, the same proportions, the same colours and where those colours sit. Render it as a real object in real yarn: natural fibre texture, soft window daylight, on a light wooden shelf. No text, nothing placed inside it, nothing else in frame.",
+ "prompt_control_arm": "Product photograph for a handmade craft marketplace listing of a cream crocheted storage basket. Real yarn, natural fibre texture, soft window daylight, on a light wooden shelf. No text, nothing placed inside it, nothing else in frame.",
+ "runs": [
+  {
+   "arm": "A",
+   "provider": "flux-2-pro",
+   "with_reference": true,
+   "index": 0,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/A0_flux-2-pro.jpg",
+   "seconds": 10.8,
+   "usd_list_price": 0.02
+  },
+  {
+   "arm": "A",
+   "provider": "flux-2-pro",
+   "with_reference": true,
+   "index": 1,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/A1_flux-2-pro.jpg",
+   "seconds": 10.6,
+   "usd_list_price": 0.02
+  },
+  {
+   "arm": "A",
+   "provider": "flux-2-pro",
+   "with_reference": true,
+   "index": 2,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/A2_flux-2-pro.jpg",
+   "seconds": 9.5,
+   "usd_list_price": 0.02
+  },
+  {
+   "arm": "B",
+   "provider": "flux-2-pro",
+   "with_reference": false,
+   "index": 0,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/B0_flux-2-pro.jpg",
+   "seconds": 8.9,
+   "usd_list_price": 0.02
+  },
+  {
+   "arm": "B",
+   "provider": "flux-2-pro",
+   "with_reference": false,
+   "index": 1,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/B1_flux-2-pro.jpg",
+   "seconds": 9.8,
+   "usd_list_price": 0.02
+  },
+  {
+   "arm": "C",
+   "provider": "gpt-image-2",
+   "with_reference": true,
+   "index": 0,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/C0_gpt-image-2.png",
+   "seconds": 12.4,
+   "usd_list_price": 0.03
+  },
+  {
+   "arm": "C",
+   "provider": "gpt-image-2",
+   "with_reference": true,
+   "index": 1,
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e1/out/gen/C1_gpt-image-2.png",
+   "seconds": 11.7,
+   "usd_list_price": 0.03
+  }
+ ],
+ "spent_usd_list_price": 0.16,
+ "extra_arms_usd_list_price": 0.06,
+ "total_usd_list_price": 0.22,
+ "extra_arms": {
+  "D": "human interaction",
+  "E": "distractor objects"
+ }
+}

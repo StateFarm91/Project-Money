@@ -1,0 +1,35 @@
+- #7 [weak, was COMPLETE+PROVEN] 'price the customer outcome' is not implemented. value_stack.outcome_price/value_stack() have zero callers, and pricing.position prices from seed.price_cad within CATEGORY_BANDS
+- #17 [invalid, was COMPLETE+PROVEN] may_scale_ads is served only by the API. No ad path, launch.readiness or ad_authority gate consults it, and trust.record_proof has zero callers. The gate protects nothing
+- #18 [invalid, was DATA-GATED] support/service.record_response has zero callers (support.reply never records timings), so service_level can only ever read 'untimed'. This can be wired now
+- #19 [weak, was DATA-GATED] incrementality/control checks never run and no cadence reads them. No promotion path exists, so parking them is plausible
+- #24 [weak, was OWNER-GATED] pricing.position/listing.seo never read contribution-per-visitor. 'Pricing agents optimize contribution economics' is unwired and could be wired now
+- #27 [weak, was COMPLETE+PROVEN] QUALITATIVE_CONDITIONS are never derived from data (weekly.solve passes no conditions), so the gate can never open. The 'scenario model conservative assumptions approach target' condition is missing from the list
+- #237 [invalid, was DATA-GATED] commerce/attribution.parse_stats_csv/join_stats have no route or handler (only a comment in scale/leading.py). The owner-exported CSV cannot be ingested when it exists.
+- #238 [invalid, was DATA-GATED] Called with a hard-coded empty list (app/main.py api_benchmarks), so the built half never reads DB observations, even after data exists.
+- #239 [invalid, was DATA-GATED] commerce/benchmarks.opportunities has zero callers. Only arbitrage.state/score_observed are served.
+- #242 [weak, was OWNER-GATED] parking on ad authority is plausible, but no ads.campaign/ads.adjust handler is registered, so opening the gate runs nothing
+- #243 [weak, was OWNER-GATED] same: no ads handler; CAC split is never computed, not even in the weekly reading
+- #244 [weak, was OWNER-GATED] same as 242
+- #245 [weak, was OWNER-GATED] same as 242
+- #246 [invalid, was OWNER-GATED] pin set/schedule/amplify are never computed at runtime; seasonal pin planning from calendar milestones could run now without a surface
+- #247 [invalid, was OWNER-GATED] clusters are never built from observed complaint themes at runtime; that part needs no surface
+- #248 [invalid, was OWNER-GATED] video.plan/record have no runtime caller; module plans and ops/artefacts staleness never happen
+- #249 [invalid, was DATA-GATED] creators.portfolio() is never called on the roster, so it reads nothing on the day data arrives
+- #250 [weak, was OWNER-GATED] no tester exists, so the park is plausible, but no route or handler invokes the graduation check
+- #251 [weak, was OWNER-GATED] tools.check_flow/frequency have zero callers; parking plausible, but opening the gate enables nothing
+- #253 [invalid, was DATA-GATED] may_launch is hard-coded with {} so it can never read answers; check_cadence (answerable today, per the note) has zero callers, so it is falsely parked
+- #255 [weak, was OWNER-GATED] tools.check_tool has zero callers; hosting needs a surface, but the built check is unreached
+- #257 [invalid, was DATA-GATED] star distribution is hard-coded to []; there is no review source/model; reviews.check_support_copy (the anti-gating guard) has zero callers and support.triage/support.reply drafts are never checked
+- #258 [weak, was DATA-GATED] parking plausible, but the gallery and proof-lift machinery is unreached
+- #259 [invalid, was DATA-GATED] before_the_first_customer ready/not-ready verdicts are computable now but reach no handler or route
+- #260 [weak, was DATA-GATED] invite_gate/may_open have zero callers; parking plausible
+- #261 [invalid, was OWNER-GATED] friction.listing_audit (the 'available now, no buyer required' half) has zero callers; there is no regular audit cadence, so it is falsely parked
+- #262 [invalid, was OWNER-GATED] no caller passes calibration_ceiling to confidence.probability (weekly.solve, /api/scale, reinvestment all omit it), so optimistic error can never lower confidence automatically; this wiring is software work, not a gate
+- #264 [weak, was DATA-GATED] the reallocation is written down but never applied to swarm allocation or the experiment queue
+- #267 [weak, was OWNER-GATED] capacity is not actually shifted: the roll-forward never reaches swarm allocation or the queue
+- #273 [weak, was COMPLETE+PROVEN] /api/scale always calls matrix() with ASSUMED_CONVERSION/basis='assumed'; no caller feeds runrate's observed conversion, so the 'derive visits from observed conversion' path never runs
+- #275 [weak, was COMPLETE+PROVEN] no caller passes conditions=, so QUALITATIVE_CONDITIONS are always unmet and the >=75% gate can never open; seasonal/evergreen balance, observed bundle/AOV, defect/refund severity and downside-near-target are absent from GATE; thresholds are fixed constants
+- #276 [weak, was DATA-GATED] body says agents execute from the board continuously; no handler reads it
+- #291 [weak, was DATA-GATED] admission enqueues or prioritises nothing
+- #294 [weak, was OWNER-GATED] no ads handler exists, so the gate opening enables nothing
+- #295 [weak, was OWNER-GATED] same as 294; winner scaling of pins/content/cross-sell (non-ad) is also unwired

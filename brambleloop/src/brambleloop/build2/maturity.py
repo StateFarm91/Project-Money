@@ -47,7 +47,8 @@ from __future__ import annotations
 import ast
 import re
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from functools import lru_cache, wraps
+from contextvars import ContextVar
 from pathlib import Path
 
 from . import requirements as reg
@@ -96,23 +97,23 @@ def _module_of(token: str) -> str | None:
     if token.endswith(".py"):
         candidate = _PACKAGE / token
         if candidate.is_file():
-            return token
+            return Path(token).as_posix()
         # A bare `lanes.py` with no package: accept it only if exactly one file matches,
         # because two candidates mean the note did not say which.
         hits = [p for p in _PACKAGE.rglob(token) if p.is_file()]
         if len(hits) == 1:
-            return str(hits[0].relative_to(_PACKAGE))
+            return hits[0].relative_to(_PACKAGE).as_posix()
         return None
     parts = token.split(".")
     candidate = _PACKAGE / Path(*parts[:-1]) / f"{parts[-1]}.py"
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     candidate = _PACKAGE / Path(*parts).with_suffix(".py")
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     hits = [p for p in _PACKAGE.rglob(f"{parts[0]}.py") if p.is_file()]
     if len(hits) == 1:
-        return str(hits[0].relative_to(_PACKAGE))
+        return hits[0].relative_to(_PACKAGE).as_posix()
     return None
 
 
@@ -200,7 +201,6 @@ def jobs_reaching(module: str) -> tuple[str, ...]:
 # The rungs
 
 
-@lru_cache(maxsize=1)
 def _tested_modules() -> frozenset[str]:
     """Every Brambleloop module the suite imports, parsed rather than grepped.
 
@@ -211,12 +211,49 @@ def _tested_modules() -> frozenset[str]:
     test coverage, it is measuring how people happen to write imports -- and it fails in
     the direction that invents work.
     """
-    if not _TESTS.is_dir():
-        return frozenset()
-    found: set[str] = set()
-    for path in sorted(_TESTS.glob("test_*.py")):
+    active = _test_import_snapshot.get()
+    if active is not None:
+        return active
+    return _tested_modules_from_sources(*_capture_test_sources())
+
+
+def _capture_test_sources() -> tuple:
+    # Exact bytes, never mtime/size alone. Read failures cannot reuse previous evidence.
+    root = str(_TESTS.resolve())
+    sources = tuple((path.name, path.read_bytes())
+                    for path in sorted(_TESTS.glob("test_*.py"))) if _TESTS.is_dir() else ()
+    return root, sources
+
+
+_test_import_snapshot = ContextVar("brambleloop_test_import_snapshot", default=None)
+
+
+def _with_test_import_snapshot(function):
+    """Use one immutable import set, then refuse a result if its source has changed."""
+    @wraps(function)
+    def checked(*args, **kwargs):
+        captured = _capture_test_sources()
+        token = _test_import_snapshot.set(_tested_modules_from_sources(*captured))
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            result = function(*args, **kwargs)
+            try:
+                current = _capture_test_sources()
+            except Exception as exc:
+                raise RuntimeError("test source evidence unreadable during revalidation") from exc
+            if current != captured:
+                raise RuntimeError("test source evidence changed during report")
+            return result
+        finally:
+            _test_import_snapshot.reset(token)
+    return checked
+
+
+@lru_cache(maxsize=1)
+def _tested_modules_from_sources(root: str, sources: tuple) -> frozenset[str]:
+    found: set[str] = set()
+    for _path, source in sources:
+        try:
+            tree = ast.parse(source.decode("utf-8", errors="replace"))
         except SyntaxError:                                     # pragma: no cover
             continue
         for node in ast.walk(tree):
@@ -229,6 +266,11 @@ def _tested_modules() -> frozenset[str]:
                     found.add(alias.name)
     return frozenset(
         n[len("brambleloop."):] for n in found if n.startswith("brambleloop."))
+
+
+# Retain the previous diagnostic/test cache interface.
+_tested_modules.cache_clear = _tested_modules_from_sources.cache_clear
+_tested_modules.cache_info = _tested_modules_from_sources.cache_info
 
 
 def _tested(module: str) -> bool:
@@ -297,7 +339,7 @@ def ladder(db, requirement, *, signals: dict | None = None,
     `_signals` rather than queried per requirement -- 320 requirements against a live
     Postgres is a report that nobody runs twice.
     """
-    modules = modules_named(requirement.note)
+    modules = modules_named(requirement.note + " " + getattr(requirement, "proof", ""))
     if not modules:
         return {
             "requirement_id": requirement.id,
@@ -423,6 +465,7 @@ def _signals(db) -> dict:
     }
 
 
+@_with_test_import_snapshot
 def report(db, *, env: dict[str, str] | None = None) -> dict:
     """The ladder across every requirement the registry calls covered.
 
@@ -467,3 +510,150 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
             "exercise, and it is not production. This ladder is the difference, and the "
             "registry's own status is never consulted as evidence for any rung of it"),
     }
+
+
+# ---- F-125: a claim the measurement contradicts is a defect, not a footnote ----------------
+
+#: Final Master matrix maturity levels that assert the producer runs in the system.
+INTEGRATED_OR_ABOVE = ("INTEGRATED", "DEPLOYED", "EXERCISED", "PRODUCTION-OBSERVED",
+                       "COMMERCIALLY-EVIDENCED")
+DISAGREEMENT_PREFIX = "maturity.disagreement:"
+_FINAL_MATRIX = _PACKAGE.parent.parent / "research" / "final_build" / "closure_matrix.json"
+
+
+def _final_matrix_rows(path: Path | None = None) -> tuple[list[dict] | None, str]:
+    import json
+
+    explicit = path is not None
+    path = path or _FINAL_MATRIX
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        if not explicit:
+            # F-397: the research matrix exists only in a development checkout. In the image,
+            # read the shipped projection (build2/final_master_closure.json), which carries
+            # uid, maturity and producer module for every row at INTEGRATED or above.
+            from . import final_master
+
+            snap = final_master.load()
+            if snap is not None:
+                rows = [{"uid": r["uid"], "maturity": r["maturity"],
+                         "producer": ("src/brambleloop/" + r["producer_module"])
+                         if r.get("producer_module") else None}
+                        for r in snap.get("rows") or []
+                        if r.get("maturity") in INTEGRATED_OR_ABOVE]
+                return rows, final_master.SNAPSHOT.name
+        return None, f"{path.name} unreadable here ({type(exc).__name__})"
+    rows = data.get("matrix") if isinstance(data, dict) else data
+    return (rows if isinstance(rows, list) else None), str(path.name)
+
+
+def _producer_module(producer: str | None) -> str | None:
+    """`src/brambleloop/commerce/search.py::score_coverage` -> `commerce/search.py`."""
+    text = (producer or "").split("::", 1)[0].strip()
+    marker = "src/brambleloop/"
+    if marker not in text or not text.endswith(".py"):
+        return None
+    return text.split(marker, 1)[1]
+
+
+def disagreements(db=None, **kwargs) -> dict:
+    """See `_disagreements`; run inside one graph and test-import snapshot."""
+    from . import reachability
+
+    return reachability._graph_boundary(_with_test_import_snapshot(_disagreements))(
+        db, **kwargs)
+
+
+def _disagreements(db=None, *, matrix_rows: list[dict] | None = None,
+                   closure_rows: list[dict] | None = None, signals: dict | None = None,
+                   reached=None) -> dict:
+    """Every place a completion claim and the measurement disagree (F-125).
+
+    Two claims are checked against two measurements:
+
+    - a Build-2 requirement the closure matrix calls COMPLETE+PROVEN whose ladder says the
+      job types reaching its module are registered but **never ran**;
+    - a Final Master matrix row at INTEGRATED or above whose producer module is **not
+      reached** from any runtime root (`reachability.reached`, computed now, not the
+      snapshot JSON).
+
+    Pure: returns the rows. `record_disagreements` turns them into incidents.
+    """
+    from . import closure, reachability
+
+    found: list[dict] = []
+    if db is None and signals is None:
+        # No job rows to read: every ladder would say "never ran" because nothing was looked
+        # at. That is the measurement's blind spot, not a disagreement.
+        closure_rows = []
+    if closure_rows is None:
+        closure_rows = [closure.classify(r) for r in reg.load()]
+    by_id = {r.id: r for r in reg.load()}
+    signals = signals if signals is not None else _signals(db)
+    for row in closure_rows:
+        if row.get("state") != closure.COMPLETE_PROVEN:
+            continue
+        req = by_id.get(row["id"])
+        if req is None:
+            continue
+        rung = ladder(db, req, signals=signals)["rungs"][EXERCISED]
+        if rung["verdict"] == NO:
+            found.append({
+                "key": f"build2#{row['id']}", "claim": closure.COMPLETE_PROVEN,
+                "measurement": "never ran",
+                "why": rung["why"], "job_types": list(rung.get("job_types", ()))})
+
+    matrix_source = "given"
+    if matrix_rows is None:
+        matrix_rows, matrix_source = _final_matrix_rows()
+    reached = reached or reachability.reached
+    if matrix_rows is not None:
+        verdicts: dict[str, dict] = {}
+        for row in matrix_rows:
+            if row.get("maturity") not in INTEGRATED_OR_ABOVE:
+                continue
+            module = _producer_module(row.get("producer"))
+            if module is None:
+                continue
+            if module not in verdicts:
+                verdicts[module] = reached(module)
+            verdict = verdicts[module]
+            if not verdict.get("reached"):
+                found.append({
+                    "key": str(row.get("uid")), "claim": row.get("maturity"),
+                    "measurement": "not reached", "module": module,
+                    "why": verdict.get("why", "")})
+    return {"disagreements": found, "count": len(found),
+            "final_matrix": matrix_source if matrix_rows is not None else
+            f"not checked: {matrix_source}"}
+
+
+def record_disagreements(db, found: dict, *, now: datetime | None = None) -> dict:
+    """One open incident per disagreement, restated while it holds, resolved once it does not.
+
+    Reconciled over the whole `maturity.disagreement:` family, so a claim that was corrected
+    (or code that started running) resolves its incident on the next run, with the reason.
+    """
+    from ..ops import incident_lifecycle as lifecycle
+
+    current = {f"{DISAGREEMENT_PREFIX}{d['key']}": d for d in found["disagreements"]}
+    opened = []
+    with db.session() as s:
+        recon = lifecycle.reconcile(
+            s, DISAGREEMENT_PREFIX, lambda inc: inc.signature in current,
+            resolution="the claim and the measurement agree again", now=now)
+        kept = set(recon["still_open"])
+        for signature, d in sorted(current.items()):
+            if signature in kept:
+                continue
+            _, new = lifecycle.open_or_restate(
+                s, signature=signature, severity="P2",
+                summary=(f"{d['key']} is claimed {d['claim']} but the measurement says "
+                         f"{d['measurement']}: {d['why'][:300]}"),
+                detail={**{k: v for k, v in d.items() if k != "why"},
+                        "why": d["why"][:500]},
+                now=now)
+            if new:
+                opened.append(signature)
+    return {"opened": opened, "open": sorted(current), "resolved": recon["resolved"]}

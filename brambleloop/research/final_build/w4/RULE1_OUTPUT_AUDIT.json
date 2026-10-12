@@ -1,0 +1,1050 @@
+{
+  "kind": "W4-AUTO Rule #1 output audit",
+  "as_of": "2026-10-07",
+  "basis": "measured: read-only GETs of production (/api/status, /api/jobs?limit=20000, /api/queue/cadences, /api/catalogue, /api/audit) + local bounded shadow proofs",
+  "production": {
+    "commit": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+    "phase": "shadow",
+    "queue": {
+      "pending": 0,
+      "running": 0,
+      "done": 9718,
+      "failed": 0,
+      "dead": 166,
+      "cancelled": 0
+    },
+    "products": 15,
+    "certified_versions": 15,
+    "revenue_cad": 0.0,
+    "agent_opex_cad": 76.3984,
+    "owner_actions_open": 9,
+    "jobs_recorded": 9882,
+    "job_types": 56,
+    "excluded_infra_jobs": {
+      "ops.health": 1600,
+      "ops.heartbeat": 1866,
+      "ops.retention": 13,
+      "ops.capability_probes": 176,
+      "ops.sentinel": 401,
+      "build.tick": 428,
+      "ops.policy_watch": 19,
+      "etsy.probe": 71,
+      "ops.offsite_archive": 17,
+      "ops.continuity": 23,
+      "model.probe": 170,
+      "ops.queue_check": 467,
+      "ops.capacity": 3
+    },
+    "excluded_infra_total": 5254,
+    "refused_protected": {
+      "store.publish": {
+        "dead": 165
+      }
+    },
+    "company_work_jobs": {
+      "finance.challenge": {
+        "done": 20
+      },
+      "radar.scan": {
+        "done": 111
+      },
+      "radar.score": {
+        "done": 319
+      },
+      "improve.role_work": {
+        "done": 144
+      },
+      "intel.gallery_analysis": {
+        "done": 213
+      },
+      "culture.sweep": {
+        "done": 18
+      },
+      "mjs.scan": {
+        "done": 76
+      },
+      "seasonal.sentinel": {
+        "done": 21
+      },
+      "assets.model_photography": {
+        "done": 56
+      },
+      "assets.owned_photography": {
+        "done": 227
+      },
+      "creative.model_reference_pack": {
+        "done": 396,
+        "dead": 1
+      },
+      "creative.model_tournament": {
+        "done": 377
+      },
+      "creative.image_benchmark": {
+        "done": 422
+      },
+      "launch.readiness": {
+        "done": 24
+      },
+      "chain.rebuild": {
+        "done": 474
+      },
+      "improve.nightly": {
+        "done": 18
+      },
+      "finance.reconcile": {
+        "done": 21
+      },
+      "plan.cycle": {
+        "done": 33
+      },
+      "portfolio.review": {
+        "done": 5
+      },
+      "plan.strategy": {
+        "done": 2
+      },
+      "seasonal.cycle_proof": {
+        "done": 151
+      },
+      "seasonal.remerchandising": {
+        "done": 3
+      },
+      "creative.tournament": {
+        "done": 3
+      },
+      "creative.expedition": {
+        "done": 6
+      },
+      "improve.retrospective": {
+        "done": 3
+      },
+      "mjs.reviews": {
+        "done": 3
+      },
+      "improve.weekly": {
+        "done": 3
+      },
+      "creative.blinded": {
+        "done": 76
+      },
+      "marketing.schedule": {
+        "done": 150
+      },
+      "launch.plan": {
+        "done": 165
+      },
+      "listing.seo": {
+        "done": 165
+      },
+      "pricing.position": {
+        "done": 165
+      },
+      "assets.build": {
+        "done": 167
+      },
+      "listing.draft": {
+        "done": 182
+      },
+      "gate.certify": {
+        "done": 75
+      },
+      "cir.compile": {
+        "done": 75
+      },
+      "cir.draft": {
+        "done": 75
+      },
+      "visual.provider_trial": {
+        "done": 5
+      },
+      "visual.portrait_repair": {
+        "done": 3
+      },
+      "creative.photoreal_calibration": {
+        "done": 3
+      },
+      "creative.model_freeze": {
+        "done": 1
+      },
+      "collection.assemble": {
+        "done": 6
+      }
+    },
+    "company_work_total": 4463,
+    "durable_outputs": {
+      "certified_pattern_versions": 15,
+      "draft_listings": 16,
+      "distinct_listing_slugs": 15,
+      "duplicate_listing_slugs": [
+        "nordic-forest-bundle"
+      ],
+      "published_listings": 0,
+      "customers": 0,
+      "orders": 0,
+      "revenue_cad": 0.0
+    },
+    "last_cycle_cadences": [
+      {
+        "cadence": "infra_heartbeat",
+        "job_type": "ops.heartbeat",
+        "every_hours": 0.25,
+        "last_job_id": 9881,
+        "last_finished_at": "2026-10-07T00:30:07.152963+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "queue_check",
+        "job_type": "ops.queue_check",
+        "every_hours": 1.0,
+        "last_job_id": 9832,
+        "last_finished_at": "2026-10-07T00:00:53.413258+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "this commit has already re-driven them"
+      },
+      {
+        "cadence": "signal_review",
+        "job_type": "radar.scan",
+        "every_hours": 6.0,
+        "last_job_id": 9877,
+        "last_finished_at": "2026-10-07T00:03:42.163732+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "daily_review",
+        "job_type": "plan.cycle",
+        "every_hours": 24.0,
+        "last_job_id": 9834,
+        "last_finished_at": "2026-10-07T00:00:57.452977+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "outputs only `planned: true` -- a flag, no plan content measured"
+      },
+      {
+        "cadence": "portfolio_review",
+        "job_type": "portfolio.review",
+        "every_hours": 168.0,
+        "last_job_id": 8603,
+        "last_finished_at": "2026-10-04T00:06:50.065632+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "finance_reconcile",
+        "job_type": "finance.reconcile",
+        "every_hours": 24.0,
+        "last_job_id": 9835,
+        "last_finished_at": "2026-10-07T00:00:57.707257+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "strategy_review",
+        "job_type": "plan.strategy",
+        "every_hours": 720.0,
+        "last_job_id": 8559,
+        "last_finished_at": "2026-10-04T00:00:52.455240+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "nightly_improvement",
+        "job_type": "improve.nightly",
+        "every_hours": 24.0,
+        "last_job_id": 9836,
+        "last_finished_at": "2026-10-07T00:00:58.237903+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "weekly_evolution",
+        "job_type": "improve.weekly",
+        "every_hours": 168.0,
+        "last_job_id": 7277,
+        "last_finished_at": "2026-10-01T00:00:50.878188+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "chain_rebuild",
+        "job_type": "chain.rebuild",
+        "every_hours": 1.0,
+        "last_job_id": 9837,
+        "last_finished_at": "2026-10-07T00:00:54.149217+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "nothing restarted/redrafted; `certified: 15` is a stock count, not new work"
+      },
+      {
+        "cadence": "launch_readiness",
+        "job_type": "launch.readiness",
+        "every_hours": 24.0,
+        "last_job_id": 9838,
+        "last_finished_at": "2026-10-07T00:01:03.022389+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "model_probe",
+        "job_type": "model.probe",
+        "every_hours": 6.0,
+        "last_job_id": 9839,
+        "last_finished_at": "2026-10-07T00:01:03.781911+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "anthropic 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credit"
+      },
+      {
+        "cadence": "continuity_proof",
+        "job_type": "ops.continuity",
+        "every_hours": 24.0,
+        "last_job_id": 9840,
+        "last_finished_at": "2026-10-07T00:02:14.802171+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "infrastructure (DB archive verified) -- real, but not company output"
+      },
+      {
+        "cadence": "offsite_archive",
+        "job_type": "ops.offsite_archive",
+        "every_hours": 24.0,
+        "last_job_id": 9841,
+        "last_finished_at": "2026-10-07T00:02:14.911503+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "no BRAMBLELOOP_ARCHIVE_URL in this environment"
+      },
+      {
+        "cadence": "image_benchmark",
+        "job_type": "creative.image_benchmark",
+        "every_hours": 1.0,
+        "last_job_id": 9842,
+        "last_finished_at": "2026-10-07T00:00:54.589409+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "reused earlier judgements (spent 0, decided earlier): duplicate"
+      },
+      {
+        "cadence": "model_tournament",
+        "job_type": "creative.model_tournament",
+        "every_hours": 1.0,
+        "last_job_id": 9843,
+        "last_finished_at": "2026-10-07T00:00:54.689170+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "the owner supplied a canonical-model candidate on 2026-09-21 and rejected the finalists. The pack is built by creative.model_reference_pack"
+      },
+      {
+        "cadence": "model_reference_pack",
+        "job_type": "creative.model_reference_pack",
+        "every_hours": 1.0,
+        "last_job_id": 9844,
+        "last_finished_at": "2026-10-07T00:00:54.871031+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "this candidate's pack has already been built"
+      },
+      {
+        "cadence": "owned_photography",
+        "job_type": "assets.owned_photography",
+        "every_hours": 24.0,
+        "last_job_id": 9845,
+        "last_finished_at": "2026-10-07T00:02:15.008494+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "image generation has not been demonstrated in this environment, so there is nothing to render with. `ops.capability_probes` records it"
+      },
+      {
+        "cadence": "model_photography",
+        "job_type": "assets.model_photography",
+        "every_hours": 24.0,
+        "last_job_id": 9846,
+        "last_finished_at": "2026-10-07T00:02:15.133596+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "image generation has not been demonstrated in this environment, so there is nothing to render with"
+      },
+      {
+        "cadence": "seasonal_sentinel",
+        "job_type": "seasonal.sentinel",
+        "every_hours": 24.0,
+        "last_job_id": 9847,
+        "last_finished_at": "2026-10-07T00:02:16.652911+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "etsy_probe",
+        "job_type": "etsy.probe",
+        "every_hours": 6.0,
+        "last_job_id": 9848,
+        "last_finished_at": "2026-10-07T00:02:16.904536+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "infrastructure probe (ping)"
+      },
+      {
+        "cadence": "mjs_scan",
+        "job_type": "mjs.scan",
+        "every_hours": 6.0,
+        "last_job_id": 9849,
+        "last_finished_at": "2026-10-07T00:03:20.452581+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "mjs_reviews",
+        "job_type": "mjs.reviews",
+        "every_hours": 168.0,
+        "last_job_id": 7291,
+        "last_finished_at": "2026-10-01T00:02:55.629413+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "improvement_retrospective",
+        "job_type": "improve.retrospective",
+        "every_hours": 168.0,
+        "last_job_id": 7292,
+        "last_finished_at": "2026-10-01T00:02:55.827853+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "policy_watch",
+        "job_type": "ops.policy_watch",
+        "every_hours": 24.0,
+        "last_job_id": 9850,
+        "last_finished_at": "2026-10-07T00:03:20.648155+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "build_tick",
+        "job_type": "build.tick",
+        "every_hours": 1.0,
+        "last_job_id": 9851,
+        "last_finished_at": "2026-10-07T00:00:56.488914+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "blinded_benchmark",
+        "job_type": "creative.blinded",
+        "every_hours": 336.0,
+        "last_job_id": 5137,
+        "last_finished_at": "2026-09-25T23:01:02.393423+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "only 1 like-for-like pairs exist against a floor of 12, so this run would report `unmeasured` whatever the judge said. Refused before spending: a measurement whose answer is already known costs nothin"
+      },
+      {
+        "cadence": "arena_expedition",
+        "job_type": "creative.expedition",
+        "every_hours": 168.0,
+        "last_job_id": 7295,
+        "last_finished_at": "2026-10-01T00:02:57.387342+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "every field came back malformed; nothing was proposed or spent"
+      },
+      {
+        "cadence": "product_tournament",
+        "job_type": "creative.tournament",
+        "every_hours": 168.0,
+        "last_job_id": 7296,
+        "last_finished_at": "2026-10-01T00:02:59.320058+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "the field is empty, so there is nothing to run a tournament on. ornament: ProviderUnusable: anthropic 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too"
+      },
+      {
+        "cadence": "remerchandising_review",
+        "job_type": "seasonal.remerchandising",
+        "every_hours": 168.0,
+        "last_job_id": 7297,
+        "last_finished_at": "2026-10-01T00:02:59.817448+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "seasonal_cycle_proof",
+        "job_type": "seasonal.cycle_proof",
+        "every_hours": 168.0,
+        "last_job_id": 7298,
+        "last_finished_at": "2026-10-01T00:03:00.611775+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "the cycle could not be run because the model provider refused: anthropic 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic "
+      },
+      {
+        "cadence": "capacity_review",
+        "job_type": "ops.capacity",
+        "every_hours": 168.0,
+        "last_job_id": 7299,
+        "last_finished_at": "2026-10-01T00:03:00.743477+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "stale_artefact_sentinel",
+        "job_type": "ops.sentinel",
+        "every_hours": 1.0,
+        "last_job_id": 9852,
+        "last_finished_at": "2026-10-07T00:00:56.779272+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "health_sweep",
+        "job_type": "ops.health",
+        "every_hours": 0.25,
+        "last_job_id": 9882,
+        "last_finished_at": "2026-10-07T00:30:07.488427+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "infrastructure liveness"
+      },
+      {
+        "cadence": "capability_probes",
+        "job_type": "ops.capability_probes",
+        "every_hours": 6.0,
+        "last_job_id": 9854,
+        "last_finished_at": "2026-10-07T00:03:21.723354+00:00",
+        "judge_useful": true,
+        "business_output": false,
+        "note": "infrastructure probe"
+      },
+      {
+        "cadence": "culture_sweep",
+        "job_type": "culture.sweep",
+        "every_hours": 24.0,
+        "last_job_id": 9855,
+        "last_finished_at": "2026-10-07T00:03:38.126657+00:00",
+        "judge_useful": true,
+        "business_output": true,
+        "note": ""
+      },
+      {
+        "cadence": "gallery_analysis",
+        "job_type": "intel.gallery_analysis",
+        "every_hours": 2.0,
+        "last_job_id": 9856,
+        "last_finished_at": "2026-10-07T00:03:38.180997+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "no vision.probe has succeeded, so nothing has proven it can look at an image. The backlog waits rather than filling with refusals"
+      },
+      {
+        "cadence": "retention_sweep",
+        "job_type": "ops.retention",
+        "every_hours": 24.0,
+        "last_job_id": 9857,
+        "last_finished_at": "2026-10-07T00:03:40.427646+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": ""
+      },
+      {
+        "cadence": "role_evaluator",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_failure_miner",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_experiment_designer",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_prompt_tool_challenger",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_cost_optimiser",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_reliability_engineer",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_creative_critic",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      },
+      {
+        "cadence": "role_lesson_router",
+        "job_type": "improve.role_work",
+        "every_hours": 24.0,
+        "last_job_id": 9865,
+        "last_finished_at": "2026-10-07T00:03:41.171607+00:00",
+        "judge_useful": false,
+        "business_output": false,
+        "note": "read 0 row(s) and found 0. This pass reports; proposing runs through the upgrade pipeline and promotion through the tiers"
+      }
+    ],
+    "last_cycle_summary": {
+      "cadences": 46,
+      "judge_useful": 15,
+      "business_output": 8
+    }
+  },
+  "local_shadow_proofs": {
+    "before_16min_fee1cfe": {
+      "file": "evidence/AUTO_before_proof.json",
+      "commit": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+      "duration_seconds": 1002.4,
+      "final_queue": {
+        "dead": 4,
+        "done": 220,
+        "pending": 118,
+        "running": 1
+      },
+      "totals": null,
+      "departments": {},
+      "jobs_by_department": {
+        "learn": {
+          "total": 34,
+          "done": 0,
+          "useful": 0,
+          "dead": 0
+        },
+        "platform": {
+          "total": 26,
+          "done": 16,
+          "useful": 2,
+          "dead": 0
+        },
+        "intelligence": {
+          "total": 37,
+          "done": 33,
+          "useful": 14,
+          "dead": 0
+        },
+        "executive": {
+          "total": 36,
+          "done": 20,
+          "useful": 7,
+          "dead": 0
+        },
+        "finance": {
+          "total": 18,
+          "done": 8,
+          "useful": 2,
+          "dead": 0
+        },
+        "product_design": {
+          "total": 38,
+          "done": 27,
+          "useful": 0,
+          "dead": 0
+        },
+        "product_truth": {
+          "total": 42,
+          "done": 38,
+          "useful": 22,
+          "dead": 0
+        },
+        "support": {
+          "total": 3,
+          "done": 2,
+          "useful": 0,
+          "dead": 0
+        },
+        "store_commerce": {
+          "total": 58,
+          "done": 40,
+          "useful": 32,
+          "dead": 5
+        },
+        "growth": {
+          "total": 26,
+          "done": 20,
+          "useful": 10,
+          "dead": 0
+        },
+        "visual": {
+          "total": 25,
+          "done": 16,
+          "useful": 10,
+          "dead": 0
+        }
+      }
+    },
+    "before_10min_post_integ": {
+      "file": "evidence/AUTO_before2_proof.json",
+      "commit": "fc7ed8e305f5f416f92c7fc90ce0677a0ddd9066",
+      "duration_seconds": 630.7,
+      "final_queue": {
+        "dead": 2,
+        "done": 175,
+        "pending": 68,
+        "running": 1
+      },
+      "totals": {
+        "done": 175,
+        "useful": 95,
+        "useful_distinct": 94,
+        "useful_rate": 0.5429,
+        "useful_distinct_rate": 0.5371
+      },
+      "departments": {
+        "executive": {
+          "done": 16,
+          "useful": 5,
+          "useful_distinct": 5,
+          "noop": 11,
+          "dead": 0,
+          "open": 9,
+          "useful_rate": 0.3125,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "intelligence": {
+          "done": 24,
+          "useful": 13,
+          "useful_distinct": 12,
+          "noop": 11,
+          "dead": 0,
+          "open": 2,
+          "useful_rate": 0.5417,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "product_design": {
+          "done": 22,
+          "useful": 0,
+          "useful_distinct": 0,
+          "noop": 22,
+          "dead": 0,
+          "open": 7,
+          "useful_rate": 0.0,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "product_truth": {
+          "done": 36,
+          "useful": 22,
+          "useful_distinct": 22,
+          "noop": 14,
+          "dead": 0,
+          "open": 2,
+          "useful_rate": 0.6111,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "visual": {
+          "done": 13,
+          "useful": 10,
+          "useful_distinct": 10,
+          "noop": 3,
+          "dead": 0,
+          "open": 5,
+          "useful_rate": 0.7692,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "store_commerce": {
+          "done": 36,
+          "useful": 32,
+          "useful_distinct": 32,
+          "noop": 4,
+          "dead": 3,
+          "open": 11,
+          "useful_rate": 0.8889,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "support": {
+          "done": 1,
+          "useful": 0,
+          "useful_distinct": 0,
+          "noop": 1,
+          "dead": 0,
+          "open": 0,
+          "useful_rate": 0.0,
+          "idle_at_end": true,
+          "rule1_defect": false
+        },
+        "finance": {
+          "done": 4,
+          "useful": 1,
+          "useful_distinct": 1,
+          "noop": 3,
+          "dead": 0,
+          "open": 5,
+          "useful_rate": 0.25,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "growth": {
+          "done": 15,
+          "useful": 10,
+          "useful_distinct": 10,
+          "noop": 5,
+          "dead": 0,
+          "open": 3,
+          "useful_rate": 0.6667,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "learn": {
+          "done": 0,
+          "useful": 0,
+          "useful_distinct": 0,
+          "noop": 0,
+          "dead": 0,
+          "open": 18,
+          "useful_rate": null,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "platform": {
+          "done": 8,
+          "useful": 2,
+          "useful_distinct": 2,
+          "noop": 6,
+          "dead": 0,
+          "open": 5,
+          "useful_rate": 0.25,
+          "idle_at_end": false,
+          "rule1_defect": false
+        }
+      },
+      "jobs_by_department": null
+    },
+    "after_10min": {
+      "file": "evidence/AUTO_after_proof.json",
+      "commit": "ea368fd47d44e2f2c3d31d6915348243ae7b03f6",
+      "duration_seconds": 646.0,
+      "final_queue": {
+        "dead": 2,
+        "done": 261,
+        "pending": 49,
+        "running": 1
+      },
+      "totals": {
+        "done": 258,
+        "useful": 136,
+        "useful_distinct": 127,
+        "useful_rate": 0.5271,
+        "useful_distinct_rate": 0.4922
+      },
+      "departments": {
+        "executive": {
+          "done": 22,
+          "useful": 14,
+          "useful_distinct": 14,
+          "noop": 8,
+          "dead": 1,
+          "open": 3,
+          "useful_rate": 0.6364,
+          "useful_distinct_rate": 0.6364,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "intelligence": {
+          "done": 29,
+          "useful": 14,
+          "useful_distinct": 12,
+          "noop": 15,
+          "dead": 0,
+          "open": 1,
+          "useful_rate": 0.4828,
+          "useful_distinct_rate": 0.4138,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "product_design": {
+          "done": 32,
+          "useful": 13,
+          "useful_distinct": 11,
+          "noop": 19,
+          "dead": 1,
+          "open": 8,
+          "useful_rate": 0.4062,
+          "useful_distinct_rate": 0.3438,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "product_truth": {
+          "done": 47,
+          "useful": 29,
+          "useful_distinct": 29,
+          "noop": 18,
+          "dead": 0,
+          "open": 0,
+          "useful_rate": 0.617,
+          "useful_distinct_rate": 0.617,
+          "idle_at_end": true,
+          "rule1_defect": false
+        },
+        "visual": {
+          "done": 18,
+          "useful": 11,
+          "useful_distinct": 11,
+          "noop": 7,
+          "dead": 0,
+          "open": 9,
+          "useful_rate": 0.6111,
+          "useful_distinct_rate": 0.6111,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "store_commerce": {
+          "done": 42,
+          "useful": 33,
+          "useful_distinct": 29,
+          "noop": 9,
+          "dead": 1,
+          "open": 17,
+          "useful_rate": 0.7857,
+          "useful_distinct_rate": 0.6905,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "support": {
+          "done": 2,
+          "useful": 0,
+          "useful_distinct": 0,
+          "noop": 2,
+          "dead": 0,
+          "open": 0,
+          "useful_rate": 0.0,
+          "useful_distinct_rate": 0.0,
+          "idle_at_end": true,
+          "rule1_defect": false
+        },
+        "finance": {
+          "done": 12,
+          "useful": 2,
+          "useful_distinct": 2,
+          "noop": 10,
+          "dead": 0,
+          "open": 1,
+          "useful_rate": 0.1667,
+          "useful_distinct_rate": 0.1667,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "growth": {
+          "done": 11,
+          "useful": 5,
+          "useful_distinct": 4,
+          "noop": 6,
+          "dead": 0,
+          "open": 1,
+          "useful_rate": 0.4545,
+          "useful_distinct_rate": 0.3636,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "learn": {
+          "done": 18,
+          "useful": 6,
+          "useful_distinct": 6,
+          "noop": 12,
+          "dead": 0,
+          "open": 3,
+          "useful_rate": 0.3333,
+          "useful_distinct_rate": 0.3333,
+          "idle_at_end": false,
+          "rule1_defect": false
+        },
+        "platform": {
+          "done": 25,
+          "useful": 9,
+          "useful_distinct": 9,
+          "noop": 16,
+          "dead": 0,
+          "open": 3,
+          "useful_rate": 0.36,
+          "useful_distinct_rate": 0.36,
+          "idle_at_end": false,
+          "rule1_defect": false
+        }
+      },
+      "dead_letters": [
+        {
+          "job_type": "creative.candidates_file",
+          "class": "defect",
+          "cause": "provenance backstop blamed a concurrent listing.seo's artefacts",
+          "fixed_by": "runtime.worker.concurrent_attribution"
+        },
+        {
+          "job_type": "swarm.allocate",
+          "class": "defect",
+          "cause": "same",
+          "fixed_by": "runtime.worker.concurrent_attribution"
+        },
+        {
+          "job_type": "store.publish",
+          "class": "refused",
+          "cause": "SHADOW by design"
+        }
+      ]
+    }
+  }
+}

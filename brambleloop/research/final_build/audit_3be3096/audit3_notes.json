@@ -1,0 +1,10 @@
+{
+ "verified_ok": [
+  "Owner/ops routes (/api/owner/*, queue/requeue, continuity/export, etsy oauth start/status, teardown, support, learn editor) are default-closed: 503 unconfigured, 401/403 wrong; constant-time compare; min token length 24; no default token; reviewer token distinct.",
+  "No secrets in tracked files (only synthetic test fixtures).",
+  "Queue claim/lease/reclaim is conditional-UPDATE + SKIP LOCKED, fenced completions, protected tiers first; draft_intent gives at-most-one automatic create and routes ambiguity to reconciliation (code-read; crash tests not re-run by me beyond test_draft_intent_precreate_refusal + test_customer_data_auth + test_deploy_guard, all pass).",
+  "Shadow: EtsyClient refuses ACTIVATE/publish unless phase in limited_production/production AND owner grant; effective phase = more restrictive of env and sealed recorded transition; unset env = shadow. Only DRAFT writes in shadow happen via authenticated /api/etsy/exercise (owner-triggered, by design).",
+  "core/migrate.py is additive only (verified by reading); not exercised against Railway snapshot.",
+  "Not exercised: continuity export/restore, kill -9 resume, real Postgres concurrency (no Postgres here)."
+ ]
+}

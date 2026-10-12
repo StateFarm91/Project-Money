@@ -196,3 +196,37 @@ class Concierge:
         """
         return tracker.report(DefectReport(self.cir.slug, self.cir.version, component, row,
                                            customer, description))
+
+
+def version_answer(db, *, customer_ref: str = "", product_slug: str | None = None,
+                   order_ref: str = "", question: str = "") -> SupportAnswer:
+    """Which version this buyer got, read from the order-to-version map (#42).
+
+    The answer comes from `order_versions`, written when the order was, never from "the
+    current listing": a buyer holding 1.0.0 who is told about 1.1.0 is told their correct
+    work is wrong. With no recorded order the answer is a hand-off, not a guess.
+    """
+    from ..commerce.buyer_trust import purchased_versions
+
+    rows = (purchased_versions(db, order_ref=order_ref, product_slug=product_slug or "")
+            if order_ref else
+            purchased_versions(db, customer_ref=customer_ref, product_slug=product_slug or "")
+            if customer_ref else [])
+    if not rows:
+        return SupportAnswer(
+            question=question, cited_version="", escalated=True, confident=False,
+            answer=("I cannot find a recorded order for this, so I will not guess which "
+                    "version you have. I have passed this to a human who can look it up "
+                    "from your order."))
+    latest = rows[-1]
+    cited = f"{latest['product_slug']}@{latest['purchased_version']}"
+    lines = [f"Your order {r['order_ref']} is {r['product_slug']} version "
+             f"{r['purchased_version']}." for r in rows]
+    if latest["superseded"]:
+        lines.append(f"The current corrected version is {latest['current_safe_version']}, "
+                     f"and your download is updated to it; answers here are given from the "
+                     f"version you bought unless you say you are working from the new one.")
+    else:
+        lines.append("That is the current version, so nothing in your download is out of "
+                     "date.")
+    return SupportAnswer(question=question, cited_version=cited, answer=" ".join(lines))

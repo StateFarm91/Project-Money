@@ -1,0 +1,4535 @@
+[
+ {
+  "uid": "F-001",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/search.py: add ranking_readiness(listing) stage separate from covers()/score_coverage match eligibility; persist both on ListingSearchProfile; test in tests/test_search_truth.py (in flight: fb4-STORE owns F-003 ranking readiness)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/search.py has covers()/score_coverage only; no readiness stage (grep ranking_readiness: none)",
+   "fb4-STORE assignment F-003 in FINAL_BUILD_STATE"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-002",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py::api_catalogue: expose ListingSearchProfile.coverage_matrix (phrase, family, provenance, supplying field) per listing; route test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "defect fixed: runtime/release.py:1008 persists row.coverage_matrix incl. category/attribute placements (commerce/search.py::covers)",
+   "tests/test_search_truth.py::test_the_coverage_matrix_names_the_supplying_field_for_every_query",
+   "no API reads ListingSearchProfile (grep app/: none)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-004",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "runtime/etsy_ops.py::certified_payload requires category.publish_inputs()['certified']=='PASS' but the only writer runtime/release.py::_persist_search_profile stores search_certificate(hero=None) -> PENDING; have store.publish persist the completed release_gates.search_gate PASS (or accept PENDING-on-hero-only when search_gate PASSed in the same decision); add test driving listing.seo -> store.publish without forcing verdict (in flight: fb4-PUB)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:347 raises 'listing search profile not certified PASS'",
+   "runtime/release.py:868 search_certificate(...) without hero; commerce/search.py:622 verdict PENDING when hero None",
+   "runtime/release.py:1011 only writer of ListingSearchProfile.verdict"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-005",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same root as F-004 (certified_payload PASS dead end) \u2014 fix in runtime/etsy_ops.py::certified_payload / store.publish; real taxonomy snapshot afterwards needs etsy_api",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:347",
+   "runtime/release.py:868,1011",
+   "category choice itself tested: tests/test_search_truth.py::test_the_deepest_crochet_pattern_node_is_chosen_per_product"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-007",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "node property schema (getPropertiesByTaxonomyId) for the real chosen node is read only once a credentialed etsy.probe succeeds; mapping and write are built"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/category.py::properties_for SET/NOT_APPLICABLE/MISSING/UNDECIDED",
+   "integrations/etsy.py:729 set_listing_property (updateListingProperty) called from runtime/pipeline.py:1607",
+   "tests/test_search_truth.py::test_every_property_of_the_node_is_set_or_explicitly_not_applicable"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-009",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py::api_catalogue: add per-listing filters {entered, lost} from ListingSearchProfile.filters; route test (real node filters later need etsy_api)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "filter_audit stored: runtime/release.py:1004 row.filters",
+   "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost",
+   "no API surface reads ListingSearchProfile"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-010",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime/release.py::handle_taxonomy_refresh: when etsy_taxonomy.refresh returns new_snapshot, enqueue listing.seo for affected listings and make publish/release_gates.search_gate refuse a profile whose snapshot_id != latest snapshot; test with two recorded snapshots",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "daily cadence exists: runtime/worker.py:363 etsy_taxonomy -> listing.taxonomy_refresh",
+   "integrations/etsy_taxonomy.py::fingerprint dedups snapshots but no re-audit/invalidation on change (grep: no enqueue/incident)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-011",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/seo.py:535 LISTING_TAG_SLOTS_UNUSED blocking unless tag_limitation recorded",
+   "tests/test_search_truth.py::test_every_catalogue_seed_gets_thirteen_truthful_tags",
+   "tests/test_search_truth.py::test_fewer_than_thirteen_tags_block_unless_a_limitation_is_recorded"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-013",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/search.py::choose_tags: add intent-level dedup (same content-word set / reordering / synonym table counts as one intent); test synonym and reordered pairs in tests/test_search_truth.py",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "choose_tags still lexical: per-word budget _MAX_SLOTS_PER_WORD + structured_duplicates exact match only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-015",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/search.py:321 evidence share over observed phrases only; assumed labelled",
+   "tests/test_search_truth.py::test_assumed_phrases_are_labelled_and_excluded_from_the_evidence_share"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-020",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/search.py Query.provenance + read_at; search.py::tag_provenance",
+   "runtime/release.py:1009 row.tag_provenance persisted",
+   "tests/test_search_truth.py::test_assumed_phrases_are_labelled_and_excluded_from_the_evidence_share"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-021",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/seo.py:522-535 stuffing blocking in search-copy gate; build_title never repeats a content word",
+   "tests/test_search_truth.py::test_a_stuffed_title_is_refused_and_build_title_never_repeats_a_word",
+   "tests/test_search_truth.py::test_subjective_words_move_out_of_the_title"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-022",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/seo.py::build_title: take the product's primary differentiator (creative brief/intent facet) as the first segment after the format words; test position within first 60 chars",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "build_title orders lead, format, motif segment by fixed priority; no differentiator input"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-027",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "'clearly shows what is sold' needs a recorded vision.probe; deterministic thumbnail checks already run"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/thumbnail.py::evaluate_thumbnail",
+   "FINAL_BUILD_STATE: Launch-0 HERO blocked on image_vision"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-028",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "publish/listing_assets.py::check_frame_plan refuses infographic hero (LISTING_HERO_IS_AN_INFOGRAPHIC) and cluttered text via layout_qa; an exception path is a relaxation needing measured CTR data (customers/live_listings) and is not required for compliance"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-030",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "publish/listing_assets.py::check_frame_plan: add per-category frame-job table (basket: scale/angle; blanket: texture detail; coaster: set/scale) required beyond hero/whats_included/size/materials; test per Launch-0 category",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no per-category frame requirement found in publish/listing_assets.py / release_gates.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-031",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "ambiguity judgement at grid scale needs vision; deterministic 230px and four mobile contexts run (publish/mobile.py::qa)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "publish/mobile.py::qa",
+   "release_gates.mobile_contexts"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-039",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/platform_policy.py::POLICY_SOURCES: add 'search_guidance' governing (listing, search); on its unreviewed change enqueue listing.seo for all listings; test (snapshot recording itself is owner-recorded via POST /api/policy/snapshot)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "POLICY_SOURCES has seller_policy, creativity_standards, listing_image_rules, advertising_rules, shilling_and_reviews, children_and_baby -- no search guidance"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-040",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_shop",
+   "detail": "live icon/About/policy state is read by the daily getShop snapshot (runtime/etsy_ops.py:709, judged by intel/etsy_surfaces.assess_shop; missing surfaces open a P1 that readiness cannot pass) -- needs a usable shop credential to produce a reading"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:709-730",
+   "launch/readiness.py:127,611 etsy_shop key"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-041",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "'strong image' judgement beyond deterministic frame plan/promotion gates needs vision"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "publish/listing_assets.py::check_frame_plan",
+   "publish/release_gates.py::listing_set"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-042",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "build an owner-recorded Etsy Customer Service Stats intake (response rate, case count, review average) + getShop review_average read in commerce/reviews.py, feeding support/service.service_level monitor and /api/trust; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no case_rate/CS-stats intake in src (grep)",
+   "Etsy has no messages/case API (rendered_pages)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-048",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "publish/release_gates.py:988 for_publish runs search_gate (category/attributes/copy/tags/description/hero)",
+   "tests/test_search_truth.py::test_publish_refuses_when_search_is_not_certified",
+   "note: runtime dead end tracked under F-004 DEFECT-OPEN"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-049",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "publish/release_gates.py:153-165 claims_of includes tags, taxonomy_id, attributes (F-294)",
+   "tests/test_search_truth.py::test_a_tag_or_taxonomy_edit_changes_the_claims_the_certificate_is_bound_to",
+   "tests/test_search_truth.py::test_a_tag_edit_after_certification_makes_the_search_gate_refuse"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-052",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/category.py property rules set holiday/occasion only from pattern facts",
+   "tests/test_search_truth.py::test_a_seasonal_product_sets_its_holiday_and_an_evergreen_one_does_not",
+   "tests/test_search_truth.py::test_attribute_truth_rejects_irrelevant_occasion_foreign_colour_and_wrong_skill"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-058",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py: add /api/search/evidence composing per-listing coverage_matrix, filters, search certificate verdict, CTR/conversion (UNMEASURED until stats) and experiments; route test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "pieces on separate routes; no route reads ListingSearchProfile"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-059",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "real Etsy Stats/Insights evidence must exist before it can override internal scoring; search_share already labelled internal"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "scale/leading refuses success without orders",
+   "runtime/release.py::_drop_vanity_tags"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-060",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/trust.py::may_scale_ads: add search rungs (coverage_matrix share, thumbnail verdict, unresolved first-party warnings) reported passed/failed/unmeasured; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "may_scale_ads rungs are shop-level only (commerce/trust.py:58 etc.)",
+   "scaling is post-first-sale"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-070",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "intel/purchase_selection.py manifest: record per-purchased-benchmark information value (findings/improvements attributed) and surface on /api/benchmark/selection; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "budget ceiling enforced (tests/test_purchase_selection.py); no information-value field"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-071",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "products/launch0.py:1299-1305 owner_of_the_blocker now names independent tester route (F-071/F-086)",
+   "tests/test_launch0.py and tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-072",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/certificate.py proof_states + gates/policy.py::check_claim: add benchmark_teardown, model_visual_review, independent_human_review, partial_physical_swatch vs full_physical_make classes and refuse cross-class substitution in claims; tests in tests/test_gates.py",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "gates/certificate.py:271 proof_states has 5 keys (deterministic, reverse compile, physical tester example, customer project, repeat purchase) only"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-073",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "new gates/risk_matrix.py deriving minimum evidence class from CIR features (fitted, grading, closed 3-D, novel assembly, high yardage, uncalibrated primitive) and refusing a declared risk_class below it in gates/certificate.py::certify; test with Launch-0 basket/blanket/coaster",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no risk matrix in gates/ (grep); risk_class typed per CIR",
+   "Launch-0 physical claims already blocked UNRESOLVED by gates/first_customer.py:277"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-074",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "runtime/release.py::handle_physical_record: stop using _load_cir (refuses uncertified); load the blocked release's CIR from PatternVersion.cir_json when its only blocking findings are PHYSICAL_TEST_REQUIRED/UNCALIBRATED_PRIMITIVE/GAUGE_OUTSIDE_DECLARED_YARN_BAND, stamp content_hash, enqueue gate.certify; end-to-end queue test (in flight: fb4-PUB)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/release.py:2320 handle_physical_record -> _load_cir; runtime/release.py:114 refuses when not pv.certified"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-078",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same intake fix as F-074, plus on an 'invalidated' physical binding open an OwnerAction 're-test <slug>@<version>' (runtime/pipeline.py::handle_certify); tests (in flight: fb4-PUB)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/release.py:2320 _load_cir in physical.record",
+   "no re-test owner action on invalidated binding"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-080",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/confidence.py (or certificate): define the deterministic-plus-calibrated-primitives confidence threshold that lets Class A/B certify without a full make, tied to F-073 matrix; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "Class A/B certify on deterministic evidence; no explicit threshold object"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-081",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "Class C stays blocked until an independent tester completes the physical make (then physical_proof); intake wiring is F-074/F-078"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "gates/certificate.py class C refusal; tests/test_physical.py::test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-086",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "wire the F-073 risk matrix into launch/readiness.py so the risk-based evidence requirement replaces the Class-C-only rule; owner-crochet wording already removed",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "products/launch0.py:1299 wording fixed",
+   "risk matrix missing (see F-073)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-088",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/incidents.py::DefectTracker.report: scope a confirmed pattern-defect incident to slug@version plus ops/rebuild_graph descendants (not whole slug) and feed confirmed defects into gates/confidence; tests. Confidence from real tickets/refunds/reviews then needs customers data",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "gates/incidents.py::DefectTracker.report halts per product slug, not per version/descendants"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-098",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime/worker.py::Worker.run_once: when gateway.anthropic.usable()/vision_usable() is false, park (not dead-letter) jobs whose handler needs a model, audited ai.parked, and resume on probe success; tests/test_outage_degradation.py proving deterministic cadences complete and no gate passes on a substitute",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep ai.parked/degradation in runtime/queue: none; NoProviderAvailable still PermanentError path"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-100",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/access.py: AccessRequest 'second model provider' card carrying scale/dependency measured concentration/outage impact + max cost; gateway routing refuses a provider without an approved row; test (funding itself is owner)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no diversification approval record (grep diversif: none)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-103",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py::api_verify: add finance/spend_report.estimate_drift degraded flag as a readback item; provider-billing settlement itself waits on provider_billing_access (F-106)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "estimate_drift exposed only on spend dashboard (app/main.py:1687)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-105",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/spend_report.py::governance: add historical_unknown block for rows predating provider/model/estimate columns, never summed into measured; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep historical_unknown: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-106",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/provider_accounts.py::reconcile: open an Incident when |ledger - reported| exceeds a declared threshold; test. Reading provider usage APIs afterwards needs provider_billing_access (owner)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "ops/provider_accounts.py has no Incident/threshold (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-109",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests/test_spend_governance.py: add test raising inside an outer db.session after check_budget_cad refuses, asserting the refusal AuditLog row persists",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no rollback-survival test found (grep tests/test_spend*/test_cost*)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-110",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime/pipeline.py::handle_finance_escalation_check: pass constrained=[purposes from finance/spend_report.refusals(db) this month] into spend_policy.escalation; test a refused creative purpose appears on the owner card",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/pipeline.py:~2296 spend_policy.escalation(ctx.db, now=now) without constrained -> what_is_constrained empty"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-115",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/backfill + ops/artefacts: graduate artefact classes and add a test that a re-engineered legacy slug (new CIR hash) turns its backfilled PDF/listing/support rows STALE",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "legacy artefacts without provenance remain UNPROVEN (non-blocking); Launch-0 artefacts are content-addressed"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-116",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "runtime/pipeline.py:117 concept_to_cir gauge=gauge_for(c.yarn_weight) (FB3-G a8ed44f)",
+   "gates/certificate.py:293 6b gauge vs declared yarn band refused unless calibrated sample",
+   "tests/test_gates.py::test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content",
+   "tests/test_prototype.py::test_the_gauge_is_derived_from_the_yarn_rather_than_typed"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-117",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/certificate.py::certify: add a stage comparing twin finished width/height to CIR-declared target dimensions within declared tolerance for all authoring paths; test with a Launch-0 basket",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "Launch-0 labels gated vs twin: products/launch0.py::size_label_backed (c5b387f), tests test_every_launch0_variant_label_is_backed_by_its_twin",
+   "no general certify-stage dimension tolerance check"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-118",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "routing and runtime gate exist; calibration needs a recruited independent tester and a completed physical test (physical_proof)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "defect fixed: gates/first_customer.py::blocking called by publish/eligibility.py::product_publication <- publish/release_gates.py:1007",
+   "gates/first_customer.py:277 gauge_and_size_claims UNRESOLVED blocks Launch-0"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-121",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py console/dashboard: require an evidence {source, as_of} field on every card; test walking the console payload refusing a card without it",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no general claim-to-evidence contract across cards"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-122",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "new core/evidence_states.py shared vocabulary (UNKNOWN, UNMEASURED, NOT_YET_OBSERVED, NOT_YET_WALKED, NOT_APPLICABLE) + scan test for zero-denominator rates returning 0/pass",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep evidence_states: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-123",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests/test_vacuity.py: add non-emptiness asserts to remaining BASELINE loops and shrink BASELINE; fix root stripping of items/values/keys (_VIEWS) with a regression case",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "tests/test_vacuity.py:206 BASELINE still populated; _VIEWS at line 43"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-124",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "add scripts/ops post-deploy readback (reads /api/verify, /api/status SHA, cadence ticks) writing a deploy.readback audit/evidence file; operator loop refuses 'deploy done' without it; run after authorised deploy",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "readback is a manual /api/verify read"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-125",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "build2/maturity.py::disagreements(db): compare COMPLETE/INTEGRATED+ claims with ladder never-ran/not-reached and open one incident per disagreement from build/ops cadence; test (in flight: fb4-OPS)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no disagreement mechanism (grep disagreements only in gates/confidence.py, unrelated)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-127",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "same build as F-122: shared core/evidence_states.py vocabulary (UNKNOWN, UNMEASURED, NOT_YET_WALKED, NOT_APPLICABLE) adopted by ops/health, commerce/friction, intel/etsy_surfaces, gates/first_customer + scan test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "distinct states exist per module; no shared vocabulary (grep evidence_states: none)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-128",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "ops/health.py:318-330 capability signals read the recorded probe (executor _model_usable/_etsy_usable/_rendered_pages_usable), not env vars",
+   "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-129",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "load closure_matrix into a live Final Master closure computed on dashboard/build.tick reopening rows whose producer becomes unreached or gate opens (fb4-J d85ee19 adds completion verdict + validator, not yet merged)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "research/final_build/aggregate.py offline only; fb4-J branch unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-130",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "build2/executor.py: split parked_by_capability by closure kind owner/data/external in executor.report and extend to Final Master rows; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "executor report splits parked but not by kind (per mapping)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-131",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "ops/health.py probe-based signals; ops/dependencies.py:179 configured dependency unproven until gate probe",
+   "tests/test_provenance.py::test_a_configured_dependency_is_unproven_until_its_gate_probe_succeeds",
+   "tests/test_health.py::test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason",
+   "etsy_shop gate requires identifier AND successful probe (executor.py:559) -- capability, not env"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-133",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "research/final_build/aggregate.py: refuse a PARTIAL row with null missing_part or next_action; pin in tests/test_final_closure_matrix.py",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "aggregate.py KEYS include missing_part but no refusal rule found"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-135",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops drill script: enqueue a consequential-shaped no-op job, kill the worker mid-handler, record lease reclaim + single completion audit; run after authorised deploy",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "lease/fencing tested (tests/test_persistence.py, test_chaos.py); no production drill"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-136",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "Final Master completion gate computed from closure_matrix with live reachability/gates (fb4-J d85ee19 per-row completion verdict pending merge)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-144",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "write per-feature readback manifest (endpoint + expected field) for launch-critical features; run and store evidence after authorised deploy (production_deploy)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "/api/verify exists; no per-feature manifest"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-152",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "test that every handler writing recovery/audit evidence writes to DB/ArtifactStore not only a workspace dir; offsite copy needs offsite_storage (owner)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "core/continuity.retain in Postgres; no such test"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-154",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "new ops/security_controls.py: inventory (commit signing, sealed OAuth store, Etsy token encryption, publication grant HMAC, ops token) each with functional probe usable/unavailable; dashboard; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep security_controls: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-158",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "record lock change record (scripts/lock_requirements.py --diff vs deployed SHA) into RC release evidence; build Docker image from lock once and record",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "mechanism tested (tests/test_dependency_lock.py); not recorded for an RC"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-159",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "extend tests/test_secret_scan.py to decoded PDF text streams of generated artefacts; production log scan needs an owner log export",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "compressed PDF streams skipped per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-160",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "append ops/credential_register.owner_requests() to the launch owner queue in runtime/release.py:3313 (requests = readiness.owner_requests() + access.owner_requests()) and dashboard; test (in flight: fb4-OPS). Owner then rotates ANTHROPIC_API_KEY",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/release.py:3313 does not include credential_register; grep credential_register outside its module: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-161",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/artefacts.py::summary: add coverage {recorded, expected, share} per class and to /api/verify; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "summary has fresh/stale/unproven counts only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-162",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/artefacts.py: per-class graduation with declared GRADUATED_CLASSES; enforce absence per graduated class; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep GRADUATED_CLASSES: none; may_enforce_unproven estate-wide"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-167",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/backfill.py: Launch-0 slug prioritisation and retire(artefact) path marking obsolete legacy artefacts RETIRED; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no retire path in ops/ (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-168",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/artefacts.py::sweep: systemic threshold raising a company-wide halt incident with evidence; test both scopes",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep systemic: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-169",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "freeze the RC: REQUIRE_CLEAN=1 ./run_tests.sh on final HEAD then ops/deploy_guard.py check --candidate <RC> --deployed fcb982d; commit verdict (fb4-J scripts/freeze_candidate.py pending merge)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "HEAD 376c54b past release-eligible 6f9a2f7 with code (fb4-LC)",
+   "fb4-J d85ee19 freeze_candidate.py unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-171",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "extend app/main.py::api_verify (or smoke script) with model/vision probe recency, last continuity proof, cadence coverage, queue round-trip, etsy/serp probe recency; run after authorised deploy (production_deploy)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "/api/verify lacks these items per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-172",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_deploy",
+   "detail": "shadow publication proof must be re-run on the authorised Final Build deploy; mechanism exists (/api/verify, fb4-J shadow_rehearsal)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "app/main.py::api_verify",
+   "fb4-J f204e18 shadow rehearsal evidence (local)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-173",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "merge build2/executor.approval_inbox and OwnerAction/readiness requests into one launch owner-action report with requirement_type (credential/legal/physical/spend) incl. Final Master gates; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "two sources remain"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-174",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "emit Final Master data-gated list from closure_matrix (gate.kind==data) on dashboard; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "Build 2 only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-176",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "scripts/prelaunch_baseline.py writing baseline.json (SHA, schema digest, env var names, closure_matrix digest, suite log SHA, restore-proof id) refusing on missing parts; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no single baseline artefact; fb4-J freeze_candidate partially overlaps"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-177",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "merge fb4-J (d85ee19) aggregate/validator work; extend research/final_build/aggregate.py to read mapping/remap_* and the integrated FB-4 results, re-aggregate on the merged head and commit",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "research/final_build/aggregate.py:99 globs mapping/s[0-9].json only",
+   "basis says 123 rows re-mapped on 6f9a2f7 (cfa5e8a)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-178",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "add completion verdict per row + OPEN count to aggregate.py and pin it (implemented on fb4-J d85ee19 'per-row completion verdict ... launch_critical_open'; merge and test)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "fb4-J d85ee19 not merged to HEAD 376c54b"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-179",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "build2/executor.py:1432-1500 one owner queue merging legacy OwnerAction rows into gate cards (F-179/F-663)",
+   "app/main.py:4117 /api/owner-actions serves the same model; app/main.py:4828 one owner surface",
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-180",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "core/models.py::OwnerAction: add state enum (open/satisfied/superseded/withdrawn/parked/expired), state_changed_at, state_reason + additive migration; closers in runtime/release.py::handle_launch_readiness/funding/growth_ops set the specific state; dashboard filters state=open; transition tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "core/models.py:724-742 OwnerAction has only done: bool"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-181",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "build2/executor.py:1468-1480 suppressed_unblocks_nothing, external and data gates excluded from cards",
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-183",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py::_spend_governance_html: add benchmark research approval (CA$300) and ad_authority gate state rows and label 'Agent opex'; extend tests/test_cert_dashboard.py",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "infra ceiling passed at app/main.py:597; research/ad authority rows not found"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-184",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/spend_report.py::binding_ceiling(db) tightest headroom across month/provider/department/agent/purpose rendered first in _spend_governance_html; test each ceiling binding",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep binding_ceiling: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-185",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "app/dashboard_truth.py:155 dead_letter_split 'N expected / M defects'",
+   "tests/test_cert_dashboard.py::test_refusal_only_dead_letters_render_zero_defects"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-186",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "app/dashboard_truth.py::launch_inventory: replace hard-coded gauge_standard None (line 84) with publish/eligibility.legacy_status(slug, certificate)['cleared']; test a recertified Launch-0 product reads launch-cleared (in flight: fb4-FIN)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "app/dashboard_truth.py:84 'gauge_standard': None; line 96 unassessed_criteria"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-188",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "creative/audit.py::audit_catalogue: add cohort label (legacy_builder_catalogue, generator version, n) and a separate tournament cohort; render both in dashboard _creative; test (in flight: fb4-FIN)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep cohort in creative/audit.py: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-189",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "growth/weekly.py:171 and finance/reinvestment.py:100 still read probability['probability'] raw; switch to reported_probability/state; test (in flight: fb4-FIN)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "growth/weekly.py:171 'confidence': {'probability': probability['probability']",
+   "finance/reinvestment.py:100"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-195",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/incident_lifecycle.py::open_or_restate: add owner_gate/remediation keys; render last_seen and owner in dashboard incident table; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep owner_gate/remediation in ops/incident_lifecycle.py: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-197",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py dashboard physical-proof card: render tester_roster gate status/link; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep tester_roster in app/main.py: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-199",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/readiness.py::assess: add per-product launch-standard row (creative survivor + gauge standard via eligibility.legacy_status + usable asset); test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "readiness recomputes rows but has no per-product launch-standard row (per mapping); legacy_status exists in publish/eligibility.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-202",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "app/main.py:5082 header shows build identity commit, container start (labelled) and last clean verify (VERIFY_AUDIT_ACTION)",
+   "tests/test_cert_dashboard.py::test_the_header_names_the_commit_and_the_last_clean_verification",
+   "container start is an honestly labelled deploy-time proxy"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-203",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "app/main.py::dashboard._block (line ~4821): pass max source-row timestamp for snapshot-backed blocks and render 'observed <t>' beside 'read <t>'; as-of on jobs/products/incidents/audit tables; extend test_every_block_renders_an_as_of_time",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "app/main.py:4819-4821 as-of is utcnow() query time"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-204",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py dashboard: make 'nothing waiting on the owner' conditional on a fresh successful launch.assessed audit row; test an empty assessment closes nothing",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; not changed (no F-204 references)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-212",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gateway/images.py::generate: record per-call adapter evidence (reference byte hashes actually encoded) and require it in publish/model_photography.make conditioned_on; tests (model photography is not on the Launch-0 path under D-FB-7)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no per-request transmission proof (no F-212 references)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-213",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "visual/provider_trial.py + gateway/image_bench.py: explicit reference-expiry check (pack version/hash vs current frozen pack) marking trial INVALID; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; no change found"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-215",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "no garment fit/sizing score exists; publish/model_photography.make makes a model frame unusable unless whole_person_morphology passes",
+   "tests/test_model_photography.py::test_a_drifted_face_and_a_drifted_body_each_block_on_their_own"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-219",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "visual/identity.py::drift_check: add review_band verdict routing borderline frames to a reviewer queue item; test (not on Launch-0 disclosed-render path)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "unverifiable blocks; no review band"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-221",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "photographic/generated product frames need a provider/V2 path that renders certified structure; disclosed deterministic renders are judged under D-FB-9 instead"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "DECISION_LOG D-FB-7, D-FB-9",
+   "visual/parity.py LIFESTYLE_QUALITY for disclosed_render (fb3-V fa5ff94)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-222",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "natural-not-polished applies to photographic/model frames; no provider path for product photoreal; Launch-0 uses disclosed renders (D-FB-7/9)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/photoreal.py CHECKS on model frames"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-225",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "photo-shoot gallery coherence for photographic frames waits on a photoreal path; disclosed Launch-0 sets are drawn from one CIR"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "research/final_build/waves/fb2_H2.json disclosed sets"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-227",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "structure verification of photographic frames waits on V2 instruments (035ff0c, not integrated); disclosed renders pass product_authority.structural_floor via independent verifier (fb2-H2 3dd0a23)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/disclosed_render.py; product_authority.structural_floor"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-233",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "brand/storefront.py::check_storefront: require produced icon/banner asset files (hash+dimensions) instead of _banner_brief/_icon_brief strings, shop title/tagline, featured/ordered listings, runtime check_grid_coherence; test brief-only storefront fails (in flight: fb4-STORE)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "brand/storefront.py:138-183 banner/icon 'present' are brief strings",
+   "live shop icon/banner separately checked by runtime/etsy_ops.py daily getShop (assess_shop)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-234",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/readiness.py::assess: call commerce/shop_package.check_package as a blocking requirement; add skill-expectation/support-path clause; test (fb4-STORE scope)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep check_package in launch/readiness.py: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-235",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "brand/storefront.py::check_storefront: call shop_package.check_about and an unsupported-claim screen (reuse commerce/seo._UNSUPPORTABLE); test (fb4-STORE scope)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep check_about in storefront/readiness: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-236",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "brand/storefront.py::check_shop_seo(store, shop_text) (category words present, portfolio.stuffing on title/announcement) called from check_storefront; tests (in flight: fb4-STORE)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep check_shop_seo: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-237",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "brand/storefront.py: refuse section names from internal department/pod vocabulary and require occasion/recipient coverage; test (fb4-STORE scope)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; storefront unchanged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-238",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "brand/storefront.py::opening_grid(db) ordering launch-cleared products, season first, price ladder, excluding legacy-uncleared; run bible.check_grid_coherence at runtime and add 'opening_grid' readiness requirement; tests (in flight: fb4-STORE)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "brand/bible.py::check_grid_coherence still unreached (no runtime caller; grep)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-239",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "new brand/storefront_preview.py simulated mobile render of icon/banner crop/announcement/sections/first grid reusing publish/mobile contexts + readiness requirement; tests (in flight: fb4-STORE); live buyer-view check later needs rendered_pages",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no storefront mobile QA module (ls brand/)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-242",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "add 'search_guidance' to gates/platform_policy.POLICY_SOURCES + policy_knowledge reading; make commerce/seo/commerce/search read TAG_MAX_COUNT/TITLE_MAX from the dated reading and stamp certificates with its version; test digest change blocks listing.seo",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/search.py:23 TAG_SLOTS=13 constant; POLICY_SOURCES lacks search guidance"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-243",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "category/property truth needs the real seller taxonomy snapshot (listing.taxonomy_refresh is a no-op while etsy_api is closed); <13 tags now flagged, attributes mapped to node properties"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "integrations/etsy_taxonomy.py::refresh gate; runtime/release.py:1018",
+   "commerce/seo.py:535 LISTING_TAG_SLOTS_UNUSED",
+   "fb4-J shadow rehearsal: taxonomy UNKNOWN refuses grant snapshot"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-244",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "runtime/release.py:1008 ListingSearchProfile.coverage_matrix persists phrase, family, intent, provenance and supplying field (title/tag/category/attribute/description) per listing",
+   "commerce/search.py::covers category/attribute placements",
+   "tests/test_search_truth.py::test_the_coverage_matrix_names_the_supplying_field_for_every_query",
+   "tests/test_portfolio.py::test_a_catalogue_all_reaching_for_one_term_is_concentrated_and_cannibalising"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-245",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "commerce/seo.py:522-535 stuffing blocking in search-copy gate",
+   "tests/test_search_truth.py::test_a_stuffed_title_is_refused_and_build_title_never_repeats_a_word"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-246",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "scheduled re-tag job: re-run choose_tags for listings when a new attribution.stats reading / serp observation changes ranked terms, record before/after as listing experiment; test (trigger data needs insights_access/live_listings)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "refresh happens only at draft time"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-247",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "taxonomy_id read-back and node property set need the real seller taxonomy and a draft read-back; attribute->node-property mapping and refusal of irrelevant attributes built"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/category.py::properties_for",
+   "tests/test_search_truth.py::test_attribute_truth_rejects_irrelevant_occasion_foreign_colour_and_wrong_skill"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-249",
+  "class": "GATED",
+  "gate": {
+   "kind": "data",
+   "key": "insights_access",
+   "detail": "Shop Stats/Search Visibility are owner-read surfaces; SERP proxy already labelled directional"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "intel/serp.py labelled proxy; tests/test_serp.py::test_search_behaviour_is_fed_as_a_labelled_proxy_once_a_query_has_moved"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-251",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/seo.py::check_search_copy: add English-vocabulary check so ASCII non-English tokens block, and require translation_record to name market + demand reading; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/seo.py:553 foreign detection + free-text translation_record only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-252",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "comparative click appeal (grid tournament) needs vision; resolution/lighting floors are buildable in commerce/thumbnail.evaluate_thumbnail (S)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/thumbnail.py::evaluate_thumbnail; publish/mobile.py::first_three"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-253",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "Launch-0 imagery path is disclosed deterministic renders (D-FB-7/9) with verifier-bound structural_floor; remaining parity blockers are HERO (vision description) and COMPETITIVE blind review"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "DECISION_LOG D-FB-9 'Still blocking Launch-0 parity'",
+   "fb4-J shadow rehearsal: parity unjudged on hero, competitive_blind_review"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-254",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "publish/eligibility.py::JOBS: add ALTERNATE_ANGLE, CONSTRUCTION_DETAIL, COLOUR_CONTEXT, FIT_WORN with applicable-by-form rules and report missing applicable jobs; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "publish/eligibility.py:90 JOBS ten-job vocabulary unchanged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-255",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/seo.py::build_description: add value-lead sentence from the concept buyer outcome and yarn weight/fibre line from CIR materials; structural test of section order",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "template order fixed; no order check (per mapping, no F-255 references)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-257",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/readiness: catalogue value-coherence check (single<bundle<collection ladder monotone, no permanent sale, sale badge only with commerce/promotion.propose record) and route any sale through promotion.propose; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/promotion.propose has no runtime caller (grep runtime/launch)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-258",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "add authenticated owner listing-level Stats intake POST /api/listing-outcomes -> creative/style_learning.record_outcome (source owner_export), listed in CUSTOMER_DATA_ROUTES; test portfolio.review diagnoses from it (real numbers need live_listings)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "creative/style_learning.py::record_outcome still has no runtime caller (grep)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-259",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same root as F-258: ListingOutcome has no producer; build the F-258 intake",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "growth/portfolio.classify NO_EVIDENCE prior works; exposure input unproduced"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-260",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "route growth/experiments.conclude through commerce/listing_tests.read/record so exposure floor and disproof memory govern runtime conclusions; test an unexposed experiment writes nothing",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/listing_tests only reachable via GET /api/listing-tests (grep growth/runtime: no caller)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-261",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same root as F-258 (ListingOutcome producer)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "growth/portfolio.py::classify consumer exists"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-263",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "commerce/trust shop_complete rung reads brief-only storefront (F-233 proxy); fix with F-233 and add search-readiness (search_gate) and attribution-readiness prerequisites to runtime/growth_ops.py::ads_plan; tests (ads stay behind ad_authority)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "brand/storefront.py briefs unchanged (F-233)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-273",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "Offsite Ads fee is set from ledger/receipt evidence by finance/reconcile (o.offsite_ad_attributed=True) and deducted; real ledger rows need transactions_r"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "finance/reconcile.py:189",
+   "commerce/orders_ingest.py:69 (F-558)",
+   "tests/test_money_truth.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-275",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/: demand-capture plan object per opening product (intent families, storefront slot, organic readiness, ads state, checkpoints) required by readiness before phase change; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/launch.py::plan_launch timeline only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-276",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "seasonal engine: Christmas search-readiness checkpoints (listing live by indexing date with certified tags/attributes/gallery) and incident on miss; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "seasonal/compression.programme lacks search checkpoints"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-278",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "blinded grid tournament judging needs a usable vision model; an unjudged grid blocks publish"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "creative/blinded.py::grid_tournament; tests/test_cert_publish_gates.py::test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-279",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/readiness.py: continuity requirement that active takeover occasion and featured members equal the seasonal launch set/ads plan; test mismatch blocks",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no continuity check (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-281",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/launch.py::plan_launch: add day 1/3/7/14/30 review checkpoints with named metrics and schedule review jobs after publication; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "TIMELINE has day 14/30 only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-282",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same root as F-258: ListingOutcome exposure input has no runtime producer; build the owner listing-level intake",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "creative/style_learning.record_outcome uncalled; growth/portfolio.classify consumer exists"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-283",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py: opsauth-guarded POST /api/orders/{ref}/attribution calling finance/sources.attribute (evidence required), added to CUSTOMER_DATA_ROUTES; test refusal without evidence (real orders need transactions_r)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "only /api/attribution/stats exists (app/main.py:3530)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-284",
+  "class": "GATED",
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "review/case health feeding trust needs real orders; first-hundred priorities and no-review-gating are enforced"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/first_hundred.py; tests/test_reviews.py::test_a_support_reply_that_asks_for_a_rating_is_refused"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-285",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "seasonal engine step re-running listing.seo tag choice N days before each occasion's indexing milestone, recording diff; test (observed terms need insights_access)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no pre-season refresh job"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-286",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/success.py six-signal launch-success verdict (each measured/unmeasured with source) served on dashboard; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no single launch-success verdict"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-287",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py /api/visibility aggregating storefront completion, search certificates, funnel, ads/offsite and owner actions from DB; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no visibility command center route"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-288",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "Recommendation schema (evidence refs, listings, mechanism, cost, confidence, rollback) for search/ads producers refusing incomplete ones; test 'Improve SEO' refused",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "OwnerAction lacks listings/mechanism/confidence/rollback"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-289",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defect fixed (commerce/orders_ingest.py:642,649 acquisition_source='unknown' not 'etsy'); remaining: traffic-source table (organic/Etsy Ads/Offsite/direct/unattributed) on the visibility view from growth/mix.by_channel; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/orders_ingest.py:642-649"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-291",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "add ads learning/threshold rules (used by F-264/F-265) to the advertising_rules watched reading so a change invalidates ads_plan assumptions; add search_guidance source (F-242); test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "search guidance not a POLICY_SOURCES entry; ads thresholds outside reading (per mapping, unchanged)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-294",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "publish/release_gates.py:153-165 claims_of binds tags, taxonomy_id, attributes; search_gate verdict in for_publish",
+   "tests/test_search_truth.py::test_a_tag_or_taxonomy_edit_changes_the_claims_the_certificate_is_bound_to"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-295",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests: ads dry-run acceptance (granted authority fixture + uncertified, stale-certificate, over-budget candidates; none enqueued/spent) and add listing_set.still_valid to runtime/growth_ops.py::ads_plan eligibility",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no named dry-run acceptance test"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-297",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "build F-258 listing-level intake and a 'measurement proven' readiness requirement checked by ads.adjust/growth.steer before optimising; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "ListingOutcome unproduced (F-258)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-298",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "stuffing blocking (commerce/seo.py:522-535)",
+   "tests/test_search_truth.py::test_a_recency_only_renewal_is_refused",
+   "tests/test_cert_parity_copy.py::test_a_generated_hero_photograph_is_refused_by_the_policy_gate_in_listing_seo"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-299",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "PhaseTransition record (from/to, owner approval ref, readiness snapshot id, rollback proof id) required by runtime/pipeline.py::handle_store_publish outside shadow, staging as distinct phase; tests (owner publication grant D-FB-10 exists per release but phase change is still the BRAMBLELOOP_PHASE env var)",
+  "size": "M",
+  "launch_blocking": true,
+  "evidence": [
+   "phase is env var; ops/publication_authority.py grant is per release, not a phase transition"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-300",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "launch/readiness.py: six-question verdict mapping each requirement to findable/clickable/honest conversion/pattern-makes-shown/trustworthy/ads-bounded; make the phase change (F-299) require readiness.ready; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "readiness.ready gates only owner queue/audit (per mapping, unchanged)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-301",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/provider_accounts.py: open incident when |provider - ledger| exceeds tolerance; observe() reading provider usage APIs when an admin key exists (keys: owner, provider_billing_access)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no incident on variance (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-303",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/spend_report.record: closed economic_class enum from purpose->class map; report one-time vs recurring separately in what_it_bought and dashboard; tests (fb4-FIN touches spend tagging)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep economic_class: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-304",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "core/models.py CostEntry: add listing_id, units, observed_cad, evidence_ref + migration; populate from images.generate/vision/photoreal writers; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "CostEntry lacks listing/units/observed columns (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-305",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/governor.py::enforce: incident when unattributed share exceeds a named tolerance; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no tolerance incident in governor.enforce"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-306",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "gateway/routing.cached_analysis/remember_analysis still has no runtime caller; wire into gateway ModelGateway.complete_json for analysis tasks (or delete and restate #225); test a repeated identical request is not billed",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep cached_analysis/remember_analysis outside definitions: none in src"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-307",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "persist a paid-operation key (job id + evidence version) on the spend reservation and check settled reservation/stored result before re-executing on lease reclaim; test kill-after-call",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep paid_operation: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-308",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "swarm/orchestrate.thrash_sweep: retry-storm detector (paid attempts/hour/type over bound) opening a financial-integrity incident; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep retry_storm: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-309",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "generalise model_photography._systematically_blocked into a shared breaker (handler+method_version+floor) used by tournaments, vision, image_bench, reference_pack; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "breaker only in publish/model_photography.py and owned_photography"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-310",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "swarm/orchestrate.thrash_sweep: add durable-evidence delta (new audit/observation rows per run) to the progress measure; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "progress inferred from output change"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-311",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "same root as F-306: wire gateway/routing.cached_analysis into ModelGateway and key evidence reuse on upstream fingerprints in one helper",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "gateway/routing.cached_analysis no runtime caller"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-312",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gateway/routing.TASKS: per-task deterministic_alternative field + test that such tasks never call a provider",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no general rule"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-313",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "finance/spend_policy.may_downgrade_for_cost still has no runtime caller; add gateway/routing.route_evidence (per task/model quality-floor results) and an override path that moves a task cheaper only on recorded equivalence; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep may_downgrade_for_cost: no caller in src outside definition"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-314",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gateway/routing: escalation policy (standard tier first, deep only on unverifiable/low-confidence) + codified deterministic-eliminates-model rule; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "static per-task tiers"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-315",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gateway/routing.TASKS max_input_tokens enforced in check_budget + governor tokens_in trend; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "tokens_in measured only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-316",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "test over gateway/routing.TASKS asserting each has a schema and max_tokens sized to it",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no systematic check"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-317",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ModelGateway: enforce per-item isolation for any multi-item call (refuse batch without per-item markers); test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "only gallery vision isolates"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-318",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "intel/vision.py::analyse: report pending_before; thrash_sweep rule flagging flat backlog with spend as financial-integrity incident; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep pending_before: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-319",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/governor.report: cost per requirement/listing advanced (cost_entries joined to closure/listing audit rows); test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no per-advance cost"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-320",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/unit_cost.product_creation_cost(db, slug) by stage (purpose->stage) and provider/model excluding sunk infra; per-product display; test (needs F-321 slug tagging)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "spend_by('product') totals only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-321",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "thread product_slug from job payloads into every spend_report.record call (gateway/anthropic.py:649,816, gateway/images.py:968, visual/*.py, culture/classify.py:150); test a slug-bearing job writes a slug-tagged CostEntry (in flight: fb4-FIN)",
+  "size": "M",
+  "launch_blocking": true,
+  "evidence": [
+   "gateway/anthropic.py:649 spend_report.record(...) without product_slug",
+   "finance/sustainability.py forecast needs product-tagged spend"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-322",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "visual/reliability.assess: add judging_cad (photoreal/motif/inspect/identity rows for the job) to each attempt and report generation vs judging cost; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep judging in visual/reliability.py: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-323",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/order_readings: per-order contribution (gross - fees - refunds - ads - attributed variable AI cost); test with fixture orders (real orders need customers)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "finance.currency.contribution nets fees only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-324",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "finance/sustainability.py::break_even: creation==0 still yields break_even_sales 0 (math.ceil branch 'if creation > 0 else 0'); return None/UNMEASURED when no product-tagged spend; test (in flight: fb4-FIN)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "finance/sustainability.py ~line 200 n = ceil(creation/per_sale) if creation > 0 else 0"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-325",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/sustainability.SCENARIOS: add observation_cadence term (calls/day x measured cost per observation purpose); depends on F-321 tagging; test (fb4-FIN scope)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "observation cadence not a named input"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-326",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/governor.enforce: model-tier, purpose-repetition, hourly and provider-divergence detectors; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "daily spike detection only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-328",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance check_budget: require question/evidence_ref on paid calls, refuse neither; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no declaration required"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-329",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "sustainability launch gate is un-passable: forecast stays INSUFFICIENT_DATA because no spend writer tags product_slug; fix with F-321 and test a pipeline run produces slug-tagged creation cost (in flight: fb4-FIN)",
+  "size": "M",
+  "launch_blocking": true,
+  "evidence": [
+   "launch/readiness.py:794 sustainable_economics requirement",
+   "F-321 writers untagged"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-331",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "run_tests.sh self-enrol in ops/registry with run id and write terminal sentinel; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; operator tooling at repo-root ops/"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-333",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/registry.py 'attach' returning existing record/verdict instead of re-enrolling; heartbeat instructions use it; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no attach mechanism"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-335",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "run_tests.sh writes 'EXIT <n>' sentinel with UTC stamp and result file itself; board test without wrapper",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-337",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "src/brambleloop/ops/health.py::job_duration_envelope(db): rolling median per job_type (>=5 samples), flag RUNNING > 3x median in health_sweep; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep job_duration_envelope: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-338",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "board/health: dependency-wait and duplicate-run diagnosis; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-339",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "suite rerun guard + test that a paid-call job reclaimed after lease expiry does not re-spend (reservation idempotent per job id; see F-307)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-341",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests: second complete() from fenced-out worker refused and late observer reads first result; run_tests.sh result-file propagation test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-342",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/registry records role work|observer; Registry.enrol refuses observer signatures; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-343",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/health.py::verdict add 'blocked' (jobs waiting on closed gate/dependency) and observer-waiting states; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-344",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/registry.py ack -> Waiter.account_idle; print waste incidents in lease/board output; test (in flight: fb4-OPS)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; fb4-OPS assignment"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-350",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops reliability-incident ledger with required root_cause/prevention_test/fix_commit, refuse close without; waiter waste auto-opens; tests (in flight: fb4-OPS)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; fb4-OPS assignment"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-360",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "cir/graded: transcribe CYC baby chart as BABY BodyTable with source/date; allow garment_design to grade new_parent recipients; tests (fit verification later needs physical_proof). Not on Launch-0 path",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "babywear grading refused; BABY_SIZES chest-only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-362",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "intel/childrens.STATEMENT_SET childrens_garment: 'age is a guide; measurements govern fit' + per-size finished-measurement table for graded children's garments; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-363",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defect fixed (intel/childrens.py:1156 concept_from_cir; publish/pdf.py:789; products/launch0.py:876); remaining: opening/closure plausibility checks (head opening vs CYC head circumference, button band spacing) in cir/specification for children's garments; tests (wearability later physical_proof)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "intel/childrens.py:1099-1162",
+   "tests/test_childrens.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-364",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "children's emotional/gifting imagery system depends on a judged imagery path; Launch-0 uses disclosed renders under D-FB-7"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "gates/asset_truth.py unchanged"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-371",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "Final Build is not deployed; off-device proof needs an authorised unattended production window"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "build2/autonomy off_device_proof; executor Gate production_window"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-380",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "wire ops/deploy_guard.py into the deploy path (refuse Railway deploy unless release-eligible run on the SHA) and record deploy SHA + /api/verify as audit row (overlaps fb4-OPS F-461)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "ops/deploy_guard.py exists, run by hand"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-381",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "record previous Railway deployment id at each deploy and a rehearsal script redeploying it to staging; test of the record",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "code rollback relies on Railway history"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-382",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "extend build2/maturity ladder to Final Master rows and add ladder column to improve director history; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "ladder Build 2 only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-392",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/incident_lifecycle: root_cause and prevention_ref on resolution; refuse resolve() of high severity without them; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-396",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "cloud continuity proof needs Build deploy + unattended window; offsite archive needs offsite_storage"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "executor Gates production_window, offsite_storage"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-397",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "test scanning src/brambleloop for runtime file reads outside the package/ArtifactStore (Path(__file__).parents[>=3])",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no promotion gate test (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-400",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "load closure_matrix launch_class into a final_build module so launch/readiness blocks only on LAUNCH-CRITICAL gaps (fb4-J LAUNCH_SCOPE.json pending merge); test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J d85ee19 generates research/final_build/LAUNCH_SCOPE.json, unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-416",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "Dockerfile: pin python:3.11-slim by digest and apt version; supply-chain register (ops/SUPPLY_CHAIN.json or core/supply_chain.py) with test that every gateway/integration provider is registered",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping; unchanged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-418",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "no research agent exists (F-401 MATURE); finance/spend_policy global ceilings cover every model/provider call",
+   "tests/test_spend_policy.py::test_the_environment_may_lower_the_ceiling_and_never_raise_it"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-425",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "customer-facing claims carry provenance: intel/childrens.py::render_statements",
+   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none",
+   "mapping next_action: at target maturity for launch"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-430",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "no research agent; every proposal passes improve/governance.check",
+   "tests/test_improve.py::test_a_paraphrase_does_not_get_a_weakening_past_the_boundary"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-437",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "live authenticated capability exercise (POST /api/etsy/exercise) needs the owner-authorised round trip against Etsy"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "integrations/etsy_exercise.py::run; tests/test_etsy_exercise.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-445",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "children's statements require existing sources; learning signals require citations",
+   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none",
+   "tests/test_learning.py::test_an_observation_with_no_source_is_refused",
+   "mapping: at target maturity for launch"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-447",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "no research agent; improve/governance.check_owner_authority binds all proposals",
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-461",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "ops/deploy_guard.py still advisory: wire into the only deploy path (ops/deploy.sh / pre-push hook running deploy_guard check before any push to claude/repository-setup-nc9x6o), reference in ops/HEARTBEAT_PROMPT.md and resume manifest; test (in flight: fb4-OPS)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "ops/deploy_guard.py (repo root) invoked by nothing in the deploy path",
+   "FINAL_BUILD_STATE: pushing the production branch redeploys"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-472",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "persist provider circuit/rate state in DB (provider_limits table) read by ModelGateway and integrations/http.py; test two workers share one breaker",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "breaker in-process memory"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-474",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "checkpoint records for multi-step paid handlers so a reclaimed job skips already-billed steps; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no intra-handler checkpoints"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-477",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "deterministic certification independent of drafting (runtime/pipeline.py::handle_certify); improvement approval refuses proposer",
+   "tests/test_improve.py::test_c17_promote_itself_requires_a_recorded_independent_approval",
+   "disclosed-render independent verifier (fb2-H2)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-495",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "24h off-device proof needs authorised deploy and an unattended window"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "build2/autonomy.py::off_device_proof"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-497",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "core/opsauth.py: separate read-only ops token scope for build sessions (GET-only) enforced on routes; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "build/operate separation is a written rule"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-501",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "receipt poll is idempotent and built; never ran against Etsy without transactions_r (webhooks are a later improvement)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/orders_ingest.py::ingest; tests/test_cert_orders.py"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-518@v0.15",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime listing-update path with stored before-state and revert via EtsyClient.update_listing + readback (when listing updates are built); test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no runtime listing-update path"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-514@v0.16",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py GET /api/etsy/surfaces returning etsy_surfaces.coverage() + per-surface mode, and include every Evidence(UNKNOWN) in coverage()['unknowns']; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "inventory static; fb4-LC 4b2d58b surfaced some unknowns (intel/etsy_surfaces.py F-588) -- verify coverage of all UNKNOWNs"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-515@v0.16",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_shop",
+   "detail": "defect fixed: daily etsy.shop_snapshot (runtime/etsy_ops.py:709) judges getShop via assess_shop and opens incidents readiness cannot pass; remaining is a real reading from a usable shop credential on the deployed build"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:15,709-745",
+   "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
+   "tests/test_etsy_readback_observe.py::test_no_credentials_means_no_reading_not_an_empty_shop"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-524",
+  "class": "GATED",
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "defect fixed: store.publish sends etsy_ops.certified_images (runtime/pipeline.py:1370,1554); hero-image experiments with rollback need a live listing"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/pipeline.py:1370-1390",
+   "DECISION_LOG D-FB-9"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-532",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "owner-paste intake for Etsy Customer Service Stats (response rate/time, case count) with thresholds opening an incident before breach (same build as F-042)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no CS stats intake"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-535",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "RefundCase (reason_code enum, owner, order/listing/version) created by orders_ingest for refunded/cancelled lines and support intake; investigation incident on repeated reason; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "refund is a flag only (support/department.py refund_rate)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-536",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "Policy Violations has no API and policy pages 403; listing census already raises policy_violation_suspected incidents (runtime/etsy_ops.py:800-851)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/etsy_ops.py census F-568"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-537",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "commerce/terms.consistency: add shop_package policies and the stored getShop policy fields (etsy.shop_snapshot reading) as surfaces; test a contradiction blocks",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "terms.consistency covers PDF/listing/FAQ only (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-538",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "payment-account ledger reader (commerce/orders_ingest.py:236 ledger_entries, getShopPaymentAccountLedgerEntries) and finance/reconcile are built; real receipts/ledger need transactions_r"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "commerce/orders_ingest.py:105,236,855",
+   "finance/reconcile.py"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-540",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "credential_health cadence built (runtime/etsy_ops.py:56,622); refresh-token rotation must be proven on the deployed build via owner-authorised exercise"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "runtime/etsy_ops.py:622 etsy.credential_health"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-541",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "commerce/orders_ingest.py:103 AUTH_ACTION_KEY 'etsy.oauth.reauthorise' is not covered by runtime/etsy_ops.OWNER_PREFIXES ('etsy.auth:') nor NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE, so runtime/release.py:3392-3412 marks it done on the next launch.readiness; route orders_ingest.needs_owner through etsy_ops.record_auth_needs_owner (single key) and add regression test (in flight: fb4-OPS)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:45 OWNER_PREFIXES=(SURFACE_PREFIX,'etsy.auth:')",
+   "runtime/release.py:3411 row.done=True for unskipped keys"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-542",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "defect fixed: store.publish reads back via runtime/pipeline.py::_publish_and_read_back -> etsy_ops.read_back (fields, properties, files); the one controlled round trip against Etsy is owner-authorised"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/pipeline.py:1394-1512",
+   "runtime/etsy_ops.py:527-564"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-543",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "publication_authority",
+   "detail": "store.activate built (runtime/pipeline.py:1708): remote draft read-back, images/files/disclosures, revalidated authority (ops/activation_authority.py); going live needs the owner's activation grant and phase change"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/pipeline.py:1709-1730",
+   "ops/activation_authority.py"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-544",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime/etsy_ops.py::handle_listing_census: add per-listing get_listing_files + listing images compared with certified_images/verify_files (properties already compared via with_properties); tests for swapped file and removed image",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "census compares fields + properties (runtime/etsy_ops.py ~887) but not files/images"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-545",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ListingAction table (action, actor, listing_id, before, after, evidence, cleanup_result) written by every EtsyClient mutating call site; migration + tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no unified lifecycle table"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-547",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "runtime/etsy_ops.py:214-264 seed_owner_queue adopts etsy_surfaces.owner_queue() into owner_actions idempotently; called from runtime/release.py launch.readiness (~3420)",
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-553",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "handle_listing_census: collect properties/files/images per listing and Listing.remote_state/last_seen/expires_at (migration) with expiry flag; fee lookup later needs transactions_r",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "census stores state/taxonomy/price/renewal in reading only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-556",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "SupportCase still has no ingestion path for Etsy messages: add ops-token POST /api/support/case (received_at from the Etsy message) and support.sla cadence flagging approaching Etsy/internal targets; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "app/main.py has no support case POST route (grep @app.post)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-557",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "support/department.py _ROUTES: add pre_sale, refund, safety, policy, abuse_spam classes with escalation/routing; tests in tests/test_departments.py",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no such classes (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-558",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defect fixed (fees basis modelled/measured, F-609; ledger reconcile F-558). Remaining software: link SupportCase/cancellation/case state, payment id and digital delivery state to Order; tests. Real reconciliation needs transactions_r",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/orders_ingest.py:63-70,237; core/models.py:2002",
+   "fb4-J shadow rehearsal found order_version_unmapped for an unpublished listing"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-559",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "handle_listing_census: call etsy_ops.read_back file verification for every live listing daily; language field in release manifest compared per filename; post-purchase download check later needs an owner test purchase",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "file read-back only at publish/activate"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-568",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "app/main.py ops-token POST /api/policy-violation creating ranked Incident with source_text/listing/action/deadline/closure_evidence and legal escalation flag; test closure without evidence refused",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "only census-suspected incidents exist"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-577",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "payout",
+   "detail": "drift monitor built: etsy.shop_snapshot judges is_etsy_payments_onboarded and opens/reopens incidents; owner completes Etsy Payments onboarding"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "runtime/etsy_ops.py:709-745",
+   "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-578",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "legal_and_tax",
+   "detail": "owner records the dated tax-position decision via POST /api/owner/decision (app/main.py:1001); software reports the threshold"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "commerce/shop_package.py::CLAIMS",
+   "tests/test_shop_package.py::test_the_tax_position_is_a_threshold_somebody_watches_not_a_guess"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-585",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "intel/etsy_surfaces.py Options registry (desired value, consequence, authority) + owner attestation route + staleness re-audit + readiness item requiring a fresh shop snapshot; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "getShop-exposed options covered; browser-only options unregistered"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-587",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "runtime/etsy_ops.py shop snapshot: compare getShop policy text fields to commerce/shop_package.policies() and open a terms-divergence incident that halts publication; test (owner pastes the six policies)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "etsy_ops checks only *_set flags (lines 80-87); no text comparison with shop_package.policies()"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-588",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_ai_partner_guidance",
+   "detail": "fb4-LC surfaced Evidence(UNKNOWN) into coverage unknowns (intel/etsy_surfaces.py:1961) and added partners_reaudit (1939); whether a generative model counts as a production partner needs the owner's reading of Etsy guidance (help.etsy.com 403 to automation)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "intel/etsy_surfaces.py:1933-1969",
+   "tests/test_fb4_lc.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-592",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ops/health.read: OAuth health reading (token age, rotations, scopes vs expected, last refresh) + incident on unexpected scope/key-fingerprint change; test (credential_health cadence exists in runtime/etsy_ops.py:622)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no scope-drift/fingerprint-change incident in ops/health"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-593",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "defect fixed: runtime/etsy_ops.py:214-264 seed_owner_queue adopts etsy_surfaces.owner_queue() into OwnerAction, called from runtime/release.py launch.readiness",
+   "runtime/release.py:3408 OWNER_PREFIXES closed only on evidence",
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-594",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "defect fixed: readiness etsy_integration reads the etsy_exercise round-trip evidence (launch/readiness.py:580-600); the owner-authorised create/read/delete round trip against openapi.etsy.com is required (search readiness gated by F-004/F-005)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "launch/readiness.py:584 _etsy_exercise_evidence"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-608",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/reconcile.py: reverse check (internal order without ledger entry after 3 days -> incident) and payouts vs sales-minus-fees per period (UNKNOWN when unread); tests (real data needs transactions_r)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "Etsy fee without order incident exists (tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident); reverse/payout checks absent"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-609",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defect fixed (fee basis modelled/measured, core/models.py:188,2002). Remaining: writers for payouts/owner funding/subscriptions/adjustments rows from recorded owner inputs; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "core/models.py:188 LedgerEntry provenance (F-609)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-617",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "owner case-intake route (F-556) so buyer messages enter support_cases; route review themes via commerce/reviews into the incident path; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no message ingestion route"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-623",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "add source/as_of/basis evidence fields to each /api/finance and /api/console figure (owner queue already one ranked model, F-179); test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "owner queue merged (build2/executor.py:1432); KPI drilldown not uniform"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-628",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "offsite_storage",
+   "detail": "off-provider archive bucket + production_window proof"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "core/offsite.py; executor offsite_storage"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-629",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "credits ledger excluded from cash exposure in finance/; department allocation seeding waits on owner figures; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no credits tracking"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-654",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "authorised deploy of the certified successor and a 24h unattended window"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "build2/autonomy.launch_item"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-658",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "persist company work dependencies/owner/authority (WorkItem table or Job columns) and recompute READY on terminal events; cross-department restart test",
+  "size": "L",
+  "launch_blocking": false,
+  "evidence": [
+   "implicit follow-on enqueues only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-659",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "JobContext.checkpoint(key, state) on the job row used by long handlers (model photography, seasonal cycle); tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no long-job checkpoints"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-663",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "build2/executor.py:1432-1500 one ranked queue merging OwnerAction rows and gate cards (F-179/F-663)",
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
+   "production duplicate 19/20 clears on deploy (production_window)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-665",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "define Evidence envelope (source, as_of, transform, confidence, reconciliation) on /api/console, /api/finance, /api/launch KPIs (dashboard headline already has dashboard_truth.evidence); test; production backfill after deploy",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "app/dashboard_truth.py evidence envelope for headline KPIs only",
+   "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-669",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "ActionClass enum (OBSERVE..CREDENTIALS) mapped per job type in swarm/orchestrate beside bands, enforced in the worker; test unmapped/ungranted refused",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep ActionClass: none"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-674",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "defect fixed: generative product redraw refused (visual/product_authority.py F-852; publish/listing_asset.py D-FB-7); B+C photoreal pipeline stays R&D (035ff0c) and is not launch-critical under D-FB-7"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/product_authority.py:22",
+   "publish/listing_asset.py:64",
+   "DECISION_LOG D-FB-7"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-676",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "defect fixed (F-852 refusal); protected-region enhancement waits on the V2 B+C route/provider fidelity"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/product_authority.py:22"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-677",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "port deterministic silhouette/proportion/stitch-scale measures (research/v1grad) into src/brambleloop/visual as a structural floor for model/owned photography frames in parity; tests. Launch-0 disclosed renders already pass product_authority.structural_floor via independent verifier",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "model-frame product floor is vision-judged motif fidelity",
+   "fb2-H2 3dd0a23 verifier for disclosed renders"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-682",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "finance/reconcile.py: Discrepancy rows (never zeroed), close status and tax/threshold alerts exposed on /api/finance; tests (real receipts need transactions_r)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "reconcile handles fee-without-order incidents only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-689",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defect fixed (/api/support behind operator credential, app/main.py:613-637). Remaining: CX workspace joining SupportCase, Order, reviews, refunds behind opsauth; tests (orders need transactions_r)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "app/main.py:613 CUSTOMER_DATA_ROUTES includes /api/support",
+   "tests/test_customer_data_auth.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-695",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "record infrastructure spend as CostEntry with a ceiling check at provisioning; provider/department ceiling figures are owner numbers; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "infra outside code governance"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-696",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "app/main.py:613 CUSTOMER_DATA_ROUTES with _operator_read_refusal on customer-bearing reads (/api/support line 634)",
+   "tests/test_customer_data_auth.py"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-697",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "offsite_storage",
+   "detail": "offsite bucket+credential, then scheduled restore drill"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "core/continuity.py::prove_restore; tests/test_offsite.py"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-700",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "improve/governance.py: constitution clauses as named checks + repeat-failure lookup; one refusal test per clause",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "piecemeal enforcement"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-701",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "initiative layer is built; needs authorised deploy and proven unattended window"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "build2/autonomy"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-702",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "AwaitingApproval job state holding only the job and its dependants; test v0.20 eight-hour scenario",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "grep AwaitingApproval: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-703",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "AuthorityPolicy table (action class, scope, limits, granted_by/at) + SafeHistory reading per class; only owner rows expand authority (publication grant D-FB-10 covers per-release publish); test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "ops/publication_authority.py per-release grant; no policy/safe-history objects"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-704",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "extend ops/publication_authority.snapshot/preview into a full approval packet (gate certificate, parity verdict, listing-set certificate, policy snapshot versions, pricing/fee economics, risk, rollback) with explicit decline/modify recording; tests",
+  "size": "M",
+  "launch_blocking": true,
+  "evidence": [
+   "ops/publication_authority.py:71-93 preview carries release, CIR digest and payload only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-708",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "improve/governance protected touches: credentials, legal/tax, customer-remedy surfaces with a refusal test each",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no explicit tests for these surfaces"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-718",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "the canonical pack fingerprint lives only in a production audit row; export after authorised deploy/production read (not on the Launch-0 path)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-721",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "covered by F-702/F-658: approval-pending state that blocks only dependants",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no company DAG"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-726",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "D-FB-10: ops/publication_authority.py durable sealed per-release owner grant replaces the env flag (which can only deny); activation has its own grant (ops/activation_authority.py)",
+   "phase SHADOW refusal: tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-731",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "route every person-bearing creative producer (growth content, ads, social) through visual/model_registry.gate_frames; test unverified person refused (ads/social are post-launch)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "only assets.model_photography passes the gate"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-732",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "provider-neutral face-embedding similarity floor beside the vision identity judgement; drift_series deployed with build",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "identity is vision-judged"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-733",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "approved pack fingerprint must be read from the production approval row (left None in code by design) after authorised access/deploy"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-734",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "no provider renders a model-bearing frame clearing every floor; deterministic structural floor for model frames tracked in F-677"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "publish/model_photography.py::make"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-736",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "alternate provider selection only meaningful once any provider passes"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "publish/model_photography.py what_to_do_next"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-740",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "no model-bearing listing frame has passed"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/model_registry.canonical_pack"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-741",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "garment pose/view planning matters only once a model-bearing frame can pass; apparel is not in Launch-0"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "publish/model_photography.py::planned_shots"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-743",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "improve/governance protected touches: add canonical_identity with a refusal test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "not listed as protected surface (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-746",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "pairwise on-model set consistency only applies once model-bearing frames exist; Launch-0 disclosed sets come from one CIR and one variant (F-757)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/parity.py brand dimension"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-749",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gates/originality.py:465 code_benchmarks() returns benchmark 1 AND BENCHMARK_2 (Mini Star Stitch Cardigan) for the similarity review",
+   "tests/test_originality.py::test_the_review_compares_against_both_purchased_benchmarks",
+   "tests/test_originality.py::test_a_light_derivative_of_benchmark_2_is_escalated_for_redesign",
+   "wording shingles: tests/test_originality.py::test_wording_overlap_is_measured_from_hashes_and_escalates"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-750",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "cir/model.py: Component.work_direction + ordered construction-step list surfaced in writer/reverse; test that swapping built-in for seamed sleeves changes the construction fingerprint (garments; not Launch-0)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no work_direction field (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-751",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests/test_stitches_star.py compiling/writing/reverse-compiling a star swatch (2:1 relation); explicit eye/leg/base anchor model for star/cluster in cir/stitches.py",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no suite star test (only research/bench2)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-752",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "visual/parity.py:195 motif labels cannot satisfy PRODUCT_TRUTH; structural_floor PASS required (disclosed renders via independent verifier); generated/photographic frames fail closed",
+   "tests/test_final_visual_authority.py::test_motif_match_and_self_asserted_construction_pass_do_not_clear_parity",
+   "tests/test_disclosed_render.py::test_a_raised_post_where_the_pattern_has_none_fails"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-753",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "per-region (ribbing/border) gauge on the CIR (fb4-LC currently refuses a differing component gauge) and deterministic apparent-gauge measure for any non-render frame; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "one Gauge per CIR; fb4-LC test_certify_refuses_a_component_gauge_that_differs_from_the_main_gauge"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-755",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "promote all-size parser from research/bench2/product_truth.py into teardown/reader.py (numbers only) and freeze benchmark render sizes after reconciliation; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "teardown/reader.py reads size labels only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-756",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "reconcile step comparing stated measurement tables vs counts x gauge emitting CONFLICT/UNKNOWN consumed by gate.certify; seeded disagreement test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "only research/bench2 and cir/benchmarks.reconcile"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-757",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "fb4-LC 4b2d58b: cir/model.py variant configuration; visual/disclosed_render.py:577 manifest records represented variant; publish/listing_set.py:74-159 certificate records and enforces it",
+   "tests/test_fb4_lc.py::test_configuration_roundtrips_and_certify_refuses_bad_blocks_and_mismatched_claims",
+   "tests/test_fb4_lc.py::test_listing_set_certificate_records_and_enforces_the_represented_variant"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-760",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "visual/parity.py:195 (F-752/F-760/F-856) PRODUCT_TRUTH requires deterministic structural_floor; realism separate; unjudged blocks",
+   "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+   "tests/test_parity.py::test_unjudged_blocks_exactly_as_a_failure_does_and_is_reported_apart_from_one"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-761",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "publish/pdf.py package-completeness checklist (size chart with body vs finished + ease for graded CIRs, care notes from fibre) enforced via publish/eligibility DATA_TRUTH; test a garment PDF missing a section is refused",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "schematic + construction overview exist; size chart/ease/care notes absent"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-762",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "emit SizeMatrix (measurements, counts, rows, yardage, schematic dims) per graded release stored with certificate and rendered in PDF; yardage monotonicity test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no per-size yardage/schematic matrix"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-763",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "print fit intent/ease in publish/pdf.py for graded CIRs and gates/policy check that copy fit words match FitIntent; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "FitIntent not printed/checked"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-765",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "publish/pdf.py:582 construction_overview for multi-piece or held/resumed designs; pdf.py:1123 placed before instructions",
+   "tests/test_schematic.py::test_a_garment_pdf_explains_its_construction_before_the_instructions"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-768",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "run graded monotonicity/relationship checks (tests/test_cert_grading.py logic) as a certify stage for graded releases; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grading recomputed only in tests"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-770",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "supported/unsupported modifications field in commerce/shop_package support text and PDF Terms; route recurring support themes to improve as revision proposals; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-777",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "gates/policy.py claim-to-evidence table for care/fit/speed/reversibility words (fibre care from Material, fit from FitIntent, make time from leadtime) refusing unmapped claims; tests (no such words in Launch-0 copy today)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "grep quick/washable/reversible/oversized in products/launch0.py, commerce/seo.py: none"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-779",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "run publish/brief subset + gates/policy on every listing-test/SEO variant before commerce/listing_tests activates it; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-782",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gates/originality.py:349+ salted wording shingles, numeric runs, features, construction LCS against both benchmarks; teardown reader fingerprints wording keeping no text",
+   "tests/test_originality.py::test_wording_overlap_is_measured_from_hashes_and_escalates",
+   "tests/test_originality.py::test_the_teardown_reader_fingerprints_wording_and_keeps_no_text",
+   "tests/test_originality.py::test_a_renamed_copy_of_a_purchased_file_is_refused_by_its_bytes"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-783",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gates/originality.py:61-115 provenance required for authored='brambleloop'; catalogue backfill (products/vessels.py:158 catalogue_provenance)",
+   "tests/test_originality.py::test_every_catalogue_cir_carries_complete_design_provenance",
+   "tests/test_originality.py::test_a_brambleloop_release_without_provenance_is_refused"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-784",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "add listing-presentation comparison (hero composition/copy layout vs benchmark listing) to gates/originality similarity review; wording/numeric/feature/construction already compared against both benchmarks; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "gates/originality.py similarity covers wording/numeric/features/construction, not presentation"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-785",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gateway/images.py:429-460 no benchmark/seller image conditions a render, refused before bytes read; :767 UNKNOWN refuses",
+   "tests/test_originality.py::test_a_benchmark_or_seller_image_is_refused_as_a_generation_reference",
+   "tests/test_image_reference_hash_failclosed.py"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-786",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "fb4-LC: app/main.py:5254 upload route accepts licence terms; teardown/intake.py:399",
+   "tests/test_fb4_lc.py::test_the_upload_route_records_supplied_licence_terms_and_refuses_bad_ones",
+   "residual: teardown/proof_run.py:145 reader.read without db (offline research tool)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-787",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "fb4-LC: intel/observe.py:221-235 registers observed public listings via licence.register_public_source (pattern_rights none)",
+   "tests/test_fb4_lc.py::test_an_observed_public_listing_produces_a_pattern_rights_none_licence_row"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-790",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gates/originality.py:164 material-change aspects; design-difference ledger required for competitor-informed designs",
+   "tests/test_originality.py::test_a_ledger_of_superficial_changes_is_refused",
+   "tests/test_originality.py::test_a_superficial_change_labelled_material_is_still_superficial"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-792",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "record a spec-freeze event (CIR fingerprint + timestamp) before instruction generation for competitor-informed products and assert no benchmark read after it; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no freeze event (per mapping)"
+  ],
+  "confidence": "LOW"
+ },
+ {
+  "uid": "F-794",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "cir/graded.py:315 carry the brief's benchmarks_consulted into Provenance instead of (); test a benchmark-informed graded garment refused at certify without a ledger",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "cir/graded.py:315 benchmarks_consulted=()"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-795",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "remaining: presentation comparison (see F-784) and running the review as a separate pre-publish job; wording, numeric runs, feature combination and construction sequence against both benchmarks are integrated",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "gates/originality.py:349-480; tests/test_originality.py::test_no_catalogue_product_escalates_against_either_benchmark"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-798",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "gates/originality.py:115 originality-provenance certificate stage requires provenance, ledger for competitor-informed, similarity, licence (release_findings)",
+   "tests/test_originality.py::test_certify_requires_the_ledger_when_provenance_lists_benchmarks",
+   "tests/test_originality.py::test_a_brambleloop_release_without_provenance_is_refused"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-799",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "Learn metrics (gap age, covered/queued) as an operating reading and a learn cell in improve/ for RUN/GROW/IMPROVE; calendar/experiments post-launch; tests",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "learn/service.py has no metrics reading (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-801",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "learn/service.py::topics: emit finishing/seaming/blocking topics from CIR finishing/assembly fields; test a Launch-0 CIR yields its special-stitch gaps",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "topics() lacks finishing/seaming/blocking (grep)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-805",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "learn/service.py::validate_spec: multi-row lesson swatches must be CIR fragments compiled (cir/compiler.py) and reverse-compiled (cir/reverse.py); test wrong row total refused",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "per mapping"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-806",
+  "class": "DEFECT-OPEN",
+  "gate": null,
+  "next_action": "visual truth of lesson images rests on human attestation (automated_truth_proof=false): generate technique diagrams deterministically and verify with render_verification-style pixel checks before lesson images are served; test dc drawn as sc fails",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "learn/service.py::review_lesson visual_accuracy attestation; lesson route serves no assets"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-808",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "fb4-LC wired listing (commerce/seo.py:208) and support (support/department.py:110,227) lesson links; links appear only once an owned HTTPS Learn origin (BRAMBLELOOP_LEARN_PUBLIC_ORIGIN) is configured"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "tests/test_fb4_lc.py::test_listing_description_carries_approved_lesson_links_and_nothing_without_origin",
+   "tests/test_fb4_lc.py::test_support_answer_links_an_approved_lesson_only_with_an_owned_origin_and_via_edges"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-815",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "fb4-LC: learn/service.py:217-237 consumers follow graph edges; GET graph route in learn/api.py",
+   "tests/test_fb4_lc.py::test_adding_a_graph_edge_changes_which_lessons_help_links_returns",
+   "tests/test_fb4_lc.py::test_graph_read_is_db_backed_and_behind_learn_editor_auth",
+   "residual (post-launch): video/FAQ/search-query nodes"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-821",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "fb4-LC: learn/service.py:118-150 byte-level lesson asset provenance against the benchmark corpus, UNKNOWN refused",
+   "tests/test_fb4_lc.py::test_a_lesson_asset_matching_a_benchmark_file_is_refused_at_save",
+   "tests/test_fb4_lc.py::test_a_corpus_match_found_after_drafting_is_refused_at_review"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-826",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "tests/test_learn_launch.py: PUT /api/learn/lessons/{slug} with a non-LearnGap topic returns 422",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "refusal exists, untested (per mapping)"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-831",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "closure validator refusing COMPLETE unless producer, durable_state, consumer, protected_effect and a named test exist and are reached (fb4-J d85ee19 hardening pending merge)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-832",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "apply unreached-module refusal in the Final Build closure validator (fb4-J d85ee19 pending merge)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-833",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "build2/reachability.py function-level reachability for producer/consumer fields; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "module-level only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-834",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "produce evidence packets for launch-critical rows and run build2/final_proof.py on the candidate; fb4-J d85ee19 adds consumer binding + 'disable consumer reopens proof' tests (merge)",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged; no committed final_proof report"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-835",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "store.publish/activate revalidate authority at execution (runtime/pipeline.py:1709 step 4; ops/publication_authority both stages)",
+   "tests/test_draft_intent_precreate_refusal.py::test_revoked_grant_is_refused",
+   "tests/test_operating_cost_basis.py::test_revoke_or_mutate_during_reservation_refuses_external_effect"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-836",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "aggregate.py: durable_state must have a non-test writer in a reached module (implemented on fb4-J d85ee19; merge and re-aggregate)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-837",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "aggregate.py: refuse INTEGRATED+ when all cited evidence is proxy-flagged (implemented on fb4-J d85ee19; merge)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-838",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "reuse build2/closure explicit-park semantics for Final Master matrix (gate kinds from executor.GATES, live gate read); test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "Build 2 only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-839",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "after merge of FB-4: regenerate reachability and re-run function-level audit on the frozen candidate SHA by an independent session; set aggregate basis to the measured head",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "basis now says 6f9a2f7; HEAD 376c54b has code past it"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-840",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "final verdict citing the candidate's full-suite record and final_proof report for the same SHA",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "no final_proof report"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-843",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "fold remaps and FB-4 results into aggregate on the measured head; completion verdict (fb4-J) merged; re-run tests/test_final_closure_matrix.py",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-844",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "build2/maturity.py: add INTEGRATED and COMMERCIALLY_EVIDENCED rungs and run over the Final Master matrix; tests",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "ladder lacks those rungs"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-845",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "merge fb4-J scripts/freeze_candidate.py and freeze the candidate SHA (annotated tag + CANDIDATE/DEFECT_LEDGER) on an exact release-eligible run",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "fb4-J d85ee19 freeze_candidate.py unmerged; nothing frozen"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-846",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "run freeze -> independent audit -> defect ledger -> repair -> regression -> full suite -> re-audit on the frozen candidate",
+  "size": "L",
+  "launch_blocking": true,
+  "evidence": [
+   "not yet run against a frozen candidate"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-847",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "merge fb4-J research/final_build/LAUNCH_SCOPE.json + test that every non-registry wave item is classified",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "fb4-J unmerged"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-848",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "merge fb4-J scripts/shadow_rehearsal.py + tests/test_shadow_rehearsal.py; re-run on the candidate after F-004/F-005 fix (f204e18 rehearsal on d85ee19 recorded blocking defects: search verdict not PASS, taxonomy UNKNOWN, parity unjudged hero/blind review, order version unmapped)",
+  "size": "S",
+  "launch_blocking": true,
+  "evidence": [
+   "fb4-J f204e18 evidence shadow_rehearsal_d85ee19 complete=false"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-849",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "re-run tests/test_cert_claude_independence.py on the frozen candidate and commit evidence; 24h window then needs production_window",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "proof on 6f9a2f7, not on a frozen candidate"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-850",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "restart test killing the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ingest asserting exactly one listing/ledger effect; live drill later needs production_window",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "no publish/ingest restart test (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-851",
+  "class": "GATED",
+  "gate": {
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "defect fixed: V1 generative redraw refused on the main line (F-852; visual/product_authority.py:22); protected photoreal presentation waits on V2 R&D graduation (035ff0c, topology fails) and is not launch-critical under D-FB-7"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "visual/product_authority.py:22",
+   "DECISION_LOG D-FB-7"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-853",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "disclosed renders: every pixel from certified CIR/twin verified on sha256-bound bytes (visual/product_authority.py::structural_floor)",
+   "tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes",
+   "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+   "mapping: nothing further needed for the disclosed-render launch path"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-854",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "visual/disclosed_render.py glyph per twin cell, raised posts, colour placement, scale; refuses unsupported constructions; independent verifier",
+   "tests/test_disclosed_render.py::test_a_missing_stitch_fails",
+   "tests/test_disclosed_render.py::test_unsupported_constructions_are_refused_not_guessed",
+   "yarn/loop realism is post-launch V2"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-856",
+  "class": "SATISFIED",
+  "gate": null,
+  "next_action": null,
+  "size": null,
+  "launch_blocking": null,
+  "evidence": [
+   "visual/parity.py:195 structural PRODUCT_TRUTH requires deterministic structural_floor, independent of realism leg",
+   "tests/test_final_visual_authority.py::test_motif_match_and_self_asserted_construction_pass_do_not_clear_parity",
+   "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-860",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "worker-level test: saturate visual.* jobs blocked on image_vision and assert cir.compile/gate.certify/listing jobs still drain",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "no such test (per mapping)"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-867",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "require independent_review receipt in final_proof packets of every launch-critical COMPLETE row and run validator on the candidate",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "final_proof never run on real packets"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-870",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "add why_software_cannot to build2/executor.approval_inbox cards from Gate/OwnerAction (Etsy owner queue already seeded via runtime/etsy_ops.seed_owner_queue); test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "etsy owner queue wired (F-593); field absent on gate cards"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-871",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "model_provider",
+   "detail": "provider/vision credit is owner funding; a bounded funding packet (experiment, provider, max spend) should accompany the request (F-877 record buildable)"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": false,
+  "evidence": [
+   "ops/funding.py; executor model_provider"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-872",
+  "class": "GATED",
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "owner re-authorises with transactions_r; then etsy.probe readback of a real receipt"
+  },
+  "next_action": null,
+  "size": null,
+  "launch_blocking": true,
+  "evidence": [
+   "executor Gate transactions_r::_transactions_readable"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-874",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "defer seeding first-sale-only owner actions (legal_and_tax_setup, payment_settings_setup) until a release holds a valid publication grant; test fresh shadow DB queue has no KYC ask (in flight: fb4-OPS)",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "seeded immediately by runtime/etsy_ops.seed_owner_queue"
+  ],
+  "confidence": "HIGH"
+ },
+ {
+  "uid": "F-877",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "VisualExperiment record (hypothesis, provider, model, max_calls, max_spend, pass/fail) required by gateway/images.generate for non-production visual spend; test",
+  "size": "S",
+  "launch_blocking": false,
+  "evidence": [
+   "per-module ceilings only"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-878",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "launch/packet.py: one packet (candidate SHA, suite+closure summary, Visual status, listings, policy, owner actions, spend limits, economics, rollback, activation steps); test",
+  "size": "M",
+  "launch_blocking": true,
+  "evidence": [
+   "no packet module"
+  ],
+  "confidence": "MEDIUM"
+ },
+ {
+  "uid": "F-879",
+  "class": "BUILDABLE",
+  "gate": null,
+  "next_action": "drive launch/readiness blocking items from closure-matrix LAUNCH-CRITICAL rows (fb4-J LAUNCH_SCOPE.json) and exclude mature items; test",
+  "size": "M",
+  "launch_blocking": false,
+  "evidence": [
+   "readiness not tied to matrix"
+  ],
+  "confidence": "MEDIUM"
+ }
+]

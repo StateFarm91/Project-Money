@@ -1,0 +1,122 @@
+{
+ "source": "GET https://brambleloop-os-production.up.railway.app/api/build (read-only), deployed fcb982d, read 2026-10-07",
+ "gates": {
+  "etsy_shop": {
+   "key": "etsy_shop",
+   "what": "a live Etsy shop, which only the account holder can open",
+   "how_it_is_checked": "the shop's public identifier is set AND a recorded etsy.probe succeeded -- the identifier alone is a variable, which is not a shop",
+   "requirement_ids": [],
+   "open": true
+  },
+  "owned_surfaces": {
+   "key": "owned_surfaces",
+   "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+   "how_it_is_checked": "a site URL or a Pinterest token is configured -- either of which only exists once the account behind it does",
+   "requirement_ids": [
+    4,
+    10,
+    246,
+    247,
+    248,
+    251,
+    255
+   ],
+   "open": false
+  },
+  "customers": {
+   "key": "customers",
+   "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+   "how_it_is_checked": "at least one LedgerEntry row exists -- a recorded money event, counted rather than a phase flag saying the company is selling",
+   "requirement_ids": [
+    3,
+    8,
+    13,
+    18,
+    19,
+    20,
+    21,
+    22,
+    26,
+    29,
+    31,
+    233,
+    234,
+    249,
+    253,
+    256,
+    257,
+    258,
+    259,
+    260,
+    280,
+    292
+   ],
+   "open": false
+  },
+  "second_market_benchmark": {
+   "key": "second_market_benchmark",
+   "what": "a benchmark shop outside the United States, which is a choice of shop rather than a credential or a capability",
+   "how_it_is_checked": "observed listings exist for two or more distinct stated markets -- one shop's term frequencies are one market's language however many listings they came from",
+   "requirement_ids": [],
+   "open": false
+  },
+  "benchmark_purchases": {
+   "key": "benchmark_purchases",
+   "what": "roughly ten purchased competitor patterns",
+   "how_it_is_checked": "at least one BenchmarkProduct row exists -- counted, not asked about",
+   "requirement_ids": [
+    165,
+    166,
+    168,
+    317
+   ],
+   "open": false
+  },
+  "tester_roster": {
+   "key": "tester_roster",
+   "what": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "how_it_is_checked": "at least one CreatorProfile row exists -- counted, because a roster with nobody on it is what both of these are actually waiting for",
+   "requirement_ids": [
+    250
+   ],
+   "open": false
+  },
+  "physical_proof": {
+   "key": "physical_proof",
+   "what": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "how_it_is_checked": "at least one PhysicalTest row has a completion date -- the intake being built is not the same as a finished object existing, and nothing here says whose hands finished it",
+   "requirement_ids": [
+    64
+   ],
+   "open": false
+  },
+  "ad_authority": {
+   "key": "ad_authority",
+   "what": "an approved advertising budget",
+   "how_it_is_checked": "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
+   "requirement_ids": [
+    242,
+    243,
+    244,
+    245,
+    294,
+    295
+   ],
+   "open": false
+  },
+  "live_listings": {
+   "key": "live_listings",
+   "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+   "how_it_is_checked": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
+   "requirement_ids": [
+    14,
+    16,
+    254,
+    261,
+    262,
+    263
+   ],
+   "open": false
+  }
+ }
+}

@@ -44,6 +44,11 @@ GATE = {
 }
 GATE_CEILING = 0.74  # what may be claimed while the gate is unmet
 
+# F-189: what the model reports while the evidence gate is unmet.
+MEASURED = "MEASURED"
+UNMEASURED = "UNMEASURED"
+UNMEASURED_DISPLAY = "UNMEASURED / insufficient commercial evidence"
+
 # Sample sizes at which an observed rate is worth as much as the prior says it is. Below this,
 # an observed rate is shrunk toward the pessimistic end: the arithmetic of "we converted our
 # first two visitors" should not produce confidence.
@@ -148,7 +153,7 @@ def _counts(db) -> dict:
 def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
            selling_skus: int = 0, product_families: int = 0,
            acquisition_loops: int = 0, repeat_orders: int = 0,
-           top_sku_revenue_share: float = 1.0) -> list[Rung]:
+           top_sku_revenue_share: float = 1.0, stress: dict | None = None) -> list[Rung]:
     """The seven layers of #274, each computed from what exists.
 
     The optional arguments are counts a caller supplies from systems that do not exist yet
@@ -263,10 +268,33 @@ def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
     # portfolio with nothing in it is not diversified, it is empty.
     resilience = 0.0 if selling_skus == 0 else round(
         min(1.0, (1.0 - top_sku_revenue_share) / 0.6) * min(1.0, product_families / 2.0), 3)
+    # #270: the stress test is part of the confidence, not a report beside it. A portfolio
+    # whose target collapses under one plausible failure is capped by how much of the target
+    # the worst single loss leaves standing; one with no revenue to stress stays at zero and
+    # says the stress test is UNMEASURED rather than passed.
+    stress_evidence: dict = {"stress_test": "not supplied"}
+    if stress is not None:
+        if not stress.get("testable"):
+            resilience = 0.0
+            stress_evidence = {"stress_test": "UNMEASURED",
+                               "why": stress.get("reason", "no revenue to stress"),
+                               "refused": [r.get("scenario") for r in
+                                           stress.get("refused", [])]}
+        else:
+            target = float(stress.get("target_cad") or 0.0)
+            remaining = [float(x.get("remaining_cad", 0.0)) for x in stress.get("scenarios", [])]
+            worst = min(remaining) if remaining else 0.0
+            survives_share = min(1.0, worst / target) if target else 0.0
+            if stress.get("fragile_to"):
+                resilience = round(min(resilience, survives_share), 3)
+            stress_evidence = {"stress_test": "measured",
+                               "fragile_to": list(stress.get("fragile_to") or []),
+                               "worst_single_loss_leaves_cad": round(worst, 2),
+                               "share_of_target_surviving": round(survives_share, 3)}
     rungs.append(Rung(
         "portfolio_resilience", resilience, True,
         {"selling_skus": selling_skus, "product_families": product_families,
-         "top_sku_revenue_share": top_sku_revenue_share},
+         "top_sku_revenue_share": top_sku_revenue_share, **stress_evidence},
         "revenue spread across several SKUs in more than one family, so losing the best "
         "one does not lose the target"))
 
@@ -310,6 +338,18 @@ QUALITATIVE_CONDITIONS: dict[str, str] = {
     "repeatable_acquisition_channel": "at least one channel that can be run again",
     "improving_trust_base": "a legitimate review and trust base that is growing",
     "no_open_policy_risk": "no unresolved platform-policy exposure",
+    # #27's last clause, missing until the final audit of 9434c53 (C-60).
+    "conservative_scenario_near_target": ("a scenario whose conservative assumptions -- the "
+                                          "lower bound of the observed conversion -- still "
+                                          "approaches the target"),
+    # #275's conditions that were absent from the gate (C-60).
+    "seasonal_evergreen_balance": ("revenue neither wholly seasonal nor wholly evergreen, so "
+                                   "one closed window is not the whole business"),
+    "observed_bundle_aov": "bundle and order-value behaviour observed over real orders",
+    "low_defect_refund_severity": ("refunds, support load and open defects low, measured "
+                                   "rather than assumed"),
+    "downside_near_target": ("the downside scenarios of the stress test remain near the "
+                             "target"),
 }
 
 
@@ -406,8 +446,19 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
         modelled = calibrated
         capped_by = "forecast calibration (#262): the model has been optimistic"
 
+    # F-189: insufficient commercial evidence is a refusal to measure, not a zero. `0.00` is a
+    # quantitative claim -- "we measured and it is nil" -- and a company with no customers has
+    # measured nothing. So while the #275 evidence gate is unmet the *reported* figure is None
+    # and the state is UNMEASURED; `probability` keeps the modelled internal bound (the minimum
+    # over rungs, capped) because downstream gates consume it as a conservative ceiling, and it
+    # is labelled `modelled_bound` there, never shown as a measurement.
+    measured = bool(gate["satisfied"])
     return {
         "probability": round(modelled, 3),
+        "state": MEASURED if measured else UNMEASURED,
+        "reported_probability": round(modelled, 3) if measured else None,
+        "modelled_bound": round(modelled, 3),
+        "display": (f"{modelled:.2f}" if measured else UNMEASURED_DISPLAY),
         "target_cad_per_month": target_cad,
         "weakest_critical_layer": weakest.key,
         "capped_by": capped_by,
@@ -425,16 +476,18 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
 
 
 def _statement(modelled: float, weakest: Rung, gate: dict) -> str:
-    if modelled < 0.05:
-        return (f"Effectively zero, and correctly so. The binding layer is {weakest.key!r}: "
-                f"{weakest.what_would_move_it}. No amount of further building moves this "
-                f"number — only customers do. A sophisticated architecture with no sales is "
-                f"the exact case #230 was written to refuse.")
+    if not gate["satisfied"] and modelled < 0.05:
+        return (f"{UNMEASURED_DISPLAY}. There is no commercial evidence to measure a "
+                f"probability from, and zero would be a measurement. The binding layer is "
+                f"{weakest.key!r}: {weakest.what_would_move_it}. No amount of further "
+                f"building moves this — only customers do. A sophisticated architecture with "
+                f"no sales is the exact case #230 was written to refuse.")
     if not gate["satisfied"]:
         missing = ", ".join(sorted(gate["unmet"]))
-        return (f"Capped at {gate['ceiling_while_unmet']} because the evidence standard is "
-                f"unmet: {missing}. The modelled figure may not be reported at or above 75% "
-                f"until those counts exist.")
+        return (f"{UNMEASURED_DISPLAY}: the evidence standard is unmet ({missing}). The "
+                f"modelled bound ({modelled:.2f}, capped at {gate['ceiling_while_unmet']}) is "
+                f"not a measurement and may not be reported at or above 75% until those "
+                f"counts exist.")
     return (f"Limited by {weakest.key!r} at {weakest.confidence:.2f}. "
             f"{weakest.what_would_move_it}")
 
@@ -452,6 +505,8 @@ def bands(db, **evidence) -> dict:
         result = probability(db, target_cad=target, **evidence)
         out.append({"target_cad_per_month": target,
                     "probability": result["probability"],
+                    "state": result["state"],
+                    "display": result["display"],
                     "weakest_critical_layer": result["weakest_critical_layer"],
                     "capped_by": result["capped_by"]})
     stages = [r.to_dict() for r in ladder(db, **{k: v for k, v in evidence.items()

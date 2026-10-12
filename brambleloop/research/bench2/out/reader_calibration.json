@@ -1,0 +1,80 @@
+{
+ "tally": {
+  "product_type": {
+   "agree": 2,
+   "of": 2
+  },
+  "front": {
+   "agree": 1,
+   "of": 2
+  },
+  "closure_count": {
+   "agree": 0,
+   "of": 2
+  },
+  "front_band": {
+   "agree": 2,
+   "of": 2
+  },
+  "hem_band": {
+   "agree": 2,
+   "of": 2
+  },
+  "cuffs": {
+   "agree": 2,
+   "of": 2
+  },
+  "pocket_count": {
+   "agree": 2,
+   "of": 2
+  },
+  "pocket_position": {
+   "agree": 2,
+   "of": 2
+  },
+  "sleeve_length": {
+   "agree": 2,
+   "of": 2
+  },
+  "body_length": {
+   "agree": 2,
+   "of": 2
+  },
+  "texture": {
+   "agree": 1,
+   "of": 2
+  },
+  "hood": {
+   "agree": 2,
+   "of": 2
+  },
+  "hood_edge": {
+   "agree": 2,
+   "of": 2
+  },
+  "cluster_rows_direction": {
+   "agree": 2,
+   "of": 2
+  },
+  "body_ridge_direction": {
+   "agree": 2,
+   "of": 2
+  },
+  "colour_count": {
+   "agree": 2,
+   "of": 2
+  },
+  "extra_features": {
+   "agree": 2,
+   "of": 2
+  },
+  "handmade_crochet": {
+   "agree": 2,
+   "of": 2
+  }
+ },
+ "withdrawn_material": [
+  "closure_count"
+ ],
+ "rule": "a material property the reader reads wrong on more than half of the designer's photographs that show it cannot veto a candidate (E3 rule); it is still reported"
+}

@@ -1,0 +1,147 @@
+{
+ "slug": "market-basket-small",
+ "version": "1.2.0",
+ "title": "Crochet Hexagonal Bread Basket",
+ "risk_class": "B (dimensional_form)",
+ "required": "partial_physical (a full make satisfies it and gives the #64 photograph)",
+ "scope": "full_make",
+ "make_hours_estimate": 2.15,
+ "max_cost_cad": 59.65,
+ "cost_basis": "gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
+ "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+ "finished_size_cm": {
+  "across_points": 16.0,
+  "across_flats": 13.9,
+  "wall_height": 8.7
+ },
+ "yarn_metres_by_colour": {
+  "cream": 40.2,
+  "wine": 11.9
+ },
+ "yardage_tolerance": 0.2,
+ "materials": [
+  {
+   "item": "worsted-weight 100% cotton yarn, colour A (cream)",
+   "quantity": "1 ball (twin: 40.2 m needed; any ball of >= 50 m)",
+   "est_cad": 5.0
+  },
+  {
+   "item": "worsted-weight 100% cotton yarn, colour B (wine)",
+   "quantity": "1 ball (twin: 11.9 m needed)",
+   "est_cad": 5.0
+  },
+  {
+   "item": "5.0 mm crochet hook",
+   "quantity": "1",
+   "est_cad": 6.0
+  },
+  {
+   "item": "tapestry needle, 4 stitch markers, scissors",
+   "quantity": "1 set",
+   "est_cad": 4.0
+  },
+  {
+   "item": "kitchen scale reading to 1 g",
+   "quantity": "tester's own",
+   "est_cad": 0.0
+  },
+  {
+   "item": "tape measure / ruler (cm)",
+   "quantity": "tester's own",
+   "est_cad": 0.0
+  }
+ ],
+ "materials_total_cad_estimated": 20.0,
+ "person_needed": {
+  "who": "one independent adult crocheter (not the owner, F-071) who agreed through the tester programme (quality.tester_programme)",
+  "skill": "confident with single crochet worked in joined rounds, increasing at six points to make a flat hexagon, and turning a base into straight walls; can read a written pattern in US terms; owns or can borrow a 1 g kitchen scale",
+  "time": "about 2-3 hours of making plus 15 minutes of measuring and recording"
+ },
+ "protocol": [
+  "Before starting: weigh each full ball and record the ball band (grams and metres)",
+  "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook",
+  "Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number",
+  "Weigh what is left of each ball; grams used = start minus end, per colour",
+  "Measure the finished base across the points and across the flats, and the wall height, in cm, without stretching",
+  "Record total hours and whether you followed the instructions exactly",
+  "Photograph the finished basket on a plain surface (top and side) in daylight",
+  "Return the record sheet and photos; the operator enters them (POST /api/physical-test and /api/physical-photo)"
+ ],
+ "record_fields": [
+  {
+   "field": "tester_ref",
+   "label": "your tester reference",
+   "api": "tester_ref"
+  },
+  {
+   "field": "grams_cream",
+   "label": "grams used, colour A (cream)",
+   "api": "grams_by_color.cream"
+  },
+  {
+   "field": "grams_wine",
+   "label": "grams used, colour B (wine)",
+   "api": "grams_by_color.wine"
+  },
+  {
+   "field": "ball_band_grams",
+   "label": "ball band: grams per ball",
+   "api": "ball_band_grams"
+  },
+  {
+   "field": "ball_band_metres",
+   "label": "ball band: metres per ball",
+   "api": "ball_band_metres"
+  },
+  {
+   "field": "hook_mm",
+   "label": "hook used (mm)",
+   "api": "hook_mm"
+  },
+  {
+   "field": "swatch",
+   "label": "swatch: sts and rounds per 10 cm",
+   "api": "notes"
+  },
+  {
+   "field": "width_cm",
+   "label": "base across the points (cm)",
+   "api": "measured_width_cm"
+  },
+  {
+   "field": "flats_cm",
+   "label": "base across the flats (cm)",
+   "api": "notes"
+  },
+  {
+   "field": "height_cm",
+   "label": "wall height (cm)",
+   "api": "measured_height_cm"
+  },
+  {
+   "field": "hours",
+   "label": "total hours",
+   "api": "hours"
+  },
+  {
+   "field": "followed",
+   "label": "followed exactly? yes/no",
+   "api": "instructions_followed"
+  },
+  {
+   "field": "problems",
+   "label": "anything unclear or wrong (round numbers)",
+   "api": "notes"
+  }
+ ],
+ "intake": {
+  "test": "POST /api/physical-test (queued job physical.record)",
+  "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
+  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+ },
+ "files": {
+  "market-basket-small-1.2.0-TEST.pdf": "5d4578d24d3116efd9d3e2cd15a2f722b9cfb3cd1ca3dfe331b4c81c11abcc2d",
+  "market-basket-small-1.2.0-RECORD-SHEET.pdf": "335fd7aa9c65a0b1ab52119db02fd644e327206b76a4dc80a3769f29c7bfcf76"
+ },
+ "pattern_pages": 9
+}

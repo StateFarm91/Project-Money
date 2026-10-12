@@ -1,0 +1,312 @@
+diff --git a/brambleloop/src/brambleloop/agents/registry.py b/brambleloop/src/brambleloop/agents/registry.py
+index 95a5689..1939fbb 100644
+--- a/brambleloop/src/brambleloop/agents/registry.py
++++ b/brambleloop/src/brambleloop/agents/registry.py
+@@ -103,6 +103,8 @@ DEFAULT_AGENTS: list[dict] = [
+                             "creative.style_learning", "creative.outcome_learning",
+                             # #118 / #121: white-space discovery and the four-season programme.
+                             "creative.white_space", "creative.four_season",
++                            # C-60 (#86): the creativity benchmark memory, daily.
++                            "creative.benchmark_memory",
+                             # C-60 (#116): construction readings + stored decompositions.
+                             "creative.reference_reading",
+                             # The image-provider benchmark (owner decision 2026-09-20).
+diff --git a/brambleloop/src/brambleloop/creative/ideation.py b/brambleloop/src/brambleloop/creative/ideation.py
+index 95d303e..88f5907 100644
+--- a/brambleloop/src/brambleloop/creative/ideation.py
++++ b/brambleloop/src/brambleloop/creative/ideation.py
+@@ -112,7 +112,7 @@ def latest(db, action: str) -> dict | None:
+ def lessons(db, *, kind: str, event: str, pod: str) -> dict:
+     """#85, #101: lessons and the creative reference brief, through their public readers."""
+     from ..improve.bus import brief_lessons
+-    from . import reference
++    from . import benchmark_memory, reference
+ 
+     memory = brief_lessons(db, artifact=f"ideation:{kind}:{event}/{pod}")
+     ref = {"usable": False, "reason": "not read"}
+@@ -137,6 +137,10 @@ def lessons(db, *, kind: str, event: str, pod: str) -> dict:
+         "reference": {"usable": bool(ref.get("usable")),
+                       "primitives": ref.get("primitives") or {},
+                       "reason": ref.get("reason", "")},
++        # #86: the attributes the market is rewarding, from the stored creativity benchmark
++        # memory. Empty while the memory is UNMEASURED, and the brief says nothing rather
++        # than guessing what sells.
++        "market_attributes": benchmark_memory.rewarded(db, pod=pod),
+         "state": ("drew on accumulated lessons" if memory["lesson_ids"] else
+                   "no lesson recorded yet: this run starts from the company's absence of "
+                   "memory, and the provenance row says so (#101)"),
+@@ -508,6 +512,12 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
+     if prims:
+         lines.append("- reference primitives: " + "; ".join(
+             f"{k}={v}" for k, v in sorted(prims.items())))
++    # #86: what the market is rewarding, as attributes of how an offer is built to sell --
++    # never the depicted design -- with the lift each was measured at.
++    for attr in p["lessons"].get("market_attributes") or []:
++        lines.append(
++            f"- market rewards {attr['attribute']} (favourites x{attr['demand_lift']} across "
++            f"{attr['listings']} judged listings): " + "; ".join(attr["phrases"]))
+     return "\n".join(lines), b
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/intel/mission_runtime.py b/brambleloop/src/brambleloop/intel/mission_runtime.py
+index 8ffd1b6..27c21b8 100644
+--- a/brambleloop/src/brambleloop/intel/mission_runtime.py
++++ b/brambleloop/src/brambleloop/intel/mission_runtime.py
+@@ -1481,7 +1481,10 @@ def pod_maps(db, *, today: date | None = None) -> dict:
+         for r in s.scalars(select(PodCapabilityReading).order_by(desc(PodCapabilityReading.id))):
+             latest.setdefault(r.pod, r)
+         caps = {p: {"measured": r.measured, "discernment": (r.discernment or {}).get("reading"),
+-                    "creativity": (r.creativity or {}).get("reading")}
++                    "creativity": (r.creativity or {}).get("reading"),
++                    # #226: the precision behind a measured discernment reading, carried so
++                    # the lane order below can weight by it. Absent when unmeasured.
++                    "discernment_precision": (r.discernment or {}).get("precision")}
+                 for p, r in latest.items()}
+     for pod in sorted(depth):
+         spec = pods.BY_KEY.get(pod)
+@@ -1514,7 +1517,14 @@ def pod_maps(db, *, today: date | None = None) -> dict:
+ 
+ 
+ def _pod_priority(db) -> dict[str, float]:
+-    """Each pod's opportunity from its newest persisted map; absent pods sort last."""
++    """Each pod's opportunity from its newest persisted map; absent pods sort last.
++
++    #226: a pod whose discernment has been *measured* (twelve settled tournament calls) weights
++    its lane by that precision -- a pod right every time keeps its whole opportunity, a pod
++    wrong every time keeps half of it -- so the capability reading changes which department's
++    same-arena design starts first rather than being a number on a page. An unmeasured pod is
++    not penalised for the absence of evidence: its factor is one.
++    """
+     from sqlalchemy import desc, select
+ 
+     from ..core.models import OperatingReading
+@@ -1530,10 +1540,17 @@ def _pod_priority(db) -> dict[str, float]:
+         vals = [v for v in (opp.get("market_score"), opp.get("weakness_opening"))
+                 if isinstance(v, (int, float))]
+         if vals:
+-            out[pod] = sum(vals) / len(vals)
++            out[pod] = sum(vals) / len(vals) * _discernment_factor(m.get("capability") or {})
+     return out
+ 
+ 
++def _discernment_factor(capability: dict) -> float:
++    precision = capability.get("discernment_precision")
++    if capability.get("measured") and isinstance(precision, (int, float)):
++        return 0.5 + 0.5 * max(0.0, min(1.0, float(precision)))
++    return 1.0
++
++
+ # ---------------------------------------------------------------------------
+ # #228: the owner's veto, recorded and counted
+ 
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index cd5ac03..d51763c 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -2164,6 +2164,32 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
+             "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
+ 
+ 
++@handlers.register("creative.benchmark_memory")
++def handle_benchmark_memory(ctx: JobContext) -> dict:
++    """#86: the creativity benchmark memory, folded daily from judged photographs and stored.
++
++    Reads every `gallery_image_observation` for the commercial attributes the vision
++    vocabulary judged (transformation, silhouette strength, characterisation, gift narrative,
++    modularity ...), pairs each with the market outcome on file (favourites, a demand proxy)
++    and with Brambleloop's own outcomes (UNMEASURED until orders exist), and stores the
++    reading. `creative.ideation.lessons` reads it into every tournament and expedition brief.
++    UNMEASURED, with the reason, while no judged image carries an attribute -- the judging runs
++    behind image_vision. GREEN: reads rows, writes one reading, spends nothing.
++    """
++    from ..creative import benchmark_memory
++
++    out = benchmark_memory.build(ctx.db, today=_mjs_today(ctx))
++    ctx.audit(benchmark_memory.ACTION, detail={
++        "state": out["state"], "judged_listings": out["judged_listings"],
++        "attributes": sorted(out["attributes"]),
++        "brambleloop_outcomes": out["outcomes"]["brambleloop"]["reading"],
++        **({"reason": out["reason"]} if not out["measured"] else {})})
++    return {"measured": out["measured"], "state": out["state"],
++            "judged_listings": out["judged_listings"],
++            "attributes": sorted(out["attributes"]),
++            "rewarded": [a["attribute"] for a in benchmark_memory.rewarded(ctx.db)]}
++
++
+ @handlers.register("intel.panel_discovery")
+ def handle_intel_panel_discovery(ctx: JobContext) -> dict:
+     """#219 / #268: category leaders found in the API search index join the panel and are scanned.
+diff --git a/brambleloop/src/brambleloop/runtime/worker.py b/brambleloop/src/brambleloop/runtime/worker.py
+index 44e7ff5..6824afa 100644
+--- a/brambleloop/src/brambleloop/runtime/worker.py
++++ b/brambleloop/src/brambleloop/runtime/worker.py
+@@ -457,6 +457,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
+     ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
+     # C-60 (#201): the canonical identity checked as a series across batches, daily.
+     ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
++    # C-60 (#86): the creativity benchmark memory, daily and free; UNMEASURED until a judged
++    # image carries a commercial attribute (the judging runs behind image_vision).
++    ("benchmark_memory", "creative_director", "creative.benchmark_memory", 24 * 60 * 60),
+     # C-60 (#116): construction readings and stored decompositions, gated on image_vision.
+     ("reference_reading", "creative_director", "creative.reference_reading", 24 * 60 * 60),
+     # Weekly. Reviews move slowly, and this is the one observation that reaches the
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index 09bbb9b..14fd9f5 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -441,6 +441,7 @@ JOB_BANDS: dict[str, str] = {
+     "physical.photo": "truth_defect",
+     "physical.upgrade_impact": "exploration",
+     "visual.identity_drift": "truth_defect",
++    "creative.benchmark_memory": "benchmark_change",
+     "creative.reference_reading": "benchmark_change",
+     "assets.render": "proven_winner",
+     "assets.owned_photography": "proven_winner",
+diff --git a/brambleloop/tests/test_cert_intel_wave2.py b/brambleloop/tests/test_cert_intel_wave2.py
+index f27ef54..e6b9d1c 100644
+--- a/brambleloop/tests/test_cert_intel_wave2.py
++++ b/brambleloop/tests/test_cert_intel_wave2.py
+@@ -455,6 +455,106 @@ def test_matrix_cells_carry_the_columns_the_requirement_lists():
+     assert cell["adaptation_opportunities"][0]["arena"] == "stocking"
+ 
+ 
++# ---- #86: the creativity benchmark memory is UNMEASURED without judged images, learns from
++# them, and steers the ideation brief ------------------------------------------------------
++
++
++def test_benchmark_memory_is_unmeasured_without_judged_images_then_steers_the_brief():
++    from brambleloop.core.models import Agent, BenchmarkObservation
++    from brambleloop.creative import benchmark_memory, ideation
++
++    db = _db()
++    with db.session() as s:
++        a = s.scalar(select(Agent).where(Agent.name == "creative_director"))
++        assert "creative.benchmark_memory" in (a.allowed_job_types or [])
++
++    # No judged image: the memory runs on its cadence and says UNMEASURED with the reason,
++    # and the brief carries no market attribute rather than a guessed one.
++    out = _run(db, "creative_director", "creative.benchmark_memory")
++    assert out["measured"] is False and out["state"] == "UNMEASURED", out
++    assert out["rewarded"] == []
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(
++            OperatingReading.kind == benchmark_memory.KIND))
++        assert row is not None and "image_vision" in row.payload["reason"]
++        assert row.payload["outcomes"]["brambleloop"]["orders"] == "UNMEASURED"
++    lessons = ideation.lessons(db, kind="tournament", event="Christmas", pod="hats")
++    assert lessons["market_attributes"] == []
++
++    # Judged gallery observations (the rows intel.gallery_analysis writes) carrying the #86
++    # vocabulary, on listings with the API's favourites. Three listings read as a clever
++    # transformation and are the popular ones; two read as minimalism and are not.
++    with db.session() as s:
++        for i, (attr, phrase, favourites) in enumerate((
++                ("transformation", "reads as a hat that becomes a bag", 900),
++                ("transformation", "one make, two uses shown in frame one", 700),
++                ("transformation", "the fold is the selling point", 800),
++                ("minimalism", "single colour, no trim", 40),
++                ("minimalism", "plain field, one motif", 60))):
++            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"M{i}",
++                                   pod="hats", title="Crochet Hat Pattern",
++                                   detail={"num_favorers": favourites}))
++            s.add(BenchmarkObservation(
++                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"M{i}",
++                kind="gallery_image_observation", grade="primary",
++                detail={"observation": {attr: phrase, "setting": "studio"}}))
++
++    out = _run(db, "creative_director", "creative.benchmark_memory")
++    assert out["measured"] is True and set(out["attributes"]) == {"transformation",
++                                                                   "minimalism"}
++    assert out["rewarded"] == ["transformation"], out
++    reading = benchmark_memory.latest(db)
++    t, m = reading["attributes"]["transformation"], reading["attributes"]["minimalism"]
++    assert t["listings"] == 3 and t["demand_lift"] > 1 and m["demand_lift"] < 1
++    assert "reads as a hat that becomes a bag" in t["phrases"]
++    # Only the closed vocabulary is stored: the merchandising field on the same observation
++    # is not a commercial attribute and does not enter the memory.
++    assert "setting" not in reading["attributes"]
++
++    # Acted on: the tournament brief names what the market rewards, with its measured lift.
++    lessons = ideation.lessons(db, kind="tournament", event="Christmas", pod="hats")
++    assert [a["attribute"] for a in lessons["market_attributes"]] == ["transformation"]
++    assert lessons["market_attributes"][0]["seen_in_pod"] is True
++    plan = ideation.plan(db, kind="tournament", event="Christmas", pod="hats",
++                         forms=["hat"], cycle=0, today=date(2026, 9, 27))
++    text, _ = ideation.constraints_text(plan, 0)
++    assert "market rewards transformation" in text and "hat that becomes a bag" in text
++
++
++# ---- #226: a measured discernment reading changes which pod's lane starts first -----------
++
++
++def test_a_measured_discernment_reading_reorders_the_same_arena_lane():
++    from brambleloop.core.models import PodCapabilityReading
++    from brambleloop.intel import mission_runtime
++
++    db = _db()
++    with db.session() as s:
++        for pod in ("hats", "blankets"):
++            for i in range(6):
++                s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
++                                       listing_ref=f"{pod}{i}", pod=pod,
++                                       title=f"Chunky {pod[:-1]} crochet pattern",
++                                       price_cad=8.0, detail={"num_favorers": 120}))
++    _run(db, "market_radar", "intel.pod_learning")
++    before = mission_runtime._pod_priority(db)
++    assert before["hats"] == before["blankets"] > 0, before
++
++    # A pod whose discernment has been measured at zero precision -- twelve settled calls,
++    # none of them right -- keeps half its opportunity; the unmeasured pod keeps all of it.
++    with db.session() as s:
++        s.add(PodCapabilityReading(
++            pod="hats", measured=True,
++            discernment={"reading": "measured", "settled": 12, "precision": 0.0},
++            creativity={"reading": "measured", "responses": 6},
++            balance={"reading": "measured"}, detail={}))
++    _run(db, "market_radar", "intel.pod_learning")
++    after = mission_runtime._pod_priority(db)
++    assert after["blankets"] == before["blankets"]
++    assert abs(after["hats"] - before["hats"] * 0.5) < 1e-9, (before, after)
++    assert after["blankets"] > after["hats"]
++
++
+ if __name__ == "__main__":
+     failed = passed = 0
+     for name, fn in sorted(globals().items()):
+diff --git a/brambleloop/tests/test_executor.py b/brambleloop/tests/test_executor.py
+index 1da3ed8..319ca92 100644
+--- a/brambleloop/tests/test_executor.py
++++ b/brambleloop/tests/test_executor.py
+@@ -269,7 +269,13 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
+     # gate as finished work rather than moving to another park. Asserted by membership, not a
+     # count, so a row silently moving between gates is caught too.
+     pbc = q["parked_by_capability"]
+-    assert pbc["rendered_pages"] == [39], pbc["rendered_pages"]
++    # #39's policy pages are the hand-written table's one rendered_pages requirement; the
++    # registry may park others there (C-60 reopened #35 onto it). Both halves must be
++    # reported, and nothing else may be: a row here that neither half parked is a row the
++    # executor invented a reason for.
++    registry_rendered = {rid for rid, key in E._registry_gates().items()
++                         if key == "rendered_pages"}
++    assert set(pbc["rendered_pages"]) == {39} | registry_rendered, pbc["rendered_pages"]
+     assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
+     assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
+     assert not {2, 15} & {r for rows in pbc.values() for r in rows}, "2/15 are done, not parked"
+@@ -411,7 +417,16 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
+     # than on a browser: `insights_access`, which counts InsightsSnapshot rows.
+     for requirement_id in (1, 37, 236):
+         assert E.gate_for(requirement_id) == "insights_access", requirement_id
+-    assert reg.get(235).status == reg.DATA_GATED
++    # The fourth, #235, may only ever wait on orders. C-60 (2026-09-27) reopened it as
++    # executable work -- `promotion.incrementality` had no caller -- so today it is parked
++    # nowhere; the day it is parked again, the park must be the data gate `customers` and the
++    # status must say so. Either way it never waits on a credential or a browser.
++    gate_235 = E.gate_for(235)
++    if gate_235 is None:
++        assert reg.get(235).status == reg.PARTIAL, reg.get(235).status
++    else:
++        assert gate_235 == "customers", gate_235
++        assert reg.get(235).status == reg.DATA_GATED, reg.get(235).status
+ 
+     assert E.reconciliation(db)["balances"] is True
+ 

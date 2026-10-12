@@ -1,0 +1,5 @@
+OK   test_the_runtime_import_closure_names_no_claude_session_artefact
+OK   test_the_deployed_image_and_start_command_carry_no_session_state
+OK   test_production_start_command_runs_kills_and_resumes_without_this_session
+OK   test_split_services_do_the_same_work_as_separate_processes
+4/4 passed in 196s

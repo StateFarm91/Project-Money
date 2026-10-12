@@ -120,6 +120,41 @@ def test_state_says_when_the_sprint_ends():
     assert "arrives exactly once" in out["note"]
 
 
+def test_read_from_evidence_every_priority_has_a_verdict_and_names_its_blocker():
+    """#259: an empty company is not ready on any of the four, and says why for each."""
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    out = F.before_the_first_customer(db=db)
+    assert out["of"] == 4 and out["ready"] == 0
+    for row in out["priorities"]:
+        assert row["ready"] is False
+        assert row["blocker"], row["priority"]
+    blockers = {r["priority"]: r["blocker"] for r in out["priorities"]}
+    assert "delivery path" in blockers["flawless_downloads"]
+    assert "disclos" in blockers["truthful_expectations"]
+    assert "release chain" in blockers["defect_prevention"]
+    assert "help" in blockers["post_purchase_clarity"]
+
+
+def test_a_listing_without_a_certificate_is_named_as_the_defect_blocker():
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Listing
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(Listing(product_slug="fixture-throw", version="1.0.0", title="Throw",
+                      description="A pattern."))
+    rows = {r["priority"]: r for r in F.before_the_first_customer(db=db)["priorities"]}
+    assert "fixture-throw@1.0.0" in rows["defect_prevention"]["blocker"]
+    assert "fixture-throw@1.0.0" in rows["truthful_expectations"]["blocker"]
+    # A caller-supplied verdict still works, and a not-ready one says who said so.
+    given = F.before_the_first_customer(F.Readiness(True, False, True, True))
+    assert given["outstanding"] == ["truthful_expectations"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

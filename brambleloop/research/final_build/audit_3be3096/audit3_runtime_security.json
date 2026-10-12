@@ -1,0 +1,207 @@
+[
+ {
+  "id": "A3-01",
+  "severity": "LAUNCH-BLOCKING",
+  "title": "Unauthenticated stored XSS on the owner dashboard steals the operator token",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:4842-5200 (dashboard HTML, no escaping, no CSP)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:719-740 (unauth /api/plan-cycle as_of)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:5552-5553 (/ops/teardown stores bl_ops token in localStorage, same origin)"
+  ],
+  "reproduction": "TestClient: 4x POST /api/plan-cycle?as_of=<script>alert('XSSPROBE')</script> (no auth); run Worker on plan.cycle until DEAD; GET / . Script: audit3/xss.py",
+  "observed": "Dashboard HTML contains the raw tag: '<td>ValueError: Invalid isoformat string: \"<script>alert('XSSPROBE')</scri...'. Same raw rendering for OwnerAction text (customer_ref). No Content-Security-Policy on '/' (CSP exists only on the oauth callback page).",
+  "impact": "Anyone who can reach the service can run JS in the owner's browser on the dashboard origin and read localStorage 'bl_ops' (the BRAMBLELOOP_OPS_TOKEN saved by /ops/teardown), giving full owner control: phase transition, publication/activation approvals, continuity export (DB dump), requeue.",
+  "fix": "html.escape every interpolated value in the dashboard (and _block error paths); add a strict CSP + X-Content-Type-Options to all HTML routes; validate as_of as an ISO date at the route (400) and require auth on all enqueueing POSTs; do not keep the ops token in localStorage (sessionStorage/in-memory or cookie HttpOnly).",
+  "verified": true
+ },
+ {
+  "id": "A3-02",
+  "severity": "HIGH",
+  "title": "Mutating / spend-bearing / load-bearing POST routes are unauthenticated; /api/dead-letters/requeue has no auth while /api/queue/requeue does",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:536 (scheduler/tick)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:719,741,762 (plan-cycle, chain-rebuild, launch-readiness)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:823 (continuity/verify)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:2368,2391,2622,2750 (seasonal/recompute, mjs/scan, etsy/probe, model/probe)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:4495 (dead-letters/requeue)"
+  ],
+  "reproduction": "audit3/sweep.py: with OPS token configured, POST each route with no Authorization. Then audit3/dos.py: 300 distinct POST /api/plan-cycle?as_of=garbage-N.",
+  "observed": "200 on all of: scheduler/tick, plan-cycle, chain-rebuild, launch-readiness, continuity/verify, dead-letters/requeue ({'requeued':[],'skipped':[]}), etsy/probe, mjs/scan, model/probe, seasonal/recompute. 300 distinct plan-cycle keys -> 300 pending jobs; invalid as_of -> jobs fail ('Invalid isoformat string') and dead-letter, which counts as dead_letter_defects and turns /api/verify red. Per-minute keys on probes still allow 1/min of model.probe (model spend), etsy.probe (Etsy reads), ops.continuity (full export+restore) and launch.readiness (heavy) indefinitely.",
+  "impact": "Anonymous queue flooding/DoS, forced model/Etsy calls and heavy DB jobs, pollution of owner-truth signals (dead-letter defects), unauthenticated re-drive of dead letters (resets attempts) bypassing the authenticated /api/queue/requeue. Authority comment 'GREEN' assumes the caller is trusted.",
+  "fix": "Put opsauth.check on every non-GET route (single dependency/middleware default-deny), validate/whitelist as_of, rate-limit and cap pending per job_type, remove duplicate unauth requeue route.",
+  "verified": true
+ },
+ {
+  "id": "A3-03",
+  "severity": "HIGH",
+  "title": "launch.readiness silently closes owner actions whose condition still holds (incl. customer correction notices, test drafts stranded in the real shop, spend-ceiling decisions)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/release.py:3540-3581 (closer), 7436-7453 (exemption lists)"
+  ],
+  "reproduction": "audit3/close.py: seed open OwnerAction rows with keys correction_notice:foo@v1, etsy.exercise.stranded_draft.123, search_visibility:launch_week, ads.scale:foo, club:launch_decision, reinvestment:2026-10, spend.ceiling.2026-10; enqueue launch.readiness; run Worker.",
+  "observed": "job output owner_actions_closed lists all 7 keys; all rows done=True. Handler is also triggered by unauthenticated POST /api/launch-readiness.",
+  "impact": "Owner asks that nothing in readiness regenerates (buyer correction-notice approval, deleting a stranded test draft in the live shop, monthly spend-ceiling escalation, launch-week Search Visibility reading) vanish from the queue without the condition clearing or the owner acting. Violates 'a closer may not close what it did not open' (the exempt list covers only 4 keys + 2 prefixes).",
+  "fix": "Invert the rule: closer may only close keys it generated itself (track generated keys / a source column on OwnerAction); add every other subsystem's prefix or move to per-owner closers only.",
+  "verified": true
+ },
+ {
+  "id": "A3-04",
+  "severity": "HIGH",
+  "title": "Buyer identifier (customer_ref) served on five unauthenticated routes via the owner-action card text",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/support/response_watch.py:~165 (OwnerAction text embeds customer_ref)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:631-660 (CUSTOMER_DATA_ROUTES only lists /api/support)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:4181 (/api/owner-actions)",
+   "tests/test_customer_data_auth.py (blind spot: seeds Customer/Order/SupportCase only, never the derived OwnerAction)"
+  ],
+  "reproduction": "audit3/leak.py: authed POST /api/support/messages {buyer_message, customer_ref:'LEAKSENTINEL-REF-42', received_at 30h ago}; run response_watch.watch; GET every parameterless route unauthenticated.",
+  "observed": "'Reply to buyer message (support case 1, LEAKSENTINEL-REF-42) in Etsy Messages now...' appears in GET /, /api/build, /api/console, /api/owner-actions and /api/war-room without credentials. (Message body itself did not leak.)",
+  "impact": "Buyer identity (Etsy buyer handle/id) is public for as long as a first-response card is open; the F-696 enumerating test passes green while the leak exists. Also drives the XSS in A3-01 (unescaped).",
+  "fix": "Reference the case id only in owner-queue text (no customer_ref); extend the test to seed derived rows (OwnerAction, Incident, AuditLog) via the real write path and sweep every route incl. HTML.",
+  "verified": true
+ },
+ {
+  "id": "A3-05",
+  "severity": "HIGH",
+  "title": "The deploy guard is not enforced: core.hooksPath is unset, so a push to the production branch is unguarded; Railway-side deploy paths bypass it entirely",
+  "files": [
+   "ops/install_hooks.sh",
+   "ops/hooks/pre-push",
+   "ops/deploy_guard.py:166-189",
+   "ops/deploy.sh"
+  ],
+  "reproduction": "cd rc-3be3096 && git config --get core.hooksPath ; same for /home/user/Project-Money",
+  "observed": "No value (exit 1) in both the candidate checkout and the main repo; hook is opt-in per clone. Guard also trusts BRAMBLELOOP_DEPLOYED_SHA from env (deploy_guard.py deployed_from) and release_eligible from a gitignored local record (brambleloop/artifacts is .gitignored); this environment also exposes Railway redeploy/create-deployment tools that never pass through the guard.",
+  "impact": "'Can anything deploy without a release-eligible proof?' -- yes: plain git push, --no-verify, a fresh clone/CCR container, or a Railway redeploy. Guard is advisory, not a control.",
+  "fix": "Enforce server-side: branch protection + required status check on the production branch, Railway deploys only from a protected tag/ref created by the guard; install hooksPath in the SessionStart hook; make production /api/status build.commit the source of truth and ignore env override unless explicit --force flag.",
+  "verified": true
+ },
+ {
+  "id": "A3-06",
+  "severity": "MEDIUM",
+  "title": "No sanctioned, rehearsed code rollback to production fcb982d; the guard refuses it and ROLLBACK_PATH covers listings only",
+  "files": [
+   "ops/deploy_guard.py:149-156",
+   "ops/deploy.sh",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/ops/publication_authority.py:313-330",
+   "research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (Limits)"
+  ],
+  "reproduction": "python3 ops/deploy_guard.py check --candidate fcb982d --deployed HEAD --records /nonexistent",
+  "observed": "REFUSE: 'candidate fcb982d57e2 is not a descendant of deployed 3be309604793: deploying it would roll production back' (+ no suite record). Migration evidence says rollback = 'redeploy fcb982d code', which is the Railway-side action the guard cannot sanction and no runbook/rehearsal records. Migration evidence also is synthetic one-row-per-table, not a real Railway snapshot (own admission).",
+  "impact": "In an incident the only documented rollback is an out-of-band action with no proof/rehearsal; the in-repo path blocks it. Rows written by fcb982d during a rollback window leave NULL in new additive columns (books.py tolerates ledger.basis NULL, other tables unverified).",
+  "fix": "Add an explicit rollback mode (--rollback-to <known-good sha>, requires owner token + reason, audited) and a Railway runbook; rehearse against a snapshot; add a NULL-tolerance test for every added column.",
+  "verified": true
+ },
+ {
+  "id": "A3-07",
+  "severity": "MEDIUM",
+  "title": "Launch packet verdict disagrees with the real launch.readiness handler (spurious owner actions, omitted autonomy proof)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/launch/packet.py:105-122 (assess(db, phase=...) without providers/storage_durable)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/runtime/release.py:3421-3450 (handler passes both and ANDs off_device autonomy proof #195)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/launch/readiness.py:432,608,831"
+  ],
+  "reproduction": "audit3/pk.py with ANTHROPIC_API_KEY set on an empty DB: packet.build(db, sha='deadbeef')",
+  "observed": "verdict UNKNOWN; owner_actions include 'artifact_storage' and 'model_credits' even with a provider key present (defaults providers=(), storage_durable=False). Packet has no off_device_autonomy_proof item at all.",
+  "impact": "Owner packet can ask the owner to buy storage/credits that exist, can never reach READY via artifact_storage, and conversely would show READY for a candidate the handler calls NOT PROVEN on #195. The document the owner signs off on is not the same computation as the gate.",
+  "fix": "Have packet.build call one shared function used by the handler (providers, storage durability, autonomy proof), and test packet.verdict == handler ready.",
+  "verified": true
+ },
+ {
+  "id": "A3-08",
+  "severity": "MEDIUM",
+  "title": "Ephemeral-SQLite fail-open: refusing to start without Postgres is opt-in",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/core/db.py:34-62",
+   "railway.json",
+   "Dockerfile"
+  ],
+  "reproduction": "read: resolve_url only raises when BRAMBLELOOP_REQUIRE_POSTGRES=='1'; neither railway.json nor Dockerfile sets it. (Production env var not inspected: no network.)",
+  "observed": "With no DATABASE_URL bound, the app falls back to sqlite:///brambleloop.db on container disk and /health returns 200.",
+  "impact": "A mis-bound variable silently resets every job, audit row, certificate and the sealed phase transitions on restart; /api/verify only catches it when certified>0 already.",
+  "fix": "Default to refusing SQLite whenever RAILWAY_ENVIRONMENT/PORT is present, or set the variable in railway.json and test it.",
+  "verified": false
+ },
+ {
+  "id": "A3-09",
+  "severity": "MEDIUM",
+  "title": "Owner dashboard shows unmeasured money as measured zeros (Revenue CA$0.00, Agent opex)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:495-526,5185-5186",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/dashboard_truth.py:commercial_evidence (state NONE_OBSERVED, confidence 'measured')"
+  ],
+  "reproduction": "GET / and /api/status on an empty DB; read code",
+  "observed": "Revenue card = CA$ sum(LedgerEntry.gross_cad) of every row regardless of basis/reconciliation/refunds; with order ingestion gated on transactions_r it renders CA$0.00 not UNKNOWN. 'Agent opex' sums model CostEntry only (no infra/Etsy fees). commercial_evidence counts any gross>0 row with a non-blank evidence_ref as an 'evidenced sale' even when basis is unknown/unreconciled, and tags the envelope confidence 'measured'; owner_inbox KPI never alarms when inbox is UNKNOWN.",
+  "impact": "Vanity/zero numbers read as truth on the top of the owner surface; once any legacy ledger row exists revenue is shown as real.",
+  "fix": "Render UNKNOWN when the order source/ledger reconciliation is not live; sum only basis='measured' and reconciled rows; relabel opex 'model spend (CostEntry)'; alarm on UNKNOWN inbox.",
+  "verified": true
+ },
+ {
+  "id": "A3-10",
+  "severity": "MEDIUM",
+  "title": "/api/verify is shadow-only and cannot see Etsy draft writes",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:4297-4350"
+  ],
+  "reproduction": "read: checks phase_is_shadow, nothing_published (counts audit store.published only), no_revenue_claimed.",
+  "observed": "A real draft created in the live shop (authenticated /api/etsy/exercise, or store.publish_incomplete) is not counted by nothing_published; the checks flip red permanently after any legitimate phase move; phase_is_shadow reads the raw env var, not effective phase.",
+  "impact": "Shadow-safety assertion can pass while an Etsy write has occurred; after launch the endpoint is red forever and loses its signal (header 'last clean verify').",
+  "fix": "Count store.publish_incomplete/etsy.exercise/draft_creation_intents; make checks phase-aware and use core.phase.effective.",
+  "verified": true
+ },
+ {
+  "id": "A3-11",
+  "severity": "LOW",
+  "title": "Non-ASCII Authorization header causes 500 (hmac.compare_digest on str)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/core/opsauth.py:check (compare_digest on str)",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/learn/api.py:36"
+  ],
+  "reproduction": "audit3/misc.py: Authorization: b'Bearer t\\xe9' to /api/support and /api/learn/queue",
+  "observed": "500 on both (409 on /api/owner/phase). Not a bypass.",
+  "impact": "Unhandled error path; noisy 500s from anonymous input.",
+  "fix": "Compare .encode('utf-8') bytes.",
+  "verified": true
+ },
+ {
+  "id": "A3-12",
+  "severity": "LOW",
+  "title": "/health discloses internal DB host/port and runner errors unauthenticated",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:451-472"
+  ],
+  "reproduction": "audit3/h.py with unreachable postgres DSN",
+  "observed": "503 body includes 'connection to server at \"10.1.2.3\", port 5432 failed: timeout expired' (password not included).",
+  "impact": "Infra recon.",
+  "fix": "Return a static 'db: unreachable' and log detail.",
+  "verified": true
+ },
+ {
+  "id": "A3-13",
+  "severity": "LOW",
+  "title": "POST /api/support/messages is not idempotent",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/app/main.py:679-716",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/support/response_watch.py:65"
+  ],
+  "reproduction": "audit3/misc.py: post identical buyer_message twice",
+  "observed": "case_id [1, 2]: two cases and two first-response cards.",
+  "impact": "Owner retry/double-click inflates support queue and alerts.",
+  "fix": "Idempotency key (hash of ref+message+received_at).",
+  "verified": true
+ },
+ {
+  "id": "A3-14",
+  "severity": "LOW",
+  "title": "Spend reservation is read-then-write across processes (possible small overshoot)",
+  "files": [
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/gateway/anthropic.py:~322-420",
+   "/home/user/Project-Money/.claude/worktrees/rc-3be3096/brambleloop/src/brambleloop/finance/reservations.py"
+  ],
+  "reproduction": "code read only",
+  "observed": "check_budget_cad reads outstanding reservations then writes its own; no row lock/advisory lock, so N concurrent replicas can each pass the same headroom.",
+  "impact": "Overshoot bounded by N x estimate vs CA$100 ceiling; also /api/verify's spend_limits check passes by absence.",
+  "fix": "Reserve under SELECT ... FOR UPDATE on a single ceiling row / advisory lock.",
+  "verified": false
+ }
+]

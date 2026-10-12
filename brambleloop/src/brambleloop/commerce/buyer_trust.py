@@ -26,6 +26,7 @@ that is impossible to retrofit, which is why it is built before there is a singl
 """
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -309,7 +310,10 @@ def confusion_rate(db, *, days: int = 90) -> dict:
         sales = list(s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")))
         refunds = [x for x in sales if x.refunds_cad > 0]
 
-    confused = [c for c in cases if "confus" in (getattr(c, "theme", "") or "").lower()
+    # C-56: SupportCase has no `theme` column; the triage writes it into detail. Reading the
+    # attribute returned "" for every case, so confusion was never counted.
+    confused = [c for c in cases if "confus" in (
+        getattr(c, "theme", None) or (getattr(c, "detail", None) or {}).get("theme") or "").lower()
                 or "not a finished" in (getattr(c, "question", "") or "").lower()]
     orders = len(sales)
     if not orders:
@@ -364,18 +368,29 @@ class VersionMap:
         return {"orders": len(self.rows), "rows": list(self.rows)}
 
 
-def correction_notice(*, product_slug: str, affected: list[dict], from_versions: tuple,
-                      to_version: str, what_changed: str) -> dict:
+def correction_notice(*, product_slug: str, from_versions: tuple, to_version: str,
+                      what_changed: str, affected: list[dict] | None = None,
+                      db=None) -> dict:
     """The communication a material correction owes its buyers (#42).
 
     Prepared, never sent: messaging customers is owner-gated and shadow mode refuses it. What
     this produces is the thing that would otherwise have to be written in a hurry, by
     somebody who does not have the version list.
+
+    With `db`, the affected buyers are read from `order_versions` -- the map written at sale
+    time -- rather than supplied by the caller, which is the only list that cannot have been
+    reconstructed after the fact.
     """
     if len(what_changed.split()) < 6:
         raise TrustRefused(
             "a correction notice says what was wrong and what it means for work in "
             "progress; anything shorter makes the buyer ask")
+    if affected is None:
+        if db is None:
+            raise TrustRefused("a correction notice needs the affected orders or the "
+                               "database that recorded them")
+        affected = affected_orders(db, product_slug=product_slug,
+                                   corrected_from=tuple(from_versions))
     return {
         "product_slug": product_slug,
         "from_versions": list(from_versions),
@@ -394,3 +409,482 @@ def correction_notice(*, product_slug: str, affected: list[dict], from_versions:
                          "is prepared so it does not have to be written in a hurry by "
                          "somebody who does not have the version list"),
     }
+
+
+
+# ---------------------------------------------------------------------------
+# #42, persisted: the order-to-version map as a table, written on the order path
+
+def current_safe_version(db, product_slug: str, *, session=None) -> str:
+    """The newest certified version of a product, or "" when none is certified."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+    from .cohorts import use_session
+
+    with use_session(db, session) as s:
+        rows = list(s.scalars(select(PatternVersion).join(Product).where(
+            Product.slug == product_slug, PatternVersion.certified.is_(True))))
+    if not rows:
+        return ""
+    return max(rows, key=lambda r: tuple(int(p) if p.isdigit() else 0
+                                         for p in r.version.split("."))).version
+
+
+def record_sale_version(db, *, order_ref: str, product_slug: str, version: str,
+                        release_hash: str = "", sold_at=None, session=None) -> dict:
+    """Write which version an order bought, at sale time. Idempotent per order (#42).
+
+    Called from the order path (`commerce.cohorts.record_order` is the intended caller,
+    inside the order's own transaction). A second call for the same order changes nothing:
+    what a buyer bought does not change because somebody recorded it twice.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import OrderVersion, PatternVersion, Product
+    from .cohorts import use_session
+
+    if not order_ref or not product_slug or not version:
+        raise TrustRefused("an order maps to a product and a version, or support cannot "
+                           "answer it")
+    with use_session(db, session) as s:
+        existing = s.scalar(select(OrderVersion).where(OrderVersion.order_ref == order_ref))
+        if existing is not None:
+            return {"created": False, "order_ref": order_ref,
+                    "version": existing.version}
+        if not release_hash:
+            pv = s.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == product_slug, PatternVersion.version == version))
+            release_hash = (pv.release_hash or "") if pv is not None else ""
+        safe = current_safe_version(db, product_slug, session=s) or version
+        s.add(OrderVersion(order_ref=order_ref, product_slug=product_slug, version=version,
+                           release_hash=release_hash,
+                           sold_at=sold_at or datetime.now(timezone.utc),
+                           current_safe_version=safe))
+        s.flush()
+    return {"created": True, "order_ref": order_ref, "version": version,
+            "release_hash": release_hash, "current_safe_version": safe}
+
+
+def _row(r) -> dict:
+    return {"order_ref": r.order_ref, "product_slug": r.product_slug,
+            "purchased_version": r.version, "release_hash": r.release_hash,
+            "sold_at": r.sold_at.isoformat() if r.sold_at else None,
+            "current_safe_version": r.current_safe_version,
+            "correction_notice_sent_at": (r.correction_notice_sent_at.isoformat()
+                                          if r.correction_notice_sent_at else None)}
+
+
+def purchased_versions(db, *, order_ref: str = "", customer_ref: str = "",
+                       product_slug: str = "") -> list[dict]:
+    """Which version(s) a buyer got, read from the map written at sale time.
+
+    By order, or by buyer (through `orders.external_ref`, which is the same reference the
+    map is keyed on), optionally narrowed to one product. The current safe version is read
+    now, not trusted from sale time, so a correction released since is reflected.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Customer, Order, OrderVersion
+
+    with db.session() as s:
+        q = select(OrderVersion)
+        if order_ref:
+            q = q.where(OrderVersion.order_ref == order_ref)
+        elif customer_ref:
+            refs = [o.external_ref for o in s.scalars(
+                select(Order).join(Customer, Order.customer_id == Customer.id)
+                .where(Customer.customer_ref == customer_ref))]
+            if not refs:
+                return []
+            q = q.where(OrderVersion.order_ref.in_(refs))
+        else:
+            raise TrustRefused("name an order or a buyer")
+        if product_slug:
+            q = q.where(OrderVersion.product_slug == product_slug)
+        rows = [_row(r) for r in s.scalars(q.order_by(OrderVersion.sold_at))]
+    for row in rows:
+        row["current_safe_version"] = (current_safe_version(db, row["product_slug"])
+                                       or row["current_safe_version"])
+        row["superseded"] = row["current_safe_version"] != row["purchased_version"]
+    return rows
+
+
+def affected_orders(db, *, product_slug: str, corrected_from: tuple) -> list[dict]:
+    """Exactly which recorded orders hold a version a correction applies to."""
+    from sqlalchemy import select
+
+    from ..core.models import OrderVersion
+
+    with db.session() as s:
+        return [_row(r) for r in s.scalars(select(OrderVersion).where(
+            OrderVersion.product_slug == product_slug,
+            OrderVersion.version.in_(tuple(corrected_from))))]
+
+
+# ---------------------------------------------------------------------------
+# #41 in the runtime: the draft's disclosures, and support's confusion reading
+
+# How each disclosure is recognised in listing copy. Deliberately literal: a disclosure a
+# buyer cannot find by reading is not made, however it was intended.
+_DISCLOSURE_PATTERNS: dict[str, _re.Pattern] = {
+    "digital_not_finished": _re.compile(
+        r"not a finished item|digital (crochet )?pattern|pattern pdf|pdf pattern|"
+        r"digital download|instant download", _re.I),
+    "skill_level": _re.compile(r"\b(difficulty|skill level|beginner|intermediate|advanced|"
+                               r"easy|experienced)\b", _re.I),
+    "required_materials": _re.compile(r"\b(yarn|hook|yardage|materials?|you will need)\b",
+                                      _re.I),
+    "terminology": _re.compile(r"\b(us|uk) (crochet )?terms\b", _re.I),
+    "delivery": _re.compile(r"instant (digital )?download|digital download|download (is|will)|"
+                            r"delivered as", _re.I),
+    "support": _re.compile(r"\b(tell us|message us|contact us|ask us|questions?)\b", _re.I),
+}
+# The first screen: what a buyer sees without scrolling, approximated as the description's
+# opening paragraph.
+FIRST_SCREEN_CHARS = 200
+
+
+def disclosures_from_copy(*, title: str = "", description: str = "",
+                          file_text: str = "") -> dict:
+    """Which disclosures a piece of listing copy actually makes, and on which surface."""
+    surfaces = {"title": title or "", "first_screen": (description or "")[:FIRST_SCREEN_CHARS],
+                "description": description or "", "file": file_text or ""}
+    present: dict[str, list[str]] = {}
+    for key, pattern in _DISCLOSURE_PATTERNS.items():
+        where = [name for name in SURFACES if surfaces[name] and pattern.search(surfaces[name])]
+        present[key] = where
+    return present
+
+
+def listing_disclosure_finding(db, *, slug: str, version: str) -> dict:
+    """#41 on the draft: which owed disclosures its stored copy is missing.
+
+    Reads the drafted `Listing` row for this release. With no copy yet the check is
+    UNMEASURED rather than passed -- a listing that has not been written has disclosed
+    nothing, and saying "complete" about it would be the claim this exists to prevent.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        copy = (row.title, row.description) if row is not None else None
+    if copy is None:
+        return {"checked": False, "reading": "UNMEASURED", "slug": slug, "version": version,
+                "why": ("no listing copy is stored for this release yet; the disclosure "
+                        "check runs on the draft once the copy exists")}
+    result = disclosure_check(disclosures_from_copy(title=copy[0], description=copy[1]))
+    return {"checked": True, "slug": slug, "version": version,
+            "complete": result["complete"], "missing": result["missing"],
+            "misplaced": result["misplaced"],
+            "finding": (not result["complete"])}
+
+
+def case_window() -> dict:
+    """Etsy's case window for a digital order, as the recorded policy readings state it.
+
+    Read from `gates.policy_knowledge` READINGS and TOPICS. A day count is used only when a
+    recorded conclusion or excerpt states one about opening a case; otherwise the window is
+    UNKNOWN and no deadline is computed from it. A guessed window would produce a deadline
+    somebody plans against.
+    """
+    from ..gates.policy_knowledge import all_readings
+
+    pattern = _re.compile(r"(?:open(?:ing)? a case|case window)[^.;]*?(\d+)\s*(?:calendar )?days",
+                          _re.I)
+    for key, reading in all_readings().items():
+        texts = [str(c.get("text", "")) for c in reading.conclusions]
+        texts += [e.text for e in reading.excerpts]
+        for text in texts:
+            hit = pattern.search(text)
+            if hit:
+                return {"known": True, "days": int(hit.group(1)), "source": key,
+                        "text": text}
+    return {"known": False, "days": None, "deadline": "UNKNOWN",
+            "why": ("no recorded Etsy policy reading states how many days a buyer has to "
+                    "open a case, so no case deadline is computed. Resolve confusion "
+                    "contacts at first touch instead")}
+
+
+def support_readings(db) -> dict:
+    """Confusion as a defect rate, and each open case against Etsy's case window (#41)."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from ..core.models import SupportCase
+
+    window = case_window()
+    with db.session() as s:
+        open_cases = [(c.id, c.at) for c in s.scalars(
+            select(SupportCase).where(SupportCase.resolved.is_(False)))]
+    deadlines = []
+    for case_id, at in open_cases:
+        if window["known"] and at is not None:
+            deadlines.append({"case": case_id,
+                              "resolve_before": (at + timedelta(days=window["days"]))
+                              .isoformat()})
+        else:
+            deadlines.append({"case": case_id, "resolve_before": "UNKNOWN"})
+    return {"confusion": confusion_rate(db), "case_window": window,
+            "open_cases": len(open_cases), "deadlines": deadlines}
+
+
+# ---------------------------------------------------------------------------
+# #36 in the runtime: provenance stored when a listing's images are built
+
+IMAGE_PROVENANCE_ACTION = "assets.image_provenance"
+
+# Deterministic listing frames by asset class, onto the provenance vocabulary. Every one is
+# rendered from the certified pattern's data, so every one is SIMULATED and none is proof.
+_FRAME_KIND: dict[str, str] = {
+    "DIGITAL_TWIN_RENDER": "twin_render",
+    "INFOGRAPHIC": "twin_render",
+    "PATTERN_PREVIEW": "chart_render",
+}
+
+
+def records_for_frames(frames: list[dict], *, slug: str, version: str,
+                       colourway: str = "") -> list[tuple[ImageRecord, dict]]:
+    """An `ImageRecord` for each stored listing frame, through `record_image`'s checks.
+
+    `frames` are the dicts `assets.build` stores (position, role, asset_class, sha256). A
+    frame whose class is not a deterministic render is refused rather than guessed at: the
+    only frames this path makes are renders, and a photograph arriving here would need a
+    consent basis this path cannot supply.
+    """
+    out: list[tuple[ImageRecord, dict]] = []
+    for frame in frames:
+        asset_class = str(frame.get("asset_class") or "")
+        kind = "chart_render" if frame.get("role") == "chart" else _FRAME_KIND.get(asset_class)
+        if kind is None:
+            raise TrustRefused(
+                f"{slug}@{version} frame {frame.get('position')}: asset class "
+                f"{asset_class!r} is not a deterministic render, and this path records only "
+                f"renders. A photograph needs its own consent basis recorded")
+        ref = f"{slug}/{version}/frame-{frame.get('position')}.png"
+        record = record_image(ref, kind, pattern_version=version, colourway=colourway,
+                              photographer="publishing:listing_assets")
+        out.append((record, {"role": frame.get("role"), "position": frame.get("position"),
+                             "sha256": frame.get("sha256"), "ai_assisted": False,
+                             "asset_class": asset_class}))
+    return out
+
+
+def records_for_generated(frames: list[dict], *, slug: str, version: str) -> list[tuple[ImageRecord, dict]]:
+    """Provenance for model-rendered frames: simulated, AI-assisted, never proof."""
+    out: list[tuple[ImageRecord, dict]] = []
+    for i, frame in enumerate(frames, start=1):
+        ref = str(frame.get("image_ref") or frame.get("image") or f"{slug}/{version}/generated-{i}")
+        record = record_image(ref, "concept_illustration", pattern_version=version,
+                              photographer=str(frame.get("provider") or "image_generation"))
+        out.append((record, {"role": frame.get("role") or frame.get("shot"),
+                             "ai_assisted": True, "sha256": frame.get("sha256"),
+                             "disclosed_as_illustration": bool(
+                                 frame.get("disclosed_as_illustration", True))}))
+    return out
+
+
+def record_gallery(db, *, slug: str, version: str, records: list[tuple[ImageRecord, dict]],
+                   actor: str = "publishing", job_id: int | None = None,
+                   source: str = "assets.build") -> dict:
+    """Store the provenance of a listing gallery: one row, every image, and the proof reading.
+
+    Stored as an append-only audit row keyed `slug@version`, so a correction can later ask
+    which images depicted which version and whether any of them was ever proof.
+    """
+    from ..core.models import AuditLog
+
+    images = [r for r, _ in records]
+    entries = [{**r.to_dict(), **extra} for r, extra in records]
+    proof = gallery_proof(images)
+    detail = {"slug": slug, "version": version, "source": source, "images": entries,
+              "proof": proof, "ai_assisted": sum(1 for e in entries if e.get("ai_assisted"))}
+    with db.session() as s:
+        row = AuditLog(actor=actor, action=IMAGE_PROVENANCE_ACTION,
+                       artifact=f"{slug}@{version}", job_id=job_id, detail=detail)
+        s.add(row)
+        s.flush()
+        detail["audit_id"] = int(row.id)
+    return detail
+
+
+def gallery_proof_on_file(db, *, slug: str) -> dict:
+    """Whether the stored provenance for this product shows a photograph of a real object.
+
+    `has_physical_proof_reading` is None when no provenance is stored at all: nobody recorded
+    what the images are, which is different from recording that none is proof.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = [dict(r.detail or {}) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == IMAGE_PROVENANCE_ACTION,
+                                   AuditLog.artifact.like(f"{slug}@%"))
+            .order_by(desc(AuditLog.id)).limit(20))]
+    if not rows:
+        return {"on_file": False, "has_physical_proof_reading": None,
+                "why": "no image provenance is stored for this product"}
+    physical = any((r.get("proof") or {}).get("has_physical_proof") for r in rows)
+    return {"on_file": True, "has_physical_proof_reading": physical,
+            "images": sum(len(r.get("images") or []) for r in rows[:1]),
+            "note": rows[0].get("proof", {}).get("note")}
+
+
+# ---------------------------------------------------------------------------
+# #42 in the runtime: a correcting version certifies, and its buyers are found (C-64)
+
+CORRECTION_ACTION_PREFIX = "correction_notice:"
+
+
+def _version_key(v: str) -> tuple:
+    return tuple(int(p) if p.isdigit() else 0 for p in (v or "").split("."))
+
+
+# The states a prepared notice moves through. Preparation is this system's; delivery is the
+# owner's (shadow mode messages nobody), and the two are never one field (CB2-O09).
+NOTICE_PREPARED = "prepared"
+NOTICE_NOT_SENT = "not_sent"
+
+
+def _correction_relation(correction) -> dict | None:
+    """The declared correction relation, normalised, or None when nothing was declared."""
+    if not isinstance(correction, dict):
+        return None
+    versions = tuple(str(v) for v in (correction.get("of_versions") or []) if str(v))
+    hashes = tuple(str(h) for h in (correction.get("of_release_hashes") or []) if str(h))
+    what = str(correction.get("what_changed") or "").strip()
+    if not (versions or hashes) or not what:
+        return None
+    return {"of_versions": versions, "of_release_hashes": hashes, "what_changed": what}
+
+
+def release_eligible(db, *, product_slug: str, version: str, release_hash: str = "") -> dict:
+    """Whether this version is a certified, stored release buyers can actually be pointed at.
+
+    A correction notice tells a buyer to work from another version, so that version has to
+    exist as a certified release row -- a certificate that was granted but never persisted,
+    or a hash that does not match the stored release, is not something to send anyone to.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == product_slug, PatternVersion.version == version))
+        if pv is None:
+            return {"eligible": False, "why": f"no stored release row for "
+                                             f"{product_slug}@{version}"}
+        if not pv.certified:
+            return {"eligible": False, "why": f"{product_slug}@{version} is stored but not "
+                                             f"certified"}
+        if release_hash and (pv.release_hash or "") != release_hash:
+            return {"eligible": False,
+                    "why": (f"the stored release hash for {product_slug}@{version} is not the "
+                            f"one this certification produced")}
+    return {"eligible": True, "why": ""}
+
+
+def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
+                 previous_release_hash: str = "", correction=None) -> dict:
+    """Called by `gate.certify` when a release certifies (#42).
+
+    A certification is a correction only when it says so. `correction` is the declared
+    relation -- `{"of_versions": [...], "of_release_hashes": [...], "what_changed": "..."}`
+    -- carried on the certify job's inputs by whoever re-engineered the pattern. Without it a
+    newer version is a routine release: buyers of older versions are not told anything,
+    their `current_safe_version` does not move, and nothing is prepared (CB2-O09). With it,
+    and only when the new version is an eligible stored release, the affected orders are read
+    from `order_versions` (written at sale time), each affected row's `current_safe_version`
+    moves to the new version, the notice is prepared and kept on the row in state
+    `prepared` with its delivery state `not_sent`, and sending -- messaging customers, which
+    shadow mode refuses and the owner authorises -- becomes one owner action per correction.
+
+    Orders of this product whose delivered version is unknown (no `order_versions` row,
+    because the sale predates any recorded listing version) cannot be excluded; they are
+    counted and routed to the same review rather than silently treated as unaffected
+    (CB2-O03).
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Order, OrderVersion, OwnerAction
+
+    relation = _correction_relation(correction)
+    base = {"product_slug": product_slug, "version": version, "affected_count": 0,
+            "notice": None, "correction": relation is not None}
+    if relation is None:
+        return {**base, "why": ("routine release: no correction relation was declared, so "
+                                "no buyer is told to move and no notice is prepared")}
+    eligibility = release_eligible(db, product_slug=product_slug, version=version,
+                                   release_hash=release_hash)
+    if not eligibility["eligible"]:
+        return {**base, "eligible": False,
+                "why": f"correction declared but not releasable: {eligibility['why']}"}
+
+    with db.session() as s:
+        rows = list(s.scalars(select(OrderVersion).where(
+            OrderVersion.product_slug == product_slug)))
+        held = [(r.order_ref, r.version, r.release_hash) for r in rows]
+        unknown_version = sorted(o.external_ref for o in s.scalars(select(Order).where(
+            Order.product_slug == product_slug, Order.version == "")))
+    older = sorted({v for _ref, v, _h in held
+                    if v in relation["of_versions"] and _version_key(v) < _version_key(version)})
+    hashes = set(relation["of_release_hashes"])
+    if previous_release_hash and version in relation["of_versions"]:
+        hashes.add(previous_release_hash)
+    same_old_hash = sorted({ref for ref, v, h in held
+                            if v == version and h and h in hashes and h != release_hash})
+    if not older and not same_old_hash:
+        return {**base, "eligible": True, "version_unknown_orders": unknown_version,
+                "why": ("no recorded buyer holds a version this correction names"
+                        if held else "no order of this product has been recorded")}
+
+    what = relation["what_changed"]
+    affected = affected_orders(db, product_slug=product_slug, corrected_from=tuple(older))
+    if same_old_hash:
+        with db.session() as s:
+            affected += [_row(r) for r in s.scalars(select(OrderVersion).where(
+                OrderVersion.order_ref.in_(same_old_hash)))]
+    notice = correction_notice(product_slug=product_slug,
+                               from_versions=tuple(older or [version]),
+                               to_version=version, what_changed=what, affected=affected)
+    refs = [r["order_ref"] for r in affected]
+    now = datetime.now(timezone.utc).isoformat()
+    with db.session() as s:
+        for r in s.scalars(select(OrderVersion).where(OrderVersion.order_ref.in_(refs))):
+            r.current_safe_version = version
+            r.detail = {**(r.detail or {}),
+                        "correction_notice": {
+                            "to_version": version, "prepared_at": now,
+                            "state": NOTICE_PREPARED, "sent": False,
+                            "delivery": {"state": NOTICE_NOT_SENT, "sent_at": None,
+                                         "authorised_by": None},
+                            "what_changed": what[:300]}}
+        key = f"{CORRECTION_ACTION_PREFIX}{product_slug}@{version}"
+        review = (f"; {len(unknown_version)} further order(s) of this product hold an "
+                  f"unrecorded version and need review before they are treated as unaffected"
+                  if unknown_version else "")
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+            s.add(OwnerAction(
+                requirement_key=key,
+                action=(f"Approve sending the prepared correction notice for {product_slug} "
+                        f"{version} to {len(refs)} buyer(s){review}"),
+                reason=notice["body"][:500], max_cost_cad=0.0, minutes=5,
+                consequence_of_delay=("buyers keep working from a version with a known "
+                                      "correction; support answers against their version "
+                                      "meanwhile"),
+                blocks="#42 correction notice"))
+    return {**base, "eligible": True, "affected_count": len(refs), "affected_orders": refs,
+            "version_unknown_orders": unknown_version,
+            "notice": notice, "owner_action": key,
+            "states": {"preparation": NOTICE_PREPARED, "delivery": NOTICE_NOT_SENT}}

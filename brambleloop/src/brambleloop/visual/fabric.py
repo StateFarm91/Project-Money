@@ -90,6 +90,59 @@ def swatch_svg(twin, gauge, *, max_rows: int | None = None, max_cols: int | None
             + "".join(parts) + "</svg>")
 
 
+# Stitches that stand off the surface with every loop worked (the same family charts.relief
+# shades and launch0.TEXTURE_STITCHES names). Kept here as a literal so this module reads the
+# cells alone and does not import the publishing layer.
+RELIEF_STITCHES: frozenset[str] = frozenset({
+    "fpdc", "bpdc", "bob", "cable2x2", "cable1x1", "beg_star_st", "star_st", "end_star_st"})
+# Of those, the ones that stand PROUD of the fabric (a back post stitch recedes). The
+# along-row period is the period of the proud mask: in "bpdc 2, fpdc 4, bpdc 2" every cell is
+# a relief stitch, and the eight-stitch repeat is visible only as raised against recessed.
+RAISED_STITCHES: frozenset[str] = RELIEF_STITCHES - {"bpdc"}
+
+
+def _relief_signature(rows, by_row, total: int) -> dict | None:
+    """Texture from relief stitches: which cells stand off the surface, and whether they line
+    up in columns (ribs, cables) or break up (a bobble grid, a star fabric)."""
+    def code(c): return getattr(c, "stitch", None)
+    relief_rows = {r: [code(c) in RELIEF_STITCHES for c in by_row[r]] for r in rows}
+    n_relief = sum(sum(v) for v in relief_rows.values())
+    if not n_relief:
+        return None
+    # Column persistence: of the relief cells in a row, how many have a relief cell directly
+    # above them in the next row. Ribs and cable columns persist; a staggered bobble grid or a
+    # star fabric's eye rows do not.
+    persist = pairs = 0
+    ordered = list(rows)
+    for a, b in zip(ordered, ordered[1:]):
+        ra, rb = relief_rows[a], relief_rows[b]
+        for i, on in enumerate(ra):
+            if on and i < len(rb):
+                pairs += 1; persist += rb[i]
+    column = persist / pairs if pairs else 0.0
+    # Along-row period of the relief mask (the smallest shift that reproduces a row), from
+    # the row with the most relief cells; 0 when a row is all relief (plain ribbing).
+    raised_rows = {r: [code(c) in RAISED_STITCHES for c in by_row[r]] for r in rows}
+    best = max(raised_rows.values(), key=sum)
+    period = 0
+    if 0 < sum(best) < len(best):
+        for k in range(1, len(best)):
+            if all(best[i] == best[(i + k) % len(best)] for i in range(len(best))):
+                period = k; break
+    kinds = sorted({code(c) for r in rows for c in by_row[r] if code(c) in RELIEF_STITCHES})
+    if column >= 0.5:
+        surface, why = "ridges_up_the_rows", ("relief stitches sit in the same positions row after row, so they stack "
+                                              "into columns running up the rows: ribbing, or cable columns")
+    else:
+        surface, why = "checkered", ("relief stitches move between rows, so the surface breaks up into a grid rather "
+                                     "than running in ridges")
+    return {"textured": True, "cells": total, "loop_targeted_cells": 0, "relief_cells": n_relief, "relief_stitches": kinds,
+            "column_persistence": round(column, 3), "period_along_row_sts": period, "surface": surface, "why": why,
+            "orientation_is_in_fabric_axes": ("along/up the rows, not up/across the worn garment. Which of those is vertical "
+                                              "depends on the panel's grain direction, which the CIR does not carry, so this "
+                                              "deliberately does not say")}
+
+
 def texture_signature(twin, *, max_rows: int | None = None) -> dict:
     """What the fabric's texture actually is, measured from the cells rather than described.
 
@@ -110,8 +163,18 @@ def texture_signature(twin, *, max_rows: int | None = None) -> dict:
     targeted = [c for r in rows for c in by_row[r] if getattr(c, "loop", "both") != "both"]
     total = sum(len(by_row[r]) for r in rows)
     if not targeted:
-        return {"textured": False, "why": "every stitch works both loops, so the surface is "
-                                          "flat: there are no unworked loops to catch light",
+        # Loop targets are not the only relief. Post stitches stand forward of or behind the
+        # fabric, bobbles and crossings sit proud of it, and a star closes into a puff -- all
+        # of it light and shadow with every loop worked. The first version of this rule saw
+        # only unworked loops, so it called the Heirloom Cable Throw (18 cable columns on
+        # back-post ribbing, class A) a flat fabric; found by the V1 graduation benchmark's
+        # Product Truth cross-check, 2026-09-26. Measured from the cells, as the loop rule is.
+        relief = _relief_signature(rows, by_row, total)
+        if relief is not None:
+            return relief
+        return {"textured": False, "why": "every stitch works both loops and no stitch stands "
+                                          "off the surface, so the fabric is flat: there are "
+                                          "no unworked loops and no relief stitches to catch light",
                 "cells": total}
 
     # Does the loop target alternate along a row, and does it offset between rows? Those two

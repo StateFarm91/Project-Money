@@ -1,0 +1,669 @@
+"""Graded designs: a garment is a function of size, not one size with its numbers changed.
+
+`cir/grading.py` resolves a *width* per size. That is enough for a blanket and nowhere near
+enough for a garment, whose sleeve, yoke, neck and length each follow a different body
+measurement and whose shaping rows change in number and placement between sizes. The way a
+hand-written garment pattern goes wrong is exactly that: the medium is worked out properly and
+the other sizes are the medium's numbers nudged. So here a design is a *template*, a function
+from one resolved size to a whole CIR, and every size is built by running it -- the same
+construction, recomputed from that size's own body.
+
+Three rules.
+
+**Bodies come from a published standard, never from us.** `BodyTable` holds the Craft Yarn
+Council standard body measurements, transcribed with their source URL and the date they were
+read. A measurement the source does not publish is `UNSOURCED`, and a design that needs it
+refuses to grade to that size instead of inventing one. Wrist and neck circumference are
+unsourced throughout: the CYC woman and child/youth charts do not give them.
+
+**Ease is the design; the body is not.** `FitIntent` states the ease added to each
+measurement. Finished size = body + ease. Nothing else in a template may move a body number.
+
+**A graded template may not contain a fixed-times repeat.** `[...] x 12` in a template is a
+number that was right for one size and is silently wrong for the others; widths are stated as
+stitch counts computed from the size, or as to-end repeats that resolve against the width
+they are given. `GradedDesign.build` refuses any other kind.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass, field
+from typing import Callable
+
+from .grading import GradingRefused
+from .model import CIR, Gauge, Grading, Provenance, Repeat
+
+# ---- the published standard ---------------------------------------------------------------
+
+# Transcribed by hand from the pages below on the retrieval date, from the centimetre rows
+# of each chart. Where the chart gives a range the range is kept and the midpoint is used.
+CYC_WOMAN_URL = "https://www.craftyarncouncil.com/standards/woman-size"
+CYC_CHILD_URL = "https://www.craftyarncouncil.com/standards/child-youth-sizes"
+RETRIEVED = "2026-09-26"
+
+# The sentinel for a measurement the source does not publish.
+UNSOURCED = None
+
+MEASUREMENTS: tuple[str, ...] = (
+    "bust",            # CYC "Chest"
+    "waist",           # CYC "Waist"
+    "hip",             # CYC "Hips"
+    "back_length",     # CYC "Back Waist Length" (nape to natural waist)
+    "arm_length",      # CYC "Arm Length to Underarm"
+    "upper_arm",       # CYC "Upper arm"
+    "armhole_depth",   # CYC "Armhole depth"
+    "cross_back",      # CYC "Cross Back (Shoulder to shoulder)" -- the shoulder measurement
+    "neck_to_wrist",   # CYC "Center Back Neck-to-Wrist"
+    "wrist",           # not published by CYC: UNSOURCED
+    "neck",            # not published by CYC: UNSOURCED
+)
+
+Range = tuple[float, float]
+
+
+def _cm(value: float | Range | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, tuple):
+        lo, hi = value
+        return round((lo + hi) / 2.0, 2)
+    return float(value)
+
+
+@dataclass(frozen=True)
+class BodyMeasurements:
+    """One standard size's body, in cm, as the source states it."""
+
+    size: str
+    published: dict[str, float | Range | None]
+
+    def cm(self, measurement: str) -> float | None:
+        if measurement not in MEASUREMENTS:
+            raise KeyError(f"{measurement!r} is not a measurement this table knows")
+        return _cm(self.published.get(measurement))
+
+    def is_sourced(self, measurement: str) -> bool:
+        return self.cm(measurement) is not None
+
+
+@dataclass(frozen=True)
+class BodyTable:
+    name: str
+    source_url: str
+    retrieved: str
+    sizes: tuple[BodyMeasurements, ...]
+
+    def size(self, name: str) -> BodyMeasurements:
+        for body in self.sizes:
+            if body.size == name:
+                return body
+        raise KeyError(f"{self.name} has no size {name!r}: {[b.size for b in self.sizes]}")
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(b.size for b in self.sizes)
+
+
+def _table(name: str, url: str, sizes: tuple[str, ...],
+           columns: dict[str, tuple]) -> BodyTable:
+    bodies = []
+    for i, size in enumerate(sizes):
+        published = {m: columns[m][i] if m in columns else UNSOURCED for m in MEASUREMENTS}
+        bodies.append(BodyMeasurements(size=size, published=published))
+    return BodyTable(name=name, source_url=url, retrieved=RETRIEVED, sizes=tuple(bodies))
+
+
+# Craft Yarn Council, Woman Size Charts (centimetre rows), read 2026-09-26.
+WOMAN = _table("CYC woman", CYC_WOMAN_URL,
+               ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X"), {
+    "bust": ((71, 76), (81, 86), (91.5, 96.5), (101.5, 106.5), (111.5, 117),
+             (122, 127), (132, 137), (142, 147), (152, 158)),
+    "neck_to_wrist": ((66, 68.5), (68.5, 70), (71, 72.5), (73.5, 75), (73.5, 75),
+                      (76.5, 77.5), (77.5, 79), (80, 81.5), (80, 81.5)),
+    "back_length": (42, 43, 43.5, 44.5, 45, 45.5, 45.5, 47, 47),
+    "cross_back": ((35.5, 37), (37, 38), (39.5, 40.5), (42, 43), 44.5,
+                   45.5, 45.5, 47, 47),
+    "arm_length": (42, 43, 43, 44.5, 44.5, 45.5, 45.5, 47, 47),
+    "upper_arm": (25, 26, 28, 30.5, 34.5, 39.5, 43, 47, 49.5),
+    "armhole_depth": ((15.5, 16.5), (16.5, 17.5), (17.5, 19), (19, 20.5), (20.5, 21.5),
+                      (21.5, 23), (23, 24), (24, 25.5), (25.5, 26.5)),
+    "waist": ((58.5, 61), (63.5, 67.5), (71, 76), (81.5, 86.5), (91.5, 96.5),
+              (101.5, 106.5), (111.5, 114), (116.5, 119), (124, 127)),
+    "hip": ((83.5, 86), (89, 91.5), (96.5, 101.5), (106.5, 111.5), (116.5, 122),
+            (132, 134.5), (137, 139.5), (142, 144.5), (155, 157)),
+})
+
+# Craft Yarn Council, Child/Youth Size Charts (centimetre rows), read 2026-09-26.
+# Child 2-10 and youth 12-16 are one run on the source's two charts.
+CHILD = _table("CYC child/youth", CYC_CHILD_URL,
+               ("2", "4", "6", "8", "10", "12", "14", "16"), {
+    "bust": (53, 58.5, 63.5, 67, 71, 76, 80, 82.5),
+    "neck_to_wrist": (45.5, 49.5, 52, 56, 61, 66, 68.5, 71),
+    "back_length": (21.5, 24, 26.5, 31.5, 35.5, 38, 39.5, 40.5),
+    "cross_back": (23.5, 25, 26, 27, 28.5, 30.5, 31, 33),
+    "arm_length": (21.5, 26.5, 29, 31.5, 34.5, 38, 40.5, 42),
+    "upper_arm": (17.5, 19, 20.5, 21.5, 22, 23, 23.5, 24),
+    "armhole_depth": (10.5, 12, 12.5, 14, 15.5, 16.5, 17.5, 19),
+    "waist": (53.5, 54.5, 57, 59.5, 62, 63.5, 67.5, 69.5),
+    "hip": (56, 59.5, 63.5, 71, 75, 80, 83.5, 90),
+})
+
+TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD}
+
+
+# ---- the design's intent ------------------------------------------------------------------
+
+
+# The fit words a Brambleloop garment may be described with, and the chest ease (cm) each
+# one is allowed to mean (F-763). Brambleloop's own stated bands, not an industry standard:
+# the bands overlap where two words honestly describe the same garment (14-22 cm reads as
+# relaxed or slouchy), and they are what ties a fit word in a listing or a PDF to a number
+# the design actually carries. A design states its character; one whose chest ease is
+# outside its own word's band is refused before it is built.
+FIT_CHARACTERS: tuple[str, ...] = ("fitted", "relaxed", "slouchy", "oversized")
+FIT_EASE_BANDS_CM: dict[str, tuple[float, float]] = {
+    "fitted": (0.0, 8.0),
+    "relaxed": (8.0, 22.0),
+    "slouchy": (14.0, 28.0),
+    "oversized": (20.0, 60.0),
+}
+
+
+@dataclass(frozen=True)
+class FitIntent:
+    """Ease per measurement, in cm. Positive is room; negative ease is refused.
+
+    `character` is the fit the design claims (`FIT_CHARACTERS`). Optional, because a design
+    may say nothing about its fit; then nothing downstream may say anything either
+    (`gates.policy` refuses a fit word with no stated character behind it).
+    """
+
+    ease_cm: dict[str, float] = field(default_factory=dict)
+    character: str | None = None
+
+    def __post_init__(self) -> None:
+        for m, e in self.ease_cm.items():
+            if m not in MEASUREMENTS:
+                raise GradingRefused(f"ease given for unknown measurement {m!r}")
+            if e < 0:
+                raise GradingRefused(
+                    f"negative ease on {m} means the garment is smaller than the body")
+        if self.character is not None:
+            if self.character not in FIT_CHARACTERS:
+                raise GradingRefused(f"fit {self.character!r} is not one of {FIT_CHARACTERS}")
+            lo, hi = FIT_EASE_BANDS_CM[self.character]
+            chest = float(self.ease_cm.get("bust", 0.0))
+            if not lo <= chest <= hi:
+                raise GradingRefused(
+                    f"a {self.character} fit means {lo:g}-{hi:g} cm of chest ease; this "
+                    f"design states {chest:g} cm, so its own fit word would be untrue")
+
+    def ease(self, measurement: str) -> float:
+        return float(self.ease_cm.get(measurement, 0.0))
+
+
+@dataclass(frozen=True)
+class GradedSize:
+    """One size, resolved: its body, the design's ease, and the gauge that converts both."""
+
+    size: str
+    body: BodyMeasurements
+    fit: FitIntent
+    gauge: Gauge
+
+    def body_cm(self, measurement: str) -> float:
+        value = self.body.cm(measurement)
+        if value is None:
+            raise GradingRefused(
+                f"size {self.size}: {measurement} is UNSOURCED in the standard this design "
+                f"grades from. A measurement nobody published is not one we may invent")
+        return value
+
+    def finished_cm(self, measurement: str) -> float:
+        return round(self.body_cm(measurement) + self.fit.ease(measurement), 2)
+
+    def stitches(self, cm: float, *, multiple: int = 1, minimum: int = 1) -> int:
+        """The nearest whole number of stitches (in whole `multiple`s) to `cm` at gauge."""
+        raw = cm / 10.0 * self.gauge.stitches_per_10cm
+        n = max(minimum, int(round(raw / multiple)) * multiple)
+        return max(n, multiple)
+
+    def rows(self, cm: float, *, minimum: int = 1) -> int:
+        return max(minimum, int(round(cm / 10.0 * self.gauge.rows_per_10cm)))
+
+    def cm_of_stitches(self, n: int) -> float:
+        return round(n / self.gauge.stitches_per_10cm * 10.0, 1)
+
+    def cm_of_rows(self, n: int) -> float:
+        return round(n / self.gauge.rows_per_10cm * 10.0, 1)
+
+
+Template = Callable[[GradedSize], CIR]
+
+
+def _fixed_repeats(cir: CIR) -> list[str]:
+    found = []
+
+    def walk(nodes, where):
+        for n in nodes:
+            if isinstance(n, Repeat):
+                if n.times is not None:
+                    found.append(where)
+                walk(n.ops, where)
+    for comp in cir.components:
+        for row in comp.rows:
+            walk(row.ops, f"{comp.name} row {row.index}")
+    return found
+
+
+@dataclass
+class GradedDesign:
+    """A design as a function of size.
+
+    `requires` names every body measurement the template reads; a size whose standard does
+    not publish one of them is refused before the template runs, so the refusal names the
+    missing measurement instead of surfacing as an arithmetic error somewhere in a sleeve.
+    """
+
+    key: str
+    title: str
+    table: BodyTable
+    fit: FitIntent
+    gauge: Gauge
+    template: Template
+    requires: tuple[str, ...]
+    sizes: tuple[str, ...] | None = None
+    primitives: tuple[str, ...] = ("cir.graded",)
+    # How to measure a BUILT size: CIR -> {"chest": cm, other finished measures: cm}, from
+    # its compiled rows and twin. When given, `check_monotonic` checks what was built as
+    # well as what was asked for, because rounding happens between the two (audit C-10).
+    measure: Callable[[CIR], dict] | None = None
+    # Benchmarks consulted for demand and merchandising intelligence (F-794). Carried into
+    # every size's Provenance, so certification asks a benchmark-informed graded garment for
+    # its design-difference ledger exactly as it asks any other product.
+    benchmarks_consulted: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        unknown = [m for m in self.requires if m not in MEASUREMENTS]
+        if unknown:
+            raise GradingRefused(f"{self.key} requires unknown measurements {unknown}")
+        if "bust" not in self.requires:
+            raise GradingRefused(f"{self.key}: a garment is graded by its chest at least")
+
+    @property
+    def size_names(self) -> tuple[str, ...]:
+        return self.sizes or self.table.names
+
+    def graded_size(self, size: str) -> GradedSize:
+        body = self.table.size(size)
+        missing = [m for m in self.requires if not body.is_sourced(m)]
+        if missing:
+            raise GradingRefused(
+                f"{self.key} cannot be graded to size {size}: {missing} UNSOURCED in "
+                f"{self.table.name} ({self.table.source_url}). Refused rather than invented")
+        return GradedSize(size=size, body=body, fit=self.fit, gauge=self.gauge)
+
+    def sourced_sizes(self) -> tuple[str, ...]:
+        """The sizes this design can honestly be graded to."""
+        out = []
+        for size in self.size_names:
+            try:
+                self.graded_size(size)
+            except GradingRefused:
+                continue
+            out.append(size)
+        return tuple(out)
+
+    def brief_digest(self) -> str:
+        brief = {"key": self.key, "table": self.table.source_url,
+                 "retrieved": self.table.retrieved, "ease": sorted(self.fit.ease_cm.items()),
+                 "gauge": [self.gauge.stitches_per_10cm, self.gauge.rows_per_10cm,
+                           self.gauge.stitch_type], "requires": list(self.requires)}
+        return hashlib.sha256(json.dumps(brief, sort_keys=True).encode()).hexdigest()[:16]
+
+    def build(self, size: str) -> CIR:
+        """One size, carrying the whole size family's matrix (F-762)."""
+        cir = self._build_raw(size)
+        cir.grading = self.grading_for(size)
+        return cir
+
+    def grading_for(self, size: str) -> Grading:
+        return Grading(design_key=self.key, size=size, table=self.table.name,
+                       source_url=self.table.source_url, retrieved=self.table.retrieved,
+                       fit=self.fit.character, ease_cm=dict(self.fit.ease_cm),
+                       sizes=[dict(e) for e in self.size_matrix()])
+
+    def size_matrix(self) -> list[dict]:
+        """The machine-readable size matrix: every sourced size, built and measured.
+
+        Body and intended (body + ease) per required measurement from the sourced table;
+        built finished measures, widest row per piece, rows per piece and whole-garment
+        yardage from that size's own compiled rows and twin (`measure_size`). Computed once
+        per design object: every size's CIR carries the same matrix.
+        """
+        cached = getattr(self, "_matrix", None)
+        if cached is not None:
+            return cached
+        out = []
+        for size in self.sourced_sizes():
+            g = self.graded_size(size)
+            entry = {"size": size,
+                     "body_cm": {m: g.body_cm(m) for m in self.requires},
+                     "intended_cm": {m: g.finished_cm(m) for m in self.requires}}
+            entry.update(measure_size(self._build_raw(size), self.measure))
+            out.append(entry)
+        # Recorded, not judged, here: certification re-checks every relationship from the
+        # matrix each size carries (`grading_problems`), so a design that grades badly is
+        # refused with the reason on its certificate rather than failing to exist.
+        self._matrix = out
+        return out
+
+    def _build_raw(self, size: str) -> CIR:
+        graded = self.graded_size(size)
+        cir = self.template(graded)
+        fixed = _fixed_repeats(cir)
+        if fixed:
+            raise GradingRefused(
+                f"{self.key} size {size}: fixed-times repeats in a graded template at "
+                f"{fixed}. A repeat count that is right for one size is wrong for the others; "
+                f"state the width as a computed stitch count or a to-end repeat")
+        if cir.authored != "brambleloop":
+            raise GradingRefused(f"{self.key}: a graded Brambleloop design must be authored "
+                                 f"as Brambleloop's own")
+        # A garment whose neck cannot sit on this size's body is refused here, with the body
+        # in hand, as well as by certification from the CIR alone (audit C-7).
+        from .specification import GarmentImplausible, refuse_an_implausible_garment
+        try:
+            refuse_an_implausible_garment(
+                cir, cross_back_cm=graded.body.cm("cross_back"))
+        except GarmentImplausible as exc:
+            raise GradingRefused(f"{self.key} size {size}: {exc}") from exc
+        if cir.provenance is None:
+            cir.provenance = Provenance(
+                concept_key=self.key, brief_digest=self.brief_digest(),
+                primitives_used=self.primitives,
+                benchmarks_consulted=tuple(self.benchmarks_consulted),
+                generated_by="brambleloop")
+        return cir
+
+    def build_all(self) -> dict[str, CIR]:
+        return {size: self.build(size) for size in self.sourced_sizes()}
+
+    def size_table(self) -> list[dict]:
+        """Per size: each required measurement, body and finished, in cm."""
+        rows = []
+        for size in self.sourced_sizes():
+            g = self.graded_size(size)
+            rows.append({"size": size, "measurements": {
+                m: {"body_cm": g.body_cm(m), "finished_cm": g.finished_cm(m)}
+                for m in self.requires}})
+        return rows
+
+    def check_monotonic(self, *, built: bool = True) -> None:
+        """Finished chest rises strictly with size; every other measure never falls.
+
+        Checked on the requested figures and, when the design says how to measure a built
+        size and `built` is true, on the built CIRs too: whole rows and stitches are rounded
+        per size, and a requested length that rises can still build shorter (audit C-10).
+        """
+        table = self.size_table()
+        for m in self.requires:
+            values = [r["measurements"][m]["finished_cm"] for r in table]
+            for i in range(1, len(values)):
+                if values[i] < values[i - 1] or (m == "bust" and values[i] == values[i - 1]):
+                    raise GradingRefused(
+                        f"{self.key}: finished {m} goes from {values[i - 1]} at "
+                        f"{table[i - 1]['size']} to {values[i]} at {table[i]['size']}")
+        if built and self.measure is not None:
+            sizes = self.sourced_sizes()
+            measured = [self.measure(self.build(s)) for s in sizes]
+            for i in range(1, len(measured)):
+                a, b = measured[i - 1], measured[i]
+                for m in b:
+                    if b[m] + 1e-9 < a.get(m, float("-inf")) or \
+                            (m == "chest" and not b[m] > a[m]):
+                        raise GradingRefused(
+                            f"{self.key}: built {m} goes from {a[m]:.1f} cm at {sizes[i - 1]} "
+                            f"to {b[m]:.1f} cm at {sizes[i]}")
+
+
+# ---- the size table, as a document states it and a reader reads it -----------------------
+
+_LABELS = {m: m.replace("_", " ") for m in MEASUREMENTS}
+
+
+def write_size_table(design: GradedDesign) -> str:
+    """The customer-facing size table. One line per size, in a regular grammar."""
+    lines = [f"Sizes ({design.table.name}, {design.table.source_url}, "
+             f"read {design.table.retrieved}):"]
+    for row in design.size_table():
+        parts = [f"{_LABELS[m]} {v['body_cm']:g} cm to fit, {v['finished_cm']:g} cm finished"
+                 for m, v in row["measurements"].items()]
+        lines.append(f"Size {row['size']}: " + "; ".join(parts) + ".")
+    return "\n".join(lines) + "\n"
+
+
+_SIZE_LINE = re.compile(r"^Size\s+(\S+):\s*(.+?)\.\s*$")
+_MEASURE = re.compile(r"([a-z ]+?)\s+([\d.]+)\s+cm\s+to\s+fit,\s+([\d.]+)\s+cm\s+finished")
+
+
+def parse_size_table(text: str) -> list[dict]:
+    """Read a size table back from text alone. Its own grammar; shares nothing with the writer."""
+    names = {v: k for k, v in _LABELS.items()}
+    out = []
+    for raw in text.splitlines():
+        m = _SIZE_LINE.match(raw.strip())
+        if not m:
+            continue
+        measures = {}
+        for label, body, finished in _MEASURE.findall(m.group(2)):
+            key = names.get(label.strip())
+            if key is None:
+                raise GradingRefused(f"unknown measurement {label!r} in {raw!r}")
+            measures[key] = {"body_cm": float(body), "finished_cm": float(finished)}
+        out.append({"size": m.group(1), "measurements": measures})
+    return out
+
+
+# ---- size depth of a certified release (C-80, #5 and #169) --------------------------------
+
+GRADED_PRIMITIVE = "cir.graded"
+_SIZE_TITLE = re.compile(r"^(?P<root>.+?)\s*\((?:size\s+)?(?P<size>[^()]+)\)\s*$", re.I)
+
+
+def _design_of(cir_json: dict) -> tuple[str, str] | None:
+    """(kind, key) naming the design this stored CIR is one size of, or None if unreadable.
+
+    A graded build records its design in `provenance.concept_key` with `cir.graded` among the
+    primitives used. A stored CIR without provenance is one size of a design when its title
+    carries the size-variant suffix the builders write (`"... (size M)"`, `"... (Crib)"`);
+    otherwise the design is the release itself.
+    """
+    if not isinstance(cir_json, dict) or not cir_json.get("slug"):
+        return None
+    prov = cir_json.get("provenance")
+    if isinstance(prov, dict):
+        prims = {str(p) for p in (prov.get("primitives_used") or ())}
+        if GRADED_PRIMITIVE in prims and prov.get("concept_key"):
+            return ("graded", str(prov["concept_key"]))
+    m = _SIZE_TITLE.match(str(cir_json.get("title") or ""))
+    if m:
+        return ("titled_size", m.group("root").strip().lower())
+    return ("single", str(cir_json["slug"]))
+
+
+def size_run(cir_json: dict, catalogue: list[dict] | dict[str, dict] | None = None) -> dict:
+    """How many finished sizes a certified release is one of, read from what is stored.
+
+    Never a default. The count is the number of certified releases in the same design's
+    size run -- the CIRs sharing its graded `concept_key` (or, for a builder without
+    provenance, the same size-variant title root) -- and a design with no other certified
+    size in the catalogue is a run of one, which is a measurement of the catalogue, not a
+    constant. A CIR that cannot be read (no slug) is UNMEASURED and says so.
+    """
+    design = _design_of(cir_json)
+    if design is None:
+        return {"sizes": None, "status": "UNMEASURED", "basis": "unreadable",
+                "why": "the stored CIR carries no slug, so its size run cannot be read"}
+    rows = list(catalogue.values()) if isinstance(catalogue, dict) else list(catalogue or [])
+    run = {str(cir_json["slug"])}
+    if design[0] != "single":
+        for other in rows:
+            if _design_of(other) == design and other.get("slug"):
+                run.add(str(other["slug"]))
+    basis = {"graded": "graded run (provenance cir.graded, shared concept_key)",
+             "titled_size": "size-variant titles of one design",
+             "single": "a single release; no grading primitive recorded and no other "
+                       "certified size of this design"}[design[0]]
+    return {"sizes": len(run), "status": "MEASURED", "basis": basis, "design": design[1],
+            "run": sorted(run)}
+
+
+# ---- the size matrix, measured and re-checked (F-762, F-768) -----------------------------
+
+# How far a size's built chest may sit from its intended chest (body + ease). Whole stitches
+# in whole pattern multiples are rounded per size, so the built garment is never exactly the
+# requested one. 5% is the suite's own intended-vs-twin tolerance (tests/test_cert_grading
+# TWIN_TOLERANCE); a size built to its neighbour's chest where the step is smaller than that
+# (CYC child 14 -> 16 is 3%) is caught by the strict rise of the built chest instead.
+CHEST_TOLERANCE = 0.05
+# A recomputed figure equal to the stored one, allowing only float formatting.
+_SAME_CM = 0.051
+_SAME_M = 0.51
+
+
+def measure_size(cir: CIR, measure: Callable[[CIR], dict] | None = None) -> dict:
+    """One size's matrix figures, recomputed from its own rows (never from the design)."""
+    from .compiler import compile_cir
+    from .twin import build_twin
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise GradingRefused(f"{cir.slug} does not compile: "
+                             f"{[str(e) for e in result.errors][:1]}")
+    stitches, rows, metres = {}, {}, 0.0
+    for comp in cir.components:
+        counts = [r.stitch_count for r in result.rows if r.component == comp.name]
+        stitches[comp.name] = max(counts) if counts else 0
+        rows[comp.name] = len(comp.rows)
+        twin = build_twin(cir, result, component=comp.name)
+        metres += sum(twin.yarn_metres_by_color.values()) * comp.make
+    built = {k: round(float(v), 1) for k, v in (measure(cir) if measure else {}).items()}
+    return {"built_cm": built, "stitches": stitches, "rows": rows,
+            "yarn_m": round(metres, 1)}
+
+
+def matrix_problems(sizes: list[dict], *, ease_cm: dict, fit: str | None) -> list[str]:
+    """Every grading relationship the size family breaks, recomputed from the matrix alone.
+
+    - intended = body + ease for every measurement, and ease is never negative;
+    - intended chest rises strictly with size, every other intended measure never falls;
+    - built chest rises strictly, every other built measure never falls;
+    - built chest within `CHEST_TOLERANCE` of intended chest, and never below the body;
+    - the widest row of every piece never falls, and yardage rises strictly;
+    - the stated fit character's chest-ease band holds at every size (on the built chest).
+    """
+    out: list[str] = []
+    if not sizes:
+        return ["the size matrix is empty"]
+    for e in sizes:
+        for m, body in (e.get("body_cm") or {}).items():
+            want = round(float(body) + float(ease_cm.get(m, 0.0)), 2)
+            got = (e.get("intended_cm") or {}).get(m)
+            if got is None or abs(float(got) - want) > _SAME_CM:
+                out.append(f"size {e['size']}: intended {m} {got} is not body {body} + ease "
+                           f"{ease_cm.get(m, 0.0)}")
+        chest, body = (e.get("built_cm") or {}).get("chest"), (e.get("body_cm") or {}).get("bust")
+        intended = (e.get("intended_cm") or {}).get("bust")
+        if chest is not None and intended:
+            if abs(chest - intended) / intended > CHEST_TOLERANCE:
+                out.append(f"size {e['size']}: built chest {chest} cm is more than "
+                           f"{CHEST_TOLERANCE:.0%} from the intended {intended} cm")
+            if body is not None and chest < body:
+                out.append(f"size {e['size']}: built chest {chest} cm is smaller than the "
+                           f"body it is graded to ({body} cm)")
+            if fit is not None and body is not None:
+                lo, hi = FIT_EASE_BANDS_CM[fit]
+                ease = chest - body
+                if not lo - 2.0 <= ease <= hi + 2.0:
+                    out.append(f"size {e['size']}: built chest ease {ease:.1f} cm is outside "
+                               f"the {fit} band {lo:g}-{hi:g} cm")
+    for a, b in zip(sizes, sizes[1:]):
+        pair = f"{a['size']} -> {b['size']}"
+        for block, strict in (("intended_cm", "bust"), ("built_cm", "chest")):
+            for m, vb in (b.get(block) or {}).items():
+                va = (a.get(block) or {}).get(m)
+                if va is None:
+                    continue
+                if vb < va - 1e-9 or (m == strict and not vb > va):
+                    out.append(f"{block[:-3]} {m} does not grow {pair}: {va} -> {vb}")
+        # Widest row only. Row counts are recorded and recomputed but legitimately fall: a
+        # drop-shoulder sleeve gets SHORTER as the shoulder drops further down a larger body.
+        for piece, vb in (b.get("stitches") or {}).items():
+            va = (a.get("stitches") or {}).get(piece)
+            if va is not None and vb < va:
+                out.append(f"{piece} widest row falls {pair}: {va} -> {vb} sts")
+        if not float(b.get("yarn_m") or 0) > float(a.get("yarn_m") or 0):
+            out.append(f"yardage does not rise {pair}: {a.get('yarn_m')} -> {b.get('yarn_m')}")
+    return out
+
+
+def grading_problems(cir: CIR) -> list[str]:
+    """F-768: certification recomputes a graded release instead of trusting its matrix.
+
+    This size's entry is recomputed from the CIR's own rows (stitches, rows, yardage and, for
+    a garment the garment instrument can measure, the built finished measures) and must
+    equal the stored one; then every relationship in the family is re-checked from the
+    matrix (`matrix_problems`), and the table and ease the block names must be the sourced
+    table's. A graded build (provenance `cir.graded`) with no matrix is a problem in itself.
+    """
+    g = cir.grading
+    prov = cir.provenance
+    graded_build = prov is not None and GRADED_PRIMITIVE in set(prov.primitives_used or ())
+    if g is None:
+        return (["a graded build carries no size matrix, so its sizes cannot be re-checked"]
+                if graded_build and cir.authored == "brambleloop" else [])
+    out: list[str] = []
+    table = next((t for t in TABLES.values() if t.name == g.table), None)
+    if table is None or table.source_url != g.source_url:
+        out.append(f"the size matrix names table {g.table!r} ({g.source_url}), which is not "
+                   f"a sourced body table")
+    else:
+        order = [s for s in table.names if s in g.size_names]
+        if list(g.size_names) != order:
+            out.append(f"the size matrix is not in the table's size order: "
+                       f"{list(g.size_names)}")
+        for e in g.sizes:
+            if e.get("size") not in table.names:
+                out.append(f"size {e.get('size')!r} is not in {table.name}")
+                continue
+            body = table.size(e["size"])
+            for m, v in (e.get("body_cm") or {}).items():
+                if body.cm(m) is None or abs(body.cm(m) - float(v)) > _SAME_CM:
+                    out.append(f"size {e['size']}: body {m} {v} is not the sourced "
+                               f"{body.cm(m)}")
+    mine = g.entry()
+    if mine is None:
+        return out + [f"this release's size {g.size!r} is not in its own size matrix"]
+    try:
+        measure = None
+        if mine.get("built_cm"):
+            from ..products.garments import built_measures as measure  # the garment instrument
+        now = measure_size(cir, measure)
+    except Exception as exc:  # noqa: BLE001 - a CIR that cannot be measured is a finding
+        return out + [f"size {g.size} could not be recomputed: {exc}"]
+    for block in ("stitches", "rows"):
+        if now[block] != mine.get(block):
+            out.append(f"size {g.size}: recomputed {block} {now[block]} differ from the "
+                       f"matrix {mine.get(block)}")
+    if abs(now["yarn_m"] - float(mine.get("yarn_m") or 0)) > _SAME_M:
+        out.append(f"size {g.size}: recomputed yardage {now['yarn_m']} m differs from the "
+                   f"matrix {mine.get('yarn_m')} m")
+    for m, v in (mine.get("built_cm") or {}).items():
+        if abs(now["built_cm"].get(m, float("nan")) - float(v)) > _SAME_CM \
+                or m not in now["built_cm"]:
+            out.append(f"size {g.size}: recomputed built {m} {now['built_cm'].get(m)} cm "
+                       f"differs from the matrix {v} cm")
+    return out + matrix_problems(g.sizes, ease_cm=g.ease_cm, fit=g.fit)

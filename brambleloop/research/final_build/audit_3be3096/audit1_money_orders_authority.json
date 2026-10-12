@@ -1,0 +1,266 @@
+[
+ {
+  "id": "A1",
+  "severity": "LAUNCH-BLOCKING",
+  "title": "store.activate ignores the owner's recorded phase (rollback to shadow does not stop activation)",
+  "files": [
+   "src/brambleloop/runtime/pipeline.py:1760-1882",
+   "src/brambleloop/runtime/worker.py:119-126",
+   "src/brambleloop/app/worker_entry.py:36-42"
+  ],
+  "reproduction": "PYTHONPATH=src python auth1.py: record phase path to limited_production, approve activation grant, owner records transition to shadow (core.phase.effective -> 'shadow'), run store.activate on a Worker built with Phase.LIMITED_PRODUCTION and BRAMBLELOOP_PUBLISH_AUTHORISED=1.",
+  "observed": "effective phase now: shadow / activate outputs: {'activated': True, 'state_on_etsy': 'active'} / etsy state: active",
+  "impact": "The only effect that makes a listing public and charges a fee honours only the worker's boot-time phase and the env flag. An owner phase rollback (the documented kill path, F-299) is not honoured by activation (publish does re-resolve core.phase.effective, activate does not).",
+  "fix": "In handle_store_activate, resolve core.phase.effective(ctx.db) at both effect-boundary checks (and before client.activate) and refuse unless in PHASES_THAT_MAY_PUBLISH; better, make Worker/ctx.phase a live property.",
+  "verified": true
+ },
+ {
+  "id": "B1",
+  "severity": "HIGH",
+  "title": "Unbilled spend: malformed model output is billed by the provider but recorded as 0 tokens / no cost row",
+  "files": [
+   "src/brambleloop/gateway/model_gateway.py:218-232,293-345"
+  ],
+  "reproduction": "spend2.py: ModelGateway with registry and a provider returning ModelResponse(input_tokens=3000, output_tokens=1500) with non-JSON text; complete_json('concept.naming@1').",
+  "observed": "raised MalformedModelOutput; calls=[(0,0,0.0,False),(0,0,0.0,False)]; CostEntry rows: 0; spent_this_month: 0.0 (two attempts per provider, response tokens discarded)",
+  "impact": "Every malformed-JSON retry is real provider spend never counted against the CA$100 month or agent daily ceiling. Retry loops make it systematic.",
+  "fix": "Record response.input_tokens/output_tokens (modelled cost, price_basis assumed) for the malformed attempt; release reservation with actual cost.",
+  "verified": true
+ },
+ {
+  "id": "B2",
+  "severity": "HIGH",
+  "title": "Image render spend is never written to the cost ledger by images.generate or most callers",
+  "files": [
+   "src/brambleloop/gateway/images.py:772-830,684",
+   "src/brambleloop/visual/tournament.py:362,469",
+   "src/brambleloop/visual/portrait_repair.py:258",
+   "src/brambleloop/visual/reference_pack.py:141",
+   "src/brambleloop/publish/model_photography.py:318",
+   "src/brambleloop/publish/owned_photography.py:319",
+   "src/brambleloop/gateway/images.py:885 (reference_probe)"
+  ],
+  "reproduction": "spend1.py S1: patch images._post to return an image; 3x images.generate(db=db,...).",
+  "observed": "CostEntry rows: 0; spent_this_month: 0.0; reservations released with actual_cad 0.0274 each. Only image_bench and images.probe write CostEntry.",
+  "impact": "The reservation is released with actual_cad but the monthly ceiling counts only CostEntry(kind=llm); render spend vanishes after release, so the CA$100 combined 'model, vision and image' ceiling and break-even/unit-cost never see it. spend_report drift even labels image rows 'reconciles by construction' while none exist.",
+  "fix": "Write spend_report.record(...) inside images._generate_reserved (single writer) with price_basis assumed; make release_render do it.",
+  "verified": true
+ },
+ {
+  "id": "B3",
+  "severity": "HIGH",
+  "title": "Image provider billed-but-failed renders release the reservation as unbilled",
+  "files": [
+   "src/brambleloop/gateway/images.py:772-779,820-870"
+  ],
+  "reproduction": "spend1.py S2: provider POST succeeds, returned image link cannot be fetched.",
+  "observed": "ImagesRefused raised; reservation (0.0274, actual None, released); 0 cost rows",
+  "impact": "After _post succeeds the provider has charged; link-fetch failure, BFL poll timeout/moderation, empty image all count as zero spend.",
+  "fix": "Treat any failure after the provider POST returned 2xx as billed (record modelled cost, release with actual).",
+  "verified": true
+ },
+ {
+  "id": "B4",
+  "severity": "MEDIUM",
+  "title": "Ceiling check and reservation are not atomic (check-then-insert race across holders)",
+  "files": [
+   "src/brambleloop/gateway/anthropic.py:284-436",
+   "src/brambleloop/finance/reservations.py:62-86"
+  ],
+  "reproduction": "spend1.py S4: two threads (distinct holders) call check_budget_cad(estimate=60) with ceiling 100; outstanding() read synchronised by a barrier to widen the natural window.",
+  "observed": "['ok','ok'], reserved total 120.0 vs ceiling 100",
+  "impact": "Overshoot bounded by concurrent callers x estimate; real window is the gap between outstanding() and reserve() (no lock/txn; listing_costs.locked exists but is not used here). Barrier is artificial; race is real on Postgres with several workers.",
+  "fix": "Do the sum + insert in one transaction under pg_advisory_xact_lock / BEGIN IMMEDIATE (as listing_costs.locked does), re-check after insert.",
+  "verified": true
+ },
+ {
+  "id": "B5",
+  "severity": "MEDIUM",
+  "title": "Own-holder reservations excluded from the ceiling; protection depends on callers passing uncommitted_cad",
+  "files": [
+   "src/brambleloop/finance/reservations.py:150-178",
+   "src/brambleloop/gateway/anthropic.py:306-312"
+  ],
+  "reproduction": "spend1.py S3: 10 sequential check_budget_cad(estimate=40) from one holder with no release.",
+  "observed": "granted 10 x CA$40 against ceiling 100.0 (no refusal)",
+  "impact": "A batch loop that reserves and releases late (or forgets uncommitted_cad) can reserve 4x the month. Not shown to occur in current callers (suspected hazard).",
+  "fix": "Count own live reservations too, and have callers release before re-reserving; or count own-holder reservations minus declared uncommitted.",
+  "verified": true
+ },
+ {
+  "id": "C1",
+  "severity": "HIGH",
+  "title": "Readiness 'sustainable_economics' passes on assumed sales volume and partial cost data",
+  "files": [
+   "src/brambleloop/finance/sustainability.py:20-60,229-347",
+   "src/brambleloop/launch/readiness.py:799-828"
+  ],
+  "reproduction": "sust1.py: one DRAFT listing at CA$8, 25 llm CostEntry rows (CA$0.50 total, 5 tagged to the product), zero orders.",
+  "observed": "sustainable: True | steady-state economics are sustainable at opening prices; base: contribution_monthly 417.6 (60 assumed sales/month x modelled per-sale), ai cost 0.9. break_even row 'reading: computed', break_even_sales 1.",
+  "impact": "Sustainability gate input is entirely assumed sales (SCENARIOS) x modelled fees; image spend (B2), untagged/ads/hosting are excluded; output never states volume is assumed, and the readiness requirement is ready=True. Missing data (no sales, no creation cost beyond tagged rows) yields a green gate, contradicting 'UNKNOWN is never zero'.",
+  "fix": "Require measured orders (or label verdict 'ASSUMED' and keep ready=False until sales observed); include all spend kinds and untracked-render gaps; mark break_even 'floor' when creation cost is partial.",
+  "verified": true
+ },
+ {
+  "id": "D1",
+  "severity": "HIGH",
+  "title": "Phase transition seal is replayable: copying an old sealed 'production' row as newest restores production",
+  "files": [
+   "src/brambleloop/core/phase.py:77-130,181-244"
+  ],
+  "reproduction": "auth2.py: record shadow->...->production, then rollback to shadow, then (DB writer, no token) insert a copy of the old sealed 'limited_production->production' AuditLog row.",
+  "observed": "after rollback: shadow; after replay of old sealed row: production True 'recorded limited_production -> production' (env agrees, no incident)",
+  "impact": "Seal binds content only; no nonce/sequence/prev-hash/expiry. latest_recorded() trusts the newest verifying row, so a replay defeats an owner rollback and the 'forged row' defence the module claims.",
+  "fix": "Chain transitions: seal includes prev transition id/hash and the record must have from == the verified previous 'to'; reject duplicates of an existing seal.",
+  "verified": true
+ },
+ {
+  "id": "D2",
+  "severity": "MEDIUM",
+  "title": "Grant revocation is unsealed: deleting the revocation row revives a revoked publication/activation grant",
+  "files": [
+   "src/brambleloop/ops/publication_authority.py:392-410,421-424",
+   "src/brambleloop/ops/activation_authority.py:87-105"
+  ],
+  "reproduction": "auth2.py: sealed grant, pa.revoke(), delete the owner.publication.revoked AuditLog row, call _check_one.",
+  "observed": "after deleting revocation row: refusal= None (grant valid again, within 24h)",
+  "impact": "Revocation is plain append-only audit row with no seal; also anyone able to insert audit rows can DoS any grant. Needs DB write access (not the token).",
+  "fix": "Seal revocations under the ops token and bind to grant seal; treat unsealed revocation as revoking (fail closed) but a missing one detectable via audit chain.",
+  "verified": true
+ },
+ {
+  "id": "D3",
+  "severity": "LOW",
+  "title": "Authority enforced only at the pipeline call site, not inside EtsyClient (create_draft/activate need only env flag + phase / any non-empty string)",
+  "files": [
+   "src/brambleloop/integrations/etsy.py:1048-1100,914,1118",
+   "src/brambleloop/runtime/pipeline.py:1245-1253"
+  ],
+  "reproduction": "read only: EtsyClient(phase=limited_production, owner_authorised=True).activate('1', launch_authorisation='x') passes _require; activate() only checks non-empty string.",
+  "observed": "not executed (no network)",
+  "impact": "Any new caller of the client bypasses the sealed grant; defence in depth gap.",
+  "fix": "Make client require a verified grant object (id + validate callback) for create_draft/activate.",
+  "verified": false
+ },
+ {
+  "id": "D4",
+  "severity": "LOW",
+  "title": "Upward phase transition accepts arbitrary evidence refs; no check that readiness/rollback evidence exists or passes",
+  "files": [
+   "src/brambleloop/core/phase.py:196-240"
+  ],
+  "reproduction": "read: refs only need non-empty strings for keys readiness and rollback.",
+  "observed": "not executed",
+  "impact": "Owner-token holder can step to production on fabricated refs; the audit trail looks complete.",
+  "fix": "Resolve refs against launch.readiness / rollback records.",
+  "verified": false
+ },
+ {
+  "id": "E1",
+  "severity": "MEDIUM",
+  "title": "Receipt status 'partially refunded' with no refunds[] rows is booked as an unrefunded paid sale",
+  "files": [
+   "src/brambleloop/commerce/orders_ingest.py:287-330,345-380"
+  ],
+  "reproduction": "orders1.py A: receipt status='partially refunded', refunds=[].",
+  "observed": "order revenue 10.0, refunded False, contribution 8.77, state paid",
+  "impact": "Revenue/contribution overstated until a ledger refund entry (unit UNVERIFIED) shows; the status Etsy gave is dropped.",
+  "fix": "Treat partially refunded without a refund amount as UNKNOWN/held for refund amount; flag order and exclude from 'measured'.",
+  "verified": true
+ },
+ {
+  "id": "E2",
+  "severity": "MEDIUM",
+  "title": "Fully refunded/cancelled first order is kept as 'the first sale' and counted as order and customer",
+  "files": [
+   "src/brambleloop/finance/sources.py:164-214",
+   "src/brambleloop/finance/books.py:215-240",
+   "src/brambleloop/commerce/orders_ingest.py:843"
+  ],
+  "reproduction": "orders2.py/orders4.py: paid receipt, then same receipt canceled with higher update_timestamp.",
+  "observed": "first_sale record payload price_cad 10.0 for etsy:2:20 with no state; P&L: gross 10, refunds 10, net 0, orders 1, customers 1, trajectory observed_orders 1",
+  "impact": "'First truthful sale' milestone and cost-per-acquired-customer / AOV count a voided sale; first_sale payload never refreshes its state.",
+  "fix": "Exclude fully_refunded/cancelled from order & customer counts (report separately) and pick first sale from net-positive paid orders; refresh payload on state change.",
+  "verified": true
+ },
+ {
+  "id": "E3",
+  "severity": "MEDIUM",
+  "title": "A paid sale in a currency with no stored rate (EUR/GBP/AUD) is written nowhere while books read 'measured'",
+  "files": [
+   "src/brambleloop/commerce/orders_ingest.py:493-503,791-800",
+   "src/brambleloop/finance/books.py:277"
+  ],
+  "reproduction": "orders5.py: receipt currency EUR/GBP/AUD.",
+  "observed": "orders [] ; not_recorded [{'why': 'no rate on file for EUR...'}]; ran True; only the audit row detail carries it, no incident/owner action",
+  "impact": "Real revenue and the real first customer vanish from ledger/customers/first_sale; cursor advances; P&L reports sales_reading measured with undercount.",
+  "fix": "Record the order with unconverted amount and basis UNKNOWN FX (or open an incident/owner action and mark sales INCOMPLETE).",
+  "verified": true
+ },
+ {
+  "id": "E4",
+  "severity": "MEDIUM",
+  "title": "Partial ledger fee reads as 'measured' and is not reflected in order detail/basis text",
+  "files": [
+   "src/brambleloop/finance/reconcile.py:170-215",
+   "src/brambleloop/commerce/orders_ingest.py:350-357"
+  ],
+  "reproduction": "orders3.py K: only a 'transaction' ledger entry (0.65) posted for a CA$10 sale.",
+  "observed": "fees_basis 'measured', fees_cad 0.65 (model 1.23), contribution 9.35, reconciliation partial_etsy_ledger, but detail.money.contribution_basis still 'ESTIMATED fees'; books all_observed counts fees as measured",
+  "impact": "Contribution overstated and labelled measured before processing fee posts; books all_figures_observed can be true on partial fees.",
+  "fix": "Keep 'modelled'/'partial' basis (take max(model, measured) for missing kinds) until EXPECTED_PER_ORDER kinds present; treat partial as not observed in books.all_observed.",
+  "verified": true
+ },
+ {
+  "id": "E5",
+  "severity": "MEDIUM",
+  "title": "Ledger refund/fee classification by substring: a fee credit named *_refund is booked as a customer refund; ledger units UNVERIFIED with no plausibility bound",
+  "files": [
+   "src/brambleloop/finance/reconcile.py:36-90,150-157,232-265"
+  ],
+  "reproduction": "orders3.py M (ledger_type 'transaction_fee_refund', amount +65c) and L (amount 6500 on a CA$10 sale).",
+  "observed": "M: revenue 10.00 -> 9.35, ledger_refund_cad 0.65, fees unchanged 1.23. L: fees measured 65.0, contribution -55.0 (no sanity cap)",
+  "impact": "Real ledger_type strings and LEDGER_AMOUNT_DIVISOR=100 were never read from a live shop (module says so) yet results are stamped measured. A unit error silently produces measured losses.",
+  "fix": "Classify fee reversals before refunds; quarantine entries whose fee exceeds e.g. 50% of price as unclassified; do not flip to measured until a live read validates units.",
+  "verified": true
+ },
+ {
+  "id": "E6",
+  "severity": "LOW",
+  "title": "Refund currency ignored; duplicate transaction_ids in a receipt collapse to one line",
+  "files": [
+   "src/brambleloop/commerce/orders_ingest.py:278-300"
+  ],
+  "reproduction": "orders1.py D, I: USD 5.00 refund on CAD receipt; duplicated transaction id.",
+  "observed": "D: revenue 5.0 (USD refund read as CAD); I: one order of 10.0, duplicate silently dropped",
+  "impact": "Mispriced refund; lost line.",
+  "fix": "Compare refund currency to line currency (convert/refuse); refuse receipts with duplicate transaction ids.",
+  "verified": true
+ },
+ {
+  "id": "F1",
+  "severity": "LOW",
+  "title": "Product spend attribution trusted from job inputs (cir.slug) and caller-supplied 'shared' detail",
+  "files": [
+   "src/brambleloop/finance/spend_report.py:62-105"
+  ],
+  "reproduction": "read only: job_product returns cir.slug without catalogue check; detail={'attribution':'shared'} keeps spend untagged.",
+  "observed": "not executed",
+  "impact": "Per-product creation cost (break-even) can be misattributed or hidden; total ceiling unaffected.",
+  "fix": "Verify slug against Product/Listing even when cir present; log when shared overrides inside a product job.",
+  "verified": false
+ },
+ {
+  "id": "G1",
+  "severity": "LOW",
+  "title": "Publication evidence labels listing price 'measured' and sales_volume 'measured' if any order (incl. cancelled) exists",
+  "files": [
+   "src/brambleloop/ops/publication_authority.py:287-308"
+  ],
+  "reproduction": "read only",
+  "observed": "not executed",
+  "impact": "Owner approval packet overstates basis.",
+  "fix": "Label price 'set by owner'; count net-positive orders only.",
+  "verified": false
+ }
+]

@@ -7,6 +7,7 @@ health check calls that healthy, which is how a week of achieving nothing passes
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -140,10 +141,67 @@ def test_an_unconfigured_integration_is_unknown_rather_than_down():
     assert H.verdict(_read(db))["down"] == []
 
 
+def _probe(db, action, ok, reason=""):
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=action,
+                       detail={"ok": ok, "reason": reason}))
+
+
 def test_a_configured_integration_reads_healthy():
+    """F-128 / F-131: HEALTHY needs the recorded probe the executor gate reads, not a variable.
+
+    This test used to assert HEALTHY from `ANTHROPIC_API_KEY` alone -- the exact label the
+    Master forbids to grade itself (the owner's key authenticated and could serve nothing).
+    It now asserts that a configured key is UNKNOWN until a probe succeeds, and HEALTHY after.
+    """
     db = _db()
-    readings = {r.signal: r for r in _read(db, env={"ANTHROPIC_API_KEY": "sk-x"})}
+    env = {"ANTHROPIC_API_KEY": "sk-x", "ETSY_API_KEY": "k", "ETSY_SHOP_NAME": "s",
+           "BRAMBLELOOP_BROWSER_URL": "https://worker.invalid"}
+    readings = {r.signal: r for r in _read(db, env=env)}
+    for signal in ("model_gateway", "integrations", "rendered_pages"):
+        assert readings[signal].state == H.UNKNOWN, (signal, readings[signal].state)
+        assert readings[signal].evidence["configured"], signal
+        assert "a label, not a capability" in readings[signal].why
+    _probe(db, "model.probe", True)
+    readings = {r.signal: r for r in _read(db, env=env)}
     assert readings["model_gateway"].state == H.HEALTHY
+    assert readings["model_gateway"].evidence["executor_gate"] == "model_provider"
+
+
+def test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason():
+    """F-131: configured and failing is a closed gate, never HEALTHY and never a fault."""
+    from brambleloop.build2 import executor
+
+    db = _db()
+    env = {"ANTHROPIC_API_KEY": "sk-x"}
+    _probe(db, "model.probe", False, "Your credit balance is too low")
+    _probe(db, "etsy.probe", False, "Shared secret is required")
+    readings = {r.signal: r for r in _read(db, env=env)}
+    assert readings["model_gateway"].state == H.UNKNOWN
+    assert "credit balance is too low" in readings["model_gateway"].why
+    assert readings["integrations"].state == H.UNKNOWN
+    assert H.verdict(_read(db, env=env))["down"] == []
+    # The same answer the executor's gate gives, from the same row.
+    for signal, gate in (("model_gateway", "model_provider"), ("integrations", "etsy_api"),
+                         ("rendered_pages", "rendered_pages")):
+        assert (readings[signal].state == H.HEALTHY) == executor.GATE_BY_KEY[gate].open(db, env)
+    _probe(db, "etsy.probe", True)
+    readings = {r.signal: r for r in _read(db, env=env)}
+    assert readings["integrations"].state == H.HEALTHY == (
+        H.HEALTHY if executor.GATE_BY_KEY["etsy_api"].open(db, env) else None)
+
+
+def test_health_capability_signals_never_read_environment_presence_as_state():
+    """A key set to anything reads identically to no key while no probe exists."""
+    db = _db()
+    bare = {r.signal: r.state for r in _read(db, env={})}
+    keyed = {r.signal: r.state for r in _read(
+        db, env={"ANTHROPIC_API_KEY": "x", "ETSY_API_KEY": "x", "ETSY_SHOP_NAME": "x",
+                 "BRAMBLELOOP_BROWSER_URL": "x"})}
+    for signal in H.CAPABILITY_SIGNALS:
+        assert bare[signal] == keyed[signal] == H.UNKNOWN, signal
 
 
 def test_nothing_ever_certified_is_a_state_rather_than_a_fault():
@@ -504,6 +562,98 @@ def test_one_run_in_the_window_is_new_rather_than_repeated():
     with db.session() as s:
         fresh, repeated = health._evidence(s, now)
     assert fresh == {"seasonal.cycle_proof"} and repeated == set()
+
+def test_the_system_reading_itself_is_not_new_evidence():
+    """`ops.heartbeat` and `ops.health` report live counters that differ every run, so they
+    looked fresh every fifteen minutes and kept `evidence_freshness` green on a system that
+    had learned nothing. They are excluded; a repeating business cadence still reads stale."""
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        for i in range(6):
+            _job(s, "ops.heartbeat", {"queue": {"pending": i}, "at": i}, 5 + i * 15, now)
+            _job(s, "ops.health", {"state": "idle", "sweep": i}, 7 + i * 15, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25}, 30, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25}, 150, now)
+
+    with db.session() as s:
+        fresh, repeated = health._evidence(s, now)
+    assert fresh == set(), fresh
+    assert repeated == {"intel.gallery_analysis"}
+    assert {"ops.heartbeat", "ops.health"} <= health.SELF_OBSERVING_JOB_TYPES
+
+
+def test_a_health_incident_closes_when_its_signal_recovers_and_says_what_it_read():
+    """`health:<signal>` rows were opened on persistence and never closed, so a queue that
+    drained stayed "bad for three consecutive sweeps" on the incident page indefinitely."""
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Incident
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401  -- registers handlers
+    from brambleloop.runtime.release import handle_health_sweep
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    with db.session() as s:
+        stuck = Job(agent="a", job_type="t", status=JobStatus.PENDING, inputs={},
+                    created_at=datetime.now(timezone.utc) - timedelta(hours=5))
+        s.add(stuck)
+        s.flush()
+        stuck_id = stuck.id
+
+    def sweep(i):
+        ctx = JobContext(job=queue.enqueue("orchestrator", "ops.health",
+                                           {"cadence": "health_sweep"},
+                                           idempotency_key=f"r{i}"),
+                         db=db, queue=queue, registry=Registry(db), phase=None)
+        return handle_health_sweep(ctx)
+
+    for i in range(4):
+        out = sweep(i)
+    assert out["recovered"] == []
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == "health:queue_age"))
+        assert row.resolved is False and row.report_count >= 2
+
+    # The stuck job is drained. The next sweep reads the queue healthy and closes the row.
+    with db.session() as s:
+        s.get(Job, stuck_id).status = JobStatus.DONE
+    out = sweep(9)
+    assert out["recovered"] == ["health:queue_age"]
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == "health:queue_age"))
+        assert row.resolved is True
+        assert "queue_age read healthy" in row.detail["resolution"]
+        assert row.detail["resolved_at"] and row.detail["last_seen"]
+
+
+
+def test_a_capability_refusal_on_any_job_type_is_a_refusal_not_a_defect():
+    """C-14: the Worker writes `capability not enabled: ...` for every job type, and
+    `requeue_dead` already refused to re-drive it. The console must agree that it is the
+    guard working rather than a backlog to explain -- one classifier, not two lists."""
+    from brambleloop.queue.durable import JobQueue, redrivable
+
+    db = _db()
+    err = "capability not enabled: shadow mode: publication is not promoted"
+    with db.session() as s:
+        s.add(Job(agent="listing", job_type="etsy.publish_listing", status=JobStatus.DEAD,
+                  inputs={}, last_error=err))
+    assert redrivable("etsy.publish_listing", err) is False
+    assert JobQueue(db).requeue_dead()["requeued"] == []
+    with db.session() as s:
+        out = H.remediation(s, H.read(s, runner_state=_alive(), now=NOW))
+    conditions = {h["condition"]: h for h in out["repaired_elsewhere"]}
+    assert conditions["deliberate_refusals"]["count"] == 1
+    assert "dead_letters" not in conditions
 
 if __name__ == "__main__":
     fails = 0

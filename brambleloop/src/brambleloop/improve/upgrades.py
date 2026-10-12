@@ -324,3 +324,127 @@ def state() -> dict:
                  "itself carefully is exactly what classification-by-surface prevents, and a "
                  "confidence field here would undo it from the other side"),
     }
+
+
+# ---------------------------------------------------------------------------
+# The pipeline in the runtime (#190)
+#
+# Everything above was a library nothing invoked: a `Proposal` existed only inside tests, and
+# no owner card ever reached the owner queue. These are the two joins the runtime needs. A
+# tested `Improvement` row becomes a `Proposal` whose evidence is read off the row -- never
+# supplied by the caller -- and a card that `owner_card` accepts becomes one `OwnerAction` in
+# the single owner queue, keyed so the same decision is restated rather than duplicated and
+# closed once the decision no longer needs making.
+
+# Requirement keys the upgrade pipeline owns in the owner queue. The launch-readiness cadence
+# closes every open action its own assessment no longer asks for, so it has to be told which
+# rows are not its to close.
+OWNER_CARD_PREFIXES: tuple[str, ...] = ("improve.upgrade:", "improve.league:",
+                                        "improve.retirement:")
+IMPROVEMENT_CARD_PREFIX = "improve.upgrade:"
+
+
+def _improvement_content(row) -> str:
+    touches = ",".join(governance.normalise_touches((row.evidence or {}).get("touches") or ()))
+    return f"{row.cell}|{row.hypothesis}|{touches}|{row.rollback_ref}"
+
+
+def from_improvement(db, improvement_id: int, *, author_role: str) -> Proposal:
+    """A tested improvement as a bounded upgrade, carrying only the evidence its row records.
+
+    Baseline, sandbox result and rollback are read from their columns; regression and
+    adversarial tests from `cells.record_test`'s records (passed runs only); the owner's
+    approval from `cells.record_owner_approval`. Nothing is taken from the caller, so the
+    proposal cannot report itself better evidenced than its row is.
+    """
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise UpgradeRefused(f"no improvement {improvement_id}")
+        evidence = dict(row.evidence or {})
+        scope = governance.normalise_touches(evidence.get("touches") or ())
+        proposal = Proposal(
+            key=f"improvement:{row.id}", author_role=author_role,
+            hypothesis=row.hypothesis, scope=tuple(scope),
+            content=_improvement_content(row), rollback_to=row.rollback_ref or "",
+            spend_cad=float(row.cost_cad or 0.0))
+        fp = proposal.fingerprint
+        found: list[Evidence] = []
+        if row.baseline_value is not None:
+            found.append(Evidence(tiers.BASELINE, row.baseline_ref or f"improvement:{row.id}",
+                                  fp, detail={"value": row.baseline_value}))
+        sandbox = evidence.get("sandbox") or {}
+        if row.result_value is not None and sandbox.get("run_ref"):
+            found.append(Evidence(tiers.SANDBOX_RESULT, str(sandbox["run_ref"]), fp,
+                                  detail={"value": row.result_value,
+                                          "trial": sandbox.get("trial")}))
+        if row.rollback_ref:
+            found.append(Evidence(tiers.ROLLBACK, row.rollback_ref, fp))
+        for kind, record in (evidence.get("tests") or {}).items():
+            if isinstance(record, dict) and record.get("passed") and record.get("ref"):
+                found.append(Evidence(kind, str(record["ref"]), fp,
+                                      detail={"by": record.get("by")}))
+        owner = evidence.get("owner_approval") or {}
+        if isinstance(owner, dict) and governance.normalise_actor(owner.get("by")) == "owner":
+            found.append(Evidence(tiers.OWNER_APPROVAL, f"owner_approval:{row.id}", fp,
+                                  detail={"because": owner.get("because")}))
+    for item in found:
+        attach(proposal, item, touched=proposal.scope)
+    return proposal
+
+
+def queue_owner_card(db, requirement_key: str, card: dict, *, action: str,
+                     minutes: int = 5, consequence: str = "", blocks: str = "") -> dict:
+    """Put one accepted owner card into the single owner queue, once.
+
+    Refuses a card `owner_card` did not accept: an owner queue filled with approvals the
+    machine had not finished checking trains its reader to approve without reading.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    if not requirement_key.startswith(OWNER_CARD_PREFIXES):
+        raise UpgradeRefused(
+            f"{requirement_key!r} is not an upgrade-pipeline key {list(OWNER_CARD_PREFIXES)}")
+    if not card.get("queued"):
+        raise UpgradeRefused(f"{requirement_key}: the card was not accepted: {card.get('why')}")
+    reason = (f"{card.get('why_it_needs_a_person', '')} Impact: surfaces "
+              f"{card['impact']['surfaces']}; {card['impact']['hypothesis'][:300]} "
+              f"Rollback to: {card['rollback_to']}. Evidence: "
+              + ", ".join(sorted({e['kind'] for e in card.get('evidence', [])})))
+    fields = {"action": action, "reason": reason.strip(),
+              "max_cost_cad": float(card.get("cost_cad") or 0.0), "minutes": int(minutes),
+              "consequence_of_delay": consequence or (
+                  "the change stays tested and unpromoted; nothing that runs today degrades "
+                  "while it waits"),
+              "blocks": blocks or requirement_key}
+    with db.session() as s:
+        existing = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == requirement_key,
+            OwnerAction.done == False))  # noqa: E712
+        if existing is None:
+            s.add(OwnerAction(requirement_key=requirement_key, **fields))
+            return {"requirement_key": requirement_key, "state": "queued"}
+        changed = any(getattr(existing, k) != v for k, v in fields.items())
+        for k, v in fields.items():
+            setattr(existing, k, v)
+        return {"requirement_key": requirement_key,
+                "state": "restated" if changed else "already_open"}
+
+
+def close_owner_card(db, requirement_key: str) -> bool:
+    """Close an open card whose decision no longer needs making. True when one was closed."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        rows = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == requirement_key,
+            OwnerAction.done == False)))  # noqa: E712
+        for row in rows:
+            row.done = True
+        return bool(rows)

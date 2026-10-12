@@ -42,6 +42,11 @@ STITCH_LEVEL: dict[str, int] = {
     "tr": 2, "dc_inc": 2, "dc_dec": 2,
     "fpdc": 2, "bpdc": 2, "bob": 2,
     "cable2x2": 2, "cable1x1": 2,
+    # Star stitch (Bench2): five loops pulled up and closed into an eye, then two hdc per eye on
+    # the return row -- a technique met for the first time in the pattern that uses it, and the
+    # purchased pattern that introduced it rates itself intermediate. The hdc increases are
+    # ordinary shaping stitches to count carefully.
+    "beg_star_st": 2, "star_st": 2, "end_star_st": 2, "hdc_inc": 1, "hdc3": 1,
 }
 
 # Kept for the gate that asks "does this pattern contain anything a beginner cannot do".

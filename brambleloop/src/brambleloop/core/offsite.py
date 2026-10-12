@@ -113,9 +113,42 @@ def target(env: dict[str, str] | None = None) -> Target | None:
             f"{sorted(missing)} are missing while {sorted(present)} are set. A "
             f"half-configured archive destination reports that a bucket exists and fails on "
             f"the day somebody reads it, which is the only day this matters")
-    return Target(endpoint=parts[ENDPOINT_VAR].rstrip("/"), bucket=parts[BUCKET_VAR],
+    endpoint = parts[ENDPOINT_VAR].rstrip("/")
+    return Target(endpoint=endpoint, bucket=parts[BUCKET_VAR],
                   key_id=parts[KEY_ID_VAR], secret=parts[SECRET_VAR],
-                  region=(e.get(REGION_VAR) or DEFAULT_REGION).strip())
+                  region=region_for(endpoint, e.get(REGION_VAR)))
+
+
+def region_for(endpoint: str, explicit: str | None = None) -> str:
+    """The SigV4 signing region for an endpoint: stated, else read from the host.
+
+    W4-GATESI: the region used to default to `us-west-004` whenever
+    BRAMBLELOOP_ARCHIVE_REGION was unset. SigV4 signs the region into the credential scope,
+    so a Backblaze bucket in `us-east-005`, any Cloudflare R2 bucket (region `auto`) or an
+    AWS bucket outside us-west would have been refused with a signature error on the first
+    write -- an owner action that "did everything asked" and still left #51 closed. The
+    region is in the endpoint's own hostname for every S3 provider named in this module, so
+    it is read from there; an explicitly set variable still wins, and an unrecognised host
+    keeps the old default rather than guessing.
+    """
+    if (explicit or "").strip():
+        return explicit.strip()
+    host = urllib.parse.urlparse(endpoint).netloc.lower().split(":")[0]
+    labels = host.split(".")
+    if host.endswith(".r2.cloudflarestorage.com"):
+        return "auto"
+    if host.endswith(".backblazeb2.com") and len(labels) >= 4 and labels[0] == "s3":
+        return labels[1]                       # s3.<region>.backblazeb2.com
+    if host.endswith(".wasabisys.com") and len(labels) >= 4 and labels[0] == "s3":
+        return labels[1]                       # s3.<region>.wasabisys.com
+    if host.endswith(".amazonaws.com"):
+        if host == "s3.amazonaws.com":
+            return "us-east-1"
+        if labels[0] == "s3" and len(labels) >= 4:
+            return labels[1]                   # s3.<region>.amazonaws.com
+        if labels[0].startswith("s3-"):
+            return labels[0][3:]               # legacy s3-<region>.amazonaws.com
+    return DEFAULT_REGION
 
 
 def configured(env: dict[str, str] | None = None) -> bool:
@@ -312,6 +345,24 @@ def delete(key: str, *, env: dict[str, str] | None = None) -> None:
     _call(dest, "DELETE", key)
 
 
+def put_raw(key: str, blob: bytes, *, env: dict[str, str] | None = None) -> dict:
+    """Write bytes exactly as given. Only `archive` uses this, and only with sealed bytes."""
+    dest = target(env)
+    if dest is None:
+        raise OffsiteNotConfigured(f"no {ENDPOINT_VAR} in this environment")
+    _call(dest, "PUT", key, blob)
+    return {"key": key, "bytes": len(blob), "sha256": _sha256(blob), "bucket": dest.bucket,
+            "host": dest.host}
+
+
+def get_raw(key: str, *, env: dict[str, str] | None = None) -> bytes:
+    """Read the stored bytes back exactly as the bucket holds them (still sealed)."""
+    dest = target(env)
+    if dest is None:
+        raise OffsiteNotConfigured(f"no {ENDPOINT_VAR} in this environment")
+    return _call(dest, "GET", key)
+
+
 def object_key(digest: str, now: datetime | None = None) -> str:
     """Where an archive lives in the bucket.
 
@@ -348,7 +399,10 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
 
     now = now or datetime.now(timezone.utc)
     record: dict = {"at": now.isoformat(), "ok": False, "reason": "", "stage": "start"}
-    send, fetch = (transport or (put, get))
+    # RELENG 2026-10-11: the transport moves bytes and nothing else. Sealing, the stored-digest
+    # check and unsealing happen HERE, so no transport (the real one or a test's) can be the
+    # thing that decides whether the bucket receives plaintext.
+    send, fetch = (transport or (put_raw, get_raw))
 
     try:
         dest = target(env)
@@ -358,6 +412,18 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
 
     if dest is None and not record["reason"]:
         record.update(reason=f"no {ENDPOINT_VAR} in this environment", stage="configuration")
+
+    secret = None
+    if not record["reason"]:
+        secret = encryption_key(env)
+        if secret is None:
+            # Fail closed, before the export and before any byte leaves: an archive is every
+            # row this company has, and the bucket's own encryption is the provider's key,
+            # not ours.
+            record.update(stage="configuration", encrypted=False, reason=(
+                f"no {ENCRYPTION_KEY_VAR} in this environment, so the archive is refused "
+                f"before upload. Nothing was written: an unencrypted copy of every row is "
+                f"not the fallback for a missing key"))
 
     if not record["reason"]:
         # Everything this directory holds -- the export, the compressed payload, the restored
@@ -375,22 +441,33 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
                 payload, raw_bytes = continuity._compress(export_path)
                 key = object_key(result.digest, now)
 
+                record["stage"] = "encrypt"
+                sealed = seal(payload, secret)
+                if not sealed.startswith(ENCRYPTION_HEADER) or payload in sealed:
+                    raise ArchiveCorrupt("sealing did not produce ciphertext; nothing uploaded")
+                stored_digest = _sha256(sealed)
+
                 record["stage"] = "upload"
-                written = send(key, payload, env=env)
+                written = send(key, sealed, env=env)
 
                 record["stage"] = "read_back"
                 came_back = fetch(key, env=env)
-                if hashlib.sha256(came_back).hexdigest() != hashlib.sha256(payload).hexdigest():
+                if _sha256(came_back) != stored_digest:
                     raise ArchiveCorrupt(
                         "what came back is not what went up. A backup that differs from its "
                         "source is worse than no backup, because it is discovered on the day "
                         "it is needed")
 
+                record["stage"] = "decrypt"
+                opened = unseal(came_back, secret)
+                if _sha256(opened) != _sha256(payload):
+                    raise ArchiveCorrupt("decrypted archive differs from the export sealed")
+
                 record["stage"] = "restore"
                 import gzip
 
                 restored_path = root / "restored.jsonl"
-                restored_path.write_bytes(gzip.decompress(came_back))
+                restored_path.write_bytes(gzip.decompress(opened))
                 scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}")
                 scratch.create_all()
                 counts = continuity.restore(restored_path, scratch)
@@ -398,7 +475,8 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
                 record.update({
                     "ok": True, "stage": "complete", "key": key,
                     "digest": result.digest, "raw_bytes": raw_bytes,
-                    "stored_bytes": written["bytes"], "bucket": written.get("bucket", ""),
+                    "stored_bytes": len(sealed), "encrypted": True,
+                    "ciphertext_sha256": stored_digest, "bucket": written.get("bucket", ""),
                     "host": written.get("host", ""),
                     "tables_restored": len(counts),
                     "rows_restored": sum(counts.values()),
@@ -439,14 +517,24 @@ def prune(db, *, env: dict[str, str] | None = None, keep: int = RETAIN_OFFSITE) 
             seen.add(key)
             keys.append(key)
 
-    doomed, failures = keys[keep:], []
+    doomed, failures, refused = keys[keep:], [], 0
     for key in doomed:
         try:
             delete(key, env=env)
         except (PermanentError, TransientError) as exc:
             failures.append({"key": key, "why": str(exc)[:200]})
-    return {"kept": min(len(keys), keep), "deleted": len(doomed) - len(failures),
-            "failures": failures, "retain": keep,
+            refused += isinstance(exc, OffsiteRefused)
+    out = {"kept": min(len(keys), keep), "deleted": len(doomed) - len(failures),
+           "failures": failures, "retain": keep}
+    if refused:
+        # RELENG: an application key without delete permission (the safer key) makes every
+        # delete a 401/403. Nothing breaks: archives keep accumulating and retention becomes
+        # the bucket's job (a lifecycle rule), which is the recommended arrangement anyway.
+        out["delete_refused"] = refused
+        out["delete_refused_means"] = (
+            "the bucket key cannot delete. Old archives stay in the bucket; set retention "
+            "with a bucket lifecycle rule (B2: hide after N days, delete after 1) instead")
+    return {**out,
             "why_from_our_own_record": (
                 "a bucket listing is the store's opinion of what exists; the audit log is "
                 "this company's record of what it put there, and deleting on somebody "
@@ -478,13 +566,16 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
     except OffsiteNotConfigured as exc:
         dest, problem = None, str(exc)
     last = last_archive(db)
+    key_present = encryption_key(env) is not None
 
     return {
         "configured": dest is not None,
         "configuration_problem": problem,
         "bucket": dest.bucket if dest else None,
         "host": dest.host if dest else None,
-        "encryption_key_present": encryption_key(env) is not None,
+        "encryption_key_present": key_present,
+        "archives_refused_without_key": True,
+        "will_archive": dest is not None and key_present,
         "last_archive": last,
         "usable": bool(last and last.get("ok")),
         "retain_offsite": RETAIN_OFFSITE,
@@ -498,9 +589,19 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
             "typed bucket address that is wrong, or whose credentials are, survives losing "
             "the provider exactly as well as no bucket at all"),
         "encryption": (
-            "AES-256-CBC with a stretched passphrase, authenticated before decryption, with "
-            "the key in a variable the bucket credentials do not include. A reader who "
-            "obtains the bucket gets ciphertext"),
+            "AES-256-CBC with a stretched passphrase, sealed by `archive` itself before "
+            "upload and authenticated before decryption, with the key in a variable the "
+            "bucket credentials do not include. A reader who obtains the bucket gets "
+            "ciphertext" if key_present else
+            f"NOT ACTIVE: no {ENCRYPTION_KEY_VAR} is set, so every archive is refused before "
+            "upload and nothing is written to the bucket. Archives resume, encrypted, once "
+            "the owner sets the key; none is ever written in plaintext"),
+        "retention": (
+            f"prune deletes beyond {RETAIN_OFFSITE} from this system's own record, which "
+            "needs delete permission on the bucket key. A key without it (safer) leaves old "
+            "archives in place; a bucket lifecycle rule should then own retention. B2 keeps "
+            "every version by default, so even a permitted delete only hides a file until a "
+            "lifecycle rule removes it"),
         "provider_neutral": (
             "written against the S3 API, so Backblaze B2, Cloudflare R2, Wasabi and AWS are "
             "a URL rather than a code change. A continuity plan welded to one vendor has "

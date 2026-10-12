@@ -397,17 +397,37 @@ def inventory(data: bytes) -> Inventory:
 
 
 def read(relative_path: str, *, role: str = ANALYST_ROLE, env: dict[str, str] | None = None,
-         ref: str = "") -> dict:
+         ref: str = "", db=None) -> dict:
     """Ingest one purchased file, every page, through the quarantine's only reader.
 
     This is the call `readiness.retrieve_callers()` looks for, and it is the whole reason
     that check reported not-ready: `retrieve()` existed and nothing in the system used it,
     so the laboratory could file a purchase and never open it.
+
+    With a database, the read is also checked against the purchase's licence (F-786) and the
+    document's wording is fingerprinted for the similarity review before sale (F-795): salted
+    hashes of its word 6-grams, which measure shared phrasing and cannot be read back. The
+    page text itself still never leaves this function.
     """
-    data = retrieve(relative_path, role, env=env)
+    data = retrieve(relative_path, role, env=env, db=db, use="private_analysis")
     inv = inventory(data)
-    return {"ref": ref, "file": relative_path, "read_by": available(),
-            "role": role, **inv.to_dict()}
+    out = {"ref": ref, "file": relative_path, "read_by": available(),
+           "role": role, **inv.to_dict()}
+    # F-755: the whole size family is parsed and checked before any one size is frozen for a
+    # benchmark or a render (numbers and page numbers only).
+    from .size_family import all_size_parse, numeric_summary
+
+    out["size_family"] = numeric_summary(all_size_parse(_pages(data)[0]))
+    if db is not None:
+        from ..gates.originality import record_fingerprint
+        from .licence import ref_of
+
+        texts, _images, _encrypted = _pages(data)
+        stored = record_fingerprint(db, ref or ref_of(relative_path),
+                                    text="\n".join(texts), source="teardown.reader")
+        out["wording_fingerprint"] = {"shingles": stored["wording_shingles"],
+                                      "holds_no_text": True}
+    return out
 
 
 # ---------------------------------------------------------------------------

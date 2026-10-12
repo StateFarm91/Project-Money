@@ -16,13 +16,17 @@ Where each answer comes from, and none of it is new opinion:
   IDENTITY              `identity.drift_check` against the frozen pack -- face and
                         whole-person morphology, which are themselves two floors that
                         never average into one another.
-  PRODUCT TRUTH         the motif judge, comparing the fabric against the deterministically
-                        rendered chart rather than against a sentence about it.
+  PRODUCT TRUTH         independent construction evidence; motif labels and preservation
+                        alone cannot certify the product being depicted.
   HERO                  whether the frame communicates a finished object at a glance,
                         read off the blind description rather than asserted by the brief.
   MOBILE GRID           legibility at Etsy's search-thumbnail scale, which is where the
                         buying decision actually starts.
-  LIFESTYLE QUALITY     the natural-photography standard, which is a gate of its own.
+  LIFESTYLE QUALITY     the natural-photography standard, which is a gate of its own -- for
+                        photographs and generated frames. A verified disclosed render
+                        (D-FB-7) is judged instead on the deterministic presentation
+                        standard (D-FB-9): listing-image QA, mobile, thumbnail, 340 px
+                        legibility and the disclosure in pixels, alt text and copy.
   GALLERY               the sequence: every frame doing a declared job, no filler, and the
                         evidence frames present.
   BRAND                 recognisably Brambleloop -- the identity being the *same* one
@@ -74,7 +78,94 @@ def _verdict(ok: bool | None, why: str) -> dict:
             "why": why}
 
 
-def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict:
+def _deterministic_available(frames: list[dict]) -> bool:
+    """Whether a deterministic representation of this product is on file.
+
+    A chart frame, or any frame recorded as deterministic, is a render of the certified CIR
+    rather than a generated picture of it -- the one rung of #81 that costs nothing.
+    """
+    return any(f.get("role") == "chart" or f.get("deterministic") is True
+               or f.get("kind") in ("chart_render", "twin_render") for f in frames)
+
+
+
+def _realism_of(frame: dict) -> dict | None:
+    """The photography-standard verdict a frame carries, wherever its writer put it.
+
+    `model_photography` records a top-level `photographic_realism` block; `owned_photography`
+    (every product-first frame) records the same judgement as named checks under
+    `inspection.realism` and never wrote the top-level field. Parity read only the first, so
+    every flat product read as unjudged and LIFESTYLE_QUALITY could never pass for any of
+    them (found 2026-09-27, Build 2 closeout). The named checks are mapped conservatively:
+    any check failed is `blocked`; `clear` only when the realism judge ran and every check it
+    asked was answered and passed; anything else stays unjudged.
+    """
+    top = frame.get("photographic_realism")
+    if top is not None:
+        return top
+    inspection = frame.get("inspection") or {}
+    checks = inspection.get("realism")
+    if not inspection.get("realism_judged") or not isinstance(checks, dict) or not checks:
+        return None
+    answers = list(checks.values())
+    if any(a is False for a in answers):
+        return {"verdict": "blocked", "from": "inspection.realism", "checks": checks}
+    if all(a is True for a in answers):
+        return {"verdict": "clear", "from": "inspection.realism", "checks": checks}
+    return {"verdict": "unjudged", "from": "inspection.realism", "checks": checks}
+
+DISCLOSED_RENDER = "disclosed_render"
+
+# D-FB-9: what LIFESTYLE_QUALITY asks of a verified disclosed render. Every one is a reading the
+# listing-image QA already made (`publish.disclosed_listing.listing_qa`) or a disclosure check,
+# never a new opinion; missing evidence is unjudged, and unjudged blocks.
+PRESENTATION_CHECKS: tuple[str, ...] = (
+    "layout_qa",               # publish.layout_qa over the ordered set
+    "mobile_contexts",         # publish.mobile.qa over the rendered phone contexts
+    "hero_thumbnail",          # commerce.thumbnail on the hero
+    "legibility_340",          # this frame at 340 px: whole product, pieces, colours
+    "disclosure_in_image",     # the caption measured in the pixels
+    "disclosure_in_alt_text",  # the wording opens the alt text, within Etsy's limit
+    "disclosure_in_copy",      # the wording is in the listing description
+)
+
+
+def presentation_quality(frame: dict, *, floor: dict | None = None) -> dict:
+    """The deterministic presentation standard for one disclosed render (D-FB-9).
+
+    Applies only to a frame that is a bound disclosed render with structural truth PASS from
+    `product_authority.structural_floor` -- anything else claiming the kind gets no benefit and
+    reads unjudged. PASS only when every check in PRESENTATION_CHECKS read True; FAIL when any
+    read False; otherwise unjudged, naming what is missing.
+    """
+    if frame.get("kind") != DISCLOSED_RENDER:
+        return {"verdict": UNJUDGED, "failed": [], "unknown": [],
+                "why": "not a disclosed render; the photography standard applies"}
+    if floor is None:
+        from .product_authority import structural_floor
+
+        floor = structural_floor(frame)
+    if floor.get("status") != "PASS":
+        return {"verdict": UNJUDGED, "failed": [], "unknown": ["structural_truth"],
+                "why": (f"structural truth {floor.get('status')}: only a verified render may be "
+                        f"judged on presentation rather than photography")}
+    evidence = frame.get("presentation_qa")
+    if not isinstance(evidence, dict):
+        return {"verdict": UNJUDGED, "failed": [], "unknown": list(PRESENTATION_CHECKS),
+                "why": "no listing-image QA evidence is attached to this frame"}
+    failed = [c for c in PRESENTATION_CHECKS if evidence.get(c) is False]
+    unknown = [c for c in PRESENTATION_CHECKS if evidence.get(c) is not True
+               and evidence.get(c) is not False]
+    verdict = FAIL if failed else UNJUDGED if unknown else PASS
+    return {"verdict": verdict, "failed": failed, "unknown": unknown,
+            "why": (f"presentation checks failed: {failed}" if failed else
+                    f"presentation checks not made: {unknown}" if unknown else
+                    "every presentation check passed on a verified disclosed render")}
+
+
+def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
+           deterministic_available: bool | None = None,
+           gate_open: dict[str, bool] | None = None, start_attempt: int = 0) -> dict:
     """Judge all eight from evidence already gathered. Never renders, never asks again.
 
     `frames` are asset records -- what `model_photography.make` and
@@ -101,20 +192,16 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
             results[IDENTITY] = _verdict(
                 None, f"identity unverified on at least one frame: {verdicts}")
 
-    # 2. PRODUCT TRUTH -- every frame showing the object, against the chart.
-    showing = [f for f in frames if f.get("motif") is not None]
-    if not showing:
-        results[PRODUCT_TRUTH] = _verdict(None, "no frame was compared against the chart")
+    # F-752/F-760/F-856: motif labels cannot satisfy structural product truth.
+    # Evaluate every exported frame; omitted motif metadata is not an exemption.
+    from .product_authority import structural_floor
+    structures = [structural_floor(frame) for frame in frames]
+    if any(v["status"] == "FAIL" for v in structures):
+        results[PRODUCT_TRUTH] = _verdict(False, "structural product truth failed on an exported frame")
+    elif structures and all(v["status"] == "PASS" for v in structures):
+        results[PRODUCT_TRUTH] = _verdict(True, "all exported frames independently structurally verified")
     else:
-        motifs = [str((f.get("motif") or {}).get("verdict") or "") for f in showing]
-        if any(m == "mismatch" for m in motifs):
-            results[PRODUCT_TRUTH] = _verdict(
-                False, "the fabric is not the pattern's fabric on at least one frame")
-        elif all(m == "match" for m in motifs):
-            results[PRODUCT_TRUTH] = _verdict(True, f"{len(showing)} frame(s) match")
-        else:
-            results[PRODUCT_TRUTH] = _verdict(
-                None, f"the fabric could not be read on at least one frame: {motifs}")
+        results[PRODUCT_TRUTH] = _verdict(None, "whole-product construction/stitch/gauge evidence UNKNOWN; motif match or preserved schematic is insufficient")
 
     # 3. HERO -- read off the blind description, not asserted.
     hero = next((f for f in frames if (f.get("role") or "hero") == "hero"), None)
@@ -124,13 +211,22 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
         described = ((hero.get("inspection") or {}).get("described"))
         description = ((hero.get("inspection") or {}).get("semantic") or {})
         finished = description.get("finished_or_in_progress_agrees")
+        # W4-HEROVISION (F-027/F-253): where the review recorded whether the product was
+        # identified, "understands the finished result" also needs it to be the product sold.
+        identified = description.get("identified", True)
         if described is not True:
             results[HERO] = _verdict(None, "the hero frame was never described")
         elif finished is False:
             results[HERO] = _verdict(
                 False, "the hero frame does not read as a finished object")
-        elif finished is True:
+        elif identified is False:
+            results[HERO] = _verdict(
+                False, "the hero frame does not show the product that is sold")
+        elif finished is True and identified is True:
             results[HERO] = _verdict(True, "the hero frame reads as the finished object")
+        elif finished is True:
+            results[HERO] = _verdict(
+                None, "whether the hero shows the product sold was not established")
         else:
             results[HERO] = _verdict(
                 None, "whether the hero shows a finished object was not established")
@@ -148,23 +244,38 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
     else:
         results[MOBILE_GRID] = _verdict(True, "every frame reads at grid scale")
 
-    # 5. LIFESTYLE QUALITY -- the natural-photography standard.
-    judged = [f for f in frames if f.get("photographic_realism") is not None]
-    if not judged:
+    # 5. LIFESTYLE QUALITY -- the natural-photography standard for photographs and generated
+    # frames, unchanged; for a verified disclosed render (D-FB-7 / D-FB-9) the deterministic
+    # presentation standard instead, because a frame that says it is not a photograph cannot
+    # be judged on whether it passes for one.
+    rendered = [(f, s) for f, s in zip(frames, structures) if f.get("kind") == DISCLOSED_RENDER]
+    others = [f for f in frames if f.get("kind") != DISCLOSED_RENDER]
+    judged = [f for f in others if _realism_of(f) is not None]
+    states = [str((_realism_of(f) or {}).get("verdict") or "") for f in judged]
+    shown = [presentation_quality(f, floor=s) for f, s in rendered]
+    if not judged and not shown:
         results[LIFESTYLE_QUALITY] = _verdict(
             None, "no frame was judged against the photography standard")
+    elif any(s == "blocked" for s in states):
+        results[LIFESTYLE_QUALITY] = _verdict(
+            False, "a frame reads as generated rather than photographed")
+    elif any(p["verdict"] == FAIL for p in shown):
+        failed_checks = sorted({c for p in shown for c in p["failed"]})
+        results[LIFESTYLE_QUALITY] = _verdict(
+            False, f"a disclosed render fails the presentation standard: {failed_checks}")
+    elif all(s == "clear" for s in states) and all(p["verdict"] == PASS for p in shown):
+        said = [f"{len(judged)} frame(s) read as believable photography"] if judged else []
+        if shown:
+            said.append(f"{len(shown)} verified disclosed render(s) pass every presentation "
+                        f"check {list(PRESENTATION_CHECKS)}")
+        results[LIFESTYLE_QUALITY] = _verdict(True, "; ".join(said))
+    elif any(s != "clear" for s in states):
+        results[LIFESTYLE_QUALITY] = _verdict(
+            None, f"the photography standard could not be judged: {states}")
     else:
-        states = [str((f.get("photographic_realism") or {}).get("verdict") or "")
-                  for f in judged]
-        if any(s == "blocked" for s in states):
-            results[LIFESTYLE_QUALITY] = _verdict(
-                False, "a frame reads as generated rather than photographed")
-        elif all(s == "clear" for s in states):
-            results[LIFESTYLE_QUALITY] = _verdict(
-                True, f"{len(judged)} frame(s) read as believable photography")
-        else:
-            results[LIFESTYLE_QUALITY] = _verdict(
-                None, f"the photography standard could not be judged: {states}")
+        unknown = sorted({c for p in shown for c in p["unknown"]})
+        results[LIFESTYLE_QUALITY] = _verdict(
+            None, f"a disclosed render's presentation evidence is incomplete: {unknown}")
 
     # 6. GALLERY -- structural, so answered structurally.
     from .gallery import JOBS
@@ -216,7 +327,9 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
         results[COMPETITIVE] = _verdict(
             True, str(benchmark_quality.get("why") or "not materially inferior"))
     else:
-        results[COMPETITIVE] = _verdict(None, "the comparison did not reach a verdict")
+        # A stale or refused comparison says why; that reason is the actionable part.
+        results[COMPETITIVE] = _verdict(
+            None, str(benchmark_quality.get("why") or "the comparison did not reach a verdict"))
 
     if set(results) != set(DIMENSIONS):
         raise ParityRefused(
@@ -225,7 +338,23 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
 
     failed = [d for d in DIMENSIONS if results[d]["verdict"] == FAIL]
     unjudged = [d for d in DIMENSIONS if results[d]["verdict"] == UNJUDGED]
+
+    # The hand-off to #81. A failure used to stop at `blocks_release`; it now carries the
+    # ladder it walks next, recorded wherever this verdict is. Unjudged is not routed: the
+    # answer to "nobody looked" is to look, not to regenerate.
+    escalation = None
+    if failed:
+        from .gallery import escalation_plan
+
+        available = (deterministic_available if deterministic_available is not None
+                     else _deterministic_available(frames))
+        # C-80 defect 8: the walk starts where the persisted rung results left it, so a
+        # rung already attempted without a usable frame is not taken again.
+        escalation = escalation_plan(failed, deterministic_available=available,
+                                     gate_open=gate_open, start_attempt=int(start_attempt))
+
     return {
+        "escalation": escalation,
         "dimensions": results,
         "judged": len(DIMENSIONS) - len(unjudged),
         "of": len(DIMENSIONS),

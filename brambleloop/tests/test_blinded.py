@@ -11,6 +11,7 @@ this file is about the failure modes rather than the happy path.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from pathlib import Path
@@ -542,6 +543,207 @@ def test_a_current_run_is_not_marked_superseded():
                                "method_version": B.METHOD_VERSION}))
     assert "superseded" not in B.last_run(db)
 
+
+
+# ---- the search-grid blind tournament (#126) ------------------------------
+
+
+def _audited_pod(db, pod="blankets", n=6):
+    with db.session() as s:
+        for i in range(n):
+            s.add(BenchmarkListing(
+                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"{pod}-{i}",
+                title=f"Chunky Throw Blanket {i}", pod=pod, audit_state="audited",
+                price_cad=9.0, media_count=6,
+                detail={"image_urls": [f"https://i.etsystatic.com/{pod}-{i}_fullxfull.jpg"],
+                        "num_favorers": 400}))
+
+
+def _our_frames():
+    return [{"made": True, "slug": "autumn-oak-mosaic-throw", "role": "hero",
+             "image_ref": "artifacts/autumn-oak-hero.png"},
+            {"made": True, "slug": "cloudline-baby-blanket", "role": "hero",
+             "image_ref": "artifacts/cloudline-hero.png"}]
+
+
+def test_the_grid_is_blinded_seeded_and_fails_until_a_judge_ranks_it():
+    """The expected result today, and the finding: no judge has ranked the grid, so it
+    fails. A threshold cleared by default is the brand favouritism #126 forbids."""
+    db = _db()
+    _audited_pod(db)
+    grid = B.render_grid(db, _our_frames(), pod="blankets", seed=7)
+
+    assert grid["benchmark_cells"] == 6 and grid["our_cells"] == 2
+    assert len(grid["cells"]) == 8
+    # What a judge sees carries no side, no ref, no seller, no price, no reviews, no title.
+    for cell in grid["cells"]:
+        assert set(cell) == {"cell", "row", "col", "thumbnail", "pod"}
+    assert set(grid["key"]) == {c["cell"] for c in grid["cells"]}
+    assert sorted(k["side"] for k in grid["key"].values()).count(B.OURS) == 2
+    assert grid["judge_fields"] == list(B.GRID_JUDGE_FIELDS)
+    assert all(v is None for v in grid["our_scores"].values())
+    assert grid["verdict"] == "fail"
+    assert "no judge has ranked" in grid["why"]
+
+    # Seeded: the same seed gives the same order; a different seed moves things.
+    again = B.render_grid(db, _our_frames(), pod="blankets", seed=7)
+    assert [c["cell"] for c in again["cells"]] == [c["cell"] for c in grid["cells"]]
+    assert [c["thumbnail"] for c in again["cells"]] == [c["thumbnail"] for c in grid["cells"]]
+    other = B.render_grid(db, _our_frames(), pod="blankets", seed=8)
+    assert [c["thumbnail"] for c in other["cells"]] != [c["thumbnail"] for c in grid["cells"]]
+
+
+def test_a_thin_grid_or_an_empty_side_is_refused_rather_than_padded():
+    db = _db()
+    _audited_pod(db, n=3)
+    for ours in (_our_frames(), []):
+        try:
+            B.render_grid(db, ours, pod="blankets")
+        except B.GridRefused:
+            pass
+        else:
+            raise AssertionError("a three-benchmark grid was built")
+    _audited_pod(db, pod="hats", n=6)
+    try:
+        B.render_grid(db, [], pod="hats")
+    except B.GridRefused as exc:
+        assert "nothing to place" in str(exc)
+    else:
+        raise AssertionError("a grid with no side of ours was built")
+
+
+def test_judgements_are_read_against_the_threshold_and_a_partial_judging_still_fails():
+    db = _db()
+    _audited_pod(db)
+    grid = B.render_grid(db, _our_frames(), pod="blankets", seed=1)
+    ours = [c for c, k in grid["key"].items() if k["side"] == B.OURS]
+
+    ranked = {c: {f: 0.8 for f in B.GRID_JUDGE_FIELDS} for c in ours}
+    clear = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=ranked)
+    assert clear["verdict"] == "clear" and clear["below_threshold"] == []
+
+    weak = {c: {**{f: 0.8 for f in B.GRID_JUDGE_FIELDS}, "desire": 0.2} for c in ours}
+    failed = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=weak)
+    assert failed["verdict"] == "fail" and failed["below_threshold"] == ["desire"]
+
+    partial = {ours[0]: {f: 0.9 for f in B.GRID_JUDGE_FIELDS}}
+    half = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=partial)
+    assert half["verdict"] == "fail" and set(half["unjudged"]) == set(B.GRID_JUDGE_FIELDS)
+
+
+class _Response:
+    def __init__(self, text):
+        self.text, self.input_tokens, self.output_tokens = text, 1200, 300
+
+
+class _JudgeProvider:
+    """A stand-in vision judge that scores what it is shown by a picture->score table held
+    OUTSIDE anything the system sends (the 'content' of each image), never by where the
+    picture came from. `per_judge` lets judges disagree so the median is actually tested.
+    It records every system prompt and prompt it receives so the tests can assert nothing
+    it was sent names a side, a slug or a listing reference (C-4)."""
+    name, model = "anthropic", "claude-sonnet-5"
+    cost_per_1k_input_cad, cost_per_1k_output_cad = 0.004, 0.02
+
+    def __init__(self, ours_score, theirs_score, *, silent_judge="", per_judge=None):
+        self.ours, self.theirs, self.silent, self.calls = ours_score, theirs_score, silent_judge, []
+        self.per_judge = per_judge or {}
+        # What each picture looks like, decided by the test, not by the grid.
+        self.content = {f.get("image_ref"): "ours" for f in _our_frames()}
+
+    def see(self, system, prompt, urls, *, max_tokens):
+        import json as _json
+        import re as _re
+        self.calls.append((system, prompt, list(urls)))
+        if self.silent and self.silent in system:
+            return _Response("I cannot rank these.")
+        labels = _re.search(r"in this order: ([^.]+)\.", prompt).group(1).split(", ")
+        judge = next((j for j in self.per_judge if j in system), None)
+        ours_v, theirs_v = self.per_judge.get(judge, (self.ours, self.theirs))
+        rows = []
+        for label, url in zip(labels, urls):
+            v = ours_v if self.content.get(url) == "ours" else theirs_v
+            rows.append({"cell": label, "attention": v, "comprehension": v, "desire": v,
+                         "distinctiveness": v})
+        return _Response(_json.dumps({"cells": rows}))
+
+
+def test_the_grid_is_judged_by_an_independent_panel_blinded_to_side():
+    db = _db()
+    _audited_pod(db)
+    judge = _JudgeProvider(0.8, 0.4)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge, seed=7)
+    assert out["verdict"] == "clear", out["why"]
+    assert all(v == 0.8 for v in out["our_scores"].values())
+    assert "key" not in out, "the side key must not travel with the judged result"
+    assert out["panel"]["judged_by"] == sorted(j for j, _ in B.GRID_JUDGES)
+    # Each judge saw every cell, in its own order, and never a side or a ref.
+    orders = [urls for _, _, urls in judge.calls]
+    assert len({tuple(o) for o in orders}) > 1, "every judge saw the same order"
+    assert out["panel"]["cost_cad"] > 0
+    # Blinding: nothing a judge was sent names a side, one of our slugs or a listing ref.
+    leaks = ("agent", "human", "ours", "theirs", "autumn-oak", "cloudline", "blankets-")
+    _vac_686 = 0
+    for system, prompt, _ in judge.calls:
+        _vac_686 += 1
+        text = (system + " " + prompt).lower()
+        assert not any(word in text for word in leaks), text[:200]
+    assert _vac_686, "judge.calls was empty: the loop proved nothing (F-123)"
+
+
+def test_the_panel_verdict_is_the_median_not_the_mean_or_the_minimum():
+    """C-4: judges disagree. Two rank our renders 0.6, one outlier ranks them 0.0. The mean
+    (0.4) and the minimum (0.0) would fail the 0.5 threshold; the median (0.6) clears it."""
+    db = _db()
+    _audited_pod(db)
+    judges = [j for j, _ in B.GRID_JUDGES]
+    judge = _JudgeProvider(0.6, 0.3, per_judge={judges[0]: (0.6, 0.3), judges[1]: (0.6, 0.3),
+                                                 judges[2]: (0.0, 0.9)})
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge, seed=3)
+    assert all(v == 0.6 for v in out["our_scores"].values()), out["our_scores"]
+    assert out["verdict"] == "clear", out["why"]
+
+
+def test_weak_renders_fail_the_grid_on_the_panel_median():
+    db = _db()
+    _audited_pod(db)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=_JudgeProvider(0.2, 0.9))
+    assert out["verdict"] == "fail" and set(out["below_threshold"]) == set(B.GRID_JUDGE_FIELDS)
+
+
+def test_a_judge_that_does_not_answer_leaves_the_grid_unjudged_not_averaged():
+    db = _db()
+    _audited_pod(db)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets",
+                            provider=_JudgeProvider(0.9, 0.1, silent_judge="gift"))
+    assert out["verdict"] == "fail" and out["unjudged"], out
+    assert "unjudged" in out["why"]
+
+
+def test_the_grid_judges_stop_on_the_ceiling_and_the_grid_stays_unjudged():
+    from brambleloop.core.models import CostEntry
+    from brambleloop.finance import spend_policy
+
+    db = _db()
+    _audited_pod(db)
+    with db.session() as s:
+        s.add(CostEntry(agent="gateway", amount_cad=spend_policy.CEILING_CAD, kind="llm",
+                        purpose="test"))
+    judge = _JudgeProvider(0.9, 0.1)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge)
+    assert judge.calls == [], "a judge was called past the ceiling"
+    assert out["verdict"] == "fail" and out["panel"]["stopped_by"]
+
+
+
+def test_a_christmas_title_reads_as_christmas_not_everyday():
+    """Certification C-55: the title words are singularised ("christma"), and the occasion
+    table was compared unnormalised, so every Christmas listing read as "everyday" and the
+    pre-engineering twin check could not see a Christmas benchmark."""
+    card = B.from_listing({"title": "Festive Christmas Stocking Crochet Pattern",
+                                 "listing_ref": "bench-x"})
+    assert card.occasion == "christmas", card.occasion
+    assert card.form == "stocking"
 
 if __name__ == "__main__":
     fails = 0

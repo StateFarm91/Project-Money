@@ -1,0 +1,230 @@
+{
+  "all_time": {
+    "period": null,
+    "upto_period": null,
+    "since": null,
+    "until": null,
+    "rows": [
+      {
+        "account": "1100",
+        "name": "Etsy payment account (receivable)",
+        "type": "asset",
+        "debit_cad": 65.63,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 64.0,
+          "modelled": 4.07,
+          "unverified": -2.44
+        }
+      },
+      {
+        "account": "2000",
+        "name": "Owner-funded spend payable",
+        "type": "liability",
+        "debit_cad": 0.0,
+        "credit_cad": 16.0052,
+        "by_basis_cad": {
+          "measured": 16.0052
+        }
+      },
+      {
+        "account": "2050",
+        "name": "Accrued listing-fee exposure",
+        "type": "liability",
+        "debit_cad": 0.0,
+        "credit_cad": 0.28,
+        "by_basis_cad": {
+          "modelled": 0.28
+        }
+      },
+      {
+        "account": "4000",
+        "name": "Sales - digital patterns",
+        "type": "revenue",
+        "debit_cad": 0.0,
+        "credit_cad": 92.59,
+        "by_basis_cad": {
+          "measured": 80.0,
+          "modelled": 12.59
+        }
+      },
+      {
+        "account": "4100",
+        "name": "Refunds",
+        "type": "contra_revenue",
+        "debit_cad": 16.0,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 16.0
+        }
+      },
+      {
+        "account": "5100",
+        "name": "Marketplace transaction & processing fees",
+        "type": "expense",
+        "debit_cad": 10.96,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "modelled": 8.52,
+          "unverified": 2.44
+        }
+      },
+      {
+        "account": "5110",
+        "name": "Listing fees",
+        "type": "expense",
+        "debit_cad": 0.28,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "modelled": 0.28
+        }
+      },
+      {
+        "account": "5200",
+        "name": "AI model & API",
+        "type": "expense",
+        "debit_cad": 1.5452,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 1.5452
+        }
+      },
+      {
+        "account": "5210",
+        "name": "Image generation & rendering",
+        "type": "expense",
+        "debit_cad": 0.96,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 0.96
+        }
+      },
+      {
+        "account": "5300",
+        "name": "Hosting & software",
+        "type": "expense",
+        "debit_cad": 7.0,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 7.0
+        }
+      },
+      {
+        "account": "5600",
+        "name": "Benchmark & research purchases",
+        "type": "expense",
+        "debit_cad": 6.5,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 6.5
+        }
+      }
+    ],
+    "total_debit_cad": 108.8752,
+    "total_credit_cad": 108.8752,
+    "balanced": true,
+    "entries_in_journal": 16,
+    "chain_ok": true,
+    "chain_head": "ac7629c430bfdc697e084e6beba60bf9250ddd22167ffbdc107d109a90134e1c",
+    "currency": "CAD"
+  },
+  "previous_period": {
+    "period": "2026-09",
+    "upto_period": null,
+    "since": null,
+    "until": null,
+    "rows": [
+      {
+        "account": "1100",
+        "name": "Etsy payment account (receivable)",
+        "type": "asset",
+        "debit_cad": 50.34,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 44.5,
+          "modelled": 8.28,
+          "unverified": -2.44
+        }
+      },
+      {
+        "account": "2000",
+        "name": "Owner-funded spend payable",
+        "type": "liability",
+        "debit_cad": 0.0,
+        "credit_cad": 14.261,
+        "by_basis_cad": {
+          "measured": 14.261
+        }
+      },
+      {
+        "account": "4000",
+        "name": "Sales - digital patterns",
+        "type": "revenue",
+        "debit_cad": 0.0,
+        "credit_cad": 57.09,
+        "by_basis_cad": {
+          "measured": 44.5,
+          "modelled": 12.59
+        }
+      },
+      {
+        "account": "5100",
+        "name": "Marketplace transaction & processing fees",
+        "type": "expense",
+        "debit_cad": 6.75,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "modelled": 4.31,
+          "unverified": 2.44
+        }
+      },
+      {
+        "account": "5200",
+        "name": "AI model & API",
+        "type": "expense",
+        "debit_cad": 0.441,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 0.441
+        }
+      },
+      {
+        "account": "5210",
+        "name": "Image generation & rendering",
+        "type": "expense",
+        "debit_cad": 0.32,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 0.32
+        }
+      },
+      {
+        "account": "5300",
+        "name": "Hosting & software",
+        "type": "expense",
+        "debit_cad": 7.0,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 7.0
+        }
+      },
+      {
+        "account": "5600",
+        "name": "Benchmark & research purchases",
+        "type": "expense",
+        "debit_cad": 6.5,
+        "credit_cad": 0.0,
+        "by_basis_cad": {
+          "measured": 6.5
+        }
+      }
+    ],
+    "total_debit_cad": 71.351,
+    "total_credit_cad": 71.351,
+    "balanced": true,
+    "entries_in_journal": 16,
+    "chain_ok": true,
+    "chain_head": "ac7629c430bfdc697e084e6beba60bf9250ddd22167ffbdc107d109a90134e1c",
+    "currency": "CAD"
+  }
+}

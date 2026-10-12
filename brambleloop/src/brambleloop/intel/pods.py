@@ -19,9 +19,7 @@ which is the most comfortable possible wrong answer.
 """
 from __future__ import annotations
 
-import hashlib
 import html
-import json
 import re
 from dataclasses import dataclass, field
 
@@ -306,8 +304,9 @@ def route(title: str, product_type: str = "") -> str:
 
 def fingerprint(payload: dict) -> str:
     """Content identity for an observation, so unchanged content is not paid for twice (#212)."""
-    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    from ..gateway.evidence_key import content
+
+    return content(payload)
 
 
 # ---------------------------------------------------------------------------

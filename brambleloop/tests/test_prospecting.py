@@ -14,6 +14,7 @@ nothing is a pipeline that will always return something.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from datetime import date
@@ -577,10 +578,13 @@ def test_generated_variety_is_still_checked_rather_than_assumed():
     arena = P.Arena(event="Christmas", pod="garments", days_away=96,
                     benchmark_listings=140, forms={"fitted_garment": 57})
     slot = P.slots(arena)["slot_objects"][0]
+    _vac_581 = 0
     for a, b, _pattern in P._crosses_for(slot, 40):
+        _vac_581 += 1
         assert a != b, (a, b)
         pair = frozenset({a, b})
         assert not any(pair <= family for family in _FAMILIES), (a, b)
+    assert _vac_581, "P._crosses_for(slot, 40) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_reservation_cannot_be_phase_shifted_out_of_its_own_runway():
@@ -734,18 +738,29 @@ def test_a_proposition_stage_fed_below_its_floor_is_reported_not_skipped():
     assert str(STAGE_BY_KEY["proposition"].floor_in) in str(raised)
 
 
-def test_a_concept_that_cannot_seed_a_family_is_cut_before_engineering():
-    """#111's whole point: after engineering the answer is always yes."""
+def test_a_concept_that_cannot_seed_a_family_is_carried_as_a_single_product_not_cut():
+    """#111's own rule, as its registry note states it: a concept that fails the family test
+    is reported as a single product, not refused; a bundle is derived from two viable roles
+    rather than asserted. Killing it was the wiring defect that stopped every fitted garment
+    at this stage (#308). The family test itself is unchanged and its verdict is recorded."""
     db = _db()
     lone = _survivor("lone", form="stocking", construction="flat_rows")
     out = P.proposition(db, [lone], pod="stockings")
     from brambleloop.creative.family import family_test
 
-    if not family_test(lone.concept)["seeds_a_family"]:
-        assert out["killed"]["lone"] == "no_family", out
-        assert lone.killed_by == "no_family"
+    fam = family_test(lone.concept)
+    assert "lone" not in out["killed"], out
+    assert lone.killed_by == ""
+    assert lone.family_verdict == fam["verdict"]
+    assert out["detail"]["lone"]["bundle_possible"] == fam["bundle_possible"]
+    if not fam["seeds_a_family"]:
+        assert out["single_products"]["lone"] == fam["verdict"], out
+        assert lone.carried_as == "single_product"
+        assert "lone" not in out["family_seeds"]
     else:
-        assert "lone" not in out["killed"], out
+        assert lone.carried_as == "family_seed" and "lone" in out["family_seeds"]
+    assert [c.concept.key for c in out["survivors"]] == ["lone"]
+    assert "never refused" in out["family_rule"]
 
 
 # ---- the handler itself ------------------------------------------------------

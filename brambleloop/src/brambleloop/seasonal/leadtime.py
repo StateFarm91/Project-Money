@@ -591,6 +591,75 @@ def sentinel(plans: list[LaunchPlan], today: date) -> dict:
     }
 
 
+# What occasion a product is for, and the value that means "none".
+EVERGREEN = "evergreen"
+UNASSIGNED = "unassigned"
+
+
+def occasion_for(slug: str) -> str:
+    """The seasonal event a product is merchandised for, read from its concept seed.
+
+    The seed is the only place a product's occasion is written: `ConceptSeed.season` names
+    a `SeasonalEvent`, and `evergreen` (or no season at all) means the product is for no
+    occasion. Matched on the same rule the listing and collection handlers use to find a
+    product's seed, so the three cannot disagree about what a product is.
+
+    A slug with no seed is `unassigned`, which is not the same as evergreen: nothing says
+    what it is for, and scheduling it against every event is how a Valentine's garland came
+    to be reported at risk for Halloween.
+    """
+    from ..radar.opportunity import POOL
+
+    seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+    if seed is None:
+        return UNASSIGNED
+    if seed.season:
+        return seed.season
+    return EVERGREEN
+
+
+def next_occurrence(event_date: date, today: date) -> date:
+    """The event's next date on or after today. Events are listed once; the calendar rolls."""
+    when = event_date
+    while when < today:
+        try:
+            when = when.replace(year=when.year + 1)
+        except ValueError:  # pragma: no cover - 29 February
+            when = when + timedelta(days=365)
+    return when
+
+
+# #283: the maker skill a pattern's printed difficulty is bought by. A beginner pattern is made
+# by beginners, who need the most calendar time; the launch plan is compiled for that maker,
+# and the whole distribution across skills is reported beside it.
+PATTERN_MAKER_SKILL: dict[str, str] = {
+    "beginner": "beginner", "confident beginner": "adventurous_beginner",
+    "intermediate": "intermediate",
+}
+
+
+def maker_skill_for(cir, compiled) -> tuple[str, str]:
+    """(maker skill the launch is planned for, the difficulty the pattern prints)."""
+    from ..cir.twin import build_twin
+    from ..publish.difficulty import difficulty
+
+    level = difficulty(cir, build_twin(cir, compiled))
+    return PATTERN_MAKER_SKILL.get(level, "intermediate"), level
+
+
+def skill_distribution(event: str, event_date: date, *, make_hours: float, today: date,
+                       assumptions: Assumptions = DEFAULT) -> dict:
+    """Make days and the latest launch for every maker skill (#283)."""
+    out = {}
+    for skill in sorted(assumptions.skill_factor):
+        plan = compile_launch(event, event_date, make_hours=make_hours, skill=skill,
+                              assumptions=assumptions)
+        out[skill] = {"effective_make_days": plan.effective_make_days,
+                      "latest_effective_launch": plan.latest_effective_launch.isoformat(),
+                      "status": plan.status(today)}
+    return out
+
+
 def catalogue_plans(db, today: date | None = None,
                     assumptions: Assumptions | None = None) -> dict:
     """Every certified pattern against every seasonal event, as a war room (#296, #311).
@@ -622,33 +691,80 @@ def catalogue_plans(db, today: date | None = None,
                 cir = CIR.from_dict(version.cir_json)
                 compiled = compile_cir(cir)
                 estimate = estimate_for(cir, compiled, base)
+                skill, printed = maker_skill_for(cir, compiled)
             except Exception as e:  # noqa: BLE001 - one bad pattern must not empty the room
                 products.append({"slug": product.slug, "error": f"{type(e).__name__}: {e}"})
                 continue
             products.append({"slug": product.slug, "version": version.version,
-                             "estimate": estimate.to_dict()})
+                             "estimate": estimate.to_dict(), "skill": skill,
+                             "difficulty": printed})
 
+    # A product is scheduled against the occasion it is for, and only that one. Every
+    # certified product used to be scheduled against every event, so an evergreen placemat
+    # and a Valentine's garland were both reported "at risk" for Halloween -- rows nobody
+    # could act on, which is the noise that trains everybody to stop reading the channel.
     rows: list[dict] = []
+    evergreen: list[str] = []
+    unassigned: list[str] = []
     for entry in products:
         if "estimate" not in entry:
             continue
+        occasion = occasion_for(entry["slug"])
+        entry["occasion"] = occasion
+        if occasion == EVERGREEN:
+            evergreen.append(entry["slug"])
+            continue
+        if occasion == UNASSIGNED:
+            unassigned.append(entry["slug"])
+            continue
         for event in SEASONAL_EVENTS:
-            if event.event_date < today:
+            if event.name != occasion:
                 continue
-            plan = compile_launch(event.name, event.event_date,
-                                  make_hours=entry["estimate"]["hours"], assumptions=base)
+            # The next occurrence, so an occasion that has passed is scheduled for next
+            # year rather than dropping out of the room until somebody edits a date.
+            when = next_occurrence(event.event_date, today)
+            # #298: a harvested season may raise this event's planning buffers (never lower).
+            from .harvest import adjusted_assumptions
+            event_base = adjusted_assumptions(db, event.name, base)
+            plan = compile_launch(event.name, when,
+                                  make_hours=entry["estimate"]["hours"], assumptions=event_base,
+                                  skill=entry["skill"])
             action, why = plan.recommendation(today)
-            rows.append({"slug": entry["slug"], **plan.to_dict(),
-                         "status": plan.status(today),
-                         "days_to_preferred": plan.days_to_preferred(today),
-                         "days_to_latest": plan.days_to_latest(today),
-                         "recommendation": action, "because": why})
+            row = {"slug": entry["slug"], **plan.to_dict(),
+                   "difficulty": entry["difficulty"],
+                   "make_time_by_skill": skill_distribution(
+                       event.name, when, make_hours=entry["estimate"]["hours"], today=today,
+                       assumptions=event_base),
+                   "event_year": when.year,
+                   "status": plan.status(today),
+                   "days_to_preferred": plan.days_to_preferred(today),
+                   "days_to_latest": plan.days_to_latest(today),
+                   "recommendation": action, "because": why}
+            if row["status"] == MISSED:
+                # What the missed window turns into: the same product against the next
+                # occurrence, so "missed" arrives with the date that is still reachable.
+                try:
+                    following = when.replace(year=when.year + 1)
+                except ValueError:  # pragma: no cover - 29 February
+                    following = when + timedelta(days=365)
+                nxt = compile_launch(event.name, following,
+                                     make_hours=entry["estimate"]["hours"],
+                                     assumptions=event_base, skill=entry["skill"])
+                row["next_window"] = {
+                    "event_date": following.isoformat(),
+                    "preferred_launch": nxt.preferred_launch.isoformat(),
+                    "latest_effective_launch": nxt.latest_effective_launch.isoformat()}
+            rows.append(row)
 
     rows.sort(key=lambda r: (r["event_date"], r["latest_effective_launch"]))
     return {
         "today": today.isoformat(),
         "calibration": calibration,
         "products_scheduled": sum(1 for p in products if "estimate" in p),
+        # Certified products with no occasion are not scheduled against any event; listed
+        # so an empty room is distinguishable from a room nobody could fill.
+        "products_evergreen": evergreen,
+        "products_unassigned": unassigned,
         "products_unreadable": [p for p in products if "error" in p],
         "counts": {state: sum(1 for r in rows if r["status"] == state)
                    for state in (ON_TRACK, PAST_PREFERRED, AT_RISK, MISSED)},

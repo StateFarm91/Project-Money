@@ -1,0 +1,57 @@
+{
+  "seeded": {
+    "ingest": {
+      "reading": "measured",
+      "held": []
+    },
+    "fees_applied": {},
+    "cost_rows": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "reservation": 1,
+    "prev_period": "2026-09",
+    "current_period": "2026-10"
+  },
+  "cycle": {
+    "at": "2026-10-06T06:33:48.855473+00:00",
+    "posting": {
+      "posted": 16,
+      "reversed": 0,
+      "unchanged": 0,
+      "duplicates": 0,
+      "excluded": 0,
+      "missing_sources": 0,
+      "exceptions_opened": 0
+    },
+    "matching": {
+      "matched": 0,
+      "unmatched": 0,
+      "duplicates": 0,
+      "mismatches": 0
+    },
+    "posting_after_match": {
+      "posted": 0,
+      "reversed": 0,
+      "unchanged": 16,
+      "duplicates": 0,
+      "excluded": 0,
+      "missing_sources": 0,
+      "exceptions_opened": 0
+    },
+    "anomalies": {
+      "findings": 0,
+      "opened": 0
+    },
+    "close": {
+      "period": "2026-09",
+      "closable": true,
+      "summary": "2026-09: READY TO CLOSE; 2 warning(s): bank_source, revenue_fees_refunds. Gross CA$57.09, net profit after reserve CA$28.66 (accrual)."
+    }
+  }
+}

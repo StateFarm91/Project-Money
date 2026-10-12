@@ -110,6 +110,28 @@ def record_proof(db, *, origin: str, row_id: int, summary: str) -> dict:
         return {"origin": origin, "row_id": row_id, "record_id": entry.id}
 
 
+def shop_complete_problems(db) -> list[str]:
+    """The shop_complete rung on the real assets, not on their briefs (F-233 / F-263).
+
+    `brand.storefront.check_storefront` reads the drafted copy and only the *existence* of the
+    banner/icon brief strings. A brief is not an icon. The rung therefore also reads
+    `store_foundation.storefront_gate`, which measures the rendered icon at Etsy's display
+    sizes, runs the owner's canonical banner file through every publication gate (UNKNOWN
+    blocks) and lints the copy and sections a buyer actually reads. The gate fails closed: an
+    error evaluating it is a finding, never a pass.
+    """
+    from ..brand.storefront import build_storefront
+    from ..store_foundation import storefront_gate
+
+    problems = list(build_storefront().problems)
+    try:
+        problems += [f"asset: {p}" for p in storefront_gate.problems(db)]
+    except Exception as exc:  # noqa: BLE001 - an unreadable gate is not a cleared one
+        problems.append(f"asset: STORE_GATE_ERROR: {type(exc).__name__}: {str(exc)[:160]} "
+                        f"(F-233)")
+    return problems
+
+
 def accelerator(db, *, storefront_problems: list[str] | None = None,
                 disclosure_ok: bool | None = None,
                 claims_ok: bool | None = None,
@@ -120,10 +142,10 @@ def accelerator(db, *, storefront_problems: list[str] | None = None,
     The unmeasured verdict is load-bearing. A rung nobody can check yet is not a rung this
     shop has cleared, and reporting it as green is how a sequence becomes a formality.
     """
-    from ..brand.storefront import build_storefront
-
-    problems = (storefront_problems if storefront_problems is not None
-                else build_storefront().problems)
+    if storefront_problems is not None:
+        problems = list(storefront_problems)
+    else:
+        problems = shop_complete_problems(db)
     proof = proof_count(db)
 
     def verdict(value: bool | None) -> str:
@@ -164,21 +186,42 @@ def accelerator(db, *, storefront_problems: list[str] | None = None,
     }
 
 
-def may_scale_ads(db, **checks) -> dict:
+def may_scale_ads(db, search_gate: dict | None = None, **checks) -> dict:
     """Whether paid traffic is worth buying yet, and exactly what is in the way.
 
     Returns rather than raises, because the answer is normally no for months and a refusal
     that reads as an error trains a reader to route around it.
+
+    F-060: the Search Supremacy Gate (`commerce.search_evidence.supremacy_gate`) is read
+    beside the trust rungs -- truthful query coverage, a competitive thumbnail, conversion
+    readiness and no unresolved first-party warning. Its rungs appear in `blocking` prefixed
+    `search:`; an unmeasured search rung blocks exactly as an unmeasured trust rung does.
     """
     state = accelerator(db, **checks)
-    blocking = state["failed"] + state["unmeasured"]
+    if search_gate is None:
+        from .search_evidence import supremacy_gate
+
+        try:
+            search_gate = supremacy_gate(db)
+        except Exception as e:  # noqa: BLE001 - an unreadable gate is not a cleared one
+            search_gate = {"cleared": False, "failed": [], "unmeasured": ["search_evidence"],
+                           "why": f"the search gate could not be read: {str(e)[:200]}"}
+    search_blocking = [f"search:{r}" for r in
+                       list(search_gate.get("failed") or [])
+                       + list(search_gate.get("unmeasured") or [])]
+    if not search_gate.get("cleared") and not search_blocking:
+        search_blocking = ["search:not_cleared"]
+    blocking = state["failed"] + state["unmeasured"] + search_blocking
+    cleared = state["cleared"] and bool(search_gate.get("cleared"))
     return {
-        "may_scale": state["cleared"],
+        "may_scale": cleared,
         "blocking": blocking,
+        "search_gate": {k: search_gate.get(k) for k in ("cleared", "failed", "unmeasured",
+                                                        "why")},
         "detail": state,
         "note": ("nothing is in the way of paid traffic on trust grounds; the spend decision "
                  "itself is a separate owner approval"
-                 if state["cleared"] else
+                 if cleared else
                  f"paid traffic would arrive at a shop that is not finished: {blocking}. "
                  f"The same traffic a month later converts better and costs the same, which "
                  f"is the whole of #17"),

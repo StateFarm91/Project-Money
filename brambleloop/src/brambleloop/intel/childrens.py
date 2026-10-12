@@ -565,8 +565,8 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
         # for the other. The statement is about the cot, so it says the thing about the cot.
         text=("This is for supervised, awake use, and it does not belong in an unsupervised "
               "sleep space before 12 months. The American Academy of Pediatrics' 2022 "
-              "recommendations keep soft objects and loose bedding -- blankets, comforters, "
-              "pillows, soft toys -- out of the infant sleep area. Keep this out of the cot, "
+              "recommendations keep soft objects and loose bedding (blankets, comforters, "
+              "pillows, soft toys) out of the infant sleep area. Keep this out of the cot, "
               "and out of reach of a baby who is in one. We know where a soft crocheted "
               "thing in a nursery is most likely to end up, so we say so here rather than "
               "leave it to be assumed."),
@@ -601,12 +601,13 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
                     "for this audience rather than a convenience"),
         heading="Fibre and washing",
         text=("This pattern is written for {fibres} yarn{colour_clause}. For a child's item "
-              "washability is hygiene rather than convenience: it will be mouthed, dribbled "
-              "on and washed far more often than an adult's version of the same object, so "
-              "choose a yarn you can machine wash, and wash the finished item before it is "
-              "used. What governs your own item is the yarn you actually bought -- follow "
-              "its ball band for temperature, drying and pressing. We state the fibre this "
-              "pattern was written for; we do not state a fibre content for your finished "
+              "washability is hygiene rather than convenience: anything kept near a small "
+              "child can end up within reach of hands and mouths, and is washed more often "
+              "than an adult's version of the same object, so choose a yarn you can "
+              "machine wash, and wash the finished item before it is used. What governs "
+              "your own item is the yarn you actually bought -- follow its ball band for "
+              "temperature, drying and pressing. We state the fibre this pattern was "
+              "written for; we do not state a fibre content for your finished "
               "item, because the yarn in your hands is what decides that."),
         marker="washability is hygiene rather than convenience",
         source=None,
@@ -638,10 +639,22 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
               "laboratory, a Children's Product Certificate, and a tracking label on the "
               "product itself. In Canada it is the Canada Consumer Product Safety Act and, "
               "for a toy, the Toys Regulations SOR/2011-17. We are not your lawyer and this "
-              "is a pointer rather than advice -- and we are not entitled to let you assume "
+              "is a pointer rather than advice, and we are not entitled to let you assume "
               "none of it exists."),
         marker="you become its manufacturer",
         source="cpsc_childrens_product"),
+    Statement(
+        "measurements_govern_fit",
+        obligation=("that finished measurements, not age, govern the fit of a sized "
+                    "children's garment (F-362)"),
+        heading="Choosing the size",
+        text=("Children's sizes are named by age because that is how the size standard names "
+              "them, but age does not decide fit. Measure the child's chest and choose the "
+              "size whose to-fit chest is closest, then check the finished measurements in "
+              "the size chart in this document: those, not the age on the label, are what "
+              "the garment will measure."),
+        marker="age does not decide fit",
+        source="cyc_child_sizes"),
     Statement(
         "not_legal_advice",
         obligation="that this is not legal advice, and the date the safety guidance was compiled",
@@ -714,6 +727,9 @@ class StatementFacts:
     # true of the *schema*: the fibre below was read out of a free-text yarn name.
     fibre_read_from: str = ""
     compiled_on: str = SNAPSHOT_DATE
+    # The size in words that name their convention, for a piece "w x h" does not describe
+    # (a hexagon: across the points and across the flats -- PT-10). Empty for flat pieces.
+    size_text: str = ""
 
     @property
     def audience_label(self) -> str:
@@ -724,6 +740,8 @@ class StatementFacts:
     def size_label(self) -> str:
         if not self.finished_size_cm:
             return ""
+        if self.size_text:
+            return self.size_text
         w, h = self.finished_size_cm
         return f"{w:.0f} x {h:.0f} cm"
 
@@ -1026,7 +1044,7 @@ SUBCATEGORIES: dict[str, Subcategory] = {s.slug: s for s in (
         "Class C. The CYC tables make grading arithmetic rather than guesswork, but fit is not "
         "verifiable by compiler, and the drawstring rule bites on anything hooded.",
         ("neck_or_hood_drawstring", "waist_or_bottom_tie_length", "small_parts_under_3"),
-        _BABY_STATEMENTS),
+        _BABY_STATEMENTS + ("measurements_govern_fit",)),
     Subcategory(
         "rattle_or_teether", "Rattles and teethers",
         "amigurumi", (UNDER_3,),
@@ -1094,6 +1112,75 @@ class Concept:
     waist_tie_inches_outside_channel: float | None = None
     tie_ends_in_toggle_or_knot: bool = False
     stated_statements: tuple[str, ...] = ()
+
+
+# ---- the concept read off the pattern (F-363) ---------------------------------------------
+#
+# `Concept.applied_parts` and the tie fields used to be *declared* by whoever built the
+# Concept, so a pattern whose materials list said "safety eyes" could be assessed as having no
+# applied parts at all -- the assessment was of a description, not of the pattern. These read
+# them off the CIR itself: every place the pattern can name a part or a tie (materials,
+# pieces, notes on pieces, rows, stitches and joins, the designer's notes).
+
+def _cir_texts(cir) -> list[str]:
+    texts = [m.name or "" for m in cir.materials]
+    texts += [cir.title or "", cir.designer_notes or "", cir.finished_size_note or ""]
+    for comp in cir.components:
+        texts += [comp.name.replace("_", " "), comp.note or ""]
+        for row in comp.rows:
+            texts.append(row.note or "")
+            stack = list(row.ops)
+            while stack:
+                node = stack.pop()
+                texts.append(getattr(node, "note", None) or "")
+                stack.extend(getattr(node, "ops", []) or [])
+    texts += [seam.note or "" for seam in cir.assembly]
+    return [t for t in texts if t]
+
+
+def _part_pattern(part: str) -> "re.Pattern[str]":
+    import re
+
+    words = part.split("_")
+    last = words[-1][:-1] if words[-1].endswith("s") and len(words[-1]) > 3 else words[-1]
+    body = r"[\s_-]+".join([re.escape(w) for w in words[:-1]] + [re.escape(last) + "s?"])
+    return re.compile(r"\b" + body + r"\b", re.IGNORECASE)
+
+
+def parts_in_cir(cir) -> tuple[str, ...]:
+    """Every applied part or integral feature the pattern itself names, in vocabulary terms."""
+    texts = _cir_texts(cir)
+    found = [part for part in sorted(DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES)
+             if any(_part_pattern(part).search(t) for t in texts)]
+    return tuple(found)
+
+
+def neck_or_hood_tie_in_cir(cir) -> bool:
+    """Whether any sentence of the pattern puts a tie, cord or drawstring at a neck or hood."""
+    import re
+
+    tie = re.compile(r"\b(drawstrings?|draw strings?|ties?|cords?|laces?)\b", re.IGNORECASE)
+    place = re.compile(r"\b(neck|neckline|hood|collar)\b", re.IGNORECASE)
+    for text in _cir_texts(cir):
+        for sentence in re.split(r"[.;\n]", text):
+            if tie.search(sentence) and place.search(sentence):
+                return True
+    return False
+
+
+def concept_from_cir(cir, *, subcategory: str, audience: str,
+                     stated_statements: tuple[str, ...] = (),
+                     declared_parts: tuple[str, ...] = ()) -> "Concept":
+    """The Concept `assess` reads, with parts and ties taken from the pattern (F-363).
+
+    `declared_parts` are kept and unioned, never replaced: a part somebody declared and the
+    pattern does not name is still a part. Waist-tie length is not derivable from the CIR --
+    no field carries a tie's free length -- so it stays None (unknown) rather than zero.
+    """
+    parts = tuple(sorted(set(declared_parts) | set(parts_in_cir(cir))))
+    return Concept(subject=cir.title, subcategory=subcategory, audience=audience,
+                   applied_parts=parts, neck_or_hood_drawstring=neck_or_hood_tie_in_cir(cir),
+                   stated_statements=stated_statements)
 
 
 @dataclass(frozen=True)
@@ -1274,3 +1361,114 @@ def carries_no_market_numbers() -> bool:
     forbidden = ("demand", "competition", "score", "price", "volume", "revenue", "rank")
     names = [f.name for f in fields(Subcategory)]
     return not any(word in name for name in names for word in forbidden)
+
+
+# ---- physical plausibility of a child's wearable (F-363) ------------------------------------
+#
+# The parts and ties above are about what can hurt a child. These are about what makes the
+# finished object impractical or inconsistent with the certified pattern, read off the CIR:
+#
+#   seams      every piece a join names exists, and every piece is attached to the object --
+#              by a join to another piece, or by resuming stitches another piece holds. A
+#              sleeve that nothing attaches is a pattern that ends with three loose pieces.
+#   closures   buttons in the materials need buttonholes (or button loops / a button band) in
+#              the instructions, and buttonholes need buttons.
+#   openings   a garment the child has to get into: an open front (cardigan, button band,
+#              "open" fronts) passes; a closed front needs a head opening the pattern states
+#              and this system can check, which it cannot today -- UNKNOWN, never a pass.
+#   proportion the built measures against the body the size is for (grading matrix): chest,
+#              upper arm and armhole at least the body's (no negative ease where the arm and
+#              the body have to go), length within a wearable band of the back length.
+#   trim       a band, collar, cuff or button band is a piece like any other: it must be
+#              attached (it is covered by `seams`).
+
+LENGTH_TO_BACK_LENGTH = (0.85, 1.6)
+
+
+def _attached(cir) -> dict[str, bool]:
+    names = [c.name for c in cir.components]
+    holds = {h.name: c.name for c in cir.components for h in c.holds}
+    linked: dict[str, set[str]] = {n: set() for n in names}
+    for s in cir.assembly:
+        if s.piece_a in linked and s.piece_b in linked and s.piece_a != s.piece_b:
+            linked[s.piece_a].add(s.piece_b)
+            linked[s.piece_b].add(s.piece_a)
+    for c in cir.components:
+        owner = holds.get(c.resumes or "")
+        if owner and owner != c.name:
+            linked[c.name].add(owner)
+            linked[owner].add(c.name)
+    seen, stack = {names[0]}, [names[0]]
+    while stack:
+        for nxt in linked[stack.pop()]:
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return {n: n in seen for n in names}
+
+
+def physical_plausibility(cir) -> list[dict]:
+    """Every reason a child's wearable would be impractical as the pattern makes it (F-363).
+
+    Each entry is {"code", "check", "detail"}; an empty list is a plausible object. UNKNOWN
+    entries (`OPENING_UNVERIFIED`) are reported like any other: an unmeasured opening is not a
+    measured one.
+    """
+    import re
+
+    out: list[dict] = []
+
+    def add(code: str, check: str, detail: str) -> None:
+        out.append({"code": code, "check": check, "detail": detail})
+
+    names = {c.name for c in cir.components}
+    for s in cir.assembly:
+        for piece in (s.piece_a, s.piece_b):
+            if piece not in names:
+                add("SEAM_PIECE_MISSING", "seams", f"a join names {piece!r}, which the "
+                    f"pattern never makes")
+    if len(names) > 1:
+        for name, ok in _attached(cir).items():
+            if not ok:
+                add("PIECE_NOT_ATTACHED", "seams", f"{name!r} is never joined to the object or "
+                    f"worked from stitches it holds")
+
+    text = " ".join(_cir_texts(cir)).lower()
+    materials = " ".join((m.name or "") for m in cir.materials).lower()
+    features = {c.feature for c in cir.components if c.feature}
+    has_buttons = bool(re.search(r"\bbuttons?\b", materials)) or \
+        bool(re.search(r"\bsew (?:on )?(?:the )?buttons?\b", text))
+    has_holes = bool(re.search(r"\bbutton ?holes?\b|\bbutton loops?\b", text)) or \
+        "button_band" in features
+    if has_buttons and not has_holes:
+        add("CLOSURE_WITHOUT_FASTENING", "closures", "buttons are called for and no "
+            "buttonhole, button loop or button band is worked")
+    if has_holes and not has_buttons:
+        add("CLOSURE_WITHOUT_BUTTONS", "closures", "buttonholes are worked and no buttons "
+            "are in the materials")
+
+    grading = getattr(cir, "grading", None)
+    entry = grading.entry() if grading is not None else None
+    if entry is not None:
+        front_open = ("cardigan" in f"{cir.slug} {cir.title}".lower()
+                      or "button_band" in features
+                      or bool(re.search(r"\bfronts? (?:stay|stays|left|are) open\b|\bopen[- ]"
+                                        r"front\b", text)))
+        if not front_open:
+            add("OPENING_UNVERIFIED", "openings", "a closed-front garment needs a head opening "
+                "this system can check against the size's head circumference; no sourced "
+                "head measurement is carried, so the opening is unverified")
+        body, built = entry.get("body_cm") or {}, entry.get("built_cm") or {}
+        for b_key, m_key in (("bust", "chest"), ("upper_arm", "upper_arm"),
+                             ("armhole_depth", "armhole")):
+            if b_key in body and m_key in built and float(built[m_key]) < float(body[b_key]):
+                add("PROPORTION_TOO_SMALL", "proportion", f"built {m_key} {built[m_key]} cm is "
+                    f"less than the size {entry.get('size')} body {b_key} {body[b_key]} cm")
+        if "back_length" in body and "length" in built and float(body["back_length"]):
+            ratio = float(built["length"]) / float(body["back_length"])
+            lo, hi = LENGTH_TO_BACK_LENGTH
+            if not lo <= ratio <= hi:
+                add("PROPORTION_LENGTH", "proportion", f"built length {built['length']} cm is "
+                    f"{ratio:.2f} x the back length {body['back_length']} cm (wearable band "
+                    f"{lo}-{hi})")
+    return out

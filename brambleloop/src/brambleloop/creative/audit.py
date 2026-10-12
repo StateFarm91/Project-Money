@@ -99,6 +99,124 @@ def catalogue_concepts() -> list[Concept]:
     return [concept_from_design(design) for design in CATALOGUE.values()]
 
 
+def briefed_concept(design) -> tuple[Concept, dict]:
+    """W4-CREATIVE: the design as the design process now specifies it.
+
+    Where `creative.emotional_brief` holds a brief for this design that validates (closed
+    vocabularies, not the default answer, a real function, a scene, a gifting moment, no
+    social proof, no imagery the fabric does not carry, the title's own promise honest, the
+    emotional promise executed in the object), the concept carries the brief's recipient,
+    occasion, feeling, function and premise. Otherwise it is exactly `concept_from_design`:
+    an unbriefed or held product is judged as the bare generator output it still is, so it
+    still fails. Form, construction, motif and palette always come from the design.
+    """
+    from . import emotional_brief as EB
+
+    literal = concept_from_design(design)
+    brief, problems = EB.brief_for_design(design)
+    if brief is None or problems:
+        return literal, {"state": "held" if any(p.startswith("HELD") for p in problems)
+                         else "unbriefed" if brief is None else "refused",
+                         "problems": problems}
+    concept = EB.to_concept(
+        brief, key=literal.key, title=literal.title, pod=literal.pod, form=literal.form,
+        construction=literal.construction, motif=literal.motif,
+        palette_story=literal.palette_story, make_lane=literal.make_lane,
+        provenance=(f"products/builder.py design + {EB.BRIEF_VERSION} authored "
+                    f"{EB.AUTHORED} by {EB.AUTHOR}"))
+    promise = EB.promise_problems(concept)
+    if promise:
+        return literal, {"state": "refused", "problems": promise}
+    return concept, {"state": "briefed", "problems": [], "brief": brief.to_dict()}
+
+
+def briefed_catalogue_concepts() -> tuple[list[Concept], dict[str, dict]]:
+    """Every catalogue design as the design process now specifies it, with each brief's state."""
+    from ..products.builder import CATALOGUE
+
+    concepts, states = [], {}
+    for design in CATALOGUE.values():
+        concept, state = briefed_concept(design)
+        concepts.append(concept)
+        states[design.slug] = state
+    return concepts, states
+
+
+# F-188: which cohort a creative reading measures. `audit_catalogue` judges the legacy Build-1
+# builder catalogue -- not the concept tournament -- and saying so is the difference between
+# "the current generator fails the creative gate" and "the retired one did".
+LEGACY_COHORT = "legacy_builder_catalogue"
+TOURNAMENT_COHORT = "tournament"
+TOURNAMENT_ACTIONS = ("creative.tournament", "creative.expedition")
+
+
+def legacy_cohort() -> dict:
+    """The cohort `audit_catalogue` measures, with the generator version that produced it.
+
+    The builder carries no version constant, so the version is the builder source's own
+    fingerprint: a change to the generator changes the label, and a reading taken against an
+    older builder cannot be mistaken for one taken against today's.
+    """
+    import hashlib
+    import inspect
+
+    from ..products import builder
+
+    from . import emotional_brief
+
+    try:
+        digest = hashlib.sha256(inspect.getsource(builder).encode()).hexdigest()[:12]
+    except (OSError, TypeError):
+        digest = "unknown"
+    return {"name": LEGACY_COHORT,
+            "generator": ("products.builder (Design: motif, palette, width, repeat) + "
+                          "creative.emotional_brief (recipient, occasion, moment, function)"),
+            # W4-CREATIVE: the brief set is part of what is measured, so a reading taken
+            # against an older brief set cannot be mistaken for today's.
+            "generator_version": f"builder@{digest}+briefs@{emotional_brief.briefs_fingerprint()}",
+            "n": len(builder.CATALOGUE),
+            "excludes": TOURNAMENT_COHORT,
+            "why": ("the legacy Build-1 catalogue; concept-tournament output is a separate "
+                    "cohort and is not counted here")}
+
+
+def tournament_cohort(db) -> dict:
+    """F-188: the concept tournament's own reading, kept apart from the legacy catalogue.
+
+    Read from the `creative.tournament` / `creative.expedition` audit rows the runs write. No
+    run on file is NO_RUNS with survivors None -- not zero survivors, which would be a
+    measurement nobody took.
+    """
+    base = {"name": TOURNAMENT_COHORT,
+            "generator": "creative.prospecting (Concept: form, construction, recipient, "
+                         "occasion, function)",
+            "excludes": LEGACY_COHORT}
+    if db is None:
+        return {**base, "state": "UNKNOWN", "runs": None, "candidates": None,
+                "survivors": None, "why": "no database to read tournament runs from"}
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = [(r.action, r.at, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action.in_(TOURNAMENT_ACTIONS))
+            .order_by(desc(AuditLog.id)).limit(200))]
+    if not rows:
+        return {**base, "state": "NO_RUNS", "runs": 0, "candidates": None,
+                "survivors": None,
+                "why": "no tournament or expedition has run, so this cohort is unmeasured"}
+    candidates = sum(_field_size(d) for _a, _t, d in rows)
+    survivors = sum(len([e for e in (d.get("survivors") or []) if isinstance(e, dict)])
+                    for _a, _t, d in rows)
+    latest = rows[0][1]
+    return {**base, "state": "MEASURED", "runs": len(rows), "candidates": candidates,
+            "survivors": survivors,
+            "survival_rate": round(survivors / candidates, 4) if candidates else None,
+            "latest_at": latest.isoformat() if latest is not None else None,
+            "why": f"{len(rows)} tournament/expedition runs on file (latest 200 read)"}
+
+
 def audit_catalogue() -> dict:
     """Run the creative gate against our own products and report what it finds.
 
@@ -109,33 +227,60 @@ def audit_catalogue() -> dict:
     from .jury import Context, judge
     from .tournament import autopsy
 
-    concepts = catalogue_concepts()
-    field = Field(opportunity="existing generated catalogue", concepts=concepts)
-
-    verdicts = []
-    for concept in concepts:
-        # Judged against the rest of the catalogue, which is the comparison that matters:
-        # is this product a different idea from the others we already sell?
-        others = [c for c in concepts if c.key != concept.key]
-        verdicts.append(judge(concept, Context(catalogue=others, techniques=1)))
-
-    rejected = [v for v in verdicts if not v.survives]
     from .tournament import Result, novelty, theme_fatigue
 
-    result = Result(opportunity="existing generated catalogue",
-                    at="", field_size=len(concepts), spread=field.spread(),
-                    survivors=[v for v in verdicts if v.survives],
-                    rejected=rejected, duplicate_pairs=field.duplicate_pairs())
+    def reading(concepts: list[Concept]) -> tuple[Field, list, list, Result]:
+        field = Field(opportunity="existing generated catalogue", concepts=concepts)
+        verdicts = []
+        for concept in concepts:
+            # Judged against the rest of the catalogue, which is the comparison that matters:
+            # is this product a different idea from the others we already sell?
+            others = [c for c in concepts if c.key != concept.key]
+            verdicts.append(judge(concept, Context(catalogue=others, techniques=1)))
+        rejected = [v for v in verdicts if not v.survives]
+        result = Result(opportunity="existing generated catalogue",
+                        at="", field_size=len(concepts), spread=field.spread(),
+                        survivors=[v for v in verdicts if v.survives],
+                        rejected=rejected, duplicate_pairs=field.duplicate_pairs())
+        return field, verdicts, rejected, result
+
+    # W4-CREATIVE: the bare generator output, kept as its own reading so the fix can never
+    # hide the defect it fixed. Every product here still dies of emotional_appeal.
+    raw_concepts = catalogue_concepts()
+    _rf, raw_verdicts, raw_rejected, raw_result = reading(raw_concepts)
+    # The catalogue as the design process now specifies it: briefed where a valid brief
+    # exists, bare generator output where none does. Same jury, same thresholds.
+    concepts, brief_states = briefed_catalogue_concepts()
+    field, verdicts, rejected, result = reading(concepts)
 
     identical = [(a.key, b.key) for i, a in enumerate(concepts) for b in concepts[i + 1:]
                  if distance(a, b) == 0.0]
 
     return {
+        "cohort": legacy_cohort(),
         "products_audited": len(concepts),
         "generator_degrees_of_freedom": generator_degrees_of_freedom(),
         "field_spread": field.spread(),
         "survivors": [v.concept for v in result.survivors],
+        # Survivors are `needs_taste` at best: structurally clean and unjudged by eyes, never
+        # approved, because nothing here can see (jury.judge).
+        "decisions": {v.concept: v.decision for v in verdicts},
         "rejected": len(rejected),
+        "briefs": {
+            "version": "emotional-brief/1",
+            "states": brief_states,
+            "briefed": sorted(k for k, v in brief_states.items() if v["state"] == "briefed"),
+            "held": sorted(k for k, v in brief_states.items() if v["state"] == "held"),
+            "unbriefed": sorted(k for k, v in brief_states.items()
+                                if v["state"] in ("unbriefed", "refused")),
+        },
+        "raw_generator": {
+            "what": ("the bare builder output (concept_from_design), no brief: the reading "
+                     "the dashboard showed before W4-CREATIVE"),
+            "survivors": [v.concept for v in raw_result.survivors],
+            "rejected": len(raw_rejected),
+            "autopsy": autopsy(raw_result),
+        },
         "structurally_identical_pairs": identical,
         "autopsy": autopsy(result),
         # The two measures #94 names that nothing computed until now. Both read awkwardly
@@ -152,6 +297,177 @@ def audit_catalogue() -> dict:
             "Generation has to start from a Concept — form, construction, recipient, "
             "occasion, function — and reach the motif last, rather than starting at the "
             "motif and never reaching the rest."),
+        "fix_applied": (
+            "W4-CREATIVE: creative.emotional_brief writes each design's brief moment first "
+            "(recipient, occasion, scene, gifting, sensory hooks, function, handmade-life "
+            "line) and feeds the gate the fields it reads. The gate is unchanged. Designs "
+            "whose title names imagery their motif does not depict are held, not briefed."),
+    }
+
+
+# W4-LAUNCHREADY: the Launch-0 products engineered outside the builder (the nesting baskets and
+# the coaster set). `audit_catalogue` judges builder designs only, so these four certified
+# releases were never judged and could never be creative-gate survivors. They are judged here
+# by the same jury, against the briefed builder catalogue plus each other, as their own cohort
+# (F-188: a reading says which cohort it measured). The motif is the visual idea the CIR makes
+# -- these CIRs carry no motif field -- and the construction is the CIR's, mapped onto the
+# concept vocabulary; an unmapped construction is reported, never guessed.
+ENGINEERED_COHORT = "launch0_engineered"
+ENGINEERED_MOTIF: dict[str, str] = {
+    "nursery-nesting-baskets": "hexagon",
+    "hexagon-coaster-set": "hexagon-contrast-round",
+}
+# W4-PRODUCT: the motifs of the engineered catalogue-floor PROPOSAL products
+# (`products.launch0.PROPOSED_CANDIDATES`). Joined to ENGINEERED_MOTIF only on owner approval.
+PROPOSED_ENGINEERED_MOTIF: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "fir-and-star",
+    "housewarming-key-basket": "basketweave",
+}
+
+
+def _merge_approved_proposal() -> None:
+    from ..products.launch0 import CATALOGUE_FLOOR_APPROVED
+
+    if CATALOGUE_FLOOR_APPROVED:
+        ENGINEERED_MOTIF.update(PROPOSED_ENGINEERED_MOTIF)
+
+
+_merge_approved_proposal()
+_CIR_CONSTRUCTION: dict[str, str] = {
+    "joined_rounds": "in_the_round",
+    "spiral_rounds": "in_the_round",
+    "flat_rows": "flat_rows",
+}
+
+
+def engineered_candidates(proposed: bool = False) -> list:
+    """Launch-0 candidates none of whose variants is a builder design, in listing order.
+
+    `proposed=True` lists the catalogue-floor proposal's engineered products instead (not in
+    Launch-0 until the owner approves; `products.launch0.CATALOGUE_FLOOR_APPROVED`).
+    """
+    from ..products import launch0 as l0
+    from ..products.builder import CATALOGUE
+
+    if proposed:
+        pool = [l0.proposed_candidate(s) for s in l0.PROPOSED_SLUGS
+                if s not in l0.LAUNCH0_SLUGS]
+    else:
+        pool = [l0.candidate(s) for s in l0.LAUNCH0_SLUGS]
+    out = []
+    for cand in pool:
+        cir_slugs = {l0.cir_for(v.build).slug for v in cand.variants}
+        if not cir_slugs & set(CATALOGUE):
+            out.append(cand)
+    return out
+
+
+def concept_from_candidate(cand) -> tuple[Concept | None, list[str]]:
+    """The literal concept of an engineered Launch-0 candidate, or None and why not.
+
+    Literal in the same sense as `concept_from_design`: what the record does not state is
+    filled with the value it behaves as though it chose (function empty, feeling cosy,
+    recipient/occasion from the slug hints), so an unbriefed candidate still fails.
+    """
+    from ..products import launch0 as l0
+
+    motif = ENGINEERED_MOTIF.get(cand.slug) or PROPOSED_ENGINEERED_MOTIF.get(cand.slug)
+    if motif is None:
+        return None, [f"{cand.slug}: no motif is recorded for this engineered product"]
+    cir = l0.cir_for(cand.variants[0].build)
+    construction = _CIR_CONSTRUCTION.get(str(cir.construction))
+    if construction is None:
+        return None, [f"{cand.slug}: CIR construction {cir.construction!r} has no concept "
+                      f"vocabulary mapping"]
+    kind = cand.listing.kind if cand.listing is not None else ""
+    lanes = [row["lane_total"] for row in l0.make_time(cand)["variants"]]
+    order = ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP")
+    lane = max(lanes, key=order.index) if lanes else "QUICK"
+    return Concept(
+        key=cand.slug, title=cand.title,
+        premise=(f"A {motif.replace('-', ' ')} {kind or 'piece'} worked "
+                 f"{construction.replace('_', ' ')} in {' and '.join(cir.colors)}."),
+        pod=cand.pod if cand.pod in ("home_decor", "blankets", "ornaments") else "home_decor",
+        form=_match(kind, _FORM_HINTS, "flat_panel"), construction=construction,
+        motif=motif, palette_story=" and ".join(cir.colors),
+        recipient=_match(cand.slug, _RECIPIENT_HINTS, "self"),
+        occasion=_match(cand.slug, _OCCASION_HINTS, "everyday"),
+        feeling="cosy", function="", make_lane=lane,
+        provenance="engineered Launch-0 candidate (products.launch0 / products.vessels)",
+    ), []
+
+
+def briefed_engineered(cand) -> tuple[Concept | None, dict]:
+    """The engineered candidate as the design process specifies it (same rules as builder)."""
+    from . import emotional_brief as EB
+
+    literal, why = concept_from_candidate(cand)
+    if literal is None:
+        return None, {"state": "unbriefed", "problems": why}
+    brief = EB.ENGINEERED_BRIEFS.get(cand.slug) or EB.PROPOSED_ENGINEERED_BRIEFS.get(cand.slug)
+    if brief is None:
+        return literal, {"state": "unbriefed",
+                         "problems": ["no emotional brief has been written for this product"]}
+    problems = EB.validate(brief, motif=literal.motif, title=literal.title,
+                           declared=EB.declared_by_slug(cand.slug))
+    if problems:
+        return literal, {"state": "refused", "problems": problems}
+    concept = EB.to_concept(
+        brief, key=literal.key, title=literal.title, pod=literal.pod, form=literal.form,
+        construction=literal.construction, motif=literal.motif,
+        palette_story=literal.palette_story, make_lane=literal.make_lane,
+        provenance=(f"{literal.provenance} + {EB.BRIEF_VERSION} authored 2026-10-11 by "
+                    f"W4-LAUNCHREADY"))
+    promise = EB.promise_problems(concept)
+    if promise:
+        return literal, {"state": "refused", "problems": promise}
+    return concept, {"state": "briefed", "problems": [], "brief": brief.to_dict()}
+
+
+def audit_launch0_engineered(proposed: bool = False) -> dict:
+    """Judge the engineered Launch-0 products with the unchanged jury, as their own cohort.
+
+    Context is the briefed builder catalogue plus the other engineered products, so a basket
+    that merely recolours a catalogue design still dies of sameness. A surviving candidate's
+    survival is reported per variant CIR slug as well, because launch clearance is read per
+    certified CIR slug (`app.dashboard_truth.launch_inventory`).
+    """
+    from ..products import launch0 as l0
+    from . import emotional_brief as EB
+    from .jury import Context, judge
+
+    cands = engineered_candidates(proposed=proposed)
+    built = [(c, *briefed_engineered(c)) for c in cands]
+    concepts = [con for _c, con, _s in built if con is not None]
+    catalogue, _states = briefed_catalogue_concepts()
+    if proposed:
+        # A proposal is judged against everything already in Launch-0 as well, so it cannot
+        # survive by recolouring an engineered product that is already selling.
+        launched = [briefed_engineered(c)[0] for c in engineered_candidates()]
+        catalogue = catalogue + [c for c in launched if c is not None]
+    verdicts, states, survivors, variant_slugs = {}, {}, [], []
+    for cand, concept, state in built:
+        states[cand.slug] = state
+        if concept is None:
+            verdicts[cand.slug] = {"decision": "rejected", "findings": state["problems"]}
+            continue
+        others = catalogue + [c for c in concepts if c.key != concept.key]
+        v = judge(concept, Context(catalogue=others, techniques=1))
+        verdicts[cand.slug] = v.to_dict()
+        if v.survives:
+            survivors.append(cand.slug)
+            variant_slugs.extend(l0.cir_for(var.build).slug for var in cand.variants)
+    return {
+        "cohort": {"name": ENGINEERED_COHORT + ("_proposed" if proposed else ""),
+                   "generator_version": f"launch0+briefs@{EB.engineered_fingerprint()}",
+                   "n": len(cands),
+                   "why": ("Launch-0 products engineered outside products/builder.py; judged "
+                           "by the same jury against the briefed builder catalogue")},
+        "audited": [c.slug for c in cands],
+        "states": states,
+        "verdicts": verdicts,
+        "survivors": survivors,
+        "survivor_slugs": sorted(variant_slugs),
     }
 
 
@@ -190,17 +506,203 @@ def generator_degrees_of_freedom() -> dict:
                     stitches(node, used)
         vocabularies[tuple(sorted(used))] += 1
 
+    # The verdict is derived from the measurement (integrator, W4): the earlier fixed text kept
+    # saying "every product is single-component" after real multi-piece designs shipped.
+    dims = {"construction": constructions, "component count": components,
+            "stitch vocabulary": vocabularies}
+    varies = ["motif", "palette", "width", "repeat count"] + [
+        name for name, c in dims.items() if len(c) > 1]
+    fixed = [name for name, c in dims.items() if len(c) <= 1]
+    single = components.get(1, 0)
+    vocab = ", ".join(",".join(k) for k in vocabularies) or "none"
+    if not [n for n in dims if n in varies]:
+        finding = ("Every product is a single-component flat-rows panel worked in exactly two "
+                   "stitches. A garland, an ornament, a wall hanging, a table runner and a baby "
+                   "blanket are the same object at different widths. The names promise "
+                   f"{len(CATALOGUE)} products and the fabric delivers one.")
+    else:
+        finding = (f"{single} of {len(CATALOGUE)} products are single-component; constructions "
+                   f"used: {dict(constructions)}; stitch vocabularies: {vocab}. What still "
+                   f"does not vary: {', '.join(fixed + ['silhouette', 'shaping'])}.")
     return {
         "products": len(CATALOGUE),
         "constructions_used": dict(constructions),
         "components_per_product": {str(k): v for k, v in components.items()},
         "stitch_vocabularies": {",".join(k): v for k, v in vocabularies.items()},
-        "varies": ["motif", "palette", "width", "repeat count"],
-        "does_not_vary": ["construction", "component count", "stitch vocabulary",
-                          "silhouette", "assembly", "shaping"],
-        "finding": (
-            "Every product is a single-component flat-rows panel worked in exactly two "
-            "stitches. A garland, an ornament, a wall hanging, a table runner and a baby "
-            "blanket are the same object at different widths. The names promise eleven "
-            "products and the fabric delivers one."),
+        "varies": varies,
+        "does_not_vary": fixed + ["silhouette", "assembly", "shaping"]
+        if "component count" not in varies else fixed + ["silhouette", "shaping"],
+        "finding": finding,
     }
+
+
+# ---------------------------------------------------------------------------
+# #85: the Creativity Director, and jury feedback as training memory
+#
+# The jury already existed -- six critics, each able only to reject -- and so did the autopsy
+# that aggregates why concepts died. What did not exist was anything that kept it: every
+# autopsy was computed on request and thrown away, so the next ideation started from the same
+# generic intelligence as the last one, having learned nothing from eighty deaths. The
+# Director is the component accountable for concept quality across runs rather than within
+# one, and its first duty is the memory: each recorded jury run becomes a Lesson on the bus,
+# routed to Creativity and to the departments the same deaths concern, and read back when the
+# next brief is assembled (`improve.bus.brief_lessons`).
+#
+# Its second duty is the separation #85 names: the proposing agent may not be the sole judge
+# of its own concept. A run whose record says the proposer also judged is refused as training
+# memory, because a verdict an author gave its own work is an opinion about the author's
+# intentions and teaches the next brief nothing about the buyer.
+
+JURY_ACTIONS: tuple[str, ...] = ("creative.tournament", "creative.expedition")
+AUTOPSY_ACTION = "concept.autopsy"
+LESSON_SUBJECT = "creative_rejection"
+LESSON_ORIGIN = "product_creativity"
+JUDGE = "creative.jury"
+
+# What a dominant cause of death says about the *brief*, which is where the fix lives. The
+# wording follows `tournament.autopsy`'s diagnosis for the critics it names, extended with
+# the screening causes a staged tournament records.
+DIAGNOSIS: dict[str, str] = {
+    "sameness": "the generator is varying decoration rather than ideas; the next brief must "
+                "change what may vary, not ask harder",
+    "genericness": "briefs are producing product descriptions instead of premises",
+    "emotional_appeal": "concepts are not being asked who they are for",
+    "derivative": "the field is anchoring too closely on observed competitor products",
+    "thumbnail": "ideas depend on detail that does not survive the grid",
+    "complexity": "briefs are over-scoped for their make lane",
+    "shopping_window": "briefs are written for an occasion the buyer can no longer finish",
+    "unverifiable": "concepts arrive in a shape nothing downstream can check",
+}
+
+
+def _deaths(detail: dict) -> dict[str, int]:
+    causes = detail.get("causes") or detail.get("deaths_by_critic") or {}
+    out: dict[str, int] = {}
+    for key, value in dict(causes).items():
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            out[str(key)] = n
+    return out
+
+
+def _field_size(detail: dict) -> int:
+    for value in ((detail.get("field") or {}).get("generated"), detail.get("proposed"),
+                  detail.get("field_size")):
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+    return 0
+
+
+def autopsy_statement(autopsy: dict, *, where: str) -> str:
+    """One jury run's deaths as a sentence the next brief can act on."""
+    deaths = autopsy["deaths_by_critic"]
+    dominant = autopsy["dominant_cause"]
+    total = sum(deaths.values())
+    field = autopsy.get("field_size") or 0
+    of = f" of {field}" if field else ""
+    diagnosis = DIAGNOSIS.get(dominant, "the cause is named so the next brief can answer it")
+    return (f"The creative jury recorded {total} death(s){of} in {where}, and "
+            f"{deaths[dominant]} were {dominant!r}: {diagnosis}. Causes: "
+            + ", ".join(f"{k} {v}" for k, v in sorted(deaths.items(), key=lambda kv: -kv[1]))
+            + ". The next brief has to answer the dominant cause rather than the last concept")
+
+
+def persist_autopsy(db, autopsy: dict, *, evidence_ref: str, where: str = "",
+                    proposed_by: str = "", judged_by: str = JUDGE) -> dict:
+    """Keep one jury autopsy as a routed Lesson. Idempotent on `evidence_ref`.
+
+    Refuses as memory a run judged by its own proposer (#85), and records nothing for a run
+    in which nothing died -- a field with no deaths taught the jury nothing to pass on.
+    """
+    from ..improve import bus
+
+    deaths = {k: int(v) for k, v in (autopsy.get("deaths_by_critic") or {}).items() if v}
+    if proposed_by and judged_by and proposed_by == judged_by:
+        return {"evidence_ref": evidence_ref, "lesson": None, "refused": True,
+                "why": (f"{proposed_by!r} both proposed and judged this field. The proposing "
+                        f"agent may not be the sole judge of its own concept (#85), and a "
+                        f"verdict an author gave its own work is not jury feedback")}
+    if not deaths:
+        return {"evidence_ref": evidence_ref, "lesson": None, "refused": False,
+                "why": "nothing died in this run, so the jury has nothing to pass on"}
+    shaped = {"deaths_by_critic": deaths,
+              "dominant_cause": autopsy.get("dominant_cause") or max(deaths, key=deaths.get),
+              "field_size": autopsy.get("field_size") or 0}
+    lesson_id = bus.publish(
+        db, origin_cell=LESSON_ORIGIN, subject=LESSON_SUBJECT,
+        statement=autopsy_statement(shaped, where=where or evidence_ref),
+        evidence_ref=evidence_ref,
+        confidence="measured" if sum(deaths.values()) > 1 else "observed")
+    return {"evidence_ref": evidence_ref, "lesson": lesson_id, "refused": False,
+            "dominant_cause": shaped["dominant_cause"],
+            "routed_to": list(bus.route_for(LESSON_SUBJECT))}
+
+
+def creativity_director(db, *, since_audit_id: int = 0) -> dict:
+    """Read every recorded jury run and rejection autopsy, and keep each as training memory.
+
+    Two sources. A tournament or expedition row carries the run's causes of death; each run
+    becomes one lesson, keyed by its audit row. The per-concept `concept.autopsy` rows
+    (`creative.standard.autopsy`) are grouped by reason, so forty rejections for one reason
+    are one lesson about the brief rather than forty about concepts.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        runs = [(a.id, a.action, a.actor or "", a.artifact or "", dict(a.detail or {}))
+                for a in s.scalars(select(AuditLog).where(
+                    AuditLog.action.in_(("creative.tournament", "creative.expedition")),
+                    AuditLog.id > since_audit_id).order_by(AuditLog.id))]
+        autopsies = [dict(a.detail or {}) for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "concept.autopsy").order_by(AuditLog.id))]
+
+    kept, refused, silent = [], [], []
+    for audit_id, action, actor, artifact, detail in runs:
+        deaths = _deaths(detail)
+        out = persist_autopsy(
+            db, {"deaths_by_critic": deaths,
+                 "dominant_cause": max(deaths, key=deaths.get) if deaths else None,
+                 "field_size": _field_size(detail)},
+            evidence_ref=f"{action}:audit:{audit_id}",
+            where=f"{action.split('.', 1)[-1]} {artifact}".strip(),
+            proposed_by=actor, judged_by=str(detail.get("judged_by") or JUDGE))
+        (refused if out["refused"] else kept if out["lesson"] else silent).append(out)
+
+    by_reason: dict[str, int] = {}
+    for row in autopsies:
+        reason = str(row.get("reason") or "")
+        if reason:
+            by_reason[reason] = by_reason.get(reason, 0) + 1
+    for reason, count in sorted(by_reason.items()):
+        out = persist_autopsy(
+            db, {"deaths_by_critic": {reason: count}, "dominant_cause": reason},
+            evidence_ref=f"concept.autopsy:{reason}", where="recorded concept autopsies")
+        (kept if out["lesson"] else silent).append(out)
+
+    return {
+        "runs_read": len(runs), "autopsies_read": len(autopsies),
+        "kept": kept, "refused": refused, "silent": silent,
+        "proposer_is_not_judge": JUDGE,
+        "note": (f"{len(kept)} jury record(s) kept as lessons, {len(refused)} refused as "
+                 f"self-judged, {len(silent)} with nothing to pass on"),
+    }
+
+
+def persist_catalogue_audit(db) -> dict:
+    """Run the catalogue audit and keep its autopsy, which was computed and thrown away (#85)."""
+    import hashlib
+    import json
+
+    report = audit_catalogue()
+    autopsy = dict(report["autopsy"])
+    digest = hashlib.sha256(json.dumps(autopsy.get("deaths_by_critic") or {},
+                                       sort_keys=True).encode()).hexdigest()[:12]
+    kept = persist_autopsy(db, {**autopsy, "field_size": report["products_audited"]},
+                           evidence_ref=f"creative.audit_catalogue:{digest}",
+                           where="the existing generated catalogue")
+    return {"autopsy": autopsy, "lesson": kept}

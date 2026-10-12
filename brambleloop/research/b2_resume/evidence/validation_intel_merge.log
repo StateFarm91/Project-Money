@@ -1,0 +1,96 @@
+== test_executor
+rc=1
+FAIL test_a_gate_may_be_satisfied_and_carry_no_requirements AssertionError('partial')
+== test_cert_intel_wave
+rc=0
+9 passing, 0 failing
+== test_cert_intel_wave2
+rc=0
+15 passing, 0 failing
+== test_cert_growth_seasonal
+rc=0
+OK   test_a_team_whose_occasion_has_passed_is_disbanded_not_deleted
+0 failure(s)
+== test_cert_design_pipeline
+rc=1
+Traceback (most recent call last):
+FAIL test_mjs_response_is_walked_from_listing_to_engineering_309: the stocking listing was not entered
+16 passing, 1 failing
+== test_cert_ideation
+rc=0
+OK   test_the_floor_rises_with_the_trailing_cohort_and_cuts_what_would_once_have_passed
+0 failed
+== test_cert_preengineering
+rc=0
+OK   test_unjudged_taste_waits_and_is_never_passed
+OK   test_a_passed_concept_enqueued_directly_is_refused_by_the_funnel
+0 failure(s)
+== test_cert_mjs
+rc=0
+== test_serp
+rc=0
+== test_cert_benchmark_health_api
+rc=0
+PASS: 0 failing
+== test_cert_competitive_weakness
+rc=0
+PASS: 0 failing
+== test_cert_provenance
+rc=0
+0 failed
+== test_closure
+rc=0
+  26 passing, 0 failing
+== test_reachability
+rc=0
+PASS: 0 failing
+== test_platform
+rc=0
+OK   test_permanent_failure_skips_retries
+== test_cert_orchestration
+rc=0
+0 failure(s)
+== test_capability_gates
+rc=0
+OK   test_a_model_answering_the_wrong_question_is_counted_as_a_failure
+OK   test_a_vision_probe_with_no_image_refuses_rather_than_passing
+== test_cert_wiring
+rc=1
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+FAIL test_no_row_whose_wiring_failed_here_is_still_claimed_covered AssertionError: claimed covered but not wired at runtime: {187: 'covered'}
+15/16 passed in 308s
+== test_cert_trend_evidence
+rc=0
+PASS: 0 failing
+== test_cert_growth_ops
+rc=0
+PASS: 0 failing
+== test_cert_improve_wave
+rc=0
+0 failure(s)
+== test_cert_orders
+rc=0
+PASS: 0 failing
+== test_cert_commerce_readings
+rc=0
+PASS: 0 failing
+== test_cert_publish_gates
+rc=0
+0 failed
+== test_cert_rebuild_chain
+rc=0
+PASS: 0 failing
+== test_cost_governance_wave2
+rc=0
+== test_prospecting
+rc=0
+OK   test_one_failed_field_is_not_a_failed_expedition
+== test_funnel
+rc=0
+== test_cert_culture_teardown
+rc=0
+0 failed
+== test_cert_unique_value
+rc=0
+PASS: 0 failing
+DONE

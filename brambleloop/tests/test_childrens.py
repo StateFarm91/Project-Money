@@ -290,16 +290,22 @@ def test_every_children_pattern_points_at_the_maker_who_sells():
     for slug, sub in ch.SUBCATEGORIES.items():
         if sub.verdict == ch.NEVER:
             continue
+        _vac_293 = 0
         for audience in sub.audiences:
+            _vac_293 += 1
             needed = ch.required_statements(slug, audience)
             assert "selling_finished_items" in needed, (slug, audience)
             assert "not_legal_advice" in needed, (slug, audience)
+        assert _vac_293, "sub.audiences was empty: the loop proved nothing (F-123)"
 
 
 def test_every_named_statement_exists_and_is_explained():
+    _vac_301 = 0  # a subcategory may name no statement; the union must not be empty
     for slug, sub in ch.SUBCATEGORIES.items():
         for statement in sub.statements:
+            _vac_301 += 1
             assert statement in ch.STATEMENTS, (slug, statement)
+    assert _vac_301, "no subcategory names a statement: the loop proved nothing (F-123)"
     for key, text in ch.STATEMENTS.items():
         assert len(text) > 40, key
 
@@ -309,11 +315,14 @@ def test_a_complete_pattern_produces_no_findings_at_all():
     for slug, sub in ch.SUBCATEGORIES.items():
         if sub.verdict == ch.NEVER:
             continue
+        _vac_312 = 0
         for audience in sub.audiences:
+            _vac_312 += 1
             concept = ch.Concept(subject=f"a {sub.label}", subcategory=slug, audience=audience,
                                  applied_parts=("embroidered_eyes",),
                                  stated_statements=ch.required_statements(slug, audience))
             assert ch.assess(concept) == [], (slug, audience, ch.assess(concept))
+        assert _vac_312, "sub.audiences was empty: the loop proved nothing (F-123)"
 
 
 # ---- the statements have words, and the words cannot drift from the duty ----
@@ -363,7 +372,9 @@ def test_every_marker_is_a_phrase_that_survives_into_the_rendered_text():
     for slug, sub in ch.SUBCATEGORIES.items():
         if sub.verdict == ch.NEVER:
             continue
+        _vac_366 = 0
         for audience in sub.audiences:
+            _vac_366 += 1
             these = ch.render_statements(
                 slug, audience, ch.StatementFacts(
                     audience=audience, finished_size_cm=facts.finished_size_cm,
@@ -372,6 +383,7 @@ def test_every_marker_is_a_phrase_that_survives_into_the_rendered_text():
             for key, text in these.text.items():
                 assert ch.STATEMENT_SET[key].marker in text, (slug, key)
                 assert "{" not in text and "}" not in text, (slug, key)
+        assert _vac_366, "sub.audiences was empty: the loop proved nothing (F-123)"
 
 
 def test_a_fact_nobody_recorded_makes_the_statement_unrenderable_rather_than_invented():
@@ -498,10 +510,13 @@ def test_sizes_increase_monotonically_within_each_chart():
     for chart in (ch.BABY_SIZES, ch.CHILD_YOUTH_SIZES):
         chests = [r.chest_in for r in chart]
         assert chests == sorted(chests) and len(set(chests)) == len(chests), chart
+        _vac_501 = 0
         for row in chart:
             # The published charts round to the nearest half centimetre, so the ratio is near
             # 2.54 rather than exactly it. A transposed column would be nowhere near.
+            _vac_501 += 1
             assert 2.4 < row.chest_cm / row.chest_in < 2.7, row
+        assert _vac_501, "chart was empty: the loop proved nothing (F-123)"
 
 
 def test_an_unknown_size_raises_rather_than_guessing():
@@ -511,6 +526,51 @@ def test_an_unknown_size_raises_rather_than_guessing():
         pass
     else:                                          # pragma: no cover
         raise AssertionError("an unpublished size was answered")
+
+
+
+# ---- F-363: the concept read off the pattern -------------------------------------------
+
+
+def _cir_with(material: str = "worsted cotton", note: str | None = None):
+    from brambleloop.cir.model import Material
+    from tests import fixtures
+
+    cir = fixtures.good_sphere()
+    cir.materials = [Material(name=material, yarn_weight="worsted", color_id="cream")]
+    cir.designer_notes = note
+    return cir
+
+
+def test_applied_parts_and_neck_ties_are_read_off_the_cir_not_declared():
+    cir = _cir_with("safety eyes, 9 mm")
+    assert ch.parts_in_cir(cir) == ("safety_eyes",)
+    concept = ch.concept_from_cir(cir, subcategory="amigurumi_toy", audience=ch.UNDER_3)
+    assert "SMALL_PART_UNDER_3" in {f.code for f in ch.assess(concept)}
+
+    tie = _cir_with(note="Thread a drawstring through the neck edge and tie a bow.")
+    assert ch.neck_or_hood_tie_in_cir(tie) is True
+    assert ch.neck_or_hood_tie_in_cir(_cir_with(note="Tie off and weave in the ends.")) is False
+
+    plain = _cir_with()
+    assert ch.parts_in_cir(plain) == ()
+    # A declared part survives derivation; the pattern only ever adds to it.
+    kept = ch.concept_from_cir(plain, subcategory="amigurumi_toy", audience=ch.UNDER_3,
+                               declared_parts=("buttons",))
+    assert kept.applied_parts == ("buttons",)
+
+
+def test_a_childrens_pdf_whose_pattern_names_safety_eyes_under_three_is_refused():
+    """The live consumer: publish.pdf refuses before rendering (F-363)."""
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    cir = _cir_with("safety eyes, 9 mm")
+    try:
+        build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+    except ValueError as e:
+        assert "SMALL_PART_UNDER_3" in str(e), e
+    else:
+        raise AssertionError("a pattern naming safety eyes rendered for under-3s")
 
 
 if __name__ == "__main__":

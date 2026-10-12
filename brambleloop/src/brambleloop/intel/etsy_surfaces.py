@@ -252,6 +252,87 @@ def document_fingerprint(document_text: str) -> str:
     return hashlib.sha256((document_text or "").encode("utf-8")).hexdigest()
 
 
+OPENAPI_CURRENT = "CURRENT"          # every classification input still holds
+OPENAPI_DRIFTED = "DRIFTED"          # Etsy's document moved under at least one verdict
+OPENAPI_UNREADABLE = "UNREADABLE"    # no operations could be read: nothing is confirmed
+
+
+def _operation_ids(document: Mapping) -> set[str]:
+    ops: set[str] = set()
+    for path in (document.get("paths") or {}).values():
+        if not isinstance(path, Mapping):
+            continue
+        for op in path.values():
+            if isinstance(op, Mapping) and op.get("operationId"):
+                ops.add(str(op["operationId"]))
+    return ops
+
+
+def openapi_reverify(document: Mapping | str) -> dict:
+    """Re-verify every surface's classification against Etsy's API document as it is now (F-514).
+
+    The registry's verdicts rest on two inputs from Etsy's OpenAPI document: the operations a
+    surface cites (`ETSY_OPERATIONS`) and the counted absences every UNSUPPORTED verdict rests
+    on (`ABSENCE_PROBES`). Given the current document (raw text, or the parsed JSON a transport
+    returns), this recomputes both and names each surface whose verdict no longer rests on what
+    Etsy publishes: a cited operation removed, a counted absence moved, or -- for UNSUPPORTED
+    surfaces -- new operations Etsy added that must be read before "no API" is relied on again.
+
+    Counts on a parsed document are taken over its canonical re-serialisation, so a formatting
+    difference can only *raise* a drift (fail closed), never hide one. An unreadable document
+    is UNREADABLE, never CURRENT.
+    """
+    import json as _json
+
+    if isinstance(document, str):
+        text = document
+        try:
+            parsed = _json.loads(document)
+        except ValueError:
+            parsed = {}
+    else:
+        parsed = dict(document or {})
+        text = _json.dumps(parsed, ensure_ascii=False, sort_keys=True)
+    parsed = parsed if isinstance(parsed, Mapping) else {}
+    ops = _operation_ids(parsed)
+    version = str((parsed.get("info") or {}).get("version") or "") or None
+    if not ops:
+        return {"status": OPENAPI_UNREADABLE, "version": version, "operations": 0,
+                "why": "no operationId could be read from the document; no verdict is "
+                       "confirmed", "affected": [], "removed_operations": [],
+                "added_operations": [], "absence_drift": [],
+                "pinned": {"version": OPENAPI_VERSION, "sha256": OPENAPI_SHA256}}
+    drift = verify_absence(text)
+    removed = sorted(ETSY_OPERATIONS - ops)
+    added = sorted(ops - ETSY_OPERATIONS)
+    drifted_terms = {d["term"] for d in drift}
+    affected = []
+    for s in _SURFACES:
+        reasons = []
+        gone = [o for o in s.operations if o in removed]
+        if gone:
+            reasons.append(f"cited operation(s) no longer in Etsy's document: {gone}")
+        moved = sorted(t for t in drifted_terms for e in s.evidence
+                       if e.kind == OPENAPI_ABSENCE and f"'{t}'" in e.statement)
+        if moved:
+            reasons.append(f"counted absence moved for {sorted(set(moved))}")
+        if added and s.verdict == UNSUPPORTED:
+            reasons.append(f"Etsy added {len(added)} operation(s) ({added[:5]}); the "
+                           f"UNSUPPORTED verdict must be re-audited before it is relied on")
+        if reasons:
+            affected.append({"surface": s.key, "verdict": s.verdict, "reasons": reasons})
+    status = OPENAPI_DRIFTED if (drift or removed or added) else OPENAPI_CURRENT
+    # F-546: the document's own fingerprint, so a change Etsy made that moved no verdict
+    # (prose, schemas) is still seen and attributable to a version -- reported, never a drift.
+    fp = document_fingerprint(text)
+    return {"status": status, "version": version, "operations": len(ops),
+            "fingerprint": fp, "fingerprint_matches_pinned": fp == OPENAPI_SHA256,
+            "removed_operations": removed, "added_operations": added,
+            "absence_drift": drift, "affected": affected,
+            "pinned": {"version": OPENAPI_VERSION, "sha256": OPENAPI_SHA256,
+                       "operations": len(ETSY_OPERATIONS)}}
+
+
 # ---------------------------------------------------------------------------
 # The operations Etsy actually publishes
 # ---------------------------------------------------------------------------
@@ -1920,6 +2001,69 @@ def work_plan() -> dict[str, list[str]]:
     return plan
 
 
+# F-588: the production-partners verdict (NOT_APPLICABLE) was reached with these outside
+# providers in view: the image models the gateway can be pointed at, and no fulfilment
+# provider (the shop sells a digital file). A provider joining or leaving either set is a
+# change in who might help make what a buyer receives, so it re-opens the review rather than
+# inheriting a verdict reached about a different set.
+PARTNERS_REVIEWED_IMAGE_PROVIDERS: frozenset[str] = frozenset(
+    {"flux-2-pro", "gpt-image-2", "nano-banana-2", "seedream-v5-lite"})
+PARTNERS_REVIEWED_FULFILMENT_PROVIDERS: frozenset[str] = frozenset()
+
+
+def _current_providers() -> tuple[set[str], set[str]]:
+    from ..gateway import images
+
+    return set(images.BY_KEY), set()
+
+
+def partners_reaudit(image_providers: Iterable[str] | None = None,
+                     fulfilment_providers: Iterable[str] | None = None) -> dict:
+    """Whether the provider set has moved since the production-partners review (F-588)."""
+    if image_providers is None or fulfilment_providers is None:
+        live_images, live_fulfilment = _current_providers()
+        image_providers = live_images if image_providers is None else image_providers
+        fulfilment_providers = (live_fulfilment if fulfilment_providers is None
+                                else fulfilment_providers)
+    images_now, fulfil_now = set(image_providers), set(fulfilment_providers)
+    added = sorted((images_now - PARTNERS_REVIEWED_IMAGE_PROVIDERS)
+                   | (fulfil_now - PARTNERS_REVIEWED_FULFILMENT_PROVIDERS))
+    removed = sorted((PARTNERS_REVIEWED_IMAGE_PROVIDERS - images_now)
+                     | (PARTNERS_REVIEWED_FULFILMENT_PROVIDERS - fulfil_now))
+    reopened = bool(added or removed)
+    return {"surface": "production_partners", "reopened": reopened,
+            "added": added, "removed": removed,
+            "why": (f"provider set changed since the production-partners review (added "
+                    f"{added}, removed {removed}); the NOT_APPLICABLE verdict must be "
+                    f"re-audited before it is relied on" if reopened else
+                    "provider set unchanged since the production-partners review")}
+
+
+def _unknowns() -> dict[str, list[str]]:
+    """Declared unknowns plus every Evidence(UNKNOWN) statement, per surface (F-588).
+
+    An UNKNOWN recorded as evidence was invisible to readiness, which reads only this dict:
+    the partners surface's open AI-partner question never reached it.
+    """
+    out: dict[str, list[str]] = {}
+    for surface in _SURFACES:
+        items = list(surface.unknowns)
+        for e in surface.evidence:
+            if e.kind == UNKNOWN and e.statement not in items:
+                items.append(e.statement)
+        if items:
+            out[surface.key] = items
+    try:
+        audit = partners_reaudit()
+    except Exception as exc:  # noqa: BLE001 - an unreadable provider set is itself unknown
+        audit = {"reopened": True,
+                 "why": f"provider set unreadable ({type(exc).__name__}); production-partners "
+                        f"review cannot be confirmed current"}
+    if audit["reopened"]:
+        out.setdefault("production_partners", []).append(audit["why"])
+    return out
+
+
 def coverage() -> dict:
     """One honest summary line per verdict, plus what is not evidenced at all."""
     counts = {v: len(by_verdict(v)) for v in VERDICTS}
@@ -1932,7 +2076,7 @@ def coverage() -> dict:
         "owner_actions": len(owner_queue()),
         "first_sale_owner_actions": len(owner_queue(first_sale_only=True)),
         "scope_gaps": scope_gaps(),
-        "unknowns": {s.key: list(s.unknowns) for s in _SURFACES if s.unknowns},
+        "unknowns": _unknowns(),
         "problems": check_registry(),
     }
 
@@ -2022,6 +2166,8 @@ def evidence_state(surface: Surface, record: Mapping | None, *, now: float) -> s
 
 #: Each check is (key, field, kind, why). `kind` decides how the value is judged:
 #:   "nonblank" -- a string that must have content
+#:   "blank"    -- a field that must be empty or absent-valued (e.g. an EU-only field on a
+#:                 Canadian shop)
 #:   "true"     -- a boolean that must be true
 #:   "false"    -- a boolean that must be false
 #:   "equals"   -- compared against the expected value in `expect`
@@ -2047,8 +2193,9 @@ SHOP_CHECKS: tuple[tuple[str, str, str, object, str], ...] = (
      "the most likely first complaint is about a return on a non-returnable item"),
     ("policy_privacy_set", "policy_privacy", "nonblank", None,
      "CASL and buyer trust; buying must not put anybody on a list"),
-    ("policy_additional_set", "policy_additional", "nonblank", None,
-     "the only policy field the API writes: licence and AI disclosure"),
+    ("policy_additional_unset", "policy_additional", "blank", None,
+     "Etsy lets only EU shops set policy_additional (lane I, verified Help Center); a Canadian "
+     "shop must leave it empty -- the licence lives in the FAQ/About copy"),
     ("etsy_payments_onboarded", "is_etsy_payments_onboarded", "true", None,
      "no payout route without it; closes payment_settings_setup"),
     ("not_on_vacation", "is_vacation", "false", None,
@@ -2102,6 +2249,10 @@ def assess_shop(snapshot: Mapping | None, *, now: float,
             ok = isinstance(value, str) and value.strip() != ""
             detail = (f"{field_name} is set" if ok else
                       f"{field_name} is {value!r}: Etsy returned it and it is empty. ({why})")
+        elif kind == "blank":
+            ok = value is None or (isinstance(value, str) and value.strip() == "")
+            detail = (f"{field_name} is empty" if ok else
+                      f"{field_name} is set but must be empty here. ({why})")
         elif kind == "true":
             ok = value is True
             detail = (f"{field_name} is true" if ok else

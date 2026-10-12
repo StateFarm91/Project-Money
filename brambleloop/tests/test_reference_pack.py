@@ -7,6 +7,7 @@ than as two of eight dimensions averaged in with the rest.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 
@@ -678,6 +679,11 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
                 output_tokens = 1
             return R()
 
+    # D-FB-11: only the approved v15 build of Laura can ever be (re-)frozen; a build under
+    # the current procedure label (v16-...) is refused (tests/test_canon_manifest.py proves
+    # it). This test is about the row's lifecycle, so the fixture is labelled as the
+    # approved build rather than asking the freeze to promote a new body.
+    package["pack_version"] = freeze_mod.OWNER_APPROVAL["approved_pack_version"]
     freeze_mod.freeze(db, owner_approved=True, package=package,
                       realism_judger=_Sound())
     release._reconcile_canonical_model_action(db)
@@ -1031,7 +1037,9 @@ def test_a_clean_run_is_ready_for_approval_and_still_frozen_by_nobody():
     import ast
 
     tree = ast.parse((ROOT / "src/brambleloop/visual/reference_pack.py").read_text())
+    _vac_1040 = 0
     for node in ast.walk(tree):
+        _vac_1040 += 1
         if isinstance(node, ast.Call):
             func = node.func
             name = (func.attr if isinstance(func, ast.Attribute) else
@@ -1039,6 +1047,7 @@ def test_a_clean_run_is_ready_for_approval_and_still_frozen_by_nobody():
             assert name not in ("select_canonical", "select"), f"{name} is called here"
         if isinstance(node, ast.keyword):
             assert node.arg != "owner_approved"
+    assert _vac_1040, "ast.walk(tree) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_two_reference_frames_are_checked_against_each_other():
@@ -1093,6 +1102,61 @@ def test_a_job_asking_for_a_newer_pack_than_this_build_makes_fails_rather_than_a
         assert "another replica" in str(e)
     else:
         raise AssertionError("a stale build answered for a pack it cannot produce")
+
+
+def test_a_job_asking_for_an_older_pack_than_this_build_makes_is_completed_as_superseded():
+    """The opposite case, found in the dead-letter queue on 2026-09-26.
+
+    A job stamped for a pack *older* than any running build produces is not one another
+    replica can take: nothing will ever build that pack again. Raising for it failed the
+    same job on every attempt for ever -- a poisoned row that read as a defect -- so it is
+    completed as a stand-aside that names what superseded it. A *newer* stamp still
+    raises, because that replica really is stale and the right one really is coming.
+    """
+    from brambleloop.runtime import release
+
+    assert rp.pack_number("v16-the-fallback-provider-has-time-to-render") == 16
+    assert rp.pack_number("v6") == 6 and rp.pack_number("V15-x") == 15
+    assert rp.pack_number("") == 0 and rp.pack_number("sixteen") == 0
+    assert rp.pack_number(rp.PACK_VERSION) > 6
+
+    class _Ctx:
+        db = None
+        job = type("J", (), {"inputs": {"pack_version": "v6-older-than-any-running-build"}})()
+
+        def audit(self, *a, **k):  # pragma: no cover - must not be reached
+            raise AssertionError("a superseded job wrote an audit row")
+
+    out = release.handle_model_reference_pack(_Ctx())
+    assert out["ran"] is False
+    assert out["superseded_by"] == rp.PACK_VERSION
+    assert out["asked_for"] == "v6-older-than-any-running-build"
+    assert "older" in out["why"] and "completed as superseded" in out["why"]
+
+    # The historical dead letter classifies as a refusal from its opening words alone, so
+    # retention may let it rest once it is old enough; a genuine defect never is.
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.ops import retention
+    from brambleloop.queue.durable import deliberate_refusal
+
+    stale = ("RuntimeError: this job asked for pack 'v15-the-revised-dimension' and this "
+             "build produces 'v16-the-fallback-provider'.")
+    assert deliberate_refusal("creative.model_reference_pack", stale) is True
+    assert deliberate_refusal("creative.model_reference_pack", "KeyError: 'frames'") is False
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(Job(agent="creative_director", job_type="creative.model_reference_pack",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(days=120),
+                  last_error=stale))
+        s.add(Job(agent="creative_director", job_type="creative.model_reference_pack",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(days=120),
+                  last_error="KeyError: 'frames'"))
+    plan = retention.dead_letter_plan(db, now=now)
+    assert plan["deletable"] == 1 and plan["kept"]["is_a_defect"] == 1
 
 
 def test_the_tournament_does_not_run_once_the_owner_has_chosen_a_candidate():

@@ -14,13 +14,14 @@ Two rules shape the design:
 from __future__ import annotations
 
 import signal
+import threading
 import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..agents.registry import BudgetExceeded, PermissionDenied, Registry
 from ..core.db import Database
@@ -56,6 +57,106 @@ class JobContext:
     def audit(self, action: str, **kw) -> None:
         self.registry.audit(self.job.agent, action, job_id=self.job.id, phase=self.phase, **kw)
 
+    def heartbeat(self) -> None:
+        """Extend this job's lease. A handler that legitimately runs longer than the lease
+        -- a render, a paged scan, a restore -- calls this between steps, so it is not
+        reclaimed and run twice while it is still working. Since completions are fenced on
+        the lease holder, a long handler that never heartbeats would also have its own
+        result refused once another worker reclaimed the job.
+
+        Fenced to this job's lease holder (C-13): the name is the one `claim` stamped on the
+        job this context was built from, so a stale context cannot extend a lease another
+        worker now holds."""
+        return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None,
+                                    lease_token=getattr(self.job, "lease_token", None))
+
+    def assert_lease(self) -> None:
+        """Raise `LeaseLost` unless this context's claim still holds the job (audit ddf9c6e
+        L-1). Called at the effect boundary (`queue.effects.guard`) so a stale-but-alive
+        worker stops BEFORE an external effect, not only at its (fenced) completion. A
+        context built without a lease token (direct handler calls in tests/tools) has no
+        claim to lose and passes."""
+        token = getattr(self.job, "lease_token", None)
+        if not token or getattr(self.job, "id", None) is None:
+            return
+        from ..queue.effects import LeaseLost
+
+        with self.db.session() as s:
+            row = s.execute(select(Job.status, Job.lease_token, Job.lease_expires_at)
+                            .where(Job.id == self.job.id)).first()
+        if row is None or row.status != JobStatus.RUNNING or row.lease_token != token:
+            raise LeaseLost(f"job {self.job.id}: lease no longer held by this attempt; "
+                            f"external effect not performed")
+        exp = row.lease_expires_at
+        if exp is not None:
+            exp = exp if exp.tzinfo else exp.replace(tzinfo=utcnow().tzinfo)
+            if exp <= utcnow():
+                raise LeaseLost(f"job {self.job.id}: lease expired at {exp.isoformat()}; "
+                                f"external effect not performed")
+
+    def checkpoint(self, key: str, state: dict) -> dict:
+        """F-659: record that the step `key` finished with `state`. A reclaimed or retried
+        attempt of this job reads it back with `restore(key)` and skips the step instead of
+        repeating it. Fenced to this attempt's lease (a stale worker's write is refused with
+        `queue.checkpoints.CheckpointRefused`). Paid answers are still replayed only by
+        `gateway.paid_calls`; a checkpoint never stands in for a payment record."""
+        return self.queue.checkpoint(self.job.id, key, state,
+                                     lease_token=getattr(self.job, "lease_token", None))
+
+    def should_yield(self, *, now=None) -> dict | None:
+        """F-473: whether higher-band work waits behind a full pool (swarm.preempt). Checked
+        against the database at most every `CHECK_EVERY_S`; None means keep going."""
+        import time as _t
+
+        from ..swarm import preempt
+
+        last = getattr(self, "_preempt_checked", 0.0)
+        if _t.monotonic() - last < preempt.CHECK_EVERY_S and now is None:
+            return None
+        object.__setattr__(self, "_preempt_checked", _t.monotonic())
+        try:
+            return preempt.preemption_wanted(self.db, self.job, now=now)
+        except Exception:  # noqa: BLE001 - an unreadable check never stops work
+            return None
+
+    def yield_now(self, why: str, *, key: str | None = None, state: dict | None = None):
+        """F-473: checkpoint `state` under `key` (when given) and hand the job back to the
+        queue un-counted. Raises `swarm.preempt.Preempted`; the worker requeues."""
+        from ..swarm.preempt import Preempted
+
+        if key is not None:
+            self.checkpoint(key, dict(state or {}))
+        raise Preempted(self.job.id, why, key)
+
+    def restore(self, key: str) -> dict | None:
+        """F-659: the state an earlier attempt of this job checkpointed under `key`, or None."""
+        return self.queue.restore(self.job.id, key)
+
+    def effect(self, effect: str, idem: str):
+        """`with ctx.effect("etsy.activate", key) as intent:` -- see queue.effects.guard."""
+        from ..queue import effects
+
+        return effects.guard(self, effect, idem)
+
+
+def protected_phase(ctx: "JobContext") -> Phase:
+    """rc1-AUTH A1: the phase a protected external effect may run in, resolved *now*.
+
+    The more restrictive of the phase this job was started with and the effective phase
+    (`core.phase.effective`: the environment AND the owner's latest recorded, chained
+    transition). An owner rollback recorded after the worker booted -- or after the job was
+    claimed -- therefore stops publication, activation and spend at the next effect boundary.
+    Fails closed to shadow.
+    """
+    from ..core import phase as phase_mod
+
+    try:
+        live = phase_mod.effective(ctx.db)
+    except Exception:  # noqa: BLE001 - an unreadable phase is shadow
+        live = phase_mod.DEFAULT
+    started = getattr(ctx.phase, "value", None) or phase_mod.DEFAULT
+    return Phase(phase_mod.more_restrictive(started, live))
+
 
 class HandlerRegistry:
     def __init__(self) -> None:
@@ -88,6 +189,121 @@ def _note_funding(db, text: str) -> None:
         pass
 
 
+# ---- F-098: park model-needing work while the model provider is down -----------------
+
+# Job types that can do nothing useful without an Anthropic answer: every one of them calls
+# the gateway (`failover.job_gateway` / the vision client) as its core step, and in
+# production each ended its latest cycle refusing on "credit balance is too low"
+# (RULE1_OUTPUT_AUDIT.md section 1). Deliberately narrow: a handler that does deterministic
+# work and only *optionally* consults a model keeps running, because parking it would lose
+# real output. `model.probe` is never parked -- it is how the outage is noticed to be over.
+MODEL_JOB_TYPES: frozenset[str] = frozenset({
+    "creative.blinded", "creative.expedition", "creative.grid_tournament",
+    "creative.tournament", "intel.gallery_analysis", "seasonal.cycle_proof",
+})
+PARKED_ACTION = "ai.parked"
+PARK_SECONDS = 30 * 60
+# A job parked longer than this runs anyway and reports its own refusal: an outage nobody
+# fixes for a day must surface as the handler's honest answer, not as an ever-growing queue.
+MAX_PARK_SECONDS = 24 * 60 * 60
+
+
+def model_provider_down(db, *, now: datetime | None = None) -> dict:
+    """Measured evidence that the Anthropic provider cannot answer now, or {"down": False}.
+
+    Evidence only -- a database where nobody has ever probed is *unknown*, not down, so a
+    fresh environment never parks anything. Three sources, freshest first:
+      * the shared failover breaker has an anthropic route DOWN (F-472; across workers);
+      * an open owner action for a spent Anthropic balance (`ops.funding`);
+      * the most recent `model.probe` failed.
+    """
+    try:
+        from ..gateway import failover
+
+        for key, h in sorted(failover.health(db, now=now).items()):
+            if key.startswith("anthropic:") and h.get("state") == failover.DOWN:
+                return {"down": True, "source": "failover", "route": key,
+                        "retry_after_s": max(60, int(h.get("retry_after_s") or 0)),
+                        "why": (f"{key} is DOWN across workers "
+                                f"({h.get('consecutive_failures')} consecutive failures)")}
+    except Exception:  # noqa: BLE001 - unreadable health is not evidence of an outage
+        pass
+    try:
+        from ..ops import funding
+
+        b = funding.blocked(db)
+        if b.get("blocked") and str(b.get("action") or "").startswith(
+                "Add credit to the Anthropic"):
+            return {"down": True, "source": "funding", "retry_after_s": PARK_SECONDS,
+                    "why": "the Anthropic account balance is spent (open owner action)"}
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ..gateway import anthropic as gw
+
+        probe = gw.last_probe(db)
+        # A probe that never reached the provider because no key is configured is not an
+        # outage: nothing a breaker cooldown waits for will change, and parking would only
+        # delay, by up to MAX_PARK_SECONDS, the handler's own honest "no key" refusal.
+        if probe is not None and not probe.get("ok") \
+                and not str(probe.get("reason") or "").startswith(gw.NO_KEY_REASON):
+            return {"down": True, "source": "probe", "retry_after_s": PARK_SECONDS,
+                    "why": ("the latest model probe failed: "
+                            + str(probe.get("error") or probe.get("why") or "")[:200])}
+    except Exception:  # noqa: BLE001
+        pass
+    return {"down": False}
+
+
+def park_if_model_down(db, job, *, worker: str, now: datetime | None = None) -> dict | None:
+    """Give a model-needing job back to the queue while the provider is down (F-098).
+
+    Like a lane hold: pending, unleased, the attempt not counted, claimable again after the
+    breaker's cooldown -- so an outage never walks the job toward a dead letter and never
+    burns retries or money. Audited `ai.parked`. Returns the park record, or None when the
+    job ran normally (not a model job, provider not known down, or parked too long).
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from ..core.models import AuditLog
+
+    if job.job_type not in MODEL_JOB_TYPES:
+        return None
+    now = now or utcnow()
+    created = job.created_at
+    if created is not None:
+        created = created if created.tzinfo else created.replace(tzinfo=now.tzinfo)
+        if (now - created).total_seconds() > MAX_PARK_SECONDS:
+            return None
+    down = model_provider_down(db, now=now)
+    if not down.get("down"):
+        return None
+    wait = int(down.get("retry_after_s") or PARK_SECONDS)
+    values = {"status": JobStatus.PENDING, "leased_by": None, "lease_token": None,
+              "lease_expires_at": None, "attempts": Job.attempts - 1,
+              "run_after": now + timedelta(seconds=wait)}
+    if int(job.attempts or 0) <= 1:
+        values["started_at"] = None
+    with db.session() as s:
+        res = s.execute(update(Job).where(
+            Job.id == job.id, Job.status == JobStatus.RUNNING, Job.leased_by == worker,
+            Job.attempts == job.attempts).values(**values)
+            .execution_options(synchronize_session=False))
+        if res.rowcount != 1:
+            return None
+        record = {"agent": job.agent, "worker": worker, "source": down.get("source"),
+                  "why": down.get("why"), "park_seconds": wait,
+                  "run_after": values["run_after"].isoformat()}
+        s.add(AuditLog(actor=job.agent, action=PARKED_ACTION, artifact=job.job_type,
+                       job_id=job.id, detail=record))
+    return record
+
+
+from ..swarm.preempt import Preempted as _Preempted  # noqa: E402 (F-473)
+
+
 @dataclass
 class WorkerStats:
     claimed: int = 0
@@ -95,6 +311,8 @@ class WorkerStats:
     failed: int = 0
     skipped: int = 0
     denied: int = 0
+    parked: int = 0
+    preempted: int = 0
 
 
 class Worker:
@@ -107,16 +325,33 @@ class Worker:
         job_types: Sequence[str] | None = None,
         registry: HandlerRegistry | None = None,
         lease_seconds: int = 300,
+        live_phase: bool = False,
     ):
         self.db = db
         self.name = name
         self.phase = phase
+        # rc1-AUTH A1: a deployed worker re-resolves the effective phase for every job rather
+        # than keeping the one it booted with, so an owner rollback recorded while it runs
+        # applies to the next job (and `protected_phase` re-checks at each effect boundary).
+        self.live_phase = live_phase
         self.job_types = list(job_types) if job_types else None
+        # A dedicated claimer of control job types only (runtime.lanes.CONTROL).
+        from .lanes import CONTROL as _CONTROL
+
+        self._control_lane = bool(self.job_types) and set(self.job_types) <= _CONTROL
         self.queue = JobQueue(db, lease_seconds=lease_seconds)
         self.agents = Registry(db)
         self.handlers = registry or handlers
         self.stats = WorkerStats()
         self._stopping = False
+
+    def _resolve_phase(self) -> Phase:
+        from ..core.phase import effective_phase
+
+        try:
+            return effective_phase(self.db)
+        except Exception:  # noqa: BLE001 - fail closed
+            return Phase.SHADOW
 
     def stop(self, *_a) -> None:
         self._stopping = True
@@ -135,6 +370,14 @@ class Worker:
         if job is None:
             return False
         self.stats.claimed += 1
+        if self.live_phase:
+            self.phase = self._resolve_phase()
+
+        # #175: the lane allocation limits how many jobs an agent's lane runs at once. A job
+        # over its lane's concurrency goes back to PENDING un-counted (audited swarm.lane_held).
+        if lane_hold(self.db, job, worker=self.name,
+                     control_lane=getattr(self, "_control_lane", False)):
+            return True
 
         # Authorize before anything else, including handler lookup. An agent reaching for work
         # it may not do is denied whether or not a handler happens to exist for it.
@@ -142,7 +385,8 @@ class Worker:
             self.agents.authorize(job.agent, job.job_type)
         except PermissionDenied as e:
             # Never retry a permission failure: it will never spontaneously become allowed.
-            self.queue.fail(job.id, f"permission denied: {e}", retry=False)
+            self.queue.fail(job.id, f"permission denied: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.denied", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.denied += 1
@@ -150,37 +394,143 @@ class Worker:
 
         handler = self.handlers.get(job.job_type)
         if handler is None:
-            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False)
+            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.stats.skipped += 1
+            return True
+
+        # F-098: a model-needing job does not run (and fail, and retry, and burn) while the
+        # model provider is measurably down; it waits, un-counted, for the breaker.
+        try:
+            parked = park_if_model_down(self.db, job, worker=self.name)
+        except Exception:  # noqa: BLE001 - a failed park check runs the job as before
+            parked = None
+        if parked is not None:
+            self.stats.parked += 1
             return True
 
         ctx = JobContext(job=job, db=self.db, queue=self.queue,
                          registry=self.agents, phase=self.phase)
+        from ..ops import artefacts as provenance
+
+        # Lease renewal for the handler's lifetime. Completion is fenced to the lease holder
+        # (a reclaimed job's original worker cannot complete it), so a legitimate handler
+        # longer than the lease -- a render, a benchmark, a continuity restore -- would lose
+        # its result. Renewing from here covers every handler without each one remembering
+        # to. It stops at MAX_HANDLER_SECONDS: a genuinely hung handler must still become
+        # reclaimable, which is what the lease exists for.
+        renewal = _LeaseRenewal(self.queue, job.id, worker=self.name,
+                                lease_token=job.lease_token)
+        renewal.start()
+        from ..finance import spend_report as _spend
+
         try:
-            outputs = handler(ctx) or {}
+            # Spend inside the handler is attributed to the product the job works for
+            # (F-321/F-324): the slug lives in the job, the bill is written five calls deeper.
+            with _spend.attributed_to(_spend.job_product(self.db, job)):
+                outputs = handler(ctx) or {}
+            renewal.stop()
+            # Provenance backstop (#171). The write path records lineage as it writes; this
+            # is the check that it did, after the handler and before the job is marked done.
+            # Any listing, frame, certificate or content piece this job created without a
+            # provenance row is audited as `provenance.refused`, and once the estate's
+            # backlog is closed (`may_enforce_unproven`, read without this job's own rows so
+            # the row that should fail the job cannot also excuse it) the job fails rather
+            # than completing with an artefact nobody can prove fresh. Before then it is
+            # audited and logged only -- failing a whole catalogue of jobs over
+            # instrumentation nobody had fitted is a different problem from a stale artefact.
+            try:
+                with self.db.session() as s:
+                    # This attempt's window, not the job's first attempt (C-52): a retried
+                    # job was otherwise blamed for every artefact other jobs wrote between
+                    # its first attempt and this one.
+                    since = getattr(job, "attempt_started_at", None) or job.started_at
+                    gap = provenance.assert_instrumented(s, since=since, job_id=job.id)
+                    # Workers run concurrently (runner lanes): an artefact of a product that
+                    # another job working on that product was writing during this window is
+                    # that job's (its own backstop checks it), not this one's.
+                    gap = concurrent_attribution(s, gap, since=since, job_id=job.id)
+                    enforce = bool(gap["missing"]) and provenance.may_enforce_unproven(
+                        s, ignoring=gap["missing"])["may_enforce_unproven"]
+            except Exception as exc:  # noqa: BLE001 - the check must not break what it checks
+                gap, enforce = {"missing": [], "error": f"{type(exc).__name__}: {exc}"}, False
+            if gap["missing"]:
+                self.agents.audit(job.agent, "provenance.refused", artifact=job.job_type,
+                                  job_id=job.id, phase=self.phase,
+                                  detail={"count": len(gap["missing"]),
+                                          "missing": [list(m) for m in gap["missing"]][:50],
+                                          # rows that exist but lack this job's lineage
+                                          # (certification C-27): a bare `record()` row
+                                          # does not instrument an artefact
+                                          "incomplete": list(gap.get("incomplete") or [])[:50],
+                                          "concurrent": list(gap.get("concurrent") or [])[:50],
+                                          "enforcing": enforce})
+                if enforce:
+                    raise provenance.ProvenanceRefused(
+                        f"{job.job_type} wrote {len(gap['missing'])} derived artefact(s) "
+                        f"with no lineage-complete provenance row from this job: "
+                        f"{gap['missing'][:3]}. The backlog is "
+                        f"closed, so an absent row is a defect rather than an unfitted "
+                        f"instrument, and a job that leaves one does not complete")
             # A handler that caught a spent balance and recorded it honestly still completes,
             # so the funding check reads the outputs as well as the exceptions. The pack
             # build did exactly that: `built: false`, the provider's own sentence in `why`,
             # a green job, and nobody told.
             _note_funding(self.db, self._funding_text(outputs))
-            self.queue.complete(job.id, outputs)
+            if not self.queue.complete(job.id, outputs, worker=self.name,
+                                       lease_token=job.lease_token):
+                # The lease was reclaimed while this handler ran. The queue recorded the
+                # refusal; the job's outcome belongs to the worker that holds it now.
+                self.stats.skipped += 1
+                return True
             self.agents.audit(job.agent, f"job.completed:{job.job_type}",
                               artifact=str(outputs.get("artifact") or job.job_type),
                               job_id=job.id, phase=self.phase)
             self.stats.completed += 1
+        except _Preempted as e:
+            renewal.stop()
+            # F-473: a cooperative yield, not a failure. Back to PENDING un-counted (lease-
+            # fenced, audited job.preempted); the checkpoint lets the next attempt resume.
+            from ..swarm.preempt import requeue_preempted
+
+            if requeue_preempted(self.db, job, worker=self.name, why=e.why):
+                self.stats.preempted += 1
+            else:
+                self.stats.skipped += 1
         except CapabilityNotEnabled as e:
-            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False)
+            renewal.stop()
+            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.capability_not_enabled", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except BudgetExceeded as e:
-            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False)
+            renewal.stop()
+            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
+        except provenance.ProvenanceRefused as e:
+            renewal.stop()
+            # Terminal, like a capability gate: a handler that cannot say what made its
+            # artefact will not be able to say so on the next attempt either.
+            self.queue.fail(job.id, f"provenance refused: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
+            self.agents.audit(job.agent, "job.provenance_refused", artifact=job.job_type,
+                              job_id=job.id, phase=self.phase, detail={"error": str(e)[:500]})
+            self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
+            renewal.stop()
             _note_funding(self.db, str(e))
-            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}")
+            # A PermanentError is terminal (C-51): hash drift, a corrupt artefact, a refusal in
+            # the provider's own words will be the same on the next attempt, so retrying it
+            # only spends the attempts and delays the dead letter somebody has to read.
+            from ..core.resilience import PermanentError
+
+            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}",
+                            retry=not isinstance(e, PermanentError), worker=self.name,
+                            lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1
@@ -212,6 +562,7 @@ class Worker:
 # cadence twice in the same window is refused by the job's idempotency key, so a restart loop
 # cannot flood the queue.
 CADENCES: list[tuple[str, str, str, int]] = [
+    ("learn_gap_scan", "learn", "learn.scan", 3600),
     # (name, agent, job_type, period_seconds)
     ("infra_heartbeat", "orchestrator", "ops.heartbeat", 15 * 60),
     ("queue_check", "orchestrator", "ops.queue_check", 60 * 60),
@@ -231,6 +582,91 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # nothing read is `not_audited` rather than clean, because a weekly report of a healthy
     # business nobody looked at is the same output as one somebody did.
     ("weekly_evolution", "orchestrator", "improve.weekly", 7 * 24 * 60 * 60),
+    # Requirements 90, 94. Daily: one deterministic query per capability cell. An identical
+    # reading is not re-recorded, so running it beside the nightly sweep cannot manufacture
+    # a flat history for the plateau detector to read as a defect.
+    ("capability_measure", "orchestrator", "improve.measure", 24 * 60 * 60),
+    # Requirement 97. Six-hourly: failures mined into routed lessons, idempotent on evidence,
+    # so a defect open for a month is one lesson a month old. Nightly is the minimum sweep.
+    ("failure_mine", "orchestrator", "improve.mine", 6 * 60 * 60),
+    # Requirement 93. Daily: every promoted change judged once per new production reading,
+    # and a regression becomes a revert plus a rollback incident rather than a quiet row.
+    ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
+    # with the minimum n until listings produce outcomes; the harvest refuses a season that
+    # has not passed or has fewer than 20 orders.
+    ("style_learning", "creative_director", "creative.style_learning", 24 * 60 * 60),
+    ("outcome_learning", "creative_director", "creative.outcome_learning", 24 * 60 * 60),
+    ("season_harvest", "orchestrator", "seasonal.harvest", 24 * 60 * 60),
+    # #5 / #43: every certified release is routed to its lane, its owed gates checked, and
+    # tester demand planned against the roster.
+    ("production_lanes", "quality_director", "gate.lanes", 24 * 60 * 60),
+    # #118 / #121: weekly white-space discovery and the four-season programme feed every
+    # tournament and expedition brief.
+    ("white_space_discovery", "creative_director", "creative.white_space", 7 * 24 * 60 * 60),
+    # W4-PIPE2: file each engineered creative candidate's concept board and register it
+    # with the taste gate in the live DB, so `creative.intake.regate_held` sees it.
+    ("creative_candidates_file", "creative_director", "creative.candidates_file",
+     24 * 60 * 60),
+    ("four_season_programme", "creative_director", "creative.four_season", 7 * 24 * 60 * 60),
+    # #92 / #95 / #180: sandbox trials and the challenger league, daily; #188 the governor,
+    # hourly; C-42 / #41 support triage, hourly (drafts only, nothing is sent in shadow).
+    ("improve_sandbox", "orchestrator", "improve.sandbox", 24 * 60 * 60),
+    ("improve_league", "orchestrator", "improve.league", 24 * 60 * 60),
+    ("finance_governor", "cfo", "finance.governor", 60 * 60),
+    ("support_triage", "support", "support.triage", 60 * 60),
+    # C-59 (#23 #236 #253 #254 #256 #257): the machinery of the gated commerce rows runs daily
+    # on what the database holds, so the day the data arrives is the day it is read.
+    ("commerce_readings", "cfo", "commerce.readings", 24 * 60 * 60),
+    # C-64: the order source (six-hourly, behind the transactions_r gate; no network call
+    # while it is closed), everything that reads orders (daily, and after any ingest that
+    # wrote one), the nightly trajectory (#26) and the creative north star by cohort (#132).
+    ("orders_ingest", "cfo", "commerce.orders_ingest", 6 * 60 * 60),
+    # F-005: Etsy's seller taxonomy and the crochet-pattern subtree's property schemas, into
+    # a snapshot the category chooser reads. Daily, read-only, CA$0, and a no-op with no
+    # network call while the etsy_api gate is closed.
+    ("etsy_taxonomy", "listing", "listing.taxonomy_refresh", 24 * 60 * 60),
+    # F-280: launch-week Search Visibility watch -- a daily owner card for the seven days
+    # after the phase first leaves shadow; a no-op in shadow (runtime.storefront_watch).
+    ("search_visibility_watch", "listing", "listing.search_visibility_watch", 24 * 60 * 60),
+    ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
+    ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
+    ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),
+    # C-60 (#17 #19 #238 #239 #242-#251 #255 #258-#261 #264 #267 #276 #291 #294 #295): paid
+    # media planned behind the owner's ad gate, distribution and the buyer journey read from
+    # the database daily, and the week's reallocation applied to the queue hourly.
+    ("ads_review", "ads", "ads.adjust", 24 * 60 * 60),
+    ("growth_distribution", "growth", "growth.distribution", 24 * 60 * 60),
+    ("growth_journey", "growth", "growth.journey", 24 * 60 * 60),
+    ("growth_steer", "swarm_steward", "growth.steer", 60 * 60),
+    # #265 / #266 experiments concluded daily; #34 the thrash sweep hourly; the seasonal
+    # engine daily (#33 #38 #131 #267 #286 #287 #289 #290 #291).
+    ("growth_conclude", "experiment_steward", "growth.conclude", 24 * 60 * 60),
+    ("thrash_sweep", "orchestrator", "ops.thrash", 60 * 60),
+    ("seasonal_engine", "orchestrator", "seasonal.engine", 24 * 60 * 60),
+    # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
+    # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
+    # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.
+    ("swarm_review", "swarm_steward", "swarm.review", 24 * 60 * 60),
+    ("swarm_allocate", "swarm_steward", "swarm.allocate", 60 * 60),
+    ("swarm_orphans", "swarm_steward", "swarm.orphans", 60 * 60),
+    ("swarm_backlog", "swarm_steward", "swarm.backlog", 60 * 60),
+    # #4: concept posts prepared and checked daily for the concepts held before engineering;
+    # posting refused while owned_surfaces is closed, interest UNMEASURED until a platform
+    # reports it, and a measured result steers the next field's brief.
+    ("preproduction_validation", "growth", "growth.preproduction", 24 * 60 * 60),
+    # #241/#265: experiments persisted with owner, expected value and a kill rule.
+    ("growth_experiments", "experiment_steward", "growth.experiments", 24 * 60 * 60),
+    # #75 COMPETITIVE and #222/#320: the blind review and the acceptance runner read stored
+    # evidence only; neither fetches or spends.
+    ("blind_review", "creative_director", "creative.blind_review", 24 * 60 * 60),
+    # #126: weekly, judged by a vision panel inside the ceiling; refused pods are recorded.
+    ("grid_tournament", "creative_director", "creative.grid_tournament", 7 * 24 * 60 * 60),
+    ("intel_acceptance", "market_radar", "intel.acceptance", 24 * 60 * 60),
+    # #171: lineage backfilled only where a job, audit or hash proves it; idempotent.
+    ("provenance_backfill", "orchestrator", "ops.provenance_backfill", 24 * 60 * 60),
+    # Cost governance: the 80% escalation becomes an owner action without anybody looking.
+    ("spend_escalation", "cfo", "finance.escalation_check", 6 * 60 * 60),
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
@@ -238,6 +674,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
     ("launch_readiness", "orchestrator", "launch.readiness", 24 * 60 * 60),
+    # F-125: a completion claim the measurement contradicts (COMPLETE but never ran,
+    # INTEGRATED but not reached) is an incident, checked daily rather than by hand.
+    ("maturity_disagreements", "orchestrator", "ops.maturity_disagreements", 24 * 60 * 60),
     # Six-hourly. The model gate reads a recorded successful call rather than a configured
     # key, because the key this company has authenticates against an account with no credit.
     # This is what makes the gate open by itself the moment that changes, and it is cheap:
@@ -291,7 +730,32 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # and what closes it again if the credential is ever revoked, without anybody noticing
     # by finding an empty catalogue.
     ("etsy_probe", "market_radar", "etsy.probe", 6 * 60 * 60),
-    ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
+    # Two-hourly *opportunity*, not two-hourly scans: `scan_or_explain` is adaptive by
+    # default (#313) and defers any scan the benchmark's own posting history says is not due,
+    # before a single request is made. Two hours is the adaptive floor; with thin history it
+    # falls back to six hours and says so.
+    ("mjs_scan", "market_radar", "mjs.scan", 2 * 60 * 60),
+    # Certification C-40 (#2, #15, #98): daily capture of the API search index for the pod
+    # vocabulary, labelled api_index_score_sort -- directional, never the rendered page.
+    ("serp_capture", "market_radar", "intel.serp_capture", 24 * 60 * 60),
+    # #206 / #226 / #311: MJs benchmark URL health, pod capability readings, and the seasonal
+    # deadline sentinel for MJs-derived opportunities.
+    ("mjs_benchmark_health", "market_radar", "intel.benchmark_health", 24 * 60 * 60),
+    ("mjs_pod_learning", "market_radar", "intel.pod_learning", 24 * 60 * 60),
+    ("mjs_seasonal_sentinel", "market_radar", "mjs.seasonal_sentinel", 24 * 60 * 60),
+    # C-60 (#219, #268): other category leaders join the elite panel from the API index.
+    ("panel_discovery", "market_radar", "intel.panel_discovery", 7 * 24 * 60 * 60),
+    # C-60 (#165): benchmark refresh recommendations, weekly and free.
+    ("benchmark_refresh", "market_radar", "intel.benchmark_refresh", 7 * 24 * 60 * 60),
+    # C-60 (#64): physical-proof upgrades measured daily; UNMEASURED until listings are live.
+    ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
+    # C-60 (#201): the canonical identity checked as a series across batches, daily.
+    ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
+    # C-60 (#86): the creativity benchmark memory, daily and free; UNMEASURED until a judged
+    # image carries a commercial attribute (the judging runs behind image_vision).
+    ("benchmark_memory", "creative_director", "creative.benchmark_memory", 24 * 60 * 60),
+    # C-60 (#116): construction readings and stored decompositions, gated on image_vision.
+    ("reference_reading", "creative_director", "creative.reference_reading", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.
@@ -406,6 +870,61 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # gate reads and refuses to run at all when it finds an audit action nobody has decided
     # about; `ops.retention` carries the reasoning.
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
+    # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
+    # recovery, unmapped paid provider or existential concentration raised as an incident.
+    ("dependency_sweep", "orchestrator", "ops.dependencies", 24 * 60 * 60),
+    # #95 / #180 / #187: the league's producer of runs -- historical jobs replayed under the
+    # job-priority policy and its challengers, newest days held out. Deterministic, no model.
+    ("improve_replay", "orchestrator", "improve.replay", 24 * 60 * 60),
+    # #153-#161: teardown findings checked as enforced requirements and routed to consumers.
+    ("teardown_enforce", "orchestrator", "teardown.enforce", 24 * 60 * 60),
+    # FB-1 cluster B. Daily reads of our own shop, through scopes already granted; none of
+    # them writes to Etsy. F-540: the stored OAuth credential is openable, fully scoped and
+    # still refreshing (one getMe, which rotates and persists the refresh token). F-515 /
+    # F-577 / F-585: getShop stored and judged by `etsy_surfaces.assess_shop` (vacation,
+    # currency, payments and trust-surface drift become incidents; passing checks close the
+    # owner actions they evidence). F-553 / F-544 / F-568: getListingsByShop in every state,
+    # compared with what we created, field drift and suspected takedowns as incidents.
+    ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
+    ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
+    # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
+    # drift becomes incidents and proposals, never an Etsy write.
+    ("store_live_drift", "orchestrator", "store.live_drift", 86400),
+    # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
+    ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
+    ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
+    # v1.1 lane A (PRIORITY ZERO, F-893/F-894): the Executive Orchestrator. Every fifteen
+    # minutes it reads every department, reconciles the missions it created, and gives each
+    # idle department its next highest-value safe work from durable evidence -- protected
+    # actions become owner approval items, never jobs. `Scheduler.tick` also wakes it at once
+    # when the whole queue is empty, so an empty queue never means an idle company.
+    ("executive_orchestrator", "coo", "autonomy.orchestrate", 15 * 60),
+    # Wave 3 lane D (D-FB-13): Laura's executive tick -- Laura -> COO -> departments ->
+    # results -> Laura. Deterministic, GREEN, CA$0; she is also woken by the COO when a
+    # mission she delegated closes (laura.executive.results_wake).
+    ("laura_executive", "laura", "laura.executive_tick", 5 * 60),
+    # Wave 3 K3 (F-258), integrator wiring via lane D: the listing-outcome producer, daily.
+    # GREEN: Etsy read-only (getListingsByShop) behind the existing client gate, this database
+    # only; until now it ran inside commerce.readings, which still calls it first.
+    ("listing_outcomes", "cfo", "listing.outcomes", 24 * 60 * 60),
+    # Wave 3 lane H via lane D: the Visual R&D loop (autonomy.visual_rnd_job). Deterministic,
+    # CA$0, ~2-3 min CPU per cycle; paid challengers are only planned for the owner.
+    ("visual_rnd", "publishing", "visual.rnd.cycle", 6 * 60 * 60),
+    # Wave 3 closure K15 (F-909/F-916): the accountant's tax + handoff pack for the last closed
+    # month, kept as a company_memory row (autonomy.period_packs). Prepared, never filed.
+    ("accounting_period_pack", "cfo", "finance.accounting.period_pack", 24 * 60 * 60),
+    # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
+    # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
+    # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).
+    ("slo_check", "orchestrator", "ops.slo", 15 * 60),
+    # Lane G (directive §11): continuous SEO; idempotent, proposals only, no Etsy write.
+    ("seo_cycle", "listing", "seo.cycle", 6 * 60 * 60),
+    # Lane E (F-901): the Accountant cycle -- post, reconcile, anomalies, close check. Rows
+    # only; moves no money, files nothing.
+    ("accounting_cycle", "cfo", "finance.accounting.cycle", 6 * 60 * 60),
+    # Lane H (F-686): Etsy Ads eligibility evidence re-evaluated hourly. Spends nothing and
+    # activates nothing; a due refresh becomes an owner action.
+    ("ads_readiness", "growth", "marketing.ads_readiness", 60 * 60),
 ]
 
 
@@ -443,24 +962,241 @@ def _role_cadences() -> list[tuple[str, str, str, int]]:
 CADENCES.extend(_role_cadences())
 
 
+
+# A handler may renew its lease for at most this long. Past it the lease lapses, another
+# worker may reclaim the job, and the original's completion is refused by the fence.
+MAX_HANDLER_SECONDS = 60 * 60
+
+
+def _input_slug(inputs) -> str:
+    inputs = inputs if isinstance(inputs, dict) else {}
+    cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
+    return str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
+
+
+def concurrent_attribution(s, gap: dict, *, since, job_id: int) -> dict:
+    """Move missing artefacts another concurrent job owns out of this job's provenance gap.
+
+    The backstop is windowed by time (C-52). With several workers (runner lanes), a
+    `listing.seo` writing a product's copy while a slug-less `swarm.allocate` ran on another
+    lane got the allocator dead-lettered for the listing (W4-AUTO after-proof, jobs 213/219).
+    An artefact is set aside only when another job named for that same product was running
+    in, or finished during, this window -- that job's own backstop checks it. Anything else
+    stays missing and is still enforced.
+    """
+    if not gap.get("missing") or since is None:
+        return gap
+    others = s.scalars(select(Job).where(Job.id != job_id).where(
+        or_(Job.status == JobStatus.RUNNING, Job.finished_at >= since))).all()
+    owners: dict[str, list[int]] = {}
+    for o in others:
+        slug = _input_slug(o.inputs)
+        if slug:
+            owners.setdefault(slug, []).append(o.id)
+    if not owners:
+        return gap
+    keep, moved = [], []
+    for m in gap["missing"]:
+        slug = m[2] if len(m) > 2 else ""
+        if slug and slug in owners:
+            moved.append({"artefact": list(m), "concurrent_jobs": owners[slug][:5]})
+        else:
+            keep.append(m)
+    if not moved:
+        return gap
+    keys = {(m[0], m[1]) for m in keep}
+    return {**gap, "missing": keep, "concurrent": moved,
+            "incomplete": [i for i in gap.get("incomplete") or []
+                           if (i.get("artefact_class"), i.get("artefact_key")) in keys]}
+
+
+class _LeaseRenewal:
+    """Renews a running job's lease every third of a lease, until stopped or capped.
+
+    Names the worker it renews for (C-13), so the queue refuses to extend a lease somebody
+    else now holds; once refused, this worker has lost the job and the thread stops rather
+    than asking again every interval. `worker=None` keeps the unnamed legacy renewal."""
+
+    def __init__(self, queue, job_id: int, *, worker: str | None = None,
+                 cap_seconds: int = MAX_HANDLER_SECONDS, lease_token: str | None = None):
+        self.queue, self.job_id, self.cap = queue, job_id, cap_seconds
+        self.worker = worker
+        self.lease_token = lease_token
+        self.interval = max(1.0, float(getattr(queue, "lease_seconds", 300)) / 3.0)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True,
+                                        name=f"lease-renewal-{job_id}")
+        self.renewals = 0
+        self.lost = False
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def _run(self) -> None:
+        started = time.monotonic()
+        while not self._stop.wait(self.interval):
+            if time.monotonic() - started >= self.cap:
+                return
+            try:
+                extended = (self.queue.heartbeat(self.job_id, worker=self.worker,
+                                                 lease_token=self.lease_token)
+                            if self.lease_token else
+                            self.queue.heartbeat(self.job_id, worker=self.worker))
+            except Exception:  # noqa: BLE001 - a failed renewal must not kill the handler
+                continue
+            if extended is False:
+                self.lost = True
+                return
+            self.renewals += 1
+
+from ..swarm.orchestrate import lane_hold, priority_for  # noqa: E402
+
+
+# W4-CHAIN residual: long read-only analysis cadences share the single embedded worker with
+# the release chain. At boot every cadence opens its window at once, and an ~80 s analysis
+# (`ops.maturity_disagreements` walks the whole reachability graph) claimed first holds the
+# worker while release-chain work waits behind it. Such a cadence is enqueued with its first
+# run deferred until the process has been up this long, so the boot burst's chain work is
+# claimed first; after that it runs on its normal window. Read-only, so a deferral loses
+# nothing but minutes of staleness. (The band, in `swarm.orchestrate.JOB_BANDS`, keeps it
+# behind chain work afterwards.)
+BOOT_DEFERRED_SECONDS: dict[str, int] = {"ops.maturity_disagreements": 10 * 60}
+PROCESS_STARTED_AT = utcnow()
+
+
+def boot_deferred_run_after(job_type: str, now, *, started_at=None):
+    """`run_after` for a cadence enqueue: None, or the end of its boot deferral."""
+    defer = BOOT_DEFERRED_SECONDS.get(job_type)
+    if not defer:
+        return None
+    started = started_at or PROCESS_STARTED_AT
+    until = started + timedelta(seconds=defer)
+    return until if now < until else None
+
+
 class Scheduler:
     def __init__(self, db: Database):
         self.db = db
         self.queue = JobQueue(db)
 
+    def _blocked_departments(self, now) -> dict[str, str]:
+        """Departments whose cadences this tick must not enqueue (audit ddf9c6e L-2).
+
+        A department block (owner action / command-center block) now binds the department's
+        scheduled cadences as well as orchestrator generation. Never-pause departments
+        (F-889: executive, product truth, finance, platform) are exempt -- the same single rule
+        the emergency pause and the orchestrator use. Blocks expire (memory.BLOCK_DEFAULT_TTL)
+        unless renewed, so a forgotten block cannot silence a department forever."""
+        out: dict[str, str] = {}
+        try:
+            from ..app.command_center.emergency import never_paused_refusal
+            from ..autonomy import memory
+            from ..autonomy.charters import CHARTERS
+
+            for ch in CHARTERS:
+                if never_paused_refusal(ch.key) is not None:
+                    continue
+                block = memory.active_block(self.db, ch.key, now=now)
+                if block:
+                    out[ch.key] = str(block["body"].get("reason") or "blocked")
+        except Exception:  # noqa: BLE001 - an unreadable block table never stops scheduling
+            self.block_read_error = traceback.format_exc(limit=2)[-300:]
+        return out
+
+    def _record_cadence_failure(self, name: str, job_type: str, exc: BaseException) -> None:
+        """One poisoned cadence -> one deduplicated incident + audit row (audit ddf9c6e M-2)."""
+        from ..core.models import AuditLog, Incident
+
+        sig = f"scheduler.cadence_failed:{name}"[:200]
+        err = f"{type(exc).__name__}: {str(exc)[:300]}"
+        try:
+            with self.db.session() as s:
+                inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                      Incident.resolved.is_(False)))
+                if inc is None:
+                    s.add(Incident(severity="P2", signature=sig,
+                                   summary=(f"cadence {name} ({job_type}) could not be "
+                                            f"enqueued; the other cadences continue"),
+                                   detail={"cadence": name, "job_type": job_type,
+                                           "error": err}))
+                else:
+                    inc.report_count = (inc.report_count or 1) + 1
+                    inc.detail = {**(inc.detail or {}), "error": err}
+                s.add(AuditLog(actor="scheduler", action="scheduler.cadence_failed",
+                               artifact=name[:200],
+                               detail={"job_type": job_type, "error": err}))
+        except Exception:  # noqa: BLE001 - recording a failure must not become one
+            pass
+
     def tick(self, now=None) -> list[str]:
-        """Enqueue any cadence whose window has opened. Safe to call as often as you like."""
+        """Enqueue any cadence whose window has opened. Safe to call as often as you like.
+
+        Per-cadence isolation (audit ddf9c6e M-2): one cadence whose enqueue raises is
+        recorded (incident + audit) and skipped; the remaining cadences are still enqueued
+        and the tick completes, so the runner's heartbeat stays fresh and the stale-scheduler
+        self-exit is not driven by a single poisoned cadence. Only when EVERY cadence that
+        was attempted failed (database down) does the tick raise -- that is a scheduler that
+        has genuinely stopped, which the self-exit exists for."""
         now = now or utcnow()
         enqueued: list[str] = []
+        self.failures: dict[str, str] = {}
+        self.blocked_skipped: dict[str, str] = {}
+        # #34: a loop the thrash breaker suspended, or a poll it backed off, is not re-enqueued
+        # by the next cadence window.
+        try:
+            from ..swarm.orchestrate import suspended_job_types
+
+            suspended = suspended_job_types(self.db, now=now)
+        except Exception:  # noqa: BLE001 - a failed read must never stop the scheduler
+            suspended = {}
+        self.suspended = suspended
+        blocked = self._blocked_departments(now)
+        self.blocked = blocked
+        try:
+            from ..autonomy.charters import department_of
+        except Exception:  # noqa: BLE001
+            def department_of(_jt):  # type: ignore[misc]
+                return None
+        attempted = ok = 0
         for name, agent, job_type, period in CADENCES:
-            window = int(now.timestamp() // period)
-            key = f"cadence:{name}:{window}"
-            try:
-                self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
-                                   priority=50 if period <= 3600 else 100)
-                enqueued.append(name)
-            except DuplicateJob:
+            if job_type in suspended:
                 continue
+            dept = department_of(job_type) if blocked else None
+            if dept in blocked:
+                self.blocked_skipped[name] = dept
+                continue
+            attempted += 1
+            try:
+                window = int(now.timestamp() // period)
+                key = f"cadence:{name}:{window}"
+                # The job type's band (#187), not how often it happens to be scheduled.
+                self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
+                                   priority=priority_for(job_type),
+                                   run_after=boot_deferred_run_after(job_type, now))
+                enqueued.append(name)
+                ok += 1
+            except DuplicateJob:
+                ok += 1
+                continue
+            except Exception as exc:  # noqa: BLE001 - one cadence never starves the others
+                self.failures[name] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                self._record_cadence_failure(name, job_type, exc)
+                continue
+        if attempted and not ok:
+            raise RuntimeError(f"every cadence failed to enqueue ({len(self.failures)}); "
+                               f"first: {next(iter(self.failures.values()), '')}")
+        # PRIORITY ZERO: an empty queue is a reason to ask the orchestrator now, not to wait
+        # for its next window. Keyed per five minutes inside `idle_wake`, so it cannot flood.
+        try:
+            from ..autonomy.orchestrator import idle_wake
+
+            if idle_wake(self.db, self.queue, now=now):
+                enqueued.append("executive_orchestrator:idle_wake")
+        except Exception:  # noqa: BLE001 - a failed wake never stops the scheduler
+            pass
         return enqueued
 
     def due_soon(self, within_seconds: int = 3600) -> list[Job]:

@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+from tests import fixtures  # noqa: E402
 
 from fixtures import (  # noqa: E402
     broken_repeat, broken_stitch_count, broken_unknown_color, good_mosaic_panel,
@@ -50,8 +51,11 @@ def _profile(cir=None):
 
 def test_every_dimension_section_three_names_is_tracked():
     p = _profile()
+    _vac_54 = 0
     for dim in conf.Dimension:
+        _vac_54 += 1
         assert dim in p.scores, dim
+    assert _vac_54, "conf.Dimension was empty: the loop proved nothing (F-123)"
 
 
 def test_there_is_deliberately_no_single_overall_score():
@@ -104,7 +108,7 @@ def test_an_unmapped_claim_is_refused_rather_than_waved_through():
 
 def test_the_certificate_carries_the_confidence_profile():
     cert = certify(nf.build("throw"))
-    assert cert.granted
+    assert fixtures.clean_but_for_product_truth(cert), cert.blocking_reasons   # F-112
     assert "confidence" in cert.stages_run
     assert cert.confidence["scores"]["physical"] == 0.0
     assert cert.confidence["weakest"] == "physical"

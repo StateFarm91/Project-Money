@@ -1,0 +1,68 @@
+{
+ "note": "the gate ran on the full-size draws (2528x1696, ~8 MB each, digests in bench2_manifest.json); half-size previews are tracked here, the full files stay in the session scratchpad",
+ "draws": {
+  "g3pro_1.png": {
+   "full_sha256": "46fabed649490b28e05f3ac2138021f19d7c1c6d962de743671621a2b2084086",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "a3c5600b496bca6e1beb6ac56356ae4731e1c659e37342358674ba7faffae882",
+   "preview_bytes": 2008809
+  },
+  "g3pro_2.png": {
+   "full_sha256": "389bd7f24fd2cc7ece0af23a65770bd8dada872ae9e6a09fdde70f9e9a298230",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "7f6de002a6ca0b1d885d3a79e092095df195c97b9036354536fced69d90bab77",
+   "preview_bytes": 2150245
+  },
+  "g3pro_3.png": {
+   "full_sha256": "8675eb154df998ef2a46e96fdc68995e7a88ddf528b2df55dcf1049ccef984d2",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "a0a786ab54a77bd8258854e40abb406fcadc857bbe9ac70f741d17abf80b05c7",
+   "preview_bytes": 1986712
+  },
+  "g3pro_4.png": {
+   "full_sha256": "b600ea69f4ab22aa9a40b49a29127f236003b8752767c6debb61ff13b775dfb1",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "f3e59923df50ed6a70287b346d6f8039d86d6c98a91b4f3626cc12952b3a5839",
+   "preview_bytes": 2005770
+  },
+  "g3pro_5.png": {
+   "full_sha256": "96e9a66c4e7655c72e72164156922e78e64b445bd2f427922877cd68f875f47c",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "2d3a9eca7a6b1a4840ab7b2f4306fd914a3b07b06ed9d0dfe02ac59b032016c3",
+   "preview_bytes": 1962321
+  },
+  "g3pro_6.png": {
+   "full_sha256": "6732f958e8c19353135f028c87d4cedb3f588205152494a0158e165e29e538e2",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "e6202916be3d53bfe51e8637959b0cd051f67bf2aca72d4ae2474cc8f09152b7",
+   "preview_bytes": 2267421
+  },
+  "g3pro_7.png": {
+   "full_sha256": "062c8ed6e735fd417ba1b746e34ac039866891eb35965b218e9f358c1f9bc72e",
+   "full_size": [
+    2528,
+    1696
+   ],
+   "preview_sha256": "73eaeae4a78de8b9925885e72b08f43a8b0717c6d2a6fc135e1167b928e167c6",
+   "preview_bytes": 1899822
+  }
+ }
+}

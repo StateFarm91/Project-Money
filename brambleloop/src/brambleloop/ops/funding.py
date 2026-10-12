@@ -155,7 +155,8 @@ def cleared(db) -> dict:
             OwnerAction.done == False))  # noqa: E712
         if row is None:
             return {"cleared": False, "reason": "nothing was open"}
-        row.done = True
+        from . import owner_queue
+        owner_queue.close(row, owner_queue.SATISFIED, "funding recorded on file")
         s.flush()
     return {"cleared": True, "requirement_key": REQUIREMENT_KEY,
             "by": "a real model call succeeded, so the balance is no longer the blocker"}

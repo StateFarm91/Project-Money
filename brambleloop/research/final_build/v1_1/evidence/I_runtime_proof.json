@@ -1,0 +1,73 @@
+{
+ "db": "/tmp/tmpqv59ebxo/laneI_proof.sqlite",
+ "ticks": 20,
+ "jobs_run": 3,
+ "status": "OK",
+ "basis": "measured",
+ "slos": {
+  "command_center_availability": {
+   "state": "UNKNOWN",
+   "sli": null,
+   "reason": "no external probe of the Command Center is recorded. The web process answering itself is not availability, so this is UNKNOWN rather than 100% (the watchdog cron in CLOUD_HOSTING_PLAN.md writes these rows)"
+  },
+  "scheduler_freshness": {
+   "state": "MET",
+   "sli": 1.0,
+   "reason": "fresh in 1/1 five-minute intervals"
+  },
+  "cadence_freshness": {
+   "state": "UNKNOWN",
+   "sli": null,
+   "reason": "no cadence has been scheduled long enough to be judged"
+  },
+  "queue_latency": {
+   "state": "MET",
+   "sli": 1.0,
+   "reason": "3/3 started within 15 min of due"
+  },
+  "recovery_time": {
+   "state": "UNKNOWN",
+   "sli": null,
+   "reason": "no platform incident opened or closed in the window, so recovery time has not been observed"
+  },
+  "department_heartbeat": {
+   "state": "MET",
+   "sli": 1.0,
+   "reason": "1/1 departments attempted work recently"
+  },
+  "department_useful_work": {
+   "state": "UNKNOWN",
+   "sli": null,
+   "reason": "no department has a cadence to be judged against"
+  }
+ },
+ "scheduler": {
+  "kind": "scheduler_liveness",
+  "stale": false,
+  "age_s": 20,
+  "threshold_s": 600,
+  "source": "ops_runtime_samples(component=scheduler)",
+  "latest": "2026-10-06T06:49:46.399131+00:00"
+ },
+ "worker": {
+  "kind": "worker_liveness",
+  "stalled": false,
+  "reason": "no work has been due for longer than 15 minutes",
+  "source": "jobs"
+ },
+ "failover": "UNKNOWN",
+ "lease": {
+  "name": "scheduler",
+  "holder": "proof-scheduler",
+  "acquired_at": "2026-10-06T06:49:46.394822+00:00",
+  "expires_at": "2026-10-06T06:52:46.394822+00:00",
+  "live": true
+ },
+ "incidents": {
+  "opened": [],
+  "restated": [],
+  "resolved": []
+ },
+ "note": "local scratch SQLite; real Scheduler.tick + real Worker restricted to ops.heartbeat/ops.queue_check; wall-clock run; NOT production, NOT a soak",
+ "finished_at": "2026-10-06T06:50:06Z"
+}

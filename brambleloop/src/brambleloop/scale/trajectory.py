@@ -224,25 +224,116 @@ def sensitivity(inputs: dict[str, Value], *, months: int = 12) -> list[dict]:
     return rows
 
 
-def nightly(db, *, on: date | None = None, target_cad: float = 3000.0) -> dict:
-    """The nightly run against what this company has actually observed.
+# What each term is assumed to be when it has not been observed, and on what basis. Wide on
+# purpose: an assumption stated narrowly is a forecast pretending not to be one.
+ASSUMED: dict[str, tuple[float, float, float, str]] = {
+    "qualified_traffic": (1500.0, 200.0, 8000.0,
+                          "assumed: impressions per month for a new shop's catalogue"),
+    "ctr": (0.020, 0.005, 0.040, "assumed: growth.portfolio.BENCH_CTR, category-typical"),
+    "conversion": (0.025, 0.005, 0.050,
+                   "assumed: growth.portfolio.BENCH_CONVERSION, category-typical"),
+    "aov_cad": (9.0, 5.0, 20.0, "assumed: the catalogue's own price band"),
+    "repeat_rate": (0.10, 0.0, 0.35, "assumed: growth.loops repeat ceiling 0.35"),
+    "organic_growth": (0.05, 0.0, 0.20, "assumed: month-on-month impression growth"),
+    "paid_cac_cad": (8.0, 3.0, 20.0,
+                     "assumed: paid traffic is not authorised, so no CAC has been paid"),
+    "winner_rate": (0.05, 0.0, 0.20, "assumed: share of listings that become winners"),
+}
 
-    Today it observes nothing, and the honest output is a refusal that names the primary
-    constraint anyway -- which is the half of this requirement that can be answered without
-    data, because "nobody is arriving" does not need a simulation.
+
+def observed_terms(db, *, on: date | None = None) -> dict:
+    """Every term this database can actually answer, as `Value`s sourced `observed` (C-64).
+
+    Read from `scale.runrate.observe` (listing outcomes, orders, the ledger, published
+    listings) and from the release and listing tables for velocity and retirement. A term
+    with no source is absent here -- it is never zero-for-unknown.
     """
-    observed = Observed()
-    binding = constraint(observed, target_cad=target_cad)
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion
+    from .runrate import observe
+
+    on = on or date.today()
+    got = observe(db, today=on)
+    o = got["observed"]
+    out: dict[str, Value] = {}
+
+    def put(term: str, value) -> None:
+        if value is not None:
+            v = float(value)
+            out[term] = Value(v, v, v, OBSERVED)
+
+    put("listing_count", o.listings)
+    put("qualified_traffic", o.impressions)
+    put("ctr", o.ctr)
+    put("conversion", o.conversion)
+    put("aov_cad", o.aov_cad)
+    if o.orders and o.repeat_orders is not None:
+        put("repeat_rate", o.repeat_orders / o.orders)
+    since = datetime(on.year, on.month, on.day, tzinfo=timezone.utc) - timedelta(days=30)
+    with db.session() as s:
+        released = [v for v in s.scalars(select(PatternVersion).where(
+            PatternVersion.certified.is_(True)))
+                    if (v.created_at if v.created_at.tzinfo else
+                        v.created_at.replace(tzinfo=timezone.utc)) >= since]
+        listings = list(s.scalars(select(Listing)))
+    put("product_velocity", len(released))
+    if listings:
+        put("retirement_rate", sum(1 for r in listings if r.state == "withdrawn")
+            / len(listings))
+    return {"terms": out, "observe": got}
+
+
+def nightly(db, *, on: date | None = None, target_cad: float = 3000.0) -> dict:
+    """The nightly run against what this company has actually observed (#26, C-64).
+
+    With a database, every term the rows can answer is `observed` and every other is an
+    assumption with its basis, and the scenario analysis runs: below the observed-share floor
+    it is an assumption space with no probability and a sensitivity ranking that names which
+    assumption the answer is hostage to; above it, a forecast inside its provenance. The
+    primary constraint is `runrate.constraint` over the observed funnel, never an empty one.
+    Without a database there is nothing observed and the run refuses, naming the constraint.
+    """
+    on = on or date.today()
+    if db is None:
+        binding = constraint(Observed(), target_cad=target_cad)
+        return {
+            "on": on.isoformat(),
+            "ran": False,
+            "why": ("no database was read, so no term of the model has been observed. A "
+                    "nightly probability computed from that is a nightly restatement of "
+                    "whatever was typed in"),
+            "observed_share": 0.0,
+            "floor": MIN_OBSERVED_SHARE,
+            "primary_constraint": binding,
+            "terms_needed": sorted(TERMS),
+        }
+    got = observed_terms(db, on=on)
+    inputs = dict(got["terms"])
+    for term, (point, low, high, basis) in ASSUMED.items():
+        inputs.setdefault(term, Value(point, low, high, basis))
+    inputs.setdefault("listing_count", Value(0.0, 0.0, 0.0, OBSERVED))
+    inputs.setdefault("product_velocity", Value(0.0, 0.0, 0.0, OBSERVED))
+    inputs.setdefault("retirement_rate", Value(0.0, 0.0, 0.25,
+                                                "assumed: no listing exists to retire"))
+    observed = got["observe"]
+    binding = constraint(observed["observed"], target_cad=target_cad,
+                         refund_rate=observed["refund_rate"],
+                         support_rate=observed["support_rate"])
+    result = run(inputs, target_cad=target_cad, on=on)
+    top = result["sensitivity"][0] if result["sensitivity"] else None
     return {
-        "on": (on or date.today()).isoformat(),
-        "ran": False,
-        "why": ("no term of the model has been observed: no listing has an impression, no "
-                "visitor has arrived and nothing has been bought. A nightly probability "
-                "computed from that is a nightly restatement of whatever was typed in"),
-        "observed_share": 0.0,
+        **result,
+        "ran": True,
+        "observed_terms": sorted(k for k, v in inputs.items() if v.observed),
+        "unmeasured_funnel": observed["unmeasured"],
         "floor": MIN_OBSERVED_SHARE,
         "primary_constraint": binding,
-        "terms_needed": sorted(TERMS),
+        "hostage_to": (top["term"] if top else None),
+        "measure_next": next((r["term"] for r in result["sensitivity"]
+                              if not r["observed"]), None),
     }
 
 

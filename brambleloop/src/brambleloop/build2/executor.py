@@ -157,8 +157,13 @@ def _has_customers(db, env) -> bool:
 
     from ..core.models import LedgerEntry
 
+    # Revenue with evidence, not any row (C-38). An expense is a LedgerEntry too, and the
+    # first thing this company records is money going out -- counting every row opened the
+    # gate on a hosting bill. A customer is money coming in, with the order it came from.
     with db.session() as s:
-        return bool(s.scalar(select(func.count(LedgerEntry.id))))
+        return bool(s.scalar(select(func.count(LedgerEntry.id)).where(
+            LedgerEntry.gross_cad > 0, LedgerEntry.evidence_ref.is_not(None),
+            func.trim(LedgerEntry.evidence_ref) != "")))
 
 
 def _has_live_listing(db, env) -> bool:
@@ -259,10 +264,23 @@ def _rendered_pages_usable(db, env) -> bool:
     Setting a variable to a worker that is misconfigured, unreachable or refused by Etsy's
     bot protection would have released every one of them into the ready queue, which is the
     single failure this module exists to prevent, at the largest scale available in it.
+
+    W4-B2CLOSE, 2026-10-10 (BUILD2_VERIFY finding 2): the gate now carries only #35 and #39,
+    and what both need is a current reading of the etsy.com/legal policy pages -- which
+    answer every automated reader 403 (closure.EXTERNAL_GATES), so no honest browser.probe
+    can ever supply it. The closure's own remedy is a person reading the pages and recording
+    them (POST /api/policy/snapshot). So the gate opens on either path: a recorded
+    browser.probe, or `platform_policy.page_readings_status` -- every etsy.com/legal source
+    read by a named person through the authenticated intake within MAX_AGE_DAYS, with no
+    unreviewed material change. A stale, absent, anonymous or un-audited reading opens
+    nothing, and the reading goes stale by itself after 30 days, closing the gate again.
     """
+    from ..gates.platform_policy import page_readings_status
     from ..intel.browser import usable
 
-    return usable(db)
+    if usable(db):
+        return True
+    return bool(page_readings_status(db)["open"])
 
 
 def _tester_recruited(db, env) -> bool:
@@ -277,8 +295,77 @@ def _tester_recruited(db, env) -> bool:
 
     from ..core.models import CreatorProfile
 
+    # Somebody who *agreed*, not anybody on file (C-38). A CreatorProfile is written for a
+    # prospect the moment they are observed, so counting rows opened this gate on a list of
+    # people nobody has spoken to. Agreement is evidenced by a delivery or a recorded
+    # permission.
     with db.session() as s:
-        return bool(s.scalar(select(CreatorProfile.id).limit(1)))
+        rows = s.execute(select(CreatorProfile.delivered, CreatorProfile.permissions)).all()
+    return any((delivered or 0) > 0 or bool(permissions) for delivered, permissions in rows)
+
+
+def _owned_surface_probed(db, env) -> bool:
+    """Whether publishing to an owned surface has actually been shown to work (C-38).
+
+    This opened on `BRAMBLELOOP_SITE_URL` or `PINTEREST_ACCESS_TOKEN` being set -- a gate
+    reading configuration instead of demonstrated capability, the discipline `etsy.probe`
+    and `model.probe` already hold. The condition is the most recent `owned_surface.probe`
+    audit row recording `ok: true`; a variable alone opens nothing.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "owned_surface.probe")
+                       .order_by(desc(AuditLog.id)).limit(1))
+        return bool(row is not None and (row.detail or {}).get("ok") is True)
+
+
+def _transactions_readable(db, env) -> bool:
+    """The order source may read: the ingest's own gate (scope granted + probe recorded)."""
+    try:
+        from ..commerce import orders_ingest
+    except ImportError:
+        return False
+    try:
+        return bool(orders_ingest.gate(db)["open"])
+    except Exception:  # noqa: BLE001 - an unreadable gate is a closed gate, said so
+        return False
+
+
+def _insights_recorded(db, env) -> bool:
+    """At least one owner-recorded Marketplace Insights reading exists.
+
+    Read lazily: the table is new, and a database or build without it has no readings.
+    """
+    try:
+        from sqlalchemy import select
+
+        from ..core.models import InsightsSnapshot
+    except ImportError:
+        return False
+    try:
+        with db.session() as s:
+            return s.scalar(select(InsightsSnapshot.id).limit(1)) is not None
+    except Exception:  # noqa: BLE001 - a missing table is "no readings", not a crash
+        return False
+
+
+ACCEPTANCE_RULING_KEY = "decision.api_vision_equivalence"
+
+
+def _acceptance_ruled(db, env) -> bool:
+    """The owner has ruled whether an API+vision traversal satisfies the browser/vision
+    wording of #189/#221/#222/#320 -- a decision, recorded as a done OwnerAction."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        return s.scalar(select(OwnerAction.id).where(
+            OwnerAction.requirement_key == ACCEPTANCE_RULING_KEY,
+            OwnerAction.done.is_(True)).limit(1)) is not None
 
 
 def _image_generation_usable(db, env) -> bool:
@@ -312,6 +399,16 @@ def _canonical_model_approved(db, env) -> bool:
     from ..visual import model_registry
 
     return model_registry.canonical_pack(db) is not None
+
+
+def _production_window_proven(db, env) -> bool:
+    """#195: a full unattended production window, read from the rows it left, has passed."""
+    from . import autonomy
+
+    try:
+        return autonomy.launch_item(db)["status"] == autonomy.PROVEN
+    except Exception:  # noqa: BLE001 - an uncomputable proof is not a proven one
+        return False
 
 
 def _offsite_archive_written(db, env) -> bool:
@@ -354,8 +451,9 @@ def _second_market_observed(db, env) -> bool:
         keys = {k for (k,) in s.execute(
             select(BenchmarkListing.benchmark_key).distinct())}
 
-    markets = {spec.market for key in keys
-               if (spec := benchmarks.spec_for(key)) is not None and spec.market}
+    # A discovered panel member (#219) carries its market on its row, read from the shop's
+    # own Etsy location; `market_of` reads the spec first and that row second.
+    markets = {m for key in keys if (m := benchmarks.market_of(db, key))}
     return len(markets) > 1
 
 
@@ -378,6 +476,47 @@ def _culture_feed_connected(db, env) -> bool:
     return any((row.source or "").strip() for row in rows)
 
 
+def _model_bearing_render_proven(db, env) -> bool:
+    """Whether a frame with the canonical model in it has actually cleared every floor.
+
+    Read from the `assets.model_photography` audit rows -- the record
+    `publish.model_photography.sequence()` returns and the daily handler files -- and from
+    nothing else. The condition is a filed record that is `made`, `carries_model`, is
+    `usable_as_listing_asset`, and whose `floors` say `pass` for all six of
+    `model_photography.FLOORS`: face identity, whole-person morphology, product truth,
+    photographic realism (the photoreal floor), asset truth and styling. Any one of them
+    missing is not a pass, so a record written by an earlier method with fewer floors
+    cannot open this.
+
+    `assets.owned_photography` rows are deliberately not read: those are product-first
+    frames with nobody in them, and a product-first frame passing proves nothing about a
+    model-bearing one. Neither is `visual.parity`'s verdict, because parity reads these
+    same frames and would be a second opinion about one record.
+
+    Why a gate at all: the render path exists, and every attempt so far has failed the
+    product-truth floor on the provider's side (DECISION_LOG and `closure.EXTERNAL_GATES`).
+    #72, #130 and #202 are the requirements that need a model-bearing frame to exist, and
+    they are waiting on a provider rather than on any work this build can do next.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..publish import model_photography
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog.detail).where(
+            AuditLog.action == model_photography.ACTION)
+            .order_by(desc(AuditLog.id)).limit(200)))
+    for detail in rows:
+        detail = detail or {}
+        floors = detail.get("floors") or {}
+        if (detail.get("made") and detail.get("carries_model")
+                and detail.get("usable_as_listing_asset") is True
+                and all(floors.get(name) == "pass" for name in model_photography.FLOORS)):
+            return True
+    return False
+
+
 def _ads_authorised(db, env) -> bool:
     """Advertising authority is a spend limit the owner set, not a sentence in a chat."""
     from sqlalchemy import select
@@ -387,6 +526,117 @@ def _ads_authorised(db, env) -> bool:
     with db.session() as s:
         limit = s.scalar(select(SpendLimit).where(SpendLimit.scope == "ads"))
         return bool(limit and limit.daily_cap_cad > 0 and not limit.paused)
+
+
+# ---- W4-B2GATES: the data gates of the registry's data_gated rows -------------------------
+#
+# Eight rows are registered `data_gated` (the registry forbids `parked_on` on them), and until
+# now the ledger showed them with no gate at all -- "needs customers, orders or traffic" in
+# prose. Each check below reads the runtime record the row's own machinery reads, at the
+# machinery's own minimum, so the gate opens exactly when that machinery can return a measured
+# reading. `DATA_GATE_FOR` maps each row to its gate; the closure reads it.
+
+
+def _listing_outcomes(db):
+    from sqlalchemy import select
+
+    from ..core.models import ListingOutcome
+
+    with db.session() as s:
+        return [(o.product_slug, o.hero_style, int(o.impressions or 0), int(o.visits or 0))
+                for o in s.scalars(select(ListingOutcome))]
+
+
+def _countable_orders(db) -> list:
+    from ..commerce import orders_ingest
+
+    with db.session() as s:
+        return [(o.product_slug, o.detail or {}) for o in orders_ingest.countable_orders(s)]
+
+
+def _listing_traffic_measured(db, env) -> bool:
+    """#23: a listing period with counted visits exists (commerce.kill_table's input)."""
+    return any(visits > 0 for _p, _s, _i, visits in _listing_outcomes(db))
+
+
+def _style_outcomes_measured(db, env) -> bool:
+    """#82: one hero style on >= MIN_LISTINGS listings with >= MIN_IMPRESSIONS impressions
+    (creative.style_learning's own minimum for a measured style reading)."""
+    from ..creative import style_learning as SL
+
+    by: dict[str, tuple[set, int]] = {}
+    for slug, style, impressions, _v in _listing_outcomes(db):
+        if not style:
+            continue
+        slugs, total = by.get(style, (set(), 0))
+        slugs.add(slug)
+        by[style] = (slugs, total + impressions)
+    return any(len(sl) >= SL.MIN_LISTINGS and n >= SL.MIN_IMPRESSIONS
+               for sl, n in by.values())
+
+
+def _concept_outcomes_measured(db, env) -> bool:
+    """#89: >= MIN_VISITS listing visits and >= MIN_ORDERS countable orders
+    (creative.outcome_learning's own minimums)."""
+    from ..creative import outcome_learning as OL
+
+    visits = sum(v for _p, _s, _i, v in _listing_outcomes(db))
+    return visits >= OL.MIN_VISITS and len(_countable_orders(db)) >= OL.MIN_ORDERS
+
+
+def _market_outcomes_measured(db, env) -> bool:
+    """#94: market CTR / conversion / winner rate need live traffic AND a sale."""
+    return _listing_traffic_measured(db, env) and bool(_countable_orders(db))
+
+
+def _learning_sources_observed(db, env) -> bool:
+    """#98: the two radar domains no engineering here can feed have an observation each:
+    `techniques` (a craft source) and `customer_pain` (buyers' complaints)."""
+    from sqlalchemy import select
+
+    from ..core.models import LearningObservation
+
+    with db.session() as s:
+        domains = {d for (d,) in s.execute(select(LearningObservation.domain).distinct())}
+    return {"techniques", "customer_pain"} <= domains
+
+
+def _lead_lag_measurable(db, env) -> bool:
+    """#140: culture.radar.lead_lag is measurable for at least one observed signal (both
+    the culture and the marketplace series hold >= 2 readings)."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation
+    from ..culture import radar
+
+    with db.session() as s:
+        keys = [k for (k,) in s.execute(select(CultureObservation.signal_key).distinct()
+                                        .limit(200)) if k]
+    return any(radar.lead_lag(db, k).get("measurable") for k in keys)
+
+
+def _seasonal_orders_recorded(db, env) -> bool:
+    """#296: a countable order attributed to a seasonal event (the war room's revenue)."""
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal.leadtime import occasion_for
+
+    events = {e.name for e in SEASONAL_EVENTS}
+    for slug, detail in _countable_orders(db):
+        if (detail.get("season") or occasion_for(slug)) in events:
+            return True
+    return False
+
+
+def _season_harvested(db, env) -> bool:
+    """#298: a SeasonHarvest was measured (seasonal.harvest: a passed event, >= 20 orders)."""
+    from sqlalchemy import select
+
+    from ..core.models import SeasonHarvest
+    from ..seasonal import harvest
+
+    with db.session() as s:
+        return s.scalar(select(SeasonHarvest.id).where(
+            SeasonHarvest.status == harvest.MEASURED).limit(1)) is not None
 
 
 class Gate:
@@ -417,11 +667,14 @@ GATES: tuple[Gate, ...] = (
     Gate("benchmark_observation",
          "read-only Etsy API credentials that can actually serve a request",
          _etsy_usable,
-         (206, 301, 303, 319),
+         (),
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
-         (94, 104, 177, 178),
+         # W4-B2GATES: #94 removed. It is registry data_gated (market CTR, conversion and
+         # winner rate need live traffic and a sale; DATA_GATE_FOR -> market_outcomes), so
+         # no model call opens it, yet this tuple made the owner card claim it did.
+         (277, 281),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
     # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
     # deleted, and carrying no requirements rather than the four it used to. Those four --
@@ -470,7 +723,10 @@ GATES: tuple[Gate, ...] = (
          "a model that can actually look at a picture, over the gallery URLs the sanctioned "
          "Etsy endpoint already returns",
          _vision_usable,
-         (61, 79, 116, 208, 209, 210, 211, 278, 303, 304),
+         # C-60/C-71: #208 #210 #211 were built without a vision model (API evidence, pod
+         # maps, photography coverage) and left the gate; the registry's explicit parks
+         # (#15 #86 #116 #304) are the live half.
+         (61, 116, 304),
          "a recorded vision.probe judged a real observed image -- and a reply that describes "
          "no image is recorded as a failure, because a 200 carrying an apology is the shape "
          "a broken vision path takes"),
@@ -479,17 +735,49 @@ GATES: tuple[Gate, ...] = (
          "Insights, search results and policy pages have no endpoint among the nine this "
          "application is authorised for",
          _rendered_pages_usable,
-         (1, 2, 15, 37, 39, 67, 71, 76, 86, 126, 189, 218, 221, 222, 236, 277, 281, 315,
-          320),
+         # Narrowed 2026-09-27 (C-38). Marketplace Insights (1, 37, 236) waits on owner-recorded
+         # readings (`insights_access`); the browser/vision wording of 189/221/222/320 waits
+         # on the owner's ruling (`acceptance_ruling`); 277 and 281 wait on a model that can
+         # serve a request (`model_provider`); 67, 71, 76, 86, 126, 218 and 315 were closed
+         # or re-parked by their own audits and no longer wait here.
+         # 2 and 15 left too (C-40): the API search index (findAllListingsActive, api_key
+         # only) now supplies density and a labelled ranking proxy. Only the policy pages
+         # still need a rendered page: #39 (policy freshness) and #35, whose class enablement
+         # reads the same current policy pages (parked here in ca38f44; C-73).
+         (35, 39),
          "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
-         "is a string, and Etsy answers 403 to a great many of them"),
+         "is a string, and Etsy answers 403 to a great many of them -- OR every "
+         "etsy.com/legal policy source has a page reading by a named person, recorded "
+         "through POST /api/policy/snapshot within 30 days, with no unreviewed material "
+         "change (platform_policy.page_readings_status)"),
+    Gate("transactions_r",
+         "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts "
+         "can be read (C-64: the order source)",
+         _transactions_readable,
+         (11, 12),
+         "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; "
+         "the scope is added only by the owner in a browser (owner action "
+         "reauthorise_transactions_r), and the ingest makes no network call while closed"),
+    Gate("insights_access",
+         "owner-recorded Marketplace Insights readings exist",
+         _insights_recorded,
+         (1, 37, 236),
+         "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop "
+         "Manager, counted, because there is no sanctioned endpoint that returns it"),
+    Gate("acceptance_ruling",
+         "the owner has ruled whether an API+vision traversal satisfies the browser/vision "
+         "wording of #189/#221/#222/#320",
+         _acceptance_ruled,
+         (189, 221, 222, 320),
+         f"an OwnerAction with requirement_key {ACCEPTANCE_RULING_KEY!r} is done -- a "
+         "decision only the owner can make, recorded rather than assumed"),
     Gate("tester_roster",
          "one person who has agreed to test a Brambleloop pattern, which needs outreach to "
          "real people and therefore an exit from shadow mode",
          _tester_recruited,
          (9, 250),
-         "at least one CreatorProfile row exists -- counted, because a roster with nobody on "
-         "it is what both of these are actually waiting for"),
+         "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. "
+         "A prospect on file is not a tester"),
     Gate("image_generation",
          "an image-generation provider that conditions on reference images, because an "
          "identity lock is reference conditioning rather than a better prompt",
@@ -521,10 +809,23 @@ GATES: tuple[Gate, ...] = (
          "a ModelIdentity row is canonical with an owner approval timestamp. `select` "
          "refuses to promote a candidate without one, so a better picture cannot make "
          "this true"),
-    Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
+    # W4-GATESB: the owner's approved set is thirteen (B-501/B-512, teardown.intake SET_SIZE,
+    # CA$300 ceiling), not "roughly ten"; the exact list is gate_clearance.benchmark_purchase_list.
+    Gate("benchmark_purchases",
+         "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and "
+         "uploaded at /ops/teardown",
          _benchmarks_purchased,
-         (165, 166, 168, 317),
+         (165, 168, 317),
          "at least one BenchmarkProduct row exists -- counted, not asked about"),
+    # Certification (#195): the off-device proof is computed and launch-blocking, and its
+    # pass can only come from a production window running this build unattended. Deploying
+    # Build 2 is the owner's decision, so this is an owner gate that opens on the evidence.
+    Gate("production_window",
+         "the owner's authorisation to run this build in production for a full unattended "
+         "window, so the off-device proof can be read from real rows",
+         _production_window_proven,
+         (195,),
+         "autonomy.launch_item reads PROVEN from the rows a full production window left"),
     Gate("offsite_storage",
          "an object-storage bucket and credential outside this provider, so a copy of the "
          "continuity archive survives losing the provider itself",
@@ -538,27 +839,74 @@ GATES: tuple[Gate, ...] = (
     # for: a concept post and a free article wait on somewhere of this company's own to
     # publish them. A gate that is nearly right is worse than a new one, because it opens on
     # the wrong day and puts work in the ready queue that still cannot start.
+    # W4-GATESB: the Etsy shop exists and is recognised (gate etsy_shop) as the paid
+    # destination; it is not a surface the company can publish free content, pins, video or
+    # email to. gate_clearance.owned_surfaces_inventory names each missing surface and why.
     Gate("owned_surfaces",
-         "a site or a Pinterest account this company can publish to, which only the owner "
-         "can create",
-         lambda db, env: _env_gate("BRAMBLELOOP_SITE_URL")(db, env)
-         or _env_gate("PINTEREST_ACCESS_TOKEN")(db, env),
+         "an owned publishing surface beyond the Etsy shop (which exists and is the paid "
+         "destination): a site and/or Pinterest account, opened by the owner",
+         _owned_surface_probed,
          (),
-         "a site URL or a Pinterest token is configured -- either of which only exists once "
-         "the account behind it does"),
+         "the latest owned_surface.probe audit row records ok: true -- a real publish-path "
+         "check, not a site URL or token variable being set. Written six-hourly by "
+         "ops.capability_probes (growth.owned_surface.probe): the site at "
+         "BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing "
+         "'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board"),
     Gate("live_listings",
-         "a listing that exists on the marketplace, which shadow mode forbids by design",
+         "a listing that exists on the marketplace: company work first (a product clears the "
+         "final publication gate), then the owner's per-listing publication grant",
          _has_live_listing,
          (),
          "at least one Listing row carries an Etsy listing id -- counted, not read from the "
          "phase flag, because a phase is a statement of intent and a listing id is a listing"),
+    # W4-B2GATES: one data gate per registry data_gated row (DATA_GATE_FOR). Kept out of the
+    # requirement-id tuples so the owner-gate table is untouched (#94/#140 still sit there:
+    # B2_GATES_AUDIT.md R1 is for the owner to decide).
+    Gate("listing_traffic",
+         "a listing period with counted visits (live listings and buyers browsing them)",
+         _listing_traffic_measured, (),
+         "a ListingOutcome row records visits > 0 (commerce.kill_table's input)"),
+    Gate("style_outcomes",
+         "enough listing impressions for one hero style to be measured",
+         _style_outcomes_measured, (),
+         "one hero_style across >= 3 listings with >= 200 ListingOutcome impressions "
+         "(creative.style_learning MIN_LISTINGS / MIN_IMPRESSIONS)"),
+    Gate("concept_outcomes",
+         "enough visits and orders to join concepts to outcomes",
+         _concept_outcomes_measured, (),
+         ">= 200 ListingOutcome visits and >= 20 countable orders "
+         "(creative.outcome_learning MIN_VISITS / MIN_ORDERS)"),
+    Gate("market_outcomes",
+         "live listing traffic and at least one sale",
+         _market_outcomes_measured, (),
+         "a ListingOutcome with visits > 0 AND at least one countable Order"),
+    Gate("learning_sources",
+         "a craft-technique source and buyers' complaints observed by the learning radar",
+         _learning_sources_observed, (),
+         "LearningObservation rows exist for both the 'techniques' and 'customer_pain' "
+         "domains (intel.learning.record / ingest_complaints)"),
+    Gate("lead_lag_series",
+         "both a culture series and a marketplace series for one signal, built up over time",
+         _lead_lag_measurable, (),
+         "culture.radar.lead_lag(signal) is measurable for at least one CultureObservation "
+         "signal (>= 2 culture and >= 2 marketplace readings)"),
+    Gate("seasonal_orders",
+         "an order attributed to a seasonal event",
+         _seasonal_orders_recorded, (),
+         "a countable Order whose season (order detail, else the product's concept seed) is "
+         "one of radar.market.SEASONAL_EVENTS (not evergreen or unassigned)"),
+    Gate("season_harvest",
+         "a passed seasonal event with enough orders to learn from",
+         _season_harvested, (),
+         "a SeasonHarvest row with status measured (seasonal.harvest: >= 20 orders in a "
+         "passed occurrence)"),
     Gate("customers",
-         "real orders, which only a buyer can create -- not an owner action, and the reason "
-         "this gate is in the same table as the ones that are",
+         "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner "
+         "action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
          _has_customers,
          (),
-         "at least one LedgerEntry row exists -- a recorded money event, counted rather "
-         "than a phase flag saying the company is selling"),
+         "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with "
+         "its order, not an expense and not a phase flag saying the company is selling"),
     # Added 2026-09-20. #133, #140 and #147 sat in the ready queue while the thing they wait
     # for -- a connected cultural signal source -- does not exist, and each of their registry
     # notes already said so in prose. Prose in a note does not park anything: the queue went
@@ -605,12 +953,31 @@ GATES: tuple[Gate, ...] = (
          "a connected source of cultural signal -- search interest, social or trend data -- "
          "which this company has never had",
          _culture_feed_connected,
-         (133, 140, 147),
+         (140, 147),
          "at least one CultureObservation row names the source it came from. An observation "
          "with no source is the same unverifiable thing as no observation"),
-    Gate("ad_authority", "an approved advertising budget",
+    # Added 2026-09-26. #72, #130 and #202 each said in prose "waits on the model-bearing
+    # render path", and nothing parked them, so they sat in the ready queue as work somebody
+    # could start. The path is built; what it has never produced is a frame that clears all
+    # six floors, and the floor it fails is the provider's rendering of a certified
+    # structure. `closure.EXTERNAL_GATES` names this key and says why it is external.
+    Gate("model_bearing_render",
+         "a model-bearing listing frame that clears every floor -- identity, morphology, "
+         "product truth, photographic realism, asset truth and styling -- which no image "
+         "provider has yet rendered",
+         _model_bearing_render_proven,
+         (),
+         "an assets.model_photography audit row that is made, carries the model, is usable "
+         "as a listing asset and reads `pass` on all six model_photography.FLOORS. "
+         "`unverifiable` is not a pass, and a product-first frame does not count"),
+    # W4-GATESB (W4-OWNER finding): #242-245 are computed daily by ads.adjust whatever the
+    # authority and wait on order data, so they park on `customers` (registry parked_on).
+    # Only the paid scaling rows wait on a budget.
+    Gate("ad_authority",
+         "an approved advertising budget -- recommended only once a listing is ready to sell "
+         "(gate_clearance.ad_readiness)",
          _ads_authorised,
-         (242, 243, 244, 245, 294, 295),
+         (294, 295),
          "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap"),
 )
 
@@ -629,6 +996,26 @@ def _registry_gates() -> dict[int, str]:
     return {r.id: r.parked_on for r in reg.load() if r.parked_on}
 
 
+#: W4-B2GATES: registry data_gated row -> the data gate the closure parks it on.
+DATA_GATE_FOR: dict[int, str] = {
+    23: "listing_traffic", 82: "style_outcomes", 89: "concept_outcomes",
+    94: "market_outcomes", 98: "learning_sources", 140: "lead_lag_series",
+    296: "seasonal_orders", 298: "season_harvest",
+}
+
+
+def _table_applies(requirement_id: int) -> bool:
+    """W4-B2GATES: the hand-written table may park only rows that can wait on an owner gate.
+    A row the registry calls data_gated or covered is not waiting on any owner act, so a
+    stale table entry for it (as #94 and #140 were) must not make a card claim it."""
+    st = _registry_status().get(requirement_id)
+    return st not in (reg.DATA_GATED, reg.COVERED)
+
+
+def _registry_status() -> dict[int, str]:
+    return {r.id: r.status for r in reg.load()}
+
+
 def gate_for(requirement_id: int) -> str | None:
     """Which owner gate this requirement waits on, if any.
 
@@ -639,12 +1026,17 @@ def gate_for(requirement_id: int) -> str | None:
     declared = _registry_gates().get(requirement_id)
     if declared:
         return declared
+    if not _table_applies(requirement_id):
+        return None
     return _GATE_FOR_REQUIREMENT.get(requirement_id)
 
 
 def gated_requirements() -> dict[int, str]:
     """Every requirement parked on a gate, from both halves. Registry wins on a conflict."""
-    return {**_GATE_FOR_REQUIREMENT, **_registry_gates()}
+    status = _registry_status()
+    table = {rid: k for rid, k in _GATE_FOR_REQUIREMENT.items()
+             if status.get(rid) not in (reg.DATA_GATED, reg.COVERED)}
+    return {**table, **_registry_gates()}
 
 
 def gate_states(db, env=None) -> dict:
@@ -945,12 +1337,31 @@ def queue(db, *, limit: int = 25) -> dict:
     by_capability: dict[str, list[int]] = {}
     for r in parked:
         by_capability.setdefault(r["parked_on"] or "unknown", []).append(r["requirement_id"])
+    # F-130: parked work split by what kind of waiting it is -- owner, data or external -- so
+    # "parked" never hides which of the three is holding it. A gate nobody classified is
+    # reported as such rather than filed wherever flatters the count.
+    from . import closure
+
+    by_kind: dict[str, list[int]] = {"owner_gated": [], "data_gated": [],
+                                     "external_blocked": [], "unclassified": []}
+    kind_key = {closure.OWNER_GATED: "owner_gated", closure.DATA_GATED: "data_gated",
+                closure.EXTERNAL_BLOCKED: "external_blocked"}
+    for r in parked:
+        try:
+            k = kind_key.get(closure.kind_of(r["parked_on"] or ""), "unclassified")
+        except closure.ClosureRefused:
+            k = "unclassified"
+        by_kind[k].append(r["requirement_id"])
 
     return {
         "ready": ready[:limit],
         "ready_total": len(ready),
         "parked_total": len(parked),
         "parked_by_capability": by_capability,
+        "parked_by_kind": {k: sorted(v) for k, v in by_kind.items()},
+        "executable_remaining": len(ready) + len(blocked) + len(in_progress),
+        "running_total": len(in_progress),
+        "dependency_waiting_total": len(blocked),
         "blocked_total": len(blocked),
         "blocked": blocked[:limit],
         "in_progress": in_progress,
@@ -1011,6 +1422,31 @@ def claim(db, requirement_id: int, *, worker: str) -> dict:
     return out
 
 
+def _not_held_by(task, worker: str, what: str) -> str | None:
+    """Why `worker` may not complete/release this task, or None when it may (C-16).
+
+    Only the claimant of an IN_PROGRESS task finishes or releases it. A PARKED, BLOCKED or
+    READY task was never claimed, so completing it skips the claim (and, for PARKED, the gate
+    the task is waiting on); a task another worker holds is that worker's to finish.
+    """
+    if task.state != IN_PROGRESS:
+        return (f"requirement {task.requirement_id} is {task.state!r}, not in progress; "
+                f"only a claimed task can be {what}d -- claim it first"
+                + (f" (it is parked on {task.parked_on!r})" if task.state == PARKED else ""))
+    if task.claimed_by != worker:
+        return (f"requirement {task.requirement_id} is claimed by {task.claimed_by!r}, not "
+                f"{worker!r}; its outcome belongs to the claimant")
+    return None
+
+
+def _refuse(db, requirement_id: int, worker: str, what: str, why: str):
+    """Audit a refused completion or release, then raise."""
+    record(db, kind="refused", requirement_id=requirement_id, actor=worker,
+           summary=f"refused {what} of {requirement_id} by {worker}: {why}"[:500],
+           detail={"attempted": what, "why": why})
+    raise ExecutorRefused(why)
+
+
 def complete(db, requirement_id: int, *, worker: str, evidence: dict) -> dict:
     """Finish a requirement, with evidence. A completion with no evidence is a checkbox."""
     from sqlalchemy import select
@@ -1024,18 +1460,23 @@ def complete(db, requirement_id: int, *, worker: str, evidence: dict) -> dict:
             "has to evidence")
 
     now = datetime.now(timezone.utc)
+    refusal = None
     with db.session() as s:
         task = s.scalar(select(BuildTask).where(
             BuildTask.requirement_id == requirement_id))
         if task is None:
             raise ExecutorRefused(f"no build task for requirement {requirement_id}")
-        task.state = DONE
-        task.completed_at = now
-        task.updated_at = now
-        task.evidence = dict(evidence)
-        task.claimed_by = None
+        refusal = _not_held_by(task, worker, "complete")
+        if refusal is None:
+            task.state = DONE
+            task.completed_at = now
+            task.updated_at = now
+            task.evidence = dict(evidence)
+            task.claimed_by = None
         title = task.title
 
+    if refusal is not None:
+        _refuse(db, requirement_id, worker, "complete", refusal)
     record(db, kind="complete", requirement_id=requirement_id, actor=worker,
            summary=f"completed {requirement_id}: {title}", detail=dict(evidence))
     return {"requirement_id": requirement_id, "state": DONE, "evidence": dict(evidence)}
@@ -1052,11 +1493,15 @@ def release(db, requirement_id: int, *, worker: str, why: str) -> dict:
             BuildTask.requirement_id == requirement_id))
         if task is None:
             raise ExecutorRefused(f"no build task for requirement {requirement_id}")
-        task.state = READY
-        task.claimed_by = None
-        task.claimed_at = None
-        task.updated_at = datetime.now(timezone.utc)
+        refusal = _not_held_by(task, worker, "release")
+        if refusal is None:
+            task.state = READY
+            task.claimed_by = None
+            task.claimed_at = None
+            task.updated_at = datetime.now(timezone.utc)
 
+    if refusal is not None:
+        _refuse(db, requirement_id, worker, "release", refusal)
     record(db, kind="release", requirement_id=requirement_id, actor=worker,
            summary=f"released {requirement_id}: {why}")
     return {"requirement_id": requirement_id, "state": READY, "why": why}
@@ -1066,42 +1511,61 @@ def release(db, requirement_id: int, *, worker: str, why: str) -> dict:
 # The watchdog
 
 
+AWAITING_BUILD_SESSION = "awaiting_build_session"
+STALLED = "stalled"
+
+
 def watchdog(db, *, now: datetime | None = None,
              idle_alarm_hours: int = IDLE_ALARM_HOURS) -> dict:
     """Is the build actually moving, and if not, is that legitimate?
 
-    The two idle states need opposite responses and look identical from outside. Idle with
-    ready work is a stalled loop and is an incident. Idle with everything parked is the
-    system working correctly and waiting on a person, and raising an incident for it would
-    train everybody to ignore the channel — so it reports, names the capability, and does
-    not alarm.
-    """
-    from sqlalchemy import select
+    Three idle states, and they need three different responses.
 
-    from ..core.models import BuildEvent
+    **Everything parked** is the system working correctly and waiting on a person. Raising
+    an incident for it would train everybody to ignore the channel.
+
+    **Ready work, and nobody has claimed any** is `awaiting_build_session`. The deployed
+    worker never writes code: `build.tick` syncs, queues and watches, and a requirement
+    completes when a session does the work and moves the registry. So "nothing completed in
+    six hours" with no claim in the window measures how often a session has been opened, not
+    whether the loop is broken -- and an incident for it is an alarm about the calendar. It
+    is reported with the top ready requirement named, so the next session knows where to
+    start, and it does not alarm.
+
+    **Ready work that somebody claimed and did not finish** is `stalled`, and that is the
+    incident: a claim is a promise to make progress, and a claim with no completion in the
+    window is a worker that took the task and stopped.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import BuildEvent, BuildTask
 
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=idle_alarm_hours)
 
     def _aware(value):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value is None or value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
-        completions = [_aware(e.at) for e in s.scalars(select(BuildEvent).where(
-            BuildEvent.kind == "complete"))]
+        recent = int(s.scalar(select(func.count(BuildEvent.id)).where(
+            BuildEvent.kind == "complete", BuildEvent.at >= cutoff)) or 0)
+        last = _aware(s.scalar(select(func.max(BuildEvent.at)).where(
+            BuildEvent.kind == "complete")))
+        claims = int(s.scalar(select(func.count(BuildEvent.id)).where(
+            BuildEvent.kind == "claim", BuildEvent.at >= cutoff)) or 0)
+        held = [(t.requirement_id, t.claimed_by) for t in s.scalars(
+            select(BuildTask).where(BuildTask.state == IN_PROGRESS))]
 
-    recent = [c for c in completions if c >= cutoff]
     snapshot = queue(db)
-    last = max(completions) if completions else None
 
     if recent:
-        return {"moving": True, "completions_in_window": len(recent),
+        return {"moving": True, "completions_in_window": recent,
                 "window_hours": idle_alarm_hours,
                 "last_completion": last.isoformat() if last else None,
                 "ready_total": snapshot["ready_total"],
-                "verdict": "moving"}
+                "verdict": "moving", "alarm": False}
 
-    if snapshot["ready_total"] == 0:
+    if snapshot["ready_total"] == 0 and not held:
         return {
             "moving": False,
             "completions_in_window": 0,
@@ -1117,20 +1581,54 @@ def watchdog(db, *, now: datetime | None = None,
                      "train everybody to ignore the channel."),
         }
 
+    # A stall is a task somebody *holds* without finishing it. Claim events in the window
+    # without anything held mean the claim was honestly released (or completed and then a
+    # new one released), which is not a worker that took the task and stopped (C-16).
+    if not held:
+        top = snapshot["next"] or {}
+        return {
+            "moving": False,
+            "completions_in_window": 0,
+            "claims_in_window": claims,
+            "window_hours": idle_alarm_hours,
+            "last_completion": last.isoformat() if last else None,
+            "ready_total": snapshot["ready_total"],
+            "next": snapshot["next"],
+            "verdict": AWAITING_BUILD_SESSION,
+            "alarm": False,
+            "note": (f"{snapshot['ready_total']} requirements are ready and none is held "
+                     f"({claims} claim(s) in {idle_alarm_hours} hours, all released or "
+                     f"finished). The deployed worker does not "
+                     f"write code, so this is waiting for a build session rather than a "
+                     f"broken loop. Start with #{top.get('requirement_id')}: "
+                     f"{top.get('title') or ''}".rstrip(": ")),
+        }
+
     return {
         "moving": False,
         "completions_in_window": 0,
+        "claims_in_window": claims,
+        "in_progress": [{"requirement_id": rid, "claimed_by": who} for rid, who in held],
         "window_hours": idle_alarm_hours,
         "last_completion": last.isoformat() if last else None,
         "ready_total": snapshot["ready_total"],
         "next": snapshot["next"],
-        "verdict": "stalled",
+        "verdict": STALLED,
         "alarm": True,
-        "note": (f"{snapshot['ready_total']} requirements are ready and nothing has been "
-                 f"completed in {idle_alarm_hours} hours. Idle with ready work is a stalled "
-                 f"loop; idle with everything parked is correct. They look identical from "
-                 f"outside, which is why this distinguishes them."),
+        "note": (f"work was claimed ({claims} claim(s) in the window, {len(held)} task(s) "
+                 f"in progress) and nothing has been completed in {idle_alarm_hours} hours. "
+                 f"A claim is a promise to make progress; a claim with no completion is a "
+                 f"worker that took the task and stopped."),
     }
+
+
+def _final_master_brief() -> dict:
+    from . import final_master
+
+    fm = final_master.summary()
+    return {k: fm.get(k) for k in ("status", "launch_ready", "launch_critical",
+                                   "gated_by_kind", "post_launch_excluded",
+                                   "integrity_violations", "reason", "rule")}
 
 
 def report(db, *, env: dict[str, str] | None = None) -> dict:
@@ -1150,6 +1648,8 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
         "capabilities": access.statuses(env),
         "dependencies": {str(k): list(v) for k, v in DEPENDENCIES.items()},
         "claim_lease_minutes": CLAIM_LEASE_MINUTES,
+        # F-129 / F-136: the Final Master registry's live re-audit beside Build 2's.
+        "final_master": _final_master_brief(),
         "note": ("The graph, the queue and the parking state live in Postgres, so losing a "
                  "session loses a worker rather than the build. An owner action parks the "
                  "requirements that need it and never holds the queue."),
@@ -1168,57 +1668,274 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
 # How the cards sort. Free and quick first, because an owner reading on a phone answers the
 # top one, and the top one should be the one that unblocks most for least.
 def _urgency(card: dict) -> tuple:
-    return (card["max_cost_cad"], card["minutes"], -card["unblocks_count"])
+    # W3-WIRE4: an UNKNOWN cost (None) is never ranked as free; it sorts after every stated
+    # cost, because nobody can say yet what answering it would spend.
+    cost = card["max_cost_cad"]
+    minutes = card.get("minutes")
+    return (cost is None, cost if cost is not None else 0.0, minutes is None, minutes or 0,
+            -card["unblocks_count"])
+
+
+# F-179 / F-663: the legacy OwnerAction table and the gate cards are ONE queue.
+#
+# Production rendered two owner surfaces -- "Owner action required" from OwnerAction rows and
+# "Waiting on the owner" from these gate cards -- and nothing reconciled them, so the owner
+# was asked twice for one decision (actions 19/20) and, worse, asked for things already done.
+# An OwnerAction row is bound to the gate it would open through its `requirement_key`: either
+# the key *is* a gate key, or it is one of the aliases below (the readiness and access
+# assessments name the same decision differently). A bound row is merged into its gate's card
+# rather than listed beside it; a row whose gate is already open is not presented at all and
+# is reported under `satisfied_but_open`, which `/api/verify` fails on (F-182). A row bound to
+# nothing is a genuine standalone decision (a budget, a retirement review) and is presented as
+# its own card, keyed on its requirement.
+OWNER_ACTION_GATE_ALIASES: dict[str, str] = {
+    # W4-B2GATES: credits are what a vision call needs, and image_vision is the gate with
+    # real rows (14) behind it; model_provider no longer parks any (see its tuple).
+    "model_credits": "image_vision",
+    "reauthorise_transactions_r": "transactions_r",
+    "canonical_model_selection": "canonical_model",
+    "canonical_model_approval": "canonical_model",
+    ACCEPTANCE_RULING_KEY: "acceptance_ruling",
+}
+
+
+def _table_cost(gate_key: str):
+    """W4-OWNER: the decision table's ceiling for a gate, or None (UNKNOWN)."""
+    from ..ops import owner_queue
+
+    d = owner_queue.DECISION_BY_GATE.get(gate_key)
+    return d["max_cost_cad"] if d else None
+
+
+def _table_minutes(gate_key: str):
+    from ..ops import owner_queue
+
+    d = owner_queue.DECISION_BY_GATE.get(gate_key)
+    return d["minutes"] if d else None
+
+
+def gate_for_owner_action(requirement_key: str | None) -> str | None:
+    """The executor gate an OwnerAction row would open, or None for a standalone decision."""
+    key = (requirement_key or "").strip()
+    if key in GATE_BY_KEY:
+        return key
+    return OWNER_ACTION_GATE_ALIASES.get(key)
 
 
 def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
-    """Every open owner action as a card, with what continues regardless (#196).
+    """The one owner queue: every genuine owner decision as a card, ranked (#196, F-663).
 
     Each card carries the seven things #196 asks for -- what, why, capability, maximum spend,
-    risk, rollback, consequence of waiting -- plus the count of requirements it would
-    un-park, which is the number that actually decides the order somebody answers them in.
+    risk, rollback, consequence of waiting -- plus the requirements it would un-park, the
+    evidence that will show it done (`evidence`) and the exact step (`steps`).
+
+    What is *not* a card, and why (F-181, F-196):
+    - a gate that is open (satisfied work is never asked for again);
+    - a gate whose kind is external (`closure.EXTERNAL_GATES`): no owner action opens it, so
+      it is listed under `external_capability_unavailable`, never as an owner request -- the
+      owner must not be asked to buy a browser Etsy will answer 403;
+    - a data gate (`customers`): only a buyer opens it, listed under `waiting_on_data`;
+    - an owner gate that un-parks nothing: listed under `suppressed_unblocks_nothing`,
+      because an action that no longer unblocks anything is not active.
     """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
     from ..launch import access
+    from ..ops import owner_queue
+    from . import closure
 
     requests = {r.key: r for r in access.pending_requests(env)}
-    cards = []
+    parked_by_gate: dict[str, list[int]] = {}
+    for rid, key in gated_requirements().items():
+        parked_by_gate.setdefault(key, []).append(rid)
+
+    with db.session() as s:
+        rows = [{"id": a.id, "requirement_key": a.requirement_key or "", "action": a.action,
+                 # W3-WIRE4: None when the row's cost basis is UNKNOWN (never CA$0.00).
+                 "reason": a.reason or "", "max_cost_cad": a.max_cost_known,
+                 "minutes": int(a.minutes or 0),
+                 "consequence_of_delay": a.consequence_of_delay or "",
+                 "blocks": a.blocks or "", "at": a.at.isoformat() if a.at else None,
+                 # F-180 / F-870 (K7): lifecycle state and why software cannot do it.
+                 "state": owner_queue.effective_state(a),
+                 "why_software_cannot": getattr(a, "why_software_cannot", "") or ""}
+                for a in s.scalars(select(OwnerAction).where(
+                    OwnerAction.done == False))]  # noqa: E712
+    # F-180: a parked action is not active. It is listed, never presented as a card.
+    parked_actions = [r for r in rows if r["state"] == owner_queue.PARKED]
+    rows = [r for r in rows if r["state"] != owner_queue.PARKED]
+    rows_by_gate: dict[str, list[dict]] = {}
+    standalone: list[dict] = []
+    for row in rows:
+        g = gate_for_owner_action(row["requirement_key"])
+        if g is None:
+            standalone.append(row)
+        else:
+            rows_by_gate.setdefault(g, []).append(row)
+
+    cards: list[dict] = []
+    external: list[dict] = []
+    data_wait: list[dict] = []
+    suppressed: list[dict] = []
+    satisfied_but_open: list[dict] = []
+    company_opened: list[dict] = []
+    not_yet_askable: list[dict] = []
+    gate_open: dict[str, bool] = {}
     for gate in GATES:
-        if gate.open(db, env):
+        is_open = gate.open(db, env)
+        gate_open[gate.key] = is_open
+        bound = rows_by_gate.get(gate.key, [])
+        if is_open:
+            satisfied_but_open += [{"owner_action_id": r["id"], "gate": gate.key,
+                                    "requirement_key": r["requirement_key"],
+                                    "action": r["action"]} for r in bound]
             continue
-        parked = [r for r in gate.requirement_ids]
+        parked = sorted(parked_by_gate.get(gate.key, []))
+        kind = closure.kind_of(gate.key)
+        if kind == closure.EXTERNAL_BLOCKED:
+            external.append({
+                "gate": gate.key, "what": gate.what, "kind": kind,
+                "label": "external capability unavailable",
+                "why": closure.EXTERNAL_GATES.get(gate.key, ""),
+                "unblocks": parked, "unblocks_count": len(parked),
+                "owner_action_ids": [r["id"] for r in bound],
+                "how_it_is_checked": gate.how})
+            continue
+        if kind == closure.DATA_GATED:
+            parked = sorted(set(parked) | {rid for rid, k in DATA_GATE_FOR.items()
+                                           if k == gate.key})
+            data_wait.append({"gate": gate.key, "what": gate.what, "kind": kind,
+                              "unblocks": parked, "how_it_is_checked": gate.how})
+            continue
+        if gate.key in owner_queue.COMPANY_OPENED_GATES:
+            # W4-OWNER: the company's own cadence opens this gate; never an owner ask.
+            company_opened.append({"gate": gate.key, "what": gate.what, "unblocks": parked,
+                                   "owner_action_ids": [r["id"] for r in bound],
+                                   "why": owner_queue.COMPANY_OPENED_GATES[gate.key],
+                                   "how_it_is_checked": gate.how})
+            continue
+        if not parked:
+            suppressed.append({"gate": gate.key, "what": gate.what,
+                               "owner_action_ids": [r["id"] for r in bound],
+                               "why": "closed, but no requirement is parked on it, so "
+                                      "opening it unblocks nothing"})
+            continue
+        # W4-GATESB: a card the owner cannot usefully answer yet (company work or another
+        # gate must land first) is listed with its precondition, never asked.
+        from . import gate_clearance
+
+        precondition = gate_clearance.prerequisite(db, gate.key, env)
+        if precondition:
+            not_yet_askable.append({"gate": gate.key, "what": gate.what, "kind": kind,
+                                    "unblocks": parked, "precondition": precondition,
+                                    "owner_action_ids": [r["id"] for r in bound],
+                                    "how_it_is_checked": gate.how})
+            continue
         request = requests.get(gate.key)
+        row = bound[0] if bound else None
         cards.append({
             "gate": gate.key,
+            "kind": kind,
+            "requirement_key": row["requirement_key"] if row else gate.key,
+            "owner_action_id": row["id"] if row else None,
+            "merged_owner_action_ids": [r["id"] for r in bound],
             "what": gate.what,
-            "action": (request.action if request else
+            "action": (row["action"] if row else request.action if request else
                        f"grant {gate.what}"),
-            "why": (request.purpose if request else
+            "why": (row["reason"] if row and row["reason"] else
+                    request.purpose if request else
                     f"{len(parked)} requirements are parked on it"),
             "capability_unlocked": (request.unlocks if request else gate.what),
-            "max_spend_cad": request.max_cost_cad if request else 0.0,
-            "monthly_ceiling_cad": request.monthly_ceiling_cad if request else 0.0,
-            "minutes": request.minutes if request else 10,
+            # W4-OWNER: no row and no access request means the cost is UNKNOWN (None),
+            # never CA$0; minutes come from the decision table, never an invented 10.
+            "max_spend_cad": (row["max_cost_cad"] if row else
+                              request.max_cost_cad if request else
+                              _table_cost(gate.key)),
+            "monthly_ceiling_cad": request.monthly_ceiling_cad if request else None,
+            "minutes": (row["minutes"] if row and row["minutes"] else
+                        request.minutes if request else _table_minutes(gate.key)),
             "risk": (request.security_scope if request else
                      "scope not yet described in the access registry"),
             "rollback": ("revocable at the source at any time; the gate closes again and "
                          "its requirements re-park automatically"),
-            "consequence_of_waiting": (request.consequence_of_declining if request else
+            "consequence_of_waiting": (row["consequence_of_delay"] if row and
+                                       row["consequence_of_delay"] else
+                                       request.consequence_of_declining if request else
                                        f"requirements {parked} stay parked"),
             "continues_regardless": (request.continues_without if request else
                                      "every requirement not parked on this gate"),
             "unblocks": parked,
             "unblocks_count": len(parked),
             "how_it_is_checked": gate.how,
-            "max_cost_cad": request.max_cost_cad if request else 0.0,
+            "evidence": f"gate {gate.key!r} opens when: {gate.how}",
+            "steps": (row["action"] if row else request.action if request else
+                      f"grant {gate.what}"),
+            "max_cost_cad": (row["max_cost_cad"] if row else
+                             request.max_cost_cad if request else
+                             _table_cost(gate.key)),
+            # W4-B2CLOSE: a figure taken from the decision table is not a producer's
+            # statement; owner_queue.decision_fields then shows the table's own basis.
+            "cost_from_table": not row and not request,
+        })
+    for row in standalone:
+        cards.append({
+            "gate": None,
+            "kind": "OWNER-DECISION",
+            "requirement_key": row["requirement_key"],
+            "owner_action_id": row["id"],
+            "merged_owner_action_ids": [row["id"]],
+            "what": row["action"],
+            "action": row["action"],
+            "why": row["reason"] or "a decision only the owner can make",
+            "capability_unlocked": row["blocks"] or row["requirement_key"],
+            "max_spend_cad": row["max_cost_cad"],
+            "monthly_ceiling_cad": None,
+            "minutes": row["minutes"],
+            "risk": "stated in the action" if row["reason"] else "not described",
+            "rollback": "the decision is recorded and can be reversed by a later decision",
+            "consequence_of_waiting": row["consequence_of_delay"] or "not stated",
+            "continues_regardless": "every requirement not waiting on this decision",
+            "unblocks": [row["blocks"] or row["requirement_key"]],
+            "unblocks_count": 1,
+            "how_it_is_checked": (f"OwnerAction #{row['id']} "
+                                  f"({row['requirement_key'] or 'no key'}) is marked done"),
+            "evidence": (f"OwnerAction #{row['id']} raised {row['at'] or 'at an unknown time'}"
+                         f" for {row['requirement_key'] or 'an unkeyed decision'}"),
+            "steps": row["action"],
+            "max_cost_cad": row["max_cost_cad"],
         })
 
     cards.sort(key=_urgency)
+    # F-870 / F-623 / F-197 (K7): packet fields, explicit rank and urgency, the tester route.
+    owner_queue.enrich_cards(db, cards, why_by_action_id={
+        r["id"]: r["why_software_cannot"] for r in rows if r["why_software_cannot"]})
+    # F-204: the gates above were read live on this call; the guard also needs a fresh
+    # readiness assessment before an empty queue is called proven.
+    empty_state = owner_queue.empty_guard(db, cards, gates_read_live=True)
     snapshot = queue(db)
-    free_and_quick = [c for c in cards if c["max_cost_cad"] == 0.0]
+    free_and_quick = [c for c in cards if c["max_cost_cad"] == 0.0
+                      and c.get("max_cost_basis") != "UNKNOWN"]
     return {
         "cards": cards,
         "open_actions": len(cards),
-        "batched_free_and_quick": [c["gate"] for c in free_and_quick],
+        "batched_free_and_quick": [c["gate"] or c["requirement_key"] for c in free_and_quick],
+        "external_capability_unavailable": external,
+        "waiting_on_data": data_wait,
+        "not_yet_askable": not_yet_askable,
+        "suppressed_unblocks_nothing": suppressed,
+        "satisfied_but_open": satisfied_but_open,
+        # W4-OWNER: gates the company opens itself, never presented as owner asks.
+        "company_opened_not_owner": company_opened,
+        # W4-OWNER: the owner's decision packet -- cards merged into decisions, batched.
+        "batches": owner_queue.batch_cards(cards),
+        "parked_owner_actions": [{"owner_action_id": r["id"],
+                                  "requirement_key": r["requirement_key"],
+                                  "action": r["action"]} for r in parked_actions],
+        "empty_state": empty_state,
+        "gate_open": gate_open,
+        "source": ("one queue: executor gate state merged with OwnerAction rows by "
+                   "requirement_key (build2.executor.approval_inbox)"),
         "total_parked": snapshot["parked_total"],
         "ready_regardless": snapshot["ready_total"],
         "blocking_the_build": False,

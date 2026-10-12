@@ -88,8 +88,14 @@ def test_everything_listed_for_launch_passes_every_gate():
 
 
 def test_launch0_is_small_and_every_item_is_reachable():
-    """Small is the feature. Three listings, and each one resolves to a real builder."""
-    assert 1 <= len(l0.LAUNCH0_SLUGS) <= 5, l0.LAUNCH0_SLUGS
+    """Small is the feature, bounded by the launch floor, and each item resolves to a builder.
+
+    W4-LAUNCHREADY 2026-10-11, owner-approved CAP-1: the cap moved from 5 to the launch.readiness floor
+    (MIN_LISTINGS_TO_OPEN = 8) when three gate-clean products joined; it is still a cap.
+    """
+    from brambleloop.launch.readiness import MIN_LISTINGS_TO_OPEN
+
+    assert 1 <= len(l0.LAUNCH0_SLUGS) <= MIN_LISTINGS_TO_OPEN == 8, l0.LAUNCH0_SLUGS
     for slug in l0.LAUNCH0_SLUGS:
         cand = l0.candidate(slug)
         assert cand.variants, slug
@@ -100,12 +106,15 @@ def test_launch0_is_small_and_every_item_is_reachable():
 
 def test_every_launch0_product_reports_finished_measurements_and_admits_they_are_arithmetic():
     """A measurement with no sample behind it must say so where the number is read."""
+    _vac_103 = 0
     for product in l0.launch0():
+        _vac_103 += 1
         assert product["certified"]["finished_measurements_computed"], product["slug"]
         assert product["aspiration"]["physically_calibrated"] is False, product["slug"]
         assert "twin.calibrated is False" in product["aspiration"]["why_not"]
         for variant in product["variants"]:
             assert variant["calibrated"] is False, (product["slug"], variant["variant"])
+    assert _vac_103, "l0.launch0() was empty: the loop proved nothing (F-123)"
 
 
 def test_no_launch0_product_is_calibrated_and_the_report_leads_with_that():
@@ -162,8 +171,10 @@ def test_assembly_gate_catches_an_assembled_form_with_no_assembly():
                                        piece_b="panel")])
     assert l0.assembly_promise(with_seam)["backed"] is True
 
+    # W4-PIPE 2026-10-07 (tightened): eight loose pennants with no join are a kit, not a
+    # garland. Only a seam backs an assembled form.
     many_pieces = _panel_cir("Bunting Garland", make=8)
-    assert l0.assembly_promise(many_pieces)["backed"] is True
+    assert l0.assembly_promise(many_pieces)["backed"] is False
 
 
 def test_assembly_gate_is_silent_about_a_single_piece_object():
@@ -363,8 +374,13 @@ def test_a_childrens_title_with_no_audience_assignment_is_reported():
     import brambleloop.products.launch0 as mod
 
     saved_extra, saved_cache = mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE
+    saved_cands = mod.CANDIDATES
     try:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS = {}
+        # W4-LAUNCHREADY: the baby size is now a Launch-0 candidate that assigns itself, so
+        # the fixture removes that assignment too -- both sources, or the survey proves nothing.
+        mod.CANDIDATES = tuple(c for c in saved_cands
+                               if c.slug != "nordic-forest-mosaic-throw-baby")
         mod._CIR_AUDIENCE = None
         rows = mod.childrens_titles_without_an_assignment()
         unassigned = {row["slug"] for row in rows}
@@ -372,10 +388,14 @@ def test_a_childrens_title_with_no_audience_assignment_is_reported():
         # And the products that DO carry an assignment are still not in the list.
         assert "cloudline-baby-blanket" not in unassigned
         assert "market-basket-small" not in unassigned
+        _vac_375 = 0
         for row in rows:
+            _vac_375 += 1
             assert row["words"] and row["why"]
+        assert _vac_375, "rows was empty: the loop proved nothing (F-123)"
     finally:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
+        mod.CANDIDATES = saved_cands
     assert l0.childrens_titles_without_an_assignment() == [], "the fixture leaked"
 
 
@@ -387,12 +407,15 @@ def test_the_audience_assignment_is_computed_from_the_candidates_not_listed_twic
     assert l0.childrens_assignment("harvest-table-runner") is None
     for slug in l0.LAUNCH0_SLUGS:
         cand = l0.candidate(slug)
+        _vac_390 = 0
         for variant in cand.variants:
+            _vac_390 += 1
             got = l0.childrens_assignment(l0.cir_for(variant.build).slug)
             if cand.subcategory is None:
                 assert got is None, slug
             else:
                 assert got == (cand.subcategory, cand.audience), slug
+        assert _vac_390, "cand.variants was empty: the loop proved nothing (F-123)"
 
 
 def test_a_prohibited_subject_would_be_refused_even_dressed_as_nursery_decor():
@@ -409,8 +432,11 @@ def test_the_subjects_we_never_publish_are_enumerated_from_the_constraint_module
     slugs = {row["slug"] for row in never}
     assert {"infant_sleep_accessory", "baby_carrier", "childrens_sleepwear",
             "rattle_or_teether"} <= slugs, slugs
+    _vac_412 = 0
     for row in never:
+        _vac_412 += 1
         assert row["why"] and row["constraints"]
+    assert _vac_412, "never was empty: the loop proved nothing (F-123)"
 
 
 # ---- seasonality ----------------------------------------------------------
@@ -480,8 +506,11 @@ def test_every_pipeline_entry_names_a_blocker_and_who_owns_it():
 
 
 def test_no_pipeline_entry_claims_a_cir():
+    _vac_483 = 0
     for row in l0.pipeline_plan(today=TODAY):
+        _vac_483 += 1
         assert row["has_a_cir"] is False, row["slug"]
+    assert _vac_483, "l0.pipeline_plan(today=TODAY) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_pipeline_order_matches_the_researched_entry_order():
@@ -596,8 +625,11 @@ def test_the_report_carries_no_demand_or_velocity_score_for_a_product():
                  "conversion")
     for cls in (l0.Candidate, l0.Variant, l0.PipelineEntry):
         names = [f.name for f in dc_fields(cls)]
+        _vac_599 = 0
         for name in names:
+            _vac_599 += 1
             assert not any(word in name for word in forbidden), (cls.__name__, name)
+        assert _vac_599, "names was empty: the loop proved nothing (F-123)"
 
 
 def test_the_report_runs_end_to_end_and_answers_the_hard_rule():
@@ -670,6 +702,62 @@ def test_two_sources_cannot_give_one_product_two_audiences():
     finally:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
 
+
+
+# ---- F-071 / F-086: the owner is not the tester ----------------------------------------
+
+
+_OWNER_CROCHET_ASK = __import__("re").compile(
+    r"\bowner\b[^.;]{0,40}\b(action|must|should|needs? to|to)\b[^.;]{0,25}\bcrochet",
+    __import__("re").IGNORECASE)
+
+
+def test_no_owner_facing_string_asks_the_owner_to_crochet():
+    """F-071: no launch requirement may need the owner to crochet a product.
+
+    Scans the strings an owner reads -- the Launch-0 report, every pipeline blocker and its
+    named owner, and every owner action the readiness report can raise -- for an ask that the
+    owner crochet something. The residual "an owner action to crochet samples" on the
+    children's fitted garments blocker is what this was written against.
+    """
+    import json
+
+    from brambleloop.launch import readiness as rd
+    from brambleloop.products import launch0 as l0
+
+    texts = [json.dumps(l0.pipeline_plan(date(2026, 9, 28)), default=str)]
+    texts += [f"{p.owner_of_the_blocker} {' '.join(p.blocked_on)}" for p in l0.PIPELINE]
+    # F-086 (K6): the parked PHYSICAL_SAMPLE is scanned too -- reworded to the tester route.
+    requests = [v for v in vars(rd).values() if isinstance(v, rd.OwnerRequest)]
+    requests.append(rd.listing_fees_request(3))
+    texts += [f"{o.action} {o.reason} {o.blocks}" for o in requests]
+    hits = [m.group(0) for t in texts for m in [_OWNER_CROCHET_ASK.search(t)] if m]
+    assert not hits, hits
+    garments = next(p for p in l0.PIPELINE if p.slug == "childrens-fitted-garments")
+    assert "independent tester" in garments.owner_of_the_blocker
+    assert "tester_roster" in garments.owner_of_the_blocker
+    # And the scan would have caught the old wording.
+    assert _OWNER_CROCHET_ASK.search("quality/physical.py plus an owner action to crochet "
+                                     "samples")
+
+
+def test_launch_scope_holds_every_variant_slug_and_only_launch0():
+    """F-111 / F-120: the scope is the candidates and the CIR slug each variant publishes as."""
+    from brambleloop.products import launch0 as l0
+
+    scope = l0.launch_scope_slugs()
+    assert set(l0.LAUNCH0_SLUGS) <= scope
+    assert {"market-basket-small", "market-basket-medium", "market-basket-large",
+            "hexagon-coaster-set", "cloudline-baby-blanket"} <= scope
+    assert "harvest-table-runner" not in scope          # the reserve is not launched
+    # W4-LAUNCHREADY: the Nordic Forest blanket joined as three sized variants.
+    assert {"nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair",
+            "housewarming-key-basket"} <= scope
+    # The dropped tries stay out (each failed a gate; see products.launch0).
+    for slug in ("nordic-forest-mosaic-throw", "nordic-forest-mosaic-throw-large",
+                 "pet-snuggle-mat", "spooky-garland", "valentine-heart-garland",
+                 "cottage-wall-hanging", "autumn-oak-mosaic-throw"):
+        assert slug not in scope, slug
 
 
 if __name__ == "__main__":

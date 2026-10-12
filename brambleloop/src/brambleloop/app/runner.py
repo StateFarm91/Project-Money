@@ -57,8 +57,21 @@ class RunnerState:
     worker_last_tick: datetime | None = None
     worker_restarts: int = 0
     scheduler_last_tick: datetime | None = None
+    scheduler_started_at: datetime | None = None
     scheduler_last_enqueued: list[str] = field(default_factory=list)
     last_error: str = ""
+    worker_pool: int = 1
+    worker_target: int = 1
+    worker_target_why: str = ""
+    # v1.1 lane A: dedicated lanes (runtime.lanes), e.g. the control lane that keeps the
+    # Executive Orchestrator turning while a long render holds the pool.
+    lanes: dict = field(default_factory=dict)
+    # F-489 (parallelism efficiency): seconds the active pool workers spent working versus
+    # waiting with nothing claimable, summed over workers since this process started. Dormant
+    # workers (beyond the allocation's target) are counted in neither: they were not asked
+    # to work. Process-local, like every field here; reset on restart.
+    busy_seconds: float = 0.0
+    idle_seconds: float = 0.0
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
@@ -77,8 +90,15 @@ class RunnerState:
             "worker_last_tick": iso(self.worker_last_tick),
             "worker_restarts": self.worker_restarts,
             "scheduler_last_tick": iso(self.scheduler_last_tick),
+            "scheduler_started_at": iso(self.scheduler_started_at),
             "scheduler_last_enqueued": list(self.scheduler_last_enqueued),
             "last_error": self.last_error,
+            "worker_pool": self.worker_pool,
+            "worker_target": self.worker_target,
+            "worker_target_why": self.worker_target_why,
+            "lanes": {k: dict(v) for k, v in self.lanes.items()},
+            "busy_seconds": round(self.busy_seconds, 1),
+            "idle_seconds": round(self.idle_seconds, 1),
             # Measured here because this is the process that owns the disk. A health sweep
             # reading its own filesystem measures whichever machine is answering the
             # request, which in a split deployment is not the container doing the work.
@@ -133,25 +153,70 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -> None:
+# C-68 (#175): how often a pool worker re-reads whether it is one of the active workers.
+_TARGET_REFRESH_SECONDS = float(os.environ.get("BRAMBLELOOP_WORKER_TARGET_REFRESH", "30"))
+
+
+class _Target:
+    """The number of pool workers the latest allocation activates, re-read periodically."""
+
+    def __init__(self, db: Database, pool: int):
+        self.db, self.pool = db, pool
+        self.value, self.read_at, self.why = 1, 0.0, "not yet read"
+        self._lock = threading.Lock()
+
+    def get(self) -> int:
+        with self._lock:
+            if time.monotonic() - self.read_at >= _TARGET_REFRESH_SECONDS:
+                self.read_at = time.monotonic()
+                try:
+                    from ..swarm.capacity import worker_target
+
+                    t = worker_target(self.db, pool=self.pool)
+                    self.value, self.why = int(t["target"]), t["why"]
+                except Exception as exc:  # noqa: BLE001 - never stop the pool over a read
+                    self.value, self.why = 1, f"target unreadable: {type(exc).__name__}"
+                STATE.worker_target = self.value
+                STATE.worker_target_why = self.why
+            return self.value
+
+
+def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
+                 index: int = 0, target: "_Target | None" = None) -> None:
     """Claim and run jobs until told to stop.
 
     Wrapped in its own restart loop. An unhandled exception escaping the worker must not
     silently leave the container serving HTTP with nothing processing the queue -- that is the
     failure mode where the dashboard looks healthy and the company has quietly stopped.
+
+    One of a pool (C-68, #175): worker `index` claims only while it is among the active
+    workers the latest allocation justifies (`swarm.capacity.worker_target`). Worker 0 is
+    always active, so a quiet period runs one worker and nothing ever runs none.
     """
-    STATE.worker_name = name
-    STATE.worker_started_at = _now()
+    if index == 0:
+        STATE.worker_name = name
+        STATE.worker_started_at = _now()
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
     while not stop.is_set():
         try:
-            worker = Worker(db, name, phase=phase)
+            # rc1-AUTH A1: re-resolve the effective phase per job, not once at boot.
+            worker = Worker(db, name, phase=phase, live_phase=True)
             while not stop.is_set():
+                if index > 0 and target is not None and index >= target.get():
+                    stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it
+                    continue
+                t0 = time.monotonic()
                 did_work = worker.run_once()
                 STATE.worker_last_tick = _now()
-                if not did_work:
+                if index == 0:
+                    _worker_heartbeat(db, name)
+                if did_work:
+                    STATE.busy_seconds += time.monotonic() - t0
+                else:
+                    t1 = time.monotonic()
                     stop.wait(_IDLE_SLEEP)
+                    STATE.idle_seconds += time.monotonic() - t1 + (t1 - t0)
         except Exception as e:  # noqa: BLE001
             STATE.worker_restarts += 1
             STATE.last_error = f"{type(e).__name__}: {e}"
@@ -159,7 +224,66 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -
             stop.wait(min(60.0, 2.0 * STATE.worker_restarts))
 
 
+def _lane_loop(db: Database, name: str, phase: Phase, stop: threading.Event, lane: str,
+               job_types: list[str]) -> None:
+    """A dedicated claimer for one lane's job types (runtime.lanes). Restarts like the pool."""
+    info = STATE.lanes.setdefault(lane, {})
+    info.update(worker=name, job_types=list(job_types), last_tick=None, restarts=0,
+                last_error="")
+    if _START_DELAY > 0 and stop.wait(_START_DELAY):
+        return
+    while not stop.is_set():
+        try:
+            worker = Worker(db, name, phase=phase, job_types=job_types, live_phase=True)
+            while not stop.is_set():
+                t0 = time.monotonic()
+                did_work = worker.run_once()
+                info["last_tick"] = _now().isoformat()
+                if did_work:
+                    info["busy_seconds"] = round(float(info.get("busy_seconds") or 0.0)
+                                                 + time.monotonic() - t0, 1)
+                else:
+                    stop.wait(_IDLE_SLEEP)
+                    info["idle_seconds"] = round(float(info.get("idle_seconds") or 0.0)
+                                                 + time.monotonic() - t0, 1)
+        except Exception as e:  # noqa: BLE001
+            info["restarts"] = int(info.get("restarts") or 0) + 1
+            info["last_error"] = f"{type(e).__name__}: {e}"[:300]
+            log.exception("lane %s worker crashed; restarting", lane)
+            stop.wait(min(60.0, 2.0 * info["restarts"]))
+
+
+# v1.1 lane I W-2: the worker's durable liveness row, at most once a minute.
+_WORKER_HEARTBEAT_EVERY_S = 60.0
+_last_worker_heartbeat = 0.0
+
+
+def _worker_heartbeat(db: Database, name: str) -> None:
+    global _last_worker_heartbeat
+    if time.monotonic() - _last_worker_heartbeat < _WORKER_HEARTBEAT_EVERY_S:
+        return
+    _last_worker_heartbeat = time.monotonic()
+    try:
+        from ..ops import slo as _slo
+
+        _slo.record_heartbeat(db, "worker", instance=name)
+    except Exception:  # noqa: BLE001 - liveness evidence must never stop the worker
+        log.exception("worker heartbeat row not written")
+
+
+def _scheduler_heartbeat(db: Database, enqueued: list[str]) -> None:
+    """v1.1 lane I W-1: the scheduler's durable liveness row after every successful tick."""
+    try:
+        from ..ops import slo as _slo
+
+        _slo.record_heartbeat(db, "scheduler", instance=f"web-{os.getpid()}",
+                              detail={"enqueued": len(enqueued)})
+    except Exception:  # noqa: BLE001 - liveness evidence must never stop scheduling
+        log.exception("scheduler heartbeat row not written")
+
+
 def _scheduler_loop(db: Database, stop: threading.Event) -> None:
+    STATE.scheduler_started_at = _now()
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
     while not stop.is_set():
@@ -167,12 +291,77 @@ def _scheduler_loop(db: Database, stop: threading.Event) -> None:
             enqueued = Scheduler(db).tick()
             STATE.scheduler_last_tick = _now()
             STATE.scheduler_last_enqueued = list(enqueued)
+            _scheduler_heartbeat(db, list(enqueued))
             if enqueued:
                 log.info("enqueued cadences: %s", ", ".join(enqueued))
         except Exception as e:  # noqa: BLE001
             STATE.last_error = f"scheduler: {type(e).__name__}: {e}"
             log.exception("embedded scheduler tick failed")
         stop.wait(_SCHEDULER_INTERVAL)
+
+
+# ---------------------------------------------------------------------------
+# v1.1 lane I W-3: stale-scheduler self-exit. A scheduler thread that has stopped ticking
+# while the web thread still answers /health is the failure where the container looks alive
+# and the company has stopped. The supervisor exits the process so the platform's restart
+# policy replaces it. Deliberately conservative:
+#   * only when this process runs the embedded scheduler (start() launched it);
+#   * the threshold is generous (15 min against a 60 s interval) and must be observed on two
+#     consecutive checks, so one slow tick never kills a working container;
+#   * a scheduler that has never ticked is judged from its own start plus the start delay;
+#   * opt out with BRAMBLELOOP_SELF_EXIT_ON_STALE=0.
+SELF_EXIT_STALE_S = float(os.environ.get("BRAMBLELOOP_SELF_EXIT_STALE_S", str(15 * 60)))
+_SUPERVISOR_INTERVAL = float(os.environ.get("BRAMBLELOOP_SUPERVISOR_INTERVAL", "60"))
+_exit = os._exit          # replaced in tests
+
+
+def self_exit_enabled() -> bool:
+    return os.environ.get("BRAMBLELOOP_SELF_EXIT_ON_STALE", "1") != "0"
+
+
+def scheduler_stale(state: RunnerState, now: datetime | None = None,
+                    threshold_s: float | None = None) -> tuple[bool, str]:
+    """Pure check: is the embedded scheduler stale enough to restart the container?"""
+    now = now or _now()
+    threshold = SELF_EXIT_STALE_S if threshold_s is None else float(threshold_s)
+    if not state.enabled or state.scheduler_started_at is None:
+        return False, "no embedded scheduler runs in this process"
+    # A tick from before this scheduler started (a previous start() in the same process)
+    # is not evidence about this one.
+    if state.scheduler_last_tick is None or \
+            state.scheduler_last_tick < state.scheduler_started_at:
+        age = (now - state.scheduler_started_at).total_seconds()
+        if age <= threshold + _START_DELAY:
+            return False, f"scheduler started {age:.0f}s ago and has not ticked yet"
+        return True, f"scheduler started {age:.0f}s ago and has never ticked"
+    age = (now - state.scheduler_last_tick).total_seconds()
+    if age <= threshold:
+        return False, f"last scheduler tick {age:.0f}s ago"
+    return True, f"last scheduler tick {age:.0f}s ago (threshold {threshold:.0f}s)"
+
+
+def supervise_once(strikes: int, *, now: datetime | None = None) -> int:
+    """One supervisor check. Returns the new strike count; exits on the second strike."""
+    stale, why = scheduler_stale(STATE, now)
+    if not stale:
+        return 0
+    strikes += 1
+    if strikes < 2:
+        log.error("scheduler looks stale (%s); exiting if still stale at the next check", why)
+        return strikes
+    log.critical("embedded scheduler stale (%s); exiting so the platform restarts the "
+                 "container", why)
+    _exit(1)
+    return strikes
+
+
+def _supervisor_loop(stop: threading.Event) -> None:
+    strikes = 0
+    while not stop.wait(_SUPERVISOR_INTERVAL):
+        try:
+            strikes = supervise_once(strikes)
+        except Exception:  # noqa: BLE001 - the supervisor never crashes the runner
+            log.exception("runner supervisor check failed")
 
 
 _stop = threading.Event()
@@ -184,16 +373,42 @@ def start(db: Database) -> RunnerState:
     if _threads or os.environ.get("BRAMBLELOOP_EMBEDDED_WORKER", "1") != "1":
         return STATE
     _stop.clear()  # a previous stop() must not silently disarm a fresh start
-    phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
+    # F-299: the environment AND the recorded owner transition; disagreement -> the more
+    # restrictive phase plus an incident. Shadow when nothing is recorded.
+    from ..core.phase import effective_phase
+
+    phase = effective_phase(db)
+    # The PID repeats across containers, so two replicas of an overlapping deploy can both be
+    # `web-7`. v1.1 lane A: the queue's per-claim lease token fences that case, so the name
+    # format (which the independence certification reads) is unchanged.
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
     STATE.enabled = True
-    for target, args in ((_worker_loop, (db, name, phase, _stop)),
-                         (_scheduler_loop, (db, _stop))):
+    from ..swarm.capacity import worker_threads
+
+    pool = worker_threads()
+    STATE.worker_pool = pool
+    shared = _Target(db, pool)
+    loops = [(_worker_loop, (db, name if i == 0 else f"{name}-w{i}", phase, _stop, i, shared))
+             for i in range(pool)]
+    # v1.1 lane A: dedicated lanes beside the pool (default: the control lane).
+    from ..runtime.lanes import partitions
+    from ..runtime.worker import handlers as _handlers
+
+    STATE.lanes.clear()
+    mode = os.environ.get("BRAMBLELOOP_WORKER_LANES", "control")
+    for lane, types in partitions(_handlers.known(), mode).items():
+        if lane == "company" or not types:
+            continue
+        loops.append((_lane_loop, (db, f"{name}-{lane}", phase, _stop, lane, types)))
+    extra = [(_scheduler_loop, (db, _stop))]
+    if self_exit_enabled():
+        extra.append((_supervisor_loop, (_stop,)))
+    for i, (target, args) in enumerate(loops + extra):
         t = threading.Thread(target=target, args=args, daemon=True,
-                             name=f"brambleloop-{target.__name__}")
+                             name=f"brambleloop-{target.__name__}-{i}")
         t.start()
         _threads.append(t)
-    log.info("embedded runner started: worker=%s phase=%s", name, phase.value)
+    log.info("embedded runner started: worker=%s pool=%d phase=%s", name, pool, phase.value)
     return STATE
 
 

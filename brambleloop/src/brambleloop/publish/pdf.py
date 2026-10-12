@@ -13,6 +13,7 @@ ones making it.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import re
 from dataclasses import dataclass, field
@@ -251,23 +252,34 @@ class _Doc:
         made them do a translation the document was supposed to do for them.
         """
         self.prose.append(f"{key} {value}")
-        self.need(5 * mm)
-        self.c.setFont("Helvetica-Bold", 9)
-        self.c.setFillColor(MUTED)
-        self.c.drawString(MARGIN, self.y, key.upper() if upper else key)
-        self.c.setFont("Helvetica", 10)
-        self.c.setFillColor(INK)
-        self.c.drawString(MARGIN + 42 * mm, self.y, value)
-        self.y -= 5.2 * mm
+        key_lines = _wrap(self.c, key.upper() if upper else key,
+                          "Helvetica-Bold", 9, 39 * mm)
+        value_lines = _wrap(self.c, value, "Helvetica", 10,
+                            PAGE_W - 2 * MARGIN - 42 * mm)
+        line_height = 5.2 * mm
+        self.need(max(len(key_lines), len(value_lines)) * line_height)
+        for i in range(max(len(key_lines), len(value_lines))):
+            # Repeat the space check for unusually long values that span a page.
+            self.need(line_height)
+            if i < len(key_lines):
+                self.c.setFont("Helvetica-Bold", 9)
+                self.c.setFillColor(MUTED)
+                self.c.drawString(MARGIN, self.y, key_lines[i])
+            if i < len(value_lines):
+                self.c.setFont("Helvetica", 10)
+                self.c.setFillColor(INK)
+                self.c.drawString(MARGIN + 42 * mm, self.y, value_lines[i])
+            self.y -= line_height
 
-    def image(self, img, running_head: str | None = None) -> None:
+    def image(self, img, running_head: str | None = None, *, max_height=None) -> None:
         from reportlab.lib.utils import ImageReader
 
         usable_w = PAGE_W - 2 * MARGIN
         scale = min(1.0, usable_w / img.width)
         w, h = img.width * scale, img.height * scale
-        if h > PAGE_H - 2 * MARGIN:
-            scale *= (PAGE_H - 2 * MARGIN) / h
+        height_limit = PAGE_H - 2 * MARGIN if max_height is None else max_height
+        if h > height_limit:
+            scale *= height_limit / h
             w, h = img.width * scale, img.height * scale
         self.need(h + 4 * mm, running_head)
         self.c.drawImage(ImageReader(img), MARGIN, self.y - h, width=w, height=h,
@@ -294,7 +306,14 @@ def _wrap(c, text: str, font: str, size: int, width: float) -> list[str]:
             else:
                 if line:
                     out.append(line)
-                line = word
+                # A URL or identifier may be wider than a complete line. Keep
+                # every character, splitting only for display rather than clipping.
+                line = ""
+                for char in word:
+                    if line and c.stringWidth(line + char, font, size) > width:
+                        out.append(line)
+                        line = ""
+                    line += char
         out.append(line)
     return out
 
@@ -374,10 +393,9 @@ def licence_paragraphs() -> list[str]:
 
 
 AI_DISCLOSURE = (
-    "How this pattern was made: the design was developed with AI assistance and every stitch "
-    "count in it was verified by an automated pattern compiler before release, row by row. "
-    "The charts in this document are generated directly from the same verified data as the "
-    "written instructions, so the two cannot disagree."
+    "How this pattern was made: this design was created with AI assistance, and every row's "
+    "stitch count was checked before release. The charts in this document are drawn from the "
+    "same pattern as the written instructions, so the two agree."
 )
 
 
@@ -421,7 +439,146 @@ def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     """
     from ..products import launch0
 
-    return launch0.childrens_assignment(cir.slug)
+    return launch0.childrens_assignment(cir.slug) or graded_childrens_assignment(cir)
+
+
+def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
+    """F-362: a graded garment on the child/youth body table is a children's garment.
+
+    The catalogue only assigned Launch-0 slugs, so a graded child cardigan rendered with no
+    safety block at all. The CYC child/youth sizes are named by age in years, which gives
+    the age band; sizes 14 and 16 are over 12 and outside CPSC's children's-product
+    definition (`intel.childrens.OVER_TWELVE`), so they carry no children's block.
+    """
+    from ..cir.graded import CHILD
+
+    g = cir.grading
+    if g is None or g.table != CHILD.name:
+        return None
+    try:
+        months = int(float(g.size)) * 12
+    except ValueError:
+        return None
+    band = ch.age_band_for_months(months)
+    if band == ch.OVER_TWELVE:
+        return None
+    return ("childrens_garment", band)
+
+
+# ---- a graded garment's sizes, fit, care and package (F-761, F-762, F-763, F-362) ---------
+
+SIZES_HEADING = "Sizes and fit"
+CARE_HEADING = "Care"
+AGE_IS_A_GUIDE = ("Sizes are named by age because that is how the size standard names them. "
+                  "Age does not decide fit: measure the child's chest and choose the size "
+                  "whose to-fit chest is closest.")
+
+
+def size_chart(cir: CIR) -> list[tuple[str, str]] | None:
+    """The size chart a graded release prints: body vs finished vs ease, every size.
+
+    Read from `cir.grading`, the size matrix certification recomputed (F-768). The finished
+    chest is the BUILT one -- measured from that size's rows at the stated gauge -- because
+    that is what the maker will measure; the ease printed is built minus body.
+    """
+    g = cir.grading
+    if g is None or not g.sizes:
+        return None
+    rows = []
+    for e in g.sizes:
+        body = (e.get("body_cm") or {}).get("bust")
+        built = e.get("built_cm") or {}
+        chest = built.get("chest", (e.get("intended_cm") or {}).get("bust"))
+        bits = [f"to fit chest {body:g} cm", f"finished chest {chest:g} cm"]
+        if body is not None and chest is not None:
+            bits.append(f"{chest - body:+.0f} cm ease")
+        if built.get("length") is not None:
+            bits.append(f"length {built['length']:g} cm")
+        if built.get("upper_arm") is not None:
+            bits.append(f"upper arm {built['upper_arm']:g} cm")
+        if e.get("yarn_m"):
+            bits.append(f"yarn about {e['yarn_m']:.0f} m")
+        if e["size"] == g.size:
+            bits.insert(0, "this document")
+        rows.append((f"size {e['size']}", "; ".join(bits)))
+    return rows
+
+
+def fit_statement(cir: CIR) -> str | None:
+    """The intended fit and how ease is meant, said in words the listing is checked against."""
+    g = cir.grading
+    if g is None:
+        return None
+    from ..cir.graded import FIT_EASE_BANDS_CM
+
+    head = (f"This document is size {g.size} of {len(g.sizes)}, graded from the "
+            f"{g.table} body measurements ({g.source_url}, read {g.retrieved}). ")
+    if g.fit:
+        lo, hi = FIT_EASE_BANDS_CM[g.fit]
+        head += (f"Intended fit: {g.fit}, which this studio means as {lo:g} to {hi:g} cm of "
+                 f"ease at the chest. ")
+    else:
+        head += "No intended fit is stated for this design. "
+    head += ("Body measurements are the wearer's; finished measurements are the garment's own, "
+             "computed from this pattern's rows at the stated gauge; ease is the difference. "
+             "Choose your size by your body measurement, not by the size you usually buy.")
+    return head
+
+
+def care_note(cir: CIR) -> str | None:
+    """Care and use for a garment, from the fibre the pattern is written for (F-761)."""
+    fibres, _why = fibres_named(cir)
+    if not fibres:
+        return None
+    return (f"This pattern is written for {' and '.join(fibres)} yarn. Wash and dry the "
+            f"finished garment as the ball band of the yarn you used says -- it, not this "
+            f"pattern, decides temperature and drying. Dry it flat and ease it to the "
+            f"finished measurements above: a crochet garment dried on a hanger stretches in "
+            f"length.")
+
+
+SUPPORT_SCOPE_LEAD = "What support covers:"
+
+
+def support_scope(cir: CIR) -> str:
+    """F-770: which modifications are inside support and which are not, from the CIR.
+
+    Support checks a report against the compiler that validated this release, so it can only
+    vouch for what that release states: its size(s), its gauge and yarn weight, its stitch
+    pattern and construction. Anything else is the maker's own design change.
+    """
+    g = cir.gauge
+    sizes = (f"size {cir.grading.size} as written, or any of the {len(cir.grading.sizes)} "
+             f"sizes in the size chart from its own document" if cir.grading is not None
+             else "the size this pattern states")
+    weight = (f"{g.yarn_weight} weight yarn" if g is not None and g.yarn_weight
+              else "the yarn weight in Materials")
+    return (f"{SUPPORT_SCOPE_LEAD} {sizes}, worked in {weight} at the stated gauge, with the stitches, colour order and construction as written. "
+            f"Outside support: a different yarn weight or gauge, resizing to a size not "
+            f"listed, changing the stitch pattern, the construction or the number of pieces, "
+            f"and adding or removing shaping. We will explain how the pattern works, but we "
+            f"cannot check numbers this release did not validate.")
+
+
+def package_requirements(cir: CIR) -> tuple[str, ...]:
+    """The sections a complete pattern package must carry for this CIR (F-761).
+
+    Every pattern: materials, yarn amounts, gauge, abbreviations, instructions, terms and
+    support. A graded garment also: its size chart with fit and ease, a construction
+    overview, a schematic, and care notes.
+    """
+    need = ["At a glance", "Materials", "How much yarn", "Gauge, and why it matters here",
+            "Abbreviations", "Instructions", "Terms and support"]
+    if cir.grading is not None:
+        need += [SIZES_HEADING, "How it goes together", "Schematic", CARE_HEADING]
+    return tuple(need)
+
+
+def package_missing(cir: CIR, prose: str | list[str]) -> tuple[str, ...]:
+    """Required sections absent from what the document actually set (headings in prose)."""
+    lines = prose.split("\n") if isinstance(prose, str) else list(prose)
+    return tuple(h for h in package_requirements(cir)
+                 if not any(line == h or line.startswith(h + " (") for line in lines))
 
 
 def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
@@ -532,6 +689,8 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
     the pattern's own facts. A hard-coded "79 x 97 cm" in a safety note is a number that goes
     wrong the first time somebody changes the stitch count.
     """
+    from ..cir.twin import size_statement
+
     fibres, read_from = fibres_named(cir)
     size = ((twin.width_cm, twin.height_cm)
             if twin.width_cm and twin.height_cm else None)
@@ -541,6 +700,7 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
         colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
         fibres=fibres,
         fibre_read_from=read_from,
+        size_text=(size_statement(twin) or "") if twin.shape is not None else "",
     )
 
 
@@ -552,11 +712,80 @@ def childrens_statements(cir: CIR, twin: TwinModel,
                                 childrens_facts(cir, twin, audience))
 
 
+_SEAM_WORDS = {"whipstitch": "whipstitch", "slst": "slip-stitch", "mattress": "mattress-stitch",
+               "sew": "sew", "pick_up": "work", "thread": "thread"}
+
+
+def _piece(name: str) -> str:
+    return name.replace("_", " ")
+
+
+def construction_overview(cir: CIR) -> list[str] | None:
+    """A short construction explanation for a multi-piece or held/resumed design (F-765).
+
+    Built only from `cir.components` (what is made, how many, in what construction, which
+    piece continues from which) and `cir.assembly` (every join, in order, by which method,
+    along which edges). None for a single piece worked start to finish with no joins, which
+    is exactly the case where an overview would only repeat the instructions.
+    """
+    comps = cir.components
+    # Several copies of one piece with nothing joining them (a set of coasters) is not a
+    # construction; several different pieces, or any join, is.
+    multi = len(comps) > 1
+    structural = any(c.holds or c.resumes for c in comps)
+    if not (multi or structural or cir.assembly):
+        return None
+    total = sum(c.make for c in comps)
+    lines: list[str] = []
+    parts = []
+    for c in comps:
+        count = f"{c.make} x " if c.make > 1 else ""
+        how = c.construction.replace("_", " ")
+        if c.work_direction:
+            from ..cir.topology import DIRECTION_WORDS
+            how += f", {DIRECTION_WORDS[c.work_direction]}"
+        extra = f", continued from the {_piece(c.resumes)}" if c.resumes else ""
+        parts.append(f"{count}{_piece(c.name)} ({how}{extra})")
+    lines.append(f"This is made as {total} piece{'s' if total != 1 else ''}, worked in the "
+                 f"order below: " + "; ".join(parts) + ".")
+    for c in comps:
+        for h in c.holds:
+            lines.append(f"The {_piece(c.name)} sets {h.count} stitches aside at row "
+                         f"{h.at_row} ({_piece(h.name)}); they are picked up again later.")
+    for i, seam in enumerate(cir.assembly, start=1):
+        method = _SEAM_WORDS.get(seam.method, seam.method)
+        a, b = _piece(seam.piece_a), _piece(seam.piece_b)
+        if seam.names_its_edges:
+            from ..cir.model import SEAM_CONNECTOR
+
+            what = (f"{method} the {a}'s {seam.edge_a} edge "
+                    f"{SEAM_CONNECTOR.get(seam.method, 'to')} "
+                    + (f"its own {seam.edge_b} edge" if seam.is_self_seam
+                       else f"the {b}'s {seam.edge_b}"
+                       + ("" if seam.edge_b == "opening" else " edge")))
+        elif seam.is_self_seam:
+            what = f"{method} the {a} to itself"
+        else:
+            from ..cir.model import SEAM_CONNECTOR
+
+            what = f"{method} the {a} {SEAM_CONNECTOR.get(seam.method, 'to')} the {b}"
+        if seam.at_round is not None:
+            target = next((c for c in cir.components if c.name == seam.piece_b), None)
+            unit = ("row" if target is not None and "rows" in target.construction
+                    and "round" not in target.construction else "round")
+            what += f", at {unit} {seam.at_round} of the {b}"
+        if seam.stuff_before_closing:
+            what += ", stuffing before you close it"
+        lines.append(f"Join {i}: {what}.")
+    return lines
+
+
 def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
                       released_on: date | None = None,
-                      childrens: tuple[str, str] | None = None) -> PatternDocument:
+                      childrens: tuple[str, str] | None = None,
+                      lesson_links: list[dict] | None = None) -> PatternDocument:
     """Render the full pattern document.
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
@@ -623,13 +852,15 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # sold, and its guarantee is asserted rather than assumed.
     childrens = childrens if childrens is not None else childrens_assignment(cir)
     _refuse_an_undecided_childrens_title(cir, childrens)
+    if childrens is not None:
+        _refuse_what_the_childrens_assessment_refuses(cir, childrens)
 
     total = 0
     for _ in range(4):
         doc, claims, problems = _render(cir, twin, result, text=text, art=art,
                                         terminology=terminology, designer=designer,
                                         released_on=released_on, total_pages=total,
-                                        childrens=childrens)
+                                        childrens=childrens, lesson_links=lesson_links)
         if doc.pages == total:
             break
         total = doc.pages
@@ -638,6 +869,17 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
             f"{cir.slug}: the page count does not settle, so the footer would state a "
             f"length the document does not have")
 
+    missing = package_missing(cir, doc.prose)
+    if childrens is not None and childrens[0] == "childrens_garment" \
+            and SIZES_HEADING not in doc.prose:
+        # The children's garment statement sends the reader to "the size chart in this
+        # document" (F-362); a document without one cannot carry that sentence truthfully.
+        missing = missing + (SIZES_HEADING,)
+    if missing:
+        raise ValueError(
+            f"refusing to render {cir.slug}: the pattern package is incomplete, missing "
+            f"{list(missing)} (F-761). A graded garment ships with its size chart, fit and "
+            f"ease, construction overview, schematic and care notes, or not at all")
     pdf_bytes = doc.finish()
     if childrens is not None:
         _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
@@ -672,10 +914,24 @@ def extracted_text(pdf_bytes: bytes) -> str:
     last page, `prose` would still be complete and the file would not. The children's gate
     reads the bytes for that reason.
     """
+    sha = hashlib.sha256(pdf_bytes).hexdigest()
+    hit = _EXTRACTED.get(sha)
+    if hit is not None:
+        return hit
     import pypdf
 
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-    return " ".join("\n".join(page.extract_text() or "" for page in reader.pages).split())
+    text = " ".join("\n".join(page.extract_text() or "" for page in reader.pages).split())
+    # Keyed by the bytes' digest (the text is a pure function of them): the same certified
+    # PDF read by the children's statement audit, the teardown self-test and the
+    # first-customer gate in one process is extracted once. Only the digest is kept.
+    if len(_EXTRACTED) >= 32:
+        _EXTRACTED.pop(next(iter(_EXTRACTED)), None)
+    _EXTRACTED[sha] = text
+    return text
+
+
+_EXTRACTED: dict[str, str] = {}
 
 
 def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:
@@ -701,6 +957,39 @@ def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> di
         "missing": tuple(k for k in required if k not in present),
         "complete": len(present) == len(required),
     }
+
+
+def _refuse_what_the_childrens_assessment_refuses(cir: CIR,
+                                                  assignment: tuple[str, str]) -> None:
+    """F-363: the parts and ties the *pattern* names, assessed before anything is rendered.
+
+    `intel.childrens.assess` could only see what a Concept declared, and nothing declared the
+    safety eyes a materials list asked for. Here the Concept is read off the CIR, and any
+    REFUSE finding (a detachable part under three, a neck or hood tie, an unassessed part, a
+    prohibited subject) stops the document. Missing statements are not judged here: the
+    rendered-statement audit after layout owns those.
+    """
+    from ..intel import childrens as ch
+
+    subcategory, audience = assignment
+    concept = ch.concept_from_cir(
+        cir, subcategory=subcategory, audience=audience,
+        stated_statements=ch.required_statements(subcategory, audience))
+    refused = [f for f in ch.assess(concept) if f.severity == ch.REFUSE]
+    # A wearable is also held to physical plausibility: seams, closures, openings,
+    # proportion and trim, read off the CIR (F-363).
+    if getattr(cir, "grading", None) is not None or subcategory == "childrens_garment":
+        implausible = ch.physical_plausibility(cir)
+        if implausible:
+            raise ValueError(
+                f"refusing to render {cir.slug}: a children's wearable the pattern would make "
+                f"impractical -- " + "; ".join(f"{p['code']}: {p['detail']}"
+                                               for p in implausible))
+    if refused:
+        raise ValueError(
+            f"refusing to render {cir.slug}: it is a {subcategory} product for children "
+            f"{audience}, and the pattern itself names what intel.childrens refuses -- "
+            + "; ".join(f"{f.code}: {f.detail}" for f in refused))
 
 
 def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_bytes: bytes,
@@ -735,7 +1024,8 @@ def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_byte
 def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             terminology: str, designer: str, released_on: date,
             total_pages: int,
-            childrens: tuple[str, str] | None = None) -> tuple["_Doc", list[str], list[str]]:
+            childrens: tuple[str, str] | None = None,
+            lesson_links: list[dict] | None = None) -> tuple["_Doc", list[str], list[str]]:
     """Lay the document out. Called twice: once to count the pages, once to print them."""
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
                subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")
@@ -760,7 +1050,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     claims: list[str] = []
     doc.heading("At a glance")
     if twin.width_cm and twin.height_cm:
-        size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
+        # PT-10: a round piece names its convention (a hexagon is quoted across the points
+        # and across the flats); a flat piece is width x length. Every figure is computed
+        # from the stated gauge, and says so.
+        from ..cir.twin import size_statement
+
+        if twin.shape is not None and size_statement(twin):
+            size = f"{size_statement(twin)} at the stated gauge"
+        else:
+            size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
+        if not twin.calibrated:
+            size += " (computed, not yet measured on a worked sample)"
         doc.kv("finished size", size)
         claims.append(size)
     doc.kv("difficulty", _difficulty(cir, twin))
@@ -773,6 +1073,37 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.kv("released", released_on.isoformat())
     doc.space(4 * mm)
     doc.para(AI_DISCLOSURE, size=9, color=MUTED)
+
+    # -- sizes and fit (graded garments: F-761, F-762, F-763, F-362) -------
+    chart = size_chart(cir)
+    if chart:
+        doc.new_page(head)
+        doc.heading(SIZES_HEADING)
+        doc.para(fit_statement(cir) or "", size=10, running_head=head)
+        from ..cir.graded import CHILD
+        if cir.grading.table == CHILD.name:
+            doc.para(AGE_IS_A_GUIDE, size=10, running_head=head)
+        doc.space(2 * mm)
+        for label, value in chart:
+            doc.kv(label, value)
+        note = care_note(cir)
+        if note:
+            doc.space(3 * mm)
+            doc.heading(CARE_HEADING, size=12)
+            doc.para(note, size=10, running_head=head)
+
+    # -- schematic ---------------------------------------------------------
+    # Multi-piece designs only: every piece's outline and every join, drawn from the same
+    # assembly model the certificate checked (publish/schematic.py). One-piece products keep
+    # the document they had.
+    from .schematic import schematic_for
+    schematic = schematic_for(cir, result)
+    if schematic is not None:
+        doc.new_page(head)
+        doc.heading("Schematic")
+        doc.para("Every piece as worked, to scale, with the joins that make it one object. "
+                 "Measurements are computed from the stated gauge.", size=9, color=MUTED)
+        doc.image(schematic.image, running_head=head)
 
     # -- materials ---------------------------------------------------------
     doc.new_page(head)
@@ -932,14 +1263,16 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                    f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
                    f"{row['fabric_changes']}")
         if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
-            # Said out loud rather than quietly corrected. Which number is wrong -- the gauge
-            # or the weight on the band -- is decided by a swatch, and this document has not
-            # seen one. Picking a side here would be inventing a measurement.
+            # F-112: this note used to be the whole answer -- "swatch before you buy" printed
+            # over a gauge the declared yarn cannot make. A warning is not a substitute for
+            # truth, so certification now refuses such a pattern (GAUGE_OUTSIDE_DECLARED_YARN
+            # _BAND) unless a physical test of this exact content is bound to it. What is left
+            # here is a statement of fact about a released pattern, not a compensation.
             doc.para(
                 f"Note: the gauge above sits outside the published band for "
-                f"{guide['declared_weight'].replace('_', ' ')} yarn. Swatch before you buy: "
-                f"either this fabric wants a different weight than the one named, or it wants "
-                f"a different hook.", size=9, color=MUTED)
+                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
+                f"tested gauge rather than the band's; match it with your own swatch.",
+                size=9, color=MUTED)
         doc.para(
             f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
             f"Buying exactly enough is how a project ends one row short in a dye lot that has "
@@ -999,6 +1332,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # -- instructions ------------------------------------------------------
     doc.new_page(head)
+    # F-765: how the pieces become the object, before any row-level instruction. Derived
+    # from the CIR's own components and assembly, so it cannot describe a join the pattern
+    # does not make; absent for a one-piece item, which has nothing to explain.
+    overview = construction_overview(cir)
+    if overview:
+        doc.heading("How it goes together", size=12)
+        for line in overview:
+            doc.para(line, size=10, running_head=head)
+        doc.space(3 * mm)
     doc.heading(f"Instructions ({terminology} terms)")
     for block in text.split("\n"):
         if not block.strip():
@@ -1018,7 +1360,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.heading("Chart")
     doc.para(art["caption"], size=9, color=MUTED)
     doc.space(2 * mm)
-    doc.image(art["chart"], running_head=head)
+    if art.get("tiles"):
+        doc.heading("Tile placement index", size=12)
+        for start in dict.fromkeys(t["row_start"] for t in art["tiles"]):
+            band = [(n, t) for n, t in enumerate(art["tiles"], 1) if t["row_start"] == start]
+            doc.para(f"Rows {start}-{band[0][1]['row_end']}: " + "; ".join(
+                f"tile {n}, columns {t['column_start']}-{t['column_end']}" for n, t in band), size=9)
+        for number, tile in enumerate(art["tiles"], 1):
+            doc.new_page(head)
+            doc.heading("Chart continued")
+            doc.para(f"Tile {number} of {len(art['tiles'])}: rows {tile['row_start']}-{tile['row_end']}, "
+                     f"columns {tile['column_start']}-{tile['column_end']} (left to right).", size=9)
+            doc.image(tile["chart"], running_head=head, max_height=CHART_TILE_HEIGHT)
+        doc.new_page(head)
+        doc.heading("Chart key")
+    else:
+        doc.image(art["chart"], running_head=head)
     doc.image(art["legend"], running_head=head)
     # What is wrong with the chart, measured on the chart as it lands on the page. Carried onto
     # the document's problems so the release chain sees it, like every other finding here.
@@ -1138,6 +1495,28 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
 
+    # Approved contextual links supplied by assets.build, bound to lesson revisions.
+    # Missing public origin or approved coverage emits nothing, never a dead promise.
+    if lesson_links:
+        from urllib.parse import urlsplit
+        doc.heading("Technique help")
+        for lesson_link in lesson_links:
+            target = lesson_link["url"]
+            parsed = urlsplit(target)
+            revision = lesson_link["revision"]
+            if (parsed.scheme != "https" or parsed.username or parsed.password
+                    or parsed.query != "revision=" + revision
+                    or not parsed.path.startswith("/learn/") or parsed.fragment):
+                raise ValueError("unsafe or unversioned lesson link")
+            label = ", ".join(lesson_link["topics"])
+            doc.para(label, size=10)
+            doc.need(6 * mm)
+            doc.c.linkURL(target, (MARGIN, doc.y, PAGE_W - MARGIN, doc.y + 5 * mm),
+                          relative=0, thickness=0)
+            # The URL is the thing a maker printing this page has to type in, so it is the
+            # last line on the page that may be set below the brand's minimum. It was 8pt.
+            doc.para(target, size=MIN_BODY_PT)
+
     # -- licence -----------------------------------------------------------
     doc.new_page(head)
     doc.heading("Terms and support")
@@ -1158,6 +1537,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
              "bought it from and we will fix the pattern itself, not just answer your "
              "question. Every report is checked against the compiler that validated this "
              "release.", size=10)
+    doc.space(2 * mm)
+    doc.para(support_scope(cir), size=10)
     doc.space(3 * mm)
     # A licence with no owner and no date is a paragraph of good intentions, and a support
     # promise with no pattern id is one nobody can act on. Neither line was in the document.
@@ -1589,6 +1970,11 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                    "right.")
 
     if cell_mm < CHART_MIN_CELL_MM:
+        tiled = _tiled_chart_art(cir, twin, grid, colour_grid)
+        if tiled is not None:
+            return tiled
+
+    if cell_mm < CHART_MIN_CELL_MM:
         # Reported with the measurement in it, because "the chart is small" is an opinion and
         # "each cell is 2.1 mm on the printed page, carrying a 4pt glyph" is a fact somebody can
         # act on. Nothing measured this before: the chart's type is pixels inside an image, so
@@ -1611,6 +1997,57 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
         "cues": chart_mod.flat_cue_letters(cir, charted_colors, charted_cell),
         "problems": problems,
     }
+
+
+# Reserve the measured area for heading, explanatory caption and tile range.
+CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _tiled_chart_art(cir, twin, grid, colors):
+    """Partition the full authoritative fabric; no omitted borders or inferred repeats."""
+    full_rows, full_cols = len(grid), max(map(len, grid))
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    cols, rows = min(24, full_cols), min(28, full_rows)
+    def scale_for(image):
+        return min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    while True:
+        sample = ( [r[:cols] for r in grid[:rows]], [r[:cols] for r in colors[:rows]] )
+        chart = render_chart(cir, twin, spec, grids=sample, caption="Chart tile",
+                             show_columns=True)
+        scale = scale_for(chart)
+        if (spec.cell_px * scale / mm >= CHART_MIN_CELL_MM
+                and min(chart_mod.flat_type_px(spec.cell_px).values()) * scale >= MIN_BODY_PT):
+            break
+        if rows >= cols and rows > 1: rows -= 1
+        elif cols > 1: cols -= 1
+        else: return None  # Caller retains measured, structured refusal; never PASS.
+    tiles = []
+    for row in range(0, full_rows, rows):
+        for col in range(0, full_cols, cols):
+            grids = ([r[col:col+cols] for r in grid[row:row+rows]],
+                     [r[col:col+cols] for r in colors[row:row+rows]])
+            if not any(grids[0]):
+                # A shaped piece's rows are ragged: past the widest row of this band there
+                # is no fabric, so there is no tile to print (every stitch is still in one).
+                continue
+            image = render_chart(cir, twin, spec, grids=grids, caption="Chart tile",
+                                 row_offset=row, column_offset=col, show_columns=True)
+            scale = scale_for(image)
+            tiles.append({"row_start": row+1, "row_end": min(row+rows, full_rows),
+                          "column_start": col+1, "column_end": min(col+cols, full_cols),
+                          "grids": grids, "chart": image,
+                          "cell_mm": spec.cell_px*scale/mm,
+                          "minimum_type_pt": min(chart_mod.flat_type_px(spec.cell_px).values())*scale})
+    problems = []
+    if any(t["cell_mm"] < CHART_MIN_CELL_MM or t["minimum_type_pt"] < MIN_BODY_PT for t in tiles):
+        problems.append("PDF_CHART_CELL_BELOW_BRAND_MINIMUM: tiled chart below existing minimum")
+    return {"chart": tiles[0]["chart"], "tiles": tiles, "legend": render_legend(cir, twin),
+            "caption": f"Full chart: {full_cols} columns by {full_rows} rows, split into {len(tiles)} tiles. "
+                       "Columns are numbered left to right. Complete each entire row across its tiles: "
+                       "odd rows right to left; even rows left to right. Then advance one row. "
+                       "Do not work a tile as a separate piece. Every border and stitch is included once.",
+            "cell_mm": min(t["cell_mm"] for t in tiles),
+            "cues": chart_mod.flat_cue_letters(cir, colors, spec.cell_px), "problems": problems}
 
 
 def _times(n: int) -> str:

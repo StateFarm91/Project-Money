@@ -1,0 +1,2 @@
+# Cloudline chart readability
+Base19c426f; branch codex/final-chart-tiles-01. Approved scope publish/pdf.py chart pagination and image area, publish/charts.py global offsets, new focused tests/report. Preserve entire stitch/color grids and CIR fingerprint/gauge/borders. Existing9pt/cell floor unchanged. Tile pages must carry exact global row/column identity and true odd/even crochet direction. Actual US/UK PDF rendering and PNG visual review required. No customer usability validation claimed, no spend/status/production effects.

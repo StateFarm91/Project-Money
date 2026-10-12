@@ -1,0 +1,119 @@
+{
+ "attempts": 16,
+ "succeeded": 16,
+ "certified": [],
+ "rejected": {
+  "oa15_hifi_1": [
+   "texture",
+   "cable_direction",
+   "cable_gauge",
+   "fabric_folds_naturally",
+   "product_type"
+  ],
+  "oa15_hifi_2": [
+   "product_type",
+   "texture",
+   "cable_direction",
+   "proportions",
+   "cable_identity",
+   "cable_gauge",
+   "fabric_folds_naturally"
+  ],
+  "oa15_hifi_3": [
+   "edging",
+   "cable_gauge"
+  ],
+  "oa15_hifi_4": [
+   "cable_gauge",
+   "fabric_folds_naturally"
+  ],
+  "oa15_hifi_5": [
+   "product_type",
+   "shape",
+   "edging",
+   "cable_gauge"
+  ],
+  "oa15_hifi_6": [
+   "cable_direction",
+   "edging",
+   "cable_identity",
+   "cable_gauge",
+   "fabric_folds_naturally",
+   "product_type"
+  ],
+  "oa15_hifi_7": [
+   "product_type",
+   "texture",
+   "cable_direction",
+   "edging",
+   "cable_identity",
+   "cable_gauge",
+   "fabric_folds_naturally"
+  ],
+  "oa15_hifi_8": [
+   "texture",
+   "cable_direction",
+   "cable_identity",
+   "cable_gauge"
+  ],
+  "oa15_hifi_9": [
+   "texture",
+   "cable_direction",
+   "cable_identity",
+   "cable_gauge",
+   "fabric_folds_naturally"
+  ],
+  "oa15_hifi_10": [
+   "product_type",
+   "texture",
+   "cable_identity",
+   "cable_gauge",
+   "fabric_folds_naturally"
+  ],
+  "oa15_hifi_11": [
+   "shape",
+   "edging",
+   "cable_gauge",
+   "product_type"
+  ],
+  "oa15_hifi_12": [
+   "cable_identity",
+   "fabric_folds_naturally",
+   "product_type"
+  ],
+  "oa15_hifi_13": [
+   "product_type",
+   "shape",
+   "cable_identity",
+   "cable_direction"
+  ],
+  "oa15_hifi_14": [
+   "texture",
+   "cable_direction",
+   "edging",
+   "cable_identity",
+   "cable_gauge",
+   "product_type"
+  ],
+  "oa15_hifi_15": [
+   "fabric_folds_naturally",
+   "product_type",
+   "shape",
+   "texture",
+   "cable_direction",
+   "colour_count",
+   "edging",
+   "extra_features"
+  ],
+  "oa15_hifi_16": [
+   "texture",
+   "cable_direction",
+   "edging"
+  ]
+ },
+ "generation_usd": 4.369,
+ "validation_usd": 0.4907,
+ "spent_usd": 4.8598,
+ "cost_per_certified_usd": null,
+ "yield": "0/16"
+}

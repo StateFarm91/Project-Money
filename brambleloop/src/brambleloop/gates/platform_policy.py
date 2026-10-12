@@ -41,7 +41,11 @@ POLICY_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
                       ("publishing", "listing", "support")),
     "creativity_standards": ("https://www.etsy.com/legal/handmade/",
                              ("publishing", "creative_assets", "product_creation")),
-    "listing_image_rules": ("https://help.etsy.com/hc/en-us/articles/360000343508",
+    # W4-GATESI: this pointed at article 360000343508, which is "How to Download Your Listing
+    # Information" -- not an image rule at all (read through the Help Center article API,
+    # 2026-10-07). 115015663347 is "Requirements and Best Practices for Images in Your Etsy
+    # Shop", the article `integrations.etsy_constraints` already quotes for image rules.
+    "listing_image_rules": ("https://help.etsy.com/hc/en-us/articles/115015663347",
                             ("creative_assets", "publishing")),
     "advertising_rules": ("https://www.etsy.com/legal/advertising/",
                           ("growth", "paid_media")),
@@ -55,6 +59,13 @@ POLICY_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     # written for it, not at the listing.
     "children_and_baby": ("https://www.etsy.com/legal/prohibited-items/children/",
                           ("publishing", "product_creation")),
+    # F-242 / F-291: Etsy's search and search-visibility guidance -- the tag/title limits,
+    # the tag character rule, attributes-as-tags and the Search Visibility page. Watched like
+    # any other policy: a material change raises the publishing incident and invalidates the
+    # search certificates issued under the earlier reading (`commerce.search_policy`).
+    "search_guidance": ("https://help.etsy.com/hc/en-us/articles/"
+                        "360000336307-How-to-Use-Tags-to-Get-Found-in-Search",
+                        ("listing", "publishing", "search")),
 }
 
 # Beyond this, a snapshot is a historical document rather than a current policy.
@@ -98,13 +109,24 @@ ASSET_ROLES: dict[str, tuple[str, str]] = {
 
 # Disclosure lines. Short, plain, and written to be true rather than to be minimal.
 DISCLOSURES: dict[str, str] = {
-    "ai_assisted_design": ("Parts of this design were developed with AI assistance, directed "
-                           "and edited by the designer."),
+    # W4-COPY 2026-10-11: this said "directed and edited by the designer", which reads as a
+    # human designer this shop does not have (COPY_CLAIMS.md C-01). Etsy asks a seller to
+    # disclose "if an item is created with the use of AI" (policy_knowledge creativity
+    # standards); this says that, plainly, plus the check every release does pass.
+    "ai_assisted_design": ("This design was created with AI assistance, and every row's "
+                           "stitch count is checked before release."),
     "generated_imagery": ("Some listing images are illustrations or renders rather than "
                           "photographs, and are labelled where they appear."),
     "digital_download": ("This is a digital pattern. No physical item is shipped."),
     "deterministic_render": ("Charts and previews are rendered directly from the pattern "
                              "file, so they show exactly what is in the document."),
+    # D-FB-7: the product images are disclosed deterministic renders. The wording carries the
+    # contract phrase the images themselves carry (visual.render_contract.DISCLOSURE).
+    "disclosed_render": ("About the images: each listing image is a digital rendering of the "
+                         "pattern's finished design, not a photograph. Every stitch in it is "
+                         "drawn from the pattern itself at the stated gauge, with a centimetre "
+                         "scale; no sample has been photographed, and your finished piece will "
+                         "vary with yarn and tension."),
 }
 
 
@@ -134,12 +156,22 @@ def digest_of(text: str) -> str:
 
 
 def record_snapshot(db, source: str, *, text: str, version: str = "",
-                    summary: str = "", checked_on: str = "") -> dict:
+                    summary: str = "", checked_on: str = "", read_by: str = "",
+                    basis: str = "", compare_basis: str | None = None) -> dict:
     """Record one reading of one policy, and say whether it changed materially.
 
     "Material" is decided by comparing digests against the previous snapshot of the same
     source rather than by judgement, because a judgement about whether a policy change
     matters is exactly the judgement somebody makes quickly at the end of a week.
+
+    Only the digest of `text` is stored, never the text: the snapshot proves which reading a
+    certificate rests on without keeping a copy of Etsy's page. `read_by` and `basis` say who
+    read it and how, and live in `detail`.
+
+    `compare_basis` (W4-GATESI): when given, "material" compares against the previous
+    snapshot *of that basis* only. A first reading of the article itself differs from a
+    search-engine excerpt of it by construction, and calling that difference a policy change
+    would halt publication on a change Etsy never made. Default (None) is unchanged.
     """
     from sqlalchemy import select
 
@@ -147,18 +179,27 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
 
     if source not in POLICY_SOURCES:
         raise PolicyRefused(f"{source!r} is not a watched policy: {sorted(POLICY_SOURCES)}")
+    if not (text or "").strip():
+        raise PolicyRefused("an empty reading is not a reading: the digest of nothing proves "
+                            "nothing was read")
 
     url, affects = POLICY_SOURCES[source]
     new_digest = digest_of(text)
     with db.session() as s:
-        previous = s.scalars(select(PolicySnapshot).where(
-            PolicySnapshot.source == source).order_by(
-                PolicySnapshot.id.desc())).first()
+        if compare_basis is None:
+            previous = s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.source == source).order_by(
+                    PolicySnapshot.id.desc())).first()
+        else:
+            previous = next((r for r in s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.source == source).order_by(PolicySnapshot.id.desc()))
+                if (r.detail or {}).get("basis") == compare_basis), None)
         changed = previous is not None and previous.digest != new_digest
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),
             version=version or date.today().isoformat(), digest=new_digest,
-            summary=summary, material_change=changed, affects=list(affects))
+            summary=summary, material_change=changed, affects=list(affects),
+            detail={"read_by": read_by, "basis": basis, "text_length": len(text)})
         s.add(row)
         s.flush()
         snapshot_id = row.id
@@ -166,6 +207,122 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
     return {"id": snapshot_id, "source": source, "digest": new_digest,
             "material_change": changed, "affects": list(affects),
             "first_reading": previous is None}
+
+
+PAGE_BASIS = "page"
+
+CHANGE_SIGNATURE = "policy_changed:"
+
+
+def unreviewed_changes(db) -> list[dict]:
+    """Sources whose newest reading differs materially from the one before, unreviewed (#39).
+
+    A material change is a digest difference; it stays unreviewed until somebody records
+    that the affected workflows were reviewed and tested against it (`review_change`). Until
+    then those workflows are blocked, which is the requirement's own sentence.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PolicySnapshot
+
+    # CB2-I01: the question is whether the newest *material change* of each source was
+    # reviewed, not whether the newest *reading* is a change. A->B followed by a second
+    # unchanged reading of B is still the unreviewed A->B change; reading a page twice is
+    # not reviewing it.
+    with db.session() as s:
+        latest_change: dict[str, PolicySnapshot] = {}
+        for r in s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.material_change.is_(True)).order_by(PolicySnapshot.id)):
+            latest_change[r.source] = r
+        return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
+                 "version": r.version, "affects": list(r.affects or POLICY_SOURCES[src][1])}
+                for src, r in latest_change.items()
+                if not (r.detail or {}).get("reviewed_at")]
+
+
+def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
+    """Record that a material change was reviewed and the affected workflows re-tested.
+
+    Both halves are required: a review with no statement of what was tested is a signature,
+    and the requirement says "until reviewed/tested".
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import PolicySnapshot
+
+    if not (reviewed_by or "").strip() or not (tested or "").strip():
+        raise PolicyRefused("a change review names who reviewed it and what was re-tested")
+    with db.session() as s:
+        # The newest material change of this source, even when unchanged readings were
+        # recorded after it (CB2-I01).
+        row = s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source == source, PolicySnapshot.material_change.is_(True))
+            .order_by(PolicySnapshot.id.desc())).first()
+        if row is None or (row.detail or {}).get("reviewed_at"):
+            raise PolicyRefused(f"{source}: there is no material change to review")
+        detail = dict(row.detail or {})
+        detail.update(reviewed_at=datetime.now(timezone.utc).isoformat(),
+                      reviewed_by=reviewed_by.strip(), tested=tested.strip()[:2000])
+        row.detail = detail
+        flag_modified(row, "detail")
+        return {"source": source, "snapshot_id": row.id, "reviewed": True}
+
+
+def record_page_reading(db, *, source: str, text: str, version: str = "", summary: str = "",
+                        read_by: str, checked_on: str = "",
+                        today: date | None = None) -> dict:
+    """An operator's reading of an Etsy policy page, recorded and acted on at once.
+
+    Etsy's bot protection refuses automated retrieval of these pages (recorded in
+    `gates.policy_knowledge.RETRIEVAL_BLOCK`), and this company does not evade it. A person
+    opening the page in their own browser, reading it and pasting what they read is not
+    evasion: it is the ordinary way a seller learns the rules, and it is the owner action the
+    policy incidents have been asking for. So this records that reading as a `page`-basis
+    snapshot, which supersedes the repository's excerpt reading of the same source, and
+    closes the open `policy_stale:<source>` incident immediately with the same fields the
+    watch uses -- but only when the reading is itself current. A reading older than
+    `MAX_AGE_DAYS` is recorded and the incident stays open, because recording an old page
+    is not the same as the policy being current.
+
+    The text is digested and never stored or logged.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident, utcnow
+
+    if not (read_by or "").strip():
+        raise PolicyRefused("a page reading must say who read it")
+    today = today or date.today()
+    checked = checked_on or today.isoformat()
+    try:
+        age = (today - date.fromisoformat(checked)).days
+    except ValueError as e:
+        raise PolicyRefused(f"checked_on {checked!r} is not an ISO date") from e
+    if age < 0:
+        raise PolicyRefused("a reading cannot be dated in the future")
+    res = record_snapshot(db, source, text=text, version=version or checked,
+                          summary=summary, checked_on=checked, read_by=read_by.strip(),
+                          basis=PAGE_BASIS)
+    resolved: list[int] = []
+    current = age <= MAX_AGE_DAYS
+    if current:
+        with db.session() as s:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved == False,  # noqa: E712
+                    Incident.signature == f"policy_stale:{source}")):
+                detail = dict(inc.detail or {})
+                detail["resolution"] = (
+                    f"{source} read on {checked} (version {version or checked}) by "
+                    f"{read_by.strip()} from the page itself; snapshot {res['id']}")
+                detail["resolved_at"] = utcnow().isoformat()
+                inc.detail = detail
+                inc.resolved = True
+                resolved.append(inc.id)
+    return {**res, "basis": PAGE_BASIS, "checked_on": checked, "age_days": age,
+            "current": current, "incidents_resolved": resolved,
+            "note": ("recorded; the incident stays open because the reading is older than "
+                     f"{MAX_AGE_DAYS} days" if not current else "recorded and current")}
 
 
 def freshness(db, *, today: date | None = None) -> dict:
@@ -193,12 +350,15 @@ def freshness(db, *, today: date | None = None) -> dict:
                  "version": row.version, "material_change": row.material_change}
         (stale if age > MAX_AGE_DAYS else current).append(entry)
 
+    changed = unreviewed_changes(db)
     blocked_workflows = sorted({w for src in never + [e["source"] for e in stale]
+                                + [c["source"] for c in changed]
                                 for w in POLICY_SOURCES[src][1]})
     return {
         "current": current,
         "stale": stale,
         "never_checked": never,
+        "changed_unreviewed": [c["source"] for c in changed],
         "all_fresh": not stale and not never,
         "blocked_workflows": blocked_workflows,
         "max_age_days": MAX_AGE_DAYS,
@@ -206,6 +366,89 @@ def freshness(db, *, today: date | None = None) -> dict:
                  "material changes' from an empty table would be the most confident possible "
                  "way to be wrong (#39)."),
     }
+
+
+# The audit row POST /api/policy/snapshot writes for every page reading it accepts. It is the
+# provenance a page-basis snapshot needs before it can open a gate: it proves the reading came
+# through the authenticated operator intake, not from code writing a PolicySnapshot row.
+PAGE_READING_AUDIT = "policy.page_reading_recorded"
+
+
+def page_readings_status(db, *, today: date | None = None,
+                         sources: list[str] | None = None) -> dict:
+    """Whether a person's current, reviewed page readings cover every page no reader can fetch.
+
+    W4-B2CLOSE, 2026-10-10 (BUILD2_VERIFY finding 2). etsy.com/legal answers every automated
+    reader 403 (DataDome), so the `rendered_pages` gate's browser.probe can never honestly
+    open for #35/#39, while the remedy the closure itself names is a person reading those
+    pages and recording them through POST /api/policy/snapshot. This is that remedy as a
+    checkable condition. It holds only when, for EVERY source in `sources` (default: the
+    watched sources with no sanctioned reader, `policy_reader.external_sources()`):
+
+    - a `page`-basis snapshot exists that names who read it (`read_by`) and whose id appears
+      in a `policy.page_reading_recorded` audit row (the authenticated intake's provenance);
+    - the newest such reading is dated, not in the future, and at most `MAX_AGE_DAYS` old;
+    - no material change of that source is unreviewed (`unreviewed_changes`).
+
+    An absent, stale, future-dated, anonymous or un-audited reading keeps it closed, and so
+    does any unreviewed change: a reading somebody has not reviewed is not a current policy.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, PolicySnapshot
+
+    if sources is None:
+        from .policy_reader import external_sources
+
+        sources = external_sources()
+    today = today or date.today()
+    with db.session() as s:
+        audited: set[int] = set()
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == PAGE_READING_AUDIT)):
+            sid = (a.detail or {}).get("id")
+            if isinstance(sid, int):
+                audited.add(sid)
+        rows = list(s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source.in_(list(sources))).order_by(PolicySnapshot.id)))
+        newest: dict[str, PolicySnapshot] = {}
+        for r in rows:
+            detail = r.detail or {}
+            if (detail.get("basis") == PAGE_BASIS and str(detail.get("read_by") or "").strip()
+                    and r.id in audited):
+                newest[r.source] = r
+        per_source: dict[str, dict] = {}
+        for src in sources:
+            r = newest.get(src)
+            if r is None:
+                per_source[src] = {"ok": False, "why": "no audited page reading by a named "
+                                                       "person"}
+                continue
+            try:
+                age = (today - date.fromisoformat(r.checked_on)).days
+            except (TypeError, ValueError):
+                per_source[src] = {"ok": False, "snapshot_id": r.id,
+                                   "why": f"checked_on {r.checked_on!r} is not an ISO date"}
+                continue
+            entry = {"snapshot_id": r.id, "checked_on": r.checked_on, "age_days": age,
+                     "read_by": (r.detail or {}).get("read_by")}
+            if age < 0:
+                per_source[src] = dict(entry, ok=False, why="dated in the future")
+            elif age > MAX_AGE_DAYS:
+                per_source[src] = dict(entry, ok=False,
+                                       why=f"older than {MAX_AGE_DAYS} days")
+            else:
+                per_source[src] = dict(entry, ok=True, why="current")
+    unreviewed = sorted(c["source"] for c in unreviewed_changes(db) if c["source"] in sources)
+    for src in unreviewed:
+        per_source[src] = dict(per_source[src], ok=False,
+                               why="a material change is unreviewed (review_change)")
+    missing = sorted(k for k, v in per_source.items() if not v["ok"])
+    return {"open": bool(sources) and not missing, "sources": per_source,
+            "not_current": missing, "changed_unreviewed": unreviewed,
+            "max_age_days": MAX_AGE_DAYS,
+            "how": ("every etsy.com/legal source read by a named person through POST "
+                    "/api/policy/snapshot within the last "
+                    f"{MAX_AGE_DAYS} days, with no unreviewed material change")}
 
 
 def policy_stamp(db, *, today: date | None = None) -> dict:
@@ -221,7 +464,8 @@ def policy_stamp(db, *, today: date | None = None) -> dict:
         "sources": latest,
         "unread_sources": f["never_checked"],
         "stale_sources": [e["source"] for e in f["stale"]],
-        "certified_against_current_policy": f["all_fresh"],
+        "changed_unreviewed": f["changed_unreviewed"],
+        "certified_against_current_policy": f["all_fresh"] and not f["changed_unreviewed"],
         "note": ("A certificate that does not say which policy it was read against cannot "
                  "be re-examined after the policy changes, which is the only time anybody "
                  "wants to re-examine it."),
@@ -249,6 +493,10 @@ def check_new_class(db, *, product_class: str, asset_roles: tuple[str, ...] = ()
             f"cannot enable {product_class!r}: policy sources {f['never_checked'] + [e['source'] for e in f['stale']]} "
             f"have not been read within {MAX_AGE_DAYS} days. A new class is exactly when the "
             f"old reading is least likely to cover the case (#35)")
+    if f["changed_unreviewed"]:
+        raise PolicyRefused(
+            f"cannot enable {product_class!r}: policy sources {f['changed_unreviewed']} "
+            f"changed materially and the change has not been reviewed and tested (#39)")
     return {"product_class": product_class, "enabled": True,
             "asset_roles": list(asset_roles), "policy": policy_stamp(db, today=today)}
 
@@ -266,10 +514,12 @@ class AssetClaim:
     generated: bool = False
     deterministic_render: bool = False
     labelled: bool = False
+    disclosed_render: bool = False
 
     def to_dict(self) -> dict:
         return {"ref": self.ref, "role": self.role, "generated": self.generated,
-                "deterministic_render": self.deterministic_render, "labelled": self.labelled}
+                "deterministic_render": self.deterministic_render, "labelled": self.labelled,
+                "disclosed_render": self.disclosed_render}
 
 
 @dataclass
@@ -320,12 +570,20 @@ def classify(*, product_class: str, assets: list[AssetClaim],
 
     any_generated = False
     any_deterministic = False
+    any_disclosed = False
     for asset in assets:
         if asset.role not in ASSET_ROLES:
             raise PolicyRefused(f"{asset.role!r} is not an asset role: {sorted(ASSET_ROLES)}")
         requirement, why = ASSET_ROLES[asset.role]
         if asset.deterministic_render:
             any_deterministic = True
+        if asset.disclosed_render:
+            any_disclosed = True
+            if not asset.labelled:
+                problems.append(
+                    f"{asset.ref}: a disclosed render in the {asset.role!r} role without its "
+                    f"disclosure in the image and alt text; it may not be classified as "
+                    f"disclosed until it carries both")
         if not asset.generated:
             continue
         any_generated = True
@@ -344,6 +602,8 @@ def classify(*, product_class: str, assets: list[AssetClaim],
         disclosures.append(DISCLOSURES["generated_imagery"])
     if any_deterministic:
         disclosures.append(DISCLOSURES["deterministic_render"])
+    if any_disclosed:
+        disclosures.append(DISCLOSURES["disclosed_render"])
 
     if not assets:
         problems.append(
@@ -352,6 +612,97 @@ def classify(*, product_class: str, assets: list[AssetClaim],
 
     return Classification(product_class=product_class,
                           disclosures=sorted(set(disclosures)), problems=problems)
+
+
+# ---------------------------------------------------------------------------
+# #35 in the runtime: every release is classified before its listing is written
+
+CLASSIFIED_ACTION = "listing.classified"
+
+# The listing frames `publish.listing_assets` renders, by the role each plays, onto the asset
+# roles this gate reasons about. Every one is a deterministic render of the certified pattern.
+FRAME_ROLE: dict[str, str] = {
+    "hero": "primary_listing_image",
+    "whats_included": "pattern_page_preview",
+    "size": "scale_reference",
+    "materials": "pattern_page_preview",
+    "pattern_preview": "pattern_page_preview",
+    "chart": "chart_render",
+    "collection": "mood_frame",
+}
+
+# Model-rendered frames by the job they do. Each makes a claim about the finished object,
+# which is the point: a generated image in one of these roles is refused, labelled or not.
+GENERATED_ROLE: dict[str, str] = {
+    "hero": "finished_object_photo", "fit": "finished_object_photo",
+    "lifestyle": "finished_object_photo", "detail": "detail_photo",
+    "scale": "scale_reference",
+}
+
+
+# Disclosed renders (D-FB-7) make claims about the finished object -- that is their job -- and
+# they make them as deterministic renders of the design being sold, which `classify` permits
+# in a photograph-required role. They are never `generated`.
+DISCLOSED_ROLE: dict[str, str] = {
+    "hero": "primary_listing_image", "scale": "scale_reference", "detail": "detail_photo",
+}
+
+
+def release_assets(frames: list[dict], generated: list[dict] | None = None,
+                   disclosed: list[dict] | None = None) -> list[AssetClaim]:
+    """The asset claims a release's listing gallery makes, from the records on file.
+
+    `frames` are the deterministic frames `assets.build` stored; `generated` are the
+    model-rendered photography frames the parity gate judges. A frame role this gate has no
+    mapping for is refused rather than guessed into a permissive role.
+    """
+    claims: list[AssetClaim] = []
+    for frame in frames:
+        role = FRAME_ROLE.get(str(frame.get("role") or ""))
+        if role is None:
+            raise PolicyRefused(
+                f"listing frame role {frame.get('role')!r} has no asset-role mapping "
+                f"({sorted(FRAME_ROLE)}); an unmapped frame cannot be classified")
+        claims.append(AssetClaim(ref=f"frame-{frame.get('position')}", role=role,
+                                 generated=False, deterministic_render=True, labelled=True))
+    for i, frame in enumerate(generated or [], start=1):
+        job = str(frame.get("role") or frame.get("shot") or "hero")
+        claims.append(AssetClaim(
+            ref=str(frame.get("image_ref") or f"generated-{i}"),
+            role=GENERATED_ROLE.get(job, "finished_object_photo"), generated=True,
+            deterministic_render=False,
+            labelled=bool(frame.get("disclosed_as_illustration", False))))
+    # D-FB-7: disclosed deterministic renders of the finished design. Never `generated`; a
+    # frame that is not a disclosed render (a photo, a generation) is not accepted here.
+    for frame in disclosed or []:
+        if frame.get("kind") != "disclosed_render" or frame.get("generated") is not False:
+            raise PolicyRefused(f"{frame.get('image_ref')!r} is not a disclosed render")
+        role = DISCLOSED_ROLE.get(str(frame.get("role") or ""))
+        if role is None:
+            raise PolicyRefused(f"disclosed frame role {frame.get('role')!r} has no asset role")
+        disclosure = frame.get("disclosure") or {}
+        claims.append(AssetClaim(
+            ref=str(frame.get("image_ref") or f"disclosed-{frame.get('position')}"), role=role,
+            generated=False, deterministic_render=True, disclosed_render=True,
+            labelled=bool(disclosure.get("in_image") and disclosure.get("in_alt_text"))))
+    return claims
+
+
+def classify_release(frames: list[dict], generated: list[dict] | None = None, *,
+                     ai_assisted_design: bool = True,
+                     disclosed: list[dict] | None = None) -> Classification:
+    """#35 for one release: Brambleloop sells seller-designed digital patterns whose design
+    was developed with AI assistance, so the class is `ai_assisted_design`, digital."""
+    return classify(product_class=AI_ASSISTED_DESIGN if ai_assisted_design
+                    else SELLER_DESIGNED_DIGITAL,
+                    assets=release_assets(frames, generated, disclosed),
+                    ai_assisted_design=ai_assisted_design, digital=True)
+
+
+def disclosure_block(classification: Classification) -> str:
+    """The owed disclosures as a description section, verbatim, so the gate can find them."""
+    lines = ["DISCLOSURES"] + [f"- {d}" for d in classification.disclosures]
+    return "\n".join(lines)
 
 
 def describe() -> dict:

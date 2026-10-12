@@ -113,8 +113,80 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W4-RETENTIONFIX: two readers merged in W4 without an entry. F-399's "repeated failures
+    # avoided" counts refusals inside the retrospective window (days); the owner overview
+    # reads the newest production self-check only.
+    "improve.repeat_refused": ("windowed",
+                               "improve.cells.learning_health counts the retrospective "
+                               "window (default 7 days)"),
+    "verify.completed": ("latest", "command_center.overview reads the newest self-check"),
+    # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as
+    # the newest row only (assurance, owner_queue, command_center.tabs, launch.visibility,
+    # core.phase readiness evidence), so pruning older rows changes nothing they show.
+    "launch.assessed": ("latest", "assurance/owner_queue/cc tabs/launch.visibility/core.phase "
+                                  "read the newest verdict"),
+    "ops.rollback_baseline": ("latest", "ops.assurance reads the newest baseline"),
+    "ops.sentinel": ("latest", "ops.assurance reads the newest sentinel run"),
+    # W3 K4: a product's launch plan/hold is read over ALL rows (launch.demand, launch.readiness
+    # "uncalendared"): a product planned once stays planned, so pruning would un-plan it.
+    "launch.planned": ("lifetime_total", "launch.demand/readiness: ever planned per product"),
+    "launch.held": ("lifetime_total", "launch.demand: ever held per product"),
+    # K8: the customer workspace lists the newest 50 defect candidates only, so pruning rows
+    # older than the horizon cannot change what it shows.
+    "support.defect_candidate": ("windowed",
+                                 "support.workspace reads the newest 50 rows"),
+    # Spend refusals are counted over a bounded window only: finance.spend_report.refusals
+    # reads the calendar month and ops.slo.soak_report reads the lights-out soak window
+    # (hours), both far inside the retention horizon, so pruning older rows changes neither.
+    "spend.refused": ("windowed",
+                      "spend_report.refusals reads the calendar month; ops.slo soak window"),
+    # Audit ddf9c6e M-3: the soak's "no duplicated external effect" criterion reads reclaims
+    # and guard-refused duplicates inside the soak window only (hours).
+    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window"),
+    "effect.duplicate_refused": ("windowed", "ops.slo.soak_report reads the soak window"),
+    # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
+    # persists its own daily reading, so pruning older rows cannot change the series.
+    "assets.model_photography": ("windowed",
+                                 "visual.drift_series reads WINDOW_DAYS=60 of frames"),
+    # rc1-AUTH D1/D2: owner authority families are sealed hash chains verified from their
+    # genesis on every read; pruning any row of one breaks the chain (fail closed, but it
+    # would refuse every grant and drop the recorded phase to shadow).
+    "owner.phase.transition": ("lifetime_total",
+                               "core.phase.chain verifies every transition from genesis"),
+    "owner.publication.approved": ("lifetime_total",
+                                   "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.publication.revoked": ("lifetime_total",
+                                  "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.publication.rebased": ("lifetime_total",
+                                  "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.activation.approved": ("lifetime_total",
+                                  "ops.activation_authority grant chain (sealed_chain)"),
+    "owner.activation.revoked": ("lifetime_total",
+                                 "ops.activation_authority grant chain (sealed_chain)"),
+    "owner.activation.rebased": ("lifetime_total",
+                                 "ops.activation_authority grant chain (sealed_chain)"),
+    # rc1-ORD2: the owner's Etsy ledger mapping verification is a sealed chain like the
+    # families above; pruning a row breaks it and every ledger fee reverts to unverified.
+    "owner.etsy_ledger_mapping.verified": ("lifetime_total",
+                                           "finance.reconcile mapping verification chain "
+                                           "(sealed_chain)"),
+    "owner.etsy_ledger_mapping.revoked": ("lifetime_total",
+                                          "finance.reconcile mapping verification chain "
+                                          "(sealed_chain)"),
+    "owner.etsy_ledger_mapping.rebased": ("lifetime_total",
+                                          "finance.reconcile mapping verification chain "
+                                          "(sealed_chain)"),
     "store.published": ("lifetime_total",
-                        "app.main /api/verify `nothing_published` counts all of them"),
+                        "app.verify_checks (/api/verify) counts all of them, and in a live "
+                        "phase reads each one's read-back verdict"),
+    # A3-10: in a live phase /api/verify proves every listing on Etsy is covered by an owner
+    # publication grant by reading these rows; a pruned one would read as "no grant".
+    "store.publish_incomplete": ("lifetime_total",
+                                 "app.verify_checks (/api/verify) counts every draft left "
+                                 "incomplete on Etsy; pruning one would hide a shop write"),
+    "store.execution_revalidated": ("lifetime_total",
+                                    "app.verify_checks proves the owner publication grant "
+                                    "of every listing on Etsy from these rows"),
     "store.publish_refused": ("lifetime_total",
                               "app.main /api/verify "
                               "`publication_was_actually_attempted_and_refused`, and "
@@ -133,27 +205,158 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "model.frozen": ("lifetime_total",
                      "visual.freeze and visual.bible read the canonical identity freeze, "
                      "which is permanent provenance and not re-derivable"),
+    "model.replaced": ("lifetime_total",
+                       "visual.model_registry.replacements reads every owner-approved "
+                       "replacement of the canonical identity: the lineage from one "
+                       "version to the next is permanent provenance and not re-derivable"),
     "design.provenance": ("lifetime_total",
                           "ops.artefacts proves what each derived artefact was made from; "
                           "a missing row reads as unproven, which blocks publication"),
     "model.probe": ("latest", "gateway.anthropic.provider_usable reads a successful call"),
     "model.analysis": ("windowed", "gateway.routing reads recent analyses"),
-    "ops.health": ("latest", "runtime.release reads the last sweep"),
+    "ops.health": ("windowed", "runtime.release reads the last sweep; ops.dependencies reads "
+                               "the 24h record as the host probe (C-80)"),
     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),
+    "assets.built": ("lifetime_total",
+                     "runtime.pipeline._certified_pdf_hashes reads the certified PDF hashes "
+                     "of a release at publish time and refuses PDF_HASH_DRIFT without them; "
+                     "pruning the row would make a certified release unpublishable"),
+    "creative.expedition": ("windowed",
+                            "creative.audit reads expeditions after its own last cursor, and "
+                            "unit_cost counts recent ones; history behind the cursor is spent. "
+                            "creative.standard.north_star_cohorts (C-64) also reads them by "
+                            "month inside the horizon; older cohorts live on in the daily "
+                            "creative.north_star operating_readings rows"),
+    "cir.drafted": ("windowed",
+                    "creative.standard.north_star_cohorts (CB2-O10) counts the month's drafted "
+                    "CIRs as the engineering event behind concept_to_engineering_survival, "
+                    "inside the horizon; older cohorts live on in the daily "
+                    "creative.north_star operating_readings rows"),
+    "store.pdf_hash_verified": ("latest",
+                                "commerce.first_hundred reads the latest verification to "
+                                "say whether the delivery path is proven"),
+    "improve.mine": ("latest", "improve.mine reads its own last run as the watermark"),
+    "improve.monitor": ("latest", "improve.monitor reads its own last run as the watermark"),
+    "creative.style_learning": ("latest", "the style learner's latest pass is its reading"),
+    "finance.governor": ("windowed", "parallelism history covers 7 days; may_claim reads the "
+                         "latest governor advice"),
+    "improve.league.run": ("windowed", "the league compares on recorded runs in its window"),
+    "improve.replay.challenger": ("windowed", "improve.roles counts the challengers the "
+                                  "Prompt / Tool Challenger registered in its 90-day window"),
+    "creative.white_space": ("latest", "creative.ideation reads the latest white-space "
+                             "hypotheses into every tournament/expedition brief"),
+    "creative.four_season": ("latest", "creative.ideation reads the latest four-season "
+                             "programme row for the current season"),
+    "creative.outcome_learning": ("latest", "the outcome learner's latest pass is its reading"),
+    "seasonal.harvest": ("latest", "the harvest pass; SeasonHarvest rows hold the history"),
+    "creative.tournament": ("lifetime_total",
+                            "improve.measure scores product_creativity over every recorded "
+                            "tournament (survival rate beside the research kill rate); a "
+                            "pruned history would change the capability reading, and "
+                            "runtime.release counts them for the weekly cadence proof"),
+    "finance.forecast": ("lifetime_total",
+                         "improve.measure compares realised revenue against every recorded "
+                         "forecast; pruning a forecast would flatter the finance cell"),
     "creative.blinded": ("latest", "runtime.release reads the last blinded run"),
     "creative.blind_review": ("latest", "runtime.release reads the last review"),
+    "creative.grid_tournament": ("latest", "the #126 verdict is read from the last run; "
+                                 "creative.standard.north_star_cohorts (C-64) reads our grid "
+                                 "scores by month inside the horizon, and the daily "
+                                 "creative.north_star operating_readings rows keep older "
+                                 "cohorts"),
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
+    # FB-1 B (F-594): launch.readiness reads the controlled Etsy round trip's ledger, and
+    # integrations.etsy_exercise.outstanding_drafts pairs every created draft with its
+    # verified removal. Pruning a created row forgets a draft that may still be in the shop;
+    # pruning a removed row resurrects one; pruning the finished run erases the only proof.
+    "etsy.exercise_finished": ("lifetime_total",
+                               "launch.readiness etsy_integration reads whether any full "
+                               "round trip against openapi.etsy.com finished ok"),
+    "etsy.exercise_draft_created": ("lifetime_total",
+                                    "etsy_exercise.outstanding_drafts and launch.readiness "
+                                    "pair every created draft with its removal"),
+    "etsy.exercise_draft_removed": ("lifetime_total",
+                                    "the matching half of every created draft's pair"),
+    "owned_surface.probe": ("latest", "the owned_surfaces gate reads the last probe (C-38)"),
     "etsy.oauth_callback": ("latest",
                             "app.main /api/etsy/oauth/start reports the last authorization "
                             "attempt so an operator can tell a flow that was never finished "
                             "from one that failed"),
+    # C-69: the moat inventory counts every product photograph ever made (#44), and the
+    # teardown QA reads whether a release's deliverable recorded problems (#169).
+    "assets.owned_photography": ("lifetime_total",
+                                 "brand.moat.evidence counts made product photographs as "
+                                 "the photography-language signature's evidence"),
+    "assets.deliverable_problems": ("lifetime_total",
+                                    "teardown.lab.measured_self_scores reads whether a "
+                                    "release's PDF recorded problems (instruction clarity)"),
+    # C-80 (#81): the parity verdict resumes the escalation ladder from the rung results the
+    # photography job persisted; pruning one would re-run a strategy already tried.
+    "creative.escalation_result": ("lifetime_total",
+                                   "visual.gallery.escalation_progress reads every rung "
+                                   "result for a release to place the next attempt"),
+    # C-80 (#54): the launch gate reads each release's search baseline at drafting and the
+    # latest rollback rehearsal (aged 3 days) per listed release.
+    "listing.query_portfolio": ("lifetime_total",
+                                "launch.readiness reads whether every listed release has a "
+                                "search-coverage baseline recorded at drafting"),
+    "launch.rollback_rehearsed": ("latest", "launch.readiness reads the latest rehearsal per "
+                                            "release, aged out after 3 days"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),
+    # C-60 (#17): the proof sweep attaches each tester pass and sale once; pruning a row
+    # would re-attach it and double-count the trust base.
+    # C-75: growth.steer reads the last fortnight's receipts for its steer-once set; the ids
+    # live in the receipt, so pruning inside the window would let a job be steered again.
+    "growth.steered": ("windowed",
+                       "runtime.growth_ops.steer reads 14 days of receipts (job_ids) so a "
+                       "steered job is never moved twice"),
+    "trust.proof": ("lifetime_total",
+                    "runtime.growth_ops.proof_sweep reads every attached proof to attach "
+                    "each row once"),
+    # C-61: the original-design pipeline.
+    "creative.winner_intake": ("lifetime_total",
+                               "cir.draft verifies a design's funnel run from its winner "
+                               "intake, and regate re-presents held winners from it; a pruned "
+                               "intake makes a held winner unengineerable"),
+    "concept.judged": ("lifetime_total",
+                       "creative.intake reads the vision judgement recorded per design; a "
+                       "pruned judgement silently returns a design to unjudged"),
+    "radar.skill_gap": ("latest", "creative.ideation reads the latest measured wave gap"),
+    "cir.drafted": ("lifetime_total",
+                    "intel.mission_runtime reads whether a response's CIR was ever drafted "
+                    "to walk #309's pipeline"),
+    "seasonal.transformations": ("latest",
+                                 "creative.tournament seeds the last run's derived seasonal "
+                                 "transformations of the catalogue into its field (#279)"),
+    # #194: the weekly cycle reads its own last two rows' unmeasured cells for the streak.
+    "improve.weekly": ("windowed",
+                       "improve.evolution.metric_revisions reads the last two weekly rows' "
+                       "cells_unmeasured (a three-week streak) inside the horizon"),
+    # #4: pre-production demand validation. Posts and refusals are re-derivable from the
+    # concepts and are re-prepared after the horizon at worst; a platform's interest
+    # observation and the validated reading built on it are evidence nothing can re-derive.
+    "preproduction.concept_post": ("windowed",
+                                   "commerce.preproduction_cycle prepares a post once per "
+                                   "concept and channel it finds a row for"),
+    "preproduction.post_refused": ("windowed",
+                                   "commerce.preproduction_cycle records a refusal once per "
+                                   "concept and channel it finds a row for"),
+    "preproduction.interest": ("windowed",
+                               "commerce.preproduction_cycle re-records a reading only when "
+                               "it changed from the last row"),
+    "preproduction.interest_observed": ("lifetime_total",
+                                        "commerce.preproduction_cycle reads the platform's "
+                                        "observation of a concept post; the only evidence of "
+                                        "interest and never authored here"),
+    "preproduction.validated": ("lifetime_total",
+                                "creative.ideation reads validated interest into every "
+                                "brief, and the cycle acts on an observation once"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(

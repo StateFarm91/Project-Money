@@ -1,0 +1,16 @@
+{
+  "run_id": "20260928T144603984169Z-test_search_truth",
+  "sha": "9c6aa491cacece52603c0261059b5f1d958fd568",
+  "suite": "tests/test_search_truth.py",
+  "started": "2026-09-28T14:46:03.984169+00:00",
+  "tree_before": "",
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T14:46:47.990128+00:00",
+  "head_after": "9c6aa491cacece52603c0261059b5f1d958fd568",
+  "log": "20260928T144603984169Z-test_search_truth.log",
+  "log_sha256": "a88f1cf2f789ae1e81080025b81a39110800f75adab974100e68d032cbb412b4"
+}

@@ -69,6 +69,13 @@ class Requirement:
     # get right. Writing the gate beside the sentence that states it means the edit that
     # makes the claim is the edit that parks the task.
     parked_on: str = ""
+    # Where the proof of a `covered` requirement lives when the note does not name it: module
+    # paths under src/brambleloop and test files, space-separated ("seasonal/leadtime.py
+    # tests/test_leadtime.py"). The closure matrix (`closure.py`) refuses to call a covered
+    # requirement COMPLETE+PROVEN unless the note or this field names a module that exists
+    # and a test that exercises it. Sixty-seven covered notes named no module on 2026-09-26;
+    # the claim was true for most of them and unverifiable for all of them.
+    proof: str = ""
 
     @property
     def executable(self) -> bool:
@@ -81,7 +88,7 @@ class Requirement:
     def to_dict(self) -> dict:
         return {"id": self.id, "title": self.title, "version": self.version,
                 "section": self.section, "status": self.status, "note": self.note,
-                "parked_on": self.parked_on}
+                "parked_on": self.parked_on, "proof": self.proof}
 
 
 @lru_cache(maxsize=1)
@@ -146,10 +153,17 @@ def counts() -> dict[str, int]:
 def coverage() -> dict:
     """The honest summary. `remaining` counts only what this build can actually finish."""
     c = counts()
+    # Partial or missing work splits into what can start now and what is parked on a
+    # checkable gate (`parked_on`). Reporting only the sum told the owner 45 pieces of work
+    # were ready on 2026-09-27 when every one of them was parked -- the same defect the
+    # executor exists to prevent, on the console instead of in the queue.
+    unparked = sum(1 for r in load() if r.executable and not r.parked_on)
     return {
         "total": TOTAL,
         "by_status": c,
         "executable_remaining": c[PARTIAL] + c[MISSING],
+        "executable_unparked": unparked,
+        "executable_parked_on_a_gate": c[PARTIAL] + c[MISSING] - unparked,
         "blocked_on_owner": c[OWNER_GATED],
         "blocked_on_data": c[DATA_GATED],
         "complete": c[COVERED],

@@ -1,0 +1,6 @@
+{
+ "snapshots": [],
+ "recorded": false,
+ "basis": "owner_recorded_shop_manager",
+ "note": "no Insights reading has been recorded; record one through POST /api/insights/snapshot after reading Shop Manager > Marketing > Marketplace Insights"
+}

@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T154407608215Z-test_cert_parity_copy",
+  "sha": "624618d4b739ec488c4b615279b5d41f784adcfc",
+  "suite": "tests/test_cert_parity_copy.py",
+  "started": "2026-09-28T15:44:07.608215+00:00",
+  "tree_before": "",
+  "source_before": "55c7c82ed432ade95e6cff9b879acdb9213ad1b7f5e683c4deda659ace756d89",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "failed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 1,
+  "finished": "2026-09-28T15:45:07.240195+00:00",
+  "source_after": "55c7c82ed432ade95e6cff9b879acdb9213ad1b7f5e683c4deda659ace756d89",
+  "head_after": "624618d4b739ec488c4b615279b5d41f784adcfc",
+  "log": "20260928T154407608215Z-test_cert_parity_copy.log",
+  "log_sha256": "74b4ab0f6ea10c41c4b248c8d6f01a1d9264ded29bbb1caeb4174048b8d0cc0d"
+}

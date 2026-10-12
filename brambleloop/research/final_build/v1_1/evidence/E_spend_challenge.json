@@ -1,0 +1,46 @@
+{
+  "allow": false,
+  "reasons": [
+    "[phase] the company is in SHADOW phase: no external spend executes",
+    "[cash] cash is UNKNOWN (no business bank statement has been imported; cash is UNKNOWN, not CA$0.00); Finance will not approve spend against an unknown balance",
+    "[margin] expected contribution CA$20.00 on CA$40.00 is 0.50 per ad dollar, below the 1.30 target",
+    "[caps] CA$40.00 exceeds the campaign cap CA$25.00",
+    "[authority] no owner or policy authority attached; budget availability is not permission (F-912)",
+    "[books] high-severity accounting exceptions are open; the books are not reconciled"
+  ],
+  "challenge_id": "fin-0b53d07465b14125",
+  "verdict": "blocked",
+  "escalate_to": "owner",
+  "checks": [
+    {
+      "rule": "phase",
+      "outcome": "block",
+      "why": "the company is in SHADOW phase: no external spend executes"
+    },
+    {
+      "rule": "cash",
+      "outcome": "block",
+      "why": "cash is UNKNOWN (no business bank statement has been imported; cash is UNKNOWN, not CA$0.00); Finance will not approve spend against an unknown balance"
+    },
+    {
+      "rule": "margin",
+      "outcome": "block",
+      "why": "expected contribution CA$20.00 on CA$40.00 is 0.50 per ad dollar, below the 1.30 target"
+    },
+    {
+      "rule": "caps",
+      "outcome": "block",
+      "why": "CA$40.00 exceeds the campaign cap CA$25.00"
+    },
+    {
+      "rule": "authority",
+      "outcome": "escalate",
+      "why": "no owner or policy authority attached; budget availability is not permission (F-912)"
+    },
+    {
+      "rule": "books",
+      "outcome": "escalate",
+      "why": "high-severity accounting exceptions are open; the books are not reconciled"
+    }
+  ]
+}

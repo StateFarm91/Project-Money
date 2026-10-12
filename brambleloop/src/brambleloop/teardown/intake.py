@@ -333,7 +333,8 @@ def mirror(db, ref: str, files: list[library.IntakeFile], folder: Path,
 
 def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             env: dict[str, str] | None = None, paid_cad: float | None = None,
-            purchased_on: str | None = None, mirror_files: bool = True) -> dict:
+            purchased_on: str | None = None, mirror_files: bool = True,
+            licence_terms: dict | None = None) -> dict:
     """Write one purchase into the quarantine and generate everything derivable from it.
 
     `uploads` is what the form sent: (filename, bytes). Everything else is looked up.
@@ -395,7 +396,65 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
 
     _set_state(db, ref, AWAITING_ANALYST, title=row["title"])
 
+    # F-786/F-788: the purchase's licence, captured with the files. Terms supplied at upload
+    # are recorded as given; otherwise the conservative personal-use reading, which never
+    # overwrites terms somebody already recorded. The code-declared benchmark licences are
+    # written alongside on first arrival so every agent reads one table.
+    from . import licence as licence_terms_mod
+
+    licence_record = licence_terms_mod.capture_purchase(
+        db, ref, terms=licence_terms, source_url=str(row.get("url") or ""),
+        attribution=f"{benchmarks.MJS_SHOP} (seller)")
+    licence_terms_mod.seed_known(db)
+
+    # Actual uploaded documents, never proof_run synthetic demonstrations, produce
+    # the durable corpus consumed by certification and protected publication.
+    from . import reader
+    from ..gates import originality
+    readings = []
+    wording = set()
+    pdfs = [f for f in scan.files if f.name.lower().endswith(".pdf")]
+    for file in pdfs:
+        try:
+            read = reader.read(f"{ref}/{file.name}", env=env, ref=ref, db=db)
+            ready = bool(read.get("fully_readable")) and bool(
+                read.get("wording_fingerprint", {}).get("shingles"))
+            readings.append({"file": file.name, "sha256": file.sha256,
+                             "state": "READ" if ready else "UNKNOWN"})
+            for fingerprint in originality.fingerprints_from_db(db):
+                if fingerprint.ref == ref:
+                    wording.update(fingerprint.wording)
+        except Exception as exc:
+            readings.append({"file": file.name, "sha256": file.sha256, "state": "UNKNOWN",
+                             "why": type(exc).__name__})
+    if pdfs:
+        # A failed replacement may not retain stale evidence; multiple PDFs contribute
+        # one complete corpus rather than the last PDF overwriting its siblings.
+        from ..core.models import BenchmarkFingerprintRecord
+        from sqlalchemy import select
+        with db.session() as session:
+            fingerprint = session.scalar(select(BenchmarkFingerprintRecord).where(
+                BenchmarkFingerprintRecord.benchmark_ref == ref))
+            if fingerprint is not None:
+                fingerprint.wording_shingles = (sorted(wording) if all(
+                    r["state"] == "READ" for r in readings) else None)
+        Registry(db).audit("teardown_analyst", "benchmark.wording_ingested",
+                           artifact=ref, detail={"readings": readings,
+                           "state": "READ" if all(r["state"] == "READ" for r in readings) else "UNKNOWN"})
+
     audit = deliverable_audit(promises, scan.inferred)
+    # #151: the scorecard's promise-to-delivery audit, on the same inputs, so the alignment
+    # figure the teardown reports is computed at the moment the files arrive. And #159/#170:
+    # every applicable audit schedule prefilled from what the filenames settle, so the
+    # analyst starts from the manifest rather than retyping it.
+    from . import audits as audit_schedules
+    from . import lab
+    from .scorecard import promise_audit
+
+    alignment = promise_audit(audit_promises(promises), scan.inferred)
+    prefilled = {spec.key: audit_schedules.prefill(spec.key, scan.inferred)
+                 for spec in audit_schedules.AUDITS
+                 if audit_schedules.applies(spec, scan.inferred)}
     mirrored = (mirror(db, ref, scan.files, folder, env=env) if mirror_files
                 else {"mirrored": 0, "durable": False, "why": "mirroring was not requested"})
 
@@ -404,12 +463,18 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
         "title": row["title"], "department": row["pod"],
         "files": [f.to_dict() for f in scan.files],
         "file_count": len(scan.files), "replaced": replaced,
+        "wording_readings": readings,
         "inferred": scan.inferred,
         "paid_cad": round(price, 2),
         "paid_source": ("supplied at upload" if paid_cad is not None
                         else "the observed listing price, not a receipt"),
         "promise_audit": audit,
+        "promise_alignment": alignment,
+        "audit_prefill": prefilled,
         "offsite": mirrored,
+        "licence": {k: licence_record.get(k) for k in (
+            "terms_source", "allowed_uses", "prohibited_uses", "finished_item_rights",
+            "pattern_rights", "written")},
         "durable": bool(mirrored.get("durable")),
         "needs_owner": [n for n in scan.needs_owner
                         if "listing reference" not in n and "what was paid" not in n
@@ -420,8 +485,34 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
     Registry(db).audit("orchestrator", INTAKE_ACTION,
                        detail={"ref": ref, "listing_ref": str(listing_ref),
                                "files": len(scan.files), "durable": result["durable"],
-                               "verdict": audit["verdict"]})
+                               "verdict": audit["verdict"],
+                               "alignment": alignment["alignment"],
+                               "broken_promises": alignment["broken"],
+                               "prefilled_audits": sorted(prefilled)})
+    # #170: the manifest regenerated on every arrival, into the quarantine, never the repo.
+    manifest = lab.write_manifest(db, env=env)
+    result["manifest"] = {k: manifest[k] for k in ("path", "bytes", "sha256",
+                                                    "teardown_queue")}
     return result
+
+
+# What intake reads from a listing, in the vocabulary `scorecard.promise_audit` judges. A
+# promise nobody observed stays out rather than becoming `false`: an absent claim is not a
+# claim of absence.
+_PROMISE_VOCABULARY: tuple[tuple[str, str], ...] = (
+    ("has_chart", "chart_included"),
+    ("has_video", "video_included"),
+    ("has_print_edition", "print_edition"),
+)
+
+
+def audit_promises(promises: dict) -> dict:
+    out = {}
+    for ours, theirs in _PROMISE_VOCABULARY:
+        value = (promises or {}).get(ours)
+        if value is not None:
+            out[theirs] = bool(value)
+    return out
 
 
 def _why_selected(db, listing_ref: str) -> str:

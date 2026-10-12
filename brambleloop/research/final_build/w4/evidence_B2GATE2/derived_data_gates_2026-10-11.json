@@ -1,0 +1,245 @@
+{
+ "_note": "Derive the eight W4-B2GATES data-gate readings from read-only production GETs.",
+ "commit": "0417f35",
+ "read": "2026-10-11",
+ "gates": {
+  "listing_traffic": {
+   "open": false,
+   "source": "derived from production GET /api/verify nothing_published (listings_with_etsy_id 0) and /api/creative-learning style.status UNMEASURED: no ListingOutcome with visits (read-only, 0417f35, 2026-10-11)"
+  },
+  "style_outcomes": {
+   "open": false,
+   "source": "derived from production GET /api/creative-learning: style.by_style {}, status UNMEASURED (read-only, 0417f35, 2026-10-11)"
+  },
+  "concept_outcomes": {
+   "open": false,
+   "source": "derived from production GET /api/creative-learning concepts_with_outcomes 0; /api/verify ledger_entries 0 (read-only, 0417f35, 2026-10-11)"
+  },
+  "market_outcomes": {
+   "open": false,
+   "source": "derived from production GET /api/verify: listings_with_etsy_id 0, revenue_cad 0.0, ledger_entries 0 (read-only, 0417f35, 2026-10-11)"
+  },
+  "learning_sources": {
+   "open": false,
+   "source": "derived from production GET /api/learning: customer_pain observations 1, techniques observations 0 (unobserved): half met (read-only, 0417f35, 2026-10-11)"
+  },
+  "lead_lag_series": {
+   "open": false,
+   "source": "derived from production GET /api/culture series, re-run through culture.radar.lead_lag at this commit: measurable for no signal; production at 0417f35 served lead_lag measurable for ['crochet', 'crochet_hook', 'granny_square', 'halloween'], each on a plateau ({'halloween': (1.0, '2026-09-20', '2026-10-06'), 'granny_square': (1.0, '2026-09-13', '2026-09-19'), 'crochet_hook': (1.0, '2026-09-13', '2026-09-19'), 'crochet': (1.0, '2026-09-13', '2026-09-19')}) (read-only, 0417f35, 2026-10-11)"
+  },
+  "seasonal_orders": {
+   "open": false,
+   "source": "derived from production GET /api/verify ledger_entries 0, revenue_cad 0.0: no countable order (read-only, 0417f35, 2026-10-11)"
+  },
+  "season_harvest": {
+   "open": false,
+   "source": "derived from production GET /api/season-harvest: every event UNMEASURED (read-only, 0417f35, 2026-10-11)"
+  }
+ },
+ "lead_lag_detail": {
+  "yarn": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 22 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 22,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 22 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 22,
+    "demand_readings": 0
+   }
+  },
+  "resident_evil_(2026_film)": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   }
+  },
+  "nostalgia": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 4,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 4,
+    "demand_readings": 0
+   }
+  },
+  "monster:_the_lizzie_borden_story": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   }
+  },
+  "lizzie_borden": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 2,
+    "demand_readings": 0
+   }
+  },
+  "knitting": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 21,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 21,
+    "demand_readings": 0
+   }
+  },
+  "internet_meme": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 21,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 21,
+    "demand_readings": 0
+   }
+  },
+  "halloween": {
+   "now": {
+    "measurable": false,
+    "reason": "the culture series holds its maximum (1.0) on 9 dates (2026-09-20 .. 2026-10-06): a plateau has no peak date, and taking its first day would measure when observation began, not when interest peaked",
+    "culture_readings": 21,
+    "demand_readings": 41,
+    "plateau": {
+     "series": "culture",
+     "value": 1.0,
+     "dates": 9,
+     "from": "2026-09-20",
+     "to": "2026-10-06"
+    }
+   },
+   "served_by_production": {
+    "measurable": true,
+    "culture_peak": "2026-09-20",
+    "demand_peak": "2026-09-13",
+    "lead_days": -7,
+    "is_a_leading_indicator": false,
+    "note": "cultural interest peaked 7 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+   }
+  },
+  "granny_square": {
+   "now": {
+    "measurable": false,
+    "reason": "the demand series holds its maximum (1.0) on 7 dates (2026-09-13 .. 2026-09-19): a plateau has no peak date, and taking its first day would measure when observation began, not when interest peaked",
+    "culture_readings": 21,
+    "demand_readings": 21,
+    "plateau": {
+     "series": "demand",
+     "value": 1.0,
+     "dates": 7,
+     "from": "2026-09-13",
+     "to": "2026-09-19"
+    }
+   },
+   "served_by_production": {
+    "measurable": true,
+    "culture_peak": "2026-10-02",
+    "demand_peak": "2026-09-13",
+    "lead_days": -19,
+    "is_a_leading_indicator": false,
+    "note": "cultural interest peaked 19 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+   }
+  },
+  "fashion": {
+   "now": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 4,
+    "demand_readings": 0
+   },
+   "served_by_production": {
+    "measurable": false,
+    "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+    "culture_readings": 4,
+    "demand_readings": 0
+   }
+  },
+  "crochet_hook": {
+   "now": {
+    "measurable": false,
+    "reason": "the demand series holds its maximum (1.0) on 7 dates (2026-09-13 .. 2026-09-19): a plateau has no peak date, and taking its first day would measure when observation began, not when interest peaked",
+    "culture_readings": 21,
+    "demand_readings": 45,
+    "plateau": {
+     "series": "demand",
+     "value": 1.0,
+     "dates": 7,
+     "from": "2026-09-13",
+     "to": "2026-09-19"
+    }
+   },
+   "served_by_production": {
+    "measurable": true,
+    "culture_peak": "2026-09-26",
+    "demand_peak": "2026-09-13",
+    "lead_days": -13,
+    "is_a_leading_indicator": false,
+    "note": "cultural interest peaked 13 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+   }
+  },
+  "crochet": {
+   "now": {
+    "measurable": false,
+    "reason": "the demand series holds its maximum (1.0) on 7 dates (2026-09-13 .. 2026-09-19): a plateau has no peak date, and taking its first day would measure when observation began, not when interest peaked",
+    "culture_readings": 22,
+    "demand_readings": 45,
+    "plateau": {
+     "series": "demand",
+     "value": 1.0,
+     "dates": 7,
+     "from": "2026-09-13",
+     "to": "2026-09-19"
+    }
+   },
+   "served_by_production": {
+    "measurable": true,
+    "culture_peak": "2026-10-06",
+    "demand_peak": "2026-09-13",
+    "lead_days": -23,
+    "is_a_leading_indicator": false,
+    "note": "cultural interest peaked 23 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+   }
+  }
+ }
+}

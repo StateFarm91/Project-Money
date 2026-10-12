@@ -47,7 +47,7 @@ PROBE_ACTION = "image.probe"
 # published pricing pages. An assumption and labelled one on every row this produces, exactly
 # as the text gateway labels its per-token figures: these are not a measurement of this
 # account's billing.
-USD_TO_CAD = 1.37
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402 - single source
 
 
 @dataclass(frozen=True)
@@ -424,8 +424,29 @@ def _google_tier(size: str) -> str:
     return "4K" if px >= 3072 else "2K" if px >= 1536 else "1K"
 
 
+def refuse_benchmark_references(reference_urls: list[str] | None, *,
+                                benchmark_hashes=None) -> None:
+    """F-785: no benchmark or seller image ever conditions a Brambleloop render.
+
+    Checked here, where every provider's request is built, so no caller -- a tournament, a
+    reference pack, a repair pass -- can reach a provider with one. The provenance tests live in
+    `gates.originality.refuse_benchmark_reference`: inside the benchmark library, marked as
+    seller/designer/competitor photography or a benchmark reconstruction, or byte-identical to
+    a file in a purchase manifest.
+    """
+    from ..gates.originality import ReferenceRefused, refuse_benchmark_reference
+
+    for ref in reference_urls or ():
+        try:
+            refuse_benchmark_reference(ref, benchmark_hashes=benchmark_hashes)
+        except ReferenceRefused as exc:
+            raise ImagesRefused(str(exc)) from exc
+
+
 def _request_for(provider: ImageProvider, key: str, prompt: str,
-                 reference_urls: list[str] | None, size: str) -> tuple[str, dict, bytes]:
+                 reference_urls: list[str] | None, size: str,
+                 extra_fields: dict | None = None, *,
+                 benchmark_hashes=None) -> tuple[str, dict, bytes]:
     """The URL, headers and body this provider actually accepts.
 
     Verified against the live API for `google` on 2026-09-21: the auth header, the
@@ -436,6 +457,8 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
     exists yet, and the probe is what will prove them rather than this comment.
     """
     refs = list(reference_urls or [])
+    # Before any bytes are read or any body is built (F-785).
+    refuse_benchmark_references(refs, benchmark_hashes=benchmark_hashes)
     if provider.dialect == "google":
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
                f"{provider.model}:generateContent")
@@ -474,6 +497,9 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
         # reference as an uploaded file rather than a JSON value.
         url = provider.endpoint.replace("/images/generations", "/images/edits")
         fields = {"model": provider.model, "prompt": prompt, "size": size, "n": "1"}
+        # `extra_fields` is the caller's, verbatim, edits path only: e.g. `input_fidelity`,
+        # which asks the model to keep the uploaded reference's detail. Nothing here adds it.
+        fields.update({k: str(v) for k, v in (extra_fields or {}).items()})
         files = [("image[]", Path(r).name, Path(r).read_bytes()) for r in refs
                  if Path(r).is_file()]
         if not files:
@@ -487,6 +513,59 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
     # OpenAI-shaped, which Volcano Engine also speaks.
     body = {"model": provider.model, "prompt": prompt, "size": size, "n": 1}
     return provider.endpoint, {"authorization": f"Bearer {key}"}, json.dumps(body).encode()
+
+
+CONDITIONING_RECEIPT_VERSION = "conditioning-receipt/1"
+
+
+def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | None,
+                         payload: bytes) -> dict:
+    """Proof, per request, that each reference's bytes are inside the body being sent (F-212).
+
+    A prompt that says "the same person as the reference" is not conditioning, and neither
+    is a `reference_urls` argument: the dialect builders decide what actually leaves, and
+    one of them (BFL) only ever sends the first reference. So this reads the *built request
+    body* -- the exact bytes `_post` will transmit -- and, for every reference, checks that
+    its file bytes are in it in the form this dialect carries them (base64 inline for Google
+    and BFL, the raw upload for OpenAI-shaped multipart). Deterministic and offline: the
+    sha256 of each reference is recorded so a frame record can be compared against the
+    frozen pack (`visual.identity.provenance_check`) without anyone re-reading the file.
+
+    `proven` is true only when there was at least one reference and every one of them was
+    found in the body. No references: `proven` is False with `requested` 0 -- nothing was
+    conditioned on, which is a fact rather than a failure for an unconditioned render.
+    """
+    import base64
+    import hashlib
+
+    refs = list(reference_urls or [])
+    body = bytes(payload or b"")
+    rows: list[dict] = []
+    for ref in refs:
+        path = Path(str(ref))
+        if not path.is_file():
+            rows.append({"reference": str(ref)[:200], "sha256": "", "bytes": 0,
+                         "transmitted": False, "why": "not a file on this disk"})
+            continue
+        raw = path.read_bytes()
+        encoded = base64.standard_b64encode(raw)
+        found = bool(raw) and (encoded in body if provider.dialect in ("google", "bfl")
+                               else raw in body)
+        rows.append({"reference": path.name, "sha256": hashlib.sha256(raw).hexdigest(),
+                     "bytes": len(raw), "transmitted": found,
+                     "carried_as": ("base64_inline" if provider.dialect in ("google", "bfl")
+                                    else "multipart_upload"),
+                     "why": "" if found else (
+                         f"the {provider.dialect} request body does not contain these bytes; "
+                         f"this dialect did not transmit this reference")})
+    proven = bool(rows) and all(r["transmitted"] for r in rows)
+    return {"version": CONDITIONING_RECEIPT_VERSION, "provider": provider.key,
+            "dialect": provider.dialect, "requested": len(refs),
+            "transmitted": sum(1 for r in rows if r["transmitted"]),
+            "references": rows, "proven": proven,
+            "request_sha256": hashlib.sha256(body).hexdigest(),
+            "basis": ("measured: reference bytes located in the exact request body sent"
+                      if rows else "no reference requested")}
 
 
 def _multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
@@ -606,11 +685,129 @@ BFL_POLL_SECONDS = 2.0
 BFL_POLL_ATTEMPTS = 150
 
 
+# The database the render guard reads when a caller passes none. `generate` had no `db`
+# parameter and nine call sites across `visual/**`, `publish/**` and the benchmark, none of
+# which could pass through `check_budget` because an image is priced per image rather than
+# per token. The mechanism learned a per-image estimate (`anthropic.check_budget_cad`) and
+# the guard moved *here*, in front of the provider call, so every render is checked whether
+# or not the caller knew to check. A caller that has a database passes it; one that does not
+# is checked against the process's own, which in production is the one database there is.
+_DEFAULT_DB = None
+# Who a render is attributed to when the caller says nothing. Not a registered agent, on
+# purpose: `agent_daily_ceiling` returns None for it, so no permission is invented, and
+# `spend_report.per_agent_today` reports it under `spenders_with_no_agent_row`.
+DEFAULT_RENDER_AGENT = "gateway"
+DEFAULT_RENDER_PURPOSE = "image.generate"
+
+
+def _budget_db(db):
+    global _DEFAULT_DB
+    if db is not None:
+        return db
+    if _DEFAULT_DB is None:
+        from ..core.db import Database
+
+        _DEFAULT_DB = Database()
+    return _DEFAULT_DB
+
+
+def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str = "",
+                   job_id: int | None = None) -> dict:
+    """Claim one image's price against the monthly ceiling before the provider is asked.
+
+    Raises `anthropic.BudgetExceeded` (or its agent-permission subclass) with the provider
+    untouched. The estimate is `provider.cad_per_image`, which is also what the bill will be,
+    so this reservation reconciles by construction and the drift report says so.
+    """
+    from . import anthropic as gw
+
+    return gw.check_budget_cad(
+        _budget_db(db), estimate_cad=provider.cad_per_image,
+        agent=agent or DEFAULT_RENDER_AGENT, purpose=purpose or DEFAULT_RENDER_PURPOSE,
+        job_id=job_id, model=provider.key, provider=provider.key)
+
+
+def release_render(db, budget: dict | None, *, billed: bool) -> None:
+    """Give the claim back: with the price when the provider rendered, without one when it
+    did not, so a refused render never reads as a bill."""
+    if not budget or budget.get("reservation_id") is None:
+        return
+    from . import anthropic as gw
+
+    gw.release_reservation(_budget_db(db), budget["reservation_id"],
+                           actual_cad=budget["estimate_cad"] if billed else None)
+
+
+def bill_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                error: str = "", spend_detail: dict | None = None) -> int | None:
+    """Write the ledger row for one render the provider billed, then release the claim.
+
+    RC1 audit B2/B3: the single writer for render spend. Before it, `generate` released the
+    reservation with `actual_cad` and wrote no `CostEntry`, so the moment the claim was given
+    back the render vanished from the month, the break-even and the spend report -- and every
+    caller (tournament, portrait repair, reference pack, both photography paths, the
+    reference probe) inherited the hole. One row per billed render, kind
+    `routing.IMAGE_COST_KIND`, priced at `provider.cad_per_image` with `price_basis: assumed`
+    because that is a list price and not this account's invoice.
+
+    `billing` says why it is billed: `rendered`, `accepted_then_failed` (the provider took
+    the request and then the poll, the link or the body failed -- the provider has charged
+    for the work all the same), or `unknown_counted_at_estimate` (the request was sent and
+    the answer never arrived, so whether it billed is UNKNOWN, and UNKNOWN is not zero).
+
+    The row is written *before* the reservation is released, so there is no instant in which
+    neither is counted; the release happens even if the write fails.
+    """
+    try:
+        return record_render(db, provider, budget, agent=agent, purpose=purpose,
+                             job_id=job_id, billing=billing, error=error,
+                             spend_detail=spend_detail)
+    finally:
+        release_render(db, budget, billed=True)
+
+
+def record_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                  purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                  error: str = "", spend_detail: dict | None = None) -> int:
+    """The ledger half of `bill_render`: one `CostEntry` of kind `image`. Never releases."""
+    from ..finance import spend_report
+    from . import routing
+
+    cost = float(provider.cad_per_image)
+    detail = {"price_basis": "assumed", "billing": billing,
+              "reservation_id": (budget or {}).get("reservation_id"),
+              **({"error": str(error)[:300]} if error else {}),
+              **dict(spend_detail or {})}
+    return spend_report.record(
+        _budget_db(db), agent=agent or DEFAULT_RENDER_AGENT, amount_cad=cost,
+        estimated_cad=float((budget or {}).get("estimate_cad") or cost),
+        purpose=purpose or DEFAULT_RENDER_PURPOSE, provider=provider.key,
+        model=provider.key, department="gateway", job_id=job_id,
+        kind=routing.IMAGE_COST_KIND, detail=detail)
+
+
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
              env: dict[str, str] | None = None, size: str = "1024x1024",
              provider_key: str | None = None, work_dir: str | None = None,
-             timeout: float = 120.0) -> dict:
+             timeout: float = 120.0, extra_fields: dict | None = None,
+             db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
+             spend_detail: dict | None = None) -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
+
+    **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
+    one `CostEntry` of kind `image` per render the provider charged for, including renders
+    that failed after the provider accepted them. Callers must not write a second row; the
+    result's `cost_entry_id` is the row this call wrote. `spend_detail` is merged into that
+    row's detail (e.g. `{"attribution": "shared"}`).
+
+    **Every render is checked against the ceiling here, before the provider is asked.**
+    `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
+    the same month, the same agent permission and the same reservation table every
+    token-priced call passes through -- and the claim is released with the price once the
+    picture exists. A ceiling that is exhausted raises `BudgetExceeded` with no request sent.
+    `db`, `agent`, `purpose` and `job_id` attribute the reservation; a caller that passes none
+    is still checked (see `_budget_db`) and attributed to `gateway`.
 
     Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
     gives one and a path on this disk when it returns the bytes inline. Google returns
@@ -628,9 +825,6 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
     caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
-    import base64
-    from pathlib import Path
-
     if not work_dir:
         raise ImagesRefused(
             "generate() needs a work_dir: the path it returns has to outlive the call, so "
@@ -652,14 +846,146 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     key = key_for(provider.key, e) if provider else ""
     if provider is None or not key:
         want = provider.key if provider else "a provider"
+        # Certification C-37: with no provider configured there is no account to name, and
+        # reading `.account` off None raised AttributeError instead of this refusal.
+        named = f"Set {key_var(provider.account)} if it is named, or " if provider else "Set "
         raise ImagesNotConfigured(
-            f"no credential for {want}. Set {key_var(provider.account)} if it is named, or "
+            f"no credential for {want}. {named}"
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 
-    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size)
+    # A renamed copy of a purchased file is caught by its bytes as well. A caller that passes
+    # no database is checked against the same default database its budget reservation uses
+    # (`_budget_db`): skipping the byte test because a caller omitted `db` would let a renamed
+    # benchmark image condition a render that the ceiling still let through.
+    hashes = None
+    if reference_urls:
+        try:
+            from ..gates.originality import benchmark_file_hashes
+
+            hashes = benchmark_file_hashes(_budget_db(db))
+        except Exception as exc:  # noqa: BLE001 - an unreadable manifest is UNKNOWN, refused
+            # Fail closed (FB2-R2 #3). Carrying on with `hashes = None` skipped the byte test,
+            # so a renamed copy of a purchased benchmark image would have passed the path and
+            # name tests and conditioned a render. Unknown is not "no match": refused before
+            # any budget is reserved or request sent.
+            raise ImagesRefused(
+                f"benchmark purchase-manifest hashes could not be read ({type(exc).__name__}: "
+                f"{str(exc)[:200]}), so a renamed copy of a benchmark image among "
+                f"{len(reference_urls)} reference(s) cannot be ruled out; originality of the "
+                f"references is UNKNOWN and the render is refused (F-785)") from exc
+    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size,
+                                         extra_fields, benchmark_hashes=hashes)
+    # F-212: a reference the caller asked for and the request does not carry is refused
+    # before any budget is reserved. Silently conditioning on fewer references than asked
+    # for (BFL sends only the first) would turn an identity lock back into a prompt.
+    receipt = conditioning_receipt(provider, reference_urls, payload)
+    if reference_urls and not receipt["proven"]:
+        missing = [r["reference"] for r in receipt["references"] if not r["transmitted"]]
+        raise ImagesRefused(
+            f"{provider.key} ({provider.dialect}) would transmit {receipt['transmitted']} of "
+            f"{receipt['requested']} reference(s); not carried: {missing}. Conditioning that "
+            f"cannot be proven in the request body is not conditioning (F-212)")
+    # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
+    # after `_post` would be a report about money already spent.
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)
     started = time.time()
+    billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
+               "spend_detail": spend_detail}
+    try:
+        result = _guarded_render(
+            provider, prompt, reference_urls, size, extra_fields, work_dir, budget,
+            agent, billing,
+            lambda: _generate_reserved(provider, url, headers, payload, size, work_dir,
+                                       timeout, started, budget, db, billing))
+        if result.get("replayed"):
+            # Served from an earlier attempt of this job (F-307): nothing was sent, so the
+            # claim taken above comes back unbilled. The bill is the original attempt's row.
+            release_render(db, budget, billed=False)
+        return {**result, "conditioning": receipt}
+    except BaseException as exc:
+        # RC1 audit B3. Once the provider has accepted the request it has charged for the
+        # work, whatever happens next -- a poll that times out, a moderation verdict, a link
+        # that will not fetch, a body with no picture. Those were released as unbilled, so
+        # the month never saw them. A request sent whose answer never arrived (a read
+        # timeout) is UNKNOWN, and counted at the price rather than as zero. Only a request
+        # the provider refused outright (HTTP status, unreachable) is released unbilled.
+        if billing.get("billed"):
+            raise
+        if billing["accepted"]:
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="accepted_then_failed",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        elif isinstance(exc, TimeoutError):
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="unknown_counted_at_estimate",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        else:
+            release_render(db, budget, billed=False)
+        raise
+
+
+def _guarded_render(provider: ImageProvider, prompt: str, reference_urls, size: str,
+                    extra_fields, work_dir: str, budget: dict, agent: str, billing: dict,
+                    call) -> dict:
+    """One render through the paid-call guard (F-307/F-339, `gateway.paid_calls`).
+
+    Inside a job a reclaimed or retried attempt asking for the same render gets the picture
+    the earlier attempt paid for -- copied into this attempt's `work_dir` -- instead of a
+    second bill. A render the provider accepted and that then failed is FAILED_BILLED (the
+    failure is replayed, not re-bought); a timeout is UNCERTAIN; a refusal before the
+    provider took the work is DECLINED and may be asked again. Outside a job: a plain call."""
+    from . import paid_calls
+
+    def classify(exc: BaseException) -> str:
+        if billing.get("accepted"):
+            return paid_calls.FAILED_BILLED
+        if isinstance(exc, TimeoutError):
+            return paid_calls.UNCERTAIN
+        return paid_calls.DECLINED
+
+    def decode(stored: dict) -> dict:
+        import shutil
+        from pathlib import Path
+
+        src = Path(str(stored.get("path") or ""))
+        if not stored.get("path") or not src.is_file():
+            raise paid_calls.PaidCallReplayedFailure(
+                f"{provider.key}: this job already paid for this render "
+                f"(cost entry {stored.get('cost_entry_id')}) and its bytes are gone with the "
+                f"earlier attempt's work dir; not bought again (F-307). A new job asks again")
+        root = Path(work_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        dest = root / src.name
+        if dest.resolve() != src.resolve():
+            shutil.copyfile(src, dest)
+        return {**stored, "path": str(dest), "image_ref": str(dest), "replayed": True,
+                "cad": 0.0, "replayed_cad": stored.get("cad"),
+                "reservation_id": budget.get("reservation_id")}
+
+    effect = "image.render"
+    return paid_calls.guarded(
+        effect,
+        paid_calls.fingerprint(effect, provider.key, prompt, list(reference_urls or []), size,
+                               extra_fields or {}),
+        call, encode=lambda r: dict(r), decode=decode, classify=classify,
+        cost_kind="image", provider=provider.key, model=provider.key,
+        agent=agent or DEFAULT_RENDER_AGENT,
+        estimate_cad=float(budget.get("estimate_cad") or provider.cad_per_image),
+        reservation_id=budget.get("reservation_id"))
+
+
+def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload: bytes,
+                       size: str, work_dir: str, timeout: float, started: float,
+                       budget: dict, db, billing: dict | None = None) -> dict:
+    """The provider call and everything after it, inside the reservation `generate` took."""
+    import base64
+    from pathlib import Path
+
+    billing = billing if billing is not None else {"accepted": False}
     body = _post(url, headers, payload, label=provider.key, timeout=timeout)
+    # The provider answered 2xx: from here on the work is billed whatever happens next.
+    billing["accepted"] = True
 
     if provider.dialect == "bfl" and body.get("polling_url"):
         # Submit-then-poll. A job id is not a picture, and returning one as though it were
@@ -716,12 +1042,25 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
     Path(path).write_bytes(raw)
 
+    # The picture exists, so the provider has billed: the ledger row is written and the
+    # claim comes back with the price (B2).
+    # Written before the release, so there is no instant in which neither is counted.
+    cost_entry_id = record_render(db, provider, budget, agent=billing.get("agent") or "",
+                                  purpose=billing.get("purpose") or "",
+                                  job_id=billing.get("job_id"), billing="rendered",
+                                  spend_detail=billing.get("spend_detail"))
+    billing["billed"] = True
+    release_render(db, budget, billed=True)
+
     return {"provider": provider.key, "url": image_url, "path": path,
             "image_ref": path, "bytes": len(raw),
             # Reported rather than assumed: the first version defaulted this to image/png
             # and said so about a JPEG that BFL had plainly labelled.
             "mime": mime or "", "size": size,
             "cad": provider.cad_per_image,
+            "reservation_id": budget.get("reservation_id"),
+            "cost_entry_id": cost_entry_id,
+            "ceiling_headroom_cad": budget.get("headroom_cad"),
             "latency_ms": round((time.time() - started) * 1000, 2)}
 
 
@@ -750,13 +1089,27 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
         with workspace.work_dir(work_dir, prefix="generated-") as root:
+            # `db` passed through so both renders are reserved and ledgered (B2) in the
+            # database this probe audits into, attributed as shared platform spend.
+            shared = {"attribution": "shared"}
             first = generate("A plain ceramic mug on a white background, product photograph.",
-                             env=env, provider_key=provider_key, work_dir=root)
+                             env=env, provider_key=provider_key, work_dir=root, db=db,
+                             purpose=REFERENCE_PROBE_ACTION,
+                             spend_detail=shared)
             second = generate("The same mug as the reference image, now on a wooden table.",
                               env=env, provider_key=provider_key,
-                              reference_urls=[first["image_ref"]], work_dir=root)
-            record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
-                          bytes=second.get("bytes"))
+                              reference_urls=[first["image_ref"]], work_dir=root, db=db,
+                              purpose=REFERENCE_PROBE_ACTION,
+                              spend_detail=shared)
+            # `ok` means the conditioned render came back *and* the reference's bytes were
+            # proven to be in the request that produced it (F-212). A render alone proves
+            # only that the provider answered.
+            conditioning = dict(second.get("conditioning") or {})
+            record.update(ok=bool(conditioning.get("proven")),
+                          cad=round(first["cad"] + second["cad"], 6),
+                          bytes=second.get("bytes"), conditioning=conditioning,
+                          why=("" if conditioning.get("proven") else
+                               "rendered, but no per-request proof the reference was sent"))
     except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
         record["why"] = f"{type(exc).__name__}: {str(exc)[:300]}"
 
@@ -779,7 +1132,10 @@ def reference_proven(db, provider_key: str) -> bool:
                              .order_by(desc(AuditLog.id)).limit(40)):
             detail = row.detail or {}
             if detail.get("provider") == provider_key:
-                return bool(detail.get("ok"))
+                # A probe filed before per-request receipts existed proved a render, not
+                # that the reference was transmitted: it does not count (F-212).
+                return bool(detail.get("ok")) and bool(
+                    (detail.get("conditioning") or {}).get("proven"))
     return False
 
 
@@ -822,10 +1178,23 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
         record["provider"] = provider.key
     elif provider is not None:
         record["provider"] = provider.key
+        from ..core import workspace
+
         try:
-            got = (generator or generate)(
-                "A plain grey fabric swatch on a white background, product photograph.",
-                env=e, size="1024x1024", provider_key=provider.key)
+            prompt_ = "A plain grey fabric swatch on a white background, product photograph."
+            # W4-GATESI: `generate` refuses without a `work_dir` (the leak fix), and this
+            # probe never passed one -- so every real probe since that fix recorded
+            # "generate() needs a work_dir" and the gate could not open on any credit
+            # balance. Production's last image.probe (2026-10-07T00:03Z) says exactly that.
+            # The probe owns its render: the directory lives as long as the probe does.
+            with workspace.work_dir(None, prefix="generated-") as root:
+                got = (generator(prompt_, env=e, size="1024x1024",
+                                 provider_key=provider.key)
+                       if generator is not None else
+                       generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
+                                work_dir=root, db=db, agent="gateway",
+                                purpose=PROBE_ACTION, job_id=job_id,
+                                spend_detail={"attribution": "shared"}))
         except (PermanentError, TransientError) as exc:
             record["reason"] = str(exc)[:400]
         else:
@@ -833,12 +1202,16 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
                            "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
             from ..finance import spend_report
 
-            spend_report.record(
-                db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
-                estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
-                provider=provider.key, model=provider.key, department="gateway",
-                job_id=job_id, kind=routing.COST_KIND,
-                detail={"price_basis": "assumed"})
+            # `generate` ledgers every billed render itself (B2) and says so with
+            # `cost_entry_id`; writing a second row here would count the render twice. An
+            # injected generator that wrote nothing is still ledgered, as an image row.
+            if not got.get("cost_entry_id"):
+                spend_report.record(
+                    db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
+                    estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
+                    provider=provider.key, model=provider.key, department="gateway",
+                    job_id=job_id, kind=routing.IMAGE_COST_KIND,
+                    detail={"price_basis": "assumed", "attribution": "shared"})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,

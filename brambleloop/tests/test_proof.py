@@ -6,6 +6,7 @@ that claims more than the evidence, and a photograph nobody asked permission for
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from pathlib import Path

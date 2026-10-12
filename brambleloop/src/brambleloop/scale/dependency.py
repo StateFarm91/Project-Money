@@ -150,7 +150,22 @@ def report(db) -> dict:
         by_pod[concept.pod] = by_pod.get(concept.pod, 0) + 1
         by_occasion[concept.occasion] = by_occasion.get(concept.occasion, 0) + 1
 
-    providers = {name: 1 for name in available_providers()}
+    # C-69 (#29): the providers the company actually runs on are the ones it pays, read from
+    # the cost ledger (model spend by provider over 30 days); configuration is the fallback
+    # when nothing has been spent yet.
+    from datetime import datetime, timedelta, timezone
+
+    from ..core.models import CostEntry
+
+    since = datetime.now(timezone.utc) - timedelta(days=30)
+    with db.session() as s:
+        spent: dict[str, float] = {}
+        for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+            name = (c.provider or "").strip()
+            if name and (c.kind or "llm") in ("llm", "model", "vision", "image", "api"):
+                spent[name] = spent.get(name, 0.0) + float(c.amount_cad or 0.0)
+    providers = ({k: v for k, v in spent.items() if v > 0}
+                 or {name: 1 for name in available_providers()})
     # A marketplace counts once a listing exists for it, drafted or live. Etsy is the only
     # integration this company has, so this reads one by construction today -- and saying so
     # from a count rather than from a constant is what makes it change by itself later.
@@ -212,3 +227,43 @@ def report(db) -> dict:
                  "plan, and telling a pre-revenue company to open a second marketplace is "
                  "how its one real advantage becomes five half-built ones (#29)."),
     }
+
+
+ANTI_FRAGILITY_SIGNATURE = "anti-fragility"
+
+
+def act(db) -> dict:
+    """#29 on a cadence: every existential axis is raised as an incident, and one that is no
+    longer existential is resolved. A plan-stage concentration raises nothing -- the rule's
+    second half is that diversifying before a channel is understood is its own failure."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    rep = report(db)
+    opened, resolved = [], []
+    with db.session() as s:
+        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
+            Incident.resolved.is_(False),
+            Incident.signature.like(f"{ANTI_FRAGILITY_SIGNATURE}:%")))}
+        live = {f"{ANTI_FRAGILITY_SIGNATURE}:{a['axis']}": a for a in rep["axes"]
+                if a["verdict"] == EXISTENTIAL}
+        for sig, axis in live.items():
+            row = open_rows.get(sig)
+            summary = (f"existential dependency on the {axis['axis']} axis: {axis['why']} "
+                       f"(#29)")
+            if row is None:
+                s.add(Incident(severity="P2", signature=sig, summary=summary[:500],
+                               halts_publication=False, detail={"axis": axis}))
+                opened.append(sig)
+            else:
+                row.report_count = (row.report_count or 1) + 1
+                row.detail = {"axis": axis}
+        for sig, row in open_rows.items():
+            if sig not in live:
+                row.resolved = True
+                resolved.append(sig)
+    return {"existential": rep["existential"], "focus": rep["focus"],
+            "incidents_opened": opened, "incidents_resolved": resolved,
+            "axes": {a["axis"]: {k: a.get(k) for k in ("verdict", "largest", "share",
+                                                       "holders")} for a in rep["axes"]}}

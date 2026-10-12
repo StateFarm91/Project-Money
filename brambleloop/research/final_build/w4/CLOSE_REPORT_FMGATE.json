@@ -1,0 +1,537 @@
+{
+ "lane": "w4-FMGATE",
+ "basis": "deployed production 0417f3516f30bb7c52926187fc475a0f46536e86",
+ "written": [
+  {
+   "uid": "F-169",
+   "before": "OPEN",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the final handoff's full suite ran against the exact deployed tree and the running build proves it: release/RELEASE_5dfd1ac...json is release_eligible (7877 passing, 0 failing suites, tree clean, HEAD unmoved) and names source_tree_sha256 30a4dc93...; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/status boot_guard {enforced:true, ok:true, record RELEASE_5dfd1ac, tree_sha256 30a4dc93} -- the runtime boot guard recomputed the deployed tree digest and matched it; ops/deploy_guard.py check --candidate 0417f35 --deployed fcb982d = ALLOW (research/final_build/w4/evidence_FMGATE_0417f35/deploy_guard_0417f35_vs_fcb982d.txt). The old gap ('deploy_guard is run by hand, a push builds without it') is closed at runtime: an unproven hosted build is forced to SHADOW with a P1 incident",
+   "test_files": [
+    "tests/test_rc1_own_release.py"
+   ]
+  },
+  {
+   "uid": "F-839",
+   "before": "OPEN",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the reachability audit was re-run on the final effective source tree: a clean detached worktree at the deployed 0417f35 (research/final_build/w4/evidence_FMGATE_0417f35/module_reachability_0417f35.json; installed as module_reachability.json): 656 modules, 564 reached from a live root, none lost against 2f36fe0, gained app/command_center/launch_packet.py, launch/packet.py, growth/free_assets.py, growth/free_to_paid.py; aggregate.py re-adjudicated every row on it and final_proof.py ran on 0417f35 with the 0417f35 rehearsal packets (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json). Independent function-level review of the same deployable tree (2c6d775 == 5dfd1ac == 0417f35 src/): research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (NO BLOCKER), on top of INDEPENDENT_REAUDIT_7421ef6.md",
+   "test_files": [
+    "tests/test_reachability.py"
+   ]
+  },
+  {
+   "uid": "F-840",
+   "before": "OPEN",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "in production the green suite is demonstrably not sufficient: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) booted on a release-eligible green full suite (boot_guard ok, 7877 passing) and its live launch gate still reads /api/build final_master {status DEGRADED, launch_ready false, launch_critical COMPLETE 355 / GATED 126 / OPEN 9} -- build2/final_master.py refuses launch while any launch-critical row lacks requirement-level proof. The candidate's full-suite record and the final_proof report for the same SHA are cited together in research/final_build/CANDIDATE_0417f35.json and research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json (917 rows, certified false: a green suite certifies none of them)",
+   "test_files": [
+    "tests/test_w3_final_master_gate.py"
+   ]
+  },
+  {
+   "uid": "F-841",
+   "before": "OPEN",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "an explicitly reviewed successor to 019ebf0 now exists and runs: 0417f35 (release record RELEASE_5dfd1ac, freeze check 0 refusals in CANDIDATE_0417f35.json, independent security review of the identical deployable tree INDEPENDENT_SECREVIEW_2c6d775.md NO BLOCKER, migration/rollback proof MIGRATION_ROLLBACK_2c6d775.md) and is deployed (production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z)); release/DEPLOYED_HISTORY.json records it, and the runtime treats the deployed history as the only sanctioned rollback baseline (known_good_predecessor; ops.truth.sweep rollback_baseline recoverable:true on 0417f35)",
+   "test_files": [
+    "tests/test_rc1_own_release.py",
+    "tests/test_w3_deploy_evidence.py"
+   ]
+  },
+  {
+   "uid": "F-834",
+   "before": "OPEN",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE",
+   "test_files": []
+  },
+  {
+   "uid": "F-846",
+   "before": "OPEN",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "one full loop has run: freeze 7421ef6 (CANDIDATE/DEFECT_LEDGER_7421ef6) -> independent re-audit (INDEPENDENT_REAUDIT_7421ef6.md: D-1, L-1..L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_*) -> full suite on the successor (RELEASE_5dfd1ac: 7877 passing) -> independent re-audit (INDEPENDENT_SECREVIEW_2c6d775.md: all four fixed, NO BLOCKER) -> deployed 0417f35. The next loop is open: DEFECT_LEDGER_0417f35.json (5 rehearsal blockers carrying owner/external gates, 3 production-readback defects; 2 repaired on claude/w4-FMGATE)",
+   "test_files": [
+    "tests/test_freeze_candidate.py"
+   ]
+  },
+  {
+   "uid": "F-848",
+   "before": "OPEN",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "scripts/shadow_rehearsal.py on a clean detached worktree at the deployed 0417f35, production mode, 457.9 s (research/final_build/w4/evidence_FMGATE_0417f35/shadow_rehearsal_0417f35.json; also research/final_build/evidence/): complete:false. PASS: boot, chain.jobs, cir.compile, gate.certify, assets.build, listing.seo, network[shadow], network[past-shadow], orders.ingest, support.case, ledger; store.publish[shadow] REFUSED_AS_EXPECTED; BLOCKED: owner_phase_transition (readiness not ready), owner_publication_grant (taxonomy UNKNOWN), store.publish[past-shadow]",
+   "test_files": []
+  },
+  {
+   "uid": "F-878",
+   "before": "OPEN",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)",
+   "test_files": []
+  },
+  {
+   "uid": "F-172",
+   "before": "GATED",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "EXERCISED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "re-proven on the Final Build deploy before any phase change: production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify phase_is_shadow ok, nothing_published ok, publication_was_actually_attempted_and_refused ok (185 expected refusals; /api/queue/dead store.publish last_seen 2026-10-11T14:26:20Z, after the 13:59Z deploy); the production_deploy gate is cleared",
+   "test_files": []
+  },
+  {
+   "uid": "F-176",
+   "before": "GATED",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the deployed candidate's baseline is recorded and recoverable in production: ops.truth.sweep audit row 26799 at 2026-10-11T14:31:00Z on 0417f35 reads rollback_baseline {recoverable:true, recorded:true, missing:[]} (research/final_build/w4/evidence_FMGATE_0417f35/prod_audit_ops_truth_sweep_26799.json); the production_window gate it waited on was the deploy",
+   "test_files": []
+  },
+  {
+   "uid": "F-158",
+   "before": "GATED",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the gap was 'the image has never been built from the lock'. 0417f35 is deployed: its Dockerfile installs only requirements.lock with pip --require-hashes --no-deps, the release record's supply_chain is {status verified, 34 distributions, 1375 hashes, SBOM, material change vs fcb982d recorded}, and the hosted boot guard matched the deployed tree digest -- which includes requirements.lock -- to that record (/api/status boot_guard ok)",
+   "test_files": [
+    "tests/test_rc1_own_release.py"
+   ]
+  },
+  {
+   "uid": "F-144",
+   "before": "GATED",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)",
+   "test_files": []
+  },
+  {
+   "uid": "F-171",
+   "before": "GATED",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "EXERCISED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h",
+   "test_files": []
+  },
+  {
+   "uid": "F-718",
+   "before": "GATED",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1",
+   "test_files": []
+  },
+  {
+   "uid": "F-733",
+   "before": "GATED",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "none",
+    "key": "none",
+    "detail": "no external/owner/data gate on the remaining step"
+   },
+   "checked": "as F-718: production_window does not open this; the approval row is readable now (/api/audit?action=model.frozen id 5693)",
+   "test_files": []
+  },
+  {
+   "uid": "F-135",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "live_restart_drill",
+    "detail": "owner authorises a controlled restart of the production worker during a queued job (Railway restart; disturbs production); the drill then reads lease expiry and no duplicate effect from real rows"
+   },
+   "checked": "production_window opening (24h off-device proof) would not record a lease-recovery drill; the drill needs a controlled kill of the production worker mid-job",
+   "test_files": []
+  },
+  {
+   "uid": "F-850",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "live_restart_drill",
+    "detail": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate"
+   },
+   "checked": "same as F-135: a live restart drill, not the 24h window, closes this",
+   "test_files": []
+  },
+  {
+   "uid": "F-540",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "Etsy credential: a recorded successful etsy.probe; then rotation is proven on the deployed build"
+   },
+   "checked": "the remaining proof (refresh-token rotation in production) needs a working Etsy credential: production /api/build gates.etsy_api open:false and Etsy answered 403 at 2026-10-11T14:05Z; the 24h window does not open it",
+   "test_files": []
+  },
+  {
+   "uid": "F-518@v0.15",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "publication_authority",
+    "detail": "owner write grant (OwnerGrant) in a publishing phase at execution time; in shadow the plan is computed and shown, never sent"
+   },
+   "checked": "a live-listing rollback is an Etsy write: it needs a publishing phase and the owner's write grant, not the 24h window",
+   "test_files": []
+  },
+  {
+   "uid": "F-396",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "offsite_storage",
+    "detail": "an object-storage bucket and credential outside this provider; then the 24h off-device proof on the deployed build"
+   },
+   "checked": "of its two blockers, the off-device proof is now data (see production_window) and the offsite archive destination is the owner's (gates.offsite_storage open:false in production)",
+   "test_files": []
+  },
+  {
+   "uid": "F-924",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "hosted_operating_history",
+    "detail": "hosted operating history of the deployed candidate (0417f35 since 2026-10-11T13:59:48Z); the SLO budgets read from real rows as it accrues"
+   },
+   "checked": "the deploy happened (0417f35); the error budgets need hosted operating history, which only elapsed time produces",
+   "test_files": []
+  },
+  {
+   "uid": "F-009",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_api",
+    "detail": "filter-bearing properties come from the real node schema, read only once the Etsy API gate opens"
+   },
+   "checked": "company half built on this branch: /api/catalogue now shows, per listing version, the filters entered and lost to missing data from ListingSearchProfile.filters (commerce/category.py::filter_audit), and UNMEASURED with the reason while the node schema is unknown (tests/test_w4_fmgate_catalogue_filters.py)",
+   "test_files": [
+    "tests/test_w4_fmgate_catalogue_filters.py"
+   ]
+  },
+  {
+   "uid": "F-160",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "owner",
+    "key": "credential_rotation",
+    "detail": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act"
+   },
+   "checked": "missing_part was stale: ops/credential_register.py is reached on 0417f35 (owner_requests via launch.readiness) and the rotation card reaches the owner queue (tests/test_fb4_ops.py); what remains is the owner's rotation",
+   "test_files": []
+  },
+  {
+   "uid": "F-321",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing"
+   },
+   "checked": "missing_part was stale: runtime spend writers carry product attribution since 6d86a8b; what remains is a live listing to attribute recurring cost to",
+   "test_files": []
+  },
+  {
+   "uid": "F-588",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": {
+    "kind": "owner",
+    "key": "etsy_ai_partner_guidance",
+    "detail": "owner reads Etsy's production-partner guidance (help.etsy.com is 403 to automation)"
+   },
+   "checked": "missing_part was stale: intel/etsy_surfaces.py::_unknowns now carries every Evidence(UNKNOWN) into coverage()['unknowns'] and a provider-set change re-opens the partners review; what remains is the owner's reading of Etsy's guidance (help.etsy.com 403 to automation)",
+   "test_files": []
+  },
+  {
+   "uid": "F-371",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-380",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-381",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-495",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-654",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-701",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-849",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-880",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-881",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-895",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  },
+  {
+   "uid": "F-923",
+   "before": "GATED",
+   "verdict": "GATED",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "production_window",
+    "detail": "owner authorisation is exercised: the Final Build 0417f35 was deployed and has run unattended since 2026-10-11T13:59:48Z (research/final_build/w4/evidence_FMGATE_0417f35/prod_health_*). The gate opens mechanically when autonomy.off_device_proof reads PROVEN over 24h of real rows; at 14:39Z it was unmet only on no_unexpected_dead_letters (ops.sentinel VARCHAR(200) truncation and listing.taxonomy_refresh 403, both repaired on claude/w4-FMGATE 843af70/4b55f22), so it opens no earlier than 24h after that successor is deployed"
+   },
+   "checked": "owner authorisation exercised (0417f35 deployed, unattended since 13:59:48Z); the remaining step is the off-device proof over 24h of real rows -- elapsed operating history, not an owner act",
+   "test_files": []
+  }
+ ],
+ "kept": [],
+ "counts": {
+  "written": 36,
+  "kept": 0,
+  "transitions": {
+   "OPEN->COMPLETE": 4,
+   "OPEN->OPEN": 4,
+   "GATED->COMPLETE": 3,
+   "GATED->OPEN": 4,
+   "GATED->GATED": 21
+  }
+ }
+}

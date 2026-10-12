@@ -28,6 +28,20 @@ MIN_SUBJECT_COVERAGE = 0.35     # below this the hero is mostly background
 MAX_SUBJECT_COVERAGE = 0.92     # above this it is a texture swatch with no shape
 MIN_LEGIBLE_TEXT_PX = 11        # rendered height at grid scale
 
+# F-252: the floors a first photo must clear before click appeal is even a question. Both are
+# measurements on the image a shopper is sent, not on the grid thumbnail.
+# Resolution: below this short edge the listing page cannot offer zoom, and a buyer judging
+# stitches is looking at the zoomed image. Basis: Etsy's published listing-photo guidance
+# (zoom needs >= 1000 px); recorded as an assumption, not re-read in this session.
+MIN_SHORT_EDGE_PX = 1000
+# Exposure, read on the subject (everything unlike the background), so a product shot on a
+# white or black seamless is not punished for its background. A subject that is mostly
+# crushed to black or blown to white shows no stitch, whatever its composition.
+CLIPPED_SHADOW_LUMINANCE = 0.008     # ~ RGB 10,10,10 and darker
+CLIPPED_HIGHLIGHT_MIN_CHANNEL = 250  # every channel at or above: no detail left
+MAX_CLIPPED_SUBJECT_SHARE = 0.5      # more than half the subject clipped fails
+MIN_FRAME_MEAN_LUMINANCE = 0.06      # a whole frame darker than this is underexposed
+
 
 @dataclass
 class ThumbnailVerdict:
@@ -81,6 +95,8 @@ def evaluate_thumbnail(image: Image.Image, *, text_pt_on_canvas: float = 0.0,
     """
     problems: list[str] = []
     canvas_px = canvas_px or image.width
+    floors = quality_floors(image)
+    problems.extend(floors["problems"])
     small = image.convert("RGB").resize((GRID_PX, GRID_PX), Image.LANCZOS)
     px = small.load()
 
@@ -148,8 +164,66 @@ def evaluate_thumbnail(image: Image.Image, *, text_pt_on_canvas: float = 0.0,
                                           "subject_coverage": coverage,
                                           "coverage_ceiling": ceiling,
                                           "grid_px": GRID_PX,
-                                          "background_rgb": list(bg)},
+                                          "background_rgb": list(bg),
+                                          **floors["measurements"]},
                             problems=problems)
+
+
+def quality_floors(image: Image.Image) -> dict:
+    """F-252: resolution and exposure floors, measured on the image itself.
+
+    Resolution is the short edge of the file a shopper is sent. Exposure is read on a 512 px
+    copy (exposure does not depend on size): the share of the subject crushed to black or
+    blown to white, where the subject is every pixel unlike the corner background, and the
+    whole frame's mean luminance. Each failure names its number; nothing is scored here.
+    """
+    rgb = image.convert("RGB")
+    w, h = rgb.size
+    problems: list[str] = []
+    short = min(w, h)
+    if short < MIN_SHORT_EDGE_PX:
+        problems.append(
+            f"THUMB_RESOLUTION_LOW: the short edge is {short}px; below {MIN_SHORT_EDGE_PX}px "
+            f"the listing cannot be zoomed, and a buyer judging stitches zooms")
+    side = 512
+    small = rgb.resize((side, side), Image.BILINEAR)
+    px = small.load()
+    corners = [px[2, 2], px[side - 3, 2], px[2, side - 3], px[side - 3, side - 3]]
+    bg = tuple(sum(c[i] for c in corners) // len(corners) for i in range(3))
+    subject = crushed = blown = 0
+    lum_total = 0.0
+    n = 0
+    for y in range(0, side, 2):
+        for x in range(0, side, 2):
+            p = px[x, y]
+            lum = _relative_luminance(p)
+            lum_total += lum
+            n += 1
+            if sum(abs(p[i] - bg[i]) for i in range(3)) > 60:
+                subject += 1
+                if lum <= CLIPPED_SHADOW_LUMINANCE:
+                    crushed += 1
+                elif min(p[:3]) >= CLIPPED_HIGHLIGHT_MIN_CHANNEL:
+                    blown += 1
+    mean_lum = lum_total / n if n else 0.0
+    crushed_share = crushed / subject if subject else 0.0
+    blown_share = blown / subject if subject else 0.0
+    if subject and crushed_share > MAX_CLIPPED_SUBJECT_SHARE:
+        problems.append(
+            f"THUMB_UNDEREXPOSED: {crushed_share:.0%} of the subject is crushed to black; "
+            f"no stitch survives in it")
+    if subject and blown_share > MAX_CLIPPED_SUBJECT_SHARE:
+        problems.append(
+            f"THUMB_OVEREXPOSED: {blown_share:.0%} of the subject is blown to white; no "
+            f"stitch survives in it")
+    if mean_lum < MIN_FRAME_MEAN_LUMINANCE:
+        problems.append(
+            f"THUMB_FRAME_TOO_DARK: mean luminance {mean_lum:.3f} is below "
+            f"{MIN_FRAME_MEAN_LUMINANCE}; the whole picture is underexposed")
+    return {"ok": not problems, "problems": problems,
+            "measurements": {"short_edge_px": short, "mean_luminance": mean_lum,
+                             "subject_crushed_share": crushed_share,
+                             "subject_blown_share": blown_share}}
 
 
 def distinctiveness(images: list[Image.Image]) -> float:

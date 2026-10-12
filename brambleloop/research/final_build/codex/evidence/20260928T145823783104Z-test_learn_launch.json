@@ -1,0 +1,16 @@
+{
+  "run_id": "20260928T145823783104Z-test_learn_launch",
+  "sha": "479fc67794444ccc1b9db72c20626e3c583b1bfe",
+  "suite": "tests/test_learn_launch.py",
+  "started": "2026-09-28T14:58:23.783104+00:00",
+  "tree_before": "",
+  "status": "failed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 1,
+  "finished": "2026-09-28T14:58:24.664761+00:00",
+  "head_after": "479fc67794444ccc1b9db72c20626e3c583b1bfe",
+  "log": "20260928T145823783104Z-test_learn_launch.log",
+  "log_sha256": "fce96742977ee70071effa61ab1a6600a3066d91b1720dff122cf6f883eab810"
+}

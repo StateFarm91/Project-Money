@@ -136,6 +136,50 @@ PREPARATION_LEADS: dict[str, tuple[int, str]] = {
                                    "has to exist before the traffic does"),
 }
 
+# What proves each stream has *started*, as audit actions. Kept beside the leads rather than
+# inside their tuples because `rollforward` unpacks those as (days, why).
+#
+# Without this, `preparation` called a stream overdue whenever its start date had passed --
+# with no way to know it had started. Search language is mapped by the daily MJs scan and the
+# culture sweep; listing copy is drafted by `listing.seo` for every certified release. Both
+# ran every day while the sentinel reported them late, which is a detector that cannot see
+# the thing it is detecting.
+PREPARATION_EVIDENCE: dict[str, tuple[str, ...]] = {
+    "search_language": ("mjs.scanned", "culture.sweep", "learning.ingested"),
+    "creative_assets": ("assets.built", "assets.listing_images_built"),
+    "listing_copy": ("listing.seo_drafted", "listing.drafted"),
+    "collection_and_bundles": ("collection.assembled",),
+}
+
+
+def preparation_started(db, *, event_date: date, today: date | None = None) -> dict[str, str]:
+    """Which preparation streams have evidence of having started for this occurrence.
+
+    Evidence counts from a year before the event up to today, so last season's work does not
+    start this season's stream. Returns `{stream: first_evidence_date_iso}`, one grouped
+    query.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog
+
+    today = today or date.today()
+    start = event_date - timedelta(days=365)
+    actions = sorted({a for names in PREPARATION_EVIDENCE.values() for a in names})
+    with db.session() as s:
+        rows = s.execute(
+            select(AuditLog.action, func.min(AuditLog.at))
+            .where(AuditLog.action.in_(actions), AuditLog.at >= start,
+                   AuditLog.at < today + timedelta(days=1))
+            .group_by(AuditLog.action)).all()
+    first = {action: when for action, when in rows if when is not None}
+    out: dict[str, str] = {}
+    for stream, names in PREPARATION_EVIDENCE.items():
+        dates = [first[n] for n in names if n in first]
+        if dates:
+            out[stream] = min(dates).date().isoformat()
+    return out
+
 
 # What the programme is doing, which is not the same question as whether a new product can be
 # launched. A launch lane closing does not end the occasion: the catalogue that is already
@@ -294,19 +338,29 @@ def bundles(pursue: list[dict]) -> list[dict]:
             if len(names) >= 2]
 
 
-def preparation(states: list[LaneState], *, today: date | None = None) -> list[dict]:
-    """When each preparation stream has to start, counted back from the launch it serves."""
+def preparation(states: list[LaneState], *, today: date | None = None,
+                started: dict[str, str] | None = None) -> list[dict]:
+    """When each preparation stream has to start, counted back from the launch it serves.
+
+    `started` is `{stream: date}` from recorded evidence (`preparation_started`). A stream
+    is overdue only when its start date has passed *and* nothing shows it began; a start
+    date passing says when work had to begin, not that it did not.
+    """
     today = today or date.today()
+    started = started or {}
     out = []
     for state in states:
         if not state.viable or state.latest_optimistic_launch is None:
             continue
         for stream, (lead, why) in PREPARATION_LEADS.items():
             starts = state.latest_optimistic_launch - timedelta(days=lead)
+            began = started.get(stream)
             out.append({"lane": state.lane, "stream": stream, "why": why,
                         "starts_on": starts.isoformat(),
                         "days_until": (starts - today).days,
-                        "overdue": starts < today})
+                        "started_on": began,
+                        "started_evidence": list(PREPARATION_EVIDENCE.get(stream, ())),
+                        "overdue": starts < today and not began})
     out.sort(key=lambda r: r["starts_on"])
     return out
 
@@ -405,7 +459,7 @@ def mode_for(states: list[LaneState], *, days_away: int) -> dict:
 
 
 def programme(event: str = "Christmas", *, today: date | None = None, samples: int = 0,
-              skill: str = "intermediate") -> dict:
+              skill: str = "intermediate", started: dict[str, str] | None = None) -> dict:
     """The whole compression strategy for one occasion, from today to the date itself.
 
     Answers the only question that matters as a window narrows: given what a buyer can still
@@ -437,7 +491,7 @@ def programme(event: str = "Christmas", *, today: date | None = None, samples: i
         "arenas": hunting["pursue"],
         "closed_arenas": hunting["closed"],
         "bundles": bundles(hunting["pursue"]),
-        "preparation": preparation(states, today=today),
+        "preparation": preparation(states, today=today, started=started),
         "capacity": held,
         "next_year": next_year_track(event, today=today, samples=samples),
         "calibrated": samples > 0,

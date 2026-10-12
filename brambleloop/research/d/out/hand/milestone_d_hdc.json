@@ -1,0 +1,752 @@
+{
+ "milestone": "D",
+ "kind": "hdc",
+ "rows": 5,
+ "cols": 5,
+ "status": "FAIL",
+ "geometry_sha256": {
+  "flat": "441a36674fc3d54b33f2c01ddf04888dd11d755759d7a6a5bf865bb261d2e4a7",
+  "draped": "d930003cc103aa0b89e53099ab310fb12ab0e4ecc4f644bc24975462cb144d3b"
+ },
+ "form": [
+  17.233335422702954,
+  25.00043512873126,
+  -26.26003475352064,
+  18.09844212362046
+ ],
+ "settle_iterations": 3200,
+ "items": [
+  {
+   "item": "stitch_identity",
+   "status": "PASS",
+   "measured": {
+    "kinds_built": [
+     "hdc"
+    ],
+    "mismatches": []
+   },
+   "requirement": "every built stitch carries the kind the CIR ordered; unmodelled kinds are refused by name before any geometry exists",
+   "standard": null
+  },
+  {
+   "item": "certified_flat",
+   "status": "PASS",
+   "measured": {
+    "stitches_built": 25,
+    "stitches_linked": 20,
+    "stitches_shaped_as_ordered": 25,
+    "closest_non_adjacent_mm": 1.5,
+    "contact_floor_mm": 1.5,
+    "findings": []
+   },
+   "requirement": "the relaxed fabric passes every Product Truth lock before any load",
+   "standard": null
+  },
+  {
+   "item": "bending_rigidity_provenance",
+   "status": "PASS",
+   "measured": {
+    "used_N_m2": 1.0101081154182036e-06,
+    "derived_wale_N_m2": 1.0101081154182036e-06,
+    "factor_on_committed": 33.670270513940125,
+    "curvature_independent_to": 1.0021628560030218,
+    "committed_N_m2": 3e-08,
+    "committed_is_documented_unconverged": true
+   },
+   "requirement": "the rigidity the drape uses is derived from this fabric by the committed procedure and is curvature-independent to 1 per cent",
+   "standard": null
+  },
+  {
+   "item": "equilibrium_fixed_point",
+   "status": "PASS",
+   "measured": {
+    "rms_displacement_mm": 4.401095646295736e-15,
+    "iterations": 1
+   },
+   "requirement": "with gravity off the solver, momentum and step multiplier included, moves the certified fabric less than 1e-09mm",
+   "standard": "gravity_is_plausible"
+  },
+  {
+   "item": "energy_descends",
+   "status": "FAIL",
+   "measured": {
+    "start_J": -6.6715413527816145e-06,
+    "final_J": 0.0003316724536916641,
+    "energy_rejections": 0,
+    "stalled": false
+   },
+   "requirement": "the loaded configuration has lower total energy than the certified one",
+   "standard": "gravity_is_plausible"
+  },
+  {
+   "item": "stationary",
+   "status": "UNKNOWN",
+   "measured": {
+    "rms_motion_mm": 0.847316454816919,
+    "last_tenth_change_fraction": 0.053815061862086164,
+    "final_step_mm": 0.025344029062254834,
+    "iterations": 16000,
+    "trace": [
+     [
+      50,
+      0.015843327246959454,
+      0.014853407138252006
+     ],
+     [
+      250,
+      0.03712317242179323,
+      0.02330376377968806
+     ],
+     [
+      450,
+      0.0555694291081414,
+      0.024822576172736827
+     ],
+     [
+      650,
+      0.07338858067831694,
+      0.02653008951946737
+     ],
+     [
+      850,
+      0.08926094078414744,
+      0.024801241896547442
+     ],
+     [
+      1050,
+      0.10295965404495808,
+      0.02832321480746165
+     ],
+     [
+      1250,
+      0.11700079848270266,
+      0.026522256611326765
+     ],
+     [
+      1450,
+      0.1318308089509515,
+      0.01853294349660406
+     ],
+     [
+      1650,
+      0.14672401816753072,
+      0.02610633733264724
+     ],
+     [
+      1850,
+      0.1606991515013614,
+      0.03495644798529307
+     ],
+     [
+      2050,
+      0.1699688309993352,
+      0.0185723826724179
+     ],
+     [
+      2250,
+      0.1813537832773312,
+      0.027454857053790888
+     ],
+     [
+      2450,
+      0.1944556892451392,
+      0.029890511022588717
+     ],
+     [
+      2650,
+      0.20946345784613785,
+      0.018457221443820584
+     ],
+     [
+      2850,
+      0.22541269058660848,
+      0.02344686375899772
+     ],
+     [
+      3050,
+      0.24224902734530424,
+      0.020638215248988456
+     ],
+     [
+      3250,
+      0.2556061006225751,
+      0.02264779789723476
+     ],
+     [
+      3450,
+      0.2680563599576238,
+      0.028253264131357873
+     ],
+     [
+      3650,
+      0.280691272110186,
+      0.02700946016667149
+     ],
+     [
+      3850,
+      0.29359454305921795,
+      0.0215611523517867
+     ],
+     [
+      4050,
+      0.3068626937580749,
+      0.027255678676190026
+     ],
+     [
+      4250,
+      0.3201283925596672,
+      0.027449143547505845
+     ],
+     [
+      4450,
+      0.33391557265378785,
+      0.02620937122109658
+     ],
+     [
+      4650,
+      0.34729032349579664,
+      0.027228164673344452
+     ],
+     [
+      4850,
+      0.36025766469397597,
+      0.023385645950360433
+     ],
+     [
+      5050,
+      0.3734227977786687,
+      0.023038440193001414
+     ],
+     [
+      5250,
+      0.3863011546333659,
+      0.0172245055461258
+     ],
+     [
+      5450,
+      0.39769575495179454,
+      0.0275168783558196
+     ],
+     [
+      5650,
+      0.40853546944369423,
+      0.022861772624704145
+     ],
+     [
+      5850,
+      0.41920516195922874,
+      0.028703718735061702
+     ],
+     [
+      6050,
+      0.4299121803281755,
+      0.028014357663745108
+     ],
+     [
+      6250,
+      0.44094945745439634,
+      0.023641452368303797
+     ],
+     [
+      6450,
+      0.4517127664898603,
+      0.028484088236832072
+     ],
+     [
+      6650,
+      0.46277183322336113,
+      0.026221482465495303
+     ],
+     [
+      6850,
+      0.4738422560395683,
+      0.01977244379659147
+     ],
+     [
+      7050,
+      0.48507750707658814,
+      0.01964198700117904
+     ],
+     [
+      7250,
+      0.49644576427334136,
+      0.03368086300031822
+     ],
+     [
+      7450,
+      0.5080206483708198,
+      0.0211494915132675
+     ],
+     [
+      7650,
+      0.5195350792654787,
+      0.028402978321847978
+     ],
+     [
+      7850,
+      0.5312518955016264,
+      0.030470742366760516
+     ],
+     [
+      8050,
+      0.5431183433422657,
+      0.019412281311635488
+     ],
+     [
+      8250,
+      0.5551812222773678,
+      0.024455132746004866
+     ],
+     [
+      8450,
+      0.5672324573817455,
+      0.0311355979560779
+     ],
+     [
+      8650,
+      0.5795771676181031,
+      0.022021532798443693
+     ],
+     [
+      8850,
+      0.5920415739971046,
+      0.02859697480930538
+     ],
+     [
+      9050,
+      0.6026294779114024,
+      0.018322940784771036
+     ],
+     [
+      9250,
+      0.6126665149258339,
+      0.022342519364787962
+     ],
+     [
+      9450,
+      0.6215885033276369,
+      0.02743281131766404
+     ],
+     [
+      9650,
+      0.629839005034528,
+      0.03081064424179
+     ],
+     [
+      9850,
+      0.6381282641106476,
+      0.021037543526083488
+     ],
+     [
+      10050,
+      0.6463510663797598,
+      0.02464920661207992
+     ],
+     [
+      10250,
+      0.6545268612385241,
+      0.026988117744941142
+     ],
+     [
+      10450,
+      0.6630368653840243,
+      0.02504755843736792
+     ],
+     [
+      10650,
+      0.6715779911113863,
+      0.027668391237024005
+     ],
+     [
+      10850,
+      0.6802924973528441,
+      0.02922457769553304
+     ],
+     [
+      11050,
+      0.6889738777267226,
+      0.022670592646170724
+     ],
+     [
+      11250,
+      0.6969936150378359,
+      0.02129031278762728
+     ],
+     [
+      11450,
+      0.7047663915661943,
+      0.033487294476583294
+     ],
+     [
+      11650,
+      0.7123940002216708,
+      0.021046938779026435
+     ],
+     [
+      11850,
+      0.7202613079039216,
+      0.024459951193334297
+     ],
+     [
+      12050,
+      0.7279057300144907,
+      0.03303746294372039
+     ],
+     [
+      12250,
+      0.7354679448738876,
+      0.022688182163572407
+     ],
+     [
+      12450,
+      0.7420386522680531,
+      0.028952692154692112
+     ],
+     [
+      12650,
+      0.7484640898515852,
+      0.036225616702964925
+     ],
+     [
+      12850,
+      0.7548887028872431,
+      0.0355744686591231
+     ],
+     [
+      13050,
+      0.7606390295038854,
+      0.02461205682119035
+     ],
+     [
+      13250,
+      0.7663907985239777,
+      0.029553228201474404
+     ],
+     [
+      13450,
+      0.7721663387228214,
+      0.025719118726359083
+     ],
+     [
+      13650,
+      0.7778888682087726,
+      0.02519379041929237
+     ],
+     [
+      13850,
+      0.7836852473558434,
+      0.027472263158326085
+     ],
+     [
+      14050,
+      0.7896415040383902,
+      0.03746723393309739
+     ],
+     [
+      14250,
+      0.795643702514608,
+      0.022030696444692955
+     ],
+     [
+      14450,
+      0.8017180673841829,
+      0.014382881690755864
+     ],
+     [
+      14650,
+      0.8076850053375259,
+      0.03424715908676201
+     ],
+     [
+      14850,
+      0.8138610567744581,
+      0.02455012525877991
+     ],
+     [
+      15050,
+      0.8199978675010402,
+      0.029936318558052042
+     ],
+     [
+      15250,
+      0.8261195690401971,
+      0.03200948491390732
+     ],
+     [
+      15450,
+      0.8318227613467579,
+      0.022769631874667847
+     ],
+     [
+      15650,
+      0.8374671145324213,
+      0.0273930011052783
+     ],
+     [
+      15850,
+      0.8430161604595257,
+      0.029510171350227904
+     ]
+    ]
+   },
+   "requirement": "the rms displacement changes by under 0.02 of the whole motion over the last tenth of the solve; otherwise the configuration is still moving and is reported as UNKNOWN, not as drape",
+   "standard": "gravity_is_plausible"
+  },
+  {
+   "item": "contacts_the_form",
+   "status": "PASS",
+   "measured": {
+    "closest_mm_to_keep_out": 0.0,
+    "support_corrections": 19567,
+    "form": [
+     17.233335422702954,
+     25.00043512873126,
+     -26.26003475352064,
+     18.09844212362046
+    ]
+   },
+   "requirement": "the fabric rests on the form rather than floating above it",
+   "standard": "garment_contacts_the_body_coherently / floating_garment"
+  },
+  {
+   "item": "no_structural_drift",
+   "status": "PASS",
+   "measured": {
+    "stitches_built": 25,
+    "stitches_linked": 20,
+    "stitches_needing_linkage": 20,
+    "stitches_shaped_as_ordered": 25,
+    "closest_non_adjacent_mm": 1.5,
+    "contact_floor_mm": 1.5,
+    "findings": [],
+    "frame": "certified stitch frame carried by each stitch's own rigid motion",
+    "same_stitches_kinds_and_targets": true,
+    "morphology_held_by": "friction lock (rigid_stitches): the stitch's internal shape is an input here, not an outcome; linkage, floor and clearance are outcomes",
+    "shape_residual_max_mm": 0.09482639687543865,
+    "shape_residual_final_mm": 0.05741632976104141,
+    "max_strain": 1.708139290490518e-05,
+    "linkage_max_extension_mm": 0.7870799505926165,
+    "max_out_of_plane_mm": 2.747753379517457
+   },
+   "requirement": "`validate` passes on the draped fabric exactly as it did on the flat one: every stitch linked, shaped as ordered, no strand under the compression floor",
+   "standard": null
+  },
+  {
+   "item": "double_curvature",
+   "status": "PASS",
+   "measured": {
+    "fabric": {
+     "total_rms_mm": 0.49468402940076567,
+     "within_row_rms_mm": 0.29626089150075186,
+     "within_row_fraction": 0.3586681985261558
+    },
+    "wrapped_target": {
+     "total_rms_mm": 18.423922014380246,
+     "within_row_rms_mm": 3.024928393886448,
+     "within_row_fraction": 0.026956656441993482
+    },
+    "rigid_row_null": 0.0,
+    "ratio_to_target": 13.305366683659518,
+    "touching": [
+     [
+      3,
+      2
+     ],
+     [
+      4,
+      1
+     ],
+     [
+      4,
+      2
+     ]
+    ],
+    "stitches_touching": 3,
+    "most_columns_in_one_row": 2,
+    "most_rows_in_one_column": 2,
+    "articulation_flat_rms_deg": 0.5052375705707522,
+    "articulation_draped_rms_deg": 7.835321955837387
+   },
+   "requirement": "the fabric meets the form over a patch spanning at least two columns in one row and two rows in one column, and stitches articulate more than they did flat: rows are not rigid bars",
+   "standard": "fabric_folds_naturally / crochet_drape_is_physically_plausible"
+  },
+  {
+   "item": "render_consumes_validated_geometry",
+   "status": "PASS",
+   "measured": {
+    "geometry_sha256": "d930003cc103aa0b89e53099ab310fb12ab0e4ecc4f644bc24975462cb144d3b",
+    "unchanged_by_render": true,
+    "worst_ply_offset_mm": 0.9763174679337421,
+    "yarn_radius_mm": 1.6666666666666665,
+    "strands": 39,
+    "plies": 156,
+    "spec": {
+     "plies": 4,
+     "ply_radius_mm": 0.69,
+     "ply_offset_mm": 0.976,
+     "twist_multiplier": 3.3,
+     "turns_per_metre": 69.5,
+     "twist_pitch_mm": 14.38,
+     "helix_angle_deg": 23.1
+    }
+   },
+   "requirement": "the curve file is derived from the draped fabric's own strands; every ply vertex lies within the yarn radius of its centreline; the fabric is not touched by drawing it",
+   "standard": null
+  },
+  {
+   "item": "images_rendered",
+   "status": "UNKNOWN",
+   "measured": {
+    "render_dir": null
+   },
+   "requirement": "no render directory was given; nothing was drawn",
+   "standard": null
+  },
+  {
+   "item": "fabric_folds_naturally",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "fabric_folds_naturally"
+  },
+  {
+   "item": "lighting_is_realistic",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "lighting_is_realistic"
+  },
+  {
+   "item": "shadows_are_coherent",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "shadows_are_coherent"
+  },
+  {
+   "item": "has_ordinary_photographic_imperfection",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null,
+    "geometric_irregularity": {
+     "applied_to_this_build": true,
+     "realised_at_the_sourced_5pct_input": {
+      "specified_loop_length_cv": 0.05,
+      "observed_stitch_width_cv": 0.022807999272169834,
+      "observed_row_height_cv": 0.03293710661544842,
+      "worst_anchor_error_mm": 7.105427357601002e-15,
+      "seeds": 16
+     },
+     "craft_threshold_pct": 3.4,
+     "why_not_a_gate": "the owner's per-row anchor makes swatch gauge deviation zero by construction; imperfection is judged on the image, as B-700 states it"
+    }
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "has_ordinary_photographic_imperfection"
+  },
+  {
+   "item": "melted_yarn",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "melted_yarn"
+  },
+  {
+   "item": "synthetic_stitch_texture",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null,
+    "geometric_irregularity": {
+     "applied_to_this_build": true,
+     "realised_at_the_sourced_5pct_input": {
+      "specified_loop_length_cv": 0.05,
+      "observed_stitch_width_cv": 0.022807999272169834,
+      "observed_row_height_cv": 0.03293710661544842,
+      "worst_anchor_error_mm": 7.105427357601002e-15,
+      "seeds": 16
+     },
+     "craft_threshold_pct": 3.4,
+     "why_not_a_gate": "the owner's per-row anchor makes swatch gauge deviation zero by construction; imperfection is judged on the image, as B-700 states it"
+    }
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "synthetic_stitch_texture"
+  },
+  {
+   "item": "catalogue_perfect_sterility",
+   "status": "UNKNOWN",
+   "measured": {
+    "judge": null
+   },
+   "requirement": "a judgement about the photograph: an independent judge's reading of the authoritative renders (`d_judge`), applied with `apply_judgement`; UNKNOWN until one has been recorded",
+   "standard": "catalogue_perfect_sterility"
+  }
+ ],
+ "solver": {
+  "energy_gradient_bending": true,
+  "frame_invariant_rest": true,
+  "contact_rest_is_relaxed_shape": true,
+  "bend_on_yarn_only": true,
+  "momentum": 0.98,
+  "step_multiplier": 8.0,
+  "polish_passes": 4,
+  "rigid_stitches": true,
+  "support_friction": true,
+  "iterations": 12800,
+  "bending_N_m2": 1.0101081154182036e-06
+ },
+ "criteria": {
+  "fixed_point_mm": {
+   "value": 1e-09,
+   "why": "the certified fabric must be an exact fixed point of the loaded solver with the load removed: wave 5 measured 1.58e-17mm, so a nanometre is a thousand-million times that, not a tolerance on the mechanics"
+  },
+  "stationarity_fraction": {
+   "value": 0.02,
+   "why": "CHOSEN: the fabric has stopped when the rms displacement over the last tenth of the solve changes by under 2 per cent of the whole motion. Reported with the trace so a reader can disagree"
+  },
+  "contact_mm": {
+   "value": 0.05,
+   "why": "DERIVED from the solver: a vertex the sphere projection has touched sits within one accepted step of the keep-out surface; 0.05mm is under half the smallest cap the solver uses"
+  },
+  "contact_patch": {
+   "value": [
+    2,
+    2
+   ],
+   "why": "DERIVED from geometry: a rigid row tangent to a sphere touches it at one point, so a stack of rigid rows meets the form along one column at most. A cloth curving both ways meets it over a patch: some row touches at two or more columns AND some column at two or more rows. The within-row share of relief is reported beside it against what wrapping the form would demand, as a measurement rather than a bar"
+  },
+  "irregularity_cv": {
+   "value": 0.034,
+   "why": "SOURCED via hand_tension.PROVENANCE: half a stitch over a gauge swatch, the craft threshold for a swatch reading as hand-made rather than machine-uniform"
+  },
+  "ply_within_yarn_radius": {
+   "value": 1.05,
+   "why": "DERIVED: every ply vertex lies within the yarn radius of its centreline by construction; 5 per cent covers the Catmull-Rom resample of the centreline"
+  }
+ },
+ "seconds": 351.3,
+ "rule": "PASS only when every item passes; an UNKNOWN never counts toward a PASS; a FAIL anywhere is FAIL",
+ "measured_pass": false,
+ "unknown": [
+  "stationary",
+  "images_rendered",
+  "fabric_folds_naturally",
+  "lighting_is_realistic",
+  "shadows_are_coherent",
+  "has_ordinary_photographic_imperfection",
+  "melted_yarn",
+  "synthetic_stitch_texture",
+  "catalogue_perfect_sterility"
+ ],
+ "failed": [
+  "energy_descends"
+ ]
+}

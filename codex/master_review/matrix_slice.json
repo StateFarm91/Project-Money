@@ -1,0 +1,419 @@
+[
+  {
+    "uid": "F-831",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract F-831..F-850",
+    "maturity": "INTEGRATED",
+    "coverage": "PARTIAL",
+    "missing_part": "Build 2 closure requires module+test+live-root reachability, not the full chain (consumer -> decision -> effect -> observable result -> independent proof); the Final Master closure matrix carrying those fields is being built (this mapping wave) and is not code",
+    "producer": "src/brambleloop/build2/closure.py::classify / proof_of; build2/reachability.py::reached",
+    "durable_state": "research/b2_resume/closure_state.json",
+    "consumer": "app/main.py dashboard (closure matrix)",
+    "protected_effect": null,
+    "tests": [
+      "tests/test_closure.py",
+      "tests/test_reachability.py::test_a_module_behind_a_static_state_route_is_not_reached"
+    ],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-59, C-65, C-74, C-86",
+      "research/b2_resume/reports/independent_audit_15c5d1b.md",
+      "research/final_build/mapping/MAPPING_BRIEF.md (producer/consumer/effect schema)"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Aggregate mapping/s1..s9.json into research/final_build/closure_matrix.json and add a validator (tests/test_final_closure.py) that refuses COMPLETE+PROVEN unless producer, durable_state, consumer, protected_effect and a named test are present and producer/consumer functions are reached",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "INTEGRATED",
+    "adjudication": [],
+    "id": "F-831",
+    "title": "Capability Proof Chain",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-832",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "INTEGRATED",
+    "coverage": "PARTIAL",
+    "missing_part": "enforced for Build 2 rows (a covered row whose module is unreached cannot be C+P); not yet applied to Final Master requirements",
+    "producer": "src/brambleloop/build2/closure.py (reachability refusal, C-59/C-65)",
+    "durable_state": "closure_state.json",
+    "consumer": "dashboard",
+    "protected_effect": null,
+    "tests": [
+      "tests/test_closure.py",
+      "tests/test_reachability.py::test_a_module_used_only_inside_an_audit_receipt_is_not_reached"
+    ],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-60 (55 invalid rows found by function-level audit)"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Apply the same refusal in the Final Build closure validator (see F-831)",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "INTEGRATED",
+    "adjudication": [],
+    "id": "F-832",
+    "title": "Existence Is Not Execution",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-833",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "INTEGRATED",
+    "coverage": "PARTIAL",
+    "missing_part": "reachability is module-level from live roots; function-level reachability of the specific producer/consumer is not computed (module_reachability.json note)",
+    "producer": "src/brambleloop/build2/reachability.py::reached",
+    "durable_state": "research/final_build/module_reachability.json",
+    "consumer": "build2/closure.py::classify",
+    "protected_effect": null,
+    "tests": [
+      "tests/test_reachability.py::test_a_handler_only_a_manual_post_enqueues_is_not_live",
+      "tests/test_reachability.py::test_a_route_that_computes_from_the_database_reaches_its_module"
+    ],
+    "evidence": [
+      "build2/reachability.py not in fcb982d"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Extend build2/reachability.py to report function-level reachability (call graph already built) and use it for producer/consumer fields in the Final Build matrix",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "INTEGRATED",
+    "adjudication": [],
+    "id": "F-833",
+    "title": "Live-Root Reachability",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-834",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "consumption was proven by manual function-level audits (C-60, C-66, C-67, independent_audit_15c5d1b); there is no automated check that a producer's output is read by a decision",
+    "producer": null,
+    "durable_state": "research/b2_resume/reports/independent_audit_15c5d1b.md",
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-60, C-66, C-67"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Add a consumer check to the Final Build closure validator: for requirements flagged decision-influencing, the named consumer function must be reached and must read the producer's durable_state (static read-set analysis) \u00e2\u20ac\u201d plus the s92 'disable a consumer -> proof reopens' test",
+    "confidence": "MEDIUM",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-834",
+    "title": "Consumption Required",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-835",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract (protected actions)",
+    "maturity": "INTEGRATED",
+    "coverage": "PARTIAL",
+    "missing_part": "store.publish re-reads phase, credentials, authority, withholding and incidents at execution; no test that authority revoked between planning and execution refuses (s92 test)",
+    "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "durable_state": "audit_log store.publish_refused",
+    "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "protected_effect": "no upload when a gate/incident/withholding changed after planning",
+    "tests": [
+      "tests/test_cert_publish_gates.py::test_a_halting_incident_blocks_store_publish_before_any_upload",
+      "tests/test_cert_publish_gates.py::test_a_moved_upstream_blocks_publication_and_the_sentinel_enqueues_the_graph_rebuild",
+      "tests/test_cert_improve_wave.py::test_withholding_survives_every_rebuild_path_through_the_worker"
+    ],
+    "evidence": [
+      "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: 165 publish refusals in production (fcb982d, phase check at execution)",
+      "research/BUILD2_CERTIFICATION.md C-84"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Add a test that plans a publish with an open authority/SpendLimit, revokes it, then runs store.publish and ads.campaign and asserts refusal; add the same for paid image calls (gateway/images.generate reservation)",
+    "confidence": "MEDIUM",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "INTEGRATED",
+    "adjudication": [],
+    "id": "F-835",
+    "title": "Protected-Action Revalidation",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-836",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "fixture-only proofs were found and fixed manually (C-1, C-86 #188); no automated 'test-only fact' detector",
+    "producer": null,
+    "durable_state": null,
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-1, C-86"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Add to the closure validator a check that each durable_state named as evidence has a non-test writer reached from a live root (grep writers outside tests/), plus the s92 seeded test-only fact test",
+    "confidence": "MEDIUM",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-836",
+    "title": "No Fixture-Only Proof",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-837",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "proxies are labelled case by case (e.g. C-40 'labelled ranking proxy', C-80 #54 proxies); no registry of proxies or check that a proxy cannot satisfy a direct-evidence requirement",
+    "producer": null,
+    "durable_state": null,
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-80, C-78 (north-star proxies)"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Add a 'proxy' flag to OperatingReading/mapping evidence and make the closure validator refuse a requirement whose only evidence is a proxy",
+    "confidence": "MEDIUM",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-837",
+    "title": "Proxy Honesty",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-838",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "INTEGRATED",
+    "coverage": "PARTIAL",
+    "missing_part": "applied to the 320-row Build 2 registry; the Final Master matrix must adopt explicit-park-only semantics",
+    "producer": "src/brambleloop/build2/closure.py::classify (explicit parked_on only; closed_out requires gates read live)",
+    "durable_state": "closure_state.json",
+    "consumer": "dashboard",
+    "protected_effect": null,
+    "tests": [
+      "tests/test_closure.py"
+    ],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-74"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Reuse build2/closure.py semantics for the Final Master matrix (gate kinds from executor.GATES, explicit gate per row, live gate read)",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "INTEGRATED",
+    "adjudication": [],
+    "id": "F-838",
+    "title": "Closure Integrity",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-839",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "Build 2 performed a final-head independent audit (15c5d1b) and full suite on 856186f; Final Build must repeat on its launch candidate",
+    "producer": null,
+    "durable_state": "research/b2_resume/reports/independent_audit_15c5d1b.md; research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log",
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md verdict 2026-09-28"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Schedule a fresh reachability + function-level audit on the Final Build launch-candidate SHA (F-845) before verdict",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-839",
+    "title": "Final-Head Re-Audit",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-840",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "practice exercised in Build 2 (green suite 5,242/0 plus requirement-level audit); Final Build still owes both on its candidate",
+    "producer": null,
+    "durable_state": "research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log",
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-73, C-87"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Final Build verdict must cite both a clean full suite and the closure validator result on the same SHA",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-840",
+    "title": "Green Suite Necessary, Not Sufficient",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-843",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification contract",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "registry exists and is pinned; the per-requirement matrix is in progress (mapping slices s1..s9), not yet aggregated",
+    "producer": "research/final_build/parse_master.py",
+    "durable_state": "research/final_build/master_registry.json; mapping/s*.json",
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [
+      "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse",
+      "tests/test_final_master_registry.py::test_every_declared_id_is_accounted_for_as_present_or_absent"
+    ],
+    "evidence": [
+      "research/final_build/FINAL_BUILD_STATE.md Phase 0"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Aggregate mapping slices into closure_matrix.json with a validator test (see F-831)",
+    "confidence": "HIGH",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-843",
+    "title": "Final Master Closure Matrix",
+    "version": "v1.0",
+    "master_priority": null
+  },
+  {
+    "uid": "F-867",
+    "launch_class": "LAUNCH-CRITICAL",
+    "launch_class_reason": "certification integrity requires independent adjudication",
+    "maturity": "IMPLEMENTED",
+    "coverage": "PARTIAL",
+    "missing_part": "Build 2 used independent auditors (C-60, 15c5d1b) and this wave's brief forbids worker certification; not enforced by tooling",
+    "producer": null,
+    "durable_state": "research/final_build/mapping/MAPPING_BRIEF.md ('The integrator certifies; you do not')",
+    "consumer": null,
+    "protected_effect": null,
+    "tests": [],
+    "evidence": [
+      "research/BUILD2_CERTIFICATION.md C-60, C-86"
+    ],
+    "build2_rows": [],
+    "gate": {
+      "kind": "none",
+      "key": "",
+      "detail": "remaining work is software"
+    },
+    "defect": null,
+    "next_action": "Require an independent adjudicator (different session/model) sign-off record for every COMPLETE+PROVEN launch-critical row in the Final matrix",
+    "confidence": "MEDIUM",
+    "searched": null,
+    "slice": "s9",
+    "maturity_claimed": "IMPLEMENTED",
+    "adjudication": [],
+    "id": "F-867",
+    "title": "Worker Does Not Self-Certify",
+    "version": "v1.0",
+    "master_priority": null
+  }
+]

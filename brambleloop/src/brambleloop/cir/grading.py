@@ -145,18 +145,42 @@ def grade(sizes: list[SizeSpec], *, stitches_per_10cm: float, rows_per_10cm: flo
 
 
 def grade_component(component, graded: GradedSize, *, motif_width: int = 1):
-    """Rebuild one component at a graded size.
+    """Rebuild one plain component at a graded size, or refuse.
 
-    Only the foundation and declared counts move; the row *structure* is the design and is
-    not regenerated per size, because a design whose construction changes between sizes is
+    Only the foundation and the counts move; the row *structure* is the design and is not
+    regenerated per size, because a design whose construction changes between sizes is
     several designs sharing a name.
-    """
-    from .model import Row
 
+    Until 2026-09-26 this rewrote `declared_count` and the foundation and left every op's
+    count where it was, so a graded body declared 144 stitches over rows that still said
+    "dc in next 100 sts": every graded component failed to compile, and nothing called it.
+    It now rescales exactly the rows it can rescale honestly -- a row that is one plain
+    count-preserving stitch run, or a single to-end repeat -- and refuses any other row,
+    because a shaped row (increases, decreases, colour runs, a fixed-times repeat) has no
+    single right answer at another size. Shaped garments are a function of size instead:
+    see `cir.graded.GradedDesign`.
+    """
+    from .model import Op, Repeat
+
+    if motif_width > 1 and graded.stitches % motif_width:
+        raise GradingRefused(
+            f"{component.name}: {graded.stitches} stitches is not a whole number of "
+            f"{motif_width}-stitch repeats")
     rows = []
     for row in component.rows:
-        rows.append(replace(row, declared_count=graded.stitches)
-                    if row.declared_count else row)
+        ops = row.ops
+        if len(ops) == 1 and isinstance(ops[0], Op) and ops[0].consumes == ops[0].produces \
+                and ops[0].consumes == ops[0].count:
+            ops = [replace(ops[0], count=graded.stitches)]
+        elif len(ops) == 1 and isinstance(ops[0], Repeat) and ops[0].times is None:
+            pass   # a to-end repeat resolves against whatever width it is given
+        else:
+            raise GradingRefused(
+                f"{component.name} row {row.index} is not a plain run of stitches, so it "
+                f"cannot be regraded by changing one number. Grade a shaped design as a "
+                f"function of size (cir.graded.GradedDesign) rather than by rewriting counts")
+        rows.append(replace(row, ops=ops,
+                            declared_count=graded.stitches if row.declared_count else None))
     return replace(component, foundation=graded.stitches, rows=rows)
 
 

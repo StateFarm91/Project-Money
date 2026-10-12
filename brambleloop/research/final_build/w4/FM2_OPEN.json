@@ -1,0 +1,162 @@
+{
+ "generated_by": "research/final_build/w4/fm2_open.py",
+ "head": "77d63d6",
+ "launch_critical_open": 16,
+ "fm2_owned": [
+  "F-123"
+ ],
+ "rows": {
+  "F-030": {
+   "title": "Gallery Information Architecture",
+   "cluster": "FOLD",
+   "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
+   "why_open": [
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
+   ],
+   "owning_lane": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)"
+  },
+  "F-098": {
+   "title": "Outage Degradation Plan",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/ops/funding.py::note",
+   "why_open": [
+    "coverage PARTIAL: Outage handling is per-mechanism (circuit breaker, NoProviderAvailable as PermanentError -> dead letter, funding-exhaustion block, executor parks model_provider"
+   ],
+   "owning_lane": "AUTO (SPEND wiring AUTO-1: park model jobs when the provider is unusable)"
+  },
+  "F-123": {
+   "title": "Vacuous-Test Detector",
+   "cluster": "K13",
+   "producer": "tests/test_vacuity.py::findings_in",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED"
+   ],
+   "owning_lane": "FM2"
+  },
+  "F-169": {
+   "title": "Clean-Tree Full Suite",
+   "cluster": "PROCESS",
+   "producer": "run_tests.sh (REQUIRE_CLEAN, release_eligible run record)",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build w"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-254": {
+   "title": "Gallery Information Architecture",
+   "cluster": "FOLD",
+   "producer": "src/brambleloop/publish/eligibility.py::check_set",
+   "why_open": [
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
+   ],
+   "owning_lane": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)"
+  },
+  "F-310": {
+   "title": "New Evidence Requirement",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/swarm/orchestrate.py::thrash_sweep",
+   "why_open": [
+    "coverage PARTIAL: thrash sweep suspends a paid loop whose outputs do not change (progress per iteration/dollar = 0) until handler code changes; 'new evidence' is inferred from ou"
+   ],
+   "owning_lane": "AUTO (SPEND wiring AUTO-2: durable-evidence delta in thrash_sweep)"
+  },
+  "F-514@v0.16": {
+   "title": "Etsy Surface Inventory",
+   "cluster": "K8",
+   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
+   "why_open": [
+    "coverage PARTIAL: the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)"
+   ],
+   "owning_lane": "AUTO (wiring: etsy.openapi_reverify cadence; code done by FM2)"
+  },
+  "F-659": {
+   "title": "Durable Workers",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+   "why_open": [
+    "coverage PARTIAL: Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease fencing, lease renewal and the single "
+   ],
+   "owning_lane": "AUTO (SPEND wiring AUTO-3: JobContext.checkpoint on the job row)"
+  },
+  "F-834": {
+   "title": "Consumption Required",
+   "cluster": "K13",
+   "producer": "src/brambleloop/build2/final_proof.py::validate",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independe"
+   ],
+   "owning_lane": "END-STAGE (integrator: runtime packets on frozen RC + independent review)"
+  },
+  "F-839": {
+   "title": "Final-Head Re-Audit",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/build2/reachability.py",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite ran on 6f9a2f7; function-level re-mapping is in progress (this remap); no froz",
+    "defect recorded: closure_matrix.json basis label is stale (says 019ebf0) while reachability is 6f9a2f7"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-840": {
+   "title": "Green Suite Necessary, Not Sufficient",
+   "cluster": "PROCESS",
+   "producer": "research/final_build/aggregate.py::cap",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), an"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-841": {
+   "title": "Build 2 Freeze",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-845": {
+   "title": "Release Candidate Freeze",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED",
+    "coverage PARTIAL: no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-846": {
+   "title": "Audit-Repair Loop",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED",
+    "coverage PARTIAL: the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candid"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-848": {
+   "title": "Shadow Rehearsal",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: chain legs are integrated and tested individually (release chain to shadow store.publish refusal in real processes; orders/refund truth after fb2-O; disclosed l"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-878": {
+   "title": "Launch Packet",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
+   "why_open": [
+    "coverage PARTIAL: launch readiness assesses listings, owner actions, launch package (disclosure, FAQ, pricing plan, calendar, baseline, rollback rehearsal); candidate SHA, test/a"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  }
+ }
+}

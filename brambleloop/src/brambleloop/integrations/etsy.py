@@ -63,6 +63,11 @@ from ..core.resilience import PermanentError, TransientError, classify_http
 log = logging.getLogger("brambleloop.etsy")
 
 # Etsy's own limits, as published. These are not our preferences.
+# Evidence (read 2026-10-06, `integrations.etsy_constraints`): TITLE_MAX, TAGS_MAX and
+# TAG_CHARS_MAX are quoted from Etsy help articles 115015628707 and 360000336307.
+# MATERIALS_MAX and DESCRIPTION_MAX have NO Etsy source on file -- neither the Open API
+# document nor any help article states them -- so they are kept as this client's own caps and
+# reported as ETSY_PUBLISHES_NONE by `etsy_constraints.reconcile()`.
 TITLE_MAX = 140
 TAGS_MAX = 13
 TAG_CHARS_MAX = 20
@@ -91,6 +96,172 @@ class EtsyNotPermitted(PermanentError):
 
 class EtsyRejected(PermanentError):
     """Etsy refused the listing. The payload is wrong and retrying sends the same payload."""
+
+
+class OwnerGrant:
+    """rc1-AUTH D3: the owner's grant, as the client itself requires it.
+
+    The sealed grant was enforced only at the pipeline call sites; `activate` accepted any
+    non-empty string and `publish` only the phase and the environment flag, so a new caller of
+    the client could bypass the grant. Now `activate` and `publish` require an `OwnerGrant`,
+    and the client calls `refusal()` immediately before the irreversible request. `refusal`
+    does not trust the object: it re-resolves, from the database, the effective runtime phase
+    (`core.phase.effective`: environment AND the owner's recorded, chained transition) and the
+    sealed, content-bound grant (`ops.activation_authority.validate` /
+    `ops.publication_authority.validate`). An id that names no valid grant refuses.
+    """
+
+    ACTIVATE = "store.activate"
+    PUBLISH = "store.publish"
+    # J-product P-5 follow-up: a publication grant also covers *completing* the draft it
+    # created (second file, listing properties, images) -- and only that draft. Asked for
+    # with this action name; never a grant action of its own.
+    PUBLISH_COMPLETE = "store.publish.complete"
+
+    def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str, version: str,
+                 release: str = "", listing_id: str = "") -> None:
+        if action not in (self.ACTIVATE, self.PUBLISH):
+            raise ValueError(f"unknown grant action {action!r}")
+        self.db, self.action, self.approval_id = db, action, approval_id
+        self.slug, self.version, self.release = slug, version, release
+        self.listing_id = str(listing_id or "")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return (f"OwnerGrant({self.action} {self.slug}@{self.version} "
+                f"approval={self.approval_id})")
+
+    def refusal(self, *, action: str, listing_id: str = "") -> str | None:
+        """Why this grant does not authorise `action` now, or None. Fails closed."""
+        try:
+            if action == self.PUBLISH_COMPLETE and self.action == self.PUBLISH:
+                return self._completion_refusal(str(listing_id or ""))
+            if action != self.action:
+                return f"owner grant is for {self.action}, not {action}"
+            if self.db is None:
+                return "owner grant has no database to be verified against"
+            from ..core.phase import effective
+
+            live = effective(self.db)
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return (f"the effective runtime phase is {live!r} (environment and the "
+                        f"owner's recorded phase); it does not permit {action}")
+            if action == self.ACTIVATE:
+                if not self.listing_id or str(listing_id) != self.listing_id:
+                    return "owner activation grant names another listing"
+                from ..ops import activation_authority
+
+                return activation_authority.validate(
+                    self.db, self.approval_id, slug=self.slug, version=self.version,
+                    listing_id=self.listing_id, release=self.release)
+            from ..ops import publication_authority
+
+            return publication_authority.validate(
+                self.db, self.approval_id, slug=self.slug, version=self.version,
+                release=self.release)
+        except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
+            return f"owner grant could not be verified: {type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _completion_refusal(self, listing_id: str) -> str | None:
+    """May this publication grant complete the draft `listing_id`? Fails closed.
+
+    Re-resolved from the database at every call: the effective phase permits publication;
+    the global kill-switch is on; the listing row for this grant's slug@version is bound to
+    the grant's certified release AND records `listing_id` as the Etsy draft this publication
+    created (the `on_created` checkpoint); and the sealed grant itself is the owner's,
+    unrevoked (chained ledger), unexpired, sealed, and for this release. The content digest is
+    not re-checked here because the grant's snapshot is, by design, of the pre-creation state;
+    the binding to this exact listing id is what stops it reaching any other listing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Listing
+    from ..core.phase import effective
+    from ..ops import publication_authority as pa
+
+    if self.db is None:
+        return "owner grant has no database to be verified against"
+    if not listing_id:
+        return "completing a draft needs the listing id the publication created"
+    live = effective(self.db)
+    if live not in PHASES_THAT_MAY_PUBLISH:
+        return (f"the effective runtime phase is {live!r} (environment and the owner's "
+                f"recorded phase); it does not permit {self.PUBLISH_COMPLETE}")
+    killed = pa.kill_switch_refusal()
+    if killed is not None:
+        return killed
+    with self.db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == self.slug,
+                                                 Listing.version == self.version))
+        if listing is None or not self.release or listing.release_hash != self.release:
+            return "no drafted listing bound to this grant's certified release"
+        if str(listing.etsy_listing_id or "") != listing_id:
+            return (f"listing {listing_id} is not the draft this publication created; a "
+                    f"publication grant completes only its own draft")
+    if self.approval_id is not None:
+        try:
+            idents = [int(self.approval_id)]
+        except (TypeError, ValueError):
+            return "recorded owner publication grant required"
+    else:
+        # As `publication_authority.resolve`: the newest grant for slug@version valid now.
+        with self.db.session() as s:
+            idents = list(s.scalars(select(AuditLog.id).where(
+                AuditLog.action == pa.APPROVED,
+                AuditLog.artifact == f"{self.slug}@{self.version}")
+                .order_by(AuditLog.id.desc())))
+        if not idents:
+            return "recorded owner publication grant required"
+    first = None
+    for ident in idents:
+        why = _completion_grant_row_refusal(self, pa, ident)
+        if why is None:
+            return None
+        first = first or why
+    return first
+
+
+def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
+    """`publication_authority._check_one` without the pre-creation content digest."""
+    import hmac
+    from datetime import datetime
+
+    from ..core.models import AuditLog
+
+    with self.db.session() as s:
+        row = s.get(AuditLog, ident)
+        if row is None or row.action != pa.APPROVED or row.actor != pa.PRINCIPAL:
+            return "recorded owner publication grant required"
+        if row.artifact != f"{self.slug}@{self.version}":
+            return "owner publication grant is for another product or version"
+        detail = dict(row.detail or {})
+    chained = pa.LEDGER.refusal(self.db, ident)
+    if chained is not None:
+        return f"owner publication grant refused: {chained}"
+    seal = detail.pop("seal", "")
+    if not hmac.compare_digest(str(seal), pa._seal(detail)):
+        return "owner publication grant invalid or credential rotated"
+    now = pa._now()
+    try:
+        if not (datetime.fromisoformat(detail["approved_at"]) <= now
+                < datetime.fromisoformat(detail["expires_at"])):
+            return "owner publication grant expired or future-dated"
+    except (KeyError, TypeError, ValueError):
+        return "owner publication grant invalid"
+    if (detail.get("action") != pa.ACTION or detail.get("scope") != f"{self.slug}@{self.version}"
+            or detail.get("release") != self.release):
+        return "owner publication grant does not cover this release"
+    return None
+
+
+OwnerGrant._completion_refusal = _completion_refusal  # type: ignore[attr-defined]
+
+
+def _grant_refusal(grant: Any, *, action: str, listing_id: str = "") -> str | None:
+    if not isinstance(grant, OwnerGrant):
+        return (f"{action} needs a validated owner grant (OwnerGrant) on the call itself; a "
+                f"credential, a phase and an environment flag are not the owner's grant")
+    return grant.refusal(action=action, listing_id=listing_id)
 
 
 def _persisting_on_refresh(db: Any, env: dict[str, str], current_token: str | None = None):
@@ -314,6 +485,7 @@ class ListingPayload:
     price: float
     tags: list[str]
     materials: list[str]
+    properties: list[dict] = field(default_factory=list)
     taxonomy_id: int = TAXONOMY_PATTERNS
     quantity: int = DIGITAL_QUANTITY
     who_made: str = "i_did"
@@ -509,8 +681,54 @@ ALT_TEXT_MAX = 500
 
 # Content types for the formats a listing image can be. Explicit rather than guessed from
 # `mimetypes`, whose answer depends on the host's /etc/mime.types.
+#
+# A subset of Etsy's own list, never a superset. Etsy (help article 115015663347, edited
+# 2026-05-04, read 2026-10-06): "All images in your shop should be one of these file types:
+# .jpg, .gif, .png, .svg, or .heic. These are the only image file types Etsy supports."
+# `.webp` was here until 2026-10-06 and is not on that list, so it was removed (lane W3-I);
+# svg and heic are Etsy-supported but nothing here produces them. See
+# `integrations.etsy_constraints` for every published image rule.
 IMAGE_CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-                       ".gif": "image/gif", ".webp": "image/webp"}
+                       ".gif": "image/gif"}
+
+
+def digital_file_refusals(filename: str, size: int) -> list[str]:
+    """Etsy's published digital-file rules this file breaks (name, type, size), as text.
+
+    From `etsy_constraints` (help article 115015628347): 70 characters of letters, digits,
+    periods, underscores or hyphens; a supported type; 20MB at most. A name Etsy cannot hold
+    is also one it cannot rename later ("We don't have a way of editing the name after
+    uploading"), so it is refused here rather than discovered on the shop.
+    """
+    from .etsy_constraints import digital_file_problems
+
+    return [f["detail"] for f in digital_file_problems([(filename, size)])
+            if f["severity"] == "fail"]
+
+
+def publish_preflight(filename: str, data: bytes, images: list | None) -> list[str]:
+    """Every refusal Etsy's published rules predict for this publish, before anything is sent.
+
+    Only rules Etsy states as requirements fail here; recommendations (2000 px, 1MB) are the
+    listing-asset gate's business and do not stop a draft.
+    """
+    from ..publish.listing_schema import MAX_IMAGES
+
+    problems = digital_file_refusals(filename, len(data or b""))
+    entries = list(images or [])
+    if len(entries) > MAX_IMAGES:
+        problems.append(f"{len(entries)} images; Etsy allows {MAX_IMAGES} per listing")
+    for rank, entry in enumerate(entries, start=1):
+        name = str(entry[0])
+        suffix = name[name.rfind("."):].lower() if "." in name else ""
+        if suffix not in IMAGE_CONTENT_TYPES:
+            problems.append(f"image {rank} ({name}) is not a format Etsy supports for listing "
+                            f"images ({sorted(IMAGE_CONTENT_TYPES)})")
+        alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
+        if len(alt or "") > ALT_TEXT_MAX:
+            problems.append(f"image {rank} alt text is {len(alt)} characters; Etsy allows "
+                            f"{ALT_TEXT_MAX}")
+    return problems
 
 
 def form_fields(payload: dict[str, Any]) -> dict[str, Any]:
@@ -642,6 +860,61 @@ class EtsyClient:
         assert self.credentials is not None
         return self.credentials
 
+    def _effective_phase(self) -> str:
+        """The phase re-resolved now (core.phase), never the constructor's string.
+
+        With a database: the environment AND the owner's recorded, chained transition, the
+        more restrictive winning. Without one: core.phase resolves an unreadable record as
+        shadow. Fails closed to shadow.
+        """
+        try:
+            from ..core.phase import DEFAULT, effective
+
+            db = getattr(self, "db", None)
+            return effective(db, record_incident=False) if db is not None else DEFAULT
+        except Exception:  # noqa: BLE001 - an unresolvable phase is no authority
+            return "shadow"
+
+    def _authorise_write(self, operation: str, grant: Any, listing_id: str = "") -> None:
+        """J-product P-5: the effect-boundary check for create/upload/delete.
+
+        Two lanes, and nothing else:
+
+        * a verified `OwnerGrant` (the same check `publish` makes: sealed, content-bound
+          publication grant AND the effective runtime phase re-resolved from the database), or
+        * the narrow draft-only lane (`shadow_writes_authorised`) -- only while the phase
+          re-resolved here is a non-publishing one, so the owner's shadow probe keeps working
+          and a publishing-phase write can never ride it.
+
+        The constructor's `phase` string and `owner_authorised` flag authorise nothing here.
+        """
+        if grant is not None:
+            # A write to a listing that already exists (image, delete) may also ride the
+            # owner's activation grant for exactly that listing; a publication grant covers
+            # draft creation (ops.publication_authority).
+            if not listing_id:
+                action = OwnerGrant.PUBLISH
+            elif isinstance(grant, OwnerGrant) and grant.action == OwnerGrant.ACTIVATE:
+                action = OwnerGrant.ACTIVATE
+            else:
+                action = OwnerGrant.PUBLISH_COMPLETE
+            reason = _grant_refusal(grant, action=action, listing_id=str(listing_id or ""))
+            if reason is not None:
+                raise EtsyNotPermitted(f"{operation} refused at the client: {reason}")
+            return
+        if self.shadow_writes_authorised:
+            live = self._effective_phase()
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return
+            raise EtsyNotPermitted(
+                f"{operation} refused at the client: the effective runtime phase is {live!r}; "
+                f"the draft-only shadow lane covers non-publishing phases only, and a write "
+                f"in a publishing phase needs the owner's verified grant (OwnerGrant)")
+        raise EtsyNotPermitted(
+            f"{operation} refused at the client: "
+            f"{_grant_refusal(None, action=OwnerGrant.PUBLISH)}. Draft-only writes without "
+            f"a grant need `shadow_writes_authorised` in a non-publishing phase.")
+
     # ---- requests --------------------------------------------------------
 
     def _call(self, method: str, path: str, *, operation: str,
@@ -725,6 +998,42 @@ class EtsyClient:
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
+    def set_listing_property(self, listing_id: str, prop: dict, *,
+                             grant: OwnerGrant | None = None) -> dict:
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListingProperty", grant, listing_id=str(listing_id))
+        property_id = int(prop["property_id"])
+        fields = {"value_ids": list(prop.get("value_ids") or []),
+                  "values": list(prop.get("values") or [])}
+        if prop.get("scale_id") is not None:
+            fields["scale_id"] = int(prop["scale_id"])
+        return self._call("PUT", f"/shops/{creds.shop_id}/listings/{listing_id}/properties/{property_id}",
+                          operation="updateListingProperty", form=form_fields(fields)).body
+
+    def get_listing_properties(self, listing_id: str) -> list[dict]:
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/properties",
+                          operation="getListingProperties", authority=Authority.READ).body
+        if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+            raise EtsyRejected("listing properties response is UNKNOWN")
+        return body["results"]
+
+    def get_listing_files(self, listing_id: str) -> list[dict[str, Any]]:
+        """The digital files Etsy holds for a listing, as Etsy reports them (F-559).
+
+        `getAllListingFiles`. This is the only authoritative answer to "which PDF will the
+        buyer download": `uploadListingFile` returning a file id says Etsy accepted one upload,
+        not that the listing now carries exactly the certified set and nothing stale beside
+        it. Etsy's ShopListingFile carries `filename` and `size_bytes`; it carries **no hash**,
+        so byte identity on Etsy's side is not observable through the API and
+        `etsy_verify.verify_files` says so rather than implying it.
+        """
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/files",
+                          operation="getAllListingFiles", authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
     def listing_exists(self, listing_id: str) -> tuple[bool, str]:
         """Whether Etsy still holds this listing, and what state it is in. Never raises a 404.
 
@@ -757,6 +1066,32 @@ class EtsyClient:
         body = self._call("GET", f"/shops/{creds.shop_id}/listings",
                           operation="getListingsByShop", authority=Authority.READ,
                           query={"state": state, "limit": limit}).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
+                          offset: int = 0,
+                          min_last_modified: int | None = None) -> list[dict[str, Any]]:
+        """The shop's receipts, newest first: the order source (C-64, #11, #12, #42).
+
+        `getShopReceipts` requires `transactions_r`; the token provider refuses the call
+        before the request when that scope was not granted, so an ungranted scope is a
+        refusal here rather than a 403 read back from Etsy. `commerce.orders_ingest` checks
+        the scope gate before it constructs this client at all.
+
+        `min_last_modified` (Etsy's own query parameter) returns receipts created *or
+        changed* after the instant, which is how a refund on an old receipt is seen;
+        `min_created` sees only new receipts.
+        """
+        creds = self._require(Authority.READ)
+        query: dict[str, Any] = {"limit": limit, "offset": offset}
+        if min_created is not None:
+            query["min_created"] = int(min_created)
+        if min_last_modified is not None:
+            query["min_last_modified"] = int(min_last_modified)
+        body = self._call("GET", f"/shops/{creds.shop_id}/receipts",
+                          operation="getShopReceipts", authority=Authority.READ,
+                          query=query).body
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
@@ -822,8 +1157,8 @@ class EtsyClient:
                                 taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
         """The listing properties this taxonomy node defines, and which of them are required.
 
-        If any is `is_required`, **every create against that node is refused** with a property
-        id in the message, and nothing in this client can set a listing property. That would
+        Required properties must be selected by the search certificate and sent separately
+        through set_listing_property before the draft can pass read-back. That would
         be a launch blocker discovered by a 400 on the first real product; asking Etsy first
         costs one read.
         """
@@ -835,7 +1170,7 @@ class EtsyClient:
 
     # ---- draft writes ----------------------------------------------------
 
-    def create_draft(self, payload: ListingPayload) -> str:
+    def create_draft(self, payload: ListingPayload, *, grant: OwnerGrant | None = None) -> str:
         """Create the listing as a draft. Draft, always: activation is a separate decision.
 
         Form-encoded, because `application/x-www-form-urlencoded` is the only media type
@@ -848,6 +1183,7 @@ class EtsyClient:
         a hope.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("createDraftListing", grant)
         fields = payload.to_dict()
         fields.pop("state", None)
         response = self._call("POST", f"/shops/{creds.shop_id}/listings",
@@ -860,7 +1196,8 @@ class EtsyClient:
 
     def upload_image(self, listing_id: str, *, filename: str, data: bytes,
                      rank: int = 1, alt_text: str = "",
-                     overwrite: bool = False) -> dict[str, Any]:
+                     overwrite: bool = False,
+                     grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Upload a listing image. The step whose absence made every draft unactivatable.
 
         Etsy: "Setting a `draft` listing to `active` will also publish the listing on
@@ -873,6 +1210,16 @@ class EtsyClient:
         old transport hard-coded `file` for every upload; an image sent that way is a request
         Etsy accepts the shape of and finds no image in.
         """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingImage", grant, listing_id=str(listing_id))
+        return self._upload_image(listing_id, filename=filename, data=data, rank=rank,
+                                  alt_text=alt_text, overwrite=overwrite)
+
+    def _upload_image(self, listing_id: str, *, filename: str, data: bytes, rank: int = 1,
+                      alt_text: str = "", overwrite: bool = False) -> dict[str, Any]:
+        """The upload itself. Reached only through `upload_image` (boundary-checked) or from
+        inside `publish`, whose grant was verified immediately before the draft it uploads to
+        was created -- the publication grant covers that one draft and nothing after it."""
         creds = self._require(Authority.DRAFT_WRITE)
         if not data:
             raise EtsyRejected(
@@ -907,7 +1254,8 @@ class EtsyClient:
                                f"listing_image_id: {response.body}")
         return response.body
 
-    def attach_file(self, listing_id: str, *, filename: str, data: bytes) -> bool:
+    def attach_file(self, listing_id: str, *, filename: str, data: bytes,
+                    grant: OwnerGrant | None = None) -> bool:
         """Attach the pattern file to a draft listing.
 
         The digital file is what the customer buys. A listing without one is a product that
@@ -921,6 +1269,16 @@ class EtsyClient:
         the owner's storage decision.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingFile", grant, listing_id=str(listing_id))
+        return self._attach_file(listing_id, filename=filename, data=data)
+
+    def _attach_file(self, listing_id: str, *, filename: str, data: bytes) -> bool:
+        """The upload itself: through `attach_file` (boundary-checked) or inside `publish`,
+        under the grant verified immediately before the draft was created."""
+        creds = self._require(Authority.DRAFT_WRITE)
+        refused = digital_file_refusals(filename, len(data))
+        if refused:
+            raise EtsyRejected("; ".join(refused))
         if not data:
             raise EtsyRejected(
                 f"no bytes to upload for {filename}: the pattern file is not available to "
@@ -933,7 +1291,8 @@ class EtsyClient:
                                content_type="application/pdf"))
         return bool(response.body.get("listing_file_id"))
 
-    def update_listing(self, listing_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+    def update_listing(self, listing_id: str, fields: dict[str, Any], *,
+                       grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Change permitted fields on a listing. PATCH, form-encoded, never activation.
 
         `state` is refused here even though Etsy's update schema accepts it, because
@@ -941,6 +1300,7 @@ class EtsyClient:
         That request has one door, `activate`, and it is locked.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListing", grant, listing_id=str(listing_id))
         if not fields:
             raise EtsyRejected("update_listing was called with no fields. A PATCH that "
                                "changes nothing is a request that can only fail or mislead.")
@@ -962,7 +1322,8 @@ class EtsyClient:
         return response.body
 
     def delete_listing(self, listing_id: str, *,
-                       expect_states: tuple[str, ...] = ("draft", "inactive")) -> bool:
+                       expect_states: tuple[str, ...] = ("draft", "inactive"),
+                       grant: OwnerGrant | None = None) -> bool:
         """Delete a listing, after reading it back and refusing if it is not what we expect.
 
         The read first is the point. `deleteListing` takes an id and deletes whatever that id
@@ -971,6 +1332,7 @@ class EtsyClient:
         deletes. A wrong id then costs a refusal instead of a product.
         """
         self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("deleteListing", grant, listing_id=str(listing_id))
         current = self.get_listing(listing_id, includes=())
         state = str(current.get("state", "")).lower()
         if state not in expect_states:
@@ -984,7 +1346,8 @@ class EtsyClient:
 
     # ---- activation: the one that costs money ----------------------------
 
-    def activate(self, listing_id: str, *, launch_authorisation: str = "") -> dict[str, Any]:
+    def activate(self, listing_id: str, *, launch_authorisation: str = "",
+                 grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Publish a listing on etsy.com. Implemented, gated, and never yet called.
 
         This is the only method in this system that spends money and the only one whose
@@ -1008,6 +1371,11 @@ class EtsyClient:
                 f"puts a product in front of customers and Etsy charges its listing fee "
                 f"(US${LISTING_FEE_USD:.2f}) at publication, so this is a spend decision, and "
                 f"a spend decision is the owner's.")
+        # rc1-AUTH D3: the client requires the owner's validated grant itself, so no caller
+        # can reach updateListing(state=active) on the strength of a string.
+        if not isinstance(grant, OwnerGrant):
+            raise EtsyNotPermitted(_grant_refusal(grant, action=OwnerGrant.ACTIVATE,
+                                                  listing_id=str(listing_id)))
         current = self.get_listing(listing_id)
         images = current.get("images") or []
         if not images:
@@ -1025,6 +1393,10 @@ class EtsyClient:
                 f"listing {listing_id} is a digital listing with no file attached: 'Digital "
                 f"listings that are not made to order must have a file upload associated "
                 f"with it to be activated.'")
+        # Re-resolved immediately before the one request that spends money and goes public.
+        refused = _grant_refusal(grant, action=OwnerGrant.ACTIVATE, listing_id=str(listing_id))
+        if refused is not None:
+            raise EtsyNotPermitted(f"activation refused at the client: {refused}")
         response = self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
                               operation="updateListing", authority=Authority.ACTIVATE,
                               form={"state": "active"})
@@ -1033,7 +1405,9 @@ class EtsyClient:
     # ---- the publish path, unchanged in what it permits -------------------
 
     def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
-                images: list[tuple[str, bytes]] | None = None) -> PublishOutcome:
+                images: list[tuple] | None = None,
+                on_created=None, before_create=None,
+                grant: OwnerGrant | None = None) -> PublishOutcome:
         """Create the draft, attach the file and upload the images, reporting each honestly.
 
         Still creates a draft and still stops there: activation is gated. What has changed is
@@ -1050,10 +1424,32 @@ class EtsyClient:
         reason = self.refusal()
         if reason is not None:
             return PublishOutcome(published=False, problems=[reason])
+        # rc1-AUTH D3: the owner's sealed publication grant, required by the client itself.
+        # No grant object at all is refused before anything else (nothing sent) ...
+        if not isinstance(grant, OwnerGrant):
+            return PublishOutcome(published=False, problems=[
+                _grant_refusal(grant, action=OwnerGrant.PUBLISH)])
 
-        listing_id = self.create_draft(payload)
+        # W3-I: Etsy's published file and image rules, checked before the create so that a
+        # file or image Etsy would refuse cannot leave an orphan draft behind on Etsy.
+        preflight = publish_preflight(filename, data, images)
+        if preflight:
+            return PublishOutcome(published=False, problems=preflight)
+
+        if before_create is not None:
+            before_create()  # failure aborts before any create request
+        # ... and the grant is re-verified from the database (sealed grant, effective phase)
+        # immediately before the create request, after the caller's own revalidation hook.
+        reason = _grant_refusal(grant, action=OwnerGrant.PUBLISH)
+        if reason is not None:
+            raise EtsyNotPermitted(f"publication refused at the client: {reason}")
+        listing_id = self.create_draft(payload, grant=grant)
+        # A runtime caller checkpoints the irreversible remote ID before any upload.
+        # Callback failure must abort; swallowing it would reopen the duplicate-create gap.
+        if on_created is not None:
+            on_created(listing_id)
         try:
-            uploaded = self.attach_file(listing_id, filename=filename, data=data)
+            uploaded = self._attach_file(listing_id, filename=filename, data=data)
         except (TransientError, EtsyRejected) as e:
             return PublishOutcome(published=False, listing_id=listing_id,
                                   file_uploaded=False,
@@ -1062,10 +1458,15 @@ class EtsyClient:
 
         problems = [] if uploaded else [f"listing {listing_id} exists with no file attached"]
         images_uploaded = 0
-        for rank, (image_name, image_bytes) in enumerate(images or [], start=1):
+        for rank, entry in enumerate(images or [], start=1):
+            # (name, bytes), (name, bytes, alt_text), or a certified 2-tuple carrying
+            # `.alt_text` (runtime.etsy_ops.CertifiedImage): a disclosed render (D-FB-7)
+            # carries its disclosure in its alt text, so the alt text travels with the bytes.
+            image_name, image_bytes = entry[0], entry[1]
+            image_alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
             try:
-                self.upload_image(listing_id, filename=image_name, data=image_bytes,
-                                  rank=rank)
+                self._upload_image(listing_id, filename=image_name, data=image_bytes,
+                                   rank=rank, alt_text=image_alt)
                 images_uploaded += 1
             except (TransientError, EtsyRejected) as e:
                 problems.append(f"image {rank} ({image_name}) was not uploaded: {e}")

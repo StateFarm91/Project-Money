@@ -11,6 +11,7 @@ about the queue being unable to overstate itself.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -61,7 +62,8 @@ def _open_tester_roster(db) -> None:
     from brambleloop.core.models import CreatorProfile
 
     with db.session() as s:
-        s.add(CreatorProfile(ref="a-tester"))
+        # A tester who agreed: since C-38 a bare prospect on file does not open the gate.
+        s.add(CreatorProfile(ref="a-tester", delivered=1))
 
 
 def _open_physical_proof(db) -> None:
@@ -131,7 +133,10 @@ def test_every_executable_requirement_is_either_ready_or_parked():
     # Nothing the owner has to unblock may appear as work this build can pick up.
     assert balance["owner_gated_but_ready"] == []
     # And the gap between the two numbers is exactly the half-built-but-gated set.
-    assert balance["ready"] + len(balance["executable_parked"]) == balance["executable"]
+    # Blocked (waiting on an unfinished dependency) is the third honest place; it was always
+    # empty until the Build 2 certification reopened rows other rows depend on (#26 on #25).
+    assert (balance["ready"] + len(balance["executable_parked"]) + balance["blocked"]
+            == balance["executable"])
     assert balance["executable_parked"], "nothing is half-built and gated; this proves little"
 
 
@@ -242,8 +247,10 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # the queue exactly the requirements that are parked and not one more.
     reconciled = E.reconciliation(db)
     assert reconciled["balances"] is True, reconciled
+    # Blocked on an unfinished dependency is the third accounted place (see the invariant
+    # test above); it was empty until the certification reopened rows others depend on.
     assert reconciled["ready"] == reconciled["executable"] - len(
-        reconciled["executable_parked"]), reconciled
+        reconciled["executable_parked"]) - reconciled["blocked"], reconciled
     # Zero ready is a legitimate state and a stalled queue is not, and the difference is
     # whether the zero is accounted for. "ready > 0" stood here until the day it stopped
     # being true, which is the failure mode the comment above already names and this file
@@ -251,12 +258,33 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # every size is that every executable requirement is either ready or parked on a named
     # gate, so a queue at zero can say which of the two it is.
     if reconciled["ready"] == 0:
-        assert len(reconciled["executable_parked"]) == reconciled["executable"], \
+        assert (len(reconciled["executable_parked"]) + reconciled["blocked"]
+                == reconciled["executable"]), \
             "the queue is empty and the parked set does not account for it"
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
     assert "rendered_pages" in q["parked_by_capability"]
-    assert len(q["parked_by_capability"]["rendered_pages"]) >= 10
+    # C-38 (2026-09-27) split what rendered_pages used to hold across the gates each
+    # requirement actually waits on; the same work must still all be reported as parked.
+    # C-40 then completed #2 and #15 through the API search index, so they left the browser
+    # gate as finished work rather than moving to another park. Asserted by membership, not a
+    # count, so a row silently moving between gates is caught too.
+    pbc = q["parked_by_capability"]
+    # #39's policy pages are the hand-written table's one rendered_pages requirement; the
+    # registry may park others there (C-60 reopened #35 onto it). Both halves must be
+    # reported, and nothing else may be: a row here that neither half parked is a row the
+    # executor invented a reason for.
+    registry_rendered = {rid for rid, key in E._registry_gates().items()
+                         if key == "rendered_pages"}
+    assert set(pbc["rendered_pages"]) == {39} | registry_rendered, pbc["rendered_pages"]
+    assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
+    assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
+    parked_anywhere = {r for rows in pbc.values() for r in rows}
+    assert 2 not in parked_anywhere, "#2 is done, not parked"
+    # #15 scores five of its six dimensions from the API index on cadence (C-40, C-71); the
+    # sixth, thumbnail COMPOSITION, is a judgement of an image and waits on image_vision by
+    # name -- that park, and no other, is allowed for it.
+    assert {k for k, rows in pbc.items() if 15 in rows} <= {"image_vision"}, pbc
     assert "reported together" in q["note"]
 
     # The next thing to do is named when there is one, and it is never a parked one. There
@@ -270,8 +298,48 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
         assert nxt is None, "nothing is ready and the queue named something anyway"
 
 
+def _parked_on_image_generation():
+    """A context in which one otherwise-ready requirement is parked on `image_generation`.
+
+    C-60 re-classified every live row that sat on this gate (#203 onto the external
+    `model_bearing_render`, #300 onto the chain link that actually stops it), so no registry
+    requirement waits on image generation today. The un-park mechanism is still what these
+    tests prove, so the parking is supplied through the same `_registry_gates` hook the
+    registry uses -- a real requirement id, a real gate, a real opening -- rather than by
+    depending on whatever the live registry happens to park there this week.
+    """
+    import contextlib
+
+    @contextlib.contextmanager
+    def ctx():
+        probe = _synced()
+        q = E.queue(probe, limit=400)
+        # A ready row if the build still has one; otherwise (the queue at zero, which is the
+        # build working) a parked partial row, re-parked here on image_generation so that the
+        # gate's opening is what makes it ready. Either way the id, the gate and the opening
+        # are real.
+        parked_ids = [rid for rows in q["parked_by_capability"].values() for rid in rows]
+        candidates = ([r["requirement_id"] for r in q["ready"]]
+                      + [rid for rid in parked_ids if reg.get(rid).status == reg.PARTIAL])
+        assert candidates, "no partial requirement to park, so this proves nothing"
+        rid = candidates[0]
+        real = E._registry_gates
+        E._registry_gates = lambda: {**{k: v for k, v in real().items() if k != rid},
+                                     rid: "image_generation"}
+        try:
+            yield rid
+        finally:
+            E._registry_gates = real
+    return ctx()
+
+
 def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
     """The whole reason parking is a checkable condition rather than a note."""
+    with _parked_on_image_generation():
+        _gate_opening_un_parks()
+
+
+def _gate_opening_un_parks():
     db = _synced()
     before = E.queue(db)
 
@@ -359,9 +427,23 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
         assert E.GATE_BY_KEY[key].requirement_ids == (), key
         assert key not in E.queue(db)["parked_by_capability"]
 
+    # Since 2026-09-27 (C-38) Marketplace Insights waits on owner-recorded readings rather
+    # than on a browser: `insights_access`, which counts InsightsSnapshot rows.
     for requirement_id in (1, 37, 236):
-        assert E.gate_for(requirement_id) == "rendered_pages", requirement_id
-    assert reg.get(235).status == reg.DATA_GATED
+        assert E.gate_for(requirement_id) == "insights_access", requirement_id
+    # The fourth, #235, may only ever wait on orders. C-60 (2026-09-27) reopened it as
+    # executable work -- `promotion.incrementality` had no caller -- so today it is parked
+    # nowhere; the day it is parked again, the park must be the data gate `customers` and the
+    # status must say so. Either way it never waits on a credential or a browser.
+    gate_235 = E.gate_for(235)
+    if gate_235 is None:
+        assert reg.get(235).status == reg.PARTIAL, reg.get(235).status
+    else:
+        assert gate_235 == "customers", gate_235
+        # A park is written as `partial` + explicit `parked_on` (C-74: the registry forbids
+        # parked_on on a data_gated row, and only an explicit park parks a partial one).
+        assert reg.get(235).status == reg.PARTIAL and reg.get(235).parked_on == "customers", \
+            (reg.get(235).status, reg.get(235).parked_on)
 
     assert E.reconciliation(db)["balances"] is True
 
@@ -468,13 +550,36 @@ def test_a_released_requirement_is_not_a_finished_one():
 
 
 def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not():
-    """They need opposite responses and look identical from outside."""
+    """They need opposite responses and look identical from outside.
+
+    Refined 2026-09-26: ready work that nobody has *claimed* is not a stall. The deployed
+    worker never writes code, so "nothing completed in six hours" with no claim measures how
+    often a session was opened. That is `awaiting_build_session`, names the top ready
+    requirement, and does not alarm. A claim with no completion is the stall.
+    """
     db = _synced_with_ready_work()
+    awaiting = E.watchdog(db)
+    assert awaiting["verdict"] == E.AWAITING_BUILD_SESSION
+    assert awaiting["alarm"] is False
+    assert awaiting["next"] is not None
+    assert f"#{awaiting['next']['requirement_id']}" in awaiting["note"]
+
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
     stalled = E.watchdog(db)
-    assert stalled["verdict"] == "stalled"
+    assert stalled["verdict"] == E.STALLED
     assert stalled["alarm"] is True
-    assert stalled["next"] is not None
-    assert "look identical from outside" in stalled["note"]
+    assert stalled["claims_in_window"] == 1
+    assert {"requirement_id": target, "claimed_by": "session-1"} in stalled["in_progress"]
+    assert "took the task and stopped" in stalled["note"]
+
+    # A claim older than the window is still a stall while the task is held.
+    later = datetime.now(timezone.utc) + timedelta(hours=E.IDLE_ALARM_HOURS + 1)
+    assert E.watchdog(db, now=later)["verdict"] == E.STALLED
+    E.release(db, target, worker="session-1", why="test")
+    assert E.watchdog(db, now=later)["verdict"] == E.AWAITING_BUILD_SESSION
+
+    db = _synced_with_ready_work()
 
     # Park everything, and the same silence becomes correct rather than alarming.
     from sqlalchemy import select
@@ -550,7 +655,10 @@ def test_never_idle_is_measured_in_completions_rather_than_ticks():
     for _ in range(5):
         E.sync(db, env={})
     assert E.watchdog(db)["completions_in_window"] == 0
-    assert E.watchdog(db)["verdict"] == "stalled"
+    # Five syncs are not progress: the loop is not "moving". Nobody claimed anything, so it
+    # is waiting for a build session rather than stalled.
+    assert E.watchdog(db)["moving"] is False
+    assert E.watchdog(db)["verdict"] == E.AWAITING_BUILD_SESSION
 
 
 # ---- the off-device proof (#195) -------------------------------------------
@@ -713,7 +821,18 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     opened = ticked[-1].detail
     assert opened["ready"] > 0, "the gate released no work, so this proves nothing"
     assert opened["next"] is not None
-    assert opened["verdict"] == "stalled"
+    # Ready and unclaimed: waiting for a build session, which is an operator note naming the
+    # top ready requirement, not a P2 about how often somebody opens a session.
+    assert opened["verdict"] == E.AWAITING_BUILD_SESSION
+    assert f"#{opened['next']}" in (opened["operator_note"] or "")
+    assert not stalls, [i.summary[:80] for i in stalls]
+
+    # A claim that makes no progress is the stall, and two ticks are still one row.
+    E.claim(db, opened["next"], worker="session-9")
+    tick("build-4")
+    tick("build-5")
+    dead, ticked, stalls = state()
+    assert ticked[-1].detail["verdict"] == E.STALLED
     # Two ticks, one incident: a loop that raises a fresh row every hour is a loop nobody
     # reads.
     #
@@ -724,7 +843,22 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     # change that was the system working. The property was never about the increment -- it
     # is that however many ticks pass, one stall is one row.
     assert len(stalls) == 1, [i.summary[:80] for i in stalls]
-    assert "look identical from outside" in stalls[-1].summary
+    assert "took the task and stopped" in stalls[-1].summary
+    assert stalls[-1].resolved is False
+    assert stalls[-1].report_count >= 2 and stalls[-1].detail.get("last_seen")
+
+    # Released: nothing is claimed, so the stall closes itself and says why.
+    E.release(db, opened["next"], worker="session-9", why="test")
+    with db.session() as s:
+        from brambleloop.core.models import BuildEvent
+        for e in s.scalars(select(BuildEvent).where(BuildEvent.kind == "claim")):
+            e.at = e.at - timedelta(hours=E.IDLE_ALARM_HOURS + 1)
+    tick("build-6")
+    dead, ticked, stalls = state()
+    assert len(stalls) == 1 and stalls[0].resolved is True
+    assert "waiting for a build session" in stalls[0].detail["resolution"]
+    assert stalls[0].detail["resolved_at"]
+    assert ticked[-1].detail["stall_resolved"] == ["build.stalled"]
 
 
 # ---- the registry may park its own remainder ------------------------------
@@ -778,6 +912,11 @@ def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_on
     do it -- the whole reason gates are checked rather than recorded. The registry half must
     behave identically to the table half or it is a quiet way of dropping work.
     """
+    with _parked_on_image_generation():
+        _registry_gate_un_parks()
+
+
+def _registry_gate_un_parks():
     gated = [rid for rid, key in E._registry_gates().items()
              if key == "image_generation"]
     assert gated, "no registry requirement waits on image generation"
@@ -823,9 +962,16 @@ def test_a_remainder_that_needs_orders_has_somewhere_to_wait():
     assert gate.open(shut, {}) is True
 
     E.sync(shut, env={})
-    ready = {r["requirement_id"] for r in E.queue(shut, limit=400)["ready"]}
+    q = E.queue(shut, limit=400)
+    ready = {r["requirement_id"] for r in q["ready"]}
+    blocked = {r["requirement_id"] for r in q["blocked"]}
+    after = q["parked_by_capability"].get("customers", [])
     for rid in parked["customers"]:
-        assert rid in ready, f"{rid} did not come back when the first sale landed"
+        # The sale releases the customers park. A row that also depends on unfinished work
+        # (#26 on #25 since the certification reopened #25) moves to blocked, which is where
+        # it belongs -- it must never stay parked on customers once customers exist.
+        assert rid not in after, f"{rid} is still parked on customers after the first sale"
+        assert rid in ready or rid in blocked, f"{rid} did not come back when the first sale landed"
 
 
 def test_a_remainder_that_needs_a_published_listing_has_somewhere_to_wait():
@@ -1003,6 +1149,244 @@ def test_the_reconciliation_is_actually_called_by_the_report():
     assert "reconciliation" in report
     assert report["reconciliation"]["balances"] is True
 
+
+def test_the_model_bearing_render_gate_opens_only_on_a_frame_that_cleared_every_floor():
+    """#72, #130 and #202 wait on a model-bearing frame that passes all six floors.
+
+    The gate reads `assets.model_photography` records. A frame that failed photographic
+    realism, one with an `unverifiable` floor, one written with fewer floors than the current
+    six, and a product-first `assets.owned_photography` frame must all leave it closed.
+    """
+    from brambleloop.build2 import closure
+    from brambleloop.core.models import AuditLog
+    from brambleloop.publish import model_photography, owned_photography
+
+    gate = E.GATE_BY_KEY["model_bearing_render"]
+    assert closure.kind_of("model_bearing_render"), "the gate is not classified by closure"
+    assert "model_bearing_render" in closure.EXTERNAL_GATES
+
+    db = _db()
+    assert gate.open(db) is False
+
+    passing = {name: "pass" for name in model_photography.FLOORS}
+    near_misses = [
+        {**passing, "photographic_realism": "fail"},
+        {**passing, "product_truth": "unverifiable"},
+        {k: v for k, v in passing.items() if k != "styling"},
+    ]
+    with db.session() as s:
+        for floors in near_misses:
+            s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+                "made": True, "carries_model": True, "floors": floors,
+                "usable_as_listing_asset": all(v == "pass" for v in floors.values())}))
+        # A product-first frame that passed its own floors proves nothing about her.
+        s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
+            "made": True, "carries_model": False, "floors": passing,
+            "usable_as_listing_asset": True}))
+        # And a record that says usable without carrying the model is not one.
+        s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+            "made": True, "carries_model": False, "floors": passing,
+            "usable_as_listing_asset": True}))
+    assert gate.open(db) is False
+
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+            "made": True, "carries_model": True, "floors": passing,
+            "usable_as_listing_asset": True}))
+    assert gate.open(db) is True
+
+
+def test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row():
+    """`scheduler_alive` read every audit row in the window, so a burst of hand-driven work
+    -- or the health sweep writing about itself -- could stand in for a scheduler that had
+    stopped. It counts hours in which a cadence was enqueued."""
+    from brambleloop.build2 import autonomy
+    from brambleloop.core.models import AuditLog, Job, JobStatus
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for h in range(20):
+            s.add(AuditLog(actor="orchestrator", action="ops.health",
+                           at=now - timedelta(hours=h)))
+    proof = autonomy.off_device_proof(db, now=now)
+    assert proof["conditions"]["scheduler_alive"]["have"] == 0
+    assert proof["conditions"]["scheduler_alive"]["met"] is False
+
+    with db.session() as s:
+        for h in range(14):
+            s.add(Job(agent="orchestrator", job_type="ops.heartbeat", status=JobStatus.DONE,
+                      idempotency_key=f"cadence:infra_heartbeat:{h}",
+                      created_at=now - timedelta(hours=h, minutes=5),
+                      finished_at=now - timedelta(hours=h)))
+        # Hand-enqueued work in the same hours does not count as the scheduler.
+        for h in range(20, 23):
+            s.add(Job(agent="orchestrator", job_type="build.tick", status=JobStatus.DONE,
+                      idempotency_key=f"manual:{h}", created_at=now - timedelta(hours=h),
+                      finished_at=now - timedelta(hours=h)))
+    alive = autonomy.off_device_proof(db, now=now)["conditions"]["scheduler_alive"]
+    assert alive["have"] == 14, alive
+    assert alive["met"] is True
+
+
+
+# ---- certification repairs C-16 and C-38 (2026-09-27) -----------------------------------
+
+
+def _held_state(db, rid):
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildTask
+
+    with db.session() as s:
+        t = s.scalar(select(BuildTask).where(BuildTask.requirement_id == rid))
+        return t.state, t.claimed_by
+
+
+def _refusals(db):
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildEvent
+
+    with db.session() as s:
+        return [e.summary for e in s.scalars(select(BuildEvent).where(
+            BuildEvent.kind == "refused"))]
+
+
+def test_only_the_claimant_of_an_in_progress_task_completes_or_releases_it():
+    """C-16: completing a parked/unclaimed task, or another worker's, is refused and
+    audited."""
+    db = _synced_with_ready_work()
+    snap = E.queue(db, limit=400)
+    parked = [rid for ids in snap["parked_by_capability"].values() for rid in ids]
+    assert parked, "nothing parked; this proves nothing"
+    for call in (lambda: E.complete(db, parked[0], worker="w", evidence={"x": "y"}),
+                 lambda: E.release(db, parked[0], worker="w", why="w")):
+        try:
+            call()
+        except E.ExecutorRefused as e:
+            assert "claim it first" in str(e)
+        else:
+            raise AssertionError("a parked requirement was finished without a claim")
+    assert _held_state(db, parked[0])[0] == E.PARKED
+
+    target = E.next_ready(db)["requirement_id"]
+    try:
+        E.complete(db, target, worker="A", evidence={"x": "y"})
+    except E.ExecutorRefused:
+        pass
+    else:
+        raise AssertionError("a READY, unclaimed requirement was completed")
+    E.claim(db, target, worker="A")
+    for call in (lambda: E.complete(db, target, worker="B", evidence={"x": "y"}),
+                 lambda: E.release(db, target, worker="B", why="not mine")):
+        try:
+            call()
+        except E.ExecutorRefused as e:
+            assert "claimed by 'A'" in str(e)
+        else:
+            raise AssertionError("B finished a requirement A holds")
+    assert _held_state(db, target) == (E.IN_PROGRESS, "A")
+    assert len(_refusals(db)) == 5
+    assert E.complete(db, target, worker="A", evidence={"suite": "ok"})["state"] == E.DONE
+
+
+def test_an_honest_release_does_not_leave_the_watchdog_alarming():
+    """C-16: the watchdog counted claim *events*, so claim -> release read as a stall."""
+    db = _synced_with_ready_work()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="A")
+    assert E.watchdog(db)["verdict"] == E.STALLED
+    E.release(db, target, worker="A", why="out of time; nothing half-done")
+    h = E.watchdog(db)
+    assert h["alarm"] is False and h["verdict"] == E.AWAITING_BUILD_SESSION, h
+
+
+def test_owned_surfaces_opens_on_a_recorded_probe_not_on_a_variable():
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    gate = E.GATE_BY_KEY["owned_surfaces"]
+    env = {"BRAMBLELOOP_SITE_URL": "https://example.test", "PINTEREST_ACCESS_TOKEN": "t"}
+    assert gate.open(db, env) is False, "a variable alone opened owned_surfaces"
+    with db.session() as s:
+        s.add(AuditLog(actor="t", action="owned_surface.probe", detail={"ok": False}))
+    assert gate.open(db, env) is False
+    with db.session() as s:
+        s.add(AuditLog(actor="t", action="owned_surface.probe", detail={"ok": True}))
+    assert gate.open(db, {}) is True
+
+
+def test_customers_counts_evidenced_revenue_not_expenses():
+    from brambleloop.core.models import LedgerEntry
+
+    db = _db()
+    gate = E.GATE_BY_KEY["customers"]
+    with db.session() as s:
+        s.add(LedgerEntry(category="hosting", expense_cad=5.0, evidence_ref="inv-1"))
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, evidence_ref=""))
+    assert gate.open(db) is False, "an expense or an unevidenced sale opened customers"
+    with db.session() as s:
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, evidence_ref="etsy-receipt-1"))
+    assert gate.open(db) is True
+
+
+def test_tester_roster_counts_agreement_not_prospects():
+    from brambleloop.core.models import CreatorProfile
+
+    db = _db()
+    gate = E.GATE_BY_KEY["tester_roster"]
+    with db.session() as s:
+        s.add(CreatorProfile(ref="prospect", invited=1))
+    assert gate.open(db) is False, "a prospect opened tester_roster"
+    with db.session() as s:
+        s.add(CreatorProfile(ref="agreed", permissions=["test_pattern"]))
+    assert gate.open(db) is True
+    db = _db()
+    with db.session() as s:
+        s.add(CreatorProfile(ref="delivered", delivered=1))
+    assert gate.open(db) is True
+
+
+def test_insights_access_opens_only_on_a_recorded_reading():
+    from datetime import datetime as _dt
+
+    db = _db()
+    gate = E.GATE_BY_KEY["insights_access"]
+    assert gate.requirement_ids == (1, 37, 236)
+    assert gate.open(db) is False
+    from brambleloop.core.models import InsightsSnapshot
+
+    with db.session() as s:
+        s.add(InsightsSnapshot(keyword="crochet cardigan", search_count=1200,
+                               observed_on=_dt.now(timezone.utc)))
+    assert gate.open(db) is True
+
+
+def test_acceptance_ruling_opens_only_on_the_owners_done_decision():
+    from brambleloop.core.models import OwnerAction
+
+    db = _db()
+    gate = E.GATE_BY_KEY["acceptance_ruling"]
+    assert gate.requirement_ids == (189, 221, 222, 320)
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="decision.api_vision_equivalence",
+                          action="rule on API+vision equivalence", done=False))
+        s.add(OwnerAction(requirement_key="something.else", action="x", done=True))
+    assert gate.open(db) is False
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="decision.api_vision_equivalence",
+                          action="ruled", done=True))
+    assert gate.open(db) is True
+
+
+def test_rendered_pages_carries_only_what_waits_on_a_browser():
+    held = set(E.GATE_BY_KEY["rendered_pages"].requirement_ids)
+    assert 39 in held
+    moved = {1, 37, 236, 189, 221, 222, 320, 277, 281, 67, 71, 76, 86, 126, 218, 315}
+    assert not held & moved, held & moved
+    assert {277, 281} <= set(E.GATE_BY_KEY["model_provider"].requirement_ids)
+    E._validate_gates()
 
 if __name__ == "__main__":
     fails = 0

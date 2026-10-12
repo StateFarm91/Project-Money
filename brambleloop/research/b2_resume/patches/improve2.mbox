@@ -1,0 +1,2138 @@
+From effbd5a4fc4514cd9d7aa263a5fc4dc48b1fe89e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:14:20 +0000
+Subject: [PATCH 1/5] C-81 (Codex M01): rollback is decided durably on the
+ PROMOTED row, executed idempotently, verified, and only then REVERTED
+
+cells.mark_rollback_pending / note_rollback_attempt / revert(verified=...) make REVERTED the
+completion of a rollback rather than its start. runner.monitor_trials resumes a pending
+rollback on every pass instead of re-judging it; VERIFIERS read the active job-priority policy
+(registry incumbent and swarm.orchestrate.priority_policy) or the dropped floor before the row
+may say reverted. The rollback incident opens while pending and resolves only on verification.
+enforce.drop_floor is idempotent. Proven by a handler-level test that kills the process before
+the executor and again between executor and verification, then restarts.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/improve/cells.py  | 102 ++++++++++++++--
+ .../src/brambleloop/improve/monitor.py        |  32 ++++-
+ brambleloop/src/brambleloop/improve/replay.py |  34 ++++++
+ brambleloop/src/brambleloop/improve/runner.py |  84 +++++++++++--
+ .../src/brambleloop/runtime/release.py        |   4 +
+ .../src/brambleloop/teardown/enforce.py       |  22 +++-
+ brambleloop/tests/test_cert_improve_wave.py   | 112 ++++++++++++++++++
+ 7 files changed, 369 insertions(+), 21 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/improve/cells.py b/brambleloop/src/brambleloop/improve/cells.py
+index 508b6d7..6f4a301 100644
+--- a/brambleloop/src/brambleloop/improve/cells.py
++++ b/brambleloop/src/brambleloop/improve/cells.py
+@@ -592,30 +592,116 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
+     return outcome
+ 
+ 
+-def revert(db, improvement_id: int, *, because: str, observed: float | None = None) -> dict:
+-    """Revert a promoted trial improvement whose trial, re-run on fresh data, reads worse.
++# The durable record of a rollback that has been decided and not yet shown to have taken
++# effect (C-81). It lives on the PROMOTED row -- the state the next scan selects -- so a
++# process killed between deciding and executing resumes the rollback rather than losing it.
++ROLLBACK_PENDING = "rollback_pending"
++
++
++def mark_rollback_pending(db, improvement_id: int, *, because: str,
++                          observed: float | None = None) -> dict:
++    """Record that a promoted trial improvement must be rolled back, before anything is undone.
++
++    The row stays PROMOTED: REVERTED is the *completion* of a rollback, written by `revert`
++    only once the executor has run and the active configuration or floor has been verified
++    restored. Writing REVERTED first and executing second (the original order) meant a crash
++    between the two left a reverted row nobody would scan again and a regression still live.
++    Idempotent: a rollback already pending keeps its first decision and its attempt count.
++    """
++    from ..core.models import Improvement
++
++    with db.session() as s:
++        row = s.get(Improvement, improvement_id)
++        if row is None:
++            raise ImprovementRefused(f"no improvement {improvement_id}")
++        if row.state != PROMOTED:
++            return {"improvement": improvement_id, "state": row.state, "action": "none"}
++        evidence = dict(row.evidence or {})
++        pending = dict(evidence.get(ROLLBACK_PENDING) or {})
++        if not pending:
++            pending = {"because": because[:400], "observed": observed,
++                       "decided_at": datetime.now(timezone.utc).isoformat(), "attempts": 0,
++                       "rollback_ref": row.rollback_ref}
++            row.evidence = {**evidence, ROLLBACK_PENDING: pending}
++        return {"improvement": improvement_id, "state": PROMOTED, "action": "rollback_pending",
++                "rollback_ref": row.rollback_ref, "observed": pending.get("observed"),
++                "expected": row.result_value, "baseline": row.baseline_value,
++                "below_baseline": True, "because": pending["because"],
++                "attempts": pending.get("attempts", 0)}
++
++
++def note_rollback_attempt(db, improvement_id: int, *, executor: str) -> int:
++    """Count a rollback attempt durably *before* the executor runs, so a crash mid-way is
++    visible as an attempt that never verified rather than as nothing having happened."""
++    from ..core.models import Improvement
++
++    with db.session() as s:
++        row = s.get(Improvement, improvement_id)
++        if row is None:
++            raise ImprovementRefused(f"no improvement {improvement_id}")
++        evidence = dict(row.evidence or {})
++        pending = dict(evidence.get(ROLLBACK_PENDING) or {})
++        if not pending:
++            raise ImprovementRefused(
++                f"improvement {improvement_id} has no pending rollback to attempt; decide it "
++                f"with `mark_rollback_pending` first")
++        pending["attempts"] = int(pending.get("attempts", 0)) + 1
++        pending["last_attempt"] = {"executor": executor,
++                                   "at": datetime.now(timezone.utc).isoformat()}
++        row.evidence = {**evidence, ROLLBACK_PENDING: pending}
++        return pending["attempts"]
++
++
++def rollback_pending(db, improvement_id: int) -> dict | None:
++    from ..core.models import Improvement
++
++    with db.session() as s:
++        row = s.get(Improvement, improvement_id)
++        if row is None or row.state != PROMOTED:
++            return None
++        pending = (row.evidence or {}).get(ROLLBACK_PENDING)
++        return dict(pending) if pending else None
++
++
++def revert(db, improvement_id: int, *, because: str, observed: float | None = None,
++           verified: dict | None = None) -> dict:
++    """Complete the rollback of a promoted trial improvement: REVERTED, with the proof.
+ 
+     `monitor` judges a promotion against a capability reading; a trial-metric promotion is
+-    judged by re-running its own trial on data that did not exist when it won, and that
+-    verdict lands here. Same effect: REVERTED, the rollback reference named, and never
+-    silently -- the caller opens the rollback incident.
++    judged by re-running its own trial on data that did not exist when it won. Either way
++    REVERTED is written here only *after* the rollback executor has run and its effect has
++    been verified (`verified`: what was checked and what it read) -- the active configuration
++    is the version it replaced, the floor is gone. A revert asked for without that proof is
++    refused: a row that says "reverted" while the regression is still running is the failure
++    C-81 named, and it is worse than an honest "rollback pending".
+     """
+     from ..core.models import Improvement
+ 
++    if not verified or not verified.get("verified"):
++        raise ImprovementRefused(
++            f"improvement {improvement_id} cannot be marked reverted without verified rollback "
++            f"evidence. Decide it with `mark_rollback_pending`, run the executor, verify the "
++            f"active configuration or floor, and pass that check as `verified`")
+     with db.session() as s:
+         row = s.get(Improvement, improvement_id)
+         if row is None:
+             raise ImprovementRefused(f"no improvement {improvement_id}")
+         if row.state != PROMOTED:
+             return {"improvement": improvement_id, "state": row.state, "action": "none"}
++        evidence = dict(row.evidence or {})
++        pending = dict(evidence.pop(ROLLBACK_PENDING, None) or {})
+         row.state = REVERTED
+         row.reverted_at = datetime.now(timezone.utc)
+-        row.evidence = {**(row.evidence or {}), "reverted_because": because[:400],
+-                        "rollback_ref": row.rollback_ref}
++        row.evidence = {**evidence, "reverted_because": because[:400],
++                        "rollback_ref": row.rollback_ref,
++                        "rollback": {"decided_at": pending.get("decided_at"),
++                                     "attempts": pending.get("attempts"),
++                                     "verified": dict(verified),
++                                     "completed_at": row.reverted_at.isoformat()}}
+         return {"improvement": improvement_id, "state": REVERTED, "action": "reverted",
+                 "rollback_ref": row.rollback_ref, "observed": observed,
+                 "expected": row.result_value, "baseline": row.baseline_value,
+-                "below_baseline": True}
++                "below_baseline": True, "verified": dict(verified)}
+ 
+ 
+ def retrospective(db, *, days: int = 7) -> dict:
+diff --git a/brambleloop/src/brambleloop/improve/monitor.py b/brambleloop/src/brambleloop/improve/monitor.py
+index cb7081a..1e2f2b7 100644
+--- a/brambleloop/src/brambleloop/improve/monitor.py
++++ b/brambleloop/src/brambleloop/improve/monitor.py
+@@ -62,6 +62,10 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
+                f"(observed {outcome.get('observed')} against {outcome.get('expected')} at "
+                f"promotion, baseline {outcome.get('baseline')}). Roll back via "
+                f"{outcome.get('rollback_ref')!r}")
++    # The row's state at the moment the incident is opened. A trial rollback is opened while
++    # the row is still PROMOTED and the rollback pending (C-81); the incident stays open until
++    # `_rollback_resolved` records the verified effect.
++    state = "pending" if outcome.get("action") == "rollback_pending" else "proposed"
+     with db.session() as s:
+         existing = s.scalar(select(Incident).where(Incident.signature == signature))
+         if existing is None:
+@@ -71,10 +75,13 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
+                                    "rollback_ref": outcome.get("rollback_ref"),
+                                    "observed": outcome.get("observed"),
+                                    "expected": outcome.get("expected"),
+-                                   "baseline": outcome.get("baseline")}))
++                                   "baseline": outcome.get("baseline"),
++                                   "rollback_state": state}))
+             opened = True
+         else:
+             opened = False
++            if existing.resolved is False and existing.detail.get("rollback_state") != state:
++                existing.detail = {**dict(existing.detail or {}), "rollback_state": state}
+     lesson = bus.publish(
+         db, origin_cell=cell, subject="defect",
+         statement=(f"A promoted change to {cell} regressed below what won its promotion and "
+@@ -85,6 +92,29 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
+             "rollback_ref": outcome.get("rollback_ref")}
+ 
+ 
++def _rollback_resolved(db, improvement_id: int, verified: dict) -> dict:
++    """Close the rollback incident once -- and only once -- the effect has been verified.
++
++    The incident is retained while the rollback is pending, however many passes that takes,
++    so an interrupted rollback is a visible open defect and not a row that quietly says
++    reverted. Resolution records what was checked and what it read.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import Incident
++
++    signature = f"{ROLLBACK_SIGNATURE}:{improvement_id}"
++    with db.session() as s:
++        existing = s.scalar(select(Incident).where(Incident.signature == signature))
++        if existing is None:
++            return {"incident": signature, "resolved": False, "why": "no incident on record"}
++        existing.detail = {**dict(existing.detail or {}), "rollback_state": "verified",
++                           "rollback_verified": dict(verified),
++                           "resolved_at": datetime.now(timezone.utc).isoformat()}
++        existing.resolved = True
++    return {"incident": signature, "resolved": True}
++
++
+ def last_seen(db) -> dict[str, int]:
+     """Which capability point each promotion was last judged against."""
+     from sqlalchemy import desc, select
+diff --git a/brambleloop/src/brambleloop/improve/replay.py b/brambleloop/src/brambleloop/improve/replay.py
+index 94214bd..891dc5d 100644
+--- a/brambleloop/src/brambleloop/improve/replay.py
++++ b/brambleloop/src/brambleloop/improve/replay.py
+@@ -515,6 +515,40 @@ def rollback(db, improvement_id: int, *, why: str) -> dict:
+     return out
+ 
+ 
++def rollback_verified(db, improvement_id: int) -> dict:
++    """Is the version this promotion replaced the *active* policy again? Read, not assumed.
++
++    Two readings have to agree before a rollback counts as done (C-81): the registry names
++    the replaced version as the incumbent and the promoted challenger as not, and
++    `swarm.orchestrate.priority_policy` -- what the next enqueue actually reads -- resolves
++    to that same version. A rollback that flipped a flag the runtime does not read has not
++    rolled anything back.
++    """
++    from ..core.models import ConfigVersion, Improvement
++    from ..swarm.orchestrate import clear_policy_cache, priority_policy
++
++    with db.session() as s:
++        row = s.get(Improvement, improvement_id)
++        change = dict((row.evidence or {}).get("change") or {}) if row is not None else {}
++        replaces = int(change.get("replaces") or 0)
++        promoted = int(change.get("config_id") or 0)
++        target = s.get(ConfigVersion, replaces) if replaces else None
++        challenger = s.get(ConfigVersion, promoted) if promoted else None
++        registry_ok = (target is not None and target.incumbent is True
++                       and (challenger is None or challenger.incumbent is False))
++    clear_policy_cache()
++    active = priority_policy(db)
++    active_ok = active.get("config_id") == replaces
++    verified = bool(replaces) and registry_ok and active_ok
++    return {"verified": verified, "check": "league_replay.rollback",
++            "registry_incumbent_is_replaced": registry_ok,
++            "active_config_id": active.get("config_id"), "expected_config_id": replaces,
++            "why": ("the replaced version is the registry incumbent and the policy the "
++                    "runtime reads" if verified else
++                    f"registry restored: {registry_ok}; active policy reads config "
++                    f"{active.get('config_id')} where {replaces} is expected")}
++
++
+ def state() -> dict:
+     kind, key = _policy_key()
+     return {"action": ACTION, "policy": f"{kind}/{key}", "author": AUTHOR,
+diff --git a/brambleloop/src/brambleloop/improve/runner.py b/brambleloop/src/brambleloop/improve/runner.py
+index 863f59a..0aea1a3 100644
+--- a/brambleloop/src/brambleloop/improve/runner.py
++++ b/brambleloop/src/brambleloop/improve/runner.py
+@@ -219,6 +219,15 @@ def _rollback_self_audit(db, iid: int, *, why: str) -> dict:
+     return enforce.drop_floor(db, int(change["finding"]), why=why)
+ 
+ 
++def _verify_self_audit(db, iid: int) -> dict:
++    from ..core.models import Improvement
++    from ..teardown import enforce
++
++    with db.session() as s:
++        change = dict((s.get(Improvement, iid).evidence or {}).get("change") or {})
++    return enforce.floor_absent(db, int(change["finding"]))
++
++
+ def _monitor_league_replay(db, iid: int) -> dict:
+     from . import replay
+ 
+@@ -231,12 +240,25 @@ def _rollback_league_replay(db, iid: int, *, why: str) -> dict:
+     return replay.rollback(db, iid, why=why)
+ 
+ 
++def _verify_league_replay(db, iid: int) -> dict:
++    from . import replay
++
++    return replay.rollback_verified(db, iid)
++
++
+ EXECUTORS: dict[str, Callable[..., dict]] = {
+     "league_replay": _execute_league_replay, "self_audit": _execute_self_audit}
+ MONITORS: dict[str, Callable[..., dict]] = {
+     "league_replay": _monitor_league_replay, "self_audit": _monitor_self_audit}
++# Rollback executors are idempotent: run twice, the second run finds the previous version
++# already the incumbent (or the floor already gone) and changes nothing. That is what lets a
++# rollback interrupted at any point be resumed by the next pass (C-81).
+ ROLLBACKS: dict[str, Callable[..., dict]] = {
+     "league_replay": _rollback_league_replay, "self_audit": _rollback_self_audit}
++# What each rollback must be shown to have done before the row may say REVERTED: the active
++# job-priority configuration is the version it replaced; the adopted floor is gone.
++VERIFIERS: dict[str, Callable[..., dict]] = {
++    "league_replay": _verify_league_replay, "self_audit": _verify_self_audit}
+ 
+ # Which trial answers which self-review proposal kind.
+ TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback"}
+@@ -566,12 +588,21 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
+     from . import monitor as monitor_mod
+ 
+     with db.session() as s:
+-        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"))
++        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"),
++                 bool((r.evidence or {}).get(cells.ROLLBACK_PENDING)))
+                 for r in s.scalars(select(Improvement).where(
+                     Improvement.state == cells.PROMOTED))
+                 if (r.evidence or {}).get("sandbox_trial") in MONITORS]
+-    judged, reverted, waiting = [], [], []
+-    for iid, cell, trial in rows:
++    judged, reverted, waiting, pending = [], [], [], []
++    for iid, cell, trial, has_pending in rows:
++        if has_pending:
++            # A rollback decided on an earlier pass and not yet verified complete -- the
++            # process died between deciding and executing, or between executing and
++            # verifying. It is resumed, never re-judged: the decision stands until the effect
++            # is shown (C-81).
++            done = _complete_rollback(db, iid, cell, trial)
++            (reverted if done["state"] == cells.REVERTED else pending).append(done)
++            continue
+         seen = MONITORS[trial](db, iid)
+         if not seen.get("judged"):
+             waiting.append({"improvement": iid, "why": seen.get("why")})
+@@ -580,14 +611,45 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
+             judged.append({"improvement": iid, "observed": seen.get("observed"),
+                            "action": "held"})
+             continue
+-        outcome = cells.revert(db, iid, because=seen["why"], observed=seen.get("observed"))
+-        undone = ROLLBACKS[trial](db, iid, why=seen["why"])
+-        incident = monitor_mod._rollback_proposal(db, iid, cell, outcome)
+-        reverted.append({"improvement": iid, "observed": seen.get("observed"),
+-                         "rollback": {k: v for k, v in undone.items()
+-                                      if isinstance(v, (str, int, float, bool, type(None)))},
+-                         "incident": incident["incident"]})
+-    return {"judged": judged, "reverted": reverted, "waiting": waiting}
++        # 1. Decide, durably, on the still-PROMOTED row; 2. open the incident so the pending
++        # rollback is visible even if nothing below runs; 3. execute, verify, and only then
++        # write REVERTED.
++        outcome = cells.mark_rollback_pending(db, iid, because=seen["why"],
++                                              observed=seen.get("observed"))
++        monitor_mod._rollback_proposal(db, iid, cell, outcome)
++        done = _complete_rollback(db, iid, cell, trial)
++        (reverted if done["state"] == cells.REVERTED else pending).append(done)
++    return {"judged": judged, "reverted": reverted, "waiting": waiting,
++            "rollback_pending": pending}
++
++
++def _complete_rollback(db, iid: int, cell: str, trial: str) -> dict:
++    """Run the idempotent rollback executor, verify its effect, then complete the revert.
++
++    Every step is durable before the next: the attempt is counted before the executor runs,
++    the executor's own writes commit as they happen, and REVERTED is written last -- with
++    the verifier's reading on the row -- so a crash at any point leaves a PROMOTED row with
++    `rollback_pending` that the next pass resumes. The incident opened when the rollback was
++    decided is resolved here, and nowhere earlier.
++    """
++    from . import monitor as monitor_mod
++
++    pending = cells.rollback_pending(db, iid) or {}
++    because = str(pending.get("because") or "monitor judged the promotion worse")
++    attempts = cells.note_rollback_attempt(db, iid, executor=trial)
++    undone = ROLLBACKS[trial](db, iid, why=because)
++    check = VERIFIERS[trial](db, iid)
++    flat = {k: v for k, v in undone.items() if isinstance(v, (str, int, float, bool, type(None)))}
++    if not check.get("verified"):
++        return {"improvement": iid, "state": cells.PROMOTED, "action": "rollback_pending",
++                "attempts": attempts, "rollback": flat, "verification": check,
++                "observed": pending.get("observed"),
++                "why": f"rollback executed and not verified: {check.get('why')}"}
++    cells.revert(db, iid, because=because, observed=pending.get("observed"), verified=check)
++    incident = monitor_mod._rollback_resolved(db, iid, check)
++    return {"improvement": iid, "state": cells.REVERTED, "action": "reverted",
++            "attempts": attempts, "observed": pending.get("observed"), "rollback": flat,
++            "verification": check, "incident": incident["incident"]}
+ 
+ 
+ def _promote_or_route(db, iid: int, *, now: datetime) -> dict:
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index c9d58da..0223f39 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -4612,6 +4612,7 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
+     trials = runner.monitor_trials(ctx.db)
+     ctx.audit("improve.monitor_trials", detail={
+         "judged": trials["judged"], "reverted": trials["reverted"],
++        "rollback_pending": trials["rollback_pending"],
+         "waiting": len(trials["waiting"])})
+     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
+             "held": len(out["held"]),
+@@ -4622,6 +4623,9 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
+             "trial_monitoring": {"judged": len(trials["judged"]),
+                                  "reverted": trials["reverted"],
+                                  "waiting": len(trials["waiting"])},
++            # C-81: a rollback decided and not yet verified complete stays on the PROMOTED
++            # row and is resumed next pass; it is never reported as reverted.
++            "rollback_pending": [r["improvement"] for r in trials["rollback_pending"]],
+             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/teardown/enforce.py b/brambleloop/src/brambleloop/teardown/enforce.py
+index dee37e9..9927192 100644
+--- a/brambleloop/src/brambleloop/teardown/enforce.py
++++ b/brambleloop/src/brambleloop/teardown/enforce.py
+@@ -330,20 +330,40 @@ def adopt_floor(db, finding_id: int, *, floor: float, improvement_id: int) -> di
+ 
+ 
+ def drop_floor(db, finding_id: int, *, why: str) -> dict:
++    """Remove an adopted floor. Idempotent: a floor already gone is reported, not re-dropped,
++    so a rollback resumed after an interruption (C-81) changes nothing the first run did."""
+     from ..core.models import TeardownFinding
+ 
+     with db.session() as s:
+         row = s.get(TeardownFinding, finding_id)
+         if row is None:
+-            return {"dropped": False}
++            return {"dropped": False, "why": f"no finding {finding_id}"}
+         detail = dict(row.detail or {})
+         prior = detail.pop("adopted", None)
++        if prior is None:
++            return {"dropped": False, "finding": finding_id, "already": True,
++                    "why": "no floor is adopted on this finding"}
+         detail["floor_dropped"] = {"was": prior, "why": why,
+                                    "at": datetime.now(timezone.utc).isoformat()}
+         row.detail = detail
+     return {"dropped": True, "finding": finding_id}
+ 
+ 
++def floor_absent(db, finding_id: int) -> dict:
++    """The rollback verifier for an adopted floor: is the requirement free of it now?"""
++    from ..core.models import TeardownFinding
++
++    with db.session() as s:
++        row = s.get(TeardownFinding, finding_id)
++        detail = dict(row.detail or {}) if row is not None else {}
++    adopted = detail.get("adopted")
++    verified = row is not None and not adopted
++    return {"verified": verified, "check": "self_audit.floor_absent", "finding": finding_id,
++            "why": ("no floor is adopted on the finding" if verified else
++                    f"finding {finding_id} still carries floor {adopted}" if row is not None
++                    else f"no finding {finding_id}")}
++
++
+ def sweep(db) -> dict:
+     """The cadence's pass: every certified product checked, every consumer's list refreshed."""
+     from sqlalchemy import select
+diff --git a/brambleloop/tests/test_cert_improve_wave.py b/brambleloop/tests/test_cert_improve_wave.py
+index 5a4b109..62ce7e7 100644
+--- a/brambleloop/tests/test_cert_improve_wave.py
++++ b/brambleloop/tests/test_cert_improve_wave.py
+@@ -194,6 +194,118 @@ def test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back():
+     assert orchestrate.priority_policy(db)["config_id"] == replaced
+ 
+ 
++def _promote_replay_challenger(db) -> tuple[int, int, int]:
++    """Replay, sandbox and promote one job-priority challenger; (improvement, new, old)."""
++    _seed_contention(db)
++    out = _run(db, "improve.replay")
++    iid = out["proposed"][0]["improvement"]
++    sandbox = _run(db, "improve.sandbox")
++    assert [x["improvement"] for x in sandbox["promoted"]] == [iid], sandbox
++    _state, ev, _b, _r = _improvement(db, iid)
++    return iid, int(ev["change"]["config_id"]), int(ev["change"]["replaces"])
++
++
++def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh") -> None:
++    """Runs on a window observed after the promotion where the promoted policy reads worse."""
++    from brambleloop.improve import league
++
++    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
++                      reliability=1.0, run_ref=f"replay:aaaaaaaaaaaa:{tag}..{tag}:20",
++                      recorded_by="prompt_tool_challenger")
++    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
++                      reliability=1.0, run_ref=f"replay:bbbbbbbbbbbb:{tag}..{tag}:20",
++                      recorded_by="prompt_tool_challenger")
++
++
++def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
++    """C-81 (Codex M01): REVERTED is written only after the rollback effect is verified.
++
++    The process is killed twice -- once before the executor runs, once after it ran but
++    before verification -- and each restart resumes the pending rollback. Until the active
++    policy is shown restored the row stays PROMOTED with `rollback_pending`, the incident
++    stays open, and nothing re-judges or re-executes the promotion.
++    """
++    from brambleloop.core.models import ConfigVersion, Incident
++    from brambleloop.improve import runner
++    from brambleloop.swarm import orchestrate
++
++    db = _db()
++    iid, challenger, replaced = _promote_replay_challenger(db)
++    _fresh_worse_runs(db, replaced, challenger)
++    signature = f"improve-rollback:{iid}"
++
++    def _rollback_state():
++        state, ev, _b, _r = _improvement(db, iid)
++        with db.session() as s:
++            inc = s.scalar(select(Incident).where(Incident.signature == signature))
++            active = s.get(ConfigVersion, challenger).incumbent
++        return state, ev.get("rollback_pending"), ev.get("rollback"), inc, active
++
++    real = runner.ROLLBACKS["league_replay"]
++
++    def killed_before_executing(db_, iid_, *, why):
++        raise RuntimeError("killed before the rollback executor ran")
++
++    def killed_after_executing(db_, iid_, *, why):
++        real(db_, iid_, why=why)
++        raise RuntimeError("killed after the executor and before verification")
++
++    # Kill 1: decided, incident opened, executor never ran.
++    runner.ROLLBACKS["league_replay"] = killed_before_executing
++    try:
++        try:
++            _run(db, "improve.monitor")
++        except RuntimeError:
++            pass
++        state, pending, done, inc, active = _rollback_state()
++        assert state == "promoted" and done is None, "REVERTED was written before the effect"
++        assert pending and pending["attempts"] == 1 and pending["because"]
++        assert active is True, "the challenger is still the incumbent; nothing rolled back"
++        assert inc is not None and inc.resolved is False
++        assert inc.detail["rollback_state"] == "pending"
++
++        # Restart 1, same fault: resumed (attempt 2), not re-judged, still pending.
++        windows_before = _improvement(db, iid)[1].get("monitored_windows")
++        try:
++            _run(db, "improve.monitor")
++        except RuntimeError:
++            pass
++        state, pending, done, inc, active = _rollback_state()
++        assert state == "promoted" and pending["attempts"] == 2 and active is True
++        assert _improvement(db, iid)[1].get("monitored_windows") == windows_before
++
++        # Kill 2: the executor restored the previous version, then the process died before
++        # verification. The effect is there, the row still honestly says pending.
++        runner.ROLLBACKS["league_replay"] = killed_after_executing
++        try:
++            _run(db, "improve.monitor")
++        except RuntimeError:
++            pass
++        state, pending, done, inc, active = _rollback_state()
++        assert state == "promoted" and pending["attempts"] == 3 and inc.resolved is False
++        assert active is False, "the executor did run before the kill"
++    finally:
++        runner.ROLLBACKS["league_replay"] = real
++
++    # Restart 2, healthy: the idempotent executor finds the version already restored, the
++    # verifier reads the registry and the live policy, and only now is REVERTED written.
++    mon = _run(db, "improve.monitor")
++    assert iid in mon["reverted"] and iid not in mon["rollback_pending"], mon
++    state, pending, done, inc, active = _rollback_state()
++    assert state == "reverted" and pending is None
++    assert done["attempts"] == 4 and done["verified"]["verified"] is True
++    assert done["verified"]["active_config_id"] == replaced
++    assert inc.resolved is True and inc.detail["rollback_state"] == "verified"
++    assert active is False
++    orchestrate.clear_policy_cache()
++    assert orchestrate.priority_policy(db)["config_id"] == replaced
++
++    # Idempotent: another pass has nothing to resume and reverts nothing.
++    again = _run(db, "improve.monitor")
++    assert again["reverted"] == [] and again["rollback_pending"] == []
++    assert _improvement(db, iid)[0] == "reverted"
++
++
+ def test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them():
+     _scheduled("improve.nightly", "orchestrator")
+     from brambleloop.core.models import AuditLog
+-- 
+2.43.0
+
+
+From 4a3c6570fc19953d56b5d9d667828deb1ddb4598 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:16:22 +0000
+Subject: [PATCH 2/5] C-82 (Codex M04): ConfigVersion.tests_declared is
+ coverage; tests_run holds only observed runs bound to the version's digest
+
+league.register takes tests_declared and refuses tests_run; league.record_test_run is the one
+writer of tests_run (run id + source digest, refused when the digest is not this version's,
+idempotent on test/run). The sandbox runner records its regression and adversarial runs on the
+configuration version a proposal names. bootstrap and replay register declared coverage.
+Existing assertion strengthened: a freshly registered tool carries declared coverage and an
+empty tests_run.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/core/models.py    |  6 ++
+ .../src/brambleloop/improve/bootstrap.py      | 10 ++--
+ brambleloop/src/brambleloop/improve/league.py | 59 +++++++++++++++++--
+ brambleloop/src/brambleloop/improve/replay.py |  4 +-
+ brambleloop/src/brambleloop/improve/runner.py | 48 +++++++++++++--
+ brambleloop/tests/test_cert_improve_wave.py   | 52 +++++++++++++++-
+ 6 files changed, 160 insertions(+), 19 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/core/models.py b/brambleloop/src/brambleloop/core/models.py
+index ba37796..af3a256 100644
+--- a/brambleloop/src/brambleloop/core/models.py
++++ b/brambleloop/src/brambleloop/core/models.py
+@@ -1440,6 +1440,12 @@ class ConfigVersion(Base):
+     version: Mapped[int] = mapped_column(Integer, default=1)
+     digest: Mapped[str] = mapped_column(String(64), default="", index=True)
+     why_changed: Mapped[str] = mapped_column(Text, default="")
++    # C-82: two different facts that one column used to conflate. `tests_declared` is the
++    # coverage the registering code names (test files that exercise this configuration); it
++    # is a claim about what *could* be run. `tests_run` holds only observed run records --
++    # each with the run id and the digest of the source it ran against -- appended by
++    # `league.record_test_run` when a run actually happened. Registration never writes it.
++    tests_declared: Mapped[list] = mapped_column(JSON, default=list)
+     tests_run: Mapped[list] = mapped_column(JSON, default=list)
+     cost_per_call_cad: Mapped[float] = mapped_column(Float, default=0.0)
+     affected_departments: Mapped[list] = mapped_column(JSON, default=list)
+diff --git a/brambleloop/src/brambleloop/improve/bootstrap.py b/brambleloop/src/brambleloop/improve/bootstrap.py
+index cef636f..3d233b4 100644
+--- a/brambleloop/src/brambleloop/improve/bootstrap.py
++++ b/brambleloop/src/brambleloop/improve/bootstrap.py
+@@ -81,7 +81,7 @@ def register_routing_incumbents(db) -> dict:
+             why_changed=(f"incumbent model routing recorded from gateway.routing.TASKS: "
+                          f"{task.why}. It runs because the table says so, and the table was "
+                          f"written before any challenger existed"),
+-            tests_run=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
++            tests_declared=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
+             affected_departments=TASK_DEPARTMENTS.get(key, DEFAULT_DEPARTMENTS),
+             incumbent=True)
+         (unchanged if out.get("unchanged") else registered).append(
+@@ -151,7 +151,7 @@ def register_routing_challengers(db) -> dict:
+                          f"incumbent on the incumbent's shared task set and a holdout before "
+                          f"anything switches, and it switches only by a change to "
+                          f"gateway.routing.TASKS the owner approves"),
+-            tests_run=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
++            tests_declared=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
+             affected_departments=TASK_DEPARTMENTS.get(key, DEFAULT_DEPARTMENTS),
+             incumbent=False)
+         (unchanged if out.get("unchanged") else registered).append(
+@@ -182,7 +182,7 @@ def register_image_incumbent(db) -> dict:
+         db, kind=IMAGE_KIND, key=IMAGE_KEY, payload=_provider_payload(provider),
+         why_changed=(f"incumbent image generator recorded from visual.provider_trial: "
+                      f"{provider.what}. {provider.note}"),
+-        tests_run=("tests/test_provider_trial.py",),
++        tests_declared=("tests/test_provider_trial.py",),
+         cost_per_call_cad=round(provider.usd_per_image / routing.USD_PER_CAD, 6),
+         affected_departments=("creative_assets",), incumbent=True)
+     if out.get("unchanged"):
+@@ -203,7 +203,7 @@ def _challenger_version(db, provider_key: str, *, trial_ref: str) -> int | None:
+         why_changed=(f"challenger image generator put to a provider trial ({trial_ref}): "
+                      f"{provider.what}. Registered so the trial's verdict is recorded "
+                      f"against the configuration it judged; it is not the incumbent"),
+-        tests_run=("tests/test_provider_trial.py",),
++        tests_declared=("tests/test_provider_trial.py",),
+         cost_per_call_cad=round(provider.usd_per_image / routing.USD_PER_CAD, 6),
+         affected_departments=("creative_assets",), incumbent=False)
+     return out["id"]
+@@ -328,7 +328,7 @@ def register_code_versions(db) -> dict:
+         reason = (f"{why}; first recorded from the running code" if prior is None else
+                   f"{why}; the running code moved from version {prior['version']}")
+         out = league.register(db, kind=kind, key=key, payload=payload, why_changed=reason,
+-                              tests_run=tests, cost_per_call_cad=cost,
++                              tests_declared=tests, cost_per_call_cad=cost,
+                               affected_departments=departments, incumbent=True)
+         (unchanged if out.get("unchanged") else registered).append(
+             {"kind": kind, "key": key, "version": out["version"]})
+diff --git a/brambleloop/src/brambleloop/improve/league.py b/brambleloop/src/brambleloop/improve/league.py
+index 8b6434c..4cfc662 100644
+--- a/brambleloop/src/brambleloop/improve/league.py
++++ b/brambleloop/src/brambleloop/improve/league.py
+@@ -104,10 +104,17 @@ def digest_of(payload: str) -> str:
+ 
+ 
+ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
+-             tests_run: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
++             tests_declared: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
+              affected_departments: tuple[str, ...] = (),
+-             incumbent: bool = False) -> dict:
+-    """Record a configuration version with the reason it exists (#96)."""
++             incumbent: bool = False, tests_run: tuple = ()) -> dict:
++    """Record a configuration version with the reason it exists (#96).
++
++    `tests_declared` is the coverage the registering code names -- the test files that
++    exercise this configuration. It is a claim about what could be run, and it is stored as
++    that. `tests_run` is *never* populated here: a run is something that happened, recorded
++    by `record_test_run` with its run id and the digest it ran against, and registering a
++    version does not run anything (C-82). A caller passing test names as runs is refused.
++    """
+     from sqlalchemy import select
+ 
+     from ..core.models import ConfigVersion
+@@ -123,6 +130,11 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
+         raise LeagueRefused(
+             f"{key}: name the departments this touches, or a regression here is discovered "
+             f"by whichever one notices first")
++    if tests_run:
++        raise LeagueRefused(
++            f"{key}: `tests_run` is observed evidence and registration observes nothing. Name "
++            f"the coverage as `tests_declared`; a run is recorded by `record_test_run` when "
++            f"it has actually happened, with its run id and source digest (C-82)")
+ 
+     digest = digest_of(payload)
+     with db.session() as s:
+@@ -139,8 +151,8 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
+                 p.incumbent = False
+         row = ConfigVersion(
+             kind=kind, key=key, version=version, digest=digest,
+-            why_changed=why_changed.strip(), tests_run=list(tests_run),
+-            cost_per_call_cad=float(cost_per_call_cad),
++            why_changed=why_changed.strip(), tests_declared=[str(t) for t in tests_declared],
++            tests_run=[], cost_per_call_cad=float(cost_per_call_cad),
+             affected_departments=list(affected_departments), incumbent=incumbent,
+             # The payload itself, so a configuration the runtime reads (a scoring policy's
+             # parameters) can be read back from the registry that versions it (#96).
+@@ -151,6 +163,42 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
+                 "incumbent": incumbent}
+ 
+ 
++def record_test_run(db, config_id: int, *, test: str, run_id: str, source_sha256: str,
++                    passed: bool, recorded_by: str, detail: dict | None = None) -> dict:
++    """Attach an *observed* test run to the configuration version it ran against (C-82).
++
++    The record names the run (`run_id`: the runner's reference for that execution) and the
++    digest of what it ran against, which has to be this version's own digest -- a run of some
++    other payload proves nothing about this one. A failed run is recorded too, and says so.
++    Idempotent on (test, run_id). Nothing else writes `tests_run`.
++    """
++    from ..core.models import ConfigVersion
++
++    who = governance.normalise_actor(recorded_by)
++    if not (test or "").strip() or not (run_id or "").strip() or not who:
++        raise LeagueRefused("a test run names the test, the run and who recorded it")
++    with db.session() as s:
++        row = s.get(ConfigVersion, config_id)
++        if row is None:
++            raise LeagueRefused(f"no configuration version {config_id}")
++        if (source_sha256 or "").strip() != (row.digest or ""):
++            raise LeagueRefused(
++                f"run {run_id!r} ran against source {str(source_sha256)[:12]!r}, not version "
++                f"{config_id}'s digest {str(row.digest)[:12]!r}; a run of something else is "
++                f"not evidence about this version")
++        runs = list(row.tests_run or [])
++        if any(r.get("test") == test.strip() and r.get("run_id") == run_id.strip()
++               for r in runs if isinstance(r, dict)):
++            return {"config_id": config_id, "recorded": False, "run_id": run_id.strip(),
++                    "why": "this run is already on the row"}
++        record = {"test": test.strip(), "run_id": run_id.strip(),
++                  "source_sha256": row.digest, "passed": bool(passed), "by": who,
++                  "at": datetime.now(timezone.utc).isoformat(), **(detail or {})}
++        row.tests_run = runs + [record]
++        return {"config_id": config_id, "recorded": True, "run_id": run_id.strip(),
++                "passed": bool(passed), "runs": len(runs) + 1}
++
++
+ # ---------------------------------------------------------------------------
+ # The league (#95)
+ 
+@@ -464,6 +512,7 @@ def standings(db, *, kind: str = "", key: str = "") -> dict:
+             query = query.where(ConfigVersion.key == key)
+         rows = [{"id": r.id, "kind": r.kind, "key": r.key, "version": r.version,
+                  "incumbent": r.incumbent, "why_changed": r.why_changed,
++                 "tests_declared": list(r.tests_declared or []),
+                  "tests_run": list(r.tests_run or []),
+                  "cost_per_call_cad": r.cost_per_call_cad,
+                  "affected_departments": list(r.affected_departments or []),
+diff --git a/brambleloop/src/brambleloop/improve/replay.py b/brambleloop/src/brambleloop/improve/replay.py
+index 891dc5d..8ee859c 100644
+--- a/brambleloop/src/brambleloop/improve/replay.py
++++ b/brambleloop/src/brambleloop/improve/replay.py
+@@ -207,7 +207,7 @@ def ensure_incumbent(db) -> dict:
+         why_changed=("incumbent job-priority policy recorded from swarm.orchestrate "
+                      "DEFAULT_PRIORITY_POLICY: it runs because it was first, before any replay "
+                      "had compared it with anything"),
+-        tests_run=("tests/test_swarm.py", "tests/test_cert_improve_wave.py"),
++        tests_declared=("tests/test_swarm.py", "tests/test_cert_improve_wave.py"),
+         affected_departments=("runtime",), incumbent=True)
+     return {"config_id": out["id"], "version": out["version"],
+             "params": dict(DEFAULT_PRIORITY_POLICY), "registered": True}
+@@ -264,7 +264,7 @@ def register_challengers(db, incumbent: dict) -> list[dict]:
+             db, kind=kind, key=key, payload=payload,
+             why_changed=(f"challenger to v{incumbent['version']}: {why}, to test on the "
+                          f"historical job replay whether it meets more deadlines"),
+-            tests_run=("improve.replay",), affected_departments=("runtime",),
++            tests_declared=("improve.replay",), affected_departments=("runtime",),
+             incumbent=False)
+         with db.session() as s:
+             s.add(AuditLog(actor=AUTHOR, action="improve.replay.challenger",
+diff --git a/brambleloop/src/brambleloop/improve/runner.py b/brambleloop/src/brambleloop/improve/runner.py
+index 0aea1a3..a10d803 100644
+--- a/brambleloop/src/brambleloop/improve/runner.py
++++ b/brambleloop/src/brambleloop/improve/runner.py
+@@ -496,16 +496,22 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
+             if regression is None:
+                 regression = regression_test(directory=regression_dir)
+             adversarial = adversarial_test(db, iid)
+-            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST,
+-                              ref=(f"gates.regression.run@{now.isoformat()}:"
+-                                   f"{regression['checked']} fixture(s)"),
++            regression_ref = (f"gates.regression.run@{now.isoformat()}:"
++                              f"{regression['checked']} fixture(s)")
++            adversarial_ref = f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}"
++            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST, ref=regression_ref,
+                               passed=regression["passed"], recorded_by=RUNNER)
+-            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST,
+-                              ref=f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}",
++            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST, ref=adversarial_ref,
+                               passed=adversarial["passed"], recorded_by=RUNNER)
++            # C-82: these two runs actually happened, against a named configuration version
++            # when the proposal carries one. They are the only way `tests_run` is written.
++            observed = _record_config_test_runs(db, ev, runs=(
++                ("gates.regression.run", regression_ref, regression["passed"]),
++                (f"{ACTION}.adversarial", adversarial_ref, adversarial["passed"])))
+             tested.append({"improvement": iid, "regression": regression["passed"],
+                            "adversarial": adversarial["passed"],
+-                           "why": [regression["why"], adversarial["why"]]})
++                           "why": [regression["why"], adversarial["why"]],
++                           "config_runs_recorded": observed})
+             recorded = {tiers.REGRESSION_TEST: {"passed": regression["passed"]},
+                         tiers.ADVERSARIAL_TEST: {"passed": adversarial["passed"]}}
+ 
+@@ -552,6 +558,36 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
+                      f"the owner, {len(waiting)} waiting for a trial that can evaluate them")}
+ 
+ 
++def _record_config_test_runs(db, evidence: dict, *, runs: tuple) -> int:
++    """Attach the runner's observed test runs to the configuration version under test.
++
++    Only when the proposal names one (`change.config_id`), and only against that version's
++    own digest -- `league.record_test_run` refuses anything else. Declared coverage stays in
++    `tests_declared`; this is the observed half (C-82).
++    """
++    from ..core.models import ConfigVersion
++    from . import league
++
++    config_id = int(((evidence.get("change") or {}).get("config_id")) or 0)
++    if not config_id:
++        return 0
++    with db.session() as s:
++        row = s.get(ConfigVersion, config_id)
++        digest = row.digest if row is not None else ""
++    if not digest:
++        return 0
++    recorded = 0
++    for test, run_id, passed in runs:
++        try:
++            out = league.record_test_run(db, config_id, test=test, run_id=run_id,
++                                         source_sha256=digest, passed=passed,
++                                         recorded_by=RUNNER)
++        except league.LeagueRefused:
++            continue
++        recorded += 1 if out.get("recorded") else 0
++    return recorded
++
++
+ def execute_promoted(db) -> list[dict]:
+     """Apply every promoted trial improvement not yet executed. Idempotent on the row."""
+     from sqlalchemy import select
+diff --git a/brambleloop/tests/test_cert_improve_wave.py b/brambleloop/tests/test_cert_improve_wave.py
+index 62ce7e7..6e5f6c0 100644
+--- a/brambleloop/tests/test_cert_improve_wave.py
++++ b/brambleloop/tests/test_cert_improve_wave.py
+@@ -541,10 +541,60 @@ def test_prompts_tools_and_policies_are_versioned_from_the_running_code():
+     keys = {r.key for r in rows}
+     assert "tool:cir_compiler" in keys and "policy:spend_ceilings" in keys
+     tool = next(r for r in rows if r.key == "tool:cir_compiler")
+-    assert tool.why_changed and tool.tests_run and tool.affected_departments
++    # C-82: registration names the coverage that exercises the tool (`tests_declared`) and
++    # never synthesises an executed run -- `tests_run` is empty until one is observed.
++    assert tool.why_changed and tool.tests_declared and tool.affected_departments
++    assert tool.tests_run == [], tool.tests_run
+     assert json.loads(tool.detail["payload"])["source_sha256"]
+ 
+ 
++def test_tests_run_holds_only_observed_runs_bound_to_the_versions_digest():
++    """C-82 (Codex M04): declared coverage is not execution provenance."""
++    from brambleloop.core.models import ConfigVersion
++    from brambleloop.improve import league
++
++    db = _db()
++    iid, challenger, replaced = _promote_replay_challenger(db)
++    with db.session() as s:
++        ch = s.get(ConfigVersion, challenger)
++        inc = s.get(ConfigVersion, replaced)
++        runs, declared, digest = list(ch.tests_run), list(ch.tests_declared), ch.digest
++        inc_runs, inc_declared = list(inc.tests_run), list(inc.tests_declared)
++    # Registration declared coverage for both; the incumbent was never put through a run.
++    assert declared == ["improve.replay"] and "tests/test_swarm.py" in inc_declared
++    assert inc_runs == [], inc_runs
++    # The sandbox's regression and adversarial runs happened against the challenger and were
++    # observed: each carries the run id and the digest of the version it ran against.
++    assert {r["test"] for r in runs} == {"gates.regression.run", "improve.sandbox.adversarial"}
++    assert all(r["run_id"] and r["source_sha256"] == digest and r["by"] == "sandbox_runner"
++               and "at" in r and isinstance(r["passed"], bool) for r in runs), runs
++    _state, ev, _b, _r = _improvement(db, iid)
++    assert {r["run_id"] for r in runs} == {t["ref"] for t in ev["tests"].values()}
++    # Nothing can register a run, and a run of some other source is refused.
++    try:
++        league.register(db, kind="scoring", key="policy:job_priority", payload="{}",
++                        why_changed="a payload registered with a synthesised run record",
++                        affected_departments=("runtime",), tests_run=("tests/test_swarm.py",))
++    except league.LeagueRefused as e:
++        assert "tests_declared" in str(e)
++    else:
++        raise AssertionError("register accepted tests_run")
++    try:
++        league.record_test_run(db, challenger, test="x", run_id="r1", source_sha256="0" * 64,
++                               passed=True, recorded_by="sandbox_runner")
++    except league.LeagueRefused as e:
++        assert "not evidence about this version" in str(e)
++    else:
++        raise AssertionError("a run of another source was attached")
++    # Idempotent on (test, run_id); the standings report both facts separately.
++    again = league.record_test_run(db, challenger, test=runs[0]["test"],
++                                   run_id=runs[0]["run_id"], source_sha256=digest,
++                                   passed=True, recorded_by="sandbox_runner")
++    assert again["recorded"] is False
++    standing = next(r for r in league.standings(db)["all"] if r["id"] == challenger)
++    assert standing["tests_declared"] == declared and len(standing["tests_run"]) == 2
++
++
+ # ---------------------------------------------------------------------------
+ # #194 #53 #100: the weekly cycle reads its domains from rows, can add, and stops things
+ 
+-- 
+2.43.0
+
+
+From 67746ff4ce0640fd4c908c1605b8eae9c35194f4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:21:09 +0000
+Subject: [PATCH 3/5] C-63 (Codex M02, M03): replay runs carry a versioned
+ simulator and a dataset fingerprint with observation bounds; freshness is
+ proven, not timestamped
+
+replay.SIMULATOR names what is modelled (one worker, no lanes, defaulted service times, DEAD
+jobs never on time) and travels with every league run; runs pair only under the same version;
+a history leased by more workers than the simulator models records runs and proposes nothing.
+dataset_of fingerprints the replayed jobs and bounds their observation; replay.monitor treats a
+post-promotion run as evidence only when its fingerprint is not one the promotion was judged
+on, its bounds pass the promotion, and whole days have been observed since -- and scores only
+those days. Proposals record the simulator version and the dataset they were judged on.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/improve/league.py |  16 +-
+ brambleloop/src/brambleloop/improve/replay.py | 246 +++++++++++++++---
+ brambleloop/tests/test_cert_improve_wave.py   | 160 ++++++++++--
+ 3 files changed, 365 insertions(+), 57 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/improve/league.py b/brambleloop/src/brambleloop/improve/league.py
+index 4cfc662..9d699af 100644
+--- a/brambleloop/src/brambleloop/improve/league.py
++++ b/brambleloop/src/brambleloop/improve/league.py
+@@ -615,8 +615,16 @@ def sandbox_owned(db, config_id: int) -> dict | None:
+ 
+ def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability: float,
+                run_ref: str, recorded_by: str, latency_s: float | None = None,
+-               holdout: dict | None = None) -> dict:
+-    """Record one configuration's measured showing on named tasks. Idempotent on `run_ref`."""
++               holdout: dict | None = None, dataset: dict | None = None,
++               simulator: dict | None = None) -> dict:
++    """Record one configuration's measured showing on named tasks. Idempotent on `run_ref`.
++
++    `dataset` names what the run was scored on -- a content fingerprint of the tasks and the
++    bounds of when they were observed -- and `simulator` the versioned assumptions that
++    produced the scores (C-63 / Codex M02, M03). Both travel with the run so that a later
++    reader can tell a repeated evaluation from new evidence, and two runs of different
++    simulators from one comparison.
++    """
+     from sqlalchemy import select
+ 
+     from ..core.models import AuditLog, ConfigVersion
+@@ -650,7 +658,9 @@ def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability:
+                                  "cost_cad": float(cost_cad),
+                                  "reliability": float(reliability),
+                                  "latency_s": None if latency_s is None else float(latency_s),
+-                                 "run_ref": ref})
++                                 "run_ref": ref,
++                                 **({"dataset": dict(dataset)} if dataset else {}),
++                                 **({"simulator": dict(simulator)} if simulator else {})})
+         s.add(audit)
+         s.flush()
+         return {"run_id": audit.id, "recorded": True, "run_ref": ref}
+diff --git a/brambleloop/src/brambleloop/improve/replay.py b/brambleloop/src/brambleloop/improve/replay.py
+index 8ee859c..fe85866 100644
+--- a/brambleloop/src/brambleloop/improve/replay.py
++++ b/brambleloop/src/brambleloop/improve/replay.py
+@@ -61,6 +61,23 @@ WINDOW_DAYS = 30
+ MIN_JOBS = 20
+ MIN_DAYS = 3
+ HOLDOUT_SHARE = 0.2
++
++# What the simulation assumes, versioned (C-63 / Codex M02). A run records the simulator it
++# was produced by, two runs are compared only under the same version, and a proposal states
++# the version so the claim it makes is scoped to what was actually modelled: one worker, no
++# lane concurrency, unknown service times defaulted, DEAD jobs never on time. A change to any
++# of these is a new version, and old runs stop being comparable with new ones.
++SIMULATOR: dict = {
++    "version": "replay-sim/1",
++    "workers": 1,
++    "lanes": "not modelled: swarm.lane_hold's per-lane concurrency is ignored",
++    "claim_order": "lowest priority number first, then arrival, then id; one job at a time",
++    "service_time": ("finished_at - started_at; a job missing either is given 1s and counted "
++                     "in dataset.unknown_service"),
++    "dead_jobs": ("occupy the worker for their recorded service time and are never counted as "
++                  "on time; the failure is kept, its cause is not modelled"),
++    "scope": "the job-priority policy (swarm.orchestrate.priority_decision) and nothing else",
++}
+ # Bounds a challenger's parameters stay inside; outside them a change is not a scoring tweak.
+ BOUNDS: dict[str, tuple[float, float]] = {
+     "deadline_weight": (0.0, 4.0), "value_weight": (0.0, 4.0),
+@@ -103,13 +120,56 @@ def historical_jobs(db, *, now: datetime | None = None,
+             if created is None or created < start or created > now:
+                 continue
+             started, finished = _aware(j.started_at), _aware(j.finished_at)
+-            service = ((finished - started).total_seconds()
+-                       if started is not None and finished is not None else 1.0)
++            known = started is not None and finished is not None
++            service = (finished - started).total_seconds() if known else 1.0
+             out.append({"id": j.id, "job_type": j.job_type, "inputs": dict(j.inputs or {}),
+-                        "created": created, "service_s": max(1.0, service)})
++                        "created": created, "service_s": max(1.0, service),
++                        "dead": j.status == JobStatus.DEAD, "service_known": known,
++                        "leased_by": j.leased_by or ""})
+     return out
+ 
+ 
++def dataset_of(jobs: list[dict]) -> dict:
++    """The identity of a replayed task set: a fingerprint over the jobs' content and the
++    bounds of when they were observed (C-63 / Codex M03).
++
++    Two runs on the same fingerprint are the same evaluation repeated, however far apart they
++    were recorded; a run whose bounds end before a promotion contains nothing that promotion
++    could have affected. Both are read by the monitor before anything counts as fresh.
++    """
++    import hashlib
++
++    rows = sorted((int(j["id"]), str(j["job_type"]), j["created"].isoformat(),
++                   float(j["service_s"]), bool(j.get("dead"))) for j in jobs)
++    fingerprint = hashlib.sha256(json.dumps(rows).encode("utf-8")).hexdigest()
++    created = [j["created"] for j in jobs]
++    workers = {str(j.get("leased_by") or "") for j in jobs} - {""}
++    return {"fingerprint": fingerprint,
++            "bounds": ([min(created).isoformat(), max(created).isoformat()] if created
++                       else []),
++            "jobs": len(jobs), "dead_jobs": sum(1 for j in jobs if j.get("dead")),
++            "unknown_service": sum(1 for j in jobs if not j.get("service_known", True)),
++            "workers_observed": len(workers)}
++
++
++def fidelity(dataset: dict) -> dict:
++    """Whether this history was produced by what the simulator models (Codex M02).
++
++    The simulator drains one worker. A window whose jobs were leased by more than one worker
++    was produced by a pool the replay does not model, so its verdicts describe a runtime that
++    did not run those jobs; runs are still recorded and compared, and no promotion is
++    proposed on them. Uncertainty is carried, not rounded away: the count of defaulted
++    service times and of DEAD jobs travels with every run.
++    """
++    reasons = []
++    if dataset.get("workers_observed", 0) > SIMULATOR["workers"]:
++        reasons.append(f"{dataset['workers_observed']} workers leased these jobs; "
++                       f"{SIMULATOR['version']} models {SIMULATOR['workers']}")
++    return {"comparable": not reasons, "simulator": SIMULATOR["version"], "reasons": reasons,
++            "unknown_service": dataset.get("unknown_service", 0),
++            "dead_jobs": dataset.get("dead_jobs", 0)}
++
++
+ def _days(jobs: list[dict]) -> list[str]:
+     return sorted({j["created"].date().isoformat() for j in jobs})
+ 
+@@ -162,7 +222,8 @@ def simulate_day(db, jobs: list[dict], policy: dict, *, proven: dict | None = No
+         job = pending.pop(0)
+         clock = clock + timedelta(seconds=job["service_s"])
+         total += job["weight"]
+-        if clock <= job["deadline"]:
++        # A job that died did not finish, whatever the clock says (SIMULATOR["dead_jobs"]).
++        if clock <= job["deadline"] and not job.get("dead"):
+             on_time += job["weight"]
+     return round(on_time / total, 6) if total else 1.0
+ 
+@@ -321,6 +382,8 @@ def cycle(db, *, now: datetime | None = None) -> dict:
+                 "runs": [], "challengers_registered": [], "proposed": [], "retired": []}
+ 
+     proven = _proven_map(db, jobs)
++    dataset = dataset_of(jobs)
++    faithful = fidelity(dataset)
+     configs = _configs(db)
+     open_challengers = [c for c in configs if not c["incumbent"] and not c["retired"]]
+     registered = []
+@@ -338,10 +401,13 @@ def cycle(db, *, now: datetime | None = None) -> dict:
+         if not params:
+             continue
+         result = replay(db, params, jobs, proven=proven)
+-        ref = (f"replay:{c['digest'][:12]}:{result['window'][0]}..{result['window'][1]}:"
+-               f"{result['jobs']}")
++        # The reference names the configuration, the dataset (its fingerprint), the window
++        # and the count: the same tasks replayed tomorrow are the same run, not a new one.
++        ref = (f"replay:{c['digest'][:12]}:{dataset['fingerprint'][:12]}:"
++               f"{result['window'][0]}..{result['window'][1]}:{result['jobs']}")
+         league.record_run(db, c["id"], tasks=result["tasks"], holdout=result["holdout"],
+-                          cost_cad=0.0, reliability=1.0, run_ref=ref, recorded_by=AUTHOR)
++                          cost_cad=0.0, reliability=1.0, run_ref=ref, recorded_by=AUTHOR,
++                          dataset=dataset, simulator=SIMULATOR)
+         runs[c["id"]] = {"run_ref": ref, **result}
+ 
+     inc_id = incumbent["config_id"]
+@@ -368,24 +434,36 @@ def cycle(db, *, now: datetime | None = None) -> dict:
+ 
+     # One hypothesis per cycle: the best winner. Two winners promoted one after the other
+     # would each be judged against an incumbent the other had already replaced; the others
+-    # stay open and are compared against whatever is running next cycle.
+-    if winners and not any(_open_improvement_for(db, c["id"]) for c in open_challengers):
++    # stay open and are compared against whatever is running next cycle. No hypothesis at
++    # all when the history was produced by a runtime the simulator does not model (M02): a
++    # promotion cannot rest on behaviour the replay did not simulate.
++    if winners and not faithful["comparable"]:
++        proposed.append({"refused": ("the simulator does not model this history: "
++                                     + "; ".join(faithful["reasons"]))[:200],
++                         "config_id": winners[0][2]["id"], "fidelity": faithful})
++    elif winners and not any(_open_improvement_for(db, c["id"]) for c in open_challengers):
+         _q, _neg, ch, cr, cr_result, ir_result = max(winners, key=lambda w: (w[0], w[1]))
+         baseline = round(ir_result.quality, 6)
+         hypothesis = (f"replacing job-priority policy v{incumbent['version']} with challenger "
+-                      f"v{ch['version']} should meet more deadlines: on the replay of "
+-                      f"{inc_run['jobs']} historical jobs it scores {cr_result.quality:.4f} "
+-                      f"against {baseline:.4f}, and it held on the holdout days")
++                      f"v{ch['version']} should meet more deadlines: on the single-worker "
++                      f"replay ({SIMULATOR['version']}) of {inc_run['jobs']} historical jobs "
++                      f"it scores {cr_result.quality:.4f} against {baseline:.4f}, and it held "
++                      f"on the holdout days")
+         try:
+             iid = cells.propose(
+                 db, cell=CELL, hypothesis=hypothesis,
+-                expected_effect=(f"band-weighted on-time share on the replay rises above "
+-                                 f"{baseline:.4f} and holds on fresh days"),
++                expected_effect=(f"band-weighted on-time share on the {SIMULATOR['version']} "
++                                 f"replay rises above {baseline:.4f} and holds on days "
++                                 f"observed after the promotion"),
+                 rollback_ref=f"config:{inc_id}", touches=("priority",),
+                 proposed_by=AUTHOR, trial=TRIAL,
+                 trial_metric=f"replay_on_time:{key}", higher_is_better=True,
+                 baseline=baseline, baseline_ref=f"run:{inc_run['run_ref']}"[:80],
+-                change={"config_id": ch["id"], "kind": kind, "key": key, "replaces": inc_id})
++                change={"config_id": ch["id"], "kind": kind, "key": key, "replaces": inc_id,
++                        "simulator": SIMULATOR["version"],
++                        "judged_on": {"fingerprint": dataset["fingerprint"],
++                                      "bounds": dataset["bounds"]},
++                        "fidelity": faithful})
+             proposed.append({"improvement": iid, "config_id": ch["id"],
+                              "baseline": baseline,
+                              "challenger_quality": round(cr_result.quality, 6)})
+@@ -404,26 +482,94 @@ def cycle(db, *, now: datetime | None = None) -> dict:
+                       "shared_days": len(v["tasks"]), "holdout_days": len(v["holdout"])}
+                      for k, v in runs.items()],
+             "compared": compared, "proposed": proposed, "retired": retired,
+-            "watched": sorted(watched)}
++            "watched": sorted(watched), "dataset": dataset, "fidelity": faithful,
++            "simulator": SIMULATOR["version"]}
+ 
+ 
+ # ---- the sandbox side: trial, execution, monitor --------------------------------------------
+ 
+ 
++def _dataset_key(run: dict) -> str:
++    """What identifies the tasks a run was scored on: its dataset fingerprint when it has
++    one, otherwise the window in its reference (runs recorded before fingerprints existed)."""
++    fp = (run.get("dataset") or {}).get("fingerprint")
++    return f"fp:{fp}" if fp else run["run_ref"].split(":", 2)[-1]
++
++
++def _simulator_version(run: dict) -> str | None:
++    return (run.get("simulator") or {}).get("version")
++
++
+ def _latest_pair(db, incumbent_id: int, challenger_id: int, *, after: datetime | None = None):
+-    """The newest recorded runs of both configurations on the same replay window."""
++    """The newest recorded runs of both configurations on the same dataset and simulator.
++
++    Paired by dataset identity, and only when both were produced under the same simulator
++    version: a run of a changed simulator against one of the old is two different games.
++    """
+     runs = league._runs(db)
+-    mine = {r["run_ref"].split(":", 2)[-1]: r for r in runs.get(challenger_id, [])
++    mine = {_dataset_key(r): r for r in runs.get(challenger_id, [])
+             if after is None or r["at"] > after}
+-    theirs = {r["run_ref"].split(":", 2)[-1]: r for r in runs.get(incumbent_id, [])
++    theirs = {_dataset_key(r): r for r in runs.get(incumbent_id, [])
+               if after is None or r["at"] > after}
+-    common = sorted(set(mine) & set(theirs), key=lambda w: (mine[w]["at"], mine[w]["run_id"]))
++    common = sorted((k for k in set(mine) & set(theirs)
++                     if _simulator_version(mine[k]) == _simulator_version(theirs[k])),
++                    key=lambda w: (mine[w]["at"], mine[w]["run_id"]))
+     if not common:
+         return None
+     w = common[-1]
+     return theirs[w], mine[w]
+ 
+ 
++def _post_promotion_tasks(run: dict, promoted_at: datetime) -> dict:
++    """The tasks of a run that were wholly observed after the promotion.
++
++    A replay task is a day; a day that ends after the promotion but began before it mixes
++    outcomes the promoted policy could and could not have affected, so only days strictly
++    after the promotion day count. Tasks that are not dated (runs recorded by hand or by an
++    older producer) are all kept, with the dataset bounds having already shown the run holds
++    post-promotion observations.
++    """
++    tasks = dict(run.get("tasks") or {})
++    dated = {}
++    undated = {}
++    for name, score in tasks.items():
++        try:
++            day = datetime.fromisoformat(str(name).split(":", 1)[1]).date()
++        except (IndexError, ValueError):
++            undated[name] = score
++            continue
++        if day > promoted_at.date():
++            dated[name] = score
++    return dated if (dated or not undated) else undated
++
++
++def freshness(new: dict, *, promoted_at: datetime, judged: set[str]) -> dict:
++    """Whether a run recorded after a promotion is *evidence about* the promotion (M03).
++
++    Three things have to hold, and a timestamp later than the promotion is none of them: the
++    run says what it was scored on (a dataset fingerprint and observation bounds); that
++    dataset is not one the promotion was already judged on; and the observations extend past
++    the promotion. A reused holdout, or the same history replayed tomorrow, is a repeated
++    evaluation and is reported as one.
++    """
++    dataset = dict(new.get("dataset") or {})
++    fp, bounds = dataset.get("fingerprint"), list(dataset.get("bounds") or [])
++    if not fp or len(bounds) != 2:
++        return {"fresh": False, "kind": "unbounded",
++                "why": ("the run carries no dataset fingerprint or observation bounds, so it "
++                        "cannot be shown to contain anything observed after the promotion")}
++    if fp in judged:
++        return {"fresh": False, "kind": "repeated_evaluation",
++                "why": (f"dataset {fp[:12]} is the history the promotion was judged on; "
++                        f"replaying it again is the same evaluation, not new evidence")}
++    latest = _aware(datetime.fromisoformat(bounds[1]))
++    if latest is None or latest <= promoted_at:
++        return {"fresh": False, "kind": "predates_promotion",
++                "why": (f"every observation in dataset {fp[:12]} predates the promotion "
++                        f"({bounds[1]} against {promoted_at.isoformat()})")}
++    return {"fresh": True, "kind": "post_promotion", "fingerprint": fp, "bounds": bounds}
++
++
+ def trial(db, improvement_id: int) -> dict:
+     """The sandbox trial: the challenger and the incumbent on the same recorded replay window."""
+     from ..core.models import Improvement
+@@ -476,28 +622,53 @@ def monitor(db, improvement_id: int) -> dict:
+         change = dict((row.evidence or {}).get("change") or {})
+         promoted_at = _aware(row.promoted_at)
+         seen = (row.evidence or {}).get("monitored_windows") or []
+-    pair = _latest_pair(db, int(change["replaces"]), int(change["config_id"]),
+-                        after=promoted_at)
++    challenger_id, replaced_id = int(change["config_id"]), int(change["replaces"])
++    pair = _latest_pair(db, replaced_id, challenger_id, after=promoted_at)
+     if pair is None:
+         return {"judged": False, "why": "no replay window recorded since the promotion"}
+     old, new = pair
+     if new["run_ref"] in seen:
+         return {"judged": False, "why": "already judged against this window"}
+-    old_q = league.result_of(int(change["replaces"]), old).quality
+-    new_q = league.result_of(int(change["config_id"]), new).quality
++    # What the promotion was judged on: the dataset the proposal named and every dataset the
++    # challenger had been scored on before it was promoted.
++    judged = {fp for fp in ((change.get("judged_on") or {}).get("fingerprint"),) if fp}
++    judged |= {(r.get("dataset") or {}).get("fingerprint")
++               for r in league._runs(db).get(challenger_id, []) if r["at"] <= promoted_at}
++    judged.discard(None)
++    fresh = freshness(new, promoted_at=promoted_at, judged=judged)
++    if not fresh["fresh"]:
++        # Remembered so the same non-evidence is not re-examined nightly; never a verdict.
++        with db.session() as s:
++            row = s.get(Improvement, improvement_id)
++            row.evidence = {**(row.evidence or {}),
++                            "monitored_windows": list(seen) + [new["run_ref"]],
++                            "not_fresh": {"run_ref": new["run_ref"], **fresh}}
++        return {"judged": False, "fresh": False, "kind": fresh["kind"], "why": fresh["why"]}
++    new_tasks = _post_promotion_tasks(new, promoted_at)
++    old_tasks = _post_promotion_tasks(old, promoted_at)
++    common = sorted(set(new_tasks) & set(old_tasks))
++    if not common:
++        return {"judged": False, "fresh": True, "kind": "no_whole_day_yet",
++                "why": (f"dataset {fresh['fingerprint'][:12]} reaches past the promotion but "
++                        f"no whole day has been observed since it; judged when one has")}
++    old_q = round(sum(old_tasks[t] for t in common) / len(common), 6)
++    new_q = round(sum(new_tasks[t] for t in common) / len(common), 6)
+     with db.session() as s:
+         row = s.get(Improvement, improvement_id)
+         row.evidence = {**(row.evidence or {}),
+                         "monitored_windows": list(seen) + [new["run_ref"]],
+-                        "monitoring": {"observed": round(new_q, 6),
+-                                       "replaced_reads": round(old_q, 6),
+-                                       "window": new["run_ref"]}}
+-    margin = league.required_margin(len(new["tasks"]))
++                        "monitoring": {"observed": new_q, "replaced_reads": old_q,
++                                       "window": new["run_ref"], "tasks": common,
++                                       "dataset": fresh["fingerprint"],
++                                       "bounds": fresh["bounds"],
++                                       "simulator": _simulator_version(new)}}
++    margin = league.required_margin(len(common))
+     worse = new_q < old_q - margin
+-    return {"judged": True, "observed": round(new_q, 6), "replaced_reads": round(old_q, 6),
+-            "worse": worse,
+-            "why": (f"on fresh window {new['run_ref']} the promoted policy reads {new_q:.4f} "
+-                    f"and the version it replaced {old_q:.4f}"
++    return {"judged": True, "observed": new_q, "replaced_reads": old_q, "worse": worse,
++            "fresh": True, "tasks": len(common),
++            "why": (f"on {len(common)} post-promotion task(s) of dataset "
++                    f"{fresh['fingerprint'][:12]} the promoted policy reads {new_q:.4f} and "
++                    f"the version it replaced {old_q:.4f}"
+                     + (f", worse by more than the {margin:.4f} margin" if worse else ""))}
+ 
+ 
+@@ -555,4 +726,13 @@ def state() -> dict:
+             "tasks": "historical terminal jobs, one task per day; newest fifth held out",
+             "metric": "band-weighted share of jobs finishing before their deadline or SLA",
+             "band_sla_hours": dict(BAND_SLA_HOURS), "min_jobs": MIN_JOBS,
+-            "min_days": MIN_DAYS}
++            "min_days": MIN_DAYS, "simulator": dict(SIMULATOR),
++            # Codex M09: the honest extent of the challenger engine. Model, prompt and tool
++            # challengers are registered and compared on recorded runs; nothing produces
++            # those runs here, and no other configuration is replayed.
++            "scope": ("the only configuration this engine produces runs for and proposes "
++                      "changes to is the job-priority policy; every other configuration's "
++                      "challenger waits for a run recorded elsewhere"),
++            "freshness": ("a post-promotion run is evidence only when its dataset fingerprint "
++                          "is new, its observation bounds pass the promotion and a whole day "
++                          "has been observed since")}
+diff --git a/brambleloop/tests/test_cert_improve_wave.py b/brambleloop/tests/test_cert_improve_wave.py
+index 6e5f6c0..0ac2788 100644
+--- a/brambleloop/tests/test_cert_improve_wave.py
++++ b/brambleloop/tests/test_cert_improve_wave.py
+@@ -74,7 +74,8 @@ def _scheduled(job_type: str, agent: str) -> None:
+     assert job_type in JOB_BANDS, job_type
+ 
+ 
+-def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6) -> None:
++def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6,
++                     workers: tuple[str, ...] = ("",)) -> None:
+     """Each day a burst of ten equal-band jobs: five valuable and unhurried enqueued first,
+     five worth nothing with a three-hour deadline behind them. One hour of work each."""
+     from brambleloop.core.models import Job, JobStatus
+@@ -91,7 +92,19 @@ def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6) -> None:
+                            "value_cad": 500})
+                 s.add(Job(agent="orchestrator", job_type="improve.nightly", inputs=inputs,
+                           priority=85, status=JobStatus.DONE, created_at=t0,
+-                          run_after=t0, started_at=t0, finished_at=t0 + timedelta(hours=1)))
++                          run_after=t0, started_at=t0, finished_at=t0 + timedelta(hours=1),
++                          leased_by=workers[i % len(workers)] or None))
++
++
++def _post_promotion_dataset(tag: str, *, days_ahead: int = 1) -> tuple[dict, dict]:
++    """A dataset observed wholly after now, with two whole days of dated tasks."""
++    now = datetime.now(timezone.utc)
++    d1 = (now + timedelta(days=days_ahead)).date().isoformat()
++    d2 = (now + timedelta(days=days_ahead + 1)).date().isoformat()
++    dataset = {"fingerprint": f"fresh-{tag}", "jobs": 20,
++               "bounds": [(now + timedelta(days=days_ahead)).isoformat(),
++                          (now + timedelta(days=days_ahead + 1, hours=6)).isoformat()]}
++    return dataset, {f"day:{d1}": None, f"day:{d2}": None}
+ 
+ 
+ def _improvement(db, iid):
+@@ -176,12 +189,7 @@ def test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back():
+     # 5. Monitor: a fresh window replayed since the promotion reads worse -> reverted, the
+     #    previous version restored, a rollback incident opened.
+     replaced = ev["change"]["replaces"]
+-    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
+-                      reliability=1.0, run_ref="replay:aaaaaaaaaaaa:fresh..fresh:20",
+-                      recorded_by="prompt_tool_challenger")
+-    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
+-                      reliability=1.0, run_ref="replay:bbbbbbbbbbbb:fresh..fresh:20",
+-                      recorded_by="prompt_tool_challenger")
++    _fresh_worse_runs(db, replaced, challenger)
+     mon = _run(db, "improve.monitor")
+     assert iid in mon["reverted"], mon
+     assert _improvement(db, iid)[0] == "reverted"
+@@ -205,16 +213,20 @@ def _promote_replay_challenger(db) -> tuple[int, int, int]:
+     return iid, int(ev["change"]["config_id"]), int(ev["change"]["replaces"])
+ 
+ 
+-def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh") -> None:
+-    """Runs on a window observed after the promotion where the promoted policy reads worse."""
+-    from brambleloop.improve import league
++def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh",
++                      old_q: float = 0.9, new_q: float = 0.4) -> None:
++    """Runs on a dataset observed after the promotion where the promoted policy reads worse."""
++    from brambleloop.improve import league, replay
+ 
+-    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
++    dataset, days = _post_promotion_dataset(tag)
++    league.record_run(db, replaced, tasks={d: old_q for d in days}, cost_cad=0.0,
+                       reliability=1.0, run_ref=f"replay:aaaaaaaaaaaa:{tag}..{tag}:20",
+-                      recorded_by="prompt_tool_challenger")
+-    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
++                      recorded_by="prompt_tool_challenger", dataset=dataset,
++                      simulator=replay.SIMULATOR)
++    league.record_run(db, challenger, tasks={d: new_q for d in days}, cost_cad=0.0,
+                       reliability=1.0, run_ref=f"replay:bbbbbbbbbbbb:{tag}..{tag}:20",
+-                      recorded_by="prompt_tool_challenger")
++                      recorded_by="prompt_tool_challenger", dataset=dataset,
++                      simulator=replay.SIMULATOR)
+ 
+ 
+ def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
+@@ -306,6 +318,116 @@ def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
+     assert _improvement(db, iid)[0] == "reverted"
+ 
+ 
++def test_a_replay_of_unchanged_history_is_never_fresh_post_promotion_evidence():
++    """C-63 (Codex M03): a run timestamped after the promotion is not evidence about it
++    unless its dataset is new, its observations pass the promotion, and a whole day has been
++    observed since. Each non-fresh kind is recorded on the row and reverts nothing."""
++    from brambleloop.core.models import ConfigVersion
++    from brambleloop.improve import league, replay
++
++    db = _db()
++    iid, challenger, replaced = _promote_replay_challenger(db)
++    _state, ev, _b, _r = _improvement(db, iid)
++    judged_fp = ev["change"]["judged_on"]["fingerprint"]
++    assert judged_fp and ev["change"]["simulator"] == replay.SIMULATOR["version"]
++    now = datetime.now(timezone.utc)
++
++    def _record(tag, *, dataset, tasks_old, tasks_new):
++        for cid, tasks, d in ((replaced, tasks_old, "a"), (challenger, tasks_new, "b")):
++            league.record_run(db, cid, tasks=tasks, cost_cad=0.0, reliability=1.0,
++                              run_ref=f"replay:{d * 12}:{tag}:20",
++                              recorded_by="prompt_tool_challenger", dataset=dataset,
++                              simulator=replay.SIMULATOR)
++
++    def _not_reverted(kind):
++        mon = _run(db, "improve.monitor")
++        state, ev, _b, _r = _improvement(db, iid)
++        assert mon["reverted"] == [] and state == "promoted", (kind, mon)
++        assert ev["not_fresh"]["kind"] == kind, ev["not_fresh"]
++        with db.session() as s:
++            assert s.get(ConfigVersion, challenger).incumbent is True
++
++    worse = {"day:x": 0.4}
++    better = {"day:x": 0.9}
++    # 1. The same historical tasks replayed again after the promotion: the same evaluation.
++    _record("again", dataset={"fingerprint": judged_fp,
++                              "bounds": [(now + timedelta(days=1)).isoformat()] * 2},
++            tasks_old=better, tasks_new=worse)
++    _not_reverted("repeated_evaluation")
++    # 2. A new dataset whose every observation predates the promotion.
++    _record("old", dataset={"fingerprint": "older-history",
++                            "bounds": [(now - timedelta(days=9)).isoformat(),
++                                       (now - timedelta(days=8)).isoformat()]},
++            tasks_old=better, tasks_new=worse)
++    _not_reverted("predates_promotion")
++    # 3. A run that says nothing about what it was scored on.
++    for cid, tasks, d in ((replaced, better, "c"), (challenger, worse, "d")):
++        league.record_run(db, cid, tasks=tasks, cost_cad=0.0, reliability=1.0,
++                          run_ref=f"replay:{d * 12}:blank..blank:20",
++                          recorded_by="prompt_tool_challenger")
++    _not_reverted("unbounded")
++    # 4. Fresh bounds, but the only dated task is the promotion day itself: not a whole day.
++    today = f"day:{now.date().isoformat()}"
++    _record("partial", dataset={"fingerprint": "reaches-past",
++                                "bounds": [(now - timedelta(days=1)).isoformat(),
++                                           (now + timedelta(hours=2)).isoformat()]},
++            tasks_old={today: 0.9}, tasks_new={today: 0.4})
++    mon = _run(db, "improve.monitor")
++    assert mon["reverted"] == [] and _improvement(db, iid)[0] == "promoted"
++    # 5. Two whole days observed after the promotion: judged, and worse -> reverted.
++    _fresh_worse_runs(db, replaced, challenger)
++    mon = _run(db, "improve.monitor")
++    assert iid in mon["reverted"], mon
++    state, ev, _b, _r = _improvement(db, iid)
++    assert state == "reverted" and ev["monitoring"]["dataset"] == "fresh-fresh"
++    assert len(ev["monitoring"]["tasks"]) == 2 and ev["monitoring"]["observed"] == 0.4
++
++
++def test_the_replay_scopes_its_claim_to_the_simulator_it_ran():
++    """C-63 / C-68 (Codex M02): the simulator's assumptions are versioned on every run, a
++    history produced by a worker pool the simulator does not model proposes nothing, and a
++    DEAD job keeps its failure meaning."""
++    from brambleloop.core.models import AuditLog, Job, JobStatus
++    from brambleloop.improve import replay
++
++    db = _db()
++    _seed_contention(db, workers=("worker-1", "worker-2"))
++    out = _run(db, "improve.replay")
++    assert out["ran"] and out["simulator"] == replay.SIMULATOR["version"]
++    assert out["dataset"]["workers_observed"] == 2 and out["dataset"]["fingerprint"]
++    assert out["fidelity"]["comparable"] is False and out["fidelity"]["reasons"]
++    assert out["compared"] and any(c["promote"] for c in out["compared"])
++    assert out["proposed"] and "does not model" in out["proposed"][0]["refused"]
++    with db.session() as s:
++        runs = list(s.scalars(select(AuditLog).where(AuditLog.action == "improve.league.run")))
++    assert len(runs) == 7
++    assert all(r.detail["simulator"]["version"] == replay.SIMULATOR["version"]
++               and r.detail["dataset"]["fingerprint"] == out["dataset"]["fingerprint"]
++               for r in runs)
++    sandbox = _run(db, "improve.sandbox")
++    assert sandbox["promoted"] == [] and sandbox["sandboxed"] == []
++
++    # A dead job occupies the worker and is never on time, so the day it died reads worse
++    # than the same day with it finished -- the failure is kept in the metric.
++    db2 = _db()
++    _seed_contention(db2)
++    now = datetime.now(timezone.utc)
++    t0 = (now - timedelta(days=6)).replace(hour=0, minute=30, second=0, microsecond=0)
++    with db2.session() as s:
++        s.add(Job(agent="orchestrator", job_type="improve.nightly",
++                  inputs={"deadline": (t0 + timedelta(days=25)).isoformat()}, priority=85,
++                  status=JobStatus.DEAD, created_at=t0, run_after=t0, started_at=t0,
++                  finished_at=t0 + timedelta(hours=1), last_error="boom"))
++    out2 = _run(db2, "improve.replay")
++    assert out2["dataset"]["dead_jobs"] == 1 and out2["fidelity"]["dead_jobs"] == 1
++    with db2.session() as s:
++        inc_run = next(r for r in s.scalars(select(AuditLog).where(
++            AuditLog.action == "improve.league.run")) if r.detail["config_id"] == out2["incumbent"])
++    day_with_dead = f"day:{t0.date().isoformat()}"
++    other_days = [v for k, v in inc_run.detail["tasks"].items() if k != day_with_dead]
++    assert inc_run.detail["tasks"][day_with_dead] < min(other_days), inc_run.detail["tasks"]
++
++
+ def test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them():
+     _scheduled("improve.nightly", "orchestrator")
+     from brambleloop.core.models import AuditLog
+@@ -477,12 +599,8 @@ def test_role_work_reports_real_proposals_kept_and_realised_uplift():
+     with db.session() as s:
+         imp = s.scalar(select(Improvement).where(Improvement.state == "promoted"))
+         change = dict(imp.evidence["change"])
+-    league.record_run(db, change["replaces"], tasks={"day:y": 0.5}, cost_cad=0.0,
+-                      reliability=1.0, run_ref="replay:cccccccccccc:y..y:30",
+-                      recorded_by="prompt_tool_challenger")
+-    league.record_run(db, change["config_id"], tasks={"day:y": 0.9}, cost_cad=0.0,
+-                      reliability=1.0, run_ref="replay:dddddddddddd:y..y:30",
+-                      recorded_by="prompt_tool_challenger")
++    _fresh_worse_runs(db, change["replaces"], change["config_id"], tag="held",
++                      old_q=0.5, new_q=0.9)
+     _run(db, "improve.monitor")
+     again = _run(db, "improve.role_work", agent="prompt_tool_challenger")
+     assert again["realised_uplift"] > 0 and again["scorecard"]["reading"] == "measured", again
+-- 
+2.43.0
+
+
+From 1661a920e4f1e15d9134bfcc3c295ecfce8fac92 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:24:22 +0000
+Subject: [PATCH 4/5] C-66 (Codex M05): a lesson match is a bounded priority
+ heuristic with a stated reason, never a CAD-valued expected business value
+
+radar.score no longer adds 150 CAD per matching engineering lesson to the draft's value; it
+carries swarm.orchestrate.HEURISTIC_KEY (one bounded step inside the band, the lessons, the
+reason, benefit recorded as unmeasured). priority_decision reads it as a heuristic alongside
+deadline and value and reports it separately. The acted-on record says the benefit is unmeasured.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/runtime/pipeline.py       | 22 +++++++---
+ .../src/brambleloop/swarm/orchestrate.py      | 38 ++++++++++++++--
+ brambleloop/tests/test_cert_improve_wave.py   | 44 +++++++++++++++++++
+ 3 files changed, 95 insertions(+), 9 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index 3ef5c8f..9503a69 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -306,16 +306,28 @@ def handle_radar_score(ctx: JobContext) -> dict:
+         if gate is not None:
+             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
+         # #97: Pattern Engineering prioritises what its lessons favour. A favoured lesson
+-        # matching this concept raises the draft's stated value, which `priority_for` turns
+-        # into an earlier claim inside the band.
++        # matching this concept is a *heuristic* reason to claim the draft earlier inside its
++        # band (`swarm.orchestrate.HEURISTIC_KEY`, bounded to one step) -- never a CAD value:
++        # a lesson match is not a sourced estimate of what the work is worth (C-66 / M05),
++        # and the currency fields stay for estimates that say where they came from. The
++        # benefit of the nudge is recorded as unmeasured until the draft's outcome is read.
+         eng_lessons = [l for l in consume.matching(ctx.db, "pattern_engineering",
+                                                    concept_text) if l["direction"] > 0]
+         if eng_lessons:
+-            payload["value_cad"] = float(payload.get("value_cad") or 0.0) + 150.0 * len(
+-                eng_lessons)
++            from ..swarm.orchestrate import HEURISTIC_KEY, MAX_HEURISTIC_STEPS
++
++            payload[HEURISTIC_KEY] = {
++                "source": "pattern_engineering lessons (#97)",
++                "lessons": [l["id"] for l in eng_lessons],
++                "steps": min(MAX_HEURISTIC_STEPS, len(eng_lessons)),
++                "reason": (f"{len(eng_lessons)} favouring lesson(s) match this concept: "
++                           + "; ".join(", ".join(l["shared"][:3]) for l in eng_lessons))[:200],
++                "benefit": "unmeasured: a bounded heuristic nudge, not an expected value"}
+             payload["lessons"] = [l["id"] for l in eng_lessons]
+             consume.act(ctx.db, "pattern_engineering", eng_lessons,
+-                        how=f"cir.draft of {seed.slug} prioritised by its lessons")
++                        how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
++                             f"step inside its band by a lesson heuristic; benefit unmeasured "
++                             f"until the draft's outcome is read"))
+         ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                     idempotency_key=f"draft:{seed.slug}")
+     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index 3323955..1221581 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -766,6 +766,12 @@ MAX_WITHIN_BAND = 4
+ DEADLINE_KEYS: tuple[str, ...] = ("deadline", "latest_launch", "window_closes", "launch_by",
+                                   "due", "preferred_launch", "event_date")
+ VALUE_KEYS: tuple[str, ...] = ("value_cad", "expected_value_cad", "expected_revenue_cad")
++# C-66 / Codex M05: a department's *heuristic* reason to claim a job earlier -- a lesson that
++# favours this work -- is carried under its own key, bounded to one step inside the band, and
++# is never written into a currency field. A CAD value on a job is a sourced estimate of what
++# the work is worth; a heuristic is a reason, and the two are not exchangeable.
++HEURISTIC_KEY = "priority_heuristic"
++MAX_HEURISTIC_STEPS = 1
+ LISTING_KINDS_NEEDING_PROOF: frozenset[str] = frozenset({"proven_winner"})
+ _POLICY_CACHE: dict = {}
+ _POLICY_TTL = timedelta(minutes=5)
+@@ -833,8 +839,28 @@ def value_of(inputs: dict | None) -> float | None:
+     return None
+ 
+ 
+-def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None) -> int:
+-    """Points a job moves up inside its band, from its deadline and value, capped."""
++def heuristic_of(inputs: dict | None) -> dict:
++    """The bounded heuristic nudge a job's inputs carry, and its stated reason (M05)."""
++    raw = (inputs or {}).get(HEURISTIC_KEY)
++    if not isinstance(raw, dict):
++        return {"steps": 0}
++    try:
++        steps = int(raw.get("steps") or 0)
++    except (TypeError, ValueError):
++        steps = 0
++    return {"steps": max(0, min(MAX_HEURISTIC_STEPS, steps)),
++            "source": str(raw.get("source") or "")[:80],
++            "reason": str(raw.get("reason") or "")[:200],
++            "lessons": list(raw.get("lessons") or [])[:10]}
++
++
++def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None,
++                heuristic_steps: int = 0) -> int:
++    """Points a job moves up inside its band, from its deadline and value, capped.
++
++    `heuristic_steps` is a department's stated reason to go earlier (a favouring lesson),
++    already bounded by `heuristic_of`; it adds to the movement and never crosses the cap.
++    """
+     urgency = 0.0
+     if deadline_days is not None:
+         horizon = max(1.0, float(policy["horizon_days"]))
+@@ -843,7 +869,8 @@ def within_band(policy: dict, *, deadline_days: float | None, value_cad: float |
+     if value_cad is not None:
+         value = min(1.0, value_cad / max(1.0, float(policy["value_scale_cad"])))
+     raw = urgency * float(policy["deadline_weight"]) + value * float(policy["value_weight"])
+-    return int(max(0, min(MAX_WITHIN_BAND, round(raw))))
++    steps = max(0, min(MAX_HEURISTIC_STEPS, int(heuristic_steps or 0)))
++    return int(max(0, min(MAX_WITHIN_BAND, round(raw) + steps)))
+ 
+ 
+ def product_proven(db, slug: str) -> bool:
+@@ -880,11 +907,14 @@ def priority_decision(job_type: str, inputs: dict | None = None, *, db=None,
+     deadline = deadline_of(inputs)
+     days = None if deadline is None else (deadline - now).total_seconds() / 86400.0
+     value = value_of(inputs)
+-    moved = within_band(policy, deadline_days=days, value_cad=value)
++    heuristic = heuristic_of(inputs)
++    moved = within_band(policy, deadline_days=days, value_cad=value,
++                        heuristic_steps=heuristic["steps"])
+     band = BAND_BY_KIND[kind]
+     return {"job_type": job_type, "kind": kind, "band": band, "moved": moved,
+             "priority": band - moved, "deadline_days": None if days is None else round(days, 2),
+             "value_cad": value, "demoted": demoted or None,
++            "heuristic": heuristic if heuristic["steps"] else None,
+             "policy": {k: policy.get(k) for k in ("config_id", "source")}}
+ 
+ 
+diff --git a/brambleloop/tests/test_cert_improve_wave.py b/brambleloop/tests/test_cert_improve_wave.py
+index 0ac2788..e7a7249 100644
+--- a/brambleloop/tests/test_cert_improve_wave.py
++++ b/brambleloop/tests/test_cert_improve_wave.py
+@@ -842,6 +842,50 @@ def test_market_radar_and_listings_act_on_their_lessons():
+     assert "market_radar" in acted
+ 
+ 
++def test_engineering_lessons_nudge_priority_as_a_bounded_heuristic_never_as_cad():
++    """C-66 (Codex M05): a lesson match is a reason to claim the draft one step earlier inside
++    its band, carried under its own key; it never invents currency value, and the record of
++    acting on it says the benefit is unmeasured."""
++    from brambleloop.core.models import Job, Lesson
++    from brambleloop.improve import bus
++    from brambleloop.swarm.orchestrate import HEURISTIC_KEY, priority_decision
++
++    def _draft_job(db):
++        with db.session() as s:
++            return next(dict(inputs=dict(j.inputs or {}), priority=j.priority)
++                        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft")))
++
++    inputs = {"slug": "nordic-forest-mosaic-throw", "as_of": "2026-09-17"}
++    plain = _db()
++    assert _run(plain, "radar.score", agent="market_radar", inputs=inputs)["promoted"]
++    without = _draft_job(plain)
++
++    db = _db()
++    lids = [bus.publish(db, origin_cell="product_creativity", subject="construction_preference",
++                        statement=("buyers strongly prefer an overlay mosaic throw whose rows "
++                                   "are a countable sequence worked in one piece"),
++                        evidence_ref=f"test:lesson-{i}") for i in range(3)]
++    out = _run(db, "radar.score", agent="market_radar", inputs=inputs)
++    assert out["promoted"]
++    with_lessons = _draft_job(db)
++
++    # No CAD field moved: three matching lessons used to add 450 CAD of invented value.
++    for key in ("value_cad", "expected_value_cad", "expected_revenue_cad"):
++        assert with_lessons["inputs"].get(key) == without["inputs"].get(key), key
++    heuristic = with_lessons["inputs"][HEURISTIC_KEY]
++    assert set(heuristic["lessons"]) == set(lids) and heuristic["steps"] == 1
++    assert "unmeasured" in heuristic["benefit"] and heuristic["reason"]
++    # Acted on: exactly one step earlier inside the band, never across it.
++    decision = priority_decision("cir.draft", with_lessons["inputs"], db=db)
++    assert with_lessons["priority"] == without["priority"] - 1 == decision["priority"]
++    assert decision["heuristic"]["steps"] == 1 and decision["moved"] <= 4
++    assert decision["band"] - 4 <= with_lessons["priority"] <= decision["band"]
++    with db.session() as s:
++        acted = {e["cell"]: e["how"] for e in s.get(Lesson, lids[0]).acted_on_by}
++    assert "pattern_engineering" in acted, acted
++    assert "benefit unmeasured" in acted["pattern_engineering"]
++
++
+ def test_culture_findings_publish_lessons_to_radar_seo_and_portfolio():
+     from brambleloop.core.models import Lesson
+     from brambleloop.culture import radar
+-- 
+2.43.0
+
+
+From b00b20f8e6c81bbbb6b16fbf27b2de52b5521e26 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:29:37 +0000
+Subject: [PATCH 5/5] C-66/C-67 (Codex M07): self-audits are bound to the
+ release hash they audited and invalidated when it changes; keyword checks are
+ structural, never semantic clarity
+
+lab.record_audit / record_finding stamp brambleloop:<slug> findings with the product's current
+certified release (enforce.bind_self_audit); our_scores, check and catalogue_scores read only
+audits bound to the current release and report stale ones with the reason. _judge returns the
+evidence kind: a shop-package keyword hit satisfies a prevent requirement structurally (labelled)
+and never a clarify requirement, which needs a self-audit of this release reading strong.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/teardown/enforce.py       | 189 +++++++++++++++---
+ brambleloop/src/brambleloop/teardown/lab.py   |  12 ++
+ brambleloop/tests/test_cert_improve_wave.py   |  69 +++++++
+ 3 files changed, 241 insertions(+), 29 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/teardown/enforce.py b/brambleloop/src/brambleloop/teardown/enforce.py
+index 9927192..edd61df 100644
+--- a/brambleloop/src/brambleloop/teardown/enforce.py
++++ b/brambleloop/src/brambleloop/teardown/enforce.py
+@@ -182,36 +182,130 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
+     return out
+ 
+ 
++# ---- self-audits are bound to the release they audited (C-66 / C-67, Codex M07) -----------
++#
++# A self-audit under `brambleloop:<slug>` is a reading of one release's documents. Read by slug
++# alone it would certify whatever release the slug carries today, including one the audit
++# never saw. So every self-audit is stamped with the release hash it was recorded against,
++# and every reader here asks for the product's *current* release: an audit bound to an
++# earlier release is stale evidence, reported as such, and never a score.
++
++BOUND_TO = "bound_to"
++
++
++def current_release(db, slug: str) -> dict | None:
++    """The newest certified release of this product: its hash and version, or None."""
++    from sqlalchemy import desc, select
++
++    from ..core.models import PatternVersion, Product
++
++    with db.session() as s:
++        product = s.scalar(select(Product).where(Product.slug == slug))
++        if product is None:
++            return None
++        pv = s.scalar(select(PatternVersion).where(
++            PatternVersion.product_id == product.id, PatternVersion.certified == True)  # noqa: E712
++            .order_by(desc(PatternVersion.id)).limit(1))
++        if pv is None:
++            return None
++        return {"release_hash": pv.release_hash or "", "version": pv.version}
++
++
++def bind_self_audit(db, finding_ids: list[int], slug: str) -> dict:
++    """Stamp self-audit findings with the release they were recorded against."""
++    from ..core.models import TeardownFinding
++
++    release = current_release(db, slug)
++    with db.session() as s:
++        for fid in finding_ids:
++            row = s.get(TeardownFinding, fid)
++            if row is None or not row.benchmark_ref.startswith(SELF_PREFIX):
++                continue
++            row.detail = {**(row.detail or {}), BOUND_TO: {
++                **(release or {"release_hash": None, "version": None}),
++                "at": datetime.now(timezone.utc).isoformat()}}
++    return {"bound": list(finding_ids), "release": release}
++
++
++def _bound_hash(row) -> str | None:
++    bound = (row.detail or {}).get(BOUND_TO) or {}
++    return bound.get("release_hash") if bound else None
++
++
++def _applies(row, release: dict | None) -> bool:
++    """Does this self-audit speak about the product's current release?
++
++    With a certified release on record, only an audit bound to that release's hash applies;
++    one bound to another release, or to none, is stale. With no certified release yet there is
++    nothing to bind to, and an unbound audit is read as the product's own.
++    """
++    bound = _bound_hash(row)
++    if release is None or not release.get("release_hash"):
++        return bound in (None, "")
++    return bound == release["release_hash"]
++
++
+ def our_scores(db, slug: str) -> dict[str, float]:
+-    """This product's newest self-audit score per requirement key."""
++    """This product's newest self-audit score per requirement key, bound to its release."""
++    return {k: v["score"] for k, v in our_scores_detail(db, slug).items()
++            if v.get("score") is not None}
++
++
++def our_scores_detail(db, slug: str) -> dict[str, dict]:
++    """Per requirement key: the applicable score, or the stale audits that no longer apply."""
+     from sqlalchemy import select
+ 
+     from ..core.models import TeardownFinding
+ 
+     ref = f"{SELF_PREFIX}{slug}"
+-    out: dict[str, tuple[int, float]] = {}
++    release = current_release(db, slug)
++    current: dict[str, tuple[int, float]] = {}
++    stale: dict[str, list[dict]] = {}
+     with db.session() as s:
+         for r in s.scalars(select(TeardownFinding).where(TeardownFinding.benchmark_ref == ref)):
+             key = _key(r)[0]
+-            if key not in out or r.id > out[key][0]:
+-                out[key] = (r.id, _score(r))
+-    return {k: v for k, (_i, v) in out.items()}
++            if _applies(r, release):
++                if key not in current or r.id > current[key][0]:
++                    current[key] = (r.id, _score(r))
++            else:
++                stale.setdefault(key, []).append({"finding": r.id, "score": _score(r),
++                                                  "bound_to": _bound_hash(r)})
++    out: dict[str, dict] = {}
++    for key, (fid, score) in current.items():
++        out[key] = {"score": score, "finding": fid,
++                    "release_hash": (release or {}).get("release_hash")}
++    for key, rows in stale.items():
++        out.setdefault(key, {"score": None, "finding": None,
++                             "release_hash": (release or {}).get("release_hash")})
++        out[key]["stale"] = rows
++    return out
+ 
+ 
+ def catalogue_scores(db, key: str, *, after: datetime | None = None) -> list[tuple[int, float]]:
+-    """(finding id, score) for every product's newest self-audit on one key, optionally since."""
++    """(finding id, score) for every product's newest self-audit on one key, optionally since.
++
++    Only audits bound to each product's current release count: a floor adopted or a trial
++    read from an audit of a release that no longer ships would be a standard measured on
++    something else.
++    """
+     from sqlalchemy import select
+ 
+     from ..core.models import TeardownFinding
+ 
+     latest: dict[str, tuple[int, float]] = {}
++    releases: dict[str, dict | None] = {}
+     with db.session() as s:
+-        for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id)):
+-            if not r.benchmark_ref.startswith(SELF_PREFIX) or _key(r)[0] != key:
+-                continue
++        rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
++                if r.benchmark_ref.startswith(SELF_PREFIX) and _key(r)[0] == key]
++        for r in rows:
+             at = r.at if r.at.tzinfo else r.at.replace(tzinfo=timezone.utc)
+             if after is not None and at <= after:
+                 continue
++            slug = r.benchmark_ref[len(SELF_PREFIX):]
++            if slug not in releases:
++                releases[slug] = current_release(db, slug)
++            if not _applies(r, releases[slug]):
++                continue
+             latest[r.benchmark_ref] = (r.id, _score(r))
+     return sorted(latest.values())
+ 
+@@ -226,32 +320,61 @@ def support_text_evidence() -> dict[str, bool]:
+             for element, words in SUPPORT_EVIDENCE.items()}
+ 
+ 
+-def _judge(req: dict, ours: float | None, automated: bool | None) -> tuple[str, str]:
++# What kind of evidence a verdict rests on (Codex M07). A keyword found in the shop package
++# is a *structural* check: the text has words for the element. Whether those words are clear
++# is a semantic question only an independent reading (a self-audit of this release) answers.
++STRUCTURAL = "structural_keyword"
++SEMANTIC = "self_audit"
++
++
++def _judge(req: dict, ours: float | None, automated: bool | None,
++           stale: list[dict] | None = None) -> tuple[str, str, str | None]:
++    """(verdict, why, evidence_kind) for one requirement against our own reading."""
+     bench = float(req["benchmark_score"])
++    staleness = (f"; {len(stale)} earlier self-audit(s) are bound to another release of this "
++                 f"product and no longer apply -- re-audit this release" if stale else "")
+     if req.get("adopted_floor") is not None and ours is not None and ours < req["adopted_floor"]:
+         return "unmet", (f"fell below the floor {req['adopted_floor']} this company reached "
+-                         f"and promoted (#164)")
++                         f"and promoted (#164)"), SEMANTIC
+     if req["kind"] == "exceed":
+         if ours is None:
+-            return "unmeasured", "no self-audit of this product on this element"
++            return ("unmeasured",
++                    "no self-audit of this product's current release on this element" + staleness,
++                    None)
+         if ours > bench or (bench >= 5 and ours >= 5):
+-            return "met", f"ours {ours} against the best benchmark's {bench}"
++            return "met", f"ours {ours} against the best benchmark's {bench}", SEMANTIC
+         return "unmet", (f"ours {ours} does not exceed {req['from_benchmark']}'s {bench} "
+-                         f"({SCALE.get(int(bench), '')})")
++                         f"({SCALE.get(int(bench), '')})"), SEMANTIC
+     if req["kind"] == "prevent":
++        if ours is not None:
++            if ours >= COMPETENT:
++                return ("met", f"ours {ours}: competent or better where a benchmark scored "
++                               f"{bench}", SEMANTIC)
++            return ("unmet", f"ours {ours}: the trap a benchmark fell into is present in ours",
++                    SEMANTIC)
+         if automated:
+-            return "met", "addressed in the text this company publishes"
+-        if ours is None:
+-            return "unmeasured", "no self-audit shows this trap is prevented in our product"
+-        if ours >= COMPETENT:
+-            return "met", f"ours {ours}: competent or better where a benchmark scored {bench}"
+-        return "unmet", f"ours {ours}: the trap a benchmark fell into is present in ours"
+-    # clarify
+-    if automated or (ours is not None and ours >= STRONG):
+-        return "met", "unambiguous in what this company publishes"
+-    if ours is None and automated is None:
+-        return "unmeasured", "benchmarks disagree here and nothing shows ours is clear"
+-    return "unmet", "benchmarks disagree here and ours does not settle it"
++            return ("met", ("the shop package we publish has text for this element "
++                            "(structural keyword check: it shows the trap is addressed, not "
++                            "that the wording is clear)"), STRUCTURAL)
++        return ("unmeasured",
++                "no self-audit shows this trap is prevented in our product" + staleness, None)
++    # clarify: the requirement is that ours is unambiguous, which is a reading of meaning.
++    # A keyword in the text shows the element is mentioned; it cannot show it is clear.
++    if ours is not None and ours >= STRONG:
++        return "met", f"a self-audit of this release reads ours {ours}: unambiguous", SEMANTIC
++    if ours is not None:
++        return ("unmet", f"benchmarks disagree here and a self-audit reads ours {ours}, which "
++                         f"does not settle it", SEMANTIC)
++    if automated:
++        return ("unmeasured", ("the shop package mentions this element (structural keyword "
++                               "check) and nothing independent shows the wording is "
++                               "unambiguous; a self-audit of this release decides" + staleness),
++                STRUCTURAL)
++    if automated is None:
++        return ("unmeasured",
++                "benchmarks disagree here and nothing shows ours is clear" + staleness, None)
++    return ("unmet", "benchmarks disagree here and our shop package has no text for it",
++            STRUCTURAL)
+ 
+ 
+ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
+@@ -259,7 +382,9 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
+     """Whether this product meets every requirement its consumers enforce."""
+     reqs = [r for r in requirements(db)
+             if consumers is None or set(r["consumers"]) & set(consumers)]
+-    ours = our_scores(db, slug)
++    detail = our_scores_detail(db, slug)
++    ours = {k: v["score"] for k, v in detail.items() if v.get("score") is not None}
++    release = current_release(db, slug)
+     support = support_text_evidence() if any("support" in r["consumers"] for r in reqs) else {}
+     if has_video is None:
+         has_video = product_has_video(db, slug)
+@@ -271,13 +396,19 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
+             continue
+         automated = (support.get(r["element"]) if "support" in r["consumers"]
+                      and r["element"] else None)
+-        verdict, why = _judge(r, ours.get(r["key"]), automated)
+-        rows.append({**r, "ours": ours.get(r["key"]), "verdict": verdict, "why": why})
++        stale = (detail.get(r["key"]) or {}).get("stale") or []
++        verdict, why, evidence = _judge(r, ours.get(r["key"]), automated, stale)
++        rows.append({**r, "ours": ours.get(r["key"]), "verdict": verdict, "why": why,
++                     "evidence": evidence, "stale_self_audits": [x["finding"] for x in stale],
++                     "release_hash": (release or {}).get("release_hash")})
+         if verdict in ("unmet", "unmeasured") and r["binding"]:
+             reasons.append(f"teardown requirement {r['key']} ({r['kind']}, "
+                            f"{'/'.join(r['consumers'])}): {verdict} -- {why}")
+     return {"product": slug, "requirements": len(reqs),
++            "release": release,
+             "met": sum(1 for r in rows if r["verdict"] == "met"),
++            "met_structurally_only": [r["key"] for r in rows
++                                      if r["verdict"] == "met" and r.get("evidence") == STRUCTURAL],
+             "unmet": [r["key"] for r in rows if r["verdict"] == "unmet"],
+             "unmeasured": [r["key"] for r in rows if r["verdict"] == "unmeasured"],
+             "provisional": [r["key"] for r in rows if not r["binding"]],
+diff --git a/brambleloop/src/brambleloop/teardown/lab.py b/brambleloop/src/brambleloop/teardown/lab.py
+index 432f5b0..9b95b9e 100644
+--- a/brambleloop/src/brambleloop/teardown/lab.py
++++ b/brambleloop/src/brambleloop/teardown/lab.py
+@@ -121,6 +121,7 @@ def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
+     inferred = inferred_for(db, benchmark_ref)
+     audit = audits.observe(spec_key, benchmark_ref, answers, inferred=inferred)
+     recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes)
++    _bind_if_ours(db, benchmark_ref, recorded["findings_recorded"])
+     promotions = [promote_finding(db, fid) for fid in recorded["findings_recorded"]]
+     delight = delight_for(db, benchmark_ref)
+     _set_state_after_audit(db, benchmark_ref)
+@@ -138,6 +139,7 @@ def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism
+     f = scorecard.finding(benchmark_ref, dimension, int(score), mechanism, improvement,
+                           confidence=confidence, raw_notes=raw_notes)
+     finding_id = scorecard.record(db, f)
++    _bind_if_ours(db, benchmark_ref, [finding_id])
+     promotion = promote_finding(db, finding_id)
+     delight = delight_for(db, benchmark_ref)
+     _audit(db, ACTION_FINDING, {"benchmark": benchmark_ref, "finding": finding_id,
+@@ -147,6 +149,16 @@ def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism
+             "scorecard": scorecard.scorecard(db, benchmark_ref)}
+ 
+ 
++def _bind_if_ours(db, benchmark_ref: str, finding_ids: list[int]) -> None:
++    """A self-audit is a reading of one release: stamp it with the release it audited (M07),
++    so a later release does not inherit a score nobody gave it."""
++    if not benchmark_ref.startswith(SELF_PREFIX) or not finding_ids:
++        return
++    from . import enforce
++
++    enforce.bind_self_audit(db, list(finding_ids), benchmark_ref[len(SELF_PREFIX):])
++
++
+ def _set_state_after_audit(db, benchmark_ref: str) -> None:
+     from sqlalchemy import select
+ 
+diff --git a/brambleloop/tests/test_cert_improve_wave.py b/brambleloop/tests/test_cert_improve_wave.py
+index e7a7249..0aa2cb7 100644
+--- a/brambleloop/tests/test_cert_improve_wave.py
++++ b/brambleloop/tests/test_cert_improve_wave.py
+@@ -552,6 +552,75 @@ def test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_
+             Incident.signature == f"improve-rollback:{iid}")) is not None
+ 
+ 
++def test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structural():
++    """C-66 / C-67 (Codex M07): a self-audit certifies the release it audited and nothing
++    later; a keyword in the shop package is a structural check, never semantic clarity."""
++    from brambleloop.core.models import PatternVersion, TeardownFinding
++    from brambleloop.teardown import enforce, lab
++    from brambleloop.teardown.audits import BY_KEY
++
++    db = _db()
++    _benchmark_and_product(db)
++    lab.record_audit(db, "bench-1", "beginner_experience", _beginner(1), confidence=0.9)
++    # Our self-audit of release a...: the gate stops refusing on the trap.
++    rec = lab.record_audit(db, "brambleloop:fixture-good", "beginner_experience", _beginner(4))
++    with db.session() as s:
++        bound = s.get(TeardownFinding, rec["findings_recorded"][0]).detail["bound_to"]
++    assert bound["release_hash"] == "a" * 64 and bound["version"] == "1.0.0"
++    assert not any("error_recovery" in r for r in _publish_gate_reasons(db, "fixture-good"))
++    row = next(r for r in enforce.check(db, "fixture-good")["rows"]
++               if r["key"] == "beginner_experience:error_recovery")
++    assert row["verdict"] == "met" and row["evidence"] == "self_audit"
++
++    # The dependency changes: a new release of the same slug. The audit of release a... is
++    # stale evidence, the requirement reads unmeasured with the reason, and publish refuses.
++    with db.session() as s:
++        s.scalar(select(PatternVersion)).release_hash = "b" * 64
++    reasons = _publish_gate_reasons(db, "fixture-good")
++    assert any("error_recovery" in r and "unmeasured" in r and "another release" in r
++               for r in reasons), reasons
++    row = next(r for r in enforce.check(db, "fixture-good")["rows"]
++               if r["key"] == "beginner_experience:error_recovery")
++    assert row["stale_self_audits"] == rec["findings_recorded"] and row["ours"] is None
++    # ...and the sandbox/monitor reader stops reading it too, so no floor rests on it.
++    assert enforce.catalogue_scores(db, "beginner_experience:error_recovery") == []
++    # A self-audit of the new release binds to it and applies again.
++    lab.record_audit(db, "brambleloop:fixture-good", "beginner_experience", _beginner(4))
++    assert not any("error_recovery" in r for r in _publish_gate_reasons(db, "fixture-good"))
++    assert len(enforce.catalogue_scores(db, "beginner_experience:error_recovery")) == 1
++
++    # Support and rights: benchmarks disagree about the FAQ (5 against 1) so ours must be
++    # unambiguous. The shop package has a FAQ -- a keyword hit -- which is structural evidence
++    # and cannot settle a clarity requirement: unmeasured, blocking, until a self-audit of
++    # this release reads it strong.
++    from brambleloop.core.models import BenchmarkProduct
++
++    with db.session() as s:
++        s.add(BenchmarkProduct(ref="bench-2", seller="OtherShop", category="blanket",
++                               files=[{"name": "p.pdf", "role": "pattern_pdf", "bytes": 3,
++                                       "sha256": "1" * 64}]))
++    support = {e: 3 for e in BY_KEY["support_rights"].element_keys}
++    lab.record_audit(db, "bench-1", "support_rights", {**support, "faq": {
++        "score": 5, "mechanism": "every likely question is answered before purchase"}},
++        confidence=0.9)
++    lab.record_audit(db, "bench-2", "support_rights", {**support, "faq": {
++        "score": 1, "mechanism": "no questions are answered anywhere in the package"}},
++        confidence=0.9)
++    assert enforce.support_text_evidence()["faq"] is True, "the keyword check does fire"
++    row = next(r for r in enforce.check(db, "fixture-good", consumers=("support",))["rows"]
++               if r["key"] == "support_rights:faq" and r["kind"] == "clarify")
++    assert row["verdict"] == "unmeasured" and row["evidence"] == "structural_keyword", row
++    assert any("support_rights:faq (clarify" in r and "structural keyword" in r
++               for r in _publish_gate_reasons(db, "fixture-good"))
++    lab.record_audit(db, "brambleloop:fixture-good", "support_rights", {**support, "faq": {
++        "score": 4, "mechanism": "our FAQ answers each disputed question in one sentence"}})
++    row = next(r for r in enforce.check(db, "fixture-good", consumers=("support",))["rows"]
++               if r["key"] == "support_rights:faq" and r["kind"] == "clarify")
++    assert row["verdict"] == "met" and row["evidence"] == "self_audit", row
++    assert not any("support_rights:faq (clarify" in r
++                   for r in _publish_gate_reasons(db, "fixture-good"))
++
++
+ def test_owner_veto_and_competitive_standard_block_at_the_gates():
+     from brambleloop.core.models import (AuditLog, CompetitiveStandard, ListingAsset)
+     from brambleloop.intel import mission_runtime
+-- 
+2.43.0
+

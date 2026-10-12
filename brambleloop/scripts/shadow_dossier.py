@@ -9,7 +9,9 @@ inspect the output rather than take a test count on trust.
 """
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import sys
 import tempfile
 from datetime import date
@@ -37,7 +39,11 @@ FLAGSHIP = "nordic-forest-mosaic-throw"
 
 
 def run(today: date) -> dict:
-    tmp = tempfile.mkdtemp()
+    # The database outlives this function (the caller reads it to write the dossier), so it is
+    # removed at interpreter exit -- which also runs on an uncaught exception -- rather than
+    # left in /tmp for ever (W3-HYG).
+    tmp = tempfile.mkdtemp(prefix="shadow_dossier_")
+    atexit.register(shutil.rmtree, tmp, True)
     db = Database(f"sqlite:///{tmp}/dossier.sqlite")
     db.create_all()
     Registry(db).seed_defaults()

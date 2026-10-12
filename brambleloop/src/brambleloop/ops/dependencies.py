@@ -153,11 +153,19 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
     company's memory and GitHub holds a copy of code that also exists on disk.
     """
     rows = [d.to_dict(env) for d in DEPENDENCIES]
+    # F-128 / F-131: `configured` is a fact about variables and stays named as one; it is never
+    # the capability. Where a dependency has a probe-based executor gate, `capability` reads
+    # that gate -- the same recorded probe the executor trusts -- and a configured dependency
+    # whose probe has not succeeded reads UNPROVEN, not configured-therefore-fine. Without a
+    # database nothing can be proven, so capability is UNKNOWN rather than inferred.
+    for row in rows:
+        row["capability"] = _capability(row["key"], db, row["configured"])
     by_impact: dict[str, list] = {}
     for row in rows:
         by_impact.setdefault(row["impact"], []).append(row["key"])
 
     unconfigured = [r["key"] for r in rows if r["configured"] is False]
+    unproven = [r["key"] for r in rows if r["capability"]["state"] == "UNPROVEN"]
     single_points = [r["key"] for r in rows if r["impact"] == FATAL]
     owner_only = [r["key"] for r in rows if r["owner_only"]]
 
@@ -166,6 +174,10 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
         "by_impact": {k: by_impact.get(k, []) for k in IMPACTS},
         "single_points_of_failure": single_points,
         "unconfigured": unconfigured,
+        "configured_but_unproven": unproven,
+        "capability_source": ("executor gate predicates over recorded probes "
+                              "(build2.executor.GATE_BY_KEY); environment presence is "
+                              "reported as `configured` and never read as capability"),
         "owner_only_to_recover": owner_only,
         "worst_case_recovery_minutes": max(
             (r["recovery_minutes"] for r in rows if r["impact"] == FATAL), default=0),
@@ -174,6 +186,32 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
                  "map marks three things critical and those are the three somebody was "
                  "already worried about (#50)."),
     }
+
+
+def _capability(key: str, db, configured: bool | None) -> dict:
+    """PROVEN / UNPROVEN / UNKNOWN for one dependency, from its executor gate's probe."""
+    gate_key = PROBE_GATES.get(key)
+    if gate_key is None:
+        return {"state": "UNKNOWN", "gate": None,
+                "why": "no probe-based gate exists for this dependency; UNKNOWN, not healthy"}
+    if db is None:
+        return {"state": "UNKNOWN", "gate": gate_key,
+                "why": "no database was consulted, so no probe could be read"}
+    from ..build2 import executor
+
+    try:
+        ok = bool(executor.GATE_BY_KEY[gate_key].open(db))
+    except Exception as exc:  # noqa: BLE001 -- unreadable evidence is not evidence
+        return {"state": "UNKNOWN", "gate": gate_key,
+                "why": f"the probe could not be read: {type(exc).__name__}"}
+    if ok:
+        return {"state": "PROVEN", "gate": gate_key,
+                "why": f"the {gate_key} gate is open on a recorded probe"}
+    return {"state": "UNPROVEN" if configured else "UNKNOWN", "gate": gate_key,
+            "why": (f"the {gate_key} gate is closed: "
+                    + ("configured, but no recorded probe has succeeded -- a variable is a "
+                       "label, not a capability" if configured else
+                       "nothing configured and nothing proven"))}
 
 
 def drill(key: str) -> dict:
@@ -192,3 +230,174 @@ def drill(key: str) -> dict:
                  if dependency.owner_only else
                  "this recovery is within the system's own authority"),
     }
+
+
+# ---------------------------------------------------------------------------
+# #50 continuously (C-69): the map run daily against live evidence, and acted on.
+
+DEPENDENCY_SIGNATURE = "dependency"
+# The postgres recovery strategy is the continuity restore; it counts only while proved.
+RESTORE_PROOF_MAX_AGE_DAYS = 2
+# What each dependency's live probe reads, beyond environment configuration.
+PROBE_GATES: dict[str, str] = {"model_provider": "model_provider", "etsy_account": "etsy_api",
+                               "tester_network": "tester_roster"}
+
+
+# The health sweep's cadence (runtime.worker CADENCES: ops.health every 15 minutes) is the
+# evidence the container is being kept running; a gap of this many minutes between sweeps in
+# the last day is an outage the host let happen.
+HEALTH_SWEEP_MINUTES = 15
+RAILWAY_MAX_GAP_MINUTES = 120
+RAILWAY_ENV_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_GIT_COMMIT_SHA", "RAILWAY_SERVICE_ID",
+                       "RAILWAY_PROJECT_ID")
+
+
+def _railway_probe(session, env: dict, now) -> dict:
+    """Whether the host has kept the container running, from the health sweep's own rows.
+
+    C-80 defect 9: this was `{"ok": True, "why": "this probe is running on it"}`, a constant.
+    Now: not on Railway at all (no RAILWAY_* marker in the environment) is UNKNOWN, not
+    healthy; on Railway, the `ops.health` sweep rows of the last 24 hours are the evidence --
+    none yet is UNKNOWN, a gap longer than RAILWAY_MAX_GAP_MINUTES is a failed probe, and a
+    continuous record is ok.
+    """
+    from datetime import timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    markers = sorted(m for m in RAILWAY_ENV_MARKERS if (env or {}).get(m))
+    if not markers:
+        return {"ok": None, "on_railway": False,
+                "why": "no RAILWAY_* environment marker: this process is not running on "
+                       "Railway, so the host cannot be probed from here; UNKNOWN, not healthy"}
+    since = now - timedelta(hours=24)
+    stamps = sorted((r if r.tzinfo else r.replace(tzinfo=timezone.utc)) for r in
+                    session.scalars(select(AuditLog.at).where(AuditLog.action == "ops.health",
+                                                              AuditLog.at >= since)))
+    if not stamps:
+        return {"ok": None, "on_railway": True, "markers": markers, "health_rows_24h": 0,
+                "why": "on Railway, but no ops.health sweep has been recorded in 24h yet; "
+                       "UNKNOWN until the first sweep"}
+    gaps = [(b - a).total_seconds() / 60 for a, b in zip(stamps, stamps[1:])]
+    latest_age = (now - stamps[-1]).total_seconds() / 60
+    max_gap = max(gaps + [latest_age])
+    ok = max_gap <= RAILWAY_MAX_GAP_MINUTES
+    return {"ok": ok, "on_railway": True, "markers": markers, "health_rows_24h": len(stamps),
+            "max_gap_minutes": round(max_gap, 1), "latest_sweep_age_minutes": round(latest_age, 1),
+            "why": (f"the health sweep ran {len(stamps)} time(s) in 24h with no gap over "
+                    f"{RAILWAY_MAX_GAP_MINUTES} min: the host kept the container running"
+                    if ok else
+                    f"a {max_gap:.0f}-minute gap in the health sweep's 24h record (cadence "
+                    f"{HEALTH_SWEEP_MINUTES} min): the host did not keep the container running")}
+
+
+def probe(db, env: dict[str, str] | None = None) -> dict:
+    """Each dependency checked against the database: reachable, proven, or UNKNOWN."""
+    import os
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select, text
+
+    from ..core.models import AuditLog, CostEntry
+
+    env = dict(os.environ) if env is None else env
+    now = datetime.now(timezone.utc)
+    out: dict[str, dict] = {}
+    railway = None
+    try:
+        with db.session() as s:
+            s.execute(text("select 1"))
+            restore = s.scalar(select(AuditLog.at).where(
+                AuditLog.action == "continuity.verified").order_by(desc(AuditLog.id)).limit(1))
+            providers = sorted({(c.provider or "").strip() for c in s.scalars(
+                select(CostEntry).where(CostEntry.at >= now - timedelta(days=30)))
+                if (c.provider or "").strip()})
+            railway = _railway_probe(s, env, now)
+        reachable = True
+    except Exception as exc:  # noqa: BLE001 - an unreachable database is the finding
+        reachable, restore, providers = False, None, []
+        out["postgres"] = {"ok": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+    if reachable:
+        at = (None if restore is None else
+              restore if restore.tzinfo else restore.replace(tzinfo=timezone.utc))
+        proved = at is not None and now - at <= timedelta(days=RESTORE_PROOF_MAX_AGE_DAYS)
+        out["postgres"] = {"ok": proved, "recovery_proved": proved,
+                           "last_restore_proof": at.isoformat() if at else None,
+                           "why": ("reachable, and its recovery (the continuity restore) was "
+                                   "proved recently" if proved else
+                                   "reachable, but its recovery strategy has not been proved "
+                                   f"within {RESTORE_PROOF_MAX_AGE_DAYS} days")}
+    out["railway"] = railway or {"ok": None, "why": "the database was unreachable, so the "
+                                                      "health record could not be read; UNKNOWN"}
+    from ..build2 import executor
+
+    for key, gate_key in PROBE_GATES.items():
+        try:
+            ok = bool(executor.GATE_BY_KEY[gate_key].open(db))
+        except Exception:  # noqa: BLE001
+            ok = False
+        out[key] = {"ok": ok, "gate": gate_key,
+                    "why": f"the {gate_key} gate is {'open' if ok else 'closed'}"}
+    for d in DEPENDENCIES:
+        out.setdefault(d.key, {"ok": None, "why": "no live probe exists for this dependency; "
+                                                  "UNKNOWN, not healthy"})
+    return {"probes": out, "providers_in_use": providers}
+
+
+def sweep(db, env: dict[str, str] | None = None) -> dict:
+    """Map, probe and act: an incident per failed probe, per unmapped dependency in use and
+    per recovery strategy that is missing or unproved; resolved when the probe recovers."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    state = map_state(db, env)
+    live = probe(db, env)
+    mapped = {d.key for d in DEPENDENCIES}
+    # A provider the company is paying that the map does not name is a dependency nobody
+    # planned a recovery for -- found from the cost ledger, not remembered.
+    provider_keys = {"anthropic": "model_provider", "openai": "model_provider",
+                     "google": "model_provider", "gemini": "model_provider"}
+    unmapped = sorted(p for p in live["providers_in_use"]
+                      if provider_keys.get(p.lower(), p.lower()) not in mapped)
+    findings: dict[str, dict] = {}
+    for key, p in live["probes"].items():
+        d = BY_KEY.get(key)
+        if p.get("ok") is False and d is not None and not d.owner_only:
+            findings[f"{DEPENDENCY_SIGNATURE}:{key}"] = {
+                "severity": "P1" if d.impact == FATAL else "P2",
+                "summary": f"dependency {key} failed its live probe: {p['why']}",
+                "detail": {"dependency": key, "impact": d.impact, "probe": p,
+                           "recovery": d.recovery}}
+    for name in unmapped:
+        findings[f"{DEPENDENCY_SIGNATURE}:unmapped:{name}"] = {
+            "severity": "P2",
+            "summary": (f"{name} is billed in the cost ledger and has no mapped recovery "
+                        f"strategy (#50)"),
+            "detail": {"provider": name}}
+    opened, resolved = [], []
+    with db.session() as s:
+        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
+            Incident.resolved.is_(False),
+            Incident.signature.like(f"{DEPENDENCY_SIGNATURE}:%")))}
+        for sig, f in findings.items():
+            row = open_rows.get(sig)
+            if row is None:
+                s.add(Incident(severity=f["severity"], signature=sig, summary=f["summary"],
+                               halts_publication=False, detail=f["detail"]))
+                opened.append(sig)
+            else:
+                row.report_count = (row.report_count or 1) + 1
+                row.detail = f["detail"]
+        for sig, row in open_rows.items():
+            if sig not in findings:
+                row.resolved = True
+                resolved.append(sig)
+    return {"map": {k: state[k] for k in ("single_points_of_failure", "unconfigured",
+                                          "owner_only_to_recover")},
+            "probes": live["probes"], "providers_in_use": live["providers_in_use"],
+            "unmapped": unmapped, "incidents_opened": opened, "incidents_resolved": resolved,
+            "failing": sorted(k for k, p in live["probes"].items() if p.get("ok") is False),
+            "unknown": sorted(k for k, p in live["probes"].items() if p.get("ok") is None)}

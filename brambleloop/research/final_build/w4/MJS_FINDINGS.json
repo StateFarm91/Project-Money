@@ -1,0 +1,699 @@
+{
+ "as_of": "2026-10-07",
+ "blocked_sources": [
+  {
+   "latest": "2026-10-07T00:03:38.170198+00:00",
+   "reason": "no vision probe has succeeded",
+   "source": "intel.gallery_analysis_blocked"
+  },
+  {
+   "latest": "2026-09-19T18:00:32.396136+00:00",
+   "reason": "ETSY_API_KEY is not set. The benchmark mission reads public marketplace data only and cannot run without it; it is set in the hosting environment, never in this repository",
+   "source": "mjs.scan_blocked"
+  },
+  {
+   "reason": "HTTP 403 to automated readers; not scraped (rendered_pages gate, #39)",
+   "source": "etsy.com rendered search / shop pages"
+  },
+  {
+   "reason": "no API endpoint; owner-recorded only (intel.insights, #236)",
+   "source": "Etsy Marketplace Insights"
+  },
+  {
+   "reason": "not exposed by the sanctioned API; favourites are used as a labelled proxy",
+   "source": "competitor sales counts / revenue"
+  }
+ ],
+ "evidence_source": {
+  "base": "https://brambleloop-os-production.up.railway.app",
+  "cadence_runs": {
+   "intel.benchmark_refresh": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   },
+   "intel.gallery_analysis": {
+    "count_in_page": 37,
+    "latest": "2026-09-24T02:03:19.987357+00:00",
+    "oldest_in_page": "2026-09-20T20:01:16.191865+00:00"
+   },
+   "intel.panel_discovered": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   },
+   "intel.serp_capture": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   },
+   "learning.ingested": {
+    "count_in_page": 18,
+    "latest": "2026-10-07T00:03:20.405372+00:00",
+    "oldest_in_page": "2026-09-20T06:01:54.516226+00:00"
+   },
+   "mjs.mission_events": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   },
+   "mjs.pod_capability": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   },
+   "mjs.reviews": {
+    "count_in_page": 3,
+    "latest": "2026-10-01T00:02:55.608651+00:00",
+    "oldest_in_page": "2026-09-20T05:00:57.384850+00:00"
+   },
+   "mjs.scanned": {
+    "count_in_page": 72,
+    "latest": "2026-10-07T00:03:20.421048+00:00",
+    "oldest_in_page": "2026-09-19T18:04:30.558203+00:00"
+   },
+   "mjs.seasonal_sentinel": {
+    "count_in_page": 0,
+    "latest": null,
+    "oldest_in_page": null
+   }
+  },
+  "deployed_commit": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+  "endpoints": [
+   "/health",
+   "/api/teardown (mjs_market_map)",
+   "/api/arbitrage/departments",
+   "/api/arbitrage?pod=*",
+   "/api/gallery-intelligence",
+   "/api/mjs",
+   "/api/audit?action=*"
+  ],
+  "fetched_at": "2026-10-07T00:04:10.541645+00:00",
+  "kind": "production public read-only endpoints (GET only)",
+  "latest_scan": {
+   "descriptions_read_for_the_first_time": 0,
+   "galleries_backfilled": 0,
+   "listings_inspected": 65,
+   "listings_known": 441,
+   "listings_seen_this_scan": 441,
+   "unchanged_skipped": 310,
+   "withdrawn_since_last_scan": 0
+  }
+ },
+ "findings": [
+  {
+   "category": "category_opportunity",
+   "confidence": {
+    "basis": "shelf allocation of one successful seller; where it invests, not what sells",
+    "grade": "proxy"
+   },
+   "consumer": {
+    "bus_subject": null,
+    "cells": [],
+    "readers": [
+     "intel.findings OperatingReading 'mjs.findings'",
+     "seasonal benchmark-matrix (same rows)"
+    ]
+   },
+   "digest": "dcdd677c4f",
+   "key": "assortment",
+   "metrics": {
+    "listings": 441,
+    "share_by_pod": {
+     "amigurumi": 0.048,
+     "bags": 0.039,
+     "blankets": 0.193,
+     "collections": 0.066,
+     "education": 0.005,
+     "garments": 0.32,
+     "hats": 0.195,
+     "home_decor": 0.025,
+     "kitchen_bath": 0.032,
+     "ornaments": 0.029,
+     "seasonal_gift": 0.023,
+     "stockings": 0.023,
+     "unclassified": 0.005
+    }
+   },
+   "opportunity": "",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 441,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings"
+    ]
+   },
+   "statement": "The benchmark allocates its catalogue garments 32%, hats 20%, blankets 19%, collections 7% of 441 observed listings"
+  },
+  {
+   "category": "what_is_selling",
+   "confidence": {
+    "basis": "favourites are a demand proxy, not sales",
+    "grade": "proxy"
+   },
+   "consumer": {
+    "bus_subject": null,
+    "cells": [],
+    "readers": [
+     "radar.arbitrage.score_observed (demand dimension)"
+    ]
+   },
+   "digest": "5728fb2aed",
+   "key": "demand_by_pod",
+   "metrics": {
+    "median_favourites": {
+     "amigurumi": 1111.0,
+     "bags": 920.0,
+     "blankets": 1400.0,
+     "collections": 764.0,
+     "garments": 1701.0,
+     "hats": 790.0,
+     "home_decor": 911.0,
+     "kitchen_bath": 738.5,
+     "ornaments": 435.0,
+     "seasonal_gift": 491.0,
+     "stockings": 1472.5
+    },
+    "underserved": [
+     "stockings"
+    ]
+   },
+   "opportunity": "prioritise original concepts in stockings: demand per listing is high and the benchmark's range there is thin",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 437,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings.detail.num_favorers"
+    ]
+   },
+   "statement": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth"
+  },
+  {
+   "category": "pricing",
+   "confidence": {
+    "basis": "listed prices converted to CAD at observation",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "pricing_response",
+    "cells": [
+     "pricing",
+     "portfolio",
+     "finance"
+    ],
+    "readers": [
+     "improve.bus inbox: pricing/portfolio/finance",
+     "runtime.release._outcome_price (same BenchmarkListing medians)"
+    ]
+   },
+   "digest": "b6f44c159c",
+   "key": "pricing",
+   "metrics": {
+    "by_pod": {
+     "amigurumi": {
+      "median": 18.0,
+      "n": 21,
+      "p25": 18.0,
+      "p75": 18.0
+     },
+     "bags": {
+      "brambleloop_pool_median": 7.5,
+      "gap_pct": -58.3,
+      "median": 18.0,
+      "n": 17,
+      "p25": 18.0,
+      "p75": 18.0
+     },
+     "blankets": {
+      "brambleloop_pool_median": 11.0,
+      "gap_pct": -38.9,
+      "median": 18.0,
+      "n": 85,
+      "p25": 18.0,
+      "p75": 18.0
+     },
+     "collections": {
+      "median": 60.5,
+      "n": 29,
+      "p25": 45.5,
+      "p75": 85.5
+     },
+     "garments": {
+      "brambleloop_pool_median": 8.5,
+      "gap_pct": -61.4,
+      "median": 22.0,
+      "n": 141,
+      "p25": 22.0,
+      "p75": 22.0
+     },
+     "hats": {
+      "brambleloop_pool_median": 6.5,
+      "gap_pct": -63.9,
+      "median": 18.0,
+      "n": 86,
+      "p25": 18.0,
+      "p75": 18.0
+     },
+     "home_decor": {
+      "brambleloop_pool_median": 6.0,
+      "gap_pct": -66.7,
+      "median": 18.0,
+      "n": 11,
+      "p25": 17.5,
+      "p75": 18.0
+     },
+     "kitchen_bath": {
+      "median": 17.75,
+      "n": 14,
+      "p25": 16.0,
+      "p75": 18.0
+     },
+     "ornaments": {
+      "brambleloop_pool_median": 5.5,
+      "gap_pct": -69.4,
+      "median": 18.0,
+      "n": 13,
+      "p25": 17.0,
+      "p75": 18.0
+     },
+     "seasonal_gift": {
+      "brambleloop_pool_median": 5.5,
+      "gap_pct": -69.4,
+      "median": 18.0,
+      "n": 10,
+      "p25": 18.0,
+      "p75": 18.0
+     },
+     "stockings": {
+      "brambleloop_pool_median": 7.5,
+      "gap_pct": -60.5,
+      "median": 19.0,
+      "n": 10,
+      "p25": 19.0,
+      "p75": 19.0
+     }
+    },
+    "listings": 441,
+    "on_sale": 0
+   },
+   "opportunity": "test launch prices inside the observed interquartile band before any discount; the benchmark does not rely on sales",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 437,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings.price_cad",
+     "radar.opportunity._pool"
+    ]
+   },
+   "statement": "Observed benchmark pattern prices: amigurumi median CA$18.0 (IQR 18.0-18.0, n=21); bags median CA$18.0 (IQR 18.0-18.0, n=17); blankets median CA$18.0 (IQR 18.0-18.0, n=85); collections median CA$60.5 (IQR 45.5-85.5, n=29); garments median CA$22.0 (IQR 22.0-22.0, n=141); hats median CA$18.0 (IQR 18.0-18.0, n=86); home_decor median CA$18.0 (IQR 17.5-18.0, n=11); kitchen_bath median CA$17.75 (IQR 16.0-18.0, n=14); ornaments median CA$18.0 (IQR 17.0-18.0, n=13); seasonal_gift median CA$18.0 (IQR 18.0-18.0, n=10); stockings median CA$19.0 (IQR 19.0-19.0, n=10). Brambleloop concept pool prices sit blankets -38.9%, hats -63.9%, garments -61.4%, stockings -60.5%, seasonal_gift -69.4%, ornaments -69.4%, bags -58.3%, home_decor -66.7% against those medians; release pricing already anchors on the observed median (runtime.release._outcome_price) but radar scoring still uses the pool prices. 0 of 441 listings were on sale when observed"
+  },
+  {
+   "category": "category_opportunity",
+   "confidence": {
+    "basis": "listed prices; whether bundles sell is unmeasured",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "pricing_response",
+    "cells": [
+     "pricing",
+     "portfolio",
+     "finance"
+    ],
+    "readers": [
+     "improve.bus inbox: pricing/portfolio/finance",
+     "runtime.release._outcome_price (same BenchmarkListing medians)"
+    ]
+   },
+   "digest": "c01c96878b",
+   "key": "bundle_premium",
+   "metrics": {
+    "collection_median": 60.5,
+    "collections": 29,
+    "ratio": 3.36,
+    "single_median": 18.0,
+    "titles_counting_patterns": 20
+   },
+   "opportunity": "plan each launch family with a priced bundle from day one",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 437,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings"
+    ]
+   },
+   "statement": "Benchmark bundle and collection listings sell at median CA$60.5 against CA$18.0 for single patterns (3.36x, n=29); a bundle collection family is a pricing lever, not only a convenience"
+  },
+  {
+   "category": "presentation",
+   "confidence": {
+    "basis": "Etsy image counts and video endpoint; shot types are vision judgements where image_vision has run",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "thumbnail",
+    "cells": [
+     "creative_assets",
+     "seo_search",
+     "product_creativity"
+    ],
+    "readers": [
+     "creative.ideation.lessons -> improve.bus.brief_lessons",
+     "runtime.release listing.seo -> improve.consume.matching('seo_search')"
+    ]
+   },
+   "digest": "0733dc0abe",
+   "key": "presentation",
+   "metrics": {
+    "listings": 441,
+    "median_images": 10,
+    "shot_types": {
+     "detail_macro": 4,
+     "flat_lay": 7,
+     "full_fit": 3,
+     "hero_styled": 5,
+     "in_use": 7,
+     "scale_reference": 1,
+     "three_quarter": 4
+    },
+    "ten_plus": 342,
+    "under_five": 58,
+    "video_audited": 142,
+    "video_with": 116
+   },
+   "opportunity": "a ten-image gallery with video is table stakes; thin galleries in the benchmark are the opening",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 441,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings.media_count",
+     "benchmark_listings.detail.has_video",
+     "benchmark_observations(gallery_image_observation)"
+    ]
+   },
+   "statement": "Benchmark listing galleries hold a median of 10 images (342 of 441 at ten or more, 58 under five); 116 of 142 gallery-audited listings carry a video, most judged shots are flat_lay 7, in_use 7, hero_styled 5. Brambleloop thumbnail and gallery plans should meet ten images and carry a technique video"
+  },
+  {
+   "category": "presentation",
+   "confidence": {
+    "basis": "Etsy per-image colour statistics, first image",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "palette",
+    "cells": [
+     "product_creativity",
+     "creative_assets"
+    ],
+    "readers": [
+     "creative.ideation.lessons -> improve.bus.brief_lessons"
+    ]
+   },
+   "digest": "dcd009bf0b",
+   "key": "palette",
+   "metrics": {
+    "median_saturation": 9,
+    "neutral": 87,
+    "palettes": 143
+   },
+   "opportunity": "test a saturated colourway against a neutral one in concept briefs",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 143,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings.detail.palette"
+    ]
+   },
+   "statement": "87 of 143 benchmark hero palettes are low-saturation neutrals (dominant colour saturation under 15); neutral palette photography is the category default, so a saturated colourway palette stands apart in a search grid"
+  },
+  {
+   "category": "seasonality",
+   "confidence": {
+    "basis": "seasonal pods (stockings, ornaments) as a proxy; titles not in evidence",
+    "grade": "proxy"
+   },
+   "consumer": {
+    "bus_subject": "seasonal_timing",
+    "cells": [
+     "market_radar",
+     "growth",
+     "portfolio",
+     "product_creativity"
+    ],
+    "readers": [
+     "runtime.pipeline radar.score -> improve.consume.matching('market_radar')",
+     "creative.ideation.lessons -> improve.bus.brief_lessons"
+    ]
+   },
+   "digest": "45dac5b8f5",
+   "key": "seasonality",
+   "metrics": {
+    "positioned": {},
+    "season_pods": {
+     "ornaments": 13,
+     "stockings": 10
+    },
+    "titled_listings": 0,
+    "upcoming": [
+     {
+      "date": "2026-10-12",
+      "days_away": 5,
+      "event": "Thanksgiving (CA)"
+     },
+     {
+      "date": "2026-10-31",
+      "days_away": 24,
+      "event": "Halloween"
+     },
+     {
+      "date": "2026-12-25",
+      "days_away": 79,
+      "event": "Christmas"
+     }
+    ]
+   },
+   "opportunity": "prioritise christmas stocking and ornament quick makes now",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 441,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings",
+     "radar.market.SEASONAL_EVENTS"
+    ]
+   },
+   "statement": "Christmas (2026-12-25) is inside the buying window: the benchmark carries 10 christmas stocking and 13 ornament listings; title-level seasonal positioning is unmeasured in this evidence. Christmas stocking and ornament concepts are quick makes that still sell late in the season"
+  },
+  {
+   "category": "customer_expectations",
+   "confidence": {
+    "basis": "keyword-classified review themes; counts only",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "instruction_clarity",
+    "cells": [
+     "pattern_engineering",
+     "quality",
+     "customer_experience"
+    ],
+    "readers": [
+     "runtime.pipeline radar.score -> improve.consume.matching('pattern_engineering')",
+     "runtime.release support -> improve.consume.matching('customer_experience')"
+    ]
+   },
+   "digest": "a48319b79c",
+   "key": "customer_pain",
+   "metrics": {
+    "low_rated": 5,
+    "low_rated_share": 0.05,
+    "recurring": {
+     "instructions_unclear": 3
+    },
+    "recurring_at": 3,
+    "reviews_read": 100,
+    "themes": {
+     "instructions_unclear": 3
+    }
+   },
+   "opportunity": "ship instruction clarity as a feature: stitch counts, photo steps",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-01T00:02:55.608651+00:00",
+    "observed_to": "2026-10-01T00:02:55.608651+00:00",
+    "sample": 100,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_observations.detail.reviews"
+    ]
+   },
+   "statement": "Of 100 benchmark reviews read, 5 are rated three or lower; recurring complaint themes: instructions unclear 3. Clear row-by-row instructions with stitch counts and stated US terms answer the commonest complaint"
+  },
+  {
+   "category": "weak_spots",
+   "confidence": {
+    "basis": "eight boolean facts per description (intel.deliverable); copy is never stored",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": "delivery_experience",
+    "cells": [
+     "customer_experience",
+     "creative_assets",
+     "quality"
+    ],
+    "readers": [
+     "runtime.release support -> improve.consume.matching('customer_experience')"
+    ]
+   },
+   "digest": "4a2d8ae74e",
+   "key": "deliverable_gaps",
+   "metrics": {
+    "read": 439,
+    "silent_on": {
+     "contents": 33,
+     "delivery": 438,
+     "extent": 432,
+     "finished_size": 196,
+     "format": 0,
+     "hook": 218,
+     "terms": 79,
+     "yarn": 29
+    },
+    "unclear": 154
+   },
+   "opportunity": "a complete 'what you get' block is a cheap, durable advantage",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 439,
+    "source": "public_api_snapshot",
+    "tables": [
+     "benchmark_listings.detail.deliverable"
+    ]
+   },
+   "statement": "154 of 439 benchmark descriptions read state too little for a buyer to know what arrives; most often silent on delivery (438), extent (432), hook (218), finished size (196), terms (79). Brambleloop listings should state delivery, page extent, finished size, hook and yarn in every description"
+  },
+  {
+   "category": "category_opportunity",
+   "confidence": {
+    "basis": "coverage gap queue (intel.coverage)",
+    "grade": "observed"
+   },
+   "consumer": {
+    "bus_subject": null,
+    "cells": [],
+    "readers": [
+     "intel.mission_runtime.consume_concepting",
+     "intel.coverage gap queue"
+    ]
+   },
+   "digest": "cc58125e5d",
+   "key": "coverage_gaps",
+   "metrics": {
+    "top": [
+     {
+      "arena": "Hats and wearables",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Amigurumi and soft sculpture",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Garments and clothing",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Multi-pattern collections and ebooks",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Christmas stockings",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Kitchen and bath textiles",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     },
+     {
+      "arena": "Education and guidebooks",
+      "pod": "",
+      "score": null,
+      "state": "uncovered"
+     }
+    ],
+    "uncovered": 7
+   },
+   "opportunity": "the gap queue's top arenas are the next original-concept briefs",
+   "provenance": {
+    "benchmark_key": "mjs_off_the_hook_designs",
+    "method": "Etsy Open API v3 public read-only observations stored by mjs.scan; aggregated deterministically by intel.findings",
+    "observed_from": "2026-10-07T00:02:17.065439+00:00",
+    "observed_to": "2026-10-07T00:02:17.065439+00:00",
+    "sample": 7,
+    "source": "public_api_snapshot",
+    "tables": [
+     "coverage_gaps"
+    ]
+   },
+   "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles"
+  }
+ ],
+ "listings": 441,
+ "never_stored": [
+  "competitor titles, descriptions, tags, review text, images, charts or instructions"
+ ],
+ "unmeasured": [
+  {
+   "key": "seasonal_positioning",
+   "reason": "no listing title in this evidence; counted from pods only"
+  },
+  {
+   "key": "search_index",
+   "reason": "no SERP snapshot stored (intel.serp_capture has not run in this environment)"
+  }
+ ]
+}

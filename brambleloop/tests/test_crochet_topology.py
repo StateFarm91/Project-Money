@@ -155,7 +155,7 @@ check("yarn per stitch is the right order of magnitude",
 
 # --- shape --------------------------------------------------------------------
 check("every stitch is shaped like a half double crochet",
-      vb["stitches_shaped_like_hdc"] == vb["stitches_built"],
+      vb["stitches_shaped_as_ordered"] == vb["stitches_built"],
       str(vb.get("misshapen")))
 
 # --- what relaxation is for ---------------------------------------------------
@@ -185,8 +185,8 @@ check("yarn length is preserved", abs(report.as_dict()["length_change_pct"]) < 1
 check("yarn strain stays small", report.max_strain_after < 0.1,
       str(report.max_strain_after))
 check("relaxation keeps every stitch shaped like a half double",
-      after["stitches_shaped_like_hdc"] >= before["stitches_shaped_like_hdc"] - 1,
-      f"{before['stitches_shaped_like_hdc']} -> {after['stitches_shaped_like_hdc']}")
+      after["stitches_shaped_as_ordered"] >= before["stitches_shaped_as_ordered"] - 1,
+      f"{before['stitches_shaped_as_ordered']} -> {after['stitches_shaped_as_ordered']}")
 
 # --- the certified linkage relation, as a thing other modules may act on ------------------
 # The drape solver now applies a TENSILE FORCE along the stitch-to-stitch linkage. These

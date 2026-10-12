@@ -62,6 +62,10 @@ NON_REDERIVABLE = (
     "benchmark_products",
     "teardown_findings",
     "improvements",
+    # F-378: remembered negative findings (scope + evidence); a record, not a derivation.
+    "failure_memory",
+    # F-431: research questions, sources and labelled findings; a record of what was asked.
+    "research_tasks",
     "lessons",
     "capability_history",
     "growth_loops",
@@ -72,9 +76,40 @@ NON_REDERIVABLE = (
     "culture_observations",
     # A policy reading cannot be re-derived: it is what the platform said on a day.
     "policy_snapshots",
+    # What a buyer actually bought (#42) and the experiments registered before their results
+    # were known (#241/#265): both are facts about a moment, and a restore that lost them
+    # could not answer "which version did this order get" or show an experiment was pre-
+    # registered rather than chosen after the fact.
+    "order_versions",
+    "registered_experiments",
     # Neither can a price point or a cohort arm: both are a window of real behaviour, and a
     # restore that lost them would lose the only evidence price or ads ever produced.
     "price_observations",
+    # #82 / #89 / #298: a listing's outcome in a period, what the brand learned, and a
+    # season's harvest are facts about a moment; none can be recomputed after a restore.
+    "listing_outcomes",
+    "brand_knowledge",
+    "season_harvests",
+    # C-40: what the search index ranked on a day, and what the owner read off Shop Manager.
+    "serp_snapshots",
+    "insights_snapshots",
+    # #134-#146: the concept candidates the culture engine derived and the original IP it
+    # proposed are decisions on the day's readings, and the readings move on.
+    "culture_concepts",
+    "culture_ip_elements",
+    # #211-#228, #316: what the MJs mission decided about each listing, the owner's vetoes,
+    # the competitive standard's history and each pod's capability reading.
+    "mjs_mission_events",
+    "owner_vetoes",
+    "competitive_standards",
+    "pod_capability_readings",
+    # #70: a listing-set certificate is what was vouched for on the day it was issued.
+    "listing_set_certificates",
+    # C-48 / #286-#291: the week's and day's operating readings, the seasonal teams' ownership,
+    # and where each trend figure came from are facts about a moment.
+    "operating_readings",
+    "seasonal_teams",
+    "trend_provenance",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them
@@ -88,10 +123,35 @@ NON_REDERIVABLE = (
     # from nothing: the runs that justified the switches are gone with the rows.
     "config_versions",
     "cost_entries",
-    "ledger_entries",
+    "ledger",            # was "ledger_entries", a name no table has: it labelled nothing
     "spend_limits",
     "support_cases",
     "agents",
+    # v1.1 lane A: the company's memory (missions and their measured outcomes, KPI snapshots,
+    # lessons, briefs, blocks, approvals) and its timeline are records of what happened and
+    # when; nothing else holds them.
+    "company_memory",
+    "company_timeline",
+    # v1.1 lane E: the double-entry ledger. Postings are *made from* source rows, but the
+    # journal is not re-derivable from them: corrections are reversals plus new versions,
+    # a change after a period lock is booked in the next open period, and the SHA-256 chain
+    # covers that history. Re-posting from today's sources would produce a different ledger
+    # (no reversals, no lock-era bookings, a new chain) -- an accountant's books must be the
+    # ones that were kept, not a recomputation. Statement lines are imported files that are
+    # not kept anywhere else; locks, exception resolutions and Finance challenge verdicts
+    # are decisions taken on a day.
+    "acct_journal_entries",
+    "acct_postings",
+    "acct_period_locks",
+    "acct_statement_lines",
+    "acct_exceptions",
+    "acct_challenges",
+    # v1.1 lane H: a spend proposal and Finance's challenge of it are what was proposed and
+    # decided on the day, with the evidence of that day.
+    "ads_spend_proposals",
+    "ads_finance_challenges",
+    # v1.1 lane C: the owner command center's security audit trail.
+    "cc_security_events",
 )
 
 # An export does not contain the previous exports. Retained archives are copies of this
@@ -120,6 +180,12 @@ EXCLUDED_TABLES = (
     # be meaningful in a restore -- the browser it belonged to is long gone -- and the
     # verifier in it is sealed with the same key. Nothing is lost by leaving it out.
     "oauth_handshakes",
+    # v1.1 lane C: live owner sessions and their replay nonces. Same reasoning as the OAuth
+    # rows: a restored copy must not accept the production owner's live session cookies
+    # (a restore authenticates its owner again, deliberately), and a nonce window is minutes
+    # of state that means nothing after a restore.
+    "cc_owner_sessions",
+    "cc_nonces",
 )
 
 
@@ -453,40 +519,47 @@ def prove_restore(db: Database, work_dir: str | Path) -> RestoreProof:
     # exemption existed, which is the guard working and the call site being wrong.
     scratch = Database(f"sqlite:///{scratch_path}", scratch=True)
 
-    problems: list[str] = []
+    # Session scopes close transactions, but pooled SQLite connections still own file
+    # handles. Dispose our scratch engine before the caller's temporary workspace exits,
+    # including failed restores and failed round-trip exports. Never dispose the source
+    # engine: it belongs to the running application, not this proof.
     try:
-        restored_counts = restore(source_path, scratch)
-    except Exception as e:  # noqa: BLE001 - a failed restore is the finding, not a crash
-        return RestoreProof(ok=False, export=original, restored_counts={},
-                            mismatches={}, round_trip_digest="",
-                            problems=[f"restore raised {type(e).__name__}: {e}"])
+        problems: list[str] = []
+        try:
+            restored_counts = restore(source_path, scratch)
+        except Exception as e:  # noqa: BLE001 - a failed restore is the finding, not a crash
+            return RestoreProof(ok=False, export=original, restored_counts={},
+                                mismatches={}, round_trip_digest="",
+                                problems=[f"restore raised {type(e).__name__}: {e}"])
 
-    expected = {t.name: t.rows for t in original.tables}
-    mismatches = {
-        name: (expected.get(name, 0), restored_counts.get(name, 0))
-        for name in set(expected) | set(restored_counts)
-        if expected.get(name, 0) != restored_counts.get(name, 0)
-    }
+        expected = {t.name: t.rows for t in original.tables}
+        mismatches = {
+            name: (expected.get(name, 0), restored_counts.get(name, 0))
+            for name in set(expected) | set(restored_counts)
+            if expected.get(name, 0) != restored_counts.get(name, 0)
+        }
 
-    # The part that makes this a proof rather than a headcount.
-    round_trip = export(scratch, work / "continuity-roundtrip.jsonl")
-    if round_trip.digest != original.digest:
-        differing = [
-            t.name for t in original.tables
-            if t.sha256 != next((r.sha256 for r in round_trip.tables if r.name == t.name), "")
-        ]
-        problems.append(
-            "restored data does not hash identically to the source; tables differing: "
-            + ", ".join(sorted(differing)[:10]))
+        # The part that makes this a proof rather than a headcount.
+        round_trip = export(scratch, work / "continuity-roundtrip.jsonl")
+        if round_trip.digest != original.digest:
+            differing = [
+                t.name for t in original.tables
+                if t.sha256 != next((r.sha256 for r in round_trip.tables if r.name == t.name), "")
+            ]
+            problems.append(
+                "restored data does not hash identically to the source; tables differing: "
+                + ", ".join(sorted(differing)[:10]))
 
-    return RestoreProof(
-        ok=not mismatches and not problems,
-        export=original,
-        restored_counts=restored_counts,
-        mismatches=mismatches,
-        round_trip_digest=round_trip.digest,
-        problems=problems,
-    )
+        return RestoreProof(
+            ok=not mismatches and not problems,
+            export=original,
+            restored_counts=restored_counts,
+            mismatches=mismatches,
+            round_trip_digest=round_trip.digest,
+            problems=problems,
+        )
+    finally:
+        scratch.engine.dispose()
 
 
 def counts_by_table(db: Database) -> dict[str, int]:
