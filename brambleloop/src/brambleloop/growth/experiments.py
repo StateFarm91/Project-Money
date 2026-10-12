@@ -39,6 +39,7 @@ REGISTERED = "registered"
 RUNNING = "running"
 CONCLUDED = "concluded"
 ABANDONED = "abandoned"
+SUPERSEDED = "superseded"   # F-126: retained as evidence, excluded from every aggregate
 
 
 class ExperimentRefused(ValueError):
@@ -602,7 +603,7 @@ def balance(db) -> dict:
     quick, long_ = [], []
     with db.session() as s:
         for r in s.scalars(select(RegisteredExperiment)):
-            if r.state in (KILLED, CONCLUDED, ABANDONED):
+            if r.state in (KILLED, CONCLUDED, ABANDONED, SUPERSEDED):
                 continue
             created = _aware(r.created_at).date() if r.created_at else date.today()
             days = (date.fromisoformat(r.stop_on) - created).days if r.stop_on else 0
@@ -621,6 +622,76 @@ def balance(db) -> dict:
                  else "no quick experiment is registered"),
         "long_detail": long_[:20],
     }
+
+
+RETAIN, ROLLBACK, UNDECIDED = "retain", "rollback", "undecided"
+
+
+def attribution(row, verdict: dict, causal: bool) -> dict:
+    """F-504: measured effect vs the pre-registered expectation, and what to do with it.
+
+    `effect_vs_expected` is signed so that >= 0 means at least as good as the success
+    threshold the plan fixed in advance. The decision is RETAIN only for a claimable success
+    with a causal design and its control present; a claimable failure is ROLLBACK (whatever
+    the design: a change that measured worse is not kept); anything else -- undersampled,
+    inconclusive, or a success that is only an association -- is UNDECIDED, with why."""
+    observed = verdict.get("observed")
+    v = verdict.get("verdict")
+    if observed is None:
+        effect = {"observed": UNMEASURED, "expected": row.success_threshold,
+                  "failure_threshold": row.failure_threshold, "effect_vs_expected": UNMEASURED,
+                  "basis": UNMEASURED}
+    else:
+        delta = (observed - row.success_threshold if row.higher_is_better
+                 else row.success_threshold - observed)
+        effect = {"observed": observed, "expected": row.success_threshold,
+                  "failure_threshold": row.failure_threshold,
+                  "effect_vs_expected": round(delta, 6), "sample": verdict.get("sample"),
+                  "basis": "measured"}
+    if v == "success" and verdict.get("claimable") and causal:
+        decision = {"decision": RETAIN, "why": "claimable success with a causal design and "
+                                                "its control present in the data"}
+    elif v == "failure" and verdict.get("claimable"):
+        decision = {"decision": ROLLBACK, "why": "claimable failure: the change measured "
+                                                  "at or past the pre-registered failure line"}
+    elif v == "success":
+        decision = {"decision": UNDECIDED, "why": "success is an association, not a cause "
+                                                   "(no causal design or control present)"}
+    else:
+        decision = {"decision": UNDECIDED, "why": f"verdict {v or 'none'}: nothing to act on"}
+    return {"measured_effect": effect, "retain_or_rollback": decision}
+
+
+def supersede(db, key: str, *, reason: str, superseded_by: str) -> dict:
+    """F-126: mark an experiment superseded. The row and its readings are retained as
+    evidence (never deleted or overwritten); it leaves every aggregate (`balance`,
+    `conclude_all`) and is never concluded again. Refuses an empty reason or a successor
+    that is not itself registered."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import RegisteredExperiment
+
+    if not str(reason or "").strip():
+        raise ExperimentRefused(f"{key}: superseding needs a reason")
+    with db.session() as s:
+        row = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+        succ = s.scalar(select(RegisteredExperiment).where(
+            RegisteredExperiment.key == superseded_by))
+        if row is None:
+            raise ExperimentRefused(f"{key!r} is not registered")
+        if succ is None or superseded_by == key:
+            raise ExperimentRefused(f"{key}: successor {superseded_by!r} is not a registered "
+                                    f"experiment")
+        detail = dict(row.detail or {})
+        detail["superseded"] = {"reason": reason.strip(), "superseded_by": superseded_by,
+                                "previous_state": row.state,
+                                "at": datetime.now(timezone.utc).isoformat()}
+        row.detail = detail
+        row.state = SUPERSEDED
+        row.updated_at = datetime.now(timezone.utc)
+    return {"key": key, "state": SUPERSEDED, **detail["superseded"]}
 
 
 def conclude_all(db, *, today: date | None = None) -> dict:
@@ -688,9 +759,14 @@ def conclude_all(db, *, today: date | None = None) -> dict:
                     f"the {row.design} design's control is not present in the data "
                     f"({control['why']})")
                  + ", so this is recorded as an association and never as a cause (#266)")
+        attr = attribution(row, verdict, causal)
         with db.session() as s:
             fresh = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
             detail = dict(fresh.detail or {})
+            # F-504: the measured effect against the pre-registered expectation, and an
+            # explicit retain / rollback / undecided -- retain only on a causal success.
+            detail["measured_effect"] = attr["measured_effect"]
+            detail["retain_or_rollback"] = attr["retain_or_rollback"]
             detail["last_verdict"] = {**verdict, "causal": causal,
                                       "control": control, "claim": claim,
                                       "source": reading.get("source"),
@@ -700,6 +776,8 @@ def conclude_all(db, *, today: date | None = None) -> dict:
             state = fresh.state
         results.append({"key": key, "state": state, "concluded": state == CONCLUDED,
                         "verdict": verdict.get("verdict"), "causal": causal,
+                        "measured_effect": attr["measured_effect"],
+                        "retain_or_rollback": attr["retain_or_rollback"],
                         "expected_value_cad": ev if ev is not None else UNMEASURED,
                         "observed": reading["observed"], "sample": reading["sample"]})
 

@@ -654,6 +654,8 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # this deployment still holds a credential.
     exercise = _etsy_exercise_evidence(db)
     proven = bool(exercise["round_trip_proven"])
+    out.append(etsy_first_sale_surfaces(db))
+
     out.append(Requirement(
         key="etsy_integration",
         description="an Etsy integration exists, is credentialled and has been exercised",
@@ -1509,3 +1511,56 @@ def transition_verdict(db, *, to: str, artifact_dir=None, demand_plan=None) -> d
                            "products": plan.get("products_count"),
                            "gaps": (plan.get("gaps_summary") or [])[:12]},
     }
+
+
+def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
+    """F-498: the bounded Etsy launch list -- `etsy_surfaces.first_sale_blockers()`.
+
+    Every Etsy surface the registry marks required before the first sale, each with the state
+    of its evidence (FRESH / STALE / NO_EVIDENCE / NO_COLLECTOR, from the collector's latest
+    recorded reading) and the owner action that closes it. Ready only when every one has fresh
+    evidence and the shop snapshot's checks all pass. A surface no collector can observe is
+    never assumed done. Waits on the owner while any listed surface carries an owner action,
+    otherwise on the Etsy integration that collects the readings -- never on "build".
+    """
+    import time as _time
+
+    from ..intel import etsy_surfaces as es
+
+    now = now if now is not None else _time.time()
+    try:
+        from ..runtime.etsy_ops import CENSUS_READING, SHOP_READING, latest_reading
+
+        readings = {"shop_snapshot": latest_reading(db, SHOP_READING),
+                    "listing_census": latest_reading(db, CENSUS_READING)}
+    except Exception:  # noqa: BLE001 - unreadable readings are no evidence, never evidence
+        readings = {}
+    shop = readings.get("shop_snapshot") or {}
+    failing = [c.get("key") for c in ((shop.get("status") or {}).get("checks") or [])
+               if c.get("result") != es.PASS]
+    rows = []
+    for s in es.first_sale_blockers():
+        record = readings.get(s.collector) if s.collector else None
+        state = es.evidence_state(s, record, now=now)
+        rows.append({"surface": s.key, "name": s.name, "verdict": s.verdict,
+                     "work_class": s.work_class, "evidence_state": state,
+                     "owner_action": s.owner_action.key if s.owner_action else None,
+                     "why_required": s.why_required[:200]})
+    all_fresh = all(r["evidence_state"] == es.FRESH for r in rows)
+    ready = bool(rows) and all_fresh and not failing and bool(shop)
+    owner_open = sorted({r["owner_action"] for r in rows if r["owner_action"]
+                         and r["evidence_state"] != es.FRESH} | (
+        {r["owner_action"] for r in rows if r["owner_action"]} if failing else set()))
+    return Requirement(
+        key="etsy_first_sale_surfaces",
+        description=("every Etsy surface required before the first sale has fresh evidence "
+                     "(the bounded Etsy launch list, intel.etsy_surfaces)"),
+        ready=ready,
+        blocked_by=None if ready else (BLOCKED_OWNER if owner_open else BLOCKED_INTEGRATION),
+        evidence={"surfaces": rows, "count": len(rows),
+                  "not_fresh": [r["surface"] for r in rows
+                                if r["evidence_state"] != es.FRESH],
+                  "shop_checks_failing": failing,
+                  "owner_actions_open": owner_open,
+                  "source": "intel.etsy_surfaces.first_sale_blockers + etsy_ops readings"})
+

@@ -76,6 +76,11 @@ SIGNALS: dict[str, str] = {
              "handlers left behind"),
     # F-337 / F-338 / F-343 (wave-3 K7): running jobs against their rolling duration
     # envelope, diagnosed non-destructively, plus the five-state activity reading.
+    # F-655 (W4-SWARMMETRICS): READY work past its band SLA while the pool had idle
+    # capacity -- valuable work untouched because nothing claimed it, not because all
+    # workers were busy.
+    "starved_ready": ("runnable jobs older than their band's READY SLA while the pool had "
+                      "idle capacity"),
     "job_durations": ("running jobs against 3x their job type's rolling median duration, "
                       "each over-envelope job diagnosed from records and never restarted"),
 }
@@ -322,7 +327,33 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
 
     readings.append(_job_durations(db, now))
 
+    readings.append(_starved_ready(db, runner_state, now))
+
     return readings
+
+
+def _starved_ready(db, runner_state: dict, now: datetime) -> "Reading":
+    """F-655: READY jobs past their band SLA while capacity sat idle (swarm.metrics)."""
+    try:
+        from ..swarm.metrics import starved_ready
+
+        if hasattr(db, "execute") and not hasattr(db, "engine"):
+            from .slo import _SessionDb
+
+            dbx = _SessionDb(db)
+        else:
+            dbx = db
+        target = runner_state.get("worker_target")
+        r = starved_ready(dbx, worker_target=target if isinstance(target, int) else None,
+                          now=now)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("starved_ready", UNKNOWN, {}, f"unreadable: {type(exc).__name__}")
+    state = (DEGRADED if r["reading"] == "starved" else
+             UNKNOWN if r["reading"] == "UNKNOWN" else HEALTHY)
+    return Reading("starved_ready", state,
+                   {k: r[k] for k in ("starved", "late_ready", "late_by_band",
+                                      "capacity_idle", "running", "worker_target")},
+                   "" if state == HEALTHY else r["why"])
 
 
 def _job_durations(db, now: datetime) -> Reading:
@@ -646,7 +677,10 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # Laura executive runtime proof (`laura.executive.proof`): a TemporaryDirectory scoped to
     # one proof run. Added by W3-HYG (2026-10-06) -- it was in `src/` and not counted, which
     # `test_cost_governance_wave2` refuses.
-    "bl-laura-proof-")
+    "bl-laura-proof-",
+    # W4-IMGFIX: the disclosed hero review and the 230 px grid identification write the bytes
+    # a vision judge is shown into a directory scoped to the call (`core.workspace`).
+    "hero-review-", "grid-identify-")
 
 
 def disk_facts() -> dict:

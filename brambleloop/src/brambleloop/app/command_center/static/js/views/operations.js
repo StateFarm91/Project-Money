@@ -5,7 +5,7 @@ import { card, statusPill, freshness, itemRow, sourcesList, guardedAction } from
 import { sectionsOf, pageMeta, renderSection, renderAll } from "./_shared.js";
 import { checksCard } from "./_checks.js";
 
-const ORDER = [["slo", "Availability & autonomy SLOs"], ["autonomy", "Departments: wake, last run, blockers"],
+const ORDER = [["slo", "Availability & autonomy SLOs"], ["autonomy_health", "Autonomy health"], ["autonomy", "Departments: wake, last run, blockers"],
   ["agents", "Agent registry (configuration, not activity)"], ["queue", "Queue & dead letters"], ["cadences", "Cadences"]];
 
 function incidentsCard(env, result, rerender) {

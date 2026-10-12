@@ -1,0 +1,161 @@
+{
+ "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+ "url": "https://brambleloop-os-production.up.railway.app",
+ "verdict": "FAIL",
+ "reachable": true,
+ "features": [
+  {
+   "feature": "release identity",
+   "rows": [
+    "F-144",
+    "F-169"
+   ],
+   "endpoint": "/health",
+   "field": "build",
+   "expected": "build.known is true and build.commit is the deployed sha",
+   "http": 200,
+   "value": "{\"commit\": \"0417f3516f30bb7c52926187fc475a0f46536e86\", \"commit_short\": \"0417f3516f30\", \"branch\": \"claude/repository-setup-nc9x6o\", \"known\": true}",
+   "verdict": "PASS"
+  },
+  {
+   "feature": "boot guard proves the release record",
+   "rows": [
+    "F-169",
+    "F-158"
+   ],
+   "endpoint": "/api/status",
+   "field": "boot_guard",
+   "expected": "enforced and ok",
+   "http": 200,
+   "value": "{\"enforced\": true, \"ok\": true, \"action\": \"none\", \"record\": {\"file\": \"RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json\", \"sha\": \"5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c\", \"suite_run\": \"suite_runs",
+   "verdict": "PASS"
+  },
+  {
+   "feature": "embedded worker alive",
+   "rows": [
+    "F-371",
+    "F-880"
+   ],
+   "endpoint": "/health",
+   "field": "runner.worker_alive",
+   "expected": "true",
+   "http": 200,
+   "value": true,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "shadow phase holds",
+   "rows": [
+    "F-172"
+   ],
+   "endpoint": "/api/verify",
+   "field": "checks[check=phase_is_shadow].ok",
+   "expected": "true",
+   "http": 503,
+   "value": true,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "nothing published in shadow",
+   "rows": [
+    "F-172"
+   ],
+   "endpoint": "/api/verify",
+   "field": "checks[check=nothing_published].ok",
+   "expected": "true",
+   "http": 503,
+   "value": true,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "publication refusals recorded",
+   "rows": [
+    "F-172"
+   ],
+   "endpoint": "/api/verify",
+   "field": "checks[check=publication_was_actually_attempted_and_refused].ok",
+   "expected": "true",
+   "http": 503,
+   "value": true,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "no unexpected dead letters",
+   "rows": [
+    "F-171",
+    "F-144"
+   ],
+   "endpoint": "/api/verify",
+   "field": "checks[check=no_unexpected_dead_letters_in_24h].ok",
+   "expected": "true",
+   "http": 503,
+   "value": false,
+   "verdict": "FAIL"
+  },
+  {
+   "feature": "every agent has a cost ceiling",
+   "rows": [
+    "F-171"
+   ],
+   "endpoint": "/api/verify",
+   "field": "checks[check=every_agent_has_a_cost_ceiling].ok",
+   "expected": "true",
+   "http": 503,
+   "value": false,
+   "verdict": "FAIL"
+  },
+  {
+   "feature": "smoke matrix (probes, continuity, cadences, queue, search)",
+   "rows": [
+    "F-171"
+   ],
+   "endpoint": "/api/verify/smoke",
+   "field": "verdict",
+   "expected": "PASS",
+   "http": 404,
+   "value": null,
+   "verdict": "UNKNOWN"
+  },
+  {
+   "feature": "Final Master launch gate served",
+   "rows": [
+    "F-840"
+   ],
+   "endpoint": "/api/build",
+   "field": "final_master.launch_ready",
+   "expected": "a boolean (the gate is computed, whatever its value)",
+   "http": 200,
+   "value": false,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "catalogue says nothing is published",
+   "rows": [
+    "F-172"
+   ],
+   "endpoint": "/api/catalogue",
+   "field": "published",
+   "expected": "false",
+   "http": 200,
+   "value": false,
+   "verdict": "PASS"
+  },
+  {
+   "feature": "launch packet route deployed and operator-gated",
+   "rows": [
+    "F-878"
+   ],
+   "endpoint": "/api/launch/packet",
+   "field": "@status",
+   "expected": "401 (route exists, credential required)",
+   "http": 401,
+   "value": 401,
+   "verdict": "PASS"
+  }
+ ],
+ "not_done": [
+  "no unexpected dead letters",
+  "every agent has a cost ceiling",
+  "smoke matrix (probes, continuity, cadences, queue, search)"
+ ]
+}

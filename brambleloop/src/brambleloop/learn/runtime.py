@@ -24,5 +24,17 @@ def handle_scan(ctx):
         acted.append({"topic": move["topic"], "from_rank": move["from_rank"],
                       "to_rank": move["to_rank"], "lessons": ids})
     result["lesson_moves"] = acted
+    # W4-RESEARCH (F-403/F-433): unknowns on decision paths become research questions, and
+    # answered research past its domain's freshness re-opens. Reads and writes rows only;
+    # spends nothing. A failure here is reported beside the scan, never fatal to it.
+    try:
+        from ..intel import research
+
+        found = research.detect_unknowns(ctx.db)
+        result["research"] = {"opened": len(found["opened"]),
+                              "already_open": len(found["already_open"]),
+                              "expired_reopened": len(research.expire_due(ctx.db))}
+    except Exception as exc:  # noqa: BLE001
+        result["research"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     ctx.audit("learn.scanned", detail=result)
     return result
