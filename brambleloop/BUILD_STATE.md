@@ -1,3 +1,18 @@
+> **2026-10-12 — W4-INTEG3: INTEG2 release candidate (NOT deployed; production stays 7bbbe72, SHADOW).**
+> INTEG2 had NOT contained the deployed hotfix 7bbbe72 (LAURAFIX + ETSYSHOPID): merged first. Fixed the three
+> production dead letters that are still occurring on 7bbbe72 (first seen 18:01-18:08Z, i.e. after the hotfix, not
+> "pre-hotfix" as recorded below): radar.score handoff without a slug (scores the open gap queue, one implementation
+> with B2CLOSE's), policy_snapshots.version VARCHAR(40) -> VARCHAR(120) via a new widening-only migration
+> (`core.migrate.widen`, Postgres 16 reproduction in evidence_INTEG3/), offsite restore proof `scratch=True`
+> (+ its failure incident was an invalid constructor). Security review L1/L2/I2 addressed. Merged SWARMCONTROL,
+> CCNOTIFY (+vacuity fix), PRIVLAURA (defaults OFF verified; LAURA-PRIVATE-REGISTER tracked, NOT complete), VISFIX,
+> B2CLOSE and four checkpoint-note branches. **FMCLOSE rejected**: test_v11_accounting_reconciliation fails on its own
+> tip 013c2e3, passes on 28ba6df. Required regression set green on the final tree (launch/cost_governance/
+> autonomy_timeline were red on 28ba6df). No row reached verified_complete (needs deploy); Build 2 #61 PROVEN in the
+> ledger; production now reports etsy_shop/etsy_api/transactions_r gates OPEN. Not yet run: a full suite. Next:
+> full suite, then owner deploy approval, then 24 h dead-letter-free window for #195. Report:
+> `research/final_build/w4/INTEG3.md`.
+
 > **2026-10-12 — W4-B2CLOSE (second pass): #61 closed in the ledger; #195's three production dead letters fixed (branch `claude/w4-B2CLOSE`, NOT deployed).**
 > Read-only GETs of production 7bbbe72: `/api/verify` fails only `no_unexpected_dead_letters_in_24h`, on radar.score KeyError 'slug'
 > (CoverageGap handoff enqueues it slug-less), ops.policy_watch VARCHAR(40) overflow (seed version label 49 chars) and ops.offsite_archive
