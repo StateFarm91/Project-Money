@@ -1806,3 +1806,15 @@ exists, so `release.DEFAULT_BAND` (unsourced 4.50-9.50) set it at its ceiling. P
 candidate's SOURCED plan (CA$5.00, CA$4-12 cluster) the price of record. Publication now refuses
 an off-plan Launch-0 listing (`release_gates.launch_price_check`, LISTING_PRICE_NOT_PLAN) and the
 store grid reports it; the fix is to re-run pricing.position, never to write a price to Etsy.
+
+## D-W4-LAUNCH-SCOPE: everything agreed is built and verified before the store opens (owner, 2026-10-12)
+
+Owner, verbatim intent: "I want the entire agreed Build 2 and Final Master built and verified before opening the
+Etsy store. Do not automatically defer the 269 remaining Final Master requirements simply because they're
+classified as post-launch." A row's `post_launch` scope therefore no longer orders it after store opening. Every
+row is classed (W4-PRELAUNCH): (A) verifiable pre-launch by tests/rehearsal/staging; (B) verifiable after an
+approved production deploy and soak, before the store opens; (C) impossible to verify without live customers,
+real transactions or post-launch operating history, recorded only when the row's own acceptance criterion says
+so, quoted. Acceptance criteria are unchanged. Store opening waits on A and B; C rows are reported to the owner
+with their quoted criteria. Execution: six concurrent workers with per-domain queues; local test execution is
+rationed through a shared slot gate so a running release suite stays valid (owner-approved 2026-10-12).

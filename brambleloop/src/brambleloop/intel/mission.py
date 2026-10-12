@@ -105,6 +105,52 @@ def check_report(report: dict) -> None:
             "inspected, so a partial baseline cannot read as a complete one (#207)")
 
 
+def snapshot(db, benchmark_key: str = benchmarks.MJS_KEY) -> dict:
+    """F-191: every MJs counter from one read of the catalogue, plus a reconciliation row.
+
+    The counters used to come from different reads -- coverage from the listing rows, the
+    image backlog from a 200-row page of pending work, the gap queue from its own table -- so
+    they could disagree about the same catalogue and nothing would say so. Here they are
+    derived from one `BenchmarkListing` read, and `reconciliation` checks the identities that
+    must hold between them. A failed identity is reported, never corrected.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from .vision import image_counts
+
+    with db.session() as s:
+        listings = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)))
+        images = image_counts(listings)
+        by_pod: dict[str, int] = {}
+        for listing in listings:
+            k = listing.pod or pods.UNCLASSIFIED
+            by_pod[k] = by_pod.get(k, 0) + 1
+        known = len(listings)
+        audited = sum(1 for listing in listings if listing.audit_state == "audited")
+        gallery = sum(1 for listing in listings if (listing.detail or {}).get("gallery_audited"))
+    gaps = coverage.summary(db, benchmark_key)
+    checks = [
+        ("pods sum to listings known", sum(by_pod.values()), known),
+        ("audited never exceeds known", audited, min(audited, known)),
+        ("gallery-audited never exceeds known", gallery, min(gallery, known)),
+        ("image slots = judged + unjudged + given up",
+         images["image_slots"],
+         images["judged"] + images["unjudged"] + images["given_up_on"]),
+        ("gap states sum to gap total", sum(gaps["by_state"].values()), gaps["total"]),
+    ]
+    rec = [{"check": n, "lhs": a, "rhs": b, "ok": a == b} for n, a, b in checks]
+    return {
+        "listings_known": known, "listings_audited": audited, "gallery_audited": gallery,
+        "by_pod": by_pod, "unclassified": by_pod.get(pods.UNCLASSIFIED, 0),
+        "images": images, "gap_total": gaps["total"], "gap_by_state": gaps["by_state"],
+        "reconciliation": {"ok": all(r["ok"] for r in rec), "checks": rec,
+                           "failing": [r["check"] for r in rec if not r["ok"]]},
+        "_gaps": gaps,
+    }
+
+
 def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                    env: dict[str, str] | None = None) -> dict:
     """The mission's state as evidence rather than as a claim (#318).
@@ -118,10 +164,9 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
 
     capability = access.available("benchmark_observation", env)
 
+    snap = snapshot(db, benchmark_key)
     with db.session() as s:
         bench = s.scalar(select(Benchmark).where(Benchmark.key == benchmark_key))
-        listings = list(s.scalars(select(BenchmarkListing).where(
-            BenchmarkListing.benchmark_key == benchmark_key)))
         observations = list(s.scalars(
             select(BenchmarkObservation)
             .where(BenchmarkObservation.benchmark_key == benchmark_key)
@@ -143,12 +188,6 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                                  if bench and bench.last_baseline_at else None),
         }
 
-    by_pod: dict[str, int] = {}
-    for listing in listings:
-        by_pod[listing.pod or pods.UNCLASSIFIED] = by_pod.get(
-            listing.pod or pods.UNCLASSIFIED, 0) + 1
-    audited = [listing for listing in listings if listing.audit_state == "audited"]
-
     return {
         "mandate": ("MJsOffTheHookDesigns is the named anchor benchmark, non-negotiable and "
                     "not generalisable into 'watch proven sellers' (#301)."),
@@ -157,13 +196,15 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                               "blocked — no observation capability has been granted"),
         "registry": registry,
         "catalogue_coverage": {
-            "listings_known": len(listings),
-            "listings_audited": len(audited),
-            "gallery_audited": sum(1 for listing in listings
-                                   if listing.detail.get("gallery_audited")),
-            "by_pod": by_pod,
-            "unclassified": by_pod.get(pods.UNCLASSIFIED, 0),
+            "listings_known": snap["listings_known"],
+            "listings_audited": snap["listings_audited"],
+            "gallery_audited": snap["gallery_audited"],
+            "by_pod": snap["by_pod"],
+            "unclassified": snap["unclassified"],
+            "images": snap["images"],
         },
+        # F-191: the identities between the counters above, checked on every read.
+        "reconciliation": snap["reconciliation"],
         "last_mandated_evidence_at": last_mandated,
         "recent_observations": [{
             "at": o.at.isoformat(), "kind": o.kind, "grade": o.grade,
@@ -171,7 +212,7 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
             "pods_notified": o.pods_notified, "actions": o.actions,
         } for o in observations],
         "pods": [{"key": p.key, "name": p.name, "rubric": list(p.rubric)} for p in pods.PODS],
-        "gap_queue": coverage.summary(db, benchmark_key),
+        "gap_queue": snap["_gaps"],
         # #318's remaining fields, each computed from the rows the mission writes.
         **mission_status(db, benchmark_key=benchmark_key, observations=observations),
         # #224, on the dashboard rather than in a footnote: the mission cannot look busy
