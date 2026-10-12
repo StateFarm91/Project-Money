@@ -364,9 +364,27 @@ def worker_target(db, *, now: datetime | None = None, pool: int | None = None) -
     elif advice and advice.get("advice") == "scale_up":
         target = min(pool, max(target, 1) + 1)
         why += "; the governor found added workers raised throughput, so one more runs"
+    # F-470: the container's own capacity. Saturated memory, load or database connections
+    # return the pool to one worker whatever the allocation wants; an unreadable reading
+    # changes nothing (None is not saturation).
+    res = _resources(db)
+    if res.get("saturated") and target > 1:
+        target = 1
+        why += f"; resources saturated ({res.get('why')}), so one worker runs"
     return {"target": target, "pool": pool, "wanted": wanted,
             "parallelism": (advice or {}).get("advice"),
-            "allocation_id": alloc.get("allocation_id"), "why": why}
+            "allocation_id": alloc.get("allocation_id"), "why": why,
+            "resources": {k: res.get(k) for k in ("saturated", "memory_share",
+                                                    "load_per_cpu", "why")}}
+
+
+def _resources(db) -> dict:
+    try:
+        from .resources import read
+
+        return read(db)
+    except Exception as exc:  # noqa: BLE001
+        return {"saturated": None, "why": f"unreadable: {type(exc).__name__}"}
 
 
 def measured_lane_split(db, *, days: int = 7, now: datetime | None = None) -> dict:

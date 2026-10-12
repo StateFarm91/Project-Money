@@ -103,6 +103,31 @@ class JobContext:
         return self.queue.checkpoint(self.job.id, key, state,
                                      lease_token=getattr(self.job, "lease_token", None))
 
+    def should_yield(self, *, now=None) -> dict | None:
+        """F-473: whether higher-band work waits behind a full pool (swarm.preempt). Checked
+        against the database at most every `CHECK_EVERY_S`; None means keep going."""
+        import time as _t
+
+        from ..swarm import preempt
+
+        last = getattr(self, "_preempt_checked", 0.0)
+        if _t.monotonic() - last < preempt.CHECK_EVERY_S and now is None:
+            return None
+        object.__setattr__(self, "_preempt_checked", _t.monotonic())
+        try:
+            return preempt.preemption_wanted(self.db, self.job, now=now)
+        except Exception:  # noqa: BLE001 - an unreadable check never stops work
+            return None
+
+    def yield_now(self, why: str, *, key: str | None = None, state: dict | None = None):
+        """F-473: checkpoint `state` under `key` (when given) and hand the job back to the
+        queue un-counted. Raises `swarm.preempt.Preempted`; the worker requeues."""
+        from ..swarm.preempt import Preempted
+
+        if key is not None:
+            self.checkpoint(key, dict(state or {}))
+        raise Preempted(self.job.id, why, key)
+
     def restore(self, key: str) -> dict | None:
         """F-659: the state an earlier attempt of this job checkpointed under `key`, or None."""
         return self.queue.restore(self.job.id, key)
@@ -276,6 +301,9 @@ def park_if_model_down(db, job, *, worker: str, now: datetime | None = None) -> 
     return record
 
 
+from ..swarm.preempt import Preempted as _Preempted  # noqa: E402 (F-473)
+
+
 @dataclass
 class WorkerStats:
     claimed: int = 0
@@ -284,6 +312,7 @@ class WorkerStats:
     skipped: int = 0
     denied: int = 0
     parked: int = 0
+    preempted: int = 0
 
 
 class Worker:
@@ -458,6 +487,16 @@ class Worker:
                               artifact=str(outputs.get("artifact") or job.job_type),
                               job_id=job.id, phase=self.phase)
             self.stats.completed += 1
+        except _Preempted as e:
+            renewal.stop()
+            # F-473: a cooperative yield, not a failure. Back to PENDING un-counted (lease-
+            # fenced, audited job.preempted); the checkpoint lets the next attempt resume.
+            from ..swarm.preempt import requeue_preempted
+
+            if requeue_preempted(self.db, job, worker=self.name, why=e.why):
+                self.stats.preempted += 1
+            else:
+                self.stats.skipped += 1
         except CapabilityNotEnabled as e:
             renewal.stop()
             self.queue.fail(job.id, f"capability not enabled: {e}", retry=False,

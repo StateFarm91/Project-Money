@@ -493,7 +493,7 @@ def method_version() -> str:
 
 def analyse(db, benchmark_key: str, *, limit: int = 10,
             provider=None, env: dict[str, str] | None = None,
-            job_id: int | None = None) -> dict:
+            job_id: int | None = None, should_stop=None) -> dict:
     """Judge up to `limit` pending gallery images, one call each, and record what was seen.
 
     One image per call rather than a batch. A batch is cheaper per image and makes a single
@@ -530,6 +530,14 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     reserved, tokens_in, tokens_out = 0.0, 0, 0
     stopped_by = ""
     for item in queue:
+        # F-473: between images (never mid-call), a cooperative yield to waiting
+        # higher-band work. Every judged image is already recorded, so stopping here loses
+        # nothing; the remaining backlog is the checkpoint.
+        if should_stop is not None and judged + len(failures) > 0:
+            why = should_stop()
+            if why:
+                stopped_by = "preempted"
+                break
         estimate = 0.0
         held = None
         try:

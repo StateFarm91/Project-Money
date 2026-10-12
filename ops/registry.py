@@ -293,6 +293,55 @@ def integration_state(rec: dict, git) -> dict:
             "why": "no branch and no merge commit were recorded for this lane"}
 
 
+class OwnershipConflict(ValueError):
+    """Two live lanes claiming overlapping paths (F-457)."""
+
+    def __init__(self, clashes: list[dict]):
+        self.clashes = clashes
+        super().__init__("; ".join(
+            f"{c['path']} overlaps {c['other_path']} owned by live lane {c['lane']!r}"
+            for c in clashes[:5]))
+
+
+def _literal_prefix(pattern: str) -> str:
+    """The part of a path pattern before its first wildcard."""
+    cut = len(pattern)
+    for ch in "*?[":
+        i = pattern.find(ch)
+        if i != -1:
+            cut = min(cut, i)
+    return pattern[:cut]
+
+
+def paths_overlap(a: str, b: str) -> bool:
+    """Conservative: two manifests overlap when either one's literal prefix contains the
+    other's, path-segment aware (`src/a` does not overlap `src/ab`)."""
+    pa, pb = _literal_prefix(a).rstrip("/"), _literal_prefix(b).rstrip("/")
+    if not pa or not pb:
+        return True  # a bare wildcard owns everything
+
+    def under(x, y):  # x is y or inside y
+        return x == y or x.startswith(y + "/") or (y.endswith("/") and x.startswith(y))
+
+    wild_a, wild_b = pa != a.rstrip("/"), pb != b.rstrip("/")
+    if under(pa, pb) or under(pb, pa):
+        return True
+    # A wildcard mid-segment ("src/a*") also covers names that extend the prefix.
+    return (wild_a and pb.startswith(pa)) or (wild_b and pa.startswith(pb))
+
+
+def ownership_conflicts(data: dict, name: str, owns: list[str]) -> list[dict]:
+    out = []
+    for other, rec in (data.get("jobs") or {}).items():
+        if other == name or rec.get("role", "work") != "work" or rec.get("integrated"):
+            continue
+        for p in owns:
+            for q in rec.get("owns") or []:
+                if paths_overlap(p, q):
+                    out.append({"path": p, "other_path": q, "lane": other})
+    return out
+
+
 # --- the registry ----------------------------------------------------------------------------
 class Registry:
     """A JSON file and the functions that read and write it. That is the whole mechanism."""
@@ -330,15 +379,26 @@ class Registry:
     # -- writing ------------------------------------------------------------------------
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
               integration_ref: str = INTEGRATION_REF, role: str = "work",
-              watches: str | None = None) -> dict:
+              watches: str | None = None, owns: tuple[str, ...] | list[str] = ()) -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
         is captured here and not at read time.
+
+        F-457 (ownership boundaries): `owns` is the lane's path manifest (repository paths or
+        globs). Enrolment -- the pre-dispatch moment -- refuses a manifest that overlaps a live
+        lane's, so two lanes cannot be dispatched onto the same files. A lane is live until
+        its work is integrated or the record is forgotten.
         """
         if role not in ROLES:
             raise ValueError(f"role must be one of {ROLES}, not {role!r}")
         data = self.load()
+        owns = [str(p).strip()[2:] if str(p).strip().startswith("./") else str(p).strip()
+                for p in owns or () if str(p).strip()]
+        if owns and role == "work":
+            clash = ownership_conflicts(data, job.name, owns)
+            if clash:
+                raise OwnershipConflict(clash)
         if role == "observer":
             target = data["jobs"].get(watches or "")
             if target is None:
@@ -366,6 +426,7 @@ class Registry:
             "branch": branch if branch is not None else prior.get("branch"),
             "integration_ref": integration_ref,
             "enrolled_utc": utc(),
+            "owns": owns or prior.get("owns") or [],
             # A re-enrolment is a new run of the lane; an old acknowledgement or merge would
             # otherwise be inherited by work it never saw.
             "acknowledged": None,
@@ -668,7 +729,7 @@ def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
     argv = list(argv)
     opts = {}
-    for flag in ("--role", "--watches"):
+    for flag in ("--role", "--watches", "--owns"):
         if flag in argv:
             i = argv.index(flag)
             if i + 1 >= len(argv):
@@ -691,7 +752,8 @@ def _cli(argv: list[str]) -> int:
         try:
             rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
                             branch=branch, role=opts.get("role", "work"),
-                            watches=opts.get("watches"))
+                            watches=opts.get("watches"),
+                            owns=[p for p in (opts.get("owns") or "").split(",") if p])
         except ValueError as exc:
             print(f"refused: {exc}")
             return 2
@@ -714,7 +776,7 @@ def _cli(argv: list[str]) -> int:
         print(json.dumps(reg.workloads(), indent=2))
         return 0
     print("usage: registry.py [survey | workloads | enrol <name> <log> [lane] [branch] "
-          "[marker] [--role work|observer] [--watches <job>] | "
+          "[marker] [--role work|observer] [--watches <job>] [--owns path,glob,...] | "
           "ack <name> | integrate <name> <commit> | forget <name>]")
     return 2
 
