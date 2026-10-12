@@ -222,7 +222,8 @@ def render_markdown(p: dict) -> str:
     head = "| product | " + " | ".join(p["gates"]) + " | owners of what remains |"
     sep = "|" + "---|" * (len(p["gates"]) + 2)
     lines = [f"# Launch-0 product readiness ({p['product_count']} products)", "",
-             f"Generated {p['generated_at']} by `launch.product_readiness`. Rule: {p['rule']}.", "",
+             f"Generated {p['generated_at']} by `launch.product_readiness`. "
+             f"Rule: {p['rule']}.", "",
              head, sep]
     for prod in p["products"]:
         lines.append(f"| {prod['candidate']} | "

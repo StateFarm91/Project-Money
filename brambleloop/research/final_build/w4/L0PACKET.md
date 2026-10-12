@@ -24,7 +24,7 @@ enforces that gate:
 
 Every gate that is not PASS records what remains to be done and who owns it: **company**,
 **owner** or **external**. A gate that could not be read is UNKNOWN, and UNKNOWN never counts as
-PASS. The four CAP-1 additions are labelled "catalogue configuration approved, the product
+PASS. The three CAP-1 additions are labelled "catalogue configuration approved, the product
 itself not approved". The packet grants nothing. Publication still needs policy, rollback,
 parity and a sealed owner grant for each release.
 
