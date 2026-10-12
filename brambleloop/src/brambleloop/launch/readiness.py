@@ -644,9 +644,11 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # This line said "there is no Etsy client in this system at all" and stopped being true
     # the moment one was written. A readiness report that describes the system as it used to
     # be is worse than no report, because it is trusted.
-    from ..integrations.etsy import Credentials
+    from ..integrations.etsy_shop_binding import credentials_present
 
-    etsy_creds = Credentials.from_env() is not None
+    # W4-ETSYSHOPID: a stored grant plus the name-verified shop binding is a credential just
+    # as ETSY_SHOP_ID + a token in the environment is. Presence only; proof is the exercise.
+    etsy_creds = credentials_present(db)
     # F-594: the item reads the controlled round trip's own breadcrumbs instead of being
     # hard-coded. It turns ready only on a *full* `etsy_exercise` run that finished ok
     # against openapi.etsy.com (its status says so; a run against the local model of Etsy

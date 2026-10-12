@@ -118,6 +118,9 @@ SCOPES_REQUIRED = {
     # getAllListingFiles is `oauth2: listings_r`, which is granted.
     "getAllListingFiles": ("listings_r",),
     "getMe": ("shops_r",),
+    # W4-ETSYSHOPID: GET /users/{user_id}/shops, how the shop id is found from the owner's
+    # own grant. Etsy's security block for getShopByOwnerUserId: api_key + oauth2 shops_r.
+    "getShopByOwnerUserId": ("shops_r",),
     "updateShop": ("shops_w",),
     # The two taxonomy reads step 6 of the authenticated exercise needs. Empty for the same
     # reason `getShop` and `getListing` are: Etsy's document gives both root-level `api_key`
@@ -585,6 +588,13 @@ class TokenProvider:
     def _refresh_now(self) -> None:
         assert self.tokens is not None
         fresh = refresh(self.transport, self.app, self.tokens.refresh_token)
+        if not fresh.scopes and self.tokens.scopes:
+            # Etsy: a refresh grant has "the same scope as the token granted by the initial
+            # Authorization Code grant". A refresh response that omits `scope` therefore
+            # leaves the scope unchanged; it does not make it unknown.
+            fresh = TokenSet(access_token=fresh.access_token,
+                             refresh_token=fresh.refresh_token,
+                             expires_at=fresh.expires_at, scopes=self.tokens.scopes)
         rotated = fresh.refresh_token != self.tokens.refresh_token
         self.tokens = fresh
         self.refreshes += 1

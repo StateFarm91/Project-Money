@@ -326,7 +326,8 @@ class Credentials:
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None,
-                 transport: Any = None, db: Any = None) -> "Credentials | None":
+                 transport: Any = None, db: Any = None,
+                 require_shop: bool = True) -> "Credentials | None":
         """Build credentials, preferring a refreshing token provider over a static token.
 
         Accepts `ETSY_KEYSTRING` as well as `ETSY_API_KEY` because two documents in this
@@ -345,6 +346,12 @@ class Credentials:
         deployment that has never completed the callback flow. The database wins when both
         exist, because the environment variable is a snapshot of a chain that has since moved
         on: an env var that was correct when it was pasted is a spent token an hour later.
+
+        **The shop id** (W4-ETSYSHOPID). `ETSY_SHOP_ID` wins when set. Otherwise, with `db`,
+        the shop bound from the owner's own grant (`integrations.etsy_shop_binding`, stored by
+        `oauth_store.save_shop_binding`) is used. `require_shop=False` returns credentials
+        with an empty `shop_id` instead of None -- only the binding resolver asks for that, to
+        make the two shop-less reads that find the shop.
         """
         e = env if env is not None else os.environ
         key = (e.get("ETSY_KEYSTRING") or e.get("ETSY_API_KEY") or "").strip()
@@ -359,6 +366,10 @@ class Credentials:
             from ..core import oauth_store
 
             stored_token = oauth_store.load_refresh_token(db, env=e)
+            if not shop:
+                from .etsy_shop_binding import bound_shop_id
+
+                shop = bound_shop_id(db)
             # Only a token that came *from the store* may be named in a compare-and-set. One
             # read out of the environment has no claim on the row, so its first write adopts
             # whatever is there instead of asserting what it is replacing.
@@ -378,9 +389,12 @@ class Credentials:
                     access_token=current.access_token if current else token,
                     refresh_token=stored_token,
                     expires_at=current.expires_at if current else 0.0,
-                    scopes=current.scopes if current else ())
+                    # The scope Etsy granted is on the stored row; a provider that does not
+                    # know it refuses every scoped read as "missing" (TokenSet.missing_scopes).
+                    scopes=(current.scopes if current and current.scopes
+                            else oauth_store.stored_scopes(db)))
 
-        if not (key and shop and (token or provider is not None)):
+        if not (key and (shop or not require_shop) and (token or provider is not None)):
             return None
         return Credentials(api_key=key, access_token=token, shop_id=shop,
                            shared_secret=secret, token_provider=provider)
