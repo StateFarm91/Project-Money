@@ -129,6 +129,77 @@ def _useful(row, useful) -> dict | None:
             "source": f"jobs:{row.id}"}
 
 
+TREND_DAYS = 7
+SPEND_DAYS = 30
+
+
+def _missions() -> dict:
+    """Each department's objective, from its charter (autonomy.charters); {} if not importable."""
+    try:
+        from ...autonomy import charters
+
+        return {c.key: c.mission for c in charters.CHARTERS}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def completed_trend(db, dept_of, *, days: int = TREND_DAYS, now: datetime | None = None) -> dict:
+    """F-621: completed (DONE) jobs per department per UTC day over `days` days, from `jobs`.
+
+    Measured from the table; a department with no completed job on a day reads 0 for that day
+    only because the jobs table was read and held none (basis measured). Without the department
+    judge the trend is UNKNOWN for everyone, never zeros."""
+    from ...core.models import Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    labels = [(start + timedelta(days=i)).date().isoformat() for i in range(days)]
+    if dept_of is None:
+        return {"basis": "unknown", "days": labels, "by_department": {},
+                "why": "autonomy.kpis.job_department not importable"}
+    with db.session() as s:
+        rows = list(s.execute(select(Job.job_type, Job.inputs, Job.finished_at).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= start)).all())
+    out: dict[str, list[int]] = {}
+    for jt, inputs, fin in rows:
+        dept = dept_of(jt, inputs)
+        fin = _aware(fin)
+        if not dept or fin is None:
+            continue
+        i = (fin.date() - start.date()).days
+        if 0 <= i < days:
+            out.setdefault(dept, [0] * days)[i] += 1
+    return {"basis": "measured", "days": labels, "by_department": out,
+            "source": "jobs (status DONE, finished_at)", "as_of": now.isoformat()}
+
+
+def department_spend(db, *, days: int = SPEND_DAYS) -> dict:
+    """F-621: recorded spend per department over `days` days (finance.governor.spend_by)."""
+    try:
+        from ...finance import governor
+
+        with db.session() as s:   # the governor reads through a session (as /api/governor)
+            return {"ok": True, **governor.spend_by(s, "department", days=days)}
+    except Exception as exc:  # noqa: BLE001 - unreadable spend is UNKNOWN, never CA$0
+        return {"ok": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
+def _dept_spend(spend: dict, key: str) -> dict:
+    if not spend.get("ok"):
+        return {"value_cad": None, "state": "UNKNOWN", "why": spend.get("why")}
+    rows = {r["key"]: r["cad"] for r in spend.get("rows") or []}
+    if key in rows:
+        return {"value_cad": rows[key], "state": "RECORDED", "days": spend.get("days"),
+                "source": "finance.governor.spend_by(department)"}
+    if not spend.get("total_cad"):
+        # No cost row at all in the window: a recorded zero for every department.
+        return {"value_cad": 0.0, "state": "RECORDED", "days": spend.get("days"),
+                "source": "finance.governor.spend_by(department): no cost rows in window"}
+    return {"value_cad": None, "state": "UNKNOWN", "days": spend.get("days"),
+            "why": (f"no cost row names this department; CA${spend.get('unattributed_cad', 0):.2f}"
+                    f" of recorded spend is unattributed")}
+
+
 def departments(db, auto: dict | None = None) -> dict:
     """Every department with owner state, current job, last useful result and next wake."""
     auto = auto if auto is not None else providers.call("autonomy", db)
@@ -137,6 +208,9 @@ def departments(db, auto: dict | None = None) -> dict:
 
     def read():
         facts = _job_facts(db)
+        missions = _missions()
+        trend = guard("completed_trend", lambda: completed_trend(db, dept_of))
+        spend = department_spend(db)
         items = []
         rows = [i for i in (auto.get("items") or []) if isinstance(i, dict) and i.get("department")]
         if auto.get("status") == "UNKNOWN" or not rows:
@@ -185,6 +259,16 @@ def departments(db, auto: dict | None = None) -> dict:
                 "open_jobs": d.get("open_jobs"), "useful_24h": d.get("useful_24h"),
                 "completed_24h": d.get("completed_24h"),
                 "blockers": d.get("blockers") or [],
+                # F-621: objective, recorded spend and a measured 7-day completed-work trend.
+                "objective": missions.get(key),
+                "spend_30d": _dept_spend(spend, key),
+                "completed_trend_7d": (
+                    {"days": trend.get("days"), "counts": (trend.get("by_department") or {}).get(
+                        key, [0] * len(trend.get("days") or [])), "basis": "measured",
+                     "source": trend.get("source")}
+                    if isinstance(trend, dict) and trend.get("basis") == "measured" else
+                    {"days": None, "counts": None, "basis": "unknown",
+                     "why": (trend or {}).get("why") or (trend or {}).get("reason")}),
                 "source": "autonomy.status.summary"})
         counts = {s: sum(1 for i in items if i["state"] == s) for s in STATES}
         status = ("UNKNOWN" if not items or counts["UNKNOWN"] == len(items) else
