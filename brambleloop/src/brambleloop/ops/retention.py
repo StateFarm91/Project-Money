@@ -113,6 +113,10 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W4-SWARMQUEUES (F-656): WATCHING spans are read as the newest start/end rows (the
+    # open-span check) and the newest 20 spans; pruning older rows changes neither.
+    "swarm.watching_started": ("latest", "swarm.orchestrate._watching/watching_spans"),
+    "swarm.watching_ended": ("latest", "swarm.orchestrate._watching/watching_spans"),
     # W4-RETENTIONFIX: two readers merged in W4 without an entry. F-399's "repeated failures
     # avoided" counts refusals inside the retrospective window (days); the owner overview
     # reads the newest production self-check only.

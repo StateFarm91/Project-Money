@@ -2106,6 +2106,147 @@ BACKLOG_JOBS: dict[str, tuple[str, str, bool]] = {
 # A standing item already done this recently is not redone from idleness.
 BACKLOG_COOLDOWN = timedelta(hours=6)
 
+# F-656 RUN / GROW / IMPROVE (then WATCHING). RUN keeps the live business working (customers,
+# truth, deadlines, what is already selling); GROW finds and takes new demand; IMPROVE makes
+# the company better at its work (exploration, housekeeping). Derived from the band so every
+# job type has a class, with the department from `ops.slo.department_of`.
+RUN, GROW, IMPROVE, WATCHING = "RUN", "GROW", "IMPROVE", "WATCHING"
+PULL_ORDER: tuple[str, ...] = (RUN, GROW, IMPROVE)
+CLASS_BY_BAND_KIND: dict[str, str] = {
+    "customer_incident": RUN, "truth_defect": RUN, "seasonal_deadline": RUN,
+    "proven_winner": RUN, "benchmark_change": GROW, "new_opportunity": GROW,
+    "exploration": IMPROVE, "housekeeping": IMPROVE,
+}
+
+
+def work_class_for(job_type: str) -> dict:
+    """{class, department} for a job type (F-656)."""
+    kind = band_for(job_type)["kind"]
+    try:
+        from ..ops.slo import department_of
+
+        dept = department_of(job_type)
+    except Exception:  # noqa: BLE001
+        dept = None
+    return {"job_type": job_type, "class": CLASS_BY_BAND_KIND.get(kind, IMPROVE),
+            "band_kind": kind, "department": dept}
+
+
+# F-630 (no finish-line drift): which open launch-readiness items each standing backlog job
+# serves. While the phase is shadow, items serving an open readiness item are fed before
+# items that serve none -- deprioritised, never dropped. A judgement, written down so it can
+# be argued with: a job type absent here serves no readiness item.
+LAUNCH_SERVES: dict[str, tuple[str, ...]] = {
+    "mjs.scan": ("benchmark_challenge", "catalogue_depth"),
+    "radar.score": ("catalogue_depth",),
+    "creative.tournament": ("catalogue_depth", "benchmark_challenge"),
+    "ops.continuity": ("artifact_storage", "rollback_plan"),
+    "seasonal.sentinel": ("opening_grid",),
+    "build.tick": ("final_master_closure",),
+}
+WATCHING_STARTED = "swarm.watching_started"
+WATCHING_ENDED = "swarm.watching_ended"
+
+
+def open_readiness_items(db) -> dict:
+    """The newest recorded launch assessment's open items, or UNKNOWN (never assumed empty)."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "launch.assessed")
+                       .order_by(AuditLog.id.desc()).limit(1))
+        if row is None:
+            return {"known": False, "items": set(),
+                    "why": "no launch assessment recorded; nothing is reordered"}
+        d = row.detail or {}
+        items = set(d.get("ours_to_do") or []) | set(d.get("blocked_on_owner") or []) | \
+            set(d.get("blocked_on_integration") or [])
+        return {"known": True, "items": items, "at": row.at.isoformat() if row.at else None,
+                "why": "launch.assessed (newest)"}
+
+
+def _phase(db) -> str | None:
+    try:
+        from ..core import phase as phase_mod
+
+        return phase_mod.resolve(db)["phase"]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def backlog_order(db) -> tuple[list[tuple[str, str]], dict]:
+    """STANDING_BACKLOG in pull order: class (RUN, GROW, IMPROVE), then -- in shadow -- items
+    serving an open readiness item first; the declared order breaks ties (stable)."""
+    phase = _phase(db)
+    readiness = open_readiness_items(db) if phase == "shadow" else {"known": False,
+                                                                     "items": set()}
+    rows = []
+    for i, (kind, description) in enumerate(STANDING_BACKLOG):
+        jt = BACKLOG_JOBS[description][1]
+        cls = work_class_for(jt)["class"]
+        serves = sorted(set(LAUNCH_SERVES.get(jt, ())) & readiness["items"])
+        launch_rank = 0 if (not readiness["known"] or serves) else 1
+        rows.append((PULL_ORDER.index(cls), launch_rank, i, kind, description, cls, serves))
+    rows.sort(key=lambda r: r[:3])
+    plan = {"phase": phase, "readiness": {k: (sorted(v) if isinstance(v, set) else v)
+                                          for k, v in readiness.items()},
+            "order": [{"description": r[4], "class": r[5], "serves_open_readiness": r[6],
+                       "deprioritised_pre_launch": r[1] == 1} for r in rows]}
+    return [(r[3], r[4]) for r in rows], plan
+
+
+def _watching(db, *, idle_and_unfed: bool, why: str, now: datetime) -> dict | None:
+    """F-656: record WATCHING spans -- idle with nothing worth feeding. Zero tokens: an audit
+    row at the start and one at the end, nothing enqueued, nothing called."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(AuditLog.action.in_(
+            [WATCHING_STARTED, WATCHING_ENDED])).order_by(AuditLog.id.desc()).limit(1))
+        watching = last is not None and last.action == WATCHING_STARTED
+        if idle_and_unfed and not watching:
+            s.add(AuditLog(actor="swarm_steward", action=WATCHING_STARTED,
+                           detail={"since": now.isoformat(), "why": why[:400]}))
+            return {"state": WATCHING, "since": now.isoformat()}
+        if not idle_and_unfed and watching:
+            started = last.at if last.at.tzinfo else last.at.replace(tzinfo=timezone.utc)
+            secs = max(0, int((now - started).total_seconds()))
+            s.add(AuditLog(actor="swarm_steward", action=WATCHING_ENDED,
+                           detail={"since": started.isoformat(), "until": now.isoformat(),
+                                   "seconds": secs}))
+            return {"state": "ended", "seconds": secs}
+        return {"state": WATCHING, "since": (last.detail or {}).get("since")} if watching \
+            else None
+
+
+def watching_spans(db, *, limit: int = 20) -> list[dict]:
+    """Recorded WATCHING spans, newest first (an open span has no end)."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action.in_(
+            [WATCHING_STARTED, WATCHING_ENDED])).order_by(AuditLog.id.desc()).limit(2 * limit)))
+    spans, pending_end = [], None
+    for r in rows:
+        if r.action == WATCHING_ENDED:
+            pending_end = r.detail or {}
+        else:
+            spans.append({"since": (r.detail or {}).get("since"),
+                          "until": (pending_end or {}).get("until"),
+                          "seconds": (pending_end or {}).get("seconds"),
+                          "why": (r.detail or {}).get("why")})
+            pending_end = None
+    return spans[:limit]
+
+
+
+
 
 def feed_idle(db, queue, *, now: datetime | None = None) -> dict:
     """If the queue is idle, enqueue the highest-value standing items the allocation allows.
@@ -2125,8 +2266,10 @@ def feed_idle(db, queue, *, now: datetime | None = None) -> dict:
     if open_jobs:
         items = [WorkItem(key=f"job:{jid}", kind=band_for(jt)["kind"], owner=agent)
                  for jid, agent, jt, _st in open_jobs]
+        watch = _watching(db, idle_and_unfed=False, why="", now=now)
         return {"idle": False, "enqueued": [], "open_work": len(open_jobs),
-                "next": next_work(items)}
+                "next": next_work(items),
+                **({"watching": watch} if watch else {})}
 
     alloc = latest_allocation(db, now=now) or allocate(db, now=now)
     batch = min(MAX_BACKLOG_PER_TICK, int(alloc.get("backlog_batch") or 0))
@@ -2139,7 +2282,8 @@ def feed_idle(db, queue, *, now: datetime | None = None) -> dict:
             Job.finished_at >= now - BACKLOG_COOLDOWN)) if _status(j) == _TERMINAL_OK}
 
     enqueued, skipped = [], []
-    for kind, description in STANDING_BACKLOG:
+    ordered, plan = backlog_order(db)
+    for kind, description in ordered:
         if len(enqueued) >= batch:
             break
         agent_name, job_type, spends = BACKLOG_JOBS[description]
@@ -2166,10 +2310,16 @@ def feed_idle(db, queue, *, now: datetime | None = None) -> dict:
                                 priority=priority_for(job_type))
             enqueued.append({"description": description, "job_type": job_type,
                              "agent": agent_name, "job_id": job.id,
-                             "priority": priority_for(job_type)})
+                             "priority": priority_for(job_type),
+                             **{k: v for k, v in work_class_for(job_type).items()
+                                if k in ("class", "department")}})
         except DuplicateJob:
             skipped.append({"description": description,
                             "why": "already fed from the backlog this window"})
 
+    watch = _watching(db, idle_and_unfed=not enqueued,
+                      why="; ".join(sk["why"] for sk in skipped[:5]) or "nothing to feed",
+                      now=now)
     return {"idle": True, "enqueued": enqueued, "skipped": skipped, "batch": batch,
-            "allocation_id": alloc.get("allocation_id"), "next": next_work([])}
+            "allocation_id": alloc.get("allocation_id"), "next": next_work([]),
+            "pull_plan": plan, **({"watching": watch} if watch else {})}
