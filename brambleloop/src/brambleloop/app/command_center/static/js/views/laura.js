@@ -67,16 +67,71 @@ function proposalRow(turnId, p, onDone) {
     h("div", { class: "row-actions" }, btn));
 }
 
+// W4-CCREL: a CEO briefing is long sectioned text with [E#] record ids. On a phone it reads as
+// one section per block (the first two open), each with the records it cites listed beneath
+// it, so the owner can check a line against its record without scrolling the whole answer.
+// The text itself is shown unchanged: code-rendered lines, quoted records verbatim.
+const SECTION_HEAD = /^(\d{1,2})\. (.+)$/;
+
+export function splitBriefing(text) {
+  const lines = String(text || "").split("\n");
+  const intro = [];
+  const sections = [];
+  let footer = [];
+  for (const ln of lines) {
+    const m = ln.match(SECTION_HEAD);
+    if (m) { sections.push({ n: Number(m[1]), title: m[2], lines: [] }); continue; }
+    if (/^Ask "expand decision/.test(ln)) { footer = [ln]; continue; }
+    if (sections.length) { if (ln.trim()) sections[sections.length - 1].lines.push(ln); } else if (ln.trim()) intro.push(ln);
+  }
+  return { intro, sections, footer };
+}
+
+function citedIds(lines) {
+  const ids = new Set();
+  // "[E3]" or "[E3, E7, P2]": every record id inside a bracketed reference.
+  for (const ln of lines) for (const m of ln.matchAll(/\[([^\]]+)\]/g)) for (const id of m[1].matchAll(/\b([EP]\d+)\b/g)) ids.add(id[1]);
+  return [...ids];
+}
+
+function briefingView(t, facts) {
+  const { intro, sections, footer } = splitBriefing(t.answer);
+  if (!sections.length) return null;
+  const byId = Object.fromEntries(facts.filter((f) => f && f.id).map((f) => [f.id, f]));
+  const syn = t.synthesis || {};
+  return h("div", { class: "briefing", data: { briefing: String(sections.length) } },
+    intro.map((ln) => h("p", { class: "briefing-intro" }, ln)),
+    h("p", { class: "muted small" }, syn.source === "model" ? "Model-assisted selection; every line is code-rendered from a record."
+      : "Deterministic briefing from the records cited below."),
+    sections.map((sec, i) => {
+      const ids = citedIds(sec.lines);
+      const cited = ids.map((id) => byId[id]).filter(Boolean);
+      return h("details", { class: "briefing-sec", open: i < 2, data: { section: String(sec.n) } },
+        h("summary", null, h("span", { class: "briefing-n" }, `${sec.n}.`), h("span", { class: "briefing-title" }, sec.title),
+          h("span", { class: "muted small" }, ` · ${sec.lines.length} line${sec.lines.length === 1 ? "" : "s"}`)),
+        h("ul", { class: "briefing-lines" }, sec.lines.map((ln) => h("li", null, ln.replace(/^[-•]\s*/, "")))),
+        cited.length ? h("details", { class: "briefing-cited" }, h("summary", null, `Records cited here (${cited.length})`),
+          h("ul", { class: "rows" }, cited.map((f) => h("li", { class: "row", data: { record: f.id } },
+            h("p", { class: "row-title" }, `[${f.id}] ${f.statement || ""}`),
+            h("p", { class: "row-detail" }, f.source ? inAppLink(f.link, f.source) : "no source",
+              f.status ? ` · ${f.status}` : "", f.as_of ? ` · as of ${relTime(f.as_of)}` : ""))))) : null);
+    }),
+    footer.map((ln) => h("p", { class: "muted small" }, ln)));
+}
+
 function turnCard(t) {
   const facts = Array.isArray(t.facts) ? t.facts : [];
   const unknowns = Array.isArray(t.unknowns) ? t.unknowns : [];
   const proposals = Array.isArray(t.proposals) ? t.proposals : [];
   const status = String(t.status || "UNKNOWN").toUpperCase();
   const done = h("p", { class: "callout callout-info", hidden: true });
+  const isBriefing = (Array.isArray(t.briefing_sections) && t.briefing_sections.length) || /^briefing/.test(String(t.intent || ""));
+  const bv = isBriefing ? briefingView(t, facts) : null;
   return h("article", { class: "laura-turn" },
     h("p", { class: "laura-q" }, h("span", { class: "muted small" }, "You · "), t.question || ""),
     card({ title: "Laura", actions: pillFor(status), cls: "laura-a" },
-      h("p", { class: "answer", data: { answer: status } }, t.answer || "UNKNOWN"),
+      bv ? h("div", { class: "answer", data: { answer: status } }, bv)
+        : h("p", { class: "answer", data: { answer: status } }, t.answer || "UNKNOWN"),
       status === "UNKNOWN" ? h("p", { class: "callout callout-warn" }, "No durable evidence answers this yet, so Laura says so instead of guessing.") : null,
       unknowns.length && status !== "UNKNOWN" ? h("p", { class: "callout callout-warn" },
         "Unknown: " + unknowns.map((u) => u.title).join(", ")) : null,
@@ -105,7 +160,10 @@ function headerCard(ov) {
         h("p", { class: "muted small" }, `Identity ${idn.identity_id || "UNKNOWN"} · source ${idn.source || "UNKNOWN"}`),
         idn.identity_disagreement ? h("p", { class: "callout callout-bad" }, `Identity disagreement reported: ${idn.identity_disagreement} (canonical id kept)`) : null,
         h("p", null, h("a", { href: "#/approvals" }, needs.status === "UNKNOWN" ? "Needs you: Unknown" :
-          `Needs you: ${needs.count ?? "Unknown"}`), " · ", ov.phase || "phase Unknown"))));
+          `Needs you: ${needs.count ?? "Unknown"} decision${needs.count === 1 ? "" : "s"}`),
+          // CC_GAP FU-5: the same number as Approvals; P0/P1 incidents are counted apart.
+          needs.p0_p1_incidents ? h("a", { href: "#/operations" }, ` · ${needs.p0_p1_incidents} P0/P1 incident${needs.p0_p1_incidents === 1 ? "" : "s"}`) : null,
+          " · ", ov.phase || "phase Unknown"))));
 }
 
 function modeRow(ph) {

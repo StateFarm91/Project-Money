@@ -113,6 +113,13 @@ export const DATA = {
     waiting_on_data: env("OK", [{ title: "Bank feed for reconciliation", status: "BLOCKED" }]),
     external_capability_unavailable: env("OK", []),
     // W4-CCUX: the live owner queue, batch first (shape of company.owner_decision_batches).
+    // W4-CCREL: a pending release candidate whose security review is not recorded.
+    release: env("BLOCKED", [
+      { label: "Candidate SHA 5ad94dd0c0de", state: "PASS", why: "release record intact: pinned suite record and log match, same SHA", source: "release/RELEASE_5ad94dd.json" },
+      { label: "Full release suite", state: "PASS", why: "passed full run 20261012T000000Z-1: 7950 tests passing, 0 of 560 suites failing", source: "release/suite_runs/20261012T000000Z-1.json" },
+      { label: "Security review", state: "UNKNOWN", why: "no security review is recorded for this candidate (release/SECURITY_REVIEW_5ad94dd.json absent); not assumed passed", source: "release/SECURITY_REVIEW_5ad94dd.json" },
+      { label: "Rollback target 0417f3516f30", state: "PASS", why: "deployed 2026-10-11T14:39:50Z; ops/deploy_guard.py rollback-commit --to <sha> (ROLLBACK_RUNBOOK)", source: "release/DEPLOYED_HISTORY.json" }],
+      { pending: true, candidate_sha: "5ad94dd0c0de5ad94dd0c0de5ad94dd0c0de5ad9", reason: "Do not authorise yet: Security review not PASS." }),
     decision_batches: env("OK", [
       { id: "kyc", title: "Accounts and identity", why_batched: "one sitting at a desk", decisions: 2, minutes_total: 35,
         max_cost: "UNKNOWN (at least one item is not costed)", items: [
@@ -148,6 +155,8 @@ export const DATA = {
         { metric: "runway", label: "Safe discretionary budget", value: money(40, "MODELLED") },
       ], { reason: "Accounting sources incomplete: payouts and bank feed missing." }),
       spend_limits: env("OK", [{ scope: "llm", limit_cad: 50, paused: false, source: "spend_limits:1" }]),
+      spend_trend: env("OK", Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, value_cad: i % 5 === 0 ? 0 : i / 10 })),
+        { total_cad: 34.5, days: 30, sources: ["cost_entries"], note: "recorded spend (not reconciled), per UTC day" }),
       estimate_drift: env("UNKNOWN", [], { reason: "no token-priced model call is recorded this month, so estimate drift has not been measured",
         label: "estimated vs actual (recorded per-call cost) model spend, this month", state: "healthy", degraded: null, token_priced_calls: 0,
         purposes_outside_tolerance: [], purposes_too_few_calls_to_judge: [], calls_with_no_reservation_share: null, tolerance: 0.25,
@@ -195,6 +204,13 @@ export const DATA = {
     experiments: env("OK", []),
     lessons: env("OK", [{ subject: "hero", statement: "Lifestyle-first hero underperforms flat-lay (estimated)", basis: "estimated" }]),
     improvements: env("OK", []),
+    marketing_customers: env("DEGRADED", [{ metric: "orders_organic", label: "Orders: Etsy organic", value: null, state: "UNKNOWN", why: "order source not connected and read" },
+      { metric: "roas", label: "ROAS (evidence-attributed Etsy Ads)", value: null, state: "UNKNOWN", why: "ad spend not measured; ROAS is not computed" },
+      { metric: "support_cases", label: "Support cases (owner-recorded)", value: 2, escalated: 1, state: "OWNER_RECORDED" }],
+      { reason: "orders UNKNOWN: order source not connected and read" }),
+    customer_orders: env("UNKNOWN", [{ metric: "orders", value: null, state: "UNKNOWN", why: "order source not connected and read" }], { reason: "order source not connected and read" }),
+    customer_support: env("OK", [{ metric: "cases", value: 2, state: "OWNER_RECORDED" }, { metric: "awaiting_reply", value: 1, state: "OWNER_RECORDED" }]),
+    customer_reviews: env("UNKNOWN", [], { reason: "no review source is connected" }),
   }),
   timeline: () => tab("TIMELINE", {}, { events: [
     { at: ago(30), kind: "job_completed", title: "SEO coverage refreshed", actor: "seo", source: "jobs:320", origin: "autonomy.status.timeline" },
@@ -243,10 +259,14 @@ export const DATA = {
       build2_open: 0, final_master_launch_critical_open: 300, completion_lanes: { RUNNING: 2 } }], { reason: "departments BLOCKED" }),
     departments: env("BLOCKED", [
       { department: "executive", name: "Executive / COO", state: "active", status: "OK", current_job: { job_id: 9, job_type: "autonomy.orchestrate", started_at: ago(1) },
-        running_jobs: 1, last_useful_result: { job_id: 8, job_type: "plan.cycle", result: "Prioritised 14 jobs", finished_at: ago(20) }, next_wake: ago(-10), last_run: ago(2), useful_24h: 5 },
+        running_jobs: 1, last_useful_result: { job_id: 8, job_type: "plan.cycle", result: "Prioritised 14 jobs", finished_at: ago(20) }, next_wake: ago(-10), last_run: ago(2), useful_24h: 5,
+        objective: "Prioritise company work across departments", spend_30d: { value_cad: 1.25, state: "RECORDED" },
+        completed_trend_7d: { days: ["d1", "d2", "d3", "d4", "d5", "d6", "d7"], counts: [0, 2, 3, 1, 0, 4, 5], basis: "measured" } },
       { department: "finance", name: "Finance / Accounting", state: "sleeping", status: "OK", current_job: null, running_jobs: 0, last_useful_result: null, next_wake: ago(-60), last_run: ago(300) },
       { department: "store_commerce", name: "Store / Commerce", state: "blocked", status: "BLOCKED", why: "owner gate etsy_api", current_job: null, running_jobs: 0, last_useful_result: null, next_wake: ago(-15) },
-      { department: "visual", name: "Visual", state: "UNKNOWN", status: "UNKNOWN", why: "not built", current_job: null, running_jobs: null, last_useful_result: null, next_wake: null }],
+      { department: "visual", name: "Visual", state: "UNKNOWN", status: "UNKNOWN", why: "not built", current_job: null, running_jobs: null, last_useful_result: null, next_wake: null,
+        objective: "Disclosed renders", spend_30d: { value_cad: null, state: "UNKNOWN", why: "no cost row names this department" },
+        completed_trend_7d: { days: null, counts: null, basis: "unknown", why: "department judge unavailable" } }],
       { counts: { active: 1, sleeping: 1, blocked: 1, unhealthy: 0, UNKNOWN: 1 } }),
     agents: env("OK", [{ name: "orchestrator", state: "active", current_job: { job_id: 9, job_type: "autonomy.orchestrate", started_at: ago(1) }, last_useful_result: null, next_wake: ago(-5) }],
       { counts: { active: 1, sleeping: 0, blocked: 0, unhealthy: 0, UNKNOWN: 0 } }),
@@ -329,6 +349,23 @@ export const DATA = {
   // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
   // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
   // transactions_r -- so the card renders its refused state and Connect stays disabled.
+  // W4-CCREL: Talk to Laura (overview + a CEO briefing answer in briefing.compose's format).
+  laura: () => ({ speaker: { name: "Laura", role: "Founder/CEO (AI)", public_identity: "Brambleloop's AI founder" },
+    identity: { identity_id: "laura-fixture", source: "fixture" }, needs_you: { status: "OK", count: 2 }, phase: "shadow",
+    generated_at: now(), suggested: ["Give me a CEO briefing"] }),
+  lauraConversation: () => ({ turns: [] }),
+  lauraBriefing: (question) => ({ turn_id: 7, at: now(), question, intent: "briefing", status: "PARTIAL",
+    answer: ["Here's where Brambleloop stands (last 24 h, as of 2026-10-12T03:00:00+00:00).",
+      "Model synthesis unavailable: fixture. This is my deterministic fallback briefing, built only from the evidence records cited below.",
+      "", "1. The last 24 h", "- \"SEO coverage refreshed\" [E1]", "- \"12 renders completed\" [E2]",
+      "", "2. Each department", "- Growth: 6 useful jobs [E3, E4]", "- UNKNOWN: \"Finance not evaluated\" [E5]",
+      "", "3. What blocks the first sale", "- \"Etsy API key refused\" [E6]",
+      "", "Ask \"expand decision 2\" (or blocker / step N) for the detail behind any line; every [E#] is a record you can open, and quoted text is that record's own words."].join("\n"),
+    facts: [1, 2, 3, 4, 5, 6].map((i) => ({ id: `E${i}`, statement: `fixture record ${i}`, source: `jobs:${100 + i}`, link: `#/drill/jobs:${100 + i}`,
+      as_of: ago(10), basis: i === 5 ? "unknown" : "measured", status: i === 5 ? "UNKNOWN" : "VERIFIED" })),
+    unknowns: [{ section: "departments", title: "E5", reason: "Finance not evaluated" }], proposals: [], sources: ["jobs"],
+    briefing_sections: [{ key: "window", title: "The last 24 h" }, { key: "departments", title: "Each department" }, { key: "blockers", title: "What blocks the first sale" }],
+    synthesis: { source: "fallback", reason: "fixture" }, method: "deterministic briefing (fixture)" }),
   etsy: () => ({
     api_key_probe: { state: "FAILING", ok: false, at: ago(300), endpoint: "ping",
       etsy_error: "API key is not active (fixture)" },

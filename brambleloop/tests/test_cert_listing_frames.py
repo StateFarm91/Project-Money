@@ -96,7 +96,9 @@ def _fake_vision(unmade: list[str]):
 
     def fake_inspect(ref, *, db=None, provider=None, claim=None):
         chart = bool(claim and claim.get("shows_chart_preview"))
-        description = {"object_shown": "a chart" if chart else "a blanket",
+        # W4-FIRSTIMG (F-027): the fixture describes what the release actually sells (a
+        # hexagon coaster set); "a blanket" for a coaster set is now a misidentified hero.
+        description = {"object_shown": "a chart" if chart else "a set of hexagon coasters",
                        "chart_or_diagram": chart, "finished_or_in_progress": "finished",
                        "object_count": "1", "clarity": "clear", "text_present": True,
                        "third_party_marks": "none", "human_present": False}
@@ -104,6 +106,13 @@ def _fake_vision(unmade: list[str]):
                 "realism": {}, "realism_unjudged": list(unmade),
                 "semantic": inspection.compare(description, claim or {})}
     return fake_inspect
+
+
+def _fake_grid(verdict: str = "clear"):
+    def fake_grid(ref, *, families, db=None, provider=None, **_k):
+        return {"verdict": verdict, "why": f"fixture grid {verdict}", "grid_px": 230,
+                "clarity": "clear", "problems": [], "families": list(families or ())}
+    return fake_grid
 
 
 def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publication():
@@ -117,7 +126,10 @@ def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publica
     db, cir = _certified()
     gate = executor.GATE_BY_KEY["image_vision"]
     original_check, original_inspect = gate.check, inspection.inspect_image
+    original_grid = inspection.identify_at_grid
     gate.check = lambda db_, env: True
+    # W4-FIRSTIMG: the hero's grid identification (F-031) is a vision call; stubbed clear.
+    inspection.identify_at_grid = _fake_grid("clear")
     try:
         inspection.inspect_image = _fake_vision(["texture_not_repeating"])
         out = _build(db, cir, "unjudged")
@@ -135,6 +147,7 @@ def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publica
         assert state["reviewed"] is True and state["bound_to_stored_frames"] is True, state
     finally:
         gate.check, inspection.inspect_image = original_check, original_inspect
+        inspection.identify_at_grid = original_grid
 
     # the same review no longer counts once the stored bytes differ
     with db.session() as s:

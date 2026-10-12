@@ -1,14 +1,14 @@
 {
- "as_of": "2026-10-12T08:49:23+00:00",
+ "as_of": "2026-10-12T09:16:58+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 218,
+  "PROVEN": 227,
   "OWNER-GATED": 42,
   "DATA-GATED": 41,
-  "EXTERNAL-GATED": 5,
+  "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 11
+  "OPEN-DEFECT": 1
  },
  "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
  "rows": [
@@ -2114,9 +2114,9 @@
       "why": "assess is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "assess",
+       "etsy_first_sale_surfaces",
        "render",
-       "_count",
-       "_launch_scope_counts"
+       "_count"
       ]
      }
     ]
@@ -2521,9 +2521,9 @@
       "why": "assess is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "assess",
+       "etsy_first_sale_surfaces",
        "render",
-       "_count",
-       "_launch_scope_counts"
+       "_count"
       ]
      }
     ]
@@ -2818,9 +2818,9 @@
       "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
       "live": [
        "calibrate",
+       "product_families",
        "inspect_image",
-       "gate",
-       "marks_found"
+       "gate"
       ]
      }
     ]
@@ -3057,24 +3057,29 @@
    "id": 67,
    "title": "Competitive Creative Benchmark",
    "section": "Visual asset production audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/benchmark_set.py exists and is tested",
    "evidence": {
     "tests": [
      "tests/test_blind_review.py",
-     "tests/test_cert_parity_copy.py"
+     "tests/test_cert_parity_copy.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/benchmark_set.py",
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "intel/benchmark_set.py",
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -3092,9 +3097,19 @@
       "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
        "run",
-       "catalogue_slugs",
        "pod_for",
+       "catalogue_slugs",
        "review"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -3265,8 +3280,8 @@
       "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
        "run",
-       "catalogue_slugs",
        "pod_for",
+       "catalogue_slugs",
        "review"
       ]
      },
@@ -3465,8 +3480,8 @@
       "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
        "run",
-       "catalogue_slugs",
        "pod_for",
+       "catalogue_slugs",
        "review"
       ]
      }
@@ -3509,8 +3524,8 @@
       "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
        "run",
-       "catalogue_slugs",
        "pod_for",
+       "catalogue_slugs",
        "review"
       ]
      }
@@ -3654,9 +3669,9 @@
       "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
       "live": [
        "calibrate",
+       "product_families",
        "inspect_image",
-       "gate",
-       "marks_found"
+       "gate"
       ]
      }
     ]
@@ -4010,9 +4025,9 @@
       "why": "observations is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "observations",
-       "radar",
        "_aware",
-       "ingest_benchmark"
+       "ingest_benchmark",
+       "ingest_complaints"
       ]
      }
     ]
@@ -4080,23 +4095,28 @@
    "id": 88,
    "title": "Idea-to-Thumbnail Test",
    "section": "Creativity engine + continuous improvement",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/concept.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/concept.py",
      "creative/preengineering.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/intake.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/concept.py",
      "creative/preengineering.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/intake.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -4117,6 +4137,16 @@
        "established",
        "wave_skill_portfolio",
        "missing_skill_levels"
+      ]
+     },
+     {
+      "module": "creative/intake.py",
+      "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
+      "live": [
+       "verify_funnel",
+       "regate_held",
+       "board_for",
+       "judge_held"
       ]
      }
     ]
@@ -4562,9 +4592,9 @@
       "why": "observations is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "observations",
-       "radar",
        "_aware",
-       "ingest_benchmark"
+       "ingest_benchmark",
+       "ingest_complaints"
       ]
      },
      {
@@ -5291,13 +5321,14 @@
    "id": 116,
    "title": "Creative Reference Decomposition",
    "section": "Deep seasonal creativity audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/reference.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_intel_wave2.py"
+     "tests/test_cert_intel_wave2.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/reference.py"
@@ -5758,27 +5789,32 @@
    "id": 126,
    "title": "Search-Grid Blind Tournament",
    "section": "Deep seasonal creativity audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/board.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_intel_wave2.py"
+     "tests/test_cert_intel_wave2.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/board.py",
      "creative/blinded.py",
      "creative/preengineering.py",
      "runtime/release.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/blind_review.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "creative/board.py",
      "creative/blinded.py",
      "creative/preengineering.py",
      "runtime/release.py",
-     "runtime/pipeline.py"
+     "runtime/pipeline.py",
+     "creative/blind_review.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -7801,9 +7837,9 @@
       "why": "assess is live: API get dashboard -> app/main.py:dashboard",
       "live": [
        "assess",
+       "etsy_first_sale_surfaces",
        "render",
-       "_count",
-       "_launch_scope_counts"
+       "_count"
       ]
      },
      {
@@ -9665,12 +9701,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Director.position is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.py:company_standing",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
+       "route",
+       "counts_its_own_patterns",
        "Director.position",
-       "Director.standing",
-       "Director.cross_category",
-       "Director.route_observation"
+       "Director.standing"
       ]
      },
      {
@@ -9711,12 +9747,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Director.position is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.py:company_standing",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
+       "route",
+       "counts_its_own_patterns",
        "Director.position",
-       "Director.standing",
-       "Director.cross_category",
-       "Director.route_observation"
+       "Director.standing"
       ]
      },
      {
@@ -9766,12 +9802,12 @@
      },
      {
       "module": "intel/pods.py",
-      "why": "Director.position is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.py:company_standing",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
+       "route",
+       "counts_its_own_patterns",
        "Director.position",
-       "Director.standing",
-       "Director.cross_category",
-       "Director.route_observation"
+       "Director.standing"
       ]
      }
     ]
@@ -10000,12 +10036,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Director.position is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.py:company_standing",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
+       "route",
+       "counts_its_own_patterns",
        "Director.position",
-       "Director.standing",
-       "Director.cross_category",
-       "Director.route_observation"
+       "Director.standing"
       ]
      },
      {
@@ -10025,21 +10061,26 @@
    "id": 218,
    "title": "MJs Challenge Gate",
    "section": "Voice session reconciliation (model + MJs)",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/blind_review.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_parity_copy.py"
+     "tests/test_cert_parity_copy.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "artefacts": [
      "creative/blind_review.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py",
+     "intel/vision.py"
     ],
     "runtime_consumers": [
      {
@@ -10047,9 +10088,29 @@
       "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
       "live": [
        "run",
-       "catalogue_slugs",
        "pod_for",
+       "catalogue_slugs",
        "review"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
+      ]
+     },
+     {
+      "module": "intel/vision.py",
+      "why": "plan is live: API get dashboard -> app/main.py:dashboard",
+      "live": [
+       "plan",
+       "pending",
+       "pending_count",
+       "forecast"
       ]
      }
     ]
@@ -12711,23 +12772,26 @@
    "id": 277,
    "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
    "section": "Proven-trend seasonal capture & lead-time engine",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/intake.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -12738,6 +12802,16 @@
        "regate_held",
        "board_for",
        "judge_held"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -12881,23 +12955,26 @@
    "id": 281,
    "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
    "section": "Proven-trend seasonal capture & lead-time engine",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module creative/intake.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "creative/intake.py",
      "runtime/pipeline.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -12908,6 +12985,16 @@
        "regate_held",
        "board_for",
        "judge_held"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -13857,13 +13944,15 @@
    "id": 304,
    "title": "MJs Listing Photos Must Be Visually Studied",
    "section": "MJsOffTheHookDesigns priority mission",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/vision.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_serp.py"
+     "tests/test_intel.py",
+     "tests/test_serp.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/vision.py",
@@ -14024,9 +14113,9 @@
    "title": "Owner Example - Christmas Cardigan Response",
    "section": "MJsOffTheHookDesigns priority mission",
    "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "state": "EXTERNAL-GATED",
+   "closure_state": "EXTERNAL-BLOCKED",
+   "why": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
    "evidence": {
     "tests": [
      "tests/test_cert_design_pipeline.py",
@@ -14037,14 +14126,16 @@
      "intel/response.py",
      "intel/mission_runtime.py",
      "runtime/release.py",
-     "creative/prospecting.py"
+     "creative/prospecting.py",
+     "build2/closure.py"
     ],
     "artefacts": [
      "creative/family.py",
      "intel/response.py",
      "intel/mission_runtime.py",
      "runtime/release.py",
-     "creative/prospecting.py"
+     "creative/prospecting.py",
+     "build2/closure.py"
     ],
     "runtime_consumers": [
      {
@@ -14078,29 +14169,42 @@
       ]
      }
     ]
+   },
+   "gate": {
+    "key": "model_bearing_render",
+    "kind": "EXTERNAL-BLOCKED",
+    "what": "a model-bearing listing frame that clears every floor -- identity, morphology, product truth, photographic realism, asset truth and styling -- which no image provider has yet rendered",
+    "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
+    "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
+    "state": "closed",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
+    "remaining_note": "tion, and the intake judgement it waited on is now resolved from the board's stored bytes (see #277). Per the 15c5d1b audit the next binding gate on this chain is model_bearing_render (Brambleloop-owned model-bearing imagery for a garment), which is external: no provider has rendered a certified structure faithfully enough (closure.EXTERNAL_GATES). Re-parked there, on the gate that actually binds."
    }
   },
   {
    "id": 309,
    "title": "MJs Trend-to-Season Mission Pipeline",
    "section": "MJsOffTheHookDesigns priority mission",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module intel/response.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_design_pipeline.py"
+     "tests/test_cert_design_pipeline.py",
+     "tests/test_w4_b2vision.py"
     ],
     "tested_modules": [
      "intel/response.py",
      "intel/mission_runtime.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "artefacts": [
      "intel/response.py",
      "intel/mission_runtime.py",
-     "runtime/release.py"
+     "runtime/release.py",
+     "creative/blinded.py"
     ],
     "runtime_consumers": [
      {
@@ -14121,6 +14225,16 @@
        "veto_state",
        "response_outcomes",
        "pod_capability"
+      ]
+     },
+     {
+      "module": "creative/blinded.py",
+      "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+      "live": [
+       "last_run",
+       "run",
+       "grid_tournament",
+       "build_pairs"
       ]
      }
     ]
@@ -14230,12 +14344,12 @@
     "runtime_consumers": [
      {
       "module": "intel/pods.py",
-      "why": "Director.position is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.py:company_standing",
+      "why": "route is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> creative/blind_review.py:pod_for",
       "live": [
+       "route",
+       "counts_its_own_patterns",
        "Director.position",
-       "Director.standing",
-       "Director.cross_category",
-       "Director.route_observation"
+       "Director.standing"
       ]
      }
     ]
