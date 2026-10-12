@@ -1,0 +1,1203 @@
+{
+ "generated_at": "2026-10-12T03:10:10+00:00",
+ "gates": [
+  "certification",
+  "product_truth",
+  "image_truth",
+  "listing_readiness",
+  "price_plan",
+  "seo",
+  "disclosure"
+ ],
+ "products": [
+  {
+   "candidate": "nursery-nesting-baskets",
+   "title": "Nesting Baskets, three sizes",
+   "scope": "Launch-0",
+   "releases": [
+    {
+     "cir_slug": "market-basket-small",
+     "version": "1.2.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 6.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for market-basket-small@1.2.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    },
+    {
+     "cir_slug": "market-basket-medium",
+     "version": "1.2.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 6.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for market-basket-medium@1.2.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    },
+    {
+     "cir_slug": "market-basket-large",
+     "version": "1.2.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 6.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for market-basket-large@1.2.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "market-basket-small",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-small",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-small",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-small",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-small",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-small",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-medium",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "market-basket-large",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "cloudline-baby-blanket",
+   "title": "Cloudline Baby Blanket",
+   "scope": "Launch-0",
+   "releases": [
+    {
+     "cir_slug": "cloudline-baby-blanket",
+     "version": "1.2.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 7.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for cloudline-baby-blanket@1.2.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "cloudline-baby-blanket",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "hexagon-coaster-set",
+   "title": "Hexagon Coaster Set (4)",
+   "scope": "Launch-0",
+   "releases": [
+    {
+     "cir_slug": "hexagon-coaster-set",
+     "version": "1.2.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 4.0
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for hexagon-coaster-set@1.2.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "hexagon-coaster-set",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "nordic-star-ornaments",
+   "title": "Nordic Snowflake Ornament Set (6)",
+   "scope": "Launch-0",
+   "releases": [
+    {
+     "cir_slug": "nordic-star-ornaments",
+     "version": "1.4.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 4.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for nordic-star-ornaments@1.4.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-star-ornaments",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "winter-village-graphghan",
+   "title": "Winter Snowfall Relief Throw",
+   "scope": "Launch-0",
+   "releases": [
+    {
+     "cir_slug": "winter-village-graphghan",
+     "version": "1.3.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 7.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for winter-village-graphghan@1.3.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "winter-village-graphghan",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "winter-village-graphghan",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "winter-village-graphghan",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "winter-village-graphghan",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "winter-village-graphghan",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "winter-village-graphghan",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "nordic-forest-mosaic-throw-baby",
+   "title": "Nordic Forest Relief Baby Blanket",
+   "scope": "Launch-0 (CAP-1 addition; catalogue configuration approved, the product itself not approved)",
+   "releases": [
+    {
+     "cir_slug": "nordic-forest-mosaic-throw-baby",
+     "version": "1.3.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 7.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for nordic-forest-mosaic-throw-baby@1.3.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "nordic-forest-mosaic-throw-baby",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "mosaic-placemat-pair",
+   "title": "Diamond Lattice Placemat Pair",
+   "scope": "Launch-0 (CAP-1 addition; catalogue configuration approved, the product itself not approved)",
+   "releases": [
+    {
+     "cir_slug": "mosaic-placemat-pair",
+     "version": "1.3.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 5.0
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for mosaic-placemat-pair@1.3.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "mosaic-placemat-pair",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  },
+  {
+   "candidate": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "scope": "Launch-0 (CAP-1 addition; catalogue configuration approved, the product itself not approved)",
+   "releases": [
+    {
+     "cir_slug": "housewarming-key-basket",
+     "version": "0.1.0",
+     "release": null,
+     "gates": {
+      "certification": {
+       "state": "FAIL",
+       "why": "no release of this version is stored",
+       "remaining": "run the release chain (gate.certify) for this release",
+       "owner": "company"
+      },
+      "product_truth": {
+       "state": "PASS",
+       "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+       "remaining": "",
+       "owner": null,
+       "physically_calibrated": false,
+       "compiles": true
+      },
+      "image_truth": {
+       "state": "UNKNOWN",
+       "why": "listing set not certified",
+       "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+       "owner": "company",
+       "presentation_parity": "UNKNOWN",
+       "presentation_parity_owner": "owner",
+       "presentation_parity_why": "unjudged ['competitive_blind_review', 'gallery', 'hero', 'identity', 'lifestyle_quality', 'mobile_grid', 'product_truth']"
+      },
+      "listing_readiness": {
+       "state": "FAIL",
+       "why": "no drafted listing row for this release",
+       "remaining": "listing.draft in the release chain",
+       "owner": "company"
+      },
+      "price_plan": {
+       "state": "UNKNOWN",
+       "why": "no stored listing price to compare with the plan",
+       "remaining": "listing.draft then pricing.position",
+       "owner": "company",
+       "plan_cad": 5.5
+      },
+      "seo": {
+       "state": "UNKNOWN",
+       "why": "no search certificate recorded",
+       "remaining": "listing.seo for this release",
+       "owner": "company",
+       "reasons": [
+        "search certificate (F-004): listing.seo has recorded no search profile for housewarming-key-basket@0.1.0"
+       ]
+      },
+      "disclosure": {
+       "state": "UNKNOWN",
+       "why": "no listing copy is stored for this release yet; the disclosure check runs on the draft once the copy exists",
+       "remaining": "re-draft the listing copy with every owed disclosure",
+       "owner": "company",
+       "missing": []
+      }
+     }
+    }
+   ],
+   "gates": {
+    "certification": "FAIL",
+    "product_truth": "PASS",
+    "image_truth": "UNKNOWN",
+    "listing_readiness": "FAIL",
+    "price_plan": "UNKNOWN",
+    "seo": "UNKNOWN",
+    "disclosure": "UNKNOWN"
+   },
+   "ready_to_request_publication": false,
+   "remaining": [
+    {
+     "release": "housewarming-key-basket",
+     "gate": "certification",
+     "state": "FAIL",
+     "remaining": "run the release chain (gate.certify) for this release",
+     "owner": "company"
+    },
+    {
+     "release": "housewarming-key-basket",
+     "gate": "image_truth",
+     "state": "UNKNOWN",
+     "remaining": "assets.build: render the disclosed frames, verify them on their bytes and certify the listing set",
+     "owner": "company"
+    },
+    {
+     "release": "housewarming-key-basket",
+     "gate": "listing_readiness",
+     "state": "FAIL",
+     "remaining": "listing.draft in the release chain",
+     "owner": "company"
+    },
+    {
+     "release": "housewarming-key-basket",
+     "gate": "price_plan",
+     "state": "UNKNOWN",
+     "remaining": "listing.draft then pricing.position",
+     "owner": "company"
+    },
+    {
+     "release": "housewarming-key-basket",
+     "gate": "seo",
+     "state": "UNKNOWN",
+     "remaining": "listing.seo for this release",
+     "owner": "company"
+    },
+    {
+     "release": "housewarming-key-basket",
+     "gate": "disclosure",
+     "state": "UNKNOWN",
+     "remaining": "re-draft the listing copy with every owed disclosure",
+     "owner": "company"
+    }
+   ],
+   "owners": [
+    "company"
+   ]
+  }
+ ],
+ "product_count": 8,
+ "publishes_anything": false,
+ "rule": "every state read at generation time; UNKNOWN is never PASS; publication also needs policy, rollback, parity and a sealed owner grant per release (ops.publication_authority), which this packet does not grant"
+}
