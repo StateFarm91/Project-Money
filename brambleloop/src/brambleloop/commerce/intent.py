@@ -383,9 +383,27 @@ def _serp_density(db, phrase: str) -> int | None:
         return row.total_count if row is not None else None
 
 
+def aesthetic_of(*texts) -> str:
+    """F-055: the aesthetic a product's own record names, or "" when it names none.
+
+    Read only from the product's own words (its listing qualifiers and its title), matched
+    against the aesthetic vocabulary the facet classifier uses -- never inferred from a
+    palette or a mood. The first word found, in the order given, wins.
+    """
+    for text in texts:
+        items = text if isinstance(text, (list, tuple)) else [text]
+        for item in items:
+            for w in _words(str(item or "")):
+                if (_FACET_WORDS.get(w) == "aesthetic" and w not in OUR_VOCABULARY
+                        and w not in EMPTY_FOR_SEARCH):
+                    return w
+    return ""
+
+
 def listing_language(db, *, slug: str, category: str, season: str | None,
                      difficulty: str, techniques: list[str] | None = None,
-                     max_tags: int = 4) -> dict:
+                     max_tags: int = 4, motifs: list[str] | None = None,
+                     title: str = "") -> dict:
     """Observed buyer phrases for one product about to be listed (#293)."""
     import math
 
@@ -412,6 +430,9 @@ def listing_language(db, *, slug: str, category: str, season: str | None,
             "recipient_or_use": CATEGORY_USE.get(category, ""),
             "season_event": (season or "").split(" (")[0].replace("'s", "").lower(),
             "skill_feature": "beginner" if difficulty == "beginner" else "",
+            # F-055: the fallback carries the aesthetic the product's own record names
+            # (qualifiers, title); a product whose record names none maps none.
+            "aesthetic": aesthetic_of(list(motifs or []), title),
         }
         source = "the product's category, season, techniques and printed difficulty"
     try:

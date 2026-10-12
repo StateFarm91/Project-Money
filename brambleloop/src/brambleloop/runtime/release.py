@@ -982,7 +982,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     buyer = intent_mod.listing_language(ctx.db, slug=slug, category=category, season=season,
                                         difficulty=_difficulty(twin, cir),
-                                        techniques=techniques)
+                                        techniques=techniques, motifs=motifs,
+                                        title=cir.title)
     # F-020: the observed phrases carry their provenance and the date they were read; every
     # template phrase stays `assumed`.
     import dataclasses
