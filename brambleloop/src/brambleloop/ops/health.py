@@ -680,7 +680,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "bl-laura-proof-",
     # W4-IMGFIX: the disclosed hero review and the 230 px grid identification write the bytes
     # a vision judge is shown into a directory scoped to the call (`core.workspace`).
-    "hero-review-", "grid-identify-")
+    "hero-review-", "grid-identify-",
+    # DISCLOSEDQA: the exported-frame review scoped directory.
+    "exported-review-")
 
 
 def disk_facts() -> dict:

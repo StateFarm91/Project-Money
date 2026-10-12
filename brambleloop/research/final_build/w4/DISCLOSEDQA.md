@@ -54,3 +54,13 @@ INTEG2 534f27a has been merged in. Shadow only: stub providers, no spend.
 
 - B2 #61: the remaining work is the review of the uploaded frames, and that is now built.
   Production clears it on the first funded vision run, through the existing budget.
+
+## Checkpoint (2026-10-12, controlled pause)
+
+- Status: **DONE (code); the re-test after the last change is not run.**
+- Since the tests above:
+  - `exported_review` now uses `core.workspace.work_dir` with prefix `exported-review-`,
+    which is added to `TEMP_PREFIXES`.
+  - IMGFIX is merged in.
+- Next step: run test_w4_disclosedqa and test_cost_governance_wave2, plus the required set,
+  through testslot.
