@@ -57,3 +57,34 @@ PROVEN 218, OWNER 42, DATA 41, EXTERNAL 5, N/A 3, OPEN-DEFECT 11.
 
 **Combined with `claude/w4-B2VISION`:** OPEN-DEFECT 1 (#61, which belongs to the image
 worker).
+
+## Checkpoint 2026-10-12 (controlled pause)
+
+**Status: DONE.**
+- Closed: #15, #44, #86.
+- Merged INTEG2 16e36ae; the ledger was regenerated with build2_ledger.py: PROVEN 227,
+  OPEN-DEFECT 1 (#61, the image worker's row).
+
+**Tests after the merge:**
+- test_w4_b2moat 3/3
+- test_w4_b2_build2_ledger ALL OK
+- test_cert_rebuild_chain 0 failures
+- test_moat OK
+- test_w4_b2vision 7/7
+
+**Required regression set:**
+
+| Test | Result |
+|---|---|
+| test_vacuity | 0 failures |
+| test_cert_listing_frames | 0 failures |
+| test_v11_autonomy_timeline | 0 failures |
+| test_launch | 15 failures; identical on clean INTEG2 534f27a (the image worker's regression) |
+| test_cost_governance_wave2 | 1 failure: `test_no_production_module_creates_a_directory_nothing_removes`, at `app/main.py:1179 tempfile.mkdtemp` |
+| test_search_hero_publish | 1 failure: `test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict` |
+
+The two single failures were not compared against clean INTEG2 before the pause. This
+branch's main.py diff adds no mkdtemp; the only main.py change is `measure_vision=False`.
+
+**Next step:** run test_cost_governance_wave2 and test_search_hero_publish on clean INTEG2
+16e36ae to attribute those two failures.
