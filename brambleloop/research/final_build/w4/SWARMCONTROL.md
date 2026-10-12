@@ -54,3 +54,17 @@ actions read by name merged without a retention entry: `improve.repeat_refused` 
 
 ## Board rows advanced
 F-457, F-470 and F-473 are implemented and tested. They are not deployed.
+
+## Checkpoint 2026-10-12 (controlled pause)
+Status: DONE (F-457, F-470, F-473 closed). INTEG2 16e36ae merged; conflicts in intel/vision.py, ops/health.py,
+runtime/release.py, ops/registry.py resolved keeping both sides (vision: job_id, prefer_pods, should_stop;
+release passes prefer_pods=catalogue_pods and should_stop=ctx.should_yield; health keeps starved_ready and
+resources signals; registry keeps merge_delay and ownership code).
+Focused tests after merge: test_w4_swarmcontrol 8/8, test_w4_swarmmetrics 8/8, health, mjscount,
+gallery_escalation, cert_mjs, reliability_ledger, swarm_runtime all passing.
+Required regression set: test_vacuity OK; test_cert_listing_frames PASS; test_v11_autonomy_timeline PASS;
+test_launch FAIL (hero 340 px legibility, identical on clean INTEG2); test_cost_governance_wave2 FAIL only
+test_no_production_module_creates_a_directory_nothing_removes (main.py/hero_review.py/inspect.py mkdtemp,
+identical on clean INTEG2); test_search_hero_publish 3/4 (LISTING_PRICE_NOT_PLAN CA$9.50 vs CA$7.50 plan;
+product data, not touched here; not re-run on clean INTEG2).
+Known defects: none of mine. Next step: coordinator merge into INTEG2.

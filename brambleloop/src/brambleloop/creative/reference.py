@@ -45,7 +45,18 @@ CONSTRUCTION_FIELDS: tuple[str, ...] = (
 PRIMITIVES: tuple[str, ...] = (
     "silhouette", "motif_density", "dimensionality", "palette_role", "prop_context",
     "function", "emotional_tone", "construction_novelty",
+    # W4-B2VISION 2026-10-12: the three #116 names that were missing. Each is read from
+    # evidence already on file -- the API's own option fields, the listing's structure, and
+    # the gallery observation's thumbnail field -- never from what the product depicts.
+    "personalization", "bundle_logic", "thumbnail_readability",
 )
+
+# Closed answers for the two structural primitives.
+PERSONALIZATION: tuple[str, ...] = ("personalizable", "customizable", "none")
+BUNDLE_LOGIC: tuple[str, ...] = ("bundle", "variations", "single")
+# Words in a listing title that say it sells more than one pattern. Structure, not subject.
+_BUNDLE_WORDS: tuple[str, ...] = ("bundle", "set of", "pattern set", "collection", "pack",
+                                  "2 in 1", "3 in 1")
 
 # Closed answer sets where an open one would let a subject in. `motif_density` is the one
 # that matters: a quantity, never a description of the motif.
@@ -185,7 +196,36 @@ def density_of(observations: list[dict], readings: list[dict]) -> str:
     return "sparse" if joined.strip() else "none"
 
 
-def primitives(observations: list[dict], readings: list[dict]) -> dict:
+def _most_common(values: list[str]) -> str:
+    from collections import Counter
+
+    values = [v for v in values if v]
+    return Counter(values).most_common(1)[0][0] if values else ""
+
+
+def structure_of(listings: list[dict]) -> dict:
+    """Personalization and bundle logic, from the API's option fields and listing structure.
+
+    `listings` carry `title` and the `options` block `intel.observe.listing_options` stored
+    (#208). An absent option block is unmeasured, so a listing without one contributes
+    nothing to personalization rather than "none".
+    """
+    pers, bundle = [], []
+    for item in listings:
+        opts = item.get("options")
+        if isinstance(opts, dict) and opts:
+            pers.append("personalizable" if opts.get("is_personalizable") else
+                        "customizable" if opts.get("is_customizable") else "none")
+        title = str(item.get("title") or "").lower()
+        if title:
+            bundle.append("bundle" if any(w in title for w in _BUNDLE_WORDS) else
+                          "variations" if isinstance(opts, dict) and opts.get("has_variations")
+                          else "single")
+    return {"personalization": _most_common(pers), "bundle_logic": _most_common(bundle)}
+
+
+def primitives(observations: list[dict], readings: list[dict],
+               listings: list[dict] | None = None) -> dict:
     """The #116 primitives, assembled from evidence already gathered.
 
     Nothing here asks a new question of a model. Both inputs are readings that already exist
@@ -211,6 +251,8 @@ def primitives(observations: list[dict], readings: list[dict]) -> dict:
         "emotional_tone": first(observations, "emotional_merchandising"),
         "construction_novelty": first(readings, "sleeve_treatment", "neckline",
                                       "colour_architecture"),
+        "thumbnail_readability": first(observations, "thumbnail_readability"),
+        **structure_of(listings or []),
     }
     present = {k: v for k, v in out.items() if v}
     check_free_of_depiction(present.values())
@@ -238,9 +280,13 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
 
     benchmark_key = benchmark_key or benchmarks.MJS_KEY
     with db.session() as s:
-        refs = [r.listing_ref for r in s.scalars(select(BenchmarkListing).where(
-            BenchmarkListing.benchmark_key == benchmark_key,
-            BenchmarkListing.pod == pod))]
+        listed = {r.listing_ref: {"title": r.title or "",
+                                  "options": (r.detail or {}).get("options")}
+                  for r in s.scalars(select(BenchmarkListing).where(
+                      BenchmarkListing.benchmark_key == benchmark_key,
+                      BenchmarkListing.pod == pod))}
+    refs = list(listed)
+    structure: list[dict] = []
 
     observations: list[dict] = []
     readings: list[dict] = []
@@ -250,6 +296,7 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
         if not got:
             continue
         with_evidence += 1
+        structure.append(listed[ref])
         observations.extend(got)
         stored = _stored_readings(db, ref, benchmark_key)
         readings.extend(stored)
@@ -263,7 +310,7 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
                        f"make that product again"),
         }
 
-    derived = primitives(observations, readings)
+    derived = primitives(observations, readings, structure)
     # #85, #101: the brief is assembled with what the company has learned -- jury autopsies
     # and routed lessons -- and records that it drew on them, so a later design can be shown
     # to have used accumulated knowledge rather than restarting from generic intelligence.

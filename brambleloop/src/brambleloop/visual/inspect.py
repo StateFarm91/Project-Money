@@ -210,14 +210,30 @@ def compare(description: dict, claim: dict) -> dict:
         problems.append({"check": "pattern_text", "claim": "the written pattern",
                          "seen": "no text",
                          "why": "a pattern-preview frame with no legible text previews nothing"})
+    identity = identification(description, claim.get("identifies_as"))
+    if identity["identified"] is False:
+        problems.append({"check": "product_identity",
+                         "claim": f"a {' or '.join(identity['families'])}",
+                         "seen": description.get("object_shown"),
+                         "why": ("the first image must clearly show what is sold (F-027): a "
+                                 "describer who never saw the title did not name it")})
     if description.get("clarity") == "unreadable":
         problems.append({"check": "clarity", "claim": "anything at all",
                          "seen": "unreadable",
                          "why": "an unreadable frame communicates nothing whatever it shows"})
 
+    finished = description.get("finished_or_in_progress")
     return {
         "communicates": not problems,
         "problems": problems,
+        # W4-HEROVISION (F-253): the two readings `visual.parity` HERO is defined on, made
+        # here from the blind description. None when nothing was claimed or the answer was
+        # unclear -- never True by default.
+        "finished_or_in_progress_agrees": (
+            None if not claim.get("shows_finished_object") else
+            True if finished == "finished" else
+            False if finished == "in_progress" else None),
+        "identified": identity["identified"],
         "description": description,
         "claim": claim,
         "method": ("the model described the picture without being shown the caption, and "
@@ -226,8 +242,148 @@ def compare(description: dict, claim: dict) -> dict:
     }
 
 
+def identification(description: dict, families) -> dict:
+    """Did the describer name the product family the CIR makes (F-027 / F-031)?
+
+    `families` are `gates.first_customer.PRODUCT_TYPE_FAMILIES` keys taken from the certified
+    CIR (`product_families`); the describer never saw them. `identified` is None when there is
+    nothing to compare (no family claimed, or no description), never True by default.
+    """
+    from ..gates.first_customer import _family_hits
+
+    fams = sorted({str(f) for f in (families or ()) if f})
+    if not fams:
+        return {"identified": None, "families": [], "named": [],
+                "why": "no product family is claimed, so identification is not checked"}
+    shown = str((description or {}).get("object_shown") or "")
+    named = sorted(_family_hits(shown))
+    hit = sorted(set(named) & set(fams))
+    return {"identified": bool(hit), "families": fams, "named": named,
+            "why": (f"the describer named {hit}" if hit else
+                    f"the describer saw {shown[:80]!r}, which names none of {fams}")}
+
+
+def product_families(cir) -> list[str]:
+    """The product-type families a certified CIR names (title and components)."""
+    from ..gates.first_customer import product_type_words_in_cir
+
+    return sorted(product_type_words_in_cir(cir))
+
+
 # ---------------------------------------------------------------------------
 # Making the calls
+
+
+def _bill(db, provider, billed: dict, image_ref: str, purpose: str = TASK) -> None:
+    if db is not None and billed["actual"] > 0:
+        from ..finance import spend_report
+
+        spend_report.record(
+            db, agent=AGENT, amount_cad=billed["actual"],
+            estimated_cad=billed["reserved"], purpose=purpose, provider="anthropic",
+            model=provider.model, department="quality",
+            tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
+            detail={"price_basis": "assumed", "image": image_ref[:120]})
+
+
+def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
+                     grid_px: int | None = None, work_dir: str | None = None) -> dict:
+    """Is the product identifiable at search-grid size (F-031), and is it what is sold (F-027)?
+
+    The hero is downscaled to the real grid size (`commerce.thumbnail.GRID_PX`) and described
+    blind -- the describer is shown the small picture and never the title or the families.
+    Deterministic code then compares: `clear` only when the description names one of the
+    CIR's product families and its clarity is `clear`; `blocked` when it names none, or the
+    picture reads `ambiguous`/`unreadable` at that size; `unjudged` when no description
+    was made (or the clarity answer is outside the vocabulary). One vision call, budgeted
+    exactly as `inspect_image`'s calls are.
+    """
+    import os
+    import tempfile
+
+    from PIL import Image
+
+    from ..commerce.thumbnail import GRID_PX
+    from ..gateway import anthropic as gw
+
+    grid = int(grid_px or GRID_PX)
+    fams = sorted({str(f) for f in (families or ()) if f})
+    out: dict = {"grid_px": grid, "families": fams, "described": False}
+    if not fams:
+        out.update(verdict="unjudged", why=("the certified CIR names no product family, so "
+                                            "'shows what is sold' has nothing to be checked "
+                                            "against; unjudged blocks"))
+        return out
+    provider = provider or gw.provider_for(TASK)
+    out["model"] = provider.model
+    billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+    tmp_dir = work_dir or tempfile.mkdtemp(prefix="grid_identify_")
+    small_path = os.path.join(tmp_dir, f"grid_{grid}.png")
+
+    def _call(system, prompt, max_tokens):
+        # The same ceiling discipline as `inspect_image._call`: reserve against this run's
+        # uncommitted spend with agent and purpose bound, release on failure, settle at cost.
+        held = None
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=max_tokens,
+                uncommitted_cad=max(billed["actual"], billed["reserved"]),
+                agent=AGENT, purpose=TASK)
+            billed["reserved"] += budget["estimate_cad"]
+            held = budget["reservation_id"]
+        try:
+            response = provider.see(system, prompt, [small_path], max_tokens=max_tokens)
+        except BaseException:
+            if db is not None:
+                gw.release_reservation(db, held)
+            raise
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        billed["actual"] += cost
+        billed["tokens_in"] += response.input_tokens
+        billed["tokens_out"] += response.output_tokens
+        if db is not None:
+            gw.release_reservation(db, held, actual_cad=cost)
+        return response
+    try:
+        with Image.open(image_ref) as im:
+            im.convert("RGB").resize((grid, grid), Image.LANCZOS).save(small_path)
+        response = _call(DESCRIBE_SYSTEM, describe_prompt(), DESCRIBE_MAX_TOKENS)
+        description = parse_description(response.text)
+        out.update(described=True, description=description)
+    except (PermanentError, TransientError, InspectionRefused, OSError) as exc:
+        out.update(verdict="unjudged", why=f"no grid description: {exc}"[:300])
+        _bill(db, provider, billed, image_ref)
+        return out
+    finally:
+        if work_dir is None:
+            import shutil
+
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+    _bill(db, provider, billed, image_ref)
+    ident = identification(description, fams)
+    clarity = str(description.get("clarity") or "")
+    problems = []
+    if ident["identified"] is not True:
+        problems.append(f"GRID_NOT_IDENTIFIED: at {grid}px the describer saw "
+                        f"{str(description.get('object_shown'))[:80]!r}, not a "
+                        f"{' or '.join(fams)}")
+    if clarity in ("ambiguous", "unreadable"):
+        problems.append(f"GRID_{clarity.upper()}: at {grid}px the picture reads {clarity}")
+    unknown = [] if clarity in ("clear", "ambiguous", "unreadable") else [
+        f"clarity {clarity!r} is outside the vocabulary, so grid clarity was not judged"]
+    marks = marks_found(description)
+    if marks:
+        problems.append(f"GRID_THIRD_PARTY_MARKS: {marks}")
+    verdict = "blocked" if problems else "unjudged" if unknown else "clear"
+    out.update(identification=ident, clarity=clarity, problems=problems, unknown=unknown,
+               verdict=verdict,
+               why=("identified as the product it sells, clearly, at grid size"
+                    if verdict == "clear" else "; ".join(problems + unknown)[:300]))
+    return out
 
 
 def inspect_image(image_ref: str, *, db=None, provider=None,
@@ -328,6 +484,60 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     out["note"] = ("an unmade check is unjudged, never a pass. That was true before anything "
                    "could look at a picture and it stays true now: a call that failed leaves "
                    "the checks unmade rather than leaving them green")
+    return out
+
+
+def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None = None) -> dict:
+    """One blind description of a picture, compared against its claim; no realism judgement.
+
+    For a disclosed deterministic render (D-FB-7/D-FB-9) the photography realism checks do
+    not apply -- the frame says it is not a photograph -- so `inspect_image`'s second call
+    would buy a judgement nobody reads. The description is the half parity HERO and #61 need.
+    Budgeted exactly as `inspect_image`'s calls are.
+    """
+    from ..gateway import anthropic as gw
+
+    provider = provider or gw.provider_for(TASK)
+    out: dict = {"image": image_ref, "described": False, "realism_judged": False,
+                 "model": provider.model, "realism_not_applicable": True}
+    billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+
+    def _call(system, prompt, max_tokens):
+        held = None
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=max_tokens,
+                uncommitted_cad=max(billed["actual"], billed["reserved"]),
+                agent=AGENT, purpose=TASK)
+            billed["reserved"] += budget["estimate_cad"]
+            held = budget["reservation_id"]
+        try:
+            response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+        except BaseException:
+            if db is not None:
+                gw.release_reservation(db, held)
+            raise
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        billed["actual"] += cost
+        billed["tokens_in"] += response.input_tokens
+        billed["tokens_out"] += response.output_tokens
+        if db is not None:
+            gw.release_reservation(db, held, actual_cad=cost)
+        return response
+
+    try:
+        described = _call(DESCRIBE_SYSTEM, describe_prompt(), DESCRIBE_MAX_TOKENS)
+        out["description"] = parse_description(described.text)
+        out["described"] = True
+    except (PermanentError, TransientError, InspectionRefused) as exc:
+        out["description_error"] = str(exc)[:300]
+    if out["described"] and claim:
+        out["semantic"] = compare(out["description"], claim)
+    _bill(db, provider, billed, image_ref)
     return out
 
 

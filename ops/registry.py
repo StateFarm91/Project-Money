@@ -293,6 +293,40 @@ def integration_state(rec: dict, git) -> dict:
             "why": "no branch and no merge commit were recorded for this lane"}
 
 
+def merge_delay(rec: dict, git) -> dict:
+    """F-489: seconds from a lane's last commit to the commit that integrated it.
+
+    Asked of git, like `integration_state`: the lane's tip commit time against the recorded
+    merge commit, or else the first merge on the integration ref's ancestry path that contains
+    the tip. None with the reason when either end cannot be established -- a lane still out of
+    the branch has no merge delay yet, which is different from a delay of zero.
+    """
+    state = integration_state(rec, git)
+    if not state.get("integrated"):
+        return {"seconds": None, "why": f"not integrated: {state.get('status')}"}
+    ref = state.get("ref") or INTEGRATION_REF
+    branch = rec.get("branch")
+    tip = None
+    if branch:
+        code, out = git("rev-parse", "--verify", f"{branch}^{{commit}}")
+        tip = out if code == 0 else None
+    recorded = (rec.get("integrated") or {}).get("commit")
+    merge = recorded
+    if merge is None and tip:
+        code, out = git("log", "--merges", "--ancestry-path", "--reverse", "--format=%H",
+                        f"{tip}..{ref}")
+        merge = out.splitlines()[0] if code == 0 and out else None
+    if not tip or not merge:
+        return {"seconds": None,
+                "why": "the lane tip or its merge commit cannot be identified in git"}
+    c1, t_tip = git("log", "-1", "--format=%ct", tip)
+    c2, t_merge = git("log", "-1", "--format=%ct", merge)
+    if c1 != 0 or c2 != 0 or not t_tip.isdigit() or not t_merge.isdigit():
+        return {"seconds": None, "why": "commit times unreadable"}
+    return {"seconds": max(0, int(t_merge) - int(t_tip)), "tip": tip, "merge": merge,
+            "why": "integration commit time minus lane tip commit time"}
+
+
 class OwnershipConflict(ValueError):
     """Two live lanes claiming overlapping paths (F-457)."""
 

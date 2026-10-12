@@ -481,8 +481,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # what the frame's role claims. It runs when the vision gate is open; otherwise every
     # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
     # review blocks stops the chain here.
+    from ..visual.inspect import product_families
+
     review = _review_frames(ctx, slug, version, frames, frame_paths,
-                            shas={f["position"]: f["sha256"] for f in stored_frames})
+                            shas={f["position"]: f["sha256"] for f in stored_frames},
+                            families=product_families(cir))
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -589,6 +592,16 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
         return {"made": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
     if rec.get("made"):
         disclosed_listing.record(ctx.db, rec)
+        # W4-HEROVISION (F-253): with image_vision open, the usable hero is described blind
+        # (budgeted) so parity HERO can be judged; closed, nothing is called.
+        try:
+            from ..visual import hero_review
+
+            reviewed = hero_review.review_disclosed_hero(ctx.db, slug, store=store)
+        except Exception as exc:  # noqa: BLE001 - an unmade review leaves HERO unjudged
+            reviewed = {"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+        ctx.audit("assets.disclosed_hero_review", artifact=f"{slug}@{version}",
+                  detail={k: reviewed.get(k) for k in ("reviewed", "why", "sha256")})
     return {"made": rec.get("made"), "usable": rec.get("usable_as_listing_asset"),
             "launch_blocked": rec.get("launch_blocked", [])[:5],
             "frames": [{"view": f["view"], "sha256": f["image"]["sha256"],
@@ -1508,7 +1521,7 @@ ROLE_CLAIMS: dict[str, dict] = {
 
 
 def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
-                   shas: dict[int, str] | None = None) -> dict:
+                   shas: dict[int, str] | None = None, families=None) -> dict:
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
@@ -1530,6 +1543,10 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                                         "why": "image_vision gate closed: no model has "
                                                "been proven to look at a picture"}
             continue
+        if frame.role == "hero":
+            # F-027: the first image must clearly show what is sold. The hero's claim names
+            # the product families the certified CIR makes; the describer never sees them.
+            claim = {**claim, "identifies_as": list(families or ())}
         try:
             got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db, claim=claim)
             verdict = inspection_mod.gate(got)
@@ -1544,6 +1561,30 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                                     "why": verdict.get("why"),
                                     "unmade": verdict.get("unmade"),
                                     "semantic": (got.get("semantic") or {}).get("problems")}
+        if frame.role == "hero":
+            # F-027 / F-031: identification needs a family to compare against, and the hero
+            # must still read as that product at search-grid size. Either missing is
+            # unjudged, which the publish path reads as not reviewed; a failure blocks.
+            identity = inspection_mod.identification(got.get("description") or {}, families)
+            try:
+                grid = inspection_mod.identify_at_grid(paths[frame.position],
+                                                       families=families, db=ctx.db)
+            except Exception as exc:  # noqa: BLE001 - unmade, never passed
+                grid = {"verdict": "unjudged", "why": f"{type(exc).__name__}: {exc}"[:200]}
+            verdicts[frame.position]["identification"] = identity
+            verdicts[frame.position]["grid"] = {k: grid.get(k) for k in
+                                                ("verdict", "why", "grid_px", "clarity",
+                                                 "problems", "families")}
+            if grid.get("verdict") == "blocked":
+                verdicts[frame.position]["verdict"] = "blocked"
+                blocking.append(f"FRAME_REVIEW_HERO_NOT_IDENTIFIABLE: frame "
+                                f"{frame.position} at grid size: {grid.get('why')}"[:400])
+            elif verdict["verdict"] == "clear" and (identity["identified"] is not True
+                                                    or grid.get("verdict") != "clear"):
+                verdicts[frame.position]["verdict"] = "unjudged"
+                verdicts[frame.position]["why"] = (
+                    "the hero's product identification was not made: "
+                    f"{identity['why']}; grid {grid.get('verdict')}: {grid.get('why')}")[:300]
         if verdict["verdict"] == "blocked":
             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
                             f"does not communicate what it claims: "
@@ -6887,9 +6928,17 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                                 "the cadence is sized to fit the authorised ceiling. The "
                                 "backlog is unchanged and the next run takes it")}
 
+    # W4-B2VISION: the pods our own catalogue is judged in are drained breadth-first, so the
+    # blind review (#67/#218) reaches its per-pod floor in days rather than months.
+    from ..creative import blind_review
+
+    catalogue_pods = frozenset(blind_review.pod_for(slug, title)
+                               for slug, title in blind_review.catalogue_slugs())
     result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=fit["units"],
-                            job_id=ctx.job.id, should_stop=ctx.should_yield)
+                            job_id=ctx.job.id, prefer_pods=catalogue_pods,
+                            should_stop=ctx.should_yield)
     ctx.audit("intel.gallery_analysis", detail={
+        "prefer_pods": sorted(catalogue_pods),
         "judged": result["judged"], "attempted": result["attempted"],
         "remaining": result["remaining"], "cost_cad": result["cost_cad"],
         "batch_derived_from": fit["binding_ceiling"],
@@ -6991,12 +7040,21 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
     pod_of: dict[str, str] = {}
+    unresolvable: dict[str, str] = {}
     for slug, title in blind_review.catalogue_slugs():
         pod_of[slug] = blind_review.pod_for(slug, title)
         frames = listing_asset.frames_for(ctx.db, slug=slug)
         hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
         if hero:
-            by_pod.setdefault(pod_of[slug], []).extend(hero)
+            # W4-B2VISION: the hero is shown to judges only if a judge can be shown it. The
+            # 2026-10-11 production run sent a dead /tmp path to all three judges and paid
+            # CA$0.93 for no reading; now the render resolves from the artifact store by its
+            # digest, or the product is recorded as unresolvable and never sent.
+            ref, why = blinded.resolve_image(ctx.db, hero[0])
+            if not ref:
+                unresolvable[slug] = why
+                continue
+            by_pod.setdefault(pod_of[slug], []).append(dict(hero[0], image_ref=ref))
     results = {}
     stopped = False
     for pod, ours in sorted(by_pod.items()):
@@ -7006,6 +7064,7 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
             results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
                                                   "benchmark_cells", "our_cells")}
             results[pod]["panel"] = out["panel"]
+            results[pod]["by_product"] = out.get("by_product") or {}
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
         if (results[pod].get("panel") or {}).get("stopped_by"):
@@ -7025,6 +7084,12 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
                              "ceiling before this concept was gridded"}
             continue
         ours = [{"slug": key, "image_ref": str(board.get("board_image") or "")}]
+        ref, why = blinded.resolve_image(ctx.db, ours[0])
+        if not ref:
+            concepts[key] = {"verdict": "refused", "why": f"the concept board could not be "
+                                                          f"shown to a judge: {why}"}
+            continue
+        ours = [{"slug": key, "image_ref": ref}]
         try:
             out = blinded.grid_tournament(ctx.db, ours, pod=str(board.get("pod") or ""),
                                           provider=provider, seed=ctx.job.id or 0,
@@ -7042,10 +7107,16 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     # cleared -- never as cleared by default.
     products = {slug: {"pod": pod, "verdict": (results.get(pod) or {}).get("verdict"),
                        "why": (results.get(pod) or {}).get("why", "no render of ours in "
-                                                                  "this pod was gridded")}
+                                                                  "this pod was gridded"),
+                       # W4-B2VISION: this product's own cell scores, read by #218.
+                       **(((results.get(pod) or {}).get("by_product") or {}).get(slug) or {})}
                 for slug, pod in pod_of.items()}
+    for slug, why in unresolvable.items():
+        products[slug].update(verdict=None, why=f"our render could not be shown to a judge: "
+                                                f"{why}", unresolvable=True)
     ctx.audit("creative.grid_tournament", detail={"pods": results, "concepts": concepts,
-                                                   "products": products})
+                                                   "products": products,
+                                                   "unresolvable": unresolvable})
     return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()},
             "concepts": {k: v["verdict"] for k, v in concepts.items()}}
 

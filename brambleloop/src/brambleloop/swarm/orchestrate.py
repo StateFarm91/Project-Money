@@ -731,6 +731,16 @@ JOB_BANDS: dict[str, str] = {
     "ops.capability_probes": "truth_defect",
     "model.probe": "truth_defect",
     "ops.policy_watch": "truth_defect",
+    # W4-ARCHIVEPRIO (#51, production 2026-10-12): the continuity restore proof and the daily
+    # offsite archive are the system's claim that its state survives losing the database or the
+    # provider (ops.assurance offsite_backup / rollback_baseline restore_proof read them). In
+    # housekeeping (95) a daily archive enqueued behind a standing backlog of older exploration
+    # work never ran: bounded aging saturates (AGING_CAP), so every older low-band job keeps
+    # out-ranking a fresh one, and job 12678 sat 8 h on a one-worker pool while /api/offsite
+    # aged a day. An archive not written is a stale "recoverable" left standing -- the same
+    # reason liveness is in this band and not in housekeeping.
+    "ops.continuity": "truth_defect",
+    "ops.offsite_archive": "truth_defect",
     # A window closes and cannot be reopened.
     "seasonal.sentinel": "seasonal_deadline",
     "seasonal.engine": "seasonal_deadline",
@@ -853,8 +863,6 @@ JOB_BANDS: dict[str, str] = {
     "portfolio.review": "exploration",
     # Keeps the system honest, urgent to nobody.
     "build.tick": "housekeeping",
-    "ops.continuity": "housekeeping",
-    "ops.offsite_archive": "housekeeping",
     "ops.retention": "housekeeping",
     "ops.capacity": "housekeeping",
     "ops.dependencies": "housekeeping",

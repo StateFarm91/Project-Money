@@ -1,0 +1,21 @@
+{
+ "_what_this_is": "W4-PROVENANCE (F-718/F-733): the production owner-approval record of the canonical model freeze, exported from the only place it existed -- the production `model.frozen` audit row -- so the repository, not a conversation or one database, holds it. Identity description fields are deliberately not copied: the pack itself is the durable record of what she looks like; this file pins which pack the owner approved.",
+ "source": {
+  "endpoint": "GET /api/audit?action=model.frozen (read-only, public)",
+  "production_commit": "0417f3516f30bb7c52926187fc475a0f46536e86",
+  "read_at": "2026-10-12",
+  "audit_id": 5693,
+  "audit_at": "2026-09-22T03:52:53.599565+00:00",
+  "actor": "creative_director",
+  "action": "model.frozen"
+ },
+ "freeze": {
+  "frozen": true,
+  "key": "brambleloop-canonical",
+  "version": 1,
+  "approved_at": "2026-09-22T03:52:53.589208+00:00",
+  "pack_version": "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is",
+  "built_at": "2026-09-22 01:02:49.610283+00:00",
+  "candidate_fingerprint": "914ee7da716baef7"
+ }
+}

@@ -157,8 +157,37 @@ def validate(out, name: str) -> dict:
 
     out.setdefault("observation_window", observation_window(out["items"]))
     if out["status"] != "OK" and not out.get("reason"):
-        out["reason"] = "provider gave no reason"
+        out["reason"] = derived_reason(out["status"], out["items"])
     return out
+
+
+NO_REASON = "provider gave no reason"
+_OK_STATES = {"OK", "READY", "PASS", "MET", "ACTIVE", "SLEEPING", "DONE", "VERIFIED"}
+
+
+def _item_title(it: dict) -> str:
+    for k in ("title", "name", "label", "department", "agent", "key", "metric", "kind", "id"):
+        if it.get(k) not in (None, ""):
+            return str(it[k])[:60]
+    return "item"
+
+
+def derived_reason(status: str, items: list) -> str:
+    """CC_GAP FU-7: a non-OK card whose provider gave no reason says which of its own items
+    are not OK (read from the items, nothing invented), and still says the provider gave none."""
+    rows = [i for i in items if isinstance(i, dict)]
+    bad = []
+    for it in rows:
+        st = str(it.get("status") or it.get("state") or "").upper()
+        if st and st not in _OK_STATES:
+            bad.append(f"{_item_title(it)} ({st})")
+    if bad:
+        more = f", +{len(bad) - 3} more" if len(bad) > 3 else ""
+        return (f"{NO_REASON}; from its items: {len(bad)} of {len(rows)} not OK: "
+                f"{', '.join(bad[:3])}{more}")
+    if rows:
+        return f"{NO_REASON}; status {status}, but none of its {len(rows)} items is marked not OK"
+    return f"{NO_REASON}; status {status} with no items reported"
 
 
 def call(key: str, db, *args, **kwargs) -> dict:

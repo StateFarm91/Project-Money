@@ -76,6 +76,11 @@ SIGNALS: dict[str, str] = {
              "handlers left behind"),
     # F-337 / F-338 / F-343 (wave-3 K7): running jobs against their rolling duration
     # envelope, diagnosed non-destructively, plus the five-state activity reading.
+    # F-655 (W4-SWARMMETRICS): READY work past its band SLA while the pool had idle
+    # capacity -- valuable work untouched because nothing claimed it, not because all
+    # workers were busy.
+    "starved_ready": ("runnable jobs older than their band's READY SLA while the pool had "
+                      "idle capacity"),
     # F-470 (W4-SWARMCONTROL): memory, load and database connections against the
     # container's own limits; `swarm.capacity.worker_target` scales down while saturated.
     "resources": "memory, CPU load and database connections against the container's limits",
@@ -325,6 +330,7 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
 
     readings.append(_job_durations(db, now))
 
+    readings.append(_starved_ready(db, runner_state, now))
     readings.append(_resources_reading(db))
 
     return readings
@@ -351,6 +357,30 @@ def _resources_reading(db) -> "Reading":
                                       "rss_bytes",
                                       "memory_limit_source", "usable_cpus", "cpu_seconds")}
                    | {"db_connections": r["db_connections"]},
+                   "" if state == HEALTHY else r["why"])
+
+
+def _starved_ready(db, runner_state: dict, now: datetime) -> "Reading":
+    """F-655: READY jobs past their band SLA while capacity sat idle (swarm.metrics)."""
+    try:
+        from ..swarm.metrics import starved_ready
+
+        if hasattr(db, "execute") and not hasattr(db, "engine"):
+            from .slo import _SessionDb
+
+            dbx = _SessionDb(db)
+        else:
+            dbx = db
+        target = runner_state.get("worker_target")
+        r = starved_ready(dbx, worker_target=target if isinstance(target, int) else None,
+                          now=now)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("starved_ready", UNKNOWN, {}, f"unreadable: {type(exc).__name__}")
+    state = (DEGRADED if r["reading"] == "starved" else
+             UNKNOWN if r["reading"] == "UNKNOWN" else HEALTHY)
+    return Reading("starved_ready", state,
+                   {k: r[k] for k in ("starved", "late_ready", "late_by_band",
+                                      "capacity_idle", "running", "worker_target")},
                    "" if state == HEALTHY else r["why"])
 
 
