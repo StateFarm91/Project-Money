@@ -549,6 +549,121 @@ try {
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();
 
+  // ---- W4-CCREL: release approval card (candidate SHA, suite, security review, rollback) ----
+  await page.goto(`${BASE}/cc/#/approvals`);
+  await settle();
+  const rel = await page.evaluate(() => { const c = document.querySelector("section[aria-labelledby='approvals-release']");
+    return c ? { text: c.textContent, rows: [...c.querySelectorAll(".evidence li.row")].map((r) => r.textContent),
+      links: [...c.querySelectorAll(".evidence a")].map((a) => a.getAttribute("href")), buttons: c.querySelectorAll("button").length } : null; });
+  check(!!rel && /Candidate 5ad94dd0c0de/.test(rel.text) && /NOT READY/.test(rel.text) && rel.rows.length === 4,
+    "ccrel approvals: release card names the candidate and is not ready", JSON.stringify(rel).slice(0, 300));
+  check(!!rel && /Full release suite\s*PASS/.test(rel.rows[1] || "") && /7950 tests passing, 0 of 560 suites failing/.test(rel.rows[1] || "")
+    && /Security review\s*UNKNOWN/.test(rel.rows[2] || "") && /not assumed passed/.test(rel.rows[2] || "") && /Rollback target 0417f3516f30/.test(rel.rows[3] || ""),
+    "ccrel approvals: suite result, UNKNOWN security review (never a pass) and rollback target", JSON.stringify(rel && rel.rows).slice(0, 400));
+  check(!!rel && rel.buttons === 0 && rel.links.length === 4 && rel.links.every((l) => l.startsWith("#/drill/")), "ccrel approvals: read-only, every row links to its evidence", JSON.stringify(rel && rel.links));
+  await noHScroll("ccrel approvals");
+  await page.goto(`${BASE}/cc/#/ask`);
+  await settle();
+
+  // ---- W4-CCREL: Etsy Connect end to end (re-check, step-up, Etsy-only navigation) ---------
+  await fetch(`${BASE}/__mock/etsy?ready=1`);
+  await page.goto(`${BASE}/cc/#/store`);
+  await settle();
+  check(!(await page.isDisabled("button:has-text('Connect Etsy shop')")), "etsy connect: Connect enabled once the key is accepted");
+  let etsyBefore = (await postLog()).length;
+  await page.click("button:has-text('Re-check Etsy connection')");
+  await page.waitForSelector("dialog.dlg[open]");
+  check((await postLog()).length === etsyBefore, "etsy connect: re-check sends nothing before confirmation");
+  await page.click("dialog.dlg button[data-dlg=confirm]");
+  for (let i = 0; i < 100 && !(await postLog()).slice(etsyBefore).some((e) => e.path === "/api/cc/etsy/recheck"); i++) await page.waitForTimeout(100);
+  const rc = (await postLog()).slice(etsyBefore).find((e) => e.path === "/api/cc/etsy/recheck");
+  check(!!rc && !rc.refused && rc.csrf && rc.nonce, "etsy connect: re-check POSTed with CSRF + nonce", JSON.stringify(rc));
+  await settle();
+  // Connect: confirmation + step-up, then navigation only to Etsy's own consent page.
+  await page.route("https://www.etsy.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>Etsy consent (stub)</title><p>stub</p>" }));
+  let evilHit = false;
+  await page.route("https://evil.example/**", (r) => { evilHit = true; r.abort(); });
+  etsyBefore = (await postLog()).length;
+  await page.click("button:has-text('Connect Etsy shop')");
+  await page.waitForSelector("dialog.dlg[open]");
+  check((await postLog()).length === etsyBefore, "etsy connect: nothing sent before confirmation");
+  if (await page.$("#dlg-pass")) await page.fill("#dlg-pass", PASSPHRASE);
+  await Promise.all([page.waitForURL(/www\.etsy\.com\/oauth\/connect/, { timeout: 10000 }).catch(() => null),
+    page.click("dialog.dlg button[data-dlg=confirm]")]);
+  const conn = (await postLog()).slice(etsyBefore).find((e) => e.path === "/api/cc/etsy/connect");
+  check(!!conn && !conn.refused && conn.csrf && conn.nonce, "etsy connect: connect POSTed with CSRF + nonce after step-up", JSON.stringify(conn));
+  check(/^https:\/\/www\.etsy\.com\/oauth\/connect\?/.test(page.url()), "etsy connect: phone opens Etsy's own consent page", page.url());
+  // A non-Etsy authorize URL is never followed.
+  await fetch(`${BASE}/__mock/etsy?ready=1&evil=1`);
+  await page.goto(`${BASE}/cc/#/store`);
+  await settle();
+  await page.click("button:has-text('Connect Etsy shop')");
+  await page.waitForSelector("dialog.dlg[open]");
+  if (await page.$("#dlg-pass")) await page.fill("#dlg-pass", PASSPHRASE);
+  await page.click("dialog.dlg button[data-dlg=confirm]");
+  await page.waitForTimeout(800);
+  check(!evilHit && new URL(page.url()).hostname === "127.0.0.1", "etsy connect: a non-Etsy authorize URL is not followed", page.url());
+  await page.unroute("https://www.etsy.com/**");
+  await page.unroute("https://evil.example/**");
+  await fetch(`${BASE}/__mock/etsy?ready=0`);
+  await page.goto(`${BASE}/cc/#/ask`);
+  await settle();
+
+  // ---- W4-CCREL: Laura's CEO briefing on a phone (sections, cited records) -----------------
+  consoleErrors.length = 0;
+  await page.goto(`${BASE}/cc/#/laura`);
+  await settle();
+  await page.fill("#laura-q", "Give me a CEO briefing");
+  await page.click("form.laura-form button[type=submit]");
+  await page.waitForSelector(".briefing", { timeout: 10000 });
+  const brief = await page.evaluate(() => { const b = document.querySelector(".briefing");
+    const secs = [...b.querySelectorAll("details.briefing-sec")];
+    return { n: secs.length, open: secs.map((d) => d.open), titles: secs.map((d) => d.querySelector(".briefing-title").textContent),
+      lines: secs.map((d) => d.querySelectorAll(".briefing-lines li").length),
+      cited: secs.map((d) => [...d.querySelectorAll(".briefing-cited li[data-record]")].map((li) => li.dataset.record)),
+      links: [...b.querySelectorAll(".briefing-cited a")].map((a) => a.getAttribute("href")),
+      intro: b.querySelector(".briefing-intro")?.textContent || "", text: b.textContent }; });
+  check(brief.n === 3 && JSON.stringify(brief.open) === JSON.stringify([true, true, false])
+    && JSON.stringify(brief.titles) === JSON.stringify(["The last 24 h", "Each department", "What blocks the first sale"]),
+    "laura briefing: one block per section, first two open", JSON.stringify(brief).slice(0, 300));
+  check(JSON.stringify(brief.lines) === JSON.stringify([2, 2, 1]) && JSON.stringify(brief.cited) === JSON.stringify([["E1", "E2"], ["E3", "E4", "E5"], ["E6"]]),
+    "laura briefing: every line kept; each section lists the records it cites (incl. [E3, E4])", JSON.stringify([brief.lines, brief.cited]));
+  check(/Here's where Brambleloop stands/.test(brief.intro) && /UNKNOWN: "Finance not evaluated"/.test(brief.text) && /expand decision 2/.test(brief.text)
+    && brief.links.length === 6 && brief.links.every((l) => l.startsWith("#/drill/")), "laura briefing: header, UNKNOWN kept, follow-up hint and record links", brief.text.slice(0, 200));
+  await noHScroll("laura briefing");
+  check(consoleErrors.length === 0, "laura briefing: no console errors", consoleErrors.join(" | "));
+  // ---- W4-CCFM1: departments (F-621), spend trend chart (F-652/F-670), customers (F-619) -----
+  await page.goto(`${BASE}/cc/#/company`);
+  await settle();
+  const deptsF = await page.$$eval("section[aria-labelledby='company-departments'] li.row", (els) => els.map((e) => ({
+    t: e.textContent, bars: e.querySelectorAll("svg.chart rect").length })));
+  const exe = deptsF.find((d) => /^Executive/.test(d.t)) || {};
+  const vis = deptsF.find((d) => /^Visual/.test(d.t)) || {};
+  check(/Objective\s*Prioritise company work/.test(exe.t || "") && /Spend \(30 d, recorded\)\s*CA\$1\.25/.test(exe.t || "") && exe.bars === 7,
+    "ccfm1 company: department objective, recorded spend and a 7-day completed-work chart", JSON.stringify(exe).slice(0, 300));
+  check(/Spend \(30 d, recorded\)\s*Unknown/.test(vis.t || "") && /Completed work trend: Unknown/.test(vis.t || "") && vis.bars === 0,
+    "ccfm1 company: unknown spend and trend read Unknown, no bars drawn", JSON.stringify(vis).slice(0, 300));
+  await noHScroll("ccfm1 company");
+  await page.goto(`${BASE}/cc/#/money`);
+  await settle();
+  const trend = await page.evaluate(() => { const c = document.querySelector("section[aria-labelledby='money-spend-trend']");
+    return c ? { bars: c.querySelectorAll("svg.chart rect").length, zero: c.querySelectorAll("svg.chart rect.is-zero").length,
+      label: c.querySelector("svg.chart")?.getAttribute("aria-label") || "", rows: c.querySelectorAll(".chart-data tr").length, text: c.textContent } : null; });
+  check(!!trend && trend.bars === 30 && trend.zero === 6 && trend.rows === 30 && /Recorded spend per day: 30 points/.test(trend.label) && /Revenue is not charted while it is Unknown/.test(trend.text),
+    "ccfm1 money: 30-day recorded spend chart with its values table; revenue not charted while Unknown", JSON.stringify(trend).slice(0, 300));
+  await noHScroll("ccfm1 money");
+  await page.goto(`${BASE}/cc/#/insights`);
+  await settle();
+  const custText = await page.textContent("#main");
+  check(/Customers: orders/.test(custText) && /Customers: support/.test(custText) && /Customers: reviews/.test(custText) && !/Orders\s*0\b/.test(custText),
+    "ccfm1 insights: customers shown as aggregates; unknown orders never 0", custText.slice(0, 200));
+  const firstInsight = await page.$eval("#main .stack > .card .card-title", (e) => e.textContent).catch(() => "");
+  check(firstInsight === "Marketing & customers" && /ROAS \(evidence-attributed Etsy Ads\)/.test(custText) && /Support cases \(owner-recorded\)/.test(custText),
+    "ccall insights: combined marketing & customers view leads Insights (F-622)", firstInsight);
+  await noHScroll("ccfm1 insights");
+  await page.goto(`${BASE}/cc/#/ask`);
+  await settle();
+
   // ---- deep link from a notification ----------------------------------------------------
   await page.goto(`${BASE}/cc/#/notifications`);
   await settle();

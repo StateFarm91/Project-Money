@@ -2847,7 +2847,12 @@ def api_experiments() -> dict:
                  "expected_value_cad": (r.expected_value_cad
                                         if r.expected_value_cad is not None
                                         else "UNMEASURED"),
-                 "killed_reason": r.killed_reason, "stop_on": r.stop_on}
+                 "killed_reason": r.killed_reason, "stop_on": r.stop_on,
+                 # F-504 / F-126: measured effect, retain-or-rollback, superseded marker.
+                 "measured_effect": (r.detail or {}).get("measured_effect") or "UNMEASURED",
+                 "retain_or_rollback": (r.detail or {}).get("retain_or_rollback")
+                 or {"decision": "undecided", "why": "not concluded"},
+                 "superseded": (r.detail or {}).get("superseded")}
                 for r in s.scalars(select(RegisteredExperiment)
                                    .order_by(RegisteredExperiment.key))]
     return {"experiments": rows, "count": len(rows)}

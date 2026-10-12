@@ -2,8 +2,8 @@
 // when it was read and on what basis; Unknown is shown as Unknown, never as 0.
 import { h, icon } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, freshness, sourcesList, statTile, releaseNote } from "../components.js";
-import { relTime, utcStamp, UNKNOWN_TEXT, humanize } from "../format.js";
+import { card, statusPill, freshness, sourcesList, statTile, releaseNote, barChart } from "../components.js";
+import { relTime, utcStamp, UNKNOWN_TEXT, humanize, formatMoney } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, isEnvelope } from "./_shared.js";
 
 const STATE_ORDER = ["active", "sleeping", "blocked", "unhealthy", "UNKNOWN"];
@@ -52,7 +52,19 @@ function unitRow(it) {
       fact("Last useful result", lu ? `${lu.result || lu.job_type} · ${when(lu.finished_at)}` : UNKNOWN_TEXT),
       fact("Next wake", when(it.next_wake)),
       it.last_run !== undefined ? fact("Last run", when(it.last_run)) : null,
-      typeof it.useful_24h === "number" ? fact("Useful jobs (24 h)", String(it.useful_24h)) : null));
+      typeof it.useful_24h === "number" ? fact("Useful jobs (24 h)", String(it.useful_24h)) : null,
+      // W4-CCFM1 (F-621): objective and recorded spend per department.
+      it.objective !== undefined ? fact("Objective", it.objective || UNKNOWN_TEXT) : null,
+      it.spend_30d ? fact("Spend (30 d, recorded)", typeof it.spend_30d.value_cad === "number"
+        ? formatMoney({ value_cad: it.spend_30d.value_cad, state: "RECORDED" }) : `${UNKNOWN_TEXT}${it.spend_30d.why ? `: ${it.spend_30d.why}` : ""}`) : null),
+    deptTrend(it.completed_trend_7d));
+}
+
+// F-621: completed jobs per day for 7 days (measured from `jobs`), or Unknown -- never zeros.
+function deptTrend(t) {
+  if (!t) return null;
+  if (t.basis !== "measured" || !Array.isArray(t.counts)) return h("p", { class: "muted small" }, `Completed work trend: ${UNKNOWN_TEXT}${t.why ? ` (${t.why})` : ""}`);
+  return barChart(t.counts, { labels: t.days || [], label: "Completed jobs per day (7 days)", height: 32 });
 }
 
 function unitsCard(title, env, result, id) {

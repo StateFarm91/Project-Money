@@ -3,9 +3,22 @@
 // basis tag; every tile links to its source rows.
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
-import { card, moneyTile, statusPill, freshness, basisTag, basisNote, sourcesList, itemRow } from "../components.js";
+import { card, moneyTile, statusPill, freshness, basisTag, basisNote, sourcesList, itemRow, barChart } from "../components.js";
 import { formatMoney, humanize, UNKNOWN_TEXT, relTime, utcStamp } from "../format.js";
 import { sectionsOf, pageMeta, renderSection, renderAll, tabStatus, isMoney, isEnvelope, backLink } from "./_shared.js";
+
+// W4-CCFM1 (F-652): recorded spend per day for 30 days, charted. Revenue is not charted: it is
+// UNKNOWN until the order source is connected and read, and an unknown series is not drawn.
+function spendTrendCard(env, result) {
+  if (!isEnvelope(env) || env.status === "UNKNOWN") return renderSection("spend_trend", env, { title: "Spend trend (30 days)", result });
+  const items = Array.isArray(env.items) ? env.items : [];
+  return card({ title: "Spend trend (30 days)", labelId: "money-spend-trend", actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, result), " · ", basisTag("recorded")),
+    barChart(items.map((i) => (typeof i.value_cad === "number" ? i.value_cad : null)),
+      { labels: items.map((i) => i.date), label: "Recorded spend per day", format: (v) => formatMoney({ value_cad: v, state: "RECORDED" }) }),
+    h("p", { class: "muted small" }, `Total ${typeof env.total_cad === "number" ? formatMoney({ value_cad: env.total_cad, state: "RECORDED" }) : UNKNOWN_TEXT} · ${env.note || ""}. Revenue is not charted while it is Unknown.`),
+    sourcesList(env.sources));
+}
 
 const PERIODS = [["month", "This month"], ["last_month", "Last month"], ["ytd", "Year to date"], ["all", "All time"]];
 const MONEY_SECTIONS = [["accounting", "Accounting (controller)"], ["revenue", "Revenue"], ["recorded_spend", "Recorded spend"]];
@@ -152,7 +165,8 @@ export async function render({ params, query }) {
       h("p", { class: "muted" }, echoed ? `Showing: ${echoed}` : period ? "The server did not confirm this period filter, so figures may be for its default period." : "Server default period.")),
     ...MONEY_SECTIONS.filter(([k]) => s[k] !== undefined || k === "accounting").map(([k, t]) => moneySection(k, t, s[k], result, period)),
     s.estimate_drift !== undefined ? driftCard(s.estimate_drift, result) : null,
+    s.spend_trend !== undefined ? spendTrendCard(s.spend_trend, result) : null,
     ...renderAll(data, [["spend_limits", "Spend limits"]], { result,
-      skip: [...MONEY_SECTIONS.map(([k]) => k), "estimate_drift", "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
+      skip: [...MONEY_SECTIONS.map(([k]) => k), "estimate_drift", "spend_trend", "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
     legend());
 }
