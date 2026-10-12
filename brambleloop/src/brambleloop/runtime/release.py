@@ -7092,6 +7092,16 @@ def handle_blind_review(ctx: JobContext) -> dict:
 
 @handlers.register("creative.grid_tournament")
 def handle_grid_tournament(ctx: JobContext) -> dict:
+    """See `_grid_tournament_in`. The candidates' files live in a directory scoped to this run
+    (`core.workspace`; prefix counted by `ops.health.TEMP_PREFIXES`), removed when the handler
+    returns or raises."""
+    from ..core import workspace
+
+    with workspace.work_dir(None, prefix="grid-tournament-") as work_dir:
+        return _grid_tournament_in(ctx, work_dir)
+
+
+def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
     """#126: the search-grid blind tournament, judged by an independent panel.
 
     For each pod with enough audited benchmark thumbnails and at least one render of ours,
@@ -7106,24 +7116,30 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     from ..gateway import anthropic as gw
     from ..publish import listing_asset
 
+    from ..visual import hero_candidates
+
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
     pod_of: dict[str, str] = {}
+    offered: dict[str, dict] = {}
     unresolvable: dict[str, str] = {}
+    # F-278: every verified hero candidate of each product enters the blinded grid as a file
+    # a judge can be shown (a disclosed hero's `sha256:` address is not one; W4-B2VISION's
+    # `blinded.resolve_image` reached the same finding). Only the hero on file counts toward
+    # the pod's #126 verdict. A product with no showable candidate is recorded unresolvable
+    # and never sent to a judge.
     for slug, title in blind_review.catalogue_slugs():
         pod_of[slug] = blind_review.pod_for(slug, title)
-        frames = listing_asset.frames_for(ctx.db, slug=slug)
-        hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
-        if hero:
-            # W4-B2VISION: the hero is shown to judges only if a judge can be shown it. The
-            # 2026-10-11 production run sent a dead /tmp path to all three judges and paid
-            # CA$0.93 for no reading; now the render resolves from the artifact store by its
-            # digest, or the product is recorded as unresolvable and never sent.
-            ref, why = blinded.resolve_image(ctx.db, hero[0])
-            if not ref:
-                unresolvable[slug] = why
-                continue
-            by_pod.setdefault(pod_of[slug], []).append(dict(hero[0], image_ref=ref))
+        got = hero_candidates.candidates(ctx.db, slug, work_dir=work_dir)
+        offered[slug] = got
+        if not got["candidates"]:
+            if (got.get("refused") or {}).get("hero") != "no hero on file":
+                unresolvable[slug] = str((got.get("refused") or {}).get("hero") or
+                                         "no hero candidate a judge can be shown")
+            continue
+        for c in got["candidates"]:
+            by_pod.setdefault(pod_of[slug], []).append(
+                dict(c, counts_for_verdict=(c["candidate"] == "hero")))
     results = {}
     stopped = False
     for pod, ours in sorted(by_pod.items()):
@@ -7133,6 +7149,7 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
             results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
                                                   "benchmark_cells", "our_cells")}
             results[pod]["panel"] = out["panel"]
+            results[pod]["candidate_scores"] = out.get("candidate_scores") or {}
             results[pod]["by_product"] = out.get("by_product") or {}
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
@@ -7180,6 +7197,16 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
                        # W4-B2VISION: this product's own cell scores, read by #218.
                        **(((results.get(pod) or {}).get("by_product") or {}).get(slug) or {})}
                 for slug, pod in pod_of.items()}
+    # F-278: the product's own hero tournament, from the same blinded panel.
+    for slug, pod in pod_of.items():
+        scores = (results.get(pod) or {}).get("candidate_scores") or {}
+        mine = {ref.split("#", 1)[1]: v for ref, v in scores.items()
+                if ref.split("#", 1)[0] == slug and "#" in ref}
+        for c in (offered.get(slug) or {}).get("candidates") or []:
+            mine.setdefault(c["candidate"], {})
+        products[slug]["hero_tournament"] = {
+            **hero_candidates.winner(mine),
+            "refused": (offered.get(slug) or {}).get("refused") or {}}
     for slug, why in unresolvable.items():
         products[slug].update(verdict=None, why=f"our render could not be shown to a judge: "
                                                 f"{why}", unresolvable=True)

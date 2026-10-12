@@ -682,7 +682,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # a vision judge is shown into a directory scoped to the call (`core.workspace`).
     "hero-review-", "grid-identify-",
     # DISCLOSEDQA: the exported-frame review scoped directory.
-    "exported-review-")
+    "exported-review-",
+    # HEROTOURNEY: the grid tournament candidates scoped directory.
+    "grid-tournament-")
 
 
 def disk_facts() -> dict:
