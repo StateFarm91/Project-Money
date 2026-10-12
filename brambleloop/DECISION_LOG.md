@@ -1842,3 +1842,11 @@ D-FB-18 item 6; trace `research/final_build/w4/PRIVATE_LAURA_TRACE.md` (PL-1..PL
 5. Completion: tracked as `LAURA-PRIVATE-REGISTER` (board/prelaunch generators, criterion PL-11, verifiability
    A + B). It is NOT complete until the class-B production soak passes (owner turn → reply → persistence across a
    redeploy; evidence as row counts and status codes only). The voice delivery stays GATED on LAURA-VOICE-P2.
+
+## D-W4-PL-2 (2026-10-12) — UNRESOLVED: owner-requested expanded private register
+
+**UNRESOLVED:** the owner requested an expanded register (an owner-set style preference, and wider wording within
+the Anthropic usage policy). The edit was blocked by the Claude Code permission system on 2026-10-12. The owner
+chose not to bypass it. The existing supported register (`laura.private_reply@1`, D-W4-PL-1) is preserved
+unchanged. The provider stays Anthropic, and model-selection policy is unchanged. This is an open decision, not a
+defect.
