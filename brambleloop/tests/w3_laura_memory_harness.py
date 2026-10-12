@@ -26,7 +26,36 @@ def check(name: str, fn) -> None:
         print(f"FAIL {name}: {type(exc).__name__}: {exc}")
 
 
+def _pg_db(path: str | None) -> Database:
+    """Opt-in (W4-PRIVLAURA, G-11): with BRAMBLELOOP_TEST_PG_ADMIN_URL set to a THROWAWAY local
+    Postgres admin URL, each fresh_db() is a new database there (the same `path` maps to the
+    same database, so a "restart" reopens it). Unset -- the default -- nothing changes."""
+    import hashlib
+    import os
+
+    from sqlalchemy import create_engine, text
+
+    admin = os.environ["BRAMBLELOOP_TEST_PG_ADMIN_URL"]
+    name = "w3e_" + (hashlib.sha1(path.encode()).hexdigest()[:16] if path
+                     else secrets.token_hex(8))
+    eng = create_engine(admin, isolation_level="AUTOCOMMIT")
+    with eng.connect() as c:
+        if not c.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"),
+                         {"n": name}).scalar():
+            c.execute(text(f'CREATE DATABASE "{name}"'))
+    eng.dispose()
+    from sqlalchemy.engine import make_url
+
+    db = Database(make_url(admin).set(database=name).render_as_string(hide_password=False))
+    db.create_all()
+    return db
+
+
 def fresh_db(path: str | None = None) -> Database:
+    import os
+
+    if os.environ.get("BRAMBLELOOP_TEST_PG_ADMIN_URL"):
+        return _pg_db(path)
     if path is None:
         td = tempfile.TemporaryDirectory(prefix="w3e-mem-")
         TMPDIRS.append(td)

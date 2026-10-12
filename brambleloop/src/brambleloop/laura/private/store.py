@@ -23,7 +23,7 @@ import json
 import secrets
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from . import crypto
@@ -268,6 +268,68 @@ def restore_sealed(db, principal, bundle: dict) -> int:
                 added += 1
     record_access(db, "restore", "ok", "", principal)
     return added
+
+
+@_guarded("rekey")
+def rekey(db, principal, new_env) -> dict:
+    """Rotate the private key: sealed_export (old key) -> re-seal -> the restore bundle.
+
+    Key rotation through the existing backup path (handoff_PRIV open item; PRIVATE_LAURA_TRACE
+    Step 5). The live principal proves the CURRENT key; `new_env` is a mapping holding the new
+    `BRAMBLELOOP_PRIVATE_MEMORY_KEY` (never read from or written to os.environ here, never
+    logged). Every row is authenticated under the old key (via `sealed_export`), decrypted,
+    and re-sealed under the new key with the same record id, kind, provenance, timestamp and
+    reply link; blind indexes are recomputed (a grant reference is re-bound through the grant
+    table, and a row whose grant cannot be found refuses the whole rotation). The store is then
+    replaced atomically -- same row count or nothing changes -- and every live grant is
+    revoked, because grants were issued under the old key: the owner reopens the context
+    under the new key. Returns non-content counts plus the re-sealed bundle (ciphertext only),
+    which `restore_sealed` accepts under the new key.
+    """
+    bundle = sealed_export(db, principal)               # authenticates every row (old key)
+    old, _ = require(db, principal, "rekey")
+    new = crypto.load_keys(new_env)
+    if crypto.tags_equal(old.key_id, new.key_id):
+        raise KeyMismatch("the new private key is the current key")
+    from .models import PrivateGrant
+
+    with db.session() as s:
+        grants = list(s.scalars(select(PrivateGrant.grant_id)))
+    by_ref = {crypto.blind_index(old, "grant:" + g): g for g in grants}
+    rows = []
+    for raw in bundle["rows"]:
+        e = PrivateEntry(**raw)
+        payload = _open(old, e)
+        gid = by_ref.get(e.grant_ref)
+        if gid is None:
+            raise IntegrityRefused("a private record's grant cannot be re-bound; not rotated")
+        index_text = ("fact:" + payload["key"]) if e.kind == "fact" else "turn"
+        n = PrivateEntry(record_id=e.record_id, kind=e.kind, provenance=e.provenance,
+                         key_index=crypto.blind_index(new, index_text),
+                         grant_ref=crypto.blind_index(new, "grant:" + gid),
+                         reply_to=e.reply_to, created_at=e.created_at)
+        _seal(new, n, payload)
+        rows.append(n)
+    cols = [c.name for c in PrivateEntry.__table__.columns if c.name != "id"]
+    new_bundle = {"format": bundle["format"], "key_id": new.key_id,
+                  "rows": [{c: getattr(n, c) for c in cols} for n in rows]}
+    from sqlalchemy import func
+
+    with db.session() as s:
+        if s.scalar(select(func.count()).select_from(PrivateEntry)) != len(rows):
+            raise IntegrityRefused("the private store changed during rotation; not rotated")
+        # Replies first (they point at owner turns), then the rest; then the re-sealed rows
+        # in their original order, so ids keep the conversation's order.
+        s.execute(delete(PrivateEntry).where(PrivateEntry.reply_to.is_not(None)))
+        s.execute(delete(PrivateEntry))
+        s.flush()
+        for n in [PrivateEntry(**r) for r in new_bundle["rows"]]:
+            s.add(n)
+        s.execute(update(PrivateGrant).where(PrivateGrant.revoked_at.is_(None)).values(
+            revoked_at=datetime.now(timezone.utc), revoked_reason="rekeyed"))
+    record_access(db, "rekey", "ok", "", principal)
+    return {"rotated": len(rows), "old_key_id": old.key_id, "new_key_id": new.key_id,
+            "grants_revoked": True, "bundle": new_bundle}
 
 
 def configured(env=None) -> bool:
