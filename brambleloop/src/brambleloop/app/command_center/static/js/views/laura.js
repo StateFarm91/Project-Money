@@ -37,7 +37,20 @@ function factList(facts) {
       h("p", { class: "row-detail" },
         f.source ? inAppLink(f.link, f.source) : "no source",
         f.basis && f.basis !== "measured" ? ` · ${f.basis}` : "",
-        f.as_of ? ` · as of ${relTime(f.as_of)} (${utcStamp(f.as_of)})` : "")))));
+        f.as_of ? ` · as of ${relTime(f.as_of)} (${utcStamp(f.as_of)})` : ""),
+      groupDetail(f)))));
+}
+
+// W4-LAURAFIX: a grouped incident (one record per root cause) expands to its occurrences.
+function groupDetail(f) {
+  const n = Number(f.occurrences || 0);
+  const ex = Array.isArray(f.examples) ? f.examples : [];
+  if (n <= 1 || !ex.length) return null;
+  return h("details", { class: "laura-group" },
+    h("summary", { class: "muted small" }, `${n} occurrences · first ${f.first_seen ? utcStamp(f.first_seen) : "Unknown"} · last ${f.last_seen ? utcStamp(f.last_seen) : "Unknown"} · ${ex.length} most recent shown`),
+    h("ul", { class: "rows" }, ex.map((e) => h("li", { class: "row" },
+      h("p", { class: "row-detail" }, e.summary || ""),
+      h("p", { class: "row-detail muted" }, e.source || "", e.at ? ` · ${utcStamp(e.at)}` : "")))));
 }
 
 function proposalRow(turnId, p, onDone) {

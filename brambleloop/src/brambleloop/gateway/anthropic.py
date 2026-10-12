@@ -769,13 +769,14 @@ class AnthropicProvider:
             text=text, provider=self.name, model=body.get("model", self.model),
             input_tokens=int(usage.get("input_tokens", 0)),
             output_tokens=int(usage.get("output_tokens", 0)),
-            latency_ms=round((time.time() - started) * 1000, 2))
+            latency_ms=round((time.time() - started) * 1000, 2),
+            stop_reason=str(body.get("stop_reason") or ""))
 
 
 def _encode_response(r: ModelResponse) -> dict:
     return {"text": r.text, "provider": r.provider, "model": r.model,
             "input_tokens": int(r.input_tokens), "output_tokens": int(r.output_tokens),
-            "latency_ms": float(r.latency_ms)}
+            "latency_ms": float(r.latency_ms), "stop_reason": str(r.stop_reason or "")}
 
 
 def _decode_response(d: dict) -> ModelResponse:
@@ -783,7 +784,8 @@ def _decode_response(d: dict) -> ModelResponse:
     sent. `replayed=True` is what keeps it from being billed or counted at an estimate."""
     return ModelResponse(text=str(d.get("text") or ""), provider=str(d.get("provider") or ""),
                          model=str(d.get("model") or ""), input_tokens=0, output_tokens=0,
-                         latency_ms=0.0, replayed=True)
+                         latency_ms=0.0, replayed=True,
+                         stop_reason=str(d.get("stop_reason") or ""))
 
 
 def _classify_failure(exc: BaseException) -> str:
