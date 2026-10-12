@@ -657,6 +657,9 @@ try {
   const custText = await page.textContent("#main");
   check(/Customers: orders/.test(custText) && /Customers: support/.test(custText) && /Customers: reviews/.test(custText) && !/Orders\s*0\b/.test(custText),
     "ccfm1 insights: customers shown as aggregates; unknown orders never 0", custText.slice(0, 200));
+  const firstInsight = await page.$eval("#main .stack > .card .card-title", (e) => e.textContent).catch(() => "");
+  check(firstInsight === "Marketing & customers" && /ROAS \(evidence-attributed Etsy Ads\)/.test(custText) && /Support cases \(owner-recorded\)/.test(custText),
+    "ccall insights: combined marketing & customers view leads Insights (F-622)", firstInsight);
   await noHScroll("ccfm1 insights");
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();

@@ -49,8 +49,8 @@ def test_executive_is_unmeasured_until_the_order_source_is_read():
 
     db = _db()
     with db.session() as s:
-        s.add(Listing(product_slug="a", title="t", state="active", etsy_listing_id="123"))
-        s.add(Listing(product_slug="b", title="t2"))
+        s.add(Listing(product_slug="a", version="1.0.0", title="t", description="d", state="active", etsy_listing_id="123"))
+        s.add(Listing(product_slug="b", version="1.0.0", title="t2", description="d"))
         s.add(Incident(severity="P1", signature="x", summary="customer-facing"))
         s.add(Incident(severity="P2", signature="y", summary="internal"))
         s.add(Incident(severity="P1", signature="z", summary="done", resolved=True))

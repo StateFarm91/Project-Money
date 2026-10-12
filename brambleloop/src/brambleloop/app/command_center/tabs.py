@@ -944,7 +944,10 @@ def insights(db) -> dict:
                              "lessons": readers.lessons(db),
                              "improvements": readers.improvements(db),
                              # W4-CCFM1 (F-619 "Customers", with Marketing): aggregates only.
-                             **_customer_sections(db)})
+                             **_customer_sections(db),
+                             # W4-CCALL (F-622): the combined marketing & customers view.
+                             "marketing_customers": guard(
+                                 "marketing_customers", lambda: marketing_customers(db))})
 
 
 def _customer_sections(db) -> dict:
@@ -1156,3 +1159,76 @@ def spend_trend(db, *, days: int = 30, now: datetime | None = None) -> dict:
                     ["cost_entries"], basis="measured", provider="tabs.spend_trend", days=days,
                     total_cad=round(sum(vals), 6),
                     note="recorded spend (not reconciled), per UTC day")
+
+
+# ---- W4-CCALL (F-622): combined Marketing & Customers owner view --------------------------------
+
+def marketing_customers(db) -> dict:
+    """F-622: organic vs paid orders, ROAS, CPC/CTR, campaigns, review themes, refunds and
+    support, in one owner view. Each row reads its own existing source and states its basis;
+    a figure with no source is UNKNOWN (never 0). No customer content is shown."""
+    from ...commerce import orders_ingest as oi
+    from ...core.models import SupportCase
+    from ...finance.sources import channel
+    from ...growth import ads_readiness
+    from .. import dashboard_truth
+
+    src = dashboard_truth._order_source(db)
+    measured = bool(src.get("measured"))
+    why_orders = src.get("why") or "order source not connected and read"
+    with db.session() as s:
+        orders = list(oi.countable_orders(s))
+        by_channel: dict[str, int] = {}
+        for o in orders:
+            ch = channel(o.acquisition_source)
+            by_channel[ch] = by_channel.get(ch, 0) + 1
+        # A refunded order is voided, so it is not "countable": refunds are read from every
+        # order row, not from the countable set.
+        from ...core.models import Order as _Order
+
+        refunded = int(s.scalar(select(func.count()).select_from(_Order).where(
+            _Order.refunded == True)) or 0)  # noqa: E712
+        escalated = int(s.scalar(select(func.count()).select_from(SupportCase).where(
+            SupportCase.escalated == True)) or 0)  # noqa: E712
+        cases = int(s.scalar(select(func.count()).select_from(SupportCase)) or 0)
+    ads = ads_readiness.summary(db)
+    roas = (ads.get("kpis") or {}).get("roas") or {}
+    props = ads.get("proposals") or {}
+
+    def ordered(v, metric, label):
+        return {"metric": metric, "label": label, "value": v if measured else None,
+                "state": "MEASURED" if measured else "UNKNOWN",
+                "why": None if measured else why_orders}
+
+    items = [
+        ordered(by_channel.get("etsy_organic", 0), "orders_organic", "Orders: Etsy organic"),
+        ordered(by_channel.get("etsy_ads", 0) + by_channel.get("offsite_ads", 0),
+                "orders_paid", "Orders: paid (Etsy Ads + Offsite Ads)"),
+        ordered(by_channel.get("owned_direct", 0), "orders_owned", "Orders: owned channels"),
+        ordered(sum(v for k, v in by_channel.items()
+                    if k not in ("etsy_organic", "etsy_ads", "offsite_ads", "owned_direct")),
+                "orders_unattributed", "Orders: unattributed"),
+        {"metric": "roas", "label": "ROAS (evidence-attributed Etsy Ads)",
+         "value": roas.get("roas"), "contribution_roas": roas.get("contribution_roas"),
+         "state": "MEASURED" if roas.get("status") == "measured" else "UNKNOWN",
+         "why": roas.get("why") or "ads KPIs unreadable"},
+        {"metric": "cpc_ctr", "label": "CPC / CTR", "value": None, "state": "UNKNOWN",
+         "why": "Etsy Ads statistics are not read by this system (no sanctioned collector)"},
+        {"metric": "campaigns", "label": "Campaigns (spend proposals)",
+         "value": props.get("total"), "awaiting_owner": len(props.get("awaiting_owner") or []),
+         "finance_blocked": len(props.get("finance_blocked") or []),
+         "state": "MEASURED" if isinstance(props.get("total"), int) else "UNKNOWN",
+         "why": ("proposals only: nothing is executed; spend needs Finance and the owner"
+                 if isinstance(props.get("total"), int) else ads.get("reason"))},
+        {"metric": "review_themes", "label": "Review themes", "value": None, "state": "UNKNOWN",
+         "why": "Etsy reviews are not read by this system"},
+        ordered(refunded, "refunds", "Refunded orders"),
+        {"metric": "support_cases", "label": "Support cases (owner-recorded)", "value": cases,
+         "escalated": escalated, "state": "OWNER_RECORDED",
+         "why": "counted from what the owner recorded from Etsy Messages"},
+    ]
+    return envelope("OK" if measured else "DEGRADED", items,
+                    ["orders (commerce.orders_ingest.countable_orders)", "growth.ads_readiness",
+                     "support_cases"], provider="tabs.marketing_customers",
+                    reason=None if measured else f"orders UNKNOWN: {why_orders}",
+                    ads_status=ads.get("status"))
