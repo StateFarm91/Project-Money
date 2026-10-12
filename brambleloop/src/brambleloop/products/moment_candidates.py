@@ -32,6 +32,20 @@ from .builder import _runs
 from .motifs import Motif, get
 
 VERSION = "0.1.0"
+
+# Owner-governed adoption (this module's pre-release rule). A candidate leaves 0.x only when
+# the owner adopts it as a catalogue product; its first catalogue release version is then
+# recorded here and becomes the builder's default, so the release chain re-certifies it under
+# the new version (a new release hash) through the normal path -- `chain.rebuild` re-drafts a
+# stored design the code no longer produces. Empty until an owner decision fills it.
+ADOPTED_RELEASE: dict[str, str] = {}
+# What an adoption would set, prepared for the owner's decision (KEYBASKET_ADOPTION.md).
+PROPOSED_ADOPTION: dict[str, str] = {"housewarming-key-basket": "1.0.0"}
+
+
+def release_version(slug: str) -> str:
+    """The version a candidate's builder issues: its adopted release, else pre-release 0.x."""
+    return ADOPTED_RELEASE.get(slug, VERSION)
 ENGINEERED_BY = "W4-PIPE2 products.moment_candidates"
 
 FOREST, CREAM, WINE, GOLD = "#244A3A", "#FAF6EB", "#6E1F2A", "#C49545"
@@ -421,8 +435,9 @@ def snowfall_advent_garland(version: str = GARLAND_VERSION) -> CIR:
 # ---------------------------------------------------------------------------------------
 # 5. housewarming-key-basket
 
-def housewarming_key_basket(version: str = VERSION) -> CIR:
+def housewarming_key_basket(version: str | None = None) -> CIR:
     """A round catch-all basket: a staggered-increase base and basketweave relief walls."""
+    version = version or release_version("housewarming-key-basket")
     g = _gauge("worsted")
     motif = get("basketweave")
     n = _sts_for(20.0 * math.pi, g, 24)               # whole wedges and whole blocks
