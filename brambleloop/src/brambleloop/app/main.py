@@ -2892,6 +2892,20 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/etsy/surfaces")
+def api_etsy_surfaces() -> dict:
+    """F-600: the Etsy surface registry at runtime -- coverage, the A/B/C/D work plan, and
+    the bounded first-sale list with each surface's evidence state (F-498). Read-only; it
+    reads recorded observations and never calls Etsy."""
+    from ..intel import etsy_surfaces
+    from ..launch.readiness import etsy_first_sale_surfaces
+
+    req = etsy_first_sale_surfaces(db)
+    return {"coverage": etsy_surfaces.coverage(), "work_plan": etsy_surfaces.work_plan(),
+            "first_sale": {"ready": req.ready, "blocked_by": req.blocked_by,
+                           **req.evidence}}
+
+
 @app.get("/api/etsy")
 def api_etsy() -> dict:
     """What this company can currently read from Etsy, and what that rests on.
@@ -5636,6 +5650,26 @@ def dashboard() -> str:
             ("mission incidents", str(len(report["mission_incidents"]))),
         ], [["Mission", "State"]], "")
 
+    def _etsy_surfaces() -> str:
+        # F-600: the Etsy surface registry at runtime -- coverage, the work plan, and the
+        # bounded first-sale list with each surface's evidence state (F-498).
+        from ..intel import etsy_surfaces as es
+        from ..launch.readiness import etsy_first_sale_surfaces
+
+        cov = es.coverage()
+        req = etsy_first_sale_surfaces(db)
+        head = rows([
+            ("surfaces", str(cov["surfaces"])),
+            ("verdicts", ", ".join(f"{k}: {v}" for k, v in cov["verdicts"].items())),
+            ("work plan", ", ".join(f"{k}: {len(v)}" for k, v in es.work_plan().items())),
+            ("without a collector", ", ".join(cov["without_collector"]) or "none"),
+            ("first-sale list ready", "yes" if req.ready else f"no ({req.blocked_by})"),
+        ], [["Etsy surfaces", "State"]], "")
+        return head + rows(
+            [(r["surface"], r["evidence_state"], r["owner_action"] or "-")
+             for r in req.evidence["surfaces"]],
+            [["First-sale surface", "Evidence", "Owner action"]], "no first-sale surface")
+
     def _seasonal() -> str:
         from ..seasonal.leadtime import catalogue_plans
 
@@ -5753,6 +5787,7 @@ def dashboard() -> str:
         _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
+        + _block("Etsy surfaces", _etsy_surfaces)
         + _block("Seasonal deadlines", _seasonal)
         + _block("CA$5,000/month model", _scale)
         + _block("Creative standard", _creative)
