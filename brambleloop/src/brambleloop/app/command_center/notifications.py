@@ -11,6 +11,17 @@ routine machine chatter. Concretely:
   refreshes is one notification whose `last_seen_at`/`occurrences` move.
 * **Severity-ranked**: critical > high > normal > low. P0 incidents, publication-halting and
   security incidents are critical; P1 and breach-paused spend are high.
+* **Deadlines** are first-class: an incident's own `detail.deadline` and an open owner
+  action's `expires_at` set the notification's `deadline`; an approval card inherits the
+  earliest deadline of the owner actions it merges, and an open owner action with a deadline
+  that no card covers becomes its own `deadline` notification. Anything due within
+  `DEADLINE_SOON_HOURS` is raised to at least `high`.
+* **Meaningful commercial events** (`category="commercial"`) come from the orders table only,
+  aggregated so a sale never becomes one alert per row: the shop's first order, one
+  per-UTC-day "orders today" notification, and one per refunded order. No order rows means no
+  commercial notification -- never a fabricated "0 sales" alert.
+* **Actionable**: every notification carries a consequence, at least one evidence reference
+  and a `/cc/#/...` deep link to the place the owner acts.
 * **Quiet hours** hold non-critical notifications for the digest; critical and security
   notifications always surface.
 * **Resolved** automatically when the condition no longer holds.
@@ -33,6 +44,9 @@ DEFAULT_POLICY = {"quiet_hours": None, "min_severity": "normal", "digest": "morn
                   "channels": ["in_app"],
                   "external_channels": "GATED: owner authority + CASL review required"}
 SECURITY_BURST = 5  # refused auth attempts in an hour that make one security notification
+DEADLINE_SOON_HOURS = 48  # a deadline this close is at least "high"
+DEADLINE_HORIZON_DAYS = 30  # owner-action deadlines further out are not yet worth an alert
+COMMERCIAL_WINDOW_DAYS = 7  # first order / refunds stay surfaced this long after the order
 
 
 def _now() -> datetime:
@@ -58,12 +72,88 @@ def _incident_severity(sev: str, halts: bool, signature: str) -> tuple[str, str]
     return "low", "anomaly"
 
 
+def _parse_deadline(v):
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return _aware(v)
+    try:
+        return _aware(datetime.fromisoformat(str(v).replace("Z", "+00:00")))
+    except ValueError:
+        return None
+
+
+def _with_deadline(c: dict, deadline, now: datetime) -> dict:
+    """Attach `deadline`; one due within DEADLINE_SOON_HOURS is raised to at least high."""
+    c["deadline"] = deadline
+    if deadline is not None and deadline - now <= timedelta(hours=DEADLINE_SOON_HOURS):
+        if RANK[c["severity"]] > RANK["high"]:
+            c["severity"] = "high"
+    return c
+
+
+def _owner_deadlines(s, now: datetime) -> dict[int, tuple[datetime, object]]:
+    """Open owner actions with their own `expires_at` inside the horizon: {id: (due, row)}."""
+    from ...core.models import OwnerAction
+    from ...ops.owner_queue import OPEN, effective_state
+
+    out = {}
+    horizon = now + timedelta(days=DEADLINE_HORIZON_DAYS)
+    for row in s.scalars(select(OwnerAction).where(OwnerAction.expires_at.is_not(None))):
+        due = _aware(row.expires_at)
+        if effective_state(row) == OPEN and now < due <= horizon:
+            out[row.id] = (due, row)
+    return out
+
+
+def _commercial(s, now: datetime) -> list[dict]:
+    """Meaningful commercial events from the orders table, aggregated (never one per sale)."""
+    from ...core.models import Order
+
+    out: list[dict] = []
+    first = s.scalars(select(Order).order_by(Order.at.asc(), Order.id.asc()).limit(1)).first()
+    if first is None:
+        return out
+    window = now - timedelta(days=COMMERCIAL_WINDOW_DAYS)
+    if _aware(first.at) >= window:
+        out.append({"dedupe_key": "commercial:first_order", "severity": "high",
+                    "category": "commercial", "title": "First order received",
+                    "body": f"{first.product_slug} v{first.version}".strip(),
+                    "consequence": ("fulfilment, support and review follow-up now run on a "
+                                    "real customer; check the order reached them"),
+                    "evidence": [f"orders:{first.id}"], "deep_link": "/cc/#/insights",
+                    "count": 1})
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today = list(s.scalars(select(Order).where(Order.at >= day_start)))
+    if today:
+        out.append({"dedupe_key": f"commercial:orders:{day_start.date().isoformat()}",
+                    "severity": "low", "category": "commercial",
+                    "title": f"{len(today)} order(s) today (UTC)",
+                    "body": ", ".join(sorted({o.product_slug for o in today}))[:1000],
+                    "consequence": "none required; informational for the daily picture",
+                    "evidence": [f"orders:{o.id}" for o in today[:10]],
+                    "deep_link": "/cc/#/insights", "count": len(today)})
+    for o in s.scalars(select(Order).where(Order.refunded == True,  # noqa: E712
+                                           Order.at >= window)):
+        out.append({"dedupe_key": f"commercial:refund:{o.external_ref}", "severity": "high",
+                    "category": "commercial",
+                    "title": f"Refund on {o.product_slug} v{o.version}".strip(),
+                    "body": "a refunded order is a signal about the product or its listing",
+                    "consequence": ("an unexplained refund can repeat; check the support case "
+                                    "and the listing's promise"),
+                    "evidence": [f"orders:{o.id}"]
+                    + ([f"support_cases:{o.support_case_id}"] if o.support_case_id else []),
+                    "deep_link": "/cc/#/insights", "count": 1})
+    return out
+
+
 def candidates(db) -> tuple[list[dict], int]:
     """(notifications that should exist now, routine events suppressed in the last 24 h)."""
     from ...core.models import AuditLog, Incident, Job, JobStatus, SpendLimit
     from . import approvals
 
     out: list[dict] = []
+    now = _now()
     with db.session() as s:
         for inc in s.scalars(select(Incident).where(Incident.resolved == False)):  # noqa: E712
             sev, cat = _incident_severity(inc.severity, bool(inc.halts_publication),
@@ -77,6 +167,7 @@ def candidates(db) -> tuple[list[dict], int]:
                         "evidence": [f"incidents:{inc.id}"],
                         "deep_link": f"/cc/#/operations/incident/{inc.id}",
                         "count": int(inc.report_count or 1)})
+            _with_deadline(out[-1], _parse_deadline((inc.detail or {}).get("deadline")), now)
         dead = s.scalar(select(func.count()).select_from(Job).where(
             Job.status == JobStatus.DEAD)) or 0
         if dead:
@@ -94,6 +185,8 @@ def candidates(db) -> tuple[list[dict], int]:
                         "consequence": "work needing this spend waits",
                         "evidence": [f"spend_limits:{lim.id}"],
                         "deep_link": "/cc/#/money", "count": 1})
+        out.extend(_commercial(s, now))
+        owner_deadlines = _owner_deadlines(s, now)
         since = _now() - timedelta(hours=24)
         routine = s.scalar(select(func.count()).select_from(AuditLog).where(
             AuditLog.at >= since)) or 0
@@ -123,6 +216,7 @@ def candidates(db) -> tuple[list[dict], int]:
                     "consequence": "possible credential guessing or a misconfigured device",
                     "evidence": ["cc_security_events (outcome=refused)"],
                     "deep_link": "/cc/#/account", "count": int(refused)})
+    covered: set[int] = set()
     try:
         box = approvals.inbox(db)
         for c in box["cards"]:
@@ -136,8 +230,24 @@ def candidates(db) -> tuple[list[dict], int]:
                         "consequence": c.get("consequence_of_no_action") or "",
                         "evidence": c.get("sources") or [],
                         "deep_link": f"/cc/#/approvals/{c['card_id']}", "count": 1})
+            ids = {int(x.split(":", 1)[1]) for x in (c.get("sources") or [])
+                   if str(x).startswith("owner_actions:") and x.split(":", 1)[1].isdigit()}
+            dues = [owner_deadlines[i][0] for i in ids if i in owner_deadlines]
+            covered |= ids
+            _with_deadline(out[-1], _parse_deadline(c.get("deadline")) or
+                           (min(dues) if dues else None), now)
     except Exception:  # noqa: BLE001 - an unreadable queue is reported on the Approvals tab
         pass
+    for oid, (due, row) in sorted(owner_deadlines.items()):
+        if oid in covered:
+            continue
+        out.append(_with_deadline({
+            "dedupe_key": f"owner_deadline:{oid}", "severity": "normal",
+            "category": "deadline", "title": f"Due {due.date().isoformat()}: {row.action}"[:300],
+            "body": row.reason or "",
+            "consequence": row.consequence_of_delay or "the owner action expires unanswered",
+            "evidence": [f"owner_actions:{oid}"], "deep_link": "/cc/#/approvals",
+            "count": 1}, due, now))
     routine_suppressed = max(0, int(routine))
     return out, routine_suppressed
 
@@ -158,7 +268,7 @@ def refresh(db) -> dict:
                                    category=c["category"], title=c["title"][:300],
                                    body=c["body"], consequence=c["consequence"],
                                    evidence=c["evidence"], deep_link=c["deep_link"][:300],
-                                   first_seen_at=now, last_seen_at=now,
+                                   deadline=c.get("deadline"), first_seen_at=now, last_seen_at=now,
                                    occurrences=max(1, c["count"])))
                 created += 1
                 continue
@@ -169,6 +279,7 @@ def refresh(db) -> dict:
                 row.severity = c["severity"]  # escalation surfaces again
                 row.acked_at = None
             row.title = c["title"][:300]
+            row.deadline = c.get("deadline")
             row.resolved_at = None
         for row in s.scalars(select(Notification).where(Notification.resolved_at.is_(None))):
             if row.dedupe_key not in keys:
@@ -245,7 +356,9 @@ def listing(db, *, at: datetime | None = None) -> dict:
     with db.session() as s:
         rows = list(s.scalars(select(Notification).where(
             Notification.resolved_at.is_(None))))
+    far = float("inf")
     rows.sort(key=lambda r: (r.acked_at is not None, RANK.get(r.severity, 9),
+                             _aware(r.deadline).timestamp() if r.deadline else far,
                              -(_aware(r.last_seen_at).timestamp())))
     for r in rows:
         always = r.severity == "critical" or r.category == "security"
@@ -255,7 +368,7 @@ def listing(db, *, at: datetime | None = None) -> dict:
     return {"notifications": active, "digest": digest, "policy": policy,
             "quiet_hours_now": quiet, "suppressed_count": stats["suppressed"],
             "refresh": stats,
-            "sources": ["incidents", "owner_actions", "jobs", "spend_limits",
+            "sources": ["incidents", "owner_actions", "jobs", "spend_limits", "orders",
                         "cc_security_events", "cc_notifications"]}
 
 
