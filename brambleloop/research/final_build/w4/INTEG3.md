@@ -125,3 +125,22 @@ The board and prelaunch scope were regenerated from fresh production GETs (7bbbe
    to VARCHAR(120). This is a metadata-only widening, run inside `create_all`.
 4. After the deploy, check `/api/verify` for no new dead letters of radar.score, policy_watch or
    offsite_archive, then hold 24 h for #195.
+
+## 6. Candidate freeze 1: claude/final-candidate-056398c, full suite FAILED (16 of 629 suites)
+
+Run 20261012T201528Z-25244, with REQUIRE_CLEAN=1, JOBS=3 and the .venv python, under a SIG_DFL launcher:
+
+- 8470 tests passing; 16 suites failing; run record `failed`;
+- 1 tmp leak (test_w4_pl_continuity).
+
+Every cause was fixed on INTEG2. No test or gate was weakened.
+
+| Failing suite(s) | Cause | Fix |
+|---|---|---|
+| test_w3_tmp_hygiene; tmp leak in test_w4_pl_continuity | test_w4_fmgate_catalogue_filters (from INTEG2) and test_w4_pl_continuity (from PRIVLAURA) created temp files without `_tmp.install()`. scripts/w4_learn_loops_proof.py had no cleanup path. | Sandbox installed in both tests; `atexit` rmtree added to the script (17aaa58). |
+| test_w4_autonomy_idle_departments, b2close2, b2gate2, b2moat, b2vision, copy, marketintel | These suites pass, but print `ok`/`PASS` lines. The harness counts `^OK`, so each was recorded as "SUITE REPORTED NO PASSES". | Each runner now prints `OK   <name>` per passing test. Assertions unchanged. |
+| test_w3_decision_index, test_w4_cc_snapshots, and test_w4_board (card snapshot) | Generated artefacts were stale after the merges. | Regenerated `decision_index.json`, the CC snapshots, the board and the prelaunch scope. |
+| test_w4_board `root_causes_count_the_rows_they_unblock` | The board's root causes now count the tracked LAURA-PRIVATE-REGISTER row, but the test summed only Build 2 and FM rows. | The test sums all rows, including tracked ones, and asserts the tracked row is present. The equality is kept. |
+| test_v11_autonomy_recovery | Failed already on clean 28ba6df; it is a W4-AUTONOMY regression. A reclaimed `autonomy.orchestrate` tick whose `now` trails the wall clock read the missions its own first attempt had just queued as "waiting". It therefore queued a second set: 22 jobs instead of 11. | `generators.actionable`: a job that was due when it was created was never deferred, so it counts as actionable. Parked jobs, whose `run_after` is beyond creation plus the grace period, are still "waiting". test_v11_autonomy_recovery, orchestrator, overnight, kpis, timeline and w4_autonomy_idle_departments all pass. |
+| test_cert_dashboard (legacy-row merge), test_w4_owner_actions (production-nine) | Caused by B2CLOSE marking Build 2 #61 `covered` and removing its `parked_on: image_vision`. #61 was the only row parked on image_vision. So image_vision, and the `model_credits` owner action aliased to it, unblocked no Build 2 row, and the owner inbox stopped asking to fund the model. Two existing acceptance tests fail on that. | **#61's closure is held for the next release.** The row is restored to partial and parked on image_vision, with a dated note. The ledger was regenerated with B2CLOSE's own inputs. Build 2 #61 therefore reads OPEN-DEFECT again: the gate is open and the work is unparked. The row's owner must update those tests' example gate before the closure ships. |
+| test_deploy (FK on launch.readiness delete), test_db_backup_housekeep (gpg quick-gen-key exit 2) | Pass alone on INTEG2, and pass on 28ba6df. These look like load or order flakes. | None. Watched in the next full run. |

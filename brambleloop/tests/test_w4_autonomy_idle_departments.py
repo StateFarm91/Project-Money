@@ -310,5 +310,5 @@ if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:
         fn()
-        print("ok", fn.__name__)
+        print(f"OK   {fn.__name__}")  # run_tests.sh counts ^OK lines
     print(f"{len(fns)} passed")

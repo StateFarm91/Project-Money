@@ -1,17 +1,17 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-12T20:12:06Z",
- "branch_head": "1875a4e",
+ "generated_at": "2026-10-12T22:18:06Z",
+ "branch_head": "17aaa58",
  "production_commit": "7bbbe72e205b",
  "production_read_at": "20261012T1856Z",
  "headline": {
   "build2": {
    "total": 320,
    "verified_complete": 215,
-   "implemented_unverified": 13,
+   "implemented_unverified": 12,
    "in_progress": 0,
-   "blocked_engineering": 3,
+   "blocked_engineering": 4,
    "blocked_owner": 37,
    "blocked_external": 49,
    "not_applicable": 3
@@ -48,12 +48,12 @@
   },
   "ledger_native": {
    "build2": {
-    "PROVEN": 228,
+    "PROVEN": 227,
     "OWNER-GATED": 42,
     "DATA-GATED": 41,
     "EXTERNAL-GATED": 6,
     "NOT-APPLICABLE": 3,
-    "OPEN-DEFECT": 0
+    "OPEN-DEFECT": 1
    },
    "final_master_launch_critical": {
     "COMPLETE": 363,
@@ -113,18 +113,6 @@
    "owner_action": null
   },
   {
-   "root": "release_undeployed_code",
-   "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 14,
-   "build2": 13,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 0,
-   "classes": {
-    "implemented_unverified": 14
-   },
-   "owner_action": null
-  },
-  {
    "root": "etsy_no_api_or_403",
    "title": "Etsy surface has no API or is 403 to automation",
    "rows": 19,
@@ -149,6 +137,18 @@
    "owner_action": null
   },
   {
+   "root": "release_undeployed_code",
+   "title": "Proven only on the integration branch (release + production evidence needed)",
+   "rows": 13,
+   "build2": 12,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 0,
+   "classes": {
+    "implemented_unverified": 13
+   },
+   "owner_action": null
+  },
+  {
    "root": "insights_paste",
    "title": "Marketplace Insights / Stats paste",
    "rows": 21,
@@ -161,6 +161,19 @@
    "owner_action": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists)."
   },
   {
+   "root": "engineering_open",
+   "title": "Open engineering work",
+   "rows": 246,
+   "build2": 1,
+   "fm_launch_critical": 7,
+   "fm_post_launch": 238,
+   "classes": {
+    "blocked_engineering": 235,
+    "in_progress": 11
+   },
+   "owner_action": null
+  },
+  {
    "root": "owned_surfaces",
    "title": "Owned channels (site / Pinterest)",
    "rows": 18,
@@ -171,31 +184,6 @@
     "blocked_owner": 18
    },
    "owner_action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.ga"
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, ma"
-  },
-  {
-   "root": "engineering_open",
-   "title": "Open engineering work",
-   "rows": 245,
-   "build2": 0,
-   "fm_launch_critical": 7,
-   "fm_post_launch": 238,
-   "classes": {
-    "blocked_engineering": 234,
-    "in_progress": 11
-   },
-   "owner_action": null
   }
  ],
  "critical_path": [
@@ -216,9 +204,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 14,
+   "unblocks_rows": 13,
    "unblocks_fm_launch_critical": 1,
-   "unblocks_build2": 13,
+   "unblocks_build2": 12,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",

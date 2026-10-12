@@ -323,7 +323,7 @@ if __name__ == "__main__":
     for name, fn in tests:
         try:
             fn()
-            print(f"PASS {name}")
+            print(f"OK   {name}")  # run_tests.sh counts ^OK lines
         except Exception as exc:  # noqa: BLE001
             failed += 1
             import traceback

@@ -134,5 +134,7 @@ if __name__ == "__main__":
 
             traceback.print_exc()
             print(f"FAIL {t.__name__}: {e}")
+        else:
+            print(f"OK   {t.__name__}")  # run_tests.sh counts ^OK lines
     print(f"{len(tests) - bad}/{len(tests)} passed")
     sys.exit(1 if bad else 0)

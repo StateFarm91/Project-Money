@@ -61,8 +61,12 @@ def test_every_unfinished_row_says_what_blocks_it_and_owner_rows_name_the_action
 
 
 def test_root_causes_count_the_rows_they_unblock():
+    # INTEG3: the board also carries tracked requirements with no FM / Build 2 row
+    # (LAURA-PRIVATE-REGISTER, W4-PRIVLAURA); they are unfinished rows with a root cause too.
     unfinished = [r for r in BOARD["rows"]["build2"] + BOARD["rows"]["final_master"]
+                  + BOARD["rows"].get("tracked", [])
                   if r["cls"] not in ("verified_complete", "not_applicable")]
+    assert BOARD["rows"].get("tracked"), "LAURA-PRIVATE-REGISTER must stay on the board"
     assert sum(g["rows"] for g in BOARD["root_causes"]) == len(unfinished)
     assert BOARD["critical_path"] and all(s["unblocks_rows"] > 0 for s in BOARD["critical_path"])
 
