@@ -16,7 +16,7 @@ import json
 import os
 import tempfile
 
-from w3_laura_memory_harness import check, finish, fresh_db, raises
+from w3_laura_memory_harness import check, finish, fresh_db, raises, reopen
 import w4_pl_harness as PL
 
 from brambleloop.agents.registry import Registry
@@ -57,7 +57,7 @@ def test_restart_and_model_change_keep_one_laura():
     assert a["reply_status"] == "REPLIED", a
     db1.engine.dispose()
 
-    db2 = fresh_db(path)                                 # a new engine on the same store
+    db2 = reopen(path)                                   # a new engine, no create_all
     sid2 = _session(db2)                                 # a new session and a new grant
     stub = PL.Stub(answers=[json.dumps({"text": "PRIV-SENTINEL-REPLY-0002"})],
                    model="claude-sonnet-5-20270101")      # the model behind the tier changed
@@ -123,6 +123,45 @@ def test_key_rotation_via_sealed_export_restore():
     assert [t.value.reveal() for t in store.conversation(fresh, pf)] == [b[1] for b in before]
 
 
+def test_key_missing_after_restart_means_no_reply_and_no_spend():
+    from sqlalchemy import select
+
+    from brambleloop.app.command_center.private_context import PrivateUnavailable
+    from brambleloop.core.models import CostEntry, SpendReservation
+
+    key = kit.new_key()
+    kit.set_key(key)
+    path = os.path.join(TMP, "nokey.sqlite")
+    db1 = _boot(path)
+    sid = _session(db1)
+    with PL.enabled(PL.Stub()):
+        assert private_context.owner_turn(db1, sid, S[6])["reply_status"] == "REPLIED"
+    db1.engine.dispose()
+    kit.set_key(None)
+    try:
+        db2 = reopen(path)
+        with PL.enabled(None):            # any model request fails this test
+            for fn in (lambda: private_context.owner_turn(db2, sid, S[7]),
+                       lambda: private_context.view(db2, sid),
+                       lambda: private_context.open_(db2, kit.owner_session(db2))):
+                try:
+                    fn()
+                    raise AssertionError("the private context answered without its key")
+                except PrivateUnavailable as exc:
+                    assert exc.status == 503 and exc.code == "PRIVATE_UNAVAILABLE"
+        assert private_context.status(db2, sid)["configured"] is False
+        with db2.session() as s_:
+            assert len(list(s_.scalars(select(CostEntry)))) == 1      # only the first reply
+            assert all(r.released_at is not None for r in s_.scalars(select(SpendReservation)))
+    finally:
+        kit.set_key(key)
+    sid2 = _session(reopen(path))                  # the key back: the history is intact
+    v = private_context.view(reopen(path), sid2)
+    assert [t["text"] for t in v["conversation"]] == [S[6], PL.REPLY]
+
+
+check("test_key_missing_after_restart_means_no_reply_and_no_spend",
+      test_key_missing_after_restart_means_no_reply_and_no_spend)
 check("test_restart_and_model_change_keep_one_laura", test_restart_and_model_change_keep_one_laura)
 check("test_key_rotation_via_sealed_export_restore", test_key_rotation_via_sealed_export_restore)
 finish()

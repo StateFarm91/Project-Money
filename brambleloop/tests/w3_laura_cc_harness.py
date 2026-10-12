@@ -22,6 +22,19 @@ sys.path.insert(0, str(ROOT / "src"))
 
 TMP = tempfile.mkdtemp(prefix="w3_laura_cc_")
 os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{os.path.join(TMP, 'cc.db')}"
+if os.environ.get("BRAMBLELOOP_TEST_PG_ADMIN_URL"):
+    # Opt-in (W4-PRIVLAURA): the same suite on a fresh database in a THROWAWAY local Postgres.
+    from sqlalchemy import create_engine as _ce, text as _text
+    from sqlalchemy.engine import make_url as _mu
+
+    _admin = os.environ["BRAMBLELOOP_TEST_PG_ADMIN_URL"]
+    _name = "w3cc_" + uuid.uuid4().hex[:16]
+    _e = _ce(_admin, isolation_level="AUTOCOMMIT")
+    with _e.connect() as _c:
+        _c.execute(_text(f'CREATE DATABASE "{_name}"'))
+    _e.dispose()
+    os.environ["BRAMBLELOOP_DATABASE_URL"] = _mu(_admin).set(database=_name).render_as_string(
+        hide_password=False)
 os.environ.pop("DATABASE_URL", None)
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(TMP, "artifacts")
 os.environ["BRAMBLELOOP_EMBEDDED_WORKER"] = "0"

@@ -8,9 +8,8 @@ from __future__ import annotations
 import json
 import tempfile
 
-from w3_laura_memory_harness import TMPDIRS, check, finish, fresh_db, raises
+from w3_laura_memory_harness import TMPDIRS, check, finish, fresh_db, raises, reopen
 
-from brambleloop.core.db import Database
 from brambleloop.laura.private import _testkit as kit
 from brambleloop.laura.private import store
 from brambleloop.laura.private.errors import (IntegrityRefused, KeyMismatch, KeyUnavailable,
@@ -36,7 +35,7 @@ def test_restart_and_model_swap_keep_the_same_context():
     store.record_turn(db1, p1, "laura", S[2], reply_to=o1, model_ref="provider-a/model-1")
     db1.engine.dispose()
     del db1, p1                                          # "process restart"
-    db2 = Database(f"sqlite:///{path}")                  # new engine, new session, new grant
+    db2 = reopen(path)                  # new engine, new session, new grant
     p2 = kit.private_principal(db2)
     o2 = store.record_turn(db2, p2, "owner", S[3])
     store.record_turn(db2, p2, "laura", S[4], reply_to=o2, model_ref="provider-b/model-2")
@@ -56,13 +55,13 @@ def test_after_restart_without_the_key_nothing_is_readable():
     db1.engine.dispose()
     kit.set_key(None)
     try:
-        db2 = Database(f"sqlite:///{path}")
+        db2 = reopen(path)
         raises(KeyUnavailable, store.facts, db2, p1)
         raises(KeyUnavailable, kit.private_principal, db2)
         assert not store.configured()
     finally:
         kit.set_key(KEY)
-    assert store.facts(Database(f"sqlite:///{path}"), p1)[0].value.reveal() == S[5]
+    assert store.facts(reopen(path), p1)[0].value.reveal() == S[5]
 
 
 def test_sealed_backup_restores_into_a_fresh_database_with_the_same_key():
