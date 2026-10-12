@@ -269,7 +269,13 @@ def listing_qa(frames: list[dict], pngs: dict[str, bytes], cir, *, store=None) -
         "text_check": ("not applied: the only text is the disclosure caption, a small "
                        "full-size caption repeated in alt text and copy, not grid text")}
 
-    pieces = cir.components[0].make if hero["disclosed_render"]["form"] == "rounds" else (
+    form = hero["disclosed_render"]["form"]
+    # W4-IMGFIX: a single-component flat piece made N times (MULTIPIECE: the ornament set of
+    # 6, the placemat pair) draws all N on the hero, like the rounds form; the pieces the
+    # 340 px check must find are the CIR's `make`, not 1. Only the expectation is corrected;
+    # the legibility thresholds are unchanged.
+    pieces = cir.components[0].make if (form == "rounds" or (
+        form == "flat" and len(cir.components) == 1)) else (
         # W4-CAND: identical pockets drawn apart -- the CIR's body make, as the frame states.
         (hero["disclosed_render"]["layout"] or {}).get("copies") or 1)
     for f in ordered:

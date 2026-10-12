@@ -705,7 +705,14 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # Laura executive runtime proof (`laura.executive.proof`): a TemporaryDirectory scoped to
     # one proof run. Added by W3-HYG (2026-10-06) -- it was in `src/` and not counted, which
     # `test_cost_governance_wave2` refuses.
-    "bl-laura-proof-")
+    "bl-laura-proof-",
+    # W4-IMGFIX: the disclosed hero review and the 230 px grid identification write the bytes
+    # a vision judge is shown into a directory scoped to the call (`core.workspace`).
+    "hero-review-", "grid-identify-",
+    # DISCLOSEDQA: the exported-frame review scoped directory.
+    "exported-review-",
+    # HEROTOURNEY: the grid tournament candidates scoped directory.
+    "grid-tournament-")
 
 
 def disk_facts() -> dict:

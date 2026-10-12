@@ -3118,6 +3118,15 @@ def _listing_parity(ctx: JobContext) -> dict:
     if not review["reviewed"]:
         verdict["blocks_release"] = True
         verdict["why"] = f"{verdict['why']}; {review['why']}"
+    # W4-DISCLOSEDQA: a disclosed listing uploads its certified set, not the stored frames,
+    # so #61 must also have reviewed exactly those (`visual.exported_review`). Tightens only.
+    from ..visual import exported_review
+
+    exported = exported_review.review_state(ctx.db, slug, version)
+    verdict["exported_frame_review"] = exported
+    if not exported["reviewed"]:
+        verdict["blocks_release"] = True
+        verdict["why"] = f"{verdict['why']}; {exported['why']}"
 
     # #41 re-checked at publish: an owed purchase disclosure missing from the stored copy
     # blocks export, whatever parity says. UNMEASURED (no copy) is reported; publication
