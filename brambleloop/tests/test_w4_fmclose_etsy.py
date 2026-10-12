@@ -488,6 +488,64 @@ def test_f682_threshold_alert_approaches_and_crosses():
     assert c["value"] is None, "unknown is never 0"
 
 
+# ---------------------------------------------------------------------------
+# F-657 Event Wakeups
+
+
+def test_f657_each_business_event_wakes_its_team_once():
+    from brambleloop.agents.registry import DEFAULT_AGENTS, FORBIDDEN_COMBINATIONS
+    from brambleloop.autonomy import event_wakes
+    from brambleloop.core.models import CultureSignal, OwnerAction, SupportCase
+    from brambleloop.finance.accounting import exceptions as X
+
+    held = {a["name"]: set(a["allowed_job_types"]) for a in DEFAULT_AGENTS}
+    for kind, (agent, job_type) in event_wakes.ROUTES.items():
+        assert job_type in held[agent], (kind, agent, job_type)
+        assert job_type not in FORBIDDEN_COMBINATIONS.get(agent, set()), kind
+    db = _db()
+    _listing(db)
+    _open_gate(db)
+    assert {w["kind"] for w in event_wakes.scan(db)["woken"]} == set(), "nothing happened yet"
+    orders_ingest.ingest(db, reader=Feed([_receipt(1, 501, "222", 900)]))
+    with db.session() as s:
+        s.add(SupportCase(customer_ref="etsy-user-501", question="the PDF will not open"))
+        s.add(Incident(signature="policy_changed:etsy_fees", summary="fee policy changed"))
+        s.add(Incident(signature="health:worker", summary="worker stale"))
+        s.add(CultureSignal(key="sig-1", topic="cottagecore throws", domain="home"))
+        s.add(OwnerAction(requirement_key="k1", action="approve", done=True, state="done"))
+        o = s.scalar(select(Order))
+        o.reviewed = True
+        o.refunded = True
+    X.open_exception(db, key="anomaly:spike:2026-10-12", kind="spend_spike",
+                     summary="spike", severity="medium")
+    h, body = _delivery(wid="msg_wake")
+    wh.receive(db, h, body, secret=SECRET, shop_id="555")
+    got = event_wakes.scan(db)
+    woken = {w["kind"]: w for w in got["woken"]}
+    assert set(woken) == {"order", "refund", "review", "message", "policy_change", "incident",
+                          "spend_anomaly", "research_signal", "owner_decision"}, woken
+    assert [k["kind"] for k in got["skipped"]] == ["etsy_event"], "receiver wakes directly"
+    assert woken["order"]["job_type"] == "commerce.order_readings"
+    assert woken["message"]["agent"] == "support"
+    assert woken["policy_change"]["job_type"] == "ops.policy_watch"
+    assert woken["spend_anomaly"]["job_type"] == "finance.governor"
+    assert "Scheduler" in got["schedule"]
+    with db.session() as s:
+        jobs = {j.idempotency_key for j in s.scalars(select(Job))
+                if (j.idempotency_key or "").startswith("wake:")}
+    assert len(jobs) == len(woken)
+    assert event_wakes.scan(db)["woken"] == [], "a re-scan with nothing new wakes nobody"
+    orders_ingest.ingest(db, reader=Feed([_receipt(1, 501, "222", 900),
+                                          _receipt(2, 502, "222", 900)]))
+    assert [w["kind"] for w in event_wakes.scan(db)["woken"]] == ["order"]
+
+
+def test_f657_the_orchestrate_tick_runs_the_event_scan():
+    src = (ROOT / "src/brambleloop/autonomy/handlers.py").read_text()
+    body = src.split("def handle_orchestrate", 1)[1].split("\ndef ", 1)[0]
+    assert "event_wakes import scan" in body and "scan(ctx.db, ctx.queue" in body
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
