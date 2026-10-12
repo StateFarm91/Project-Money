@@ -33,4 +33,46 @@ Not taken, with reasons:
 
 ## Test results on CCALL
 
-All runs go through `/home/user/bl-runs/testslot.sh`. Results are filled in below as they finish.
+These are the results at merge `bbd47a5`, which is CCALL plus INTEG2 `534f27a`. They were taken on 2026-10-12, between about 08:20Z and 09:10Z. Every run went through `/home/user/bl-runs/testslot.sh` with N=3. Every run was green.
+
+**New tests:**
+
+| Test | Passed |
+|---|---|
+| test_w4_ccall | 3/3 |
+| test_w4_f660_zero_credit | 2/2 |
+| test_w4_ccrel | 8/8 |
+| test_w4_ccgap2 | 3/3 |
+| test_w4_ccfm1 | 8/8 |
+| test_w4_ccfm2 | 5/5 |
+| test_w4_ccgrow | 4/4 |
+
+**Regression:**
+
+| Test | Passed |
+|---|---|
+| test_v11_pwa_static | 81/0 |
+| test_w4_cc_company | 23/23 |
+| test_v11_cc_views | 13/13 |
+| test_w4_ccgap_views | 10/10 |
+| test_w3_laura_cc_talk | 9/9 |
+| test_w4_ownerhome | 10/0 |
+| test_w4_ccux | 8/8 |
+| test_experiment_persistence | OK |
+| test_cert_growth_ops | 0 failing |
+| test_growth | OK |
+| test_vacuity | OK |
+| test_w4_ondemand | 17/0 |
+| test_route_auth_default_deny | 7/7 |
+| test_customer_data_auth | 9/9 |
+| test_cert_dashboard | 18/18 |
+
+**Browser:**
+
+- `test_v11_pwa_browser`: passes=217, failures=0.
+- The cc_mock `check.mjs` at 390 px: passes=217, failures=0, exit code 0. Every new block passed:
+  - ccfm1 (company, money and insights);
+  - ccrel (approvals release card);
+  - etsy connect (step-up, CSRF + nonce, and a non-Etsy authorize URL not followed);
+  - laura briefing;
+  - ccall insights (F-622).
