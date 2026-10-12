@@ -7009,6 +7009,16 @@ def handle_blind_review(ctx: JobContext) -> dict:
 
 @handlers.register("creative.grid_tournament")
 def handle_grid_tournament(ctx: JobContext) -> dict:
+    """See `_grid_tournament_in`. The candidates' files live in a directory scoped to this run
+    (`core.workspace`; prefix counted by `ops.health.TEMP_PREFIXES`), removed when the handler
+    returns or raises."""
+    from ..core import workspace
+
+    with workspace.work_dir(None, prefix="grid-tournament-") as work_dir:
+        return _grid_tournament_in(ctx, work_dir)
+
+
+def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
     """#126: the search-grid blind tournament, judged by an independent panel.
 
     For each pod with enough audited benchmark thumbnails and at least one render of ours,
@@ -7023,9 +7033,6 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     from ..gateway import anthropic as gw
     from ..publish import listing_asset
 
-    import shutil
-    import tempfile
-
     from ..visual import hero_candidates
 
     provider = gw.provider_for("gallery_observation")
@@ -7035,7 +7042,6 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     # F-278: every verified hero candidate of each product enters the blinded grid as a file
     # a judge can be shown (a disclosed hero's `sha256:` address is not one). Only the hero
     # on file counts toward the pod's #126 verdict.
-    work_dir = tempfile.mkdtemp(prefix="grid_tournament_")
     for slug, title in blind_review.catalogue_slugs():
         pod_of[slug] = blind_review.pod_for(slug, title)
         got = hero_candidates.candidates(ctx.db, slug, work_dir=work_dir)
@@ -7101,7 +7107,6 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
         products[slug]["hero_tournament"] = {
             **hero_candidates.winner(mine),
             "refused": (offered.get(slug) or {}).get("refused") or {}}
-    shutil.rmtree(work_dir, ignore_errors=True)
     ctx.audit("creative.grid_tournament", detail={"pods": results, "concepts": concepts,
                                                    "products": products})
     return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()},
