@@ -33,6 +33,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 tmp = Path(tempfile.mkdtemp(prefix="w4learn-loops-"))
+# INTEG3 (test_w3_tmp_hygiene): the proof's scratch directory is removed when it exits.
+import atexit  # noqa: E402
+import shutil  # noqa: E402
+
+atexit.register(shutil.rmtree, tmp, ignore_errors=True)
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = str(tmp / "artifacts")
 os.environ["BRAMBLELOOP_PHASE"] = "shadow"
 for k in list(os.environ):
