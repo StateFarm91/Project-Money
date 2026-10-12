@@ -113,6 +113,13 @@ export const DATA = {
     waiting_on_data: env("OK", [{ title: "Bank feed for reconciliation", status: "BLOCKED" }]),
     external_capability_unavailable: env("OK", []),
     // W4-CCUX: the live owner queue, batch first (shape of company.owner_decision_batches).
+    // W4-CCREL: a pending release candidate whose security review is not recorded.
+    release: env("BLOCKED", [
+      { label: "Candidate SHA 5ad94dd0c0de", state: "PASS", why: "release record intact: pinned suite record and log match, same SHA", source: "release/RELEASE_5ad94dd.json" },
+      { label: "Full release suite", state: "PASS", why: "passed full run 20261012T000000Z-1: 7950 tests passing, 0 of 560 suites failing", source: "release/suite_runs/20261012T000000Z-1.json" },
+      { label: "Security review", state: "UNKNOWN", why: "no security review is recorded for this candidate (release/SECURITY_REVIEW_5ad94dd.json absent); not assumed passed", source: "release/SECURITY_REVIEW_5ad94dd.json" },
+      { label: "Rollback target 0417f3516f30", state: "PASS", why: "deployed 2026-10-11T14:39:50Z; ops/deploy_guard.py rollback-commit --to <sha> (ROLLBACK_RUNBOOK)", source: "release/DEPLOYED_HISTORY.json" }],
+      { pending: true, candidate_sha: "5ad94dd0c0de5ad94dd0c0de5ad94dd0c0de5ad9", reason: "Do not authorise yet: Security review not PASS." }),
     decision_batches: env("OK", [
       { id: "kyc", title: "Accounts and identity", why_batched: "one sitting at a desk", decisions: 2, minutes_total: 35,
         max_cost: "UNKNOWN (at least one item is not costed)", items: [
@@ -329,6 +336,23 @@ export const DATA = {
   // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
   // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
   // transactions_r -- so the card renders its refused state and Connect stays disabled.
+  // W4-CCREL: Talk to Laura (overview + a CEO briefing answer in briefing.compose's format).
+  laura: () => ({ speaker: { name: "Laura", role: "Founder/CEO (AI)", public_identity: "Brambleloop's AI founder" },
+    identity: { identity_id: "laura-fixture", source: "fixture" }, needs_you: { status: "OK", count: 2 }, phase: "shadow",
+    generated_at: now(), suggested: ["Give me a CEO briefing"] }),
+  lauraConversation: () => ({ turns: [] }),
+  lauraBriefing: (question) => ({ turn_id: 7, at: now(), question, intent: "briefing", status: "PARTIAL",
+    answer: ["Here's where Brambleloop stands (last 24 h, as of 2026-10-12T03:00:00+00:00).",
+      "Model synthesis unavailable: fixture. This is my deterministic fallback briefing, built only from the evidence records cited below.",
+      "", "1. The last 24 h", "- \"SEO coverage refreshed\" [E1]", "- \"12 renders completed\" [E2]",
+      "", "2. Each department", "- Growth: 6 useful jobs [E3, E4]", "- UNKNOWN: \"Finance not evaluated\" [E5]",
+      "", "3. What blocks the first sale", "- \"Etsy API key refused\" [E6]",
+      "", "Ask \"expand decision 2\" (or blocker / step N) for the detail behind any line; every [E#] is a record you can open, and quoted text is that record's own words."].join("\n"),
+    facts: [1, 2, 3, 4, 5, 6].map((i) => ({ id: `E${i}`, statement: `fixture record ${i}`, source: `jobs:${100 + i}`, link: `#/drill/jobs:${100 + i}`,
+      as_of: ago(10), basis: i === 5 ? "unknown" : "measured", status: i === 5 ? "UNKNOWN" : "VERIFIED" })),
+    unknowns: [{ section: "departments", title: "E5", reason: "Finance not evaluated" }], proposals: [], sources: ["jobs"],
+    briefing_sections: [{ key: "window", title: "The last 24 h" }, { key: "departments", title: "Each department" }, { key: "blockers", title: "What blocks the first sale" }],
+    synthesis: { source: "fallback", reason: "fixture" }, method: "deterministic briefing (fixture)" }),
   etsy: () => ({
     api_key_probe: { state: "FAILING", ok: false, at: ago(300), endpoint: "ping",
       etsy_error: "API key is not active (fixture)" },

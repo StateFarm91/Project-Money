@@ -420,3 +420,14 @@ details.card[open] > summary { margin-bottom: 8px; }
 .home-more > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 650; color: var(--accent); padding: 0 var(--gutter); }
 .home-more[open] > summary { margin-bottom: 8px; }
 .home-more > .card, .home-more > .quick { margin-bottom: 12px; }
+
+/* ---- W4-CCREL: Laura CEO briefing on a phone ---- */
+.briefing { display: grid; gap: 8px; white-space: normal; }
+.briefing-intro { margin: 0; font-weight: 600; }
+.briefing-sec { border-top: 1px solid var(--border); padding-top: 4px; }
+.briefing-sec > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 650; }
+.briefing-n { color: var(--text-2); }
+.briefing-title { min-width: 0; overflow-wrap: anywhere; }
+.briefing-lines { margin: 4px 0 6px; padding-left: 18px; }
+.briefing-lines li { margin: 4px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.briefing-cited > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--text-2); font-size: 13px; font-weight: 600; }

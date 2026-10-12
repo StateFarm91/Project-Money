@@ -158,6 +158,27 @@ function batchesCard(env) {
     sourcesList(env.sources));
 }
 
+// W4-CCREL: the release approval card. What the owner needs before authorising a deploy:
+// candidate SHA, full-suite result, security review and rollback target, each with its state
+// and source. UNKNOWN evidence is shown as UNKNOWN, never as a pass. Read-only here.
+function releaseCard(env) {
+  if (!env) return null;
+  const items = Array.isArray(env.items) ? env.items : [];
+  if (!env.pending) {
+    return card({ title: "Release approval", labelId: "approvals-release", actions: statusPill("OK", "NO CANDIDATE") },
+      h("p", { class: "card-meta" }, freshness(env.as_of || null)),
+      h("p", { class: "muted" }, env.reason || "No release candidate is awaiting approval."),
+      env.latest_deployed ? h("p", { class: "muted small" }, `Production runs ${String(env.latest_deployed).slice(0, 12)}.`) : null);
+  }
+  return card({ title: "Release approval", labelId: "approvals-release",
+    subtitle: `Candidate ${String(env.candidate_sha || "").slice(0, 12)}: authorise the deploy on the production-window decision`,
+    actions: statusPill(env.status, env.status === "OK" ? "READY TO AUTHORISE" : "NOT READY") },
+  h("p", { class: "card-meta" }, freshness(env.as_of || null)),
+  env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
+  evidenceList(items),
+  h("p", { class: "muted small" }, "Nothing deploys from this screen: the integrator deploys after your recorded authorisation, and the rollback target is the only commit a rollback may use."));
+}
+
 // W4-GATESB: decisions not asked yet, each with what makes it askable (never a card to answer).
 function notYetAskableCard(env) {
   if (!env) return null;
@@ -204,6 +225,7 @@ export async function render({ params, rerender }) {
       meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
+    releaseCard(data.release),
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,
