@@ -475,7 +475,7 @@ def _count(session, model) -> int:
 
 
 def assess(db, *, phase: str, providers: Iterable[str] = (),
-           storage_durable: bool = False) -> Readiness:
+           storage_durable: bool = False, measure_vision: bool = True) -> Readiness:
     """Every requirement a live shop has, checked against the warehouse as it stands.
 
     Deliberately reads state rather than re-deriving it: a readiness report that recomputes
@@ -866,7 +866,9 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # read, and a brand moat that does not rest on the most copyable asset in it.
     from ..brand import moat as brand_moat
 
-    moat_state = brand_moat.inventory(db)
+    # W4-B2MOAT: a read path (GET /api/launch, the dashboard) passes measure_vision=False and
+    # reads recorded measurements; only the daily job pays for a new one.
+    moat_state = brand_moat.inventory(db, measure=measure_vision)
     recognisable = moat_state.get("recognisable_without_model") or {}
     moat_ready = (bool(moat_state["structural_advantages"])
                   and bool(recognisable.get("listings"))
@@ -1376,7 +1378,8 @@ class LaunchAssessment:
         return questions(self.readiness, self.off_device)
 
 
-def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
+def launch_assessment(db, *, phase: str, artifact_dir=None,
+                      measure_vision: bool = True) -> LaunchAssessment:
     """Read-only: the inputs the handler uses, resolved the way the handler resolves them."""
     from ..build2 import autonomy
     from ..core.artifacts import ArtifactStore
@@ -1387,7 +1390,8 @@ def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
     except Exception:  # noqa: BLE001 - a gateway problem must not stop the assessment
         providers = []
     storage_durable = bool(ArtifactStore(artifact_dir).durable)
-    readiness = assess(db, phase=phase, providers=providers, storage_durable=storage_durable)
+    readiness = assess(db, phase=phase, providers=providers, storage_durable=storage_durable,
+                       measure_vision=measure_vision)
     off_device = autonomy.launch_item(db)
     ready = bool(readiness.ready) and off_device.get("status") == autonomy.PROVEN
     return LaunchAssessment(readiness=readiness, off_device=off_device, ready=ready,

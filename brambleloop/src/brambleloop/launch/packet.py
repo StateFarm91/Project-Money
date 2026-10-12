@@ -106,7 +106,9 @@ def _owner_queue(db, phase: str, artifact_dir=None) -> tuple[dict, str | None]:
     # providers, storage durability and the off-device autonomy proof (#195) included.
     from .readiness import launch_assessment
 
-    a, err = _guard(lambda: launch_assessment(db, phase=phase, artifact_dir=artifact_dir))
+    # W4-B2MOAT: the packet is a read path; it shows recorded vision measurements.
+    a, err = _guard(lambda: launch_assessment(db, phase=phase, artifact_dir=artifact_dir,
+                                              measure_vision=False))
     if a is None:
         return {"ready": False, "state": UNKNOWN, "owner_actions": [], "buildable": [],
                 "outstanding": [], "unknowns": [], "off_device_autonomy_proof": {
