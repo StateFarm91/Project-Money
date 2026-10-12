@@ -489,8 +489,9 @@ def test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never
               _entry(2, "processing_fee", "receipt", 1, -60)]
     orders_ingest.ingest(db, reader=LedgerFeed([_receipt(1, 501, "222", 900)], booked))
     # The statement disagrees with what the books hold for this order's transaction fee.
-    reconciliation.import_etsy_ledger(db, [_entry(1, "transaction", "transaction", 10, -159),
-                                           _entry(2, "processing_fee", "receipt", 1, -60)])
+    # The ingest already imported entries 1-2 as statement lines (F-575); a later statement
+    # line shows an extra CA$1.00 fee on the same transaction the books do not hold.
+    reconciliation.import_etsy_ledger(db, [_entry(11, "transaction", "transaction", 10, -100)])
     controller.run_cycle(db)
     first = activity.activity(db)
     assert first["last_reconciliation"]["at"] and first["last_reconciliation"]["matching"]
@@ -621,6 +622,39 @@ def test_f558_every_order_reconciles_six_parts_and_names_what_does_not():
     assert c["delivery"]["state"] == "UNKNOWN" and not c["reconciled"]
     assert "delivery: UNKNOWN" in c["problems"]
     assert got["with_problems"] >= 1 and got["reconciled"] == got["orders"] - got["with_problems"]
+
+
+# ---------------------------------------------------------------------------
+# F-575 Payment Account Reconciliation (and F-538's "unknown stays explicit")
+
+
+def test_f575_ledger_entries_become_statement_lines_and_unexplained_movements_are_incidents():
+    from brambleloop.finance.accounting import activity, controller, reconciliation
+
+    db = _db()
+    _listing(db)
+    _open_gate(db)
+    _verify_mapping(db)
+    entries = [_entry(1, "transaction", "transaction", 10, -59),
+               _entry(2, "processing_fee", "receipt", 1, -60),
+               _entry(3, "transaction", "transaction", 999990, -59),    # no such order
+               _entry(4, "mystery_credit", "receipt", 1, 25)]          # unknown movement
+    got = orders_ingest.ingest(db, reader=LedgerFeed([_receipt(1, 501, "222", 900)], entries))
+    lines = got["fees"]["statement_lines"]
+    assert lines["imported"] == 3 and lines["unclassified_skipped"] == 1, lines
+    again = orders_ingest.ingest(db, reader=LedgerFeed([_receipt(1, 501, "222", 900)], entries))
+    assert again["fees"]["statement_lines"]["replayed"] == 3, "a re-read is a replay"
+    assert len(reconciliation.statement_lines(db)) == 3
+    controller.run_cycle(db)
+    act = activity.activity(db)
+    sigs = {i["signature"] for i in act["discrepancies"]["reconciliation_incidents"]}
+    assert reconcile.RECONCILIATION_SIGNATURE in sigs, sigs        # fee against no order
+    assert reconcile.UNCLASSIFIED_SIGNATURE in sigs, sigs          # unexplained movement
+    kinds = {x["kind"] for x in act["discrepancies"]["accounting_exceptions"]}
+    assert "unmatched_statement_line" in kinds, kinds
+    with db.session() as s:
+        o = s.scalar(select(Order))
+        assert o.fees_basis == "measured" and abs(o.fees_cad - 1.19) < 1e-9
 
 
 if __name__ == "__main__":

@@ -1219,7 +1219,17 @@ def _reconcile_fees(db, reader, *, since: datetime | None, now: datetime) -> dic
         return {"read": False, "basis": "modelled",
                 "why": f"the payment-account ledger read failed ({type(exc).__name__}: "
                        f"{str(exc)[:200]}); fees stay modelled and labelled"}
-    return {"read": True, **reconcile.apply(db, entries, source=SOURCE)}
+    applied = reconcile.apply(db, entries, source=SOURCE)
+    # F-575/F-538: the same entries become the Accountant's Etsy statement lines, so payouts,
+    # fees and refunds are matched against the books by the accounting cycle and anything
+    # unmatched becomes an exception (idempotent: a re-read entry is a replay).
+    try:
+        from ..finance.accounting import reconciliation as acct_rec
+
+        applied["statement_lines"] = acct_rec.import_etsy_ledger(db, entries, now=now)
+    except Exception as exc:  # noqa: BLE001 - the order fees above stand either way
+        applied["statement_lines"] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    return {"read": True, **applied}
 
 
 # ---------------------------------------------------------------------------
