@@ -132,6 +132,20 @@ _TEMPLATES: dict[str, list[tuple[str, float, float, str]]] = {
     "skill:intermediate": [
         ("intermediate crochet", 0.14, 0.40, "product"),
     ],
+    # F-056: size/shape intent, from the twin's own dimensions. A shape phrase is added only
+    # when the twin measured that shape (a stacked-increase polygon names its sides; a piece
+    # worked in the round with no corners is round); flat rectangles add none -- "rectangle"
+    # is not how anyone shops. A size phrase is added only when the pattern itself is graded
+    # into more than one size. No small/large word is ever generated: a size class is a claim
+    # nothing here measures against a buyer's expectation.
+    "shape": [
+        ("{shape} {category} pattern", 0.20, 0.34, "product"),
+        ("{shape} crochet {category}", 0.18, 0.38, "product"),
+    ],
+    "sizes": [
+        ("{category} pattern in {n} sizes", 0.12, 0.24, "product"),
+        ("multi size {category} pattern", 0.10, 0.28, "product"),
+    ],
     "seasonal:extra": [
         ("{season} diy", 0.22, 0.44, "seasonal"),
         ("{season} craft", 0.20, 0.45, "seasonal"),
@@ -161,9 +175,33 @@ _CATEGORY_FAMILY: dict[str, str] = {
 }
 
 
+# F-056: the shape words a twin can measure, and every shape word a phrase may claim.
+_POLYGONS = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon"}
+SHAPE_WORDS = frozenset(_POLYGONS.values()) | {"round", "circle", "circular", "oval",
+                                               "hexagonal", "octagonal", "rectangle",
+                                               "rectangular"}
+_SHAPE_ALIASES = {"hexagonal": "hexagon", "octagonal": "octagon", "circle": "round",
+                  "circular": "round", "rectangular": "rectangle", "square": "square"}
+
+
+def shape_of(twin) -> str | None:
+    """The shape a twin measured, as a buyer would name it, or None (flat or unknown).
+
+    A stacked-increase round piece is its polygon (`twin.sides`); a round-worked piece with
+    no corners is "round"; a flat piece has no shape claim here.
+    """
+    sides = getattr(twin, "sides", None)
+    if sides and sides in _POLYGONS:
+        return _POLYGONS[sides]
+    if getattr(twin, "shape", None) is not None and not sides:
+        return "round"
+    return None
+
+
 def build_query_set(category: str, motifs: list[str], season: str | None,
                     techniques: list[str] | None = None,
-                    difficulty: str | None = None) -> list[Query]:
+                    difficulty: str | None = None, *, shape: str | None = None,
+                    sizes: int = 1) -> list[Query]:
     """Every phrase this product could plausibly answer, with its reachability.
 
     `techniques` gates the technique families. A query family is only added when the pattern
@@ -185,7 +223,8 @@ def build_query_set(category: str, motifs: list[str], season: str | None,
         words = phrase.split()
         if len(words) != len(set(words)):
             return   # "shawl shawl pattern": a motif word that is the category word
-        if phrase and phrase not in out and not tag_truth(phrase, difficulty=difficulty):
+        if phrase and phrase not in out and not tag_truth(phrase, difficulty=difficulty,
+                                                          shape=shape):
             out[phrase] = Query(phrase, demand, competition, intent, family=family)
 
     for t, d, c, i in _TEMPLATES["core"]:
@@ -209,6 +248,12 @@ def build_query_set(category: str, motifs: list[str], season: str | None,
     if difficulty:
         for t, d, c, i in _TEMPLATES.get(f"skill:{difficulty.lower()}", []):
             add(t, d, c, i, "skill")
+    if shape:
+        for t, d, c, i in _TEMPLATES["shape"]:
+            add(t, d, c, i, "shape", shape=shape)
+    if sizes and sizes > 1:
+        for t, d, c, i in _TEMPLATES["sizes"]:
+            add(t, d, c, i, "sizes", n=int(sizes))
     for phrase in _FAMILY_PHRASES.get(_CATEGORY_FAMILY.get(category, ""), ()):
         add(phrase, 0.20, 0.50, "category", "family")
     return sorted(out.values(), key=lambda q: (-q.value, q.phrase))
@@ -224,7 +269,7 @@ _EASY = re.compile(r"\b(easy|simple|quick)\b")
 _BEGINNER = re.compile(r"\bbeginners?\b")
 
 
-def tag_truth(phrase: str, *, difficulty: str | None) -> str | None:
+def tag_truth(phrase: str, *, difficulty: str | None, shape: str | None = None) -> str | None:
     """Why a phrase may not be claimed for this product, or None when it may.
 
     Difficulty-gated: "easy" only on a beginner pattern, "beginner" only on a beginner or
@@ -248,12 +293,20 @@ def tag_truth(phrase: str, *, difficulty: str | None) -> str | None:
         if word in p.split() and level != word:
             return (f"TAG_DIFFICULTY_UNTRUE: {phrase!r} claims {word} on a "
                     f"{level or 'unknown-difficulty'} pattern")
+    # F-056: a shape word must be the shape the twin measured. Checked only when the caller
+    # knows the shape; an unmeasured shape neither supports nor refutes a phrase.
+    if shape:
+        claimed = {_SHAPE_ALIASES.get(w, w) for w in p.split() if w in SHAPE_WORDS}
+        if claimed and claimed != {shape}:
+            return (f"TAG_SHAPE_UNTRUE: {phrase!r} claims {sorted(claimed)}; the twin "
+                    f"measured {shape}")
     return None
 
 
-def tags_truth(tags: list[str], *, difficulty: str | None) -> list[str]:
+def tags_truth(tags: list[str], *, difficulty: str | None,
+               shape: str | None = None) -> list[str]:
     """Blocking findings for a finished tag set, wherever its phrases came from."""
-    return [p for p in (tag_truth(t, difficulty=difficulty) for t in tags) if p]
+    return [p for p in (tag_truth(t, difficulty=difficulty, shape=shape) for t in tags) if p]
 
 
 # ---- coverage --------------------------------------------------------------
