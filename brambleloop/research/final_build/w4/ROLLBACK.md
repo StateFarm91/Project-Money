@@ -109,3 +109,15 @@ adjudicator (`final_proof`), so it needs your explicit approval, plus its own re
 - A suite for a different tree is refused.
 
 Not implemented on this branch: no worker may relax an adjudicator rule unilaterally.
+
+## Status at the owner pause (2026-10-12)
+
+**DONE.** Pushed before the pause; no change since.
+
+- **Rows:** F-380, F-381 advanced (still on data production_window); F-834 memo awaiting decision.
+- **Tests:** test_w4_rollback_rehearsal 5/5; test_deploy_path 10/10, test_deploy_verify 10/10, test_rc1_own_release 10/10, test_deploy_guard 7/7, test_w4_smoke 10/10.
+- **Required regression set** (test_launch, test_cost_governance_wave2, test_search_hero_publish,
+  test_cert_listing_frames, test_v11_autonomy_timeline): not run on this branch. That set was
+  added after this branch was pushed.
+- **Known defects:** none.
+- **Next step:** integrator merge; deploy with ops/deploy.sh, which now rehearses the rollback; decide the F-834 option.
