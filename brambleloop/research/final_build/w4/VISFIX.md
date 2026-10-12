@@ -97,7 +97,7 @@ Visual, hero, thumbnail and listing-frame suites, plus the suites the merged bra
 | test_cert_preengineering | 19/19 |
 | test_w4_autonomy_idle_departments | 10/10 |
 | test_cert_wiring | 16/16 |
-| test_w4_placemat_reprice | see the handback |
+| test_w4_placemat_reprice | not run: it waited 39 min without getting a testslot slot (shared contention), so I stopped it. It is not in the required set and not a suite this branch touches; it was listed only as context for the map edge |
 
 ## Requirement rows whose evidence this changes
 
