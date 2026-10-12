@@ -4814,6 +4814,16 @@ def api_audit(limit: int = 100, action: str | None = None) -> dict:
 VERIFY_AUDIT_ACTION = "verify.completed"
 
 
+@app.get("/api/funding/packets")
+def api_funding_packets() -> dict:
+    """F-871 / F-100 (W4-FUNDING): the prepared funding packets -- model credit (bounded
+    experiment, max spend, run rate) and second-provider diversification (measured resilience
+    value). Read-only; nothing here spends or approves."""
+    from ..finance.funding_packet import packets
+
+    return packets(db)
+
+
 @app.get("/api/verify")
 def api_verify() -> JSONResponse:
     """Standing safety assertions, evaluated against live state.
