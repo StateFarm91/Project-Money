@@ -97,40 +97,40 @@ def test_a_paid_loop_is_suspended_until_the_hypothesis_changes():
 
 def test_unchanged_free_polling_backs_off_and_progress_lifts_it():
     db = _db()
-    _done(db, "etsy.probe", {"reachable": False, "checked_at": "x"})
+    _done(db, "intel.gallery_analysis", {"reachable": False, "checked_at": "x"})
     out = _sweep(db)
     applied = {a["job_type"]: a for a in out["backoff"]["applied"]}
-    assert applied["etsy.probe"]["factor"] == 2
-    first_until = applied["etsy.probe"]["until"]
+    assert applied["intel.gallery_analysis"]["factor"] == 2
+    first_until = applied["intel.gallery_analysis"]["until"]
     Scheduler(db).tick()
-    assert not _enqueued(db, "etsy.probe")
+    assert not _enqueued(db, "intel.gallery_analysis")
     # C-80 defect 5 (Codex P07): a second sweep that sees *no new run* is not a new
     # observation. The level stays at 1, the factor at 2 and the absolute deadline exactly
     # where the first sweep put it. (This assertion used to enshrine the defect: factor 4
     # after a sweep with nothing new.)
     out = _sweep(db)
-    again = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
+    again = {a["job_type"]: a for a in out["backoff"]["applied"]}["intel.gallery_analysis"]
     assert again["factor"] == 2 and again["unchanged"] is True
     assert again["until"] == first_until, "the deadline was refreshed with no new observation"
     with db.session() as s:
         inc = s.scalar(select(Incident).where(
-            Incident.signature == f"{orc.BACKOFF_SIGNATURE_PREFIX}etsy.probe",
+            Incident.signature == f"{orc.BACKOFF_SIGNATURE_PREFIX}intel.gallery_analysis",
             Incident.resolved.is_(False)))
         assert inc.detail["suspension"]["level"] == 1
         assert inc.detail["suspension"]["suspend_until"] == first_until
     # a NEW run that observes the same unchanged state is the fourth identical observation:
     # now the backoff doubles, and the deadline moves later, never earlier
-    _done(db, "etsy.probe", {"reachable": False, "checked_at": "y"}, n=1)
+    _done(db, "intel.gallery_analysis", {"reachable": False, "checked_at": "y"}, n=1)
     out = _sweep(db)
-    doubled = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
+    doubled = {a["job_type"]: a for a in out["backoff"]["applied"]}["intel.gallery_analysis"]
     assert doubled["factor"] == 4 and doubled["unchanged"] is False
     assert doubled["until"] > first_until
     # the state changes: progress lifts the backoff
-    _done(db, "etsy.probe", {"reachable": True}, n=1)
+    _done(db, "intel.gallery_analysis", {"reachable": True}, n=1)
     out = _sweep(db)
-    assert "etsy.probe" in out["backoff"]["lifted"]
+    assert "intel.gallery_analysis" in out["backoff"]["lifted"]
     Scheduler(db).tick()
-    assert _enqueued(db, "etsy.probe")
+    assert _enqueued(db, "intel.gallery_analysis")
 
 
 def test_liveness_watchdogs_are_never_backed_off():
@@ -138,6 +138,24 @@ def test_liveness_watchdogs_are_never_backed_off():
     _done(db, "ops.health", {"ok": True})
     out = _sweep(db)
     assert "ops.health" not in {a["job_type"] for a in out["backoff"]["applied"]}
+
+
+def test_probes_and_the_offsite_archive_are_never_backed_off():
+    """W4-CADENCE (prod 2026-10-11): etsy.probe returned the same 403 three runs running, was
+    backed off 12 h, and so could not notice the credential fix it exists to notice; the
+    off-site archive failing on configuration would likewise skip backups once fixed."""
+    db = _db()
+    for jt in ("etsy.probe", "model.probe", "ops.capability_probes", "ops.offsite_archive",
+               "ops.continuity"):
+        assert jt in orc.LIVENESS_JOB_TYPES, jt
+        _done(db, jt, {"ok": False, "reason": "HTTP 403", "at": "t"})
+    out = _sweep(db)
+    applied = {a["job_type"] for a in out["backoff"]["applied"]}
+    assert not applied & {"etsy.probe", "model.probe", "ops.capability_probes",
+                          "ops.offsite_archive", "ops.continuity"}, applied
+    Scheduler(db).tick()
+    assert _enqueued(db, "etsy.probe"), "the next 6-hourly window did not enqueue the probe"
+    assert _enqueued(db, "ops.offsite_archive")
 
 
 def test_a_dead_call_the_breaker_tripped_is_not_redriven_under_the_same_build():
