@@ -5,7 +5,7 @@ import { statTile, card, statusPill, freshness, basisNote, sourcesList } from ".
 import { sectionsOf, pageMeta, renderAll, renderSection, isEnvelope } from "./_shared.js";
 import { formatNumber, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../format.js";
 
-const ORDER = [["autonomy", "Autonomous company"], ["jobs_24h", "Jobs in the last 24 h"],
+const ORDER = [["autonomy", "Autonomous company"], ["agents_workspace", "Agents workspace: work, failures, spend today"], ["jobs_24h", "Jobs in the last 24 h"],
   ["improvement", "Improvement loops"], ["improvements", "Improvements: proposed, tested, promoted, rolled back"],
   ["experiments", "Experiments"], ["visual_rnd", "Visual R&D (per product class)"],
   ["visual_rnd_governance", "Visual R&D: identity review, paid plans, commercial objective, evolution"], ["lessons", "Lessons"], ["last_useful_action", "Last useful action"]];

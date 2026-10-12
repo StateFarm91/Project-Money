@@ -430,8 +430,13 @@ def home(db) -> dict:
 
     ov = guard("overview", lambda: overview_mod.overview(
         db, box=box, m=m, products=prods, departments=autonomy))
+    from . import executive as exec_mod
+
     return _tab("HOME", {
         "overview": ov,
+        # W4-CCFM2 (F-661): today / month / 90-day revenue, profit, conversion, live listings
+        # and customer risk, each with its basis (UNKNOWN never 0).
+        "executive": exec_mod.executive(db),
         "changes_since_last_view": _changes_since(db, since),
         "autonomy": autonomy, "store": store_f, "products": prods,
         "money": m["accounting"], "incidents": inc,
@@ -672,8 +677,18 @@ def agents_card(db, env: dict, *, now: datetime | None = None) -> dict:
             "never_run_shown_unknown": changed}
 
 
+def _agents_workspace(db) -> dict:
+    from . import executive as exec_mod
+
+    return exec_mod.agents_workspace(db)
+
+
 def operations(db) -> dict:
+    from . import executive as exec_mod
+
     return _tab("OPERATIONS", {"slo": slo_card(providers.call("slo", db)),
+                               # W4-CCFM2 (F-729): autonomy health from durable state.
+                               "autonomy_health": exec_mod.autonomy_health(db),
                                "truth": providers.call("ops_truth", db),
                                "autonomy": providers.call("autonomy", db),
                                "queue": readers.queue(db),
@@ -906,6 +921,8 @@ def autonomy(db) -> dict:
                              # W4-CCFIN: Rule #1 state and per-agent status (read-only).
                              "rule1": providers.call("rule1", db),
                              "agents": agents_card(db, providers.call("agents", db)),
+                             # W4-CCFM2 (F-668): per-agent department, work, failures, spend.
+                             "agents_workspace": _agents_workspace(db),
                              "improvement": providers.call("improvement", db),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
