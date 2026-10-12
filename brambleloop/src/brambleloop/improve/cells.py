@@ -453,10 +453,13 @@ def promote(db, improvement_id: int, *,
     except tiers.TierRefused as exc:
         raise ImprovementRefused(str(exc)) from exc
 
+    stamp = audit_stamp(db, improvement_id)
     with db.session() as s:
         row = s.get(Improvement, improvement_id)
         row.state = PROMOTED
         row.promoted_at = datetime.now(timezone.utc)
+        row.build_sha = stamp["build_sha"]
+        row.spend_cad = stamp["spend_cad"]
         row.evidence = {**(row.evidence or {}), "tier": graded["tier"],
                         "tier_evidence": graded["satisfied"],
                         "promoted_by": promoter}
@@ -472,6 +475,47 @@ def promote(db, improvement_id: int, *,
         record_capability(db, cell, result_value,
                           detail={"from": f"improvement:{improvement_id}"})
     return PROMOTED
+
+
+def audit_stamp(db, improvement_id: int, env: dict | None = None) -> dict:
+    """F-398: the build the change was promoted on and the spend recorded against it."""
+    from sqlalchemy import select
+
+    from ..core import build
+    from ..core.models import CostEntry
+
+    ident = build.identity(env)
+    total, rows = 0.0, 0
+    with db.session() as s:
+        for c in s.scalars(select(CostEntry)):
+            d = c.detail if isinstance(c.detail, dict) else {}
+            if str(d.get("improvement_id")) == str(improvement_id):
+                total += float(c.amount_cad or 0.0)
+                rows += 1
+    return {"build_sha": str(ident["commit"])[:40] if ident["known"] else None,
+            "spend_cad": round(total, 6) if rows else None, "spend_rows": rows}
+
+
+def history(db, *, limit: int = 50) -> list[dict]:
+    """F-398: the improvement audit trail -- state, dates, spend and the build it shipped on."""
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        rows = list(s.scalars(select(Improvement).order_by(Improvement.id.desc()).limit(limit)))
+        return [{"id": r.id, "cell": r.cell, "state": r.state,
+                 "hypothesis": r.hypothesis[:200],
+                 "baseline": r.baseline_value, "result": r.result_value,
+                 "declared_cost_cad": r.cost_cad,
+                 "spend_cad": r.spend_cad,
+                 "spend_basis": ("recorded, attributed cost rows" if r.spend_cad is not None
+                                 else "UNKNOWN: no cost row attributed to this improvement"),
+                 "build_sha": r.build_sha,
+                 "proposed_at": r.at.isoformat() if r.at else None,
+                 "promoted_at": r.promoted_at.isoformat() if r.promoted_at else None,
+                 "reverted_at": r.reverted_at.isoformat() if r.reverted_at else None}
+                for r in rows]
 
 
 # The one identity whose approval satisfies a gate-tier promotion. Owner approval is recorded
@@ -820,6 +864,8 @@ def retrospective(db, *, days: int = 7) -> dict:
         # to arrive: it is the weekly moment somebody reads, and a defect that only exists
         # when queried does not exist.
         "creative_plateau": capability_plateau(db, cell=CREATIVE_CELL),
+        # F-399: whether learning is working, not only how much happened.
+        "learning_health": learning_health(db, improvements),
         "bottleneck": (regressed[0] if regressed else
                        (unmeasured[0] if unmeasured else None)),
         "honest_note": (
@@ -827,6 +873,52 @@ def retrospective(db, *, days: int = 7) -> dict:
             f"so improvement in them is unclaimable rather than unproven."
             if unmeasured else
             "Every cell has a measured history, so movement in any of them is checkable."),
+    }
+
+
+def learning_health(db, improvements: list) -> dict:
+    """F-399: adoption and rejection rates, regressions caught, repeats avoided, cost/adopted.
+
+    Rates are over improvements that reached a verdict in the window (promoted, rejected,
+    reverted); with none decided they are None, not 0%. "Repeated failures avoided" counts
+    the failure-memory refusals audited as `improve.repeat_refused`; where that mechanism is
+    not built it is None with the reason, because zero refusals from a mechanism that does
+    not exist is not a measurement.
+    """
+    import importlib.util
+
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog
+
+    promoted = [r for r in improvements if r.state == PROMOTED]
+    rejected = [r for r in improvements if r.state == REJECTED]
+    reverted = [r for r in improvements if r.state == REVERTED]
+    decided = len(promoted) + len(rejected) + len(reverted)
+    adopted = len(promoted)
+    spend = [r.spend_cad for r in promoted if getattr(r, "spend_cad", None) is not None]
+    if importlib.util.find_spec("brambleloop.improve.failure_memory") is None:
+        avoided, avoided_why = None, "failure memory (F-378) is not built in this tree"
+    else:
+        with db.session() as s:
+            avoided = int(s.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == "improve.repeat_refused")) or 0)
+        avoided_why = "audit rows improve.repeat_refused (all time)"
+    return {
+        "decided": decided,
+        "adoption_rate": round(adopted / decided, 4) if decided else None,
+        "rejection_rate": round(len(rejected) / decided, 4) if decided else None,
+        "regressions_caught": len(reverted),
+        "repeated_failures_avoided": avoided,
+        "repeated_failures_avoided_basis": avoided_why,
+        # Every adopted change must carry attributed spend, or the average is of a subset.
+        "cost_per_adopted_cad": (round(sum(spend) / adopted, 4)
+                                 if adopted and len(spend) == adopted else None),
+        "cost_basis": ("recorded spend attributed to every adopted change"
+                       if adopted and len(spend) == adopted else
+                       "UNKNOWN: spend is not attributed to every adopted improvement"),
+        "note": ("rates are None until an improvement reaches a verdict in the window"
+                 if not decided else None),
     }
 
 

@@ -144,7 +144,9 @@ def inbox(db, cell: str, *, unacted_only: bool = True,
     from ..core.models import Lesson
 
     with db.session() as s:
-        rows = list(s.scalars(select(Lesson).where(Lesson.superseded_by.is_(None))))
+        # F-605: a withdrawn claim is still on file but no longer routed to anyone.
+        rows = list(s.scalars(select(Lesson).where(Lesson.superseded_by.is_(None),
+                                                   Lesson.withdrawn_at.is_(None))))
     out = []
     for row in rows:
         if cell not in (row.routed_to or []) and not (include_own
@@ -157,6 +159,39 @@ def inbox(db, cell: str, *, unacted_only: bool = True,
                     "from": row.origin_cell, "confidence": row.confidence,
                     "evidence_ref": row.evidence_ref})
     return out
+
+
+class WithdrawRefused(ValueError):
+    """A withdrawal with no reason or evidence, or of a lesson that does not exist."""
+
+
+def withdraw(db, lesson_id: int, *, reason: str, evidence_ref: str,
+             withdrawn_by: str) -> dict:
+    """F-605: mark a lesson withdrawn. Kept on file; `inbox`/`consume.matching` skip it.
+
+    A withdrawal needs the evidence that overturned the claim, because "we stopped believing
+    it" with no reference is the same unexamined move as believing it in the first place.
+    """
+    from datetime import datetime, timezone
+
+    from ..core.models import AuditLog, Lesson
+
+    if len(str(reason).split()) < 4 or not str(evidence_ref).strip():
+        raise WithdrawRefused("a withdrawal says why, and cites the evidence that overturned it")
+    with db.session() as s:
+        row = s.get(Lesson, lesson_id)
+        if row is None:
+            raise WithdrawRefused(f"no lesson {lesson_id}")
+        if row.withdrawn_at is not None:
+            return {"lesson": lesson_id, "withdrawn": False, "already": True}
+        row.withdrawn_at = datetime.now(timezone.utc)
+        row.withdrawn_reason = f"{reason.strip()} [evidence: {evidence_ref.strip()}]"
+        s.add(AuditLog(actor=(withdrawn_by or "unattributed")[:64], action="lesson.withdrawn",
+                       artifact=f"lessons:{lesson_id}",
+                       detail={"reason": reason.strip()[:400],
+                               "evidence_ref": evidence_ref.strip()[:200]}))
+        return {"lesson": lesson_id, "withdrawn": True,
+                "at": row.withdrawn_at.isoformat()}
 
 
 def compounding(db, *, stale_after_days: int = 30) -> dict:

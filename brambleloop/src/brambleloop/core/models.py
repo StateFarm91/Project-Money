@@ -1343,6 +1343,12 @@ class Improvement(Base):
                                                          nullable=True)
     reverted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
                                                          nullable=True)
+    # F-398 (audit trail): set when the change is promoted. `build_sha` is the commit the
+    # running image was built from (None when the platform does not say -- never a guess);
+    # `spend_cad` is recorded spend attributed to this improvement (cost rows carrying
+    # detail.improvement_id), None when none is attributed rather than a CA$0.00 claim.
+    build_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    spend_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class Lesson(Base):
@@ -1360,6 +1366,10 @@ class Lesson(Base):
     routed_to: Mapped[list] = mapped_column(JSON, default=list)
     acted_on_by: Mapped[list] = mapped_column(JSON, default=list)
     superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # F-605: a claim the company no longer stands behind, kept (never deleted) with why.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    withdrawn_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class CapabilityPoint(Base):
