@@ -2834,14 +2834,40 @@ def api_swarm_runtime() -> dict:
     """
     from ..swarm.orchestrate import agent_quality, latest_allocation, orphans, work_items
 
+    from ..swarm import metrics as swarm_metrics
+
     items = work_items(db)
+    rs = runner.STATE.to_dict()
+    target = rs.get("worker_target")
+
+    def _guard(fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - one unreadable metric is UNKNOWN
+            return {"reading": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+
     return {
         "agent_quality": agent_quality(db),
         "allocation": latest_allocation(db) or {"reading": "UNMEASURED",
                                                 "why": "no allocation in six hours"},
         "orphans": orphans([e["item"] for e in items]),
         "work_items": len(items),
+        # W4-SWARMMETRICS: F-655 starved READY work, F-730 untouched opportunities, F-489
+        # pool utilisation and duplicate work avoided (process-local counters).
+        "starved_ready": _guard(lambda: swarm_metrics.starved_ready(
+            db, worker_target=target if isinstance(target, int) else None)),
+        "untouched_opportunities": _guard(lambda: swarm_metrics.untouched_opportunities(db)),
+        "parallelism": _guard(lambda: swarm_metrics.parallelism(rs)),
     }
+
+
+@app.get("/api/departments")
+def api_departments() -> dict:
+    """F-487: one row per agent -- running job, pending/deferred, parked job types, last
+    completion, month spend, idle flag. Read-only."""
+    from ..swarm import metrics as swarm_metrics
+
+    return swarm_metrics.agents_view(db)
 
 
 @app.get("/api/experiments")
@@ -2898,6 +2924,20 @@ def api_league() -> dict:
         "note": ("A challenger that brings its own tasks wins every time, so the task set is "
                  "shared and fixed. Cost and reliability are outcomes, not footnotes (#95)."),
     }
+
+
+@app.get("/api/etsy/surfaces")
+def api_etsy_surfaces() -> dict:
+    """F-600: the Etsy surface registry at runtime -- coverage, the A/B/C/D work plan, and
+    the bounded first-sale list with each surface's evidence state (F-498). Read-only; it
+    reads recorded observations and never calls Etsy."""
+    from ..intel import etsy_surfaces
+    from ..launch.readiness import etsy_first_sale_surfaces
+
+    req = etsy_first_sale_surfaces(db)
+    return {"coverage": etsy_surfaces.coverage(), "work_plan": etsy_surfaces.work_plan(),
+            "first_sale": {"ready": req.ready, "blocked_by": req.blocked_by,
+                           **req.evidence}}
 
 
 @app.get("/api/etsy")
@@ -5664,6 +5704,26 @@ def dashboard() -> str:
             ("mission incidents", str(len(report["mission_incidents"]))),
         ], [["Mission", "State"]], "")
 
+    def _etsy_surfaces() -> str:
+        # F-600: the Etsy surface registry at runtime -- coverage, the work plan, and the
+        # bounded first-sale list with each surface's evidence state (F-498).
+        from ..intel import etsy_surfaces as es
+        from ..launch.readiness import etsy_first_sale_surfaces
+
+        cov = es.coverage()
+        req = etsy_first_sale_surfaces(db)
+        head = rows([
+            ("surfaces", str(cov["surfaces"])),
+            ("verdicts", ", ".join(f"{k}: {v}" for k, v in cov["verdicts"].items())),
+            ("work plan", ", ".join(f"{k}: {len(v)}" for k, v in es.work_plan().items())),
+            ("without a collector", ", ".join(cov["without_collector"]) or "none"),
+            ("first-sale list ready", "yes" if req.ready else f"no ({req.blocked_by})"),
+        ], [["Etsy surfaces", "State"]], "")
+        return head + rows(
+            [(r["surface"], r["evidence_state"], r["owner_action"] or "-")
+             for r in req.evidence["surfaces"]],
+            [["First-sale surface", "Evidence", "Owner action"]], "no first-sale surface")
+
     def _seasonal() -> str:
         from ..seasonal.leadtime import catalogue_plans
 
@@ -5781,6 +5841,7 @@ def dashboard() -> str:
         _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
+        + _block("Etsy surfaces", _etsy_surfaces)
         + _block("Seasonal deadlines", _seasonal)
         + _block("CA$5,000/month model", _scale)
         + _block("Creative standard", _creative)

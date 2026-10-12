@@ -322,7 +322,11 @@ def openapi_reverify(document: Mapping | str) -> dict:
         if reasons:
             affected.append({"surface": s.key, "verdict": s.verdict, "reasons": reasons})
     status = OPENAPI_DRIFTED if (drift or removed or added) else OPENAPI_CURRENT
+    # F-546: the document's own fingerprint, so a change Etsy made that moved no verdict
+    # (prose, schemas) is still seen and attributable to a version -- reported, never a drift.
+    fp = document_fingerprint(text)
     return {"status": status, "version": version, "operations": len(ops),
+            "fingerprint": fp, "fingerprint_matches_pinned": fp == OPENAPI_SHA256,
             "removed_operations": removed, "added_operations": added,
             "absence_drift": drift, "affected": affected,
             "pinned": {"version": OPENAPI_VERSION, "sha256": OPENAPI_SHA256,
