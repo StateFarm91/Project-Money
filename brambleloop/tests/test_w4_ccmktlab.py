@@ -72,7 +72,7 @@ def test_registered_experiments_show_rules_and_unmeasured_attribution():
 
     db = _db()
     assert M.experiments(db)["status"] == "UNKNOWN"
-    e = E.Experiment(key="placemat.price", hypothesis="CA$6.50 converts no worse",
+    e = E.Experiment(key="placemat.price", hypothesis="Lowering the placemat price to CA$6.50 raises conversion because price is the main objection in the shop",
                      metric="conversion", design="pre_post", success_threshold=0.03,
                      failure_threshold=0.01, minimum_sample=100,
                      stop_on=date.today() + timedelta(days=30), owner="growth",
@@ -83,7 +83,7 @@ def test_registered_experiments_show_rules_and_unmeasured_attribution():
     row = env["items"][0]
     keys = list(row)
     assert keys[0] == "title" and tuple(keys[1:7]) == SIX, keys
-    assert row["hypothesis"] == "CA$6.50 converts no worse"
+    assert row["hypothesis"].startswith("Lowering the placemat price")
     assert row["baseline"] == "UNKNOWN"
     assert row["attribution"].startswith("UNMEASURED"), row["attribution"]
     assert row["stop_rule"] == "stop when conversion <= 0.01 after 100 sample(s)", row
