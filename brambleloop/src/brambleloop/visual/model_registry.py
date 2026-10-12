@@ -428,7 +428,11 @@ def compare_prompt() -> str:
         "Face and head:\n"
         + "\n".join(f"- {d}" for d in identity.FACE_DIMENSIONS)
         + "\n\nWhole-person morphology:\n"
-        + "\n".join(f"- {d}" for d in identity.MORPHOLOGY_DIMENSIONS))
+        + "\n".join(f"- {d}" for d in identity.MORPHOLOGY_DIMENSIONS)
+        + "\n\nAlso add a key \"margins\": an object giving, for every dimension you "
+          "answered match or drift, \"clear\" when the answer is not close or "
+          "\"borderline\" when it nearly went the other way. This grades your answer; it "
+          "never changes it.")
 
 
 def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=None) -> dict:
@@ -499,7 +503,19 @@ def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=Non
         # Anything that is not one of the three answers is unmeasurable, never a match. A
         # judge that wandered off the vocabulary has not said the woman is the same.
         out[dimension] = value if value in identity.VERDICTS else identity.UNMEASURABLE
+    # F-218: the judge's own grade of each answer, so a run of near-threshold passes can be
+    # trended before it becomes drift. Off-vocabulary or missing is "unknown", never "clear";
+    # the verdicts above are unchanged by it.
+    margins = parsed.get("margins") if isinstance(parsed.get("margins"), dict) else {}
+    out["margins"] = {
+        d: (str(margins.get(d)).strip().lower()
+            if str(margins.get(d) or "").strip().lower() in MARGIN_GRADES else "unknown")
+        for d in identity.DRIFT_DIMENSIONS
+        if out[d] in (identity.MATCH, identity.DRIFT)}
     return out
+
+
+MARGIN_GRADES = ("clear", "borderline")
 
 
 # ---------------------------------------------------------------------------

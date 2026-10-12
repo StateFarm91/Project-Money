@@ -219,6 +219,17 @@ def _merge_observations(face_seen: dict, body_seen: dict, *, has_body: bool) -> 
     return seen
 
 
+def _merge_margins(face_seen: dict, body_seen: dict, *, has_body: bool) -> dict:
+    """The judge's grade per dimension, from the comparison that could see it (F-218)."""
+    from ..visual import identity
+
+    face = (face_seen or {}).get("margins") or {}
+    body = ((body_seen or {}).get("margins") or {}) if has_body else {}
+    out = {d: face[d] for d in identity.FACE_DIMENSIONS if d in face}
+    out.update({d: body[d] for d in identity.MORPHOLOGY_DIMENSIONS if d in body})
+    return out
+
+
 def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | None = None,
          work_dir: str | None = None, provider_key: str = "", generator=None,
          observer=None, inspector=None, motif_judger=None, realism_judger=None,
@@ -420,6 +431,9 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
             # The scored verdict per dimension, which `visual.drift_series` reads as a series
             # across batches (#201): per-frame "observed" can be free text.
             "dimensions": drift.get("dimensions") or {},
+            # F-218: the judge's grade per dimension (clear / borderline / unknown), each
+            # from the comparison that could see the dimension.
+            "margins": _merge_margins(face_seen, body_seen, has_body=bool(body_reference)),
             "observed": seen,
             "observed_face": face_seen,
             "observed_body": body_seen,

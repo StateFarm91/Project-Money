@@ -58,17 +58,28 @@ def series(db, *, now: datetime | None = None) -> dict:
         b = batches.setdefault(key, {"at": (at or now).isoformat(), "frames": 0,
                                      "counts": {}})
         b["frames"] += 1
+        margins = (detail.get("identity") or {}).get("margins") or {}
         for d in identity.DRIFT_DIMENSIONS:
             v = str(dims.get(d) or identity.UNMEASURABLE).lower()
-            c = b["counts"].setdefault(d, {"match": 0, "drift": 0, "unmeasurable": 0})
-            c[v if v in c else "unmeasurable"] += 1
+            c = b["counts"].setdefault(d, {"match": 0, "drift": 0, "unmeasurable": 0,
+                                           "near_pass": 0, "graded_pass": 0})
+            c[v if v in ("match", "drift", "unmeasurable") else "unmeasurable"] += 1
+            # F-218: a pass the judge graded borderline is a near-threshold pass.
+            if v == "match" and str(margins.get(d) or "") in ("clear", "borderline"):
+                c["graded_pass"] += 1
+                if margins.get(d) == "borderline":
+                    c["near_pass"] += 1
     ordered = sorted(batches.items(), key=lambda kv: kv[1]["at"])
     per_dim: dict[str, list] = {}
+    near_dim: dict[str, list] = {}
     for _key, b in ordered:
         for d, c in b["counts"].items():
             readable = c["match"] + c["drift"]
             per_dim.setdefault(d, []).append(
                 round(c["drift"] / readable, 4) if readable >= MIN_READABLE else None)
+            graded = c.get("graded_pass", 0)
+            near_dim.setdefault(d, []).append(
+                round(c.get("near_pass", 0) / graded, 4) if graded >= MIN_READABLE else None)
     gradual = []
     for d, shares in per_dim.items():
         known = [x for x in shares if x is not None]
@@ -82,8 +93,26 @@ def series(db, *, now: datetime | None = None) -> dict:
         if rising or late - early >= RISE:
             gradual.append({"dimension": d, "shares": known, "early": round(early, 4),
                             "late": round(late, 4), "rising": rising})
+    # F-218: the same trend rule over the share of passes graded borderline. A rising run of
+    # near-threshold passes is reported before any of them becomes drift. Ungraded passes are
+    # not counted as clear: a dimension with too few graded passes has no reading.
+    near_threshold = []
+    for d, shares in near_dim.items():
+        known = [x for x in shares if x is not None]
+        if len(known) < TREND_BATCHES:
+            continue
+        tail = known[-TREND_BATCHES:]
+        rising = all(b >= a for a, b in zip(tail, tail[1:])) and tail[-1] > tail[0]
+        half = len(known) // 2
+        early = sum(known[:half]) / half if half else 0.0
+        late = sum(known[half:]) / (len(known) - half)
+        if rising or late - early >= RISE:
+            near_threshold.append({"dimension": d, "near_pass_shares": known,
+                                   "early": round(early, 4), "late": round(late, 4),
+                                   "rising": rising})
     return {"batches": len(ordered), "frames": sum(b["frames"] for _k, b in ordered),
             "per_dimension": per_dim, "gradual_drift": gradual,
+            "near_pass_per_dimension": near_dim, "near_threshold_trend": near_threshold,
             "measurable": len(ordered) >= TREND_BATCHES,
             "reason": ("" if len(ordered) >= TREND_BATCHES else
                        f"{len(ordered)} batch(es) of model-bearing frames in {WINDOW_DAYS} "
