@@ -511,6 +511,11 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
     whose spend is genuinely shared passes `detail={"attribution": "shared"}` to keep it
     untagged even inside a product job.
     """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((agent, purpose, provider, model, department, product_slug, detail,
+                    evidence_ref), context="finance")
     import math
 
     from ..core.models import CostEntry

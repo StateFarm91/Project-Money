@@ -68,6 +68,11 @@ def digest(value):
 
 
 def approve(db, *, authorization, slug, version, expected_digest, reason, release=""):
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((authorization, slug, version, expected_digest, reason, release),
+                   context="activation")
     opsauth.check(authorization)
     if not isinstance(reason, str) or not reason.strip():
         raise ValueError("owner decision reason required")

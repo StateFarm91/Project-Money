@@ -357,6 +357,13 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     with the ceiling, the estimate and what was committed, because a guard whose refusals
     cannot be counted is a guard nobody can tell from one that never fires.
     """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV (spec/07 Ruling 2; PRIVATE_LAURA_TRACE Step 4): owner-private values never steer a
+    # spend decision. Stdlib-only firewall; refuses tagged input, carries no content.
+    reject_private((agent, purpose, evidence_ref, product_slug, model, provider, job_id,
+                    holder), context="spend")
+
     from ..finance import reservations
 
     if reserve and not (str(purpose or "").strip() or str(evidence_ref or "").strip()):
