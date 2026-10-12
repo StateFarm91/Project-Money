@@ -660,6 +660,12 @@ try {
   const firstInsight = await page.$eval("#main .stack > .card .card-title", (e) => e.textContent).catch(() => "");
   check(firstInsight === "Marketing & customers" && /ROAS \(evidence-attributed Etsy Ads\)/.test(custText) && /Support cases \(owner-recorded\)/.test(custText),
     "ccall insights: combined marketing & customers view leads Insights (F-622)", firstInsight);
+  // W4-CCMKTLAB (F-684): every channel and experiment row shows all six criterion fields.
+  const lab = await page.evaluate(() => Array.from(document.querySelectorAll("#main .card")).filter((c) => /^Marketing lab:/.test(c.querySelector(".card-title")?.textContent || ""))
+    .map((c) => ({ t: c.querySelector(".card-title").textContent, rows: Array.from(c.querySelectorAll("li.row")).map((r) => Array.from(r.querySelectorAll("dt")).map((d) => d.textContent)) })));
+  const six = ["Hypothesis", "Baseline", "Budget", "Attribution", "Stop Rule", "Scale Rule"];
+  check(lab.length === 2 && lab.every((c) => c.rows.length >= 1 && c.rows.every((dts) => six.every((f) => dts.includes(f)))),
+    "ccmktlab insights: channels and experiments each show hypothesis, baseline, budget, attribution and stop/scale rules", JSON.stringify(lab).slice(0, 400));
   await noHScroll("ccfm1 insights");
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();

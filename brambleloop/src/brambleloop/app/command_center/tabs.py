@@ -947,7 +947,18 @@ def insights(db) -> dict:
                              **_customer_sections(db),
                              # W4-CCALL (F-622): the combined marketing & customers view.
                              "marketing_customers": guard(
-                                 "marketing_customers", lambda: marketing_customers(db))})
+                                 "marketing_customers", lambda: marketing_customers(db)),
+                             # W4-CCMKTLAB (F-684): the Marketing Laboratory.
+                             **_marketing_lab(db)})
+
+
+def _marketing_lab(db) -> dict:
+    from . import marketing_lab
+
+    return {"marketing_lab_channels": guard("marketing_lab_channels",
+                                            lambda: marketing_lab.channels(db)),
+            "marketing_lab_experiments": guard("marketing_lab_experiments",
+                                               lambda: marketing_lab.experiments(db))}
 
 
 def _customer_sections(db) -> dict:

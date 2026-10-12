@@ -208,6 +208,20 @@ export const DATA = {
       { metric: "roas", label: "ROAS (evidence-attributed Etsy Ads)", value: null, state: "UNKNOWN", why: "ad spend not measured; ROAS is not computed" },
       { metric: "support_cases", label: "Support cases (owner-recorded)", value: 2, escalated: 1, state: "OWNER_RECORDED" }],
       { reason: "orders UNKNOWN: order source not connected and read" }),
+    // W4-CCMKTLAB (F-684): channel and experiment rows lead with the criterion's six fields.
+    marketing_lab_channels: env("OK", [
+      { label: "Paid growth (Etsy Ads)", hypothesis: "ads return at least 1.30x contribution per ad dollar", baseline: "UNKNOWN", budget: "CA$3.00/day, CA$25.00/campaign, CA$60.00/month (hard caps, enforced before spend)",
+        attribution: "evidence-attributed Etsy Ads orders only", stop_rule: "pause on CAC above CA$6.00, test loss CA$25.00", scale_rule: "scale only after 200 clicks and 15 conversions",
+        channel: "paid", state: "GATED", why: "ad spend not measured; ROAS is not computed", source: "commerce.paid_media.CONSERVATIVE_CAPS" },
+      { label: "Offsite Ads", hypothesis: "offsite-attributed orders remain contribution-positive after the fee", baseline: "UNKNOWN", budget: "no budget: a fee of 15% (12% reduced) per attributed order",
+        attribution: "Etsy attributes an order within 30 days of an offsite ad click", stop_rule: "opt out while the fee makes attributed orders contribution-negative", scale_rule: "participation becomes mandatory above US$10,000 trailing sales",
+        channel: "offsite_ads", state: "TERMS_READ", why: "no live listing", source: "gates.policy_knowledge" },
+    ], { can_spend: false }),
+    marketing_lab_experiments: env("OK", [
+      { title: "placemat: launch-price-test", hypothesis: "CA$6.50 converts no worse than CA$7.50", baseline: "UNKNOWN", budget: "CA$0.00 registered cost",
+        attribution: "UNMEASURED: no observation attributed yet", stop_rule: "stop when conversion <= 0.01 after 100 sample(s)", scale_rule: "retain/scale when conversion >= 0.03 after 100 sample(s)",
+        state: "registered", decision: "UNDECIDED", source: "registered_experiments:1" },
+    ]),
     customer_orders: env("UNKNOWN", [{ metric: "orders", value: null, state: "UNKNOWN", why: "order source not connected and read" }], { reason: "order source not connected and read" }),
     customer_support: env("OK", [{ metric: "cases", value: 2, state: "OWNER_RECORDED" }, { metric: "awaiting_reply", value: 1, state: "OWNER_RECORDED" }]),
     customer_reviews: env("UNKNOWN", [], { reason: "no review source is connected" }),
