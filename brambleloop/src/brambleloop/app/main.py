@@ -2834,14 +2834,40 @@ def api_swarm_runtime() -> dict:
     """
     from ..swarm.orchestrate import agent_quality, latest_allocation, orphans, work_items
 
+    from ..swarm import metrics as swarm_metrics
+
     items = work_items(db)
+    rs = runner.STATE.to_dict()
+    target = rs.get("worker_target")
+
+    def _guard(fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - one unreadable metric is UNKNOWN
+            return {"reading": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+
     return {
         "agent_quality": agent_quality(db),
         "allocation": latest_allocation(db) or {"reading": "UNMEASURED",
                                                 "why": "no allocation in six hours"},
         "orphans": orphans([e["item"] for e in items]),
         "work_items": len(items),
+        # W4-SWARMMETRICS: F-655 starved READY work, F-730 untouched opportunities, F-489
+        # pool utilisation and duplicate work avoided (process-local counters).
+        "starved_ready": _guard(lambda: swarm_metrics.starved_ready(
+            db, worker_target=target if isinstance(target, int) else None)),
+        "untouched_opportunities": _guard(lambda: swarm_metrics.untouched_opportunities(db)),
+        "parallelism": _guard(lambda: swarm_metrics.parallelism(rs)),
     }
+
+
+@app.get("/api/departments")
+def api_departments() -> dict:
+    """F-487: one row per agent -- running job, pending/deferred, parked job types, last
+    completion, month spend, idle flag. Read-only."""
+    from ..swarm import metrics as swarm_metrics
+
+    return swarm_metrics.agents_view(db)
 
 
 @app.get("/api/experiments")
