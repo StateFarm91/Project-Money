@@ -251,6 +251,7 @@ write_record() {
   RR_STATUS="$1" RR_FINISHED="${2:-}" RR_DURATION="${3:-}" RR_EXIT="${4:-}" \
   RR_TOTAL="${total:-0}" RR_FAILED="${failed:-0}" RR_FAILTESTS="${fail_tests:-0}" \
   RR_SKIPS="${skip_tests:-0}" RR_FAILING="${failing_list:-}" RR_NOPASS="${nopass_list:-}" \
+  RR_ENVFAIL="${envfail_list:-}" \
   RR_END_SHA="${END_SHA:-}" RR_RECORD="$RECORD_FILE" RR_LOG="$LOG_FILE" RR_RUN_ID="$RUN_ID" \
   RR_STARTED="$RUN_STARTED" RR_SHA="$GIT_SHA" RR_TREE="$TREE_STATE" RR_DIRTY="$DIRTY_PATHS" \
   RR_SCOPE="$SCOPE" RR_SUITES="$(printf '%s\n' "${SUITES[@]}")" RR_PARALLEL="$PARALLEL" \
@@ -274,6 +275,9 @@ rec = {
     "suites_total": len(lines("RR_SUITES")),
     "suites_failing": num("RR_FAILED") if status != "running" else None,
     "failing_suites": lines("RR_FAILING"), "suites_reporting_no_passes": lines("RR_NOPASS"),
+    # F-150 (W4-HYGIENE): failing suites whose output names an environment cause (disk,
+    # permissions, network, provider) -- "suite:class". Informational: still failures.
+    "environment_failures": lines("RR_ENVFAIL"),
     # Counted from each suite's own column-zero markers. OK is what the TOTAL line has always
     # counted; FAIL and SKIP are the same convention's other markers, and a suite that fails
     # by crashing prints neither -- its exit code, in suites_failing, is authoritative.
@@ -445,7 +449,17 @@ done
 wait
 
 total=0; failed=0; fail_tests=0; skip_tests=0; failing_list=""; nopass_list=""
-leak_entries=0; leak_bytes=0; leak_list=""
+leak_entries=0; leak_bytes=0; leak_list=""; envfail_list=""
+# F-150 (W4-HYGIENE): classify a failing suite's output before anybody reverts code over it.
+# A full disk, a permission error, an unreachable network or a provider refusal fails a suite
+# without saying anything about the code under test; the line says so beside the failure.
+classify_env() {
+  if grep -qiE 'ENOSPC|No space left on device|Disk quota exceeded' "$1"; then echo disk
+  elif grep -qiE 'EACCES|Permission denied|Operation not permitted|Read-only file system' "$1"; then echo permissions
+  elif grep -qiE 'Temporary failure in name resolution|Network is unreachable|Connection refused|Connection reset by peer|Name or service not known' "$1"; then echo network
+  elif grep -qiE 'credit balance is too low|insufficient_quota|rate.?limit|overloaded_error|HTTP 529' "$1"; then echo provider
+  fi
+}
 {
 for t in "${SUITES[@]}"; do
   safe="${t//\//_}"
@@ -466,6 +480,13 @@ for t in "${SUITES[@]}"; do
   skip_tests=$((skip_tests + $(grep -c '^SKIP' "$outdir/$safe.out" || true)))
   code=$(cat "$outdir/$safe.code" 2>/dev/null || echo 1)
   [ "$code" -ne 0 ] && failed=$((failed+1)) && failing_list+="$t"$'\n'
+  if [ "$code" -ne 0 ]; then
+    envc=$(classify_env "$outdir/$safe.out")
+    if [ -n "$envc" ]; then
+      echo "   ENVIRONMENT FAILURE ($envc): the output names an environment cause; fix the environment before reverting any code"
+      envfail_list+="$t:$envc"$'\n'
+    fi
+  fi
   # A suite that exits clean and reports no passes is not a passing suite; it is a suite
   # whose results are not reaching this total. Nine files printing a lowercase marker were
   # counted as zero here for a whole session -- exit codes still caught their failures, so

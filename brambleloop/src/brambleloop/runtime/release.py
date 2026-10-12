@@ -6327,6 +6327,23 @@ def handle_health_sweep(ctx: JobContext) -> dict:
     detail["escalated"] = raised
     detail["recovered"] = life["resolved"]
 
+    # F-149 (W4-HYGIENE): one disk sample per sweep, and an incident while the trend says the
+    # disk will fill (growth, not level). Guarded: it can never fail the health sweep.
+    try:
+        health.record_disk_sample(ctx.db, health.disk_facts())
+        growth = health.disk_growth(ctx.db)
+        detail["disk_growth"] = growth
+        with ctx.db.session() as session:
+            incident_lifecycle.reconcile(
+                session, "disk:growth", lambda _row: growth["state"] == "ALARM",
+                resolution=f"disk growth read {growth['state']}: {growth['why']}")
+            if growth["state"] == "ALARM":
+                incident_lifecycle.open_or_restate(
+                    session, signature="disk:growth", severity="P2",
+                    summary=f"disk growth alarm: {growth['why']}", detail=growth)
+    except Exception as exc:  # noqa: BLE001
+        detail["disk_growth"] = {"state": "UNKNOWN", "why": type(exc).__name__}
+
     # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
     # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning
     # recurrence (F-392), the rollback baseline (F-176) and the daily readiness re-proof

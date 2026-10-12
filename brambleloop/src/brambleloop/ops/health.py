@@ -697,6 +697,87 @@ def disk_facts() -> dict:
     }
 
 
+# F-149 (W4-HYGIENE): growth, not only level. A disk with room today and a temp-dir count
+# climbing every sweep runs out tonight; a single reading cannot see that. Each health sweep
+# records one sample, and the trend over the window raises an alarm before ENOSPC.
+DISK_SAMPLE_KIND = "disk.sample"
+DISK_WINDOW_HOURS = 24
+DISK_MIN_SAMPLES = 3
+TEMP_GROWTH_ALARM_PER_HOUR = 5.0      # leftover temp dirs per hour, sustained
+FULL_WITHIN_HOURS_ALARM = 24.0        # projected exhaustion of the temp filesystem
+
+
+def record_disk_sample(db, facts: dict, *, now: datetime | None = None) -> dict | None:
+    """Persist one disk sample (temp dirs left, free GB) for the growth trend. Idempotent per
+    minute. A filesystem that could not be read is stored as None, never as 0."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    tmp = (facts.get("filesystems") or {}).get("tmp") or {}
+    payload = {"at": now.isoformat(),
+               "temp_dirs_left_behind": facts.get("temp_dirs_left_behind"),
+               "free_gb": tmp.get("free_gb") if "error" not in tmp else None,
+               "total_gb": tmp.get("total_gb") if "error" not in tmp else None}
+    key = now.strftime("%Y%m%dT%H%M")
+    with db.session() as s:
+        if s.scalar(select(OperatingReading.id).where(
+                OperatingReading.kind == DISK_SAMPLE_KIND,
+                OperatingReading.period_key == key)) is not None:
+            return None
+        s.add(OperatingReading(kind=DISK_SAMPLE_KIND, period_key=key, payload=payload, at=now))
+    return payload
+
+
+def disk_growth(db, *, now: datetime | None = None) -> dict:
+    """OK / ALARM / UNKNOWN from the samples in the window: the temp-dir growth rate and the
+    projected hours until the temp filesystem is full at the observed rate of loss."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=DISK_WINDOW_HOURS)
+    with db.session() as s:
+        rows = [r.payload for r in s.scalars(
+            select(OperatingReading).where(OperatingReading.kind == DISK_SAMPLE_KIND,
+                                           OperatingReading.at >= since)
+            .order_by(OperatingReading.at))]
+    samples = [r for r in rows if r.get("at")]
+    if len(samples) < DISK_MIN_SAMPLES:
+        return {"state": "UNKNOWN", "samples": len(samples),
+                "why": f"fewer than {DISK_MIN_SAMPLES} samples in {DISK_WINDOW_HOURS} h"}
+    t0 = datetime.fromisoformat(samples[0]["at"])
+    t1 = datetime.fromisoformat(samples[-1]["at"])
+    hours = max((t1 - t0).total_seconds() / 3600.0, 1e-9)
+    temps = [r.get("temp_dirs_left_behind") for r in samples
+             if isinstance(r.get("temp_dirs_left_behind"), int)]
+    frees = [r.get("free_gb") for r in samples if isinstance(r.get("free_gb"), (int, float))]
+    temp_rate = ((temps[-1] - temps[0]) / hours) if len(temps) >= 2 else None
+    rising = (sum(1 for a, b in zip(temps, temps[1:]) if b > a) / (len(temps) - 1)
+              if len(temps) >= 2 else None)
+    drop = ((frees[0] - frees[-1]) / hours) if len(frees) >= 2 else None
+    to_full = (round(frees[-1] / drop, 1) if drop and drop > 0 else None)
+    reasons = []
+    if temp_rate is not None and rising is not None and temp_rate >= TEMP_GROWTH_ALARM_PER_HOUR \
+            and rising >= 0.8:
+        reasons.append(f"leftover temp dirs rising {temp_rate:.1f}/h in {rising:.0%} of steps")
+    if to_full is not None and to_full <= FULL_WITHIN_HOURS_ALARM:
+        reasons.append(f"temp filesystem full in ~{to_full} h at the observed rate")
+    out = {"state": "ALARM" if reasons else "OK", "samples": len(samples),
+           "window_hours": round(hours, 2),
+           "temp_dirs_per_hour": None if temp_rate is None else round(temp_rate, 3),
+           "temp_dirs_rising_share": None if rising is None else round(rising, 3),
+           "free_gb_lost_per_hour": None if drop is None else round(drop, 4),
+           "projected_hours_to_full": to_full, "why": "; ".join(reasons) or
+           "no sustained temp-dir growth and no projected exhaustion within the alarm horizon"}
+    if not temps or not frees:
+        out["state"] = "UNKNOWN" if not reasons else out["state"]
+        out["why"] += "; a measurement was missing from the samples"
+    return out
+
+
 BOOT_ACTION = "runtime.started"
 
 
