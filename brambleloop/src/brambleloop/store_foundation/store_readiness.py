@@ -50,9 +50,15 @@ def _item(id_, area, item, status, *, evidence=(), gate="", live="", owner_actio
             "owner_action": owner_action, "note": note}
 
 
-def _env_presence(env) -> dict:
+def _env_presence(env, db=None) -> dict:
     e = env if env is not None else os.environ
-    return {k: bool((e.get(k) or "").strip()) for k in CREDENTIAL_ENV}
+    out = {k: bool((e.get(k) or "").strip()) for k in CREDENTIAL_ENV}
+    if not out["ETSY_SHOP_ID"] and db is not None:
+        # W4-ETSYSHOPID: the name-verified binding from the owner's grant counts as the id.
+        from ..integrations.etsy_shop_binding import bound_shop_id
+
+        out["ETSY_SHOP_ID"] = bool(bound_shop_id(db))
+    return out
 
 
 # ---- the settings checklist (research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md) -------------
@@ -149,7 +155,7 @@ def build(db=None, *, env: dict | None = None, now: datetime | None = None) -> d
     from . import content, live_state, storefront_gate
 
     now = now or datetime.now(timezone.utc)
-    creds = _env_presence(env)
+    creds = _env_presence(env, db)
     surfaces = content.build(db)
     drift = live_state.drift(db, now=now, surfaces=surfaces)
     pkg_problems = shop_package.check_package()

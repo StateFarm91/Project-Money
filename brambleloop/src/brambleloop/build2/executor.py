@@ -141,6 +141,13 @@ def _env_gate(*names: str):
     return check
 
 
+def _shop_id_known(db, env) -> bool:
+    """`ETSY_SHOP_ID`, or the shop id bound from the owner's grant after its name matched."""
+    from ..integrations.etsy_shop_binding import shop_id_present
+
+    return shop_id_present(db, env)
+
+
 def _has_customers(db, env) -> bool:
     """At least one real money event is recorded. Counted, not asked about.
 
@@ -582,7 +589,7 @@ GATES: tuple[Gate, ...] = (
          # A variable can be set by anyone at any time; a shop cannot. Requiring both means
          # the gate cannot open ahead of the thing it stands for.
          lambda db, env: bool(_env_gate("ETSY_SHOP_NAME")(db, env)
-                              or _env_gate("ETSY_SHOP_ID")(db, env)) and _etsy_usable(db, env),
+                              or _shop_id_known(db, env)) and _etsy_usable(db, env),
          (),
          "the shop's public identifier is set AND a recorded etsy.probe succeeded -- the "
          "identifier alone is a variable, which is not a shop"),

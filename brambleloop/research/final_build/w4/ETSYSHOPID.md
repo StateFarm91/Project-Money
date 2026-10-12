@@ -61,8 +61,22 @@ test_etsy_exercise, test_etsy_capability, test_etsy_transport, test_etsy_surface
 test_oauth_security_audit, test_k8_shop_cx, test_w4_etsycomm, test_w3_etsy_upload_readback,
 test_w3_tmp_hygiene, test_vacuity, test_cost_governance_wave2.
 
-## Not done / notes
-- `launch/readiness.py` calls `Credentials.from_env()` without `db`, so it still reports no
-  Etsy credentials unless ETSY_SHOP_ID is set. Left unchanged (out of scope).
+## Presence checks (follow-up, same branch)
+Every place that read `ETSY_SHOP_ID` directly now also accepts the stored binding, and only
+when its `shop_name` is the expected shop (`etsy_shop_binding.bound_shop_id`):
+- `launch/readiness.py` `etsy_integration`: `credentials_present(db)` (keystring + shop id
+  from env or binding + a token: env access/refresh or stored refresh that opens). Ready still
+  needs the proven round trip.
+- `ops/dependencies.py` `etsy_account.configured` (env_probe ETSY_SHOP_ID): binding counts
+  when `map_state` has a db.
+- `build2/executor.py` gate `etsy_shop`: `ETSY_SHOP_NAME or shop id known`, still AND a
+  recorded successful probe.
+- `store_foundation/store_readiness.py` `credentials_present.ETSY_SHOP_ID`.
+- `Credentials.from_env` uses the same name-verified reader.
+Neither env var nor verified binding: all report absent/False as before (tested, including a
+stored binding with the wrong shop name). Tests: two more in
+`tests/test_w4_etsy_shop_binding.py` (9 total).
+
+## Notes
 - Unverified until deployed: the real token prefix and the real getShopByOwnerUserId body.
   If the prefix is not numeric the resolver falls back to getMe.

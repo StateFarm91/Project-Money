@@ -37,6 +37,54 @@ def expected_shop_name() -> str:
     return ETSY_HANDLE
 
 
+def bound_shop_id(db) -> str:
+    """The stored shop id, only if it was bound to the expected shop name; else "".
+
+    The one answer every "is the shop id known?" check should read besides `ETSY_SHOP_ID`
+    (launch.readiness, ops.dependencies, build2.executor, store_readiness). No network.
+    """
+    if db is None:
+        return ""
+    from ..core import oauth_store
+
+    binding = oauth_store.load_shop_binding(db) or {}
+    if str(binding.get("shop_name") or "") != expected_shop_name():
+        return ""
+    return str(binding.get("shop_id") or "").strip()
+
+
+def shop_id_present(db, env: dict[str, str] | None = None) -> bool:
+    """`ETSY_SHOP_ID` is set, or a name-verified binding is stored."""
+    import os
+
+    e = env if env is not None else os.environ
+    return bool((e.get("ETSY_SHOP_ID") or "").strip() or bound_shop_id(db))
+
+
+def credentials_present(db, env: dict[str, str] | None = None) -> bool:
+    """Whether an authenticated Etsy client could be built here, without making a call.
+
+    Keystring, a shop id (env or binding), and a token: a static access token, an
+    environment refresh token or a stored refresh token that opens. Presence, not proof.
+    """
+    import os
+
+    e = env if env is not None else os.environ
+    key = (e.get("ETSY_KEYSTRING") or e.get("ETSY_API_KEY") or "").strip()
+    if not key or not shop_id_present(db, e):
+        return False
+    if (e.get("ETSY_ACCESS_TOKEN") or "").strip() or (e.get("ETSY_REFRESH_TOKEN") or "").strip():
+        return True
+    if db is None:
+        return False
+    from ..core import oauth_store
+
+    try:
+        return bool(oauth_store.load_refresh_token(db, env=e))
+    except Exception:  # noqa: BLE001 - an unreadable store is an absent credential
+        return False
+
+
 def _user_id_from_token(token: str) -> str:
     prefix = (token or "").split(".", 1)[0]
     return prefix if prefix.isdigit() else ""

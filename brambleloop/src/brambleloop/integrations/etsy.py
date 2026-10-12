@@ -367,8 +367,9 @@ class Credentials:
 
             stored_token = oauth_store.load_refresh_token(db, env=e)
             if not shop:
-                binding = oauth_store.load_shop_binding(db)
-                shop = str((binding or {}).get("shop_id") or "").strip()
+                from .etsy_shop_binding import bound_shop_id
+
+                shop = bound_shop_id(db)
             # Only a token that came *from the store* may be named in a compare-and-set. One
             # read out of the environment has no claim on the row, so its first write adopts
             # whatever is there instead of asserting what it is replacing.

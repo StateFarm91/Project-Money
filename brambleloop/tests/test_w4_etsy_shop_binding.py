@@ -225,6 +225,74 @@ def test_build_client_and_the_daily_credential_health_job_bind_the_shop():
     assert not stub.writes()
 
 
+def test_presence_checks_accept_the_verified_binding_and_stay_honest_without_one():
+    from brambleloop.build2 import executor
+    from brambleloop.ops import dependencies
+    from brambleloop.store_foundation import store_readiness
+
+    bare = {"ETSY_KEYSTRING": "fakekeystring", "BRAMBLELOOP_SECRET_KEY": SEAL}
+    etsy_dep = next(d for d in dependencies.DEPENDENCIES if d.key == "etsy_account")
+    gate = next(g for g in executor.GATES if g.key == "etsy_shop")
+
+    def checks(db):
+        return {
+            "id": etsy_shop_binding.shop_id_present(db, bare),
+            "creds": etsy_shop_binding.credentials_present(db, bare),
+            "dep": etsy_dep.present(bare, db),
+            "gate_id": executor._shop_id_known(db, bare),
+            "store": store_readiness._env_presence(bare, db)["ETSY_SHOP_ID"],
+        }
+
+    # Neither env var nor binding: every check says absent.
+    db = _db()
+    _granted(db)
+    assert not any(checks(db).values()), checks(db)
+    assert etsy_dep.present(bare) is False and etsy_dep.to_dict(bare)["configured"] is False
+    # A binding whose name is not the expected shop is not a shop id (defence in depth).
+    oauth_store.save_shop_binding(db, shop_id="777", shop_name="SomebodyElsesShop")
+    assert not any(checks(db).values()), checks(db)
+    assert Credentials.from_env(ENV, transport=StubEtsy(), db=db) is None
+    # The verified binding plus the stored grant: equivalent to ETSY_SHOP_ID.
+    oauth_store.save_shop_binding(db, shop_id=SHOP_ID, shop_name="BrambleloopStudio")
+    assert all(checks(db).values()), checks(db)
+    assert dependencies.map_state(db, bare)["dependencies"][
+        [r["key"] for r in dependencies.map_state(db, bare)["dependencies"]].index(
+            "etsy_account")]["configured"] is True
+    # The gate still also needs a recorded successful probe: the binding is not a capability.
+    assert gate.open(db, bare) == bool(executor._etsy_usable(db, bare))
+    # The env var alone, with no db, still works as before.
+    assert etsy_shop_binding.shop_id_present(None, dict(bare, ETSY_SHOP_ID="9"))
+    assert not etsy_shop_binding.credentials_present(None, bare)
+
+
+def test_launch_readiness_counts_the_bound_grant_as_a_credential():
+    from brambleloop.launch import readiness
+
+    saved = {k: os.environ.get(k) for k in ENV}
+    os.environ.update(ENV)
+    try:
+        def etsy_item(db):
+            return next(r for r in readiness.assess(db, phase="shadow").requirements
+                        if r.key == "etsy_integration")
+
+        db = _db()
+        Registry(db).seed_defaults()
+        _granted(db)
+        absent = etsy_item(db)
+        oauth_store.save_shop_binding(db, shop_id=SHOP_ID, shop_name="BrambleloopStudio")
+        bound = etsy_item(db)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    assert absent.evidence["credentials_present"] is False
+    assert bound.evidence["credentials_present"] is True
+    # Still not ready: the round trip has not been proven. Presence is not proof.
+    assert bound.ready is False
+
+
 def _run_all() -> int:
     failures = 0
     for name, fn in sorted(globals().items()):
