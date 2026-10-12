@@ -163,6 +163,66 @@ def presentation_quality(frame: dict, *, floor: dict | None = None) -> dict:
                     "every presentation check passed on a verified disclosed render")}
 
 
+def _drawn_colours(manifest: dict) -> set[str]:
+    layout = manifest.get("layout") or {}
+    out = {str(r.get("colour")) for r in (layout.get("rows") or []) + (layout.get("rounds") or [])
+           if r.get("colour")}
+    return out
+
+
+def set_consistency(frames: list[dict]) -> dict:
+    """F-746: every frame in a listing set shows the same product, configuration and colours.
+
+    Pairwise, on facts each frame carries rather than on an opinion of the pictures:
+    * a deterministic frame's manifest names its product, release, CIR fingerprint and the
+      configuration it shows; two different values across the set are a mismatch;
+    * every colour a deterministic frame draws must be one of the certified CIR's colours.
+      A frame with a colour the product does not have shows another product, even when the
+      other frames are right;
+    * two model-bearing frames conditioned on different identity packs are a mismatch (also
+      read by BRAND).
+    Frames with no manifest add nothing here; they are judged by the photographic floors.
+    """
+    mismatches: list[str] = []
+    manifests = [f.get("disclosed_render") for f in frames
+                 if isinstance(f.get("disclosed_render"), dict)]
+    for key in ("slug", "version", "cir_fingerprint"):
+        seen = sorted({str(m.get(key)) for m in manifests if m.get(key)})
+        if len(seen) > 1:
+            mismatches.append(f"{key} differs across frames: {seen}")
+    variants = sorted({str((m.get("represented_variant") or {}).get("key"))
+                       for m in manifests if m.get("represented_variant")})
+    if len(variants) > 1:
+        mismatches.append(f"the frames show different configurations: {variants}")
+    palette: set[str] | None = None
+    slugs = {m.get("slug") for m in manifests if m.get("slug")}
+    versions = {m.get("version") for m in manifests if m.get("version")}
+    if len(slugs) == 1 and len(versions) == 1:
+        try:
+            from .render_verification import authoritative_cir
+
+            cir = authoritative_cir(next(iter(slugs)), next(iter(versions)))
+            palette = set((cir.colors or {}).keys()) if cir is not None else None
+        except Exception:  # noqa: BLE001 - no authority: the colour comparison is not made
+            palette = None
+    if palette:
+        for f in frames:
+            m = f.get("disclosed_render")
+            if not isinstance(m, dict):
+                continue
+            extra = sorted(_drawn_colours(m) - palette)
+            if extra:
+                mismatches.append(f"frame {f.get('position') or f.get('view')} draws "
+                                  f"{extra}, which the product does not have")
+    packs = sorted({str((f.get("conditioned_on") or {}).get("pack_version"))
+                    for f in frames if f.get("carries_model")
+                    and (f.get("conditioned_on") or {}).get("pack_version")})
+    if len(packs) > 1:
+        mismatches.append(f"model frames conditioned on different identities: {packs}")
+    return {"mismatches": mismatches, "compared": len(manifests),
+            "colour_authority": palette is not None}
+
+
 def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
            deterministic_available: bool | None = None,
            gate_open: dict[str, bool] | None = None, start_attempt: int = 0) -> dict:
@@ -285,6 +345,10 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
         elif not any(JOBS.get(r) == "engineering_evidence" for r in roles):
             results[GALLERY] = _verdict(
                 False, "the sequence carries no engineering-evidence frame")
+        elif set_consistency(frames)["mismatches"]:
+            results[GALLERY] = _verdict(
+                False, "the frames do not show one product: "
+                       + "; ".join(set_consistency(frames)["mismatches"])[:300])
         else:
             results[GALLERY] = _verdict(
                 True, f"{len(frames)} frames, each doing a declared job")
