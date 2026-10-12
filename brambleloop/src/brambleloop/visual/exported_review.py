@@ -52,8 +52,6 @@ def applies(db, slug: str, version: str) -> bool:
 def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None = None) -> dict:
     """Describe every exported frame blind and file the reading, bound to its bytes."""
     import os
-    import shutil
-    import tempfile
 
     from ..core.models import AuditLog
     from ..runtime.etsy_ops import certified_images
@@ -73,8 +71,10 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
                                           f"{(served.get('problems') or ['no images'])[:2]}"}
     families = inspection_mod.product_families(authoritative_cir(slug, version))
     frames: dict[str, dict] = {}
-    tmp = tempfile.mkdtemp(prefix="exported_review_")
-    try:
+    from ..core import workspace
+
+    # Scoped to the call (`core.workspace`; prefix counted by `ops.health.TEMP_PREFIXES`).
+    with workspace.work_dir(None, prefix="exported-review-") as tmp:
         for (name, data), row in zip(served["images"], served["order"]):
             job = str(row.get("job") or "")
             pos = str(row["position"])
@@ -112,8 +112,6 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
                         else "unjudged"
                     entry["why"] = f"at grid size: {grid.get('why')}"[:300]
             frames[pos] = entry
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
     detail = {"slug": slug, "version": version, "frames": frames,
               "frame_shas": {p: f["sha256"] for p, f in frames.items()},
               "certificate_record_id": served.get("record_id")}
