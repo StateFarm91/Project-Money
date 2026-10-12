@@ -160,7 +160,10 @@ function headerCard(ov) {
         h("p", { class: "muted small" }, `Identity ${idn.identity_id || "UNKNOWN"} · source ${idn.source || "UNKNOWN"}`),
         idn.identity_disagreement ? h("p", { class: "callout callout-bad" }, `Identity disagreement reported: ${idn.identity_disagreement} (canonical id kept)`) : null,
         h("p", null, h("a", { href: "#/approvals" }, needs.status === "UNKNOWN" ? "Needs you: Unknown" :
-          `Needs you: ${needs.count ?? "Unknown"}`), " · ", ov.phase || "phase Unknown"))));
+          `Needs you: ${needs.count ?? "Unknown"} decision${needs.count === 1 ? "" : "s"}`),
+          // CC_GAP FU-5: the same number as Approvals; P0/P1 incidents are counted apart.
+          needs.p0_p1_incidents ? h("a", { href: "#/operations" }, ` · ${needs.p0_p1_incidents} P0/P1 incident${needs.p0_p1_incidents === 1 ? "" : "s"}`) : null,
+          " · ", ov.phase || "phase Unknown"))));
 }
 
 function modeRow(ph) {
