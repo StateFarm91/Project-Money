@@ -132,6 +132,17 @@ DIMENSIONS: dict[str, dict] = {
 # The #218 MJs challenge gate names its own eight dimensions. Each maps onto the comparison
 # row that carries its evidence, or onto a recorded benchmark field that no reading of our
 # frames exists for -- in which case it is unjudged and says which judge would be needed.
+# W4-B2VISION, 2026-10-12: the three dimensions no recorded frame fact can answer are read
+# from the #126 search-grid panel's blinded reading of THIS product's own cell -- the judges
+# never knew which cell was ours -- when one is on file and current. `grid` names the panel
+# field; giftability is the gift-buyer judge's desire score, by that judge alone.
+GRID_READING_MAX_AGE_DAYS = 14   # the tournament is weekly; two runs of slack, then UNKNOWN
+GRID_READS: dict[str, tuple[str, str | None]] = {
+    "concept_desirability": ("desire", None),
+    "distinctiveness": ("distinctiveness", None),
+    "giftability": ("desire", "gift_buyer"),
+}
+
 CHALLENGE: dict[str, dict] = {
     "concept_desirability": {"row": None, "theirs_field": "aesthetic_currency",
                              "needs": "a blinded judged reading of our concept (#126 grid "
@@ -573,7 +584,30 @@ def compare(ours: dict, standard: Standard) -> dict:
     return {"dimensions": rows, "judged": judged, "behind": behind, "unjudged": unjudged}
 
 
-def challenge(comparison: dict, standard: Standard) -> dict:
+def grid_reading(db, slug: str, *, now: datetime | None = None,
+                 max_age_days: int = GRID_READING_MAX_AGE_DAYS) -> dict | None:
+    """This product's newest #126 panel reading, or None when none is on file and current."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or _utcnow()
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "creative.grid_tournament")
+                              .order_by(desc(AuditLog.id)).limit(20)))
+        for row in rows:
+            got = ((row.detail or {}).get("products") or {}).get(slug) or {}
+            if got.get("scores"):
+                age = (now - _aware(row.at)).days if row.at else None
+                if age is None or age > max_age_days:
+                    return None
+                return {"audit_id": row.id, "at": _aware(row.at).isoformat(),
+                        "scores": got.get("scores") or {}, "by_judge": got.get("by_judge") or {},
+                        "verdict": got.get("verdict")}
+    return None
+
+
+def challenge(comparison: dict, standard: Standard, grid: dict | None = None) -> dict:
     """#218's eight named dimensions, each from its evidence or unjudged with the judge needed.
 
     Nothing here is scored: a named dimension reads the comparison row that carries its
@@ -590,8 +624,24 @@ def challenge(comparison: dict, standard: Standard) -> dict:
                          "why": got.get("why", "")}
         else:
             reads = standard.challenge_reads.get(spec["theirs_field"], [])
-            out[name] = {"state": "unjudged", "from": spec["theirs_field"],
-                         "theirs_reads": reads[:5], "why": spec["needs"]}
+            field_name, judge = GRID_READS[name]
+            score = None
+            if grid:
+                src = (grid.get("by_judge") or {}).get(judge) if judge else grid.get("scores")
+                score = (src or {}).get(field_name)
+            if score is None:
+                out[name] = {"state": "unjudged", "from": spec["theirs_field"],
+                             "theirs_reads": reads[:5], "why": spec["needs"]}
+                continue
+            from .blinded import GRID_THRESHOLD
+
+            out[name] = {"state": "behind" if float(score) < GRID_THRESHOLD else "level",
+                         "from": (f"#126 grid panel ({judge or 'median of judges'}: "
+                                  f"{field_name}), audit {grid.get('audit_id')}"),
+                         "ours": float(score), "threshold": GRID_THRESHOLD,
+                         "theirs_reads": reads[:5],
+                         "why": (f"blinded panel scored this product's cell {score} against "
+                                 f"the pod's benchmark cells (threshold {GRID_THRESHOLD})")}
     behind = [n for n, r in out.items() if r["state"] == "behind"]
     return {"dimensions": out, "behind": behind,
             "unjudged": [n for n, r in out.items() if r["state"] == "unjudged"]}
@@ -707,7 +757,8 @@ def current_set(db, pod: str, *, benchmark_key: str = "", now: datetime | None =
 
 def review(db, *, slug: str, title: str = "", pod: str = "", frames: list[dict] | None = None,
            benchmark_key: str = "", now: datetime | None = None,
-           cards: list[dict] | None = None, physical_proof: bool | None = None) -> dict:
+           cards: list[dict] | None = None, physical_proof: bool | None = None,
+           grid: dict | None = None) -> dict:
     """One product's competitive blind review, from evidence on file. Never renders.
 
     Compared against the dated benchmark set `intel.benchmark_set.build` assembles for the
@@ -740,7 +791,13 @@ def review(db, *, slug: str, title: str = "", pod: str = "", frames: list[dict] 
             set_comparison = benchmark_set.compare_listing_set(frames, bench["built"])
         except benchmark_set.SetRefused as exc:  # pragma: no cover - usable means current
             set_comparison = {"refused": str(exc)}
-    trial = challenge(comparison, standard)
+    if grid is None and reading_db:
+        grid = grid_reading(db, slug, now=now)
+    trial = challenge(comparison, standard, grid)
+    # #218: "obviously generic/amateur by comparison" -- the blinded panel placing this
+    # product below threshold on two of the three things only a judge can read returns it to
+    # creative development even when the frame facts did not.
+    grid_behind = [n for n in GRID_READS if trial["dimensions"][n]["state"] == "behind"]
     return {
         "slug": slug,
         "pod": pod,
@@ -757,7 +814,8 @@ def review(db, *, slug: str, title: str = "", pod: str = "", frames: list[dict] 
         "mjs_challenge": trial,
         # #218: obviously inferior beside the MJs set goes back to creative development
         # rather than shipping. The handler acts on this; the review only states it.
-        "returns_to_development": inferior is True,
+        "returns_to_development": inferior is True or len(grid_behind) >= 2,
+        "grid_reading": ({k: grid[k] for k in ("audit_id", "at", "verdict")} if grid else None),
         "evidence": {
             "observation_ids": standard.observation_ids[:200],
             "observation_dates": {"oldest": standard.oldest, "newest": standard.newest},

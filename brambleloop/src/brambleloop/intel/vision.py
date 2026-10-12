@@ -84,11 +84,19 @@ class PendingAnalysis:
                 "rank": self.rank, "image_url": self.image_url, "key": self.key}
 
 
-def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis]:
+def pending(db, benchmark_key: str, *, limit: int = 200,
+            prefer_pods: frozenset[str] | set[str] | None = None) -> list[PendingAnalysis]:
     """Gallery images that have been inventoried and not yet judged.
 
     Ordered by listing recency so a release run is analysed before an eighteen-month-old
     listing, which is the order the commercial value arrives in.
+
+    `prefer_pods` (W4-B2VISION, 2026-10-12): breadth-first for the pods our own catalogue is
+    judged in. Production judges ~4 images a run inside its daily ceiling, and listing-major
+    order spent them on one listing's whole gallery, so a pod reached the blind review's
+    floor (6 judged images across 3 listings) only after hundreds of calls -- every
+    competitive review read UNKNOWN. With it, every listing's hero image in a preferred pod
+    comes first, then second images, and so on; other pods follow in the same shape.
     """
     from sqlalchemy import desc, select
 
@@ -100,6 +108,22 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
             .where(BenchmarkListing.benchmark_key == benchmark_key,
                    BenchmarkListing.audit_state == "audited")
             .order_by(desc(BenchmarkListing.last_seen))))
+
+    if prefer_pods is not None:
+        ranked: list[tuple[int, int, int, PendingAnalysis]] = []
+        for order, row in enumerate(rows):
+            detail = row.detail or {}
+            if detail.get("gallery_analysed"):
+                continue
+            done = set(detail.get("gallery_ranks_judged") or [])
+            tried = detail.get("gallery_ranks_failed") or {}
+            for rank, url in enumerate(detail.get("image_urls") or [], start=1):
+                if (url and rank not in done
+                        and int(tried.get(str(rank), 0)) < FAILED_ATTEMPTS):
+                    ranked.append((0 if (row.pod or "") in prefer_pods else 1, rank, order,
+                                   PendingAnalysis(benchmark_key, row.listing_ref, url, rank)))
+        ranked.sort(key=lambda t: t[:3])
+        return [t[3] for t in ranked[:limit]]
 
     out: list[PendingAnalysis] = []
     for row in rows:
@@ -398,7 +422,8 @@ def method_version() -> str:
 
 def analyse(db, benchmark_key: str, *, limit: int = 10,
             provider=None, env: dict[str, str] | None = None,
-            job_id: int | None = None) -> dict:
+            job_id: int | None = None,
+            prefer_pods: frozenset[str] | set[str] | None = None) -> dict:
     """Judge up to `limit` pending gallery images, one call each, and record what was seen.
 
     One image per call rather than a batch. A batch is cheaper per image and makes a single
@@ -429,7 +454,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
 
     method = method_version()
     systematic.declare(TASK, method)
-    queue = pending(db, benchmark_key, limit=limit)
+    queue = pending(db, benchmark_key, limit=limit, prefer_pods=prefer_pods)
 
     judged, failures, spent = 0, [], 0.0
     reserved, tokens_in, tokens_out = 0.0, 0, 0
