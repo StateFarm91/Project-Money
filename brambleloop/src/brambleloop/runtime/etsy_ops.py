@@ -929,6 +929,18 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
     store_reading(ctx.db, SHOP_READING, {**snapshot, "status": status.to_dict(),
                                          "policy_consistency": policy,
                                          "options_registry": options})
+    # F-527 (W4-B2ASSETS): the live icon and banner against the owner's canonical files.
+    # Reads only the public images at the URLs getShop returned; never in a test process
+    # unless a fetcher is injected (ctx.job.inputs is not used for that).
+    asset_health = None
+    try:
+        from ..brand import asset_health as AH
+        from ..gates import policy_reader
+
+        if policy_reader.enabled():
+            asset_health = AH.record(ctx.db, AH.assess(body))
+    except Exception as exc:  # noqa: BLE001 - an asset check must not stop the snapshot
+        asset_health = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     inventory = surface_inventory.reverify(ctx.db, now=now)
     store_reading(ctx.db, INVENTORY_READING, inventory)
     checks = {c.key: c for c in status.checks}
@@ -1011,11 +1023,13 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
         "failures": [c.key for c in status.failures],
         "unevidenced": [c.key for c in status.unevidenced],
         "incidents_opened": opened, "incidents_resolved": resolved,
-        "owner_actions_closed": closed, "owner_actions_reopened": reopened})
+        "owner_actions_closed": closed, "owner_actions_reopened": reopened,
+        "asset_health": asset_health})
     return {"evidence": status.evidence_state, "green": status.green,
             "failures": [c.key for c in status.failures], "incidents_opened": opened,
             "policy_consistent": policy["consistent"], "options_drift": options["drift"],
-            "inventory_problems": len(inventory["problems"])}
+            "inventory_problems": len(inventory["problems"]),
+            "asset_health": asset_health}
 
 
 # ---- F-553 / F-544 / F-568: the listing census ---------------------------------------
