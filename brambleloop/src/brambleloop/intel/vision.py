@@ -16,6 +16,8 @@ nothing it can act on.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import dataclass
 
 # What a gallery observation is allowed to conclude (#209). Each is something a different
@@ -120,6 +122,32 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
     return out
 
 
+def image_counts(rows) -> dict:
+    """Unjudged / judged / given-up image slots over `BenchmarkListing` rows already read.
+
+    W4-MJSCOUNT (F-191): the one arithmetic for gallery image counts, so `pending_count`,
+    `plan` and the mission snapshot cannot disagree about the same backlog.
+    """
+    unjudged = judged = stuck = slots = 0
+    for row in rows:
+        if row.audit_state != "audited":
+            continue
+        detail = row.detail or {}
+        urls = [u for u in (detail.get("image_urls") or []) if u]
+        done = set(detail.get("gallery_ranks_judged") or [])
+        tried = detail.get("gallery_ranks_failed") or {}
+        slots += len(urls)
+        judged += len(done)
+        for rank in range(1, len(urls) + 1):
+            if rank in done:
+                continue
+            if int(tried.get(str(rank), 0)) >= FAILED_ATTEMPTS:
+                stuck += 1
+            else:
+                unjudged += 1
+    return {"unjudged": unjudged, "judged": judged, "given_up_on": stuck, "image_slots": slots}
+
+
 def pending_count(db, benchmark_key: str) -> dict:
     """How many images are genuinely unjudged, and how many have failed repeatedly.
 
@@ -134,24 +162,11 @@ def pending_count(db, benchmark_key: str) -> dict:
 
     from ..core.models import BenchmarkListing
 
-    unjudged = judged = stuck = 0
     with db.session() as s:
-        for row in s.scalars(select(BenchmarkListing).where(
-                BenchmarkListing.benchmark_key == benchmark_key,
-                BenchmarkListing.audit_state == "audited")):
-            detail = row.detail or {}
-            urls = [u for u in (detail.get("image_urls") or []) if u]
-            done = set(detail.get("gallery_ranks_judged") or [])
-            tried = detail.get("gallery_ranks_failed") or {}
-            judged += len(done)
-            for rank in range(1, len(urls) + 1):
-                if rank in done:
-                    continue
-                if int(tried.get(str(rank), 0)) >= FAILED_ATTEMPTS:
-                    stuck += 1
-                else:
-                    unjudged += 1
-    return {"unjudged": unjudged, "judged": judged, "given_up_on": stuck}
+        c = image_counts(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.audit_state == "audited")))
+    return {k: c[k] for k in ("unjudged", "judged", "given_up_on")}
 
 
 def check_observation(observation: dict) -> None:
@@ -183,22 +198,102 @@ def plan(db, benchmark_key: str, env: dict[str, str] | None = None) -> dict:
     per_call = routing.estimate_cad("gallery_observation")
     capable = access.available("model_provider", env)
     budget = routing.budget(db)
+    # F-191: the backlog is counted over the whole catalogue (`pending_count`), not as the
+    # length of a 200-row page of it, which saturated and disagreed with the snapshot.
+    counts = pending_count(db, benchmark_key)
 
     affordable = int(budget.remaining_cad / per_call) if per_call else 0
     return {
         "state": PENDING if capable else BLOCKED,
-        "pending_images": len(queue),
+        "pending_images": counts["unjudged"],
+        "judged_images": counts["judged"],
+        "given_up_on": counts["given_up_on"],
         "estimated_cad_per_image": per_call,
-        "estimated_cad_total": round(len(queue) * per_call, 4),
+        "estimated_cad_total": round(counts["unjudged"] * per_call, 4),
         "affordable_this_month": affordable,
         "capability_available": capable,
         "next": [p.to_dict() for p in queue[:10]],
+        # F-193: measured cost per judged image, the purpose's share of the month and the
+        # drain ETA at the cadence's ceiling-derived rate. UNKNOWN (None) where unmeasured.
+        "forecast": forecast(db, benchmark_key, counts=counts),
         "note": ("Ready to run: the backlog drains in listing-recency order, newest first, "
                  "because that is the order commercial value arrives in."
                  if capable else
                  "No model provider is configured, so no image has been judged and none has "
                  "been guessed at. The backlog is real work waiting, not a gap being "
                  "papered over (#224)."),
+    }
+
+
+GALLERY_CADENCE_NAME = "gallery_analysis"
+
+
+def forecast(db, benchmark_key: str, *, counts: dict | None = None,
+             now: datetime | None = None) -> dict:
+    """F-193: what the gallery backlog costs and when it drains, from measurements.
+
+    * cost per image: recorded spend on purpose `gallery_observation` divided by images judged.
+      Both are this system's own rows; with either at zero the figure is UNKNOWN (None), never
+      a guess and never 0.
+    * allocation: the purpose's share of the month (`spend_policy.ALLOCATION`) and what is left.
+    * ETA: images per run (`spend_policy.work_that_fits`, the same sizing the cadence uses) x
+      runs per day (`runtime.worker.CADENCES`), and how many days the unjudged backlog needs at
+      that rate; and the cost to drain at the measured (else estimated) price per image.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry
+    from ..finance import spend_policy
+
+    c = counts or pending_count(db, benchmark_key)
+    with db.session() as s:
+        spent, rows = s.execute(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0),
+                                       func.count()).where(CostEntry.purpose == TASK)).one()
+    spent = float(spent or 0.0)
+    measured = round(spent / c["judged"], 6) if spent > 0 and c["judged"] > 0 else None
+    estimate = per_image_estimate_cad()
+    try:
+        from ..runtime.worker import CADENCES
+
+        period = next((p for n, _a, _j, p in CADENCES if n == GALLERY_CADENCE_NAME), None)
+    except Exception:  # noqa: BLE001
+        period = None
+    allowance = spend_policy.may_spend(db, TASK, now=now)
+    per_run = None
+    why_rate = None
+    if period:
+        try:
+            fit = spend_policy.work_that_fits(db, agent=AGENT, purpose=TASK,
+                                              period_seconds=int(period),
+                                              unit_cost_cad=estimate, now=now)
+            per_run = int(fit["units"])
+            why_rate = fit.get("why")
+        except Exception as exc:  # noqa: BLE001
+            why_rate = f"rate unreadable: {type(exc).__name__}"
+    runs_per_day = round(86400 / period, 4) if period else None
+    per_day = (round(per_run * runs_per_day, 2) if per_run is not None and runs_per_day
+               else None)
+    unjudged = c["unjudged"]
+    eta_days = (round(unjudged / per_day, 1) if per_day else None) if unjudged else 0.0
+    price = measured if measured is not None else estimate
+    return {
+        "measured_cad_per_image": measured,
+        "measured_basis": (f"CA${spent:.4f} over {rows} cost row(s) / {c['judged']} judged "
+                           f"image(s)" if measured is not None else
+                           "UNKNOWN: no recorded gallery spend or no judged image yet"),
+        "estimated_cad_per_image": estimate,
+        "allocation": {k: allowance.get(k) for k in ("share_of_ceiling", "allowed_cad",
+                                                      "spent_cad", "may_spend", "why")},
+        "images_per_run": per_run, "runs_per_day": runs_per_day, "images_per_day": per_day,
+        "rate_why": why_rate,
+        "unjudged": unjudged,
+        "eta_days": eta_days,
+        "eta_basis": ("backlog empty" if not unjudged else
+                      "UNKNOWN: the cadence can judge nothing at the current ceiling"
+                      if not per_day else
+                      f"{unjudged} unjudged / {per_day} per day at the ceiling-derived rate"),
+        "cost_to_drain_cad": round(unjudged * price, 4),
+        "cost_to_drain_basis": "measured" if measured is not None else "estimated",
     }
 
 

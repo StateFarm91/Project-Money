@@ -5576,15 +5576,35 @@ def dashboard() -> str:
         backlog = vision_plan(db, MJS_KEY)
         cadence = next_interval(db, MJS_KEY)
         cov = report["catalogue_coverage"]
+        # F-192: the state alone ("unverified", "wrong_shop") does not say what failed or
+        # when; the problem text and check time sit beside it.
+        sh = report["registry"]["scan_health"] or {}
+        health = str(sh.get("state", "unknown")) + (
+            f" — {sh['problem']}" if sh.get("problem") else "") + (
+            f" (checked {sh['checked_at']})" if sh.get("checked_at") else " (never checked)")
+        fc = backlog.get("forecast") or {}
+        per_img = fc.get("measured_cad_per_image")
+        forecast_txt = (
+            f"measured {'CA$%.4f' % per_img if per_img is not None else 'UNKNOWN'}/image "
+            f"(est. CA${fc.get('estimated_cad_per_image', 0):.4f}); "
+            f"{fc.get('images_per_day') if fc.get('images_per_day') is not None else 'UNKNOWN'}/day; "
+            f"ETA {('%s days' % fc['eta_days']) if fc.get('eta_days') is not None else 'UNKNOWN'}; "
+            f"share {(fc.get('allocation') or {}).get('share_of_ceiling')} of the month, "
+            f"spent CA${((fc.get('allocation') or {}).get('spent_cad') or 0):.2f} of "
+            f"CA${((fc.get('allocation') or {}).get('allowed_cad') or 0):.2f}")
+        rec = report.get("reconciliation") or {}
         return rows([
             ("observation", report["observation_state"]),
             ("shop", report["registry"]["shop_name"]),
-            ("scan health", str(report["registry"]["scan_health"].get("state", "unknown"))),
+            ("scan health", health),
             ("catalogue known / audited",
              f"{cov['listings_known']} / {cov['listings_audited']}"),
+            ("counts reconcile", "yes" if rec.get("ok") else
+             "NO: " + ", ".join(rec.get("failing") or ["unknown"])),
             ("last mandated evidence", str(report["last_mandated_evidence_at"] or "never")),
             ("images awaiting judgement",
              f"{backlog['pending_images']} (CA${backlog['estimated_cad_total']:.2f})"),
+            ("gallery cost forecast", forecast_txt),
             ("scan cadence", f"every {cadence.interval_hours}h"),
             ("coverage gaps", str(report["gap_queue"]["total"])),
             ("last successful scan", str(report["last_successful_scan"] or "never")),
