@@ -7455,12 +7455,26 @@ def handle_offsite_archive(ctx: JobContext) -> dict:
     if not record.get("ok") and offsite.configured():
         # Configured and failing is an incident; unconfigured is a gate the owner has not
         # opened yet and is already reported as an owner action.
+        # INTEG3: this was `Incident(kind=..., severity="high")` -- `kind` is not an Incident
+        # column and `signature` (NOT NULL) was missing, so the one path that reports a
+        # configured archive failing raised instead and dead-lettered the job. One open
+        # incident per signature; a repeat failure counts against it.
+        from sqlalchemy import select
+
         from ..core.models import Incident
 
+        signature = "offsite_archive_failed"
         with ctx.db.session() as s:
-            s.add(Incident(kind="offsite_archive_failed", severity="high",
-                           summary=f"off-provider archive failed at {record.get('stage')}",
-                           detail={"reason": record.get("reason", "")[:400]}))
+            open_inc = s.scalars(select(Incident).where(
+                Incident.signature == signature,
+                Incident.resolved == False)).first()  # noqa: E712
+            if open_inc is None:
+                s.add(Incident(severity="P1", signature=signature,
+                               summary=f"off-provider archive failed at {record.get('stage')}",
+                               detail={"reason": record.get("reason", "")[:400],
+                                       "stage": record.get("stage")}))
+            else:
+                open_inc.report_count = (open_inc.report_count or 1) + 1
 
     return {"ok": bool(record.get("ok")), "stage": record.get("stage"),
             "reason": record.get("reason", "")[:300], "pruned": pruned}

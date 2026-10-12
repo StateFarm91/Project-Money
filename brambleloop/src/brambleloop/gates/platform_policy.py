@@ -183,6 +183,12 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
         raise PolicyRefused("an empty reading is not a reading: the digest of nothing proves "
                             "nothing was read")
 
+    version = version or date.today().isoformat()
+    if len(version) > VERSION_MAX:
+        # Refused, never truncated: the version names which reading this is, and a clipped
+        # one would collide with another. SQLite would store it; Postgres dead-letters.
+        raise PolicyRefused(f"version {version[:60]!r}... is {len(version)} characters; "
+                            f"policy_snapshots.version holds {VERSION_MAX}")
     url, affects = POLICY_SOURCES[source]
     new_digest = digest_of(text)
     with db.session() as s:
@@ -197,7 +203,7 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
         changed = previous is not None and previous.digest != new_digest
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),
-            version=version or date.today().isoformat(), digest=new_digest,
+            version=version, digest=new_digest,
             summary=summary, material_change=changed, affects=list(affects),
             detail={"read_by": read_by, "basis": basis, "text_length": len(text)})
         s.add(row)
@@ -210,6 +216,10 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
 
 
 PAGE_BASIS = "page"
+
+# The column width of `PolicySnapshot.version` (INTEG3; was 40, which the repository seed's
+# "<read_on>:<basis>" version overflowed on Postgres).
+VERSION_MAX = 120
 
 CHANGE_SIGNATURE = "policy_changed:"
 

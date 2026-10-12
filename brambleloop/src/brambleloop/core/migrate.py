@@ -10,8 +10,8 @@ point: **code changed, the deployed database did not.** The first was an agent p
 lived in `DEFAULT_AGENTS` and never reached an existing row. The second was a pipeline upgrade
 that could not reach products already certified. This is the schema version.
 
-Deliberately additive only. It adds missing columns and nothing else — it will not drop a
-column, narrow a type, rename anything, or alter data. Those are real migrations and they need
+Deliberately additive only. It adds missing columns, and (INTEG3) widens a VARCHAR whose
+model length grew -- it will not drop a column, narrow a type, rename anything, or alter data. Those are real migrations and they need
 a human looking at them. What this covers is the common, safe, boring case that otherwise
 breaks a deploy.
 """
@@ -68,6 +68,48 @@ def _scalar_default(table: str, column: str):
     return default.arg
 
 
+def widen_plan(engine: Engine) -> list[tuple[str, str, int, int]]:
+    """VARCHAR columns the models declare wider than the database has them.
+
+    Returns (table, column, database length, model length). Only strict widenings of a
+    bounded VARCHAR are listed: widening never loses or alters a value, so it is the same
+    safe, boring class of change as adding a nullable column. A model length that is SHORTER
+    than the database's is ignored (narrowing is a real migration and needs a person), and
+    SQLite is skipped because it never enforces a VARCHAR length.
+    """
+    from sqlalchemy import String
+
+    if engine.dialect.name != "postgresql":
+        return []
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    out: list[tuple[str, str, int, int]] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        have = {c["name"]: c["type"] for c in insp.get_columns(table.name)}
+        for column in table.columns:
+            want = getattr(column.type, "length", None)
+            if not isinstance(column.type, String) or not want or column.name not in have:
+                continue
+            got = getattr(have[column.name], "length", None)
+            if got and int(want) > int(got):
+                out.append((table.name, column.name, int(got), int(want)))
+    return out
+
+
+def widen(engine: Engine) -> list[str]:
+    """Apply `widen_plan`: ALTER ... TYPE VARCHAR(n) with a larger n. Returns what changed."""
+    changes: list[str] = []
+    for table, column, got, want in widen_plan(engine):
+        with engine.begin() as conn:
+            conn.execute(text(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
+                              f'TYPE VARCHAR({want})'))
+        changes.append(f"{table}.{column} VARCHAR({got}) -> VARCHAR({want})")
+        log.info("widened %s.%s VARCHAR(%s) -> VARCHAR(%s)", table, column, got, want)
+    return changes
+
+
 def apply(engine: Engine) -> list[str]:
     """Add every missing column, then every missing index. Returns what changed.
 
@@ -75,7 +117,7 @@ def apply(engine: Engine) -> list[str]:
     that works in testing and degrades quietly under a table that has grown, which is the
     hardest kind of problem to attribute later.
     """
-    changes: list[str] = []
+    changes: list[str] = widen(engine)
     for table, column, ddl in plan(engine):
         with engine.begin() as conn:
             conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {ddl}'))
