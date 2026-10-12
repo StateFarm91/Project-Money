@@ -11,6 +11,11 @@
       "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
       "observed": "2026-10-11",
       "evidence": "owner-approved deploy 2026-10-11 ~14:00Z (Railway deployment 69b50565; same-commit redeploy 7eb3fc08 at 16:25Z); production /health build.commit 0417f3516f30bb7c52926187fc475a0f46536e86 known=true, re-read 2026-10-12"
+    },
+    {
+      "sha": "c498888e30829812794484f8a63653e93f0b616e",
+      "observed": "2026-10-12",
+      "evidence": "owner-approved deploy 2026-10-12, Railway deployment dba8a65f; production /health build.commit c498888e30829812794484f8a63653e93f0b616e known=true at 14:33:21Z"
     }
   ]
 }
