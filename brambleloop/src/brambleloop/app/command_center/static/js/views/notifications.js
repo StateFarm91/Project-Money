@@ -8,6 +8,12 @@ import { pageMeta, renderSection, toHashRoute, sectionsOf } from "./_shared.js";
 const SEV_RANK = { critical: 0, high: 1, normal: 2, low: 3 };
 const SEV_STATUS = { critical: "CRITICAL", high: "HIGH", normal: "INFO", low: "LOW" };
 
+// Nearest deadline first within a severity; no deadline sorts last.
+function dueMs(n) {
+  const t = n && n.deadline ? Date.parse(n.deadline) : NaN;
+  return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+}
+
 function notificationCard(n, { stale, rerender }) {
   const sev = String(n.severity || "normal").toLowerCase();
   const link = toHashRoute(n.deep_link);
@@ -77,7 +83,8 @@ export async function render({ rerender, setBadge }) {
   const result = await api.notifications();
   const data = result.data || {};
   const list = (Array.isArray(data.notifications) ? data.notifications : []).slice()
-    .sort((a, b) => (!!a.acked_at - !!b.acked_at) || ((SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9)));
+    .sort((a, b) => (!!a.acked_at - !!b.acked_at) || ((SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+      || (dueMs(a) - dueMs(b)));
   setBadge("notifications", list.filter((n) => !n.acked_at).length);
   const refresh = h("button", { class: "btn", type: "button", disabled: result.stale, onclick: async () => {
     const r = await guardedAction({ title: "Re-check company state for notifications?", lines: ["This regenerates alerts from durable state. Nothing external is sent."],
@@ -85,7 +92,7 @@ export async function render({ rerender, setBadge }) {
     if (r) rerender();
   } }, "Re-check");
   return h("div", { class: "stack" }, ...pageMeta(result, data),
-    card({ title: "Alerts", subtitle: "Decisions, risk, deadlines and anomalies only. Routine machine chatter is suppressed.", actions: refresh },
+    card({ title: "Alerts", subtitle: "Decisions, risk, deadlines, meaningful sales events and anomalies only. Routine machine chatter is suppressed.", actions: refresh },
       h("p", { class: "muted" }, typeof data.suppressed_count === "number" ? `${data.suppressed_count} routine event(s) suppressed as noise.` : "Suppressed count: Unknown.")),
     list.length ? list.map((n) => notificationCard(n, { stale: result.stale, rerender }))
       : card({ title: "All clear" }, h("p", { class: "muted" }, "No notifications need you.")),

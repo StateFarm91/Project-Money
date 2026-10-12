@@ -159,6 +159,19 @@ def classify(row: dict, criterion: str, key=None) -> dict:
             "basis": "no production or live-operations requirement in the criterion text"}
 
 
+def tracked_verifiability(row: dict) -> dict:
+    """A tracked requirement (board source `tracked`) is classed by its own declared parts:
+    LAURA-PRIVATE-REGISTER is A (tests) + B (production soak after the owner's key), and is
+    reported as B -- it is verified only after an approved deploy and soak."""
+    parts = list(row.get("verifiability") or ["A"])
+    cls = "C" if "C" in parts else "B" if "B" in parts else "A"
+    return {"verifiability": cls, "parts": parts,
+            "quote": row.get("criterion"), "matched": None,
+            "basis": ("tracked requirement (no FM / Build 2 row); criterion quoted from its "
+                      "source (PL-11, DECISION_LOG D-FB-15 / D-FB-16 item 11): "
+                      + "+".join(parts) + " -- tests now, then the production soak")}
+
+
 def main() -> int:
     board = json.loads((HERE / "COMPLETION_BOARD_FINAL.json").read_text())
     crit = _criteria()
@@ -176,6 +189,16 @@ def main() -> int:
                 "verifiability": v["class"], "criterion_quote": v["quote"],
                 "matched": v["matched"], "basis": v["basis"],
                 "criterion": text[:600] if text else None})
+    for r in board["rows"].get("tracked", []):
+        if r["cls"] in ("verified_complete", "not_applicable"):
+            continue
+        v = tracked_verifiability(r)
+        rows_out.append({
+            "source": "tracked", "id": r["id"], "scope": r["scope"], "title": r["title"],
+            "board_class": r["cls"], "blocked_by": r.get("blocked_by"), "root": r.get("root"),
+            "domain": "autonomy_learning", "verifiability": v["verifiability"],
+            "verifiability_parts": v["parts"], "criterion_quote": v["quote"],
+            "matched": None, "basis": v["basis"], "criterion": (v["quote"] or "")[:600]})
     order = {"A": 0, "B": 1, "C": 2}
     scope_order = {"launch_critical": 0, "build2": 1, "post_launch": 2}
     queues: dict[str, list] = defaultdict(list)
@@ -189,7 +212,7 @@ def main() -> int:
         "total_not_verified": len(rows_out),
         "by_class": dict(Counter(x["verifiability"] for x in rows_out)),
         "by_source": {s: dict(Counter(x["verifiability"] for x in rows_out if x["source"] == s))
-                      for s in ("build2", "final_master")},
+                      for s in ("build2", "final_master", "tracked")},
         "by_domain": {d: dict(Counter(x["verifiability"] for x in rows_out if x["domain"] == d))
                       for d in sorted({x["domain"] for x in rows_out})},
         "by_scope": {s: dict(Counter(x["verifiability"] for x in rows_out if x["scope"] == s))

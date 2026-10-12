@@ -190,6 +190,12 @@ def certify(
     function decides which of them bind to the content it is examining (F-078). A test of a
     different text is not evidence for this one, however close the version string.
     """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((getattr(cir, "slug", None), getattr(cir, "title", None),
+                    getattr(cir, "designer_notes", None), listing, platform_policy,
+                    physical_evidence, listing_variant, terminology), context="product_truth")
     findings: list[Finding] = []
     stages: list[str] = []
 

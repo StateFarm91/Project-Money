@@ -151,6 +151,13 @@ class Snapshot:
                 "version": self.version, "digest": self.digest, "summary": self.summary}
 
 
+def version_of(row) -> str:
+    """The snapshot's version label as recorded. (W4-B2CLOSE kept a shortened label's full
+    text in `detail.version`; INTEG3 widened the column instead, so no row is shortened, but
+    a row written by that branch's code is still read correctly.)"""
+    return str((row.detail or {}).get("version") or row.version)
+
+
 def digest_of(text: str) -> str:
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
@@ -183,6 +190,12 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
         raise PolicyRefused("an empty reading is not a reading: the digest of nothing proves "
                             "nothing was read")
 
+    version = version or date.today().isoformat()
+    if len(version) > VERSION_MAX:
+        # Refused, never truncated: the version names which reading this is, and a clipped
+        # one would collide with another. SQLite would store it; Postgres dead-letters.
+        raise PolicyRefused(f"version {version[:60]!r}... is {len(version)} characters; "
+                            f"policy_snapshots.version holds {VERSION_MAX}")
     url, affects = POLICY_SOURCES[source]
     new_digest = digest_of(text)
     with db.session() as s:
@@ -195,11 +208,12 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
                 PolicySnapshot.source == source).order_by(PolicySnapshot.id.desc()))
                 if (r.detail or {}).get("basis") == compare_basis), None)
         changed = previous is not None and previous.digest != new_digest
+        detail = {"read_by": read_by, "basis": basis, "text_length": len(text)}
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),
-            version=version or date.today().isoformat(), digest=new_digest,
+            version=version, digest=new_digest,
             summary=summary, material_change=changed, affects=list(affects),
-            detail={"read_by": read_by, "basis": basis, "text_length": len(text)})
+            detail=detail)
         s.add(row)
         s.flush()
         snapshot_id = row.id
@@ -210,6 +224,10 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
 
 
 PAGE_BASIS = "page"
+
+# The column width of `PolicySnapshot.version` (INTEG3; was 40, which the repository seed's
+# "<read_on>:<basis>" version overflowed on Postgres).
+VERSION_MAX = 120
 
 CHANGE_SIGNATURE = "policy_changed:"
 
@@ -235,7 +253,7 @@ def unreviewed_changes(db) -> list[dict]:
                 PolicySnapshot.material_change.is_(True)).order_by(PolicySnapshot.id)):
             latest_change[r.source] = r
         return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
-                 "version": r.version, "affects": list(r.affects or POLICY_SOURCES[src][1])}
+                 "version": version_of(r), "affects": list(r.affects or POLICY_SOURCES[src][1])}
                 for src, r in latest_change.items()
                 if not (r.detail or {}).get("reviewed_at")]
 
@@ -347,7 +365,7 @@ def freshness(db, *, today: date | None = None) -> dict:
             continue
         age = (today - date.fromisoformat(row.checked_on)).days
         entry = {"source": source, "checked_on": row.checked_on, "age_days": age,
-                 "version": row.version, "material_change": row.material_change}
+                 "version": version_of(row), "material_change": row.material_change}
         (stale if age > MAX_AGE_DAYS else current).append(entry)
 
     changed = unreviewed_changes(db)

@@ -120,11 +120,14 @@ def build_client(db, phase: str, *, owner_authorised: bool = False, transport=No
     `owner_authorised` is always an argument the caller read *now*: activation passes the
     environment's value at execution time (F-835), the observation cadences pass False.
     """
-    from ..integrations.etsy import Credentials, EtsyClient
+    from ..integrations import etsy_shop_binding
+    from ..integrations.etsy import EtsyClient
     from ..integrations.http import UrllibTransport
 
     transport = transport or UrllibTransport()
-    creds = Credentials.from_env(transport=transport, db=db)
+    # W4-ETSYSHOPID: with no ETSY_SHOP_ID and no stored binding, a stored grant is asked
+    # which shop it belongs to (two reads) and bound only if it is the expected shop.
+    creds = etsy_shop_binding.ensure_credentials(db, transport=transport, phase=phase)
     return EtsyClient(transport, credentials=creds, phase=phase,
                       owner_authorised=owner_authorised)
 

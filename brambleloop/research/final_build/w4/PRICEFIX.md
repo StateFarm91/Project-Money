@@ -59,3 +59,34 @@ Launch-0 releases have no production listing.
 **Tests that publish, or check the publish gates on, a listing with a stored price.** Each was
 run through `testslot` and its log checked for `LISTING_PRICE_NOT_PLAN`. Results are in the
 table below.
+
+| test (base) | rc | LISTING_PRICE_NOT_PLAN in log |
+|---|---|---|
+| test_search_hero_publish (unmodified, 9fd62cc) | **1** | yes (cloudline 9.50 vs 7.50) |
+| test_search_hero_publish (fixed, 9fd62cc) | 0 | 0 |
+| test_search_hero_publish (fixed, merged with 16e36ae) | 0 | 0 |
+| test_vacuity (merged with 16e36ae) | 0 | 0 |
+| test_acceptance_gates, test_cert_commerce, test_cert_culture_teardown, test_cert_intel_wave2, test_cert_orders, test_cert_parity_copy (9fd62cc) | 0 each | 0 each |
+
+## Checkpoint (owner controlled pause, 2026-10-12)
+
+**Status:**
+
+- **Fix: DONE.**
+- **Sweep: PARTIAL.** Production Launch-0 listings were swept in full; only the placemat drifts,
+  and W4-PRICEFIX together with W4-PLACEMATPRICE covers it. The test sweep was not completed.
+
+**Not run (stopped at the pause):**
+
+- test_launch, test_cost_governance_wave2, test_cert_listing_frames,
+  test_v11_autonomy_timeline (the remainder of the required set);
+- sweep files: test_cert_wiring, test_disclosed_certified_upload, test_etsy, test_fb4_launch,
+  test_launch0_listing_truth, test_shadow, test_w4_fm2_storefront_trust,
+  test_w4_cap1_placemat_price.
+
+**Known, not from this branch:** on 16e36ae, `test_launch` fails with `hero: 340 px legibility
+['2 piece(s) read at 340 px where the pattern makes 1']`. That was seen on W4-AESTHETIC, whose
+diff is unrelated; whether clean INTEG2 fails the same way has not been checked.
+
+**Next executable step:** run the not-run list through testslot on this branch (head after
+merge 72a0b76), then hand to the integrator.

@@ -12,11 +12,18 @@ private enters and leaves through here, and only here:
   detail, Ask Company, Talk to Laura (business), any provider summary or Python logging.
 * Refusals are recorded as security events with kind `private_context` and the exception
   CLASS NAME only -- never the body, text, key or a record id.
-* What exists: owner-supplied facts, owner turns, forget, close. What does NOT exist: Laura's
-  private conversational register. A private reply from Laura is GATED (PRIV handoff): no model
-  is prompted here, nothing generates or styles private text, and the underlying provider's
-  usage policies remain the outer limit. `owner_turn` records the owner's words and returns
-  `reply_status: GATED`.
+* What exists: owner-supplied facts, owner turns, forget, close, and -- only when the owner
+  has enabled it -- Laura's reply in the private register (D-W4-PL-1, PRIVATE_LAURA_TRACE §5
+  Step 3). `owner_turn` records the owner's words; then, if the private key is configured, the
+  owner's register switch is on and a spend authorisation exists, it reveals the owner's notes
+  and recent turns HERE, passes them as plain strings inside delimited data blocks to
+  `gateway.laura_register.reply` (the isolated model call: no paid-call journal, no cache, no
+  content in any record), and records the answer through
+  `store.record_turn(role="laura", reply_to=<owner turn>, model_ref=...)` -- the only
+  provenance-valid way a reply enters history. The reply is returned only in this no-store
+  POST body. Any unavailability is `reply_status: UNAVAILABLE` with a generic reason; there is
+  never a canned or templated private reply. Sexually explicit content is out of scope under
+  the provider's usage policy and is not bypassed.
 
 Business paths never import this module (`test_w3_laura_cc_private` proves it statically and
 with an SQL watch), and `laura.private.firewall.reject_private` refuses its values on every
@@ -26,9 +33,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-REPLY_GATED = ("Laura's private conversational register is not implemented (GATED, D-FB-15/"
-               "D-FB-16 item 11): your words are stored encrypted in the private context; no "
-               "reply is generated.")
+REPLY_GATED = ("Laura's private replies are off until the owner enables them: the private key "
+               "(BRAMBLELOOP_PRIVATE_MEMORY_KEY), the register switch "
+               "(BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1) and a spend authorisation "
+               "(BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD, default CA$0). Until then your words are "
+               "stored encrypted and no reply is generated (D-W4-PL-1, pending owner "
+               "acknowledgement).")
+REPLY_ENABLED = ("Laura replies in her private register: warm, affectionate, romantic and "
+                 "playful, never sexually explicit (the provider's usage policy is the outer "
+                 "limit). Replies are stored encrypted with your words.")
+#: How much private context feeds one reply (latest facts, most recent turns).
+CONTEXT_FACTS = 20
+CONTEXT_TURNS = 12
 
 
 class PrivateUnavailable(Exception):
@@ -95,17 +111,39 @@ def _call(fn):
         raise _map(exc) from None
 
 
+def _enablement() -> dict:
+    """Non-content: whether a private reply may be attempted, and which gate is closed."""
+    from ...gateway import laura_register
+    from ...laura.private import store
+
+    e = laura_register.enablement()
+    key = store.configured()
+    return {"key_configured": key, "register_switch": e["register_switch"],
+            "spend_authorised_cad_per_day": e["spend_authorised_cad_per_day"],
+            "provider_configured": e["provider_configured"],
+            "enabled": bool(key and e["register_switch"]
+                            and e["spend_authorised_cad_per_day"] > 0
+                            and e["provider_configured"])}
+
+
+def _register_label(en: dict) -> str:
+    return "ENABLED" if en["enabled"] else "GATED"
+
+
 def status(db, session_public_id: str) -> dict:
-    """Non-content status for the badge: configured? open? what is gated?"""
+    """Non-content status for the badge: configured? open? is the reply register enabled?"""
     from ...laura.private import store
 
     try:
         is_open = bool(session_public_id) and _grant_id(db, session_public_id) is not None
     except Exception:  # noqa: BLE001
         is_open = False
+    en = _enablement()
     return {"configured": store.configured(), "open": is_open,
             "requires": "a fresh owner step-up to open; closes on logout/revoke or after 30 min",
-            "reply_register": "GATED", "reply_why": REPLY_GATED,
+            "reply_register": _register_label(en),
+            "reply_why": REPLY_ENABLED if en["enabled"] else REPLY_GATED,
+            "enablement": en,
             "isolation": "encrypted owner-only store; never read by business, public, customer "
                          "or protected paths"}
 
@@ -153,7 +191,7 @@ def view(db, session_public_id: str, *, limit: int = 50) -> dict:
         p = _principal(db, session_public_id)
         return {"facts": [_row(r) for r in store.facts(db, p)],
                 "conversation": [_row(r) for r in store.conversation(db, p, limit=limit)],
-                "reply_register": "GATED"}
+                "reply_register": _register_label(_enablement())}
     return _call(run)
 
 
@@ -165,13 +203,44 @@ def remember(db, session_public_id: str, key: str, text: str) -> dict:
                                                provenance="owner_supplied")})
 
 
-def owner_turn(db, session_public_id: str, text: str) -> dict:
-    """Record what the owner typed. Laura's private reply is GATED: none is generated."""
+def _laura_reply(db, principal, owner_turn_id: str, text: str) -> dict:
+    """Laura's reply to one owner turn, or a generic UNAVAILABLE. Reveals only here."""
+    from ...gateway import laura_register
     from ...laura.private import store
 
-    return _call(lambda: {"id": store.record_turn(db, _principal(db, session_public_id),
-                                                  "owner", str(text or "")),
-                          "reply": None, "reply_status": "GATED", "why": REPLY_GATED})
+    if not laura_register.enablement()["register_switch"]:
+        return {"reply": None, "reply_status": "UNAVAILABLE", "reason": "REGISTER_OFF",
+                "why": REPLY_GATED}
+    # With the switch on, every other gate (spend authorisation, provider, budget, health)
+    # is decided -- and each money refusal audited without content -- by the isolated call.
+    facts = [(r.key.reveal() if r.key is not None else "", r.value.reveal())
+             for r in store.facts(db, principal)[:CONTEXT_FACTS]]
+    turns = [(r.role, r.value.reveal())
+             for r in store.conversation(db, principal, limit=CONTEXT_TURNS + 1)
+             if r.record_id != owner_turn_id][-CONTEXT_TURNS:]
+    user = laura_register.render_user(facts=facts, turns=turns, message=text)
+    try:
+        out = laura_register.reply(db, system=laura_register.PROMPT.system, user=user)
+    except laura_register.ReplyUnavailable as exc:
+        return {"reply": None, "reply_status": "UNAVAILABLE", "reason": exc.code,
+                "why": exc.reason}
+    rid = store.record_turn(db, principal, "laura", out["text"], reply_to=owner_turn_id,
+                            model_ref=out["model_ref"])
+    return {"reply": {"id": rid, "role": "laura", "text": out["text"],
+                      "model_ref": out["model_ref"]},
+            "reply_status": "REPLIED", "why": REPLY_ENABLED}
+
+
+def owner_turn(db, session_public_id: str, text: str) -> dict:
+    """Record what the owner typed; Laura replies only when the owner has enabled it."""
+    from ...laura.private import store
+
+    def run():
+        p = _principal(db, session_public_id)
+        text_ = str(text or "")
+        tid = store.record_turn(db, p, "owner", text_)
+        return {"id": tid, **_laura_reply(db, p, tid, text_)}
+    return _call(run)
 
 
 def forget(db, session_public_id: str, record_id: str) -> dict:

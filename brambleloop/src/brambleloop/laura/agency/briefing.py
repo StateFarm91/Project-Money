@@ -262,10 +262,162 @@ _ETSY_WORDS = re.compile(r"etsy|listing|publication|publish|transactions_r|shop|
                          r"order|receipt", re.I)
 
 
-def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
-    """Every item the briefing may say, with id, source, timestamp and status."""
+# ---- incidents grouped by root cause (W4-LAURAFIX) ---------------------------------------
+#
+# Production (c498888): ~200 of the 231 pack records were open incidents, most of them the
+# same few failures repeated (one row per occurrence, per-instance signatures, e.g. ops.sentinel
+# StringDataRightTruncation x15). Every one became its own pack record, its own prompt line
+# and its own briefing line. Now repeats are grouped by shared root cause BEFORE the pack is
+# built: one record per group carrying count, first/last seen and a few example ids. Every
+# open P0/P1 and every publication-halting incident is still read (no row cap) and still shown,
+# as its group, with its count -- grouping only merges rows that share a root cause.
+
+GROUP_EXAMPLES = 5
+_TS_RX = re.compile(r"\d{4}-\d{2}-\d{2}[t ][\d:.]+(z|[+-]\d{2}:?\d{2})?")
+_UUID_RX = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+_HEX_RX = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{6,}\b")
+# instance numbers: anything 4+ digits, or a number right after "job ", "#", ":", "id=", "/".
+# Short free-standing numbers ("3 departments", "noise 2") stay: they distinguish conditions.
+_INSTANCE_NUM_RX = re.compile(r"(?:(?<=job )|(?<=#)|(?<=:)|(?<=id=)|(?<=/))\d+|\d{4,}")
+_ERR_CLASS_RX = re.compile(r"\b([A-Z][A-Za-z0-9_]*(?:Error|Exception|Truncation|Violation|"
+                           r"Timeout|Refused|Denied|Failure|Unavailable))\b")
+
+
+def _norm_key(text) -> str:
+    """Text with its per-instance parts (timestamps, uuids, hex ids, ids) masked."""
+    t = str(text or "").lower()
+    for rx in (_TS_RX, _UUID_RX, _HEX_RX, _INSTANCE_NUM_RX):
+        t = rx.sub("#", t)
+    return " ".join(t.split())[:160]
+
+
+def _err_class(text) -> str:
+    m = _ERR_CLASS_RX.search(str(text or ""))
+    return m.group(1) if m else _norm_key(text)[:80]
+
+
+def incident_root(signature, summary, detail) -> str:
+    """The root-cause key repeats share: the incident's own root/dedupe key when it has one;
+    else job type + error class; else its signature and summary with instance parts masked."""
+    d = detail if isinstance(detail, dict) else {}
+    for k in ("root_key", "dedupe_key", "root_cause"):
+        if d.get(k):
+            return f"root:{str(d[k])[:160]}"
+    jt = d.get("job_type")
+    err = d.get("error") or d.get("error_class") or d.get("last_error")
+    if jt and err:
+        return f"job:{jt}|{_err_class(err)}"
+    return f"sig:{_norm_key(signature)}|msg:{_norm_key(summary)}"
+
+
+def _aware(v):
+    if v is None:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def _short_ts(v) -> str:
+    return _aware(v).strftime("%Y-%m-%d %H:%M UTC") if v is not None else UNKNOWN
+
+
+def incident_groups(db) -> dict:
+    """{groups: [...], raw: N mandatory rows, open_total: all open rows}.
+
+    Mandatory = open P0/P1 or publication-halting: all of them are read (no row cap), grouped
+    by (severity, halts, root cause), ordered severity -> halting -> most recent."""
+    from sqlalchemy import func, or_, select
+
+    from ...core.models import Incident
+
+    with db.session() as s:
+        open_total = int(s.scalar(select(func.count()).select_from(Incident).where(
+            Incident.resolved == False)) or 0)  # noqa: E712
+        rows = s.execute(select(Incident.id, Incident.at, Incident.severity,
+                                Incident.signature, Incident.summary,
+                                Incident.halts_publication, Incident.detail)
+                         .where(Incident.resolved == False,  # noqa: E712
+                                or_(Incident.halts_publication == True,  # noqa: E712
+                                    Incident.severity.in_(("P0", "P1"))))).all()
+    groups: dict[tuple, dict] = {}
+    for r in rows:
+        key = (r.severity, bool(r.halts_publication),
+               incident_root(r.signature, r.summary, r.detail))
+        groups.setdefault(key, {"severity": r.severity, "halts": bool(r.halts_publication),
+                                "root": key[2], "rows": []})["rows"].append(r)
+    out = []
+    for g in groups.values():
+        rs = sorted(g["rows"], key=lambda r: (_aware(r.at) or datetime.min.replace(
+            tzinfo=timezone.utc), r.id), reverse=True)
+        # INTEG3 (security review L1 of aa1e76d): a job-type + error-class group can hold
+        # different incidents. Grouping is kept (LAURAFIX's bound depends on it), but the
+        # rendered record says how many distinct signatures it merges, so a second root cause
+        # is never hidden behind the latest row's headline.
+        g["signatures"] = len({_norm_key(r.signature) for r in rs})
+        g.update(latest=rs[0], count=len(rs), first_seen=_aware(rs[-1].at),
+                 last_seen=_aware(rs[0].at),
+                 examples=[{"source": f"incidents:{r.id}", "at": ev._iso(r.at),
+                            "summary": str(r.summary or "")[:160]}
+                           for r in rs[:GROUP_EXAMPLES]])
+        out.append(g)
+    out.sort(key=lambda g: str(ev._iso(g["last_seen"]) or ""), reverse=True)
+    out.sort(key=lambda g: (_SEV.get(g["severity"], 9), not g["halts"]))
+    return {"groups": out, "raw": len(rows), "open_total": open_total}
+
+
+def _add_incidents_grouped(db, p: "_Pack") -> dict:
+    got = incident_groups(db)
+    for g in got["groups"]:
+        n = g["count"]
+        k = g.get("signatures") or 1
+        seen = (f" ({n} occurrences"
+                + (f" across {k} distinct incident signatures" if k > 1 else "")
+                + f", first at {_short_ts(g['first_seen'])}, last at "
+                f"{_short_ts(g['last_seen'])})" if n > 1 else "")
+        p.add(f"open {g['severity']} incident"
+              + (" (halts publication)" if g["halts"] else "") + seen
+              + f": {str(g['latest'].summary or '')[:300]}",
+              f"incidents:{g['latest'].id}", ["blockers"], section="incidents",
+              as_of=g["last_seen"], halts=g["halts"], occurrences=n,
+              first_seen=ev._iso(g["first_seen"]), last_seen=ev._iso(g["last_seen"]),
+              examples=g["examples"], group_key=g["root"][:160])
+    others = got["open_total"] - got["raw"]
+    if others > 0:
+        p.add(f"+{others} more open lower-severity incident(s), not shown here; see the "
+              f"incidents view", "incidents (open)", ["blockers"], section="incidents_more")
+    return {"raw": got["raw"], "groups": len(got["groups"]),
+            "lower_severity": max(others, 0), "open_total": got["open_total"]}
+
+
+def _add_incidents_flat(db, p: "_Pack") -> dict:
+    """c498888's incident records, one per open row (kept only for measurement)."""
     from ...app.command_center import readers
 
+    # Round 4 (R4-1): EVERY open P0/P1 and EVERY publication-halting incident, ordered
+    # severity -> halting -> most recent; lower-severity others are counted, never dropped
+    # silently.
+    inc = readers.incidents(db, limit=500)
+    rows = [i for i in inc.get("items") or []
+            if i.get("halts_publication") or i.get("severity") in ("P0", "P1")]
+    rows.sort(key=lambda i: str(i.get("at") or ""), reverse=True)
+    rows.sort(key=lambda i: (_SEV.get(i.get("severity"), 9), not i.get("halts_publication")))
+    for i in rows:
+        p.add(f"open {i['severity']} incident"
+              + (" (halts publication)" if i.get("halts_publication") else "")
+              + f": {i['summary'][:300]}", i["source"], ["blockers"],
+              section="incidents", as_of=i.get("at"), halts=bool(i.get("halts_publication")))
+    others = int(inc.get("open_total") or len(inc.get("items") or [])) - len(rows)
+    if others > 0:
+        p.add(f"+{others} more open lower-severity incident(s), not shown here; see the "
+              f"incidents view", "incidents (open)", ["blockers"], section="incidents_more")
+    return {"raw": len(rows), "groups": len(rows), "lower_severity": max(others, 0)}
+
+
+def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5,
+                  group_incidents: bool = True) -> dict:
+    """Every item the briefing may say, with id, source, timestamp and status.
+
+    `group_incidents=False` rebuilds c498888's one-record-per-incident pack; it exists only so
+    the cost test can measure what grouping saves (W4-LAURAFIX)."""
     p = _Pack()
     # 1. last window
     p.section(ev.overnight(db, window_hours), ["last_window"], limit=8,
@@ -282,27 +434,9 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
     store = ev.store(db)
     p.section(store, ["blockers"], limit=6,
               keep=lambda f: not re.search(r": (READY|OK|PASS)\b", f["statement"]))
+    inc_stats: dict = {}
     try:
-        # Round 4 (R4-1): EVERY open P0/P1 and EVERY publication-halting incident, ordered
-        # severity -> halting -> most recent; lower-severity others are counted, never dropped
-        # silently.
-        inc = readers.incidents(db, limit=500)
-        rows = [i for i in inc.get("items") or []
-                if i.get("halts_publication") or i.get("severity") in ("P0", "P1")]
-        rows.sort(key=lambda i: str(i.get("at") or ""), reverse=True)
-        rows.sort(key=lambda i: (_SEV.get(i.get("severity"), 9),
-                                 not i.get("halts_publication")))
-        for i in rows:
-            p.add(f"open {i['severity']} incident"
-                  + (" (halts publication)" if i.get("halts_publication") else "")
-                  + f": {i['summary'][:300]}", i["source"], ["blockers"],
-                  section="incidents", as_of=i.get("at"),
-                  halts=bool(i.get("halts_publication")))
-        others = int(inc.get("open_total") or len(inc.get("items") or [])) - len(rows)
-        if others > 0:
-            p.add(f"+{others} more open lower-severity incident(s), not shown here; see the "
-                  f"incidents view", "incidents (open)", ["blockers"],
-                  section="incidents_more")
+        inc_stats = (_add_incidents_grouped if group_incidents else _add_incidents_flat)(db, p)
     except Exception as exc:  # noqa: BLE001
         p.add(f"Incidents: UNKNOWN -- unreadable ({type(exc).__name__})", "incidents",
               ["blockers"], section="incidents", status=UNKNOWN, basis="unknown",
@@ -358,6 +492,7 @@ def evidence_pack(db, *, window_hours: int = 24, decisions_n: int = 5) -> dict:
     return {"items": p.items, "decisions": decisions, "open_decisions": len(cards),
             "sections": p.sections, "window_hours": window_hours,
             "products": (prod.get("items") or []), "store_status": store.get("status"),
+            "incidents": inc_stats,
             "as_of": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
 
 
@@ -512,6 +647,25 @@ CAP_LEVELS = (
     {"last": 1, "dept": 1, "ver": 2, "unk": 2, "missions": 1, "extras": 1, "line": 120},
     {"last": 0, "dept": 0, "ver": 1, "unk": 1, "missions": 1, "extras": 0, "line": 100},
 )
+
+# Sections code renders in full whatever a model returns (owner-queue order; the
+# verified/unknown listing): the model is not asked for them (W4-LAURAFIX).
+CODE_RENDERED = ("decisions", "facts_unknowns")
+
+
+def pick_limit(comp: str, cap: dict) -> int:
+    """How many of a model's optional picks the renderer shows for `comp` at this cap level
+    (`model_lines`). The prompt asks for at most this many and `validate` trims to it."""
+    if comp in CODE_RENDERED:
+        return 0
+    if comp == "autonomous":
+        return max(1, cap["missions"])
+    return cap["extras"] + 1
+
+
+# K per component at the fullest cap level: what the v4 prompt requests and what bounds the
+# reply (`gateway.laura_briefing.OUTPUT_TOKEN_BOUND` is computed from these).
+PICK_LIMITS = {c: pick_limit(c, CAP_LEVELS[0]) for c in COMPONENTS}
 
 
 def _deterministic_lines(pack: dict, comp: str, props: list[dict], n: int,
@@ -696,7 +850,11 @@ def validate(data, pack: dict, parsed: dict, props: list[dict]
             continue
         if comp in poisoned:
             continue
-        accepted[comp] = {"ids": ids[:MAX_ITEMS + 3]}
+        # W4-LAURAFIX: at most K optional ids, deterministically -- the first K the model gave
+        # that are not already shown as mandatory (those render first whatever it picks).
+        must = {m["id"] for m in mandatory(pack, comp)}
+        kept = [i for i in ids if i not in must][:PICK_LIMITS.get(comp, 0)]
+        accepted[comp] = {"ids": kept, "trimmed": len(ids) - len(kept)}
     for comp in poisoned:
         accepted.pop(comp, None)
     return accepted, rejected
@@ -719,7 +877,7 @@ def model_lines(accepted: dict[str, dict], pack: dict, parsed: dict,
         must = mandatory(pack, comp)
         lines = [_rec(m, 400) for m in must]
         extras = [i for i in sel["ids"] if i not in {m["id"] for m in must}]
-        limit = max(1, cap["missions"]) if comp == "autonomous" else cap["extras"] + 1
+        limit = pick_limit(comp, cap)
         for i in extras[:limit]:
             if i in pmap:
                 p = pmap[i]
@@ -733,6 +891,36 @@ def model_lines(accepted: dict[str, dict], pack: dict, parsed: dict,
     return out
 
 
+def selectable(pack: dict, parsed: dict, props: list[dict]) -> dict[str, tuple[int, list[str]]]:
+    """{component: (K, ids)} the model may choose from: the section's allowed ids minus its
+    mandatory records, for every requested component the renderer takes picks for."""
+    n = parsed["decisions_n"]
+    order = {i["id"]: k for k, i in enumerate(pack["items"])}
+    order.update({p["pid"]: -len(props) + k for k, p in enumerate(props)})
+    out: dict[str, tuple[int, list[str]]] = {}
+    for comp in parsed["components"]:
+        k = PICK_LIMITS.get(comp, 0)
+        if k <= 0:
+            continue
+        must = {m["id"] for m in mandatory(pack, comp)}
+        ids = sorted((i for i in _allowed_ids(comp, pack, props, n) if i not in must),
+                     key=lambda i: order.get(i, 10 ** 6))
+        if ids:
+            out[comp] = (k, ids)
+    return out
+
+
+def prompt_values(question: str, parsed: dict, pack: dict, props: list[dict]) -> dict:
+    """The v4 prompt's template values for this pack (also what the cost estimate measures)."""
+    from ...gateway import laura_briefing
+
+    return laura_briefing.render_values(
+        question=question, components=parsed["components"],
+        window_hours=parsed["window_hours"], decisions_n=parsed["decisions_n"],
+        pack=pack["items"], decisions=pack["decisions"][:parsed["decisions_n"]],
+        proposals=props, selectable=selectable(pack, parsed, props))
+
+
 # ---- the answer -------------------------------------------------------------------------
 
 
@@ -744,18 +932,20 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
     pack = evidence_pack(db, window_hours=parsed["window_hours"],
                          decisions_n=parsed["decisions_n"])
     props = proposals(pack)
-    values = laura_briefing.render_values(
-        question=question, components=parsed["components"],
-        window_hours=parsed["window_hours"], decisions_n=parsed["decisions_n"],
-        pack=pack["items"], decisions=pack["decisions"][:parsed["decisions_n"]],
-        proposals=props)
+    offered = selectable(pack, parsed, props)
+    values = prompt_values(question, parsed, pack, props)
     out = laura_briefing.synthesize(db, values=values, provider_factory=provider_factory)
     rejected: list[dict] = []
     lines = None
     if out["source"] == "model":
         accepted, rejected = validate(out["data"], pack, parsed, props)
         lines = model_lines(accepted, pack, parsed, props)
-        filled = [c for c in parsed["components"] if not lines.get(c)]
+        # A section "fell back" when the model was offered it, or answered it anyway, and no
+        # valid selection came back. Code-rendered sections the v4 prompt does not ask for
+        # are not a fallback when the model (correctly) leaves them out.
+        bad = {x["component"] for x in rejected}
+        filled = [c for c in parsed["components"] if not lines.get(c)
+                  and (c in offered or c in bad)]
 
         def render(comp, cap):
             if comp in accepted:
@@ -777,7 +967,10 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
     facts = [{k: i[k] for k in ("id", "statement", "source", "as_of", "link", "basis",
                                 "status", "components", "section")}
              | ({"card_id": i["card_id"], "decision_rank": i["decision_rank"]}
-                if "decision_rank" in i else {}) for i in pack["items"]]
+                if "decision_rank" in i else {})
+             # W4-LAURAFIX: a grouped incident's expandable evidence (fields added only)
+             | ({k: i[k] for k in ("occurrences", "first_seen", "last_seen", "examples")}
+                if "occurrences" in i else {}) for i in pack["items"]]
     blk = blockers(pack)
     for f in facts:
         for r, b in enumerate(blk, 1):
@@ -793,6 +986,8 @@ def answer(db, question: str, parsed: dict | None = None, *, provider_factory=No
             "synthesis": {"source": out["source"], "reason": out["reason"],
                           "model": out.get("model"), "cost_cad": out.get("cost_cad", 0.0),
                           "rejected": rejected, "components": parsed["components"],
+                          "truncated": bool(out.get("truncated")),
+                          "incidents": pack.get("incidents") or {},
                           "window_hours": parsed["window_hours"],
                           "decisions_n": parsed["decisions_n"]}}
 

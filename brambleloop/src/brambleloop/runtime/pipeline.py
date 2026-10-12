@@ -274,6 +274,72 @@ def _scan_date(ctx: JobContext) -> date:
     return date.fromisoformat(raw) if raw else date.today()
 
 
+_OPEN_GAP_STATES = ("uncovered", "concepting")
+
+
+def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
+    """radar.score without a concept: score the open coverage-gap queue (#314) by concept.
+
+    One implementation of two independent fixes (INTEG3 89af16b, W4-B2CLOSE 2190561). Every
+    open gap (uncovered / concepting) is answered by the pool concepts that serve it:
+    the product it names (`product_slug`, set once work entered the arena), and otherwise the
+    concepts its pod routes (the same `Pod.matches` rule `intel.observe` uses to decide an
+    arena is uncovered). Each concept is re-scored through the ordinary per-slug radar.score
+    -- same steering, evidence discount, lesson nudge and pre-engineering gate, not a second
+    scorer -- keyed like `radar.scan` (`score:<slug>:<date>`), so a concept already queued
+    today is not queued twice. A gap no concept answers is reported (an ideation need), never
+    scored as zero and never answered with a guessed concept.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CoverageGap
+    from ..intel import pods
+
+    today = _scan_date(ctx)
+    handoff = inputs.get("handoff") or {}
+    with ctx.db.session() as s:
+        gaps = list(s.execute(select(CoverageGap.id, CoverageGap.pod, CoverageGap.arena,
+                                     CoverageGap.product_slug)
+                              .where(CoverageGap.state.in_(_OPEN_GAP_STATES))
+                              .order_by(CoverageGap.id)).all())
+
+    matched: dict[str, list[int]] = {}
+    unanswered: list[dict] = []
+    for gap_id, pod_key, arena, product_slug in gaps:
+        named = _seed_for(product_slug) if product_slug else None
+        if named is not None:
+            seeds = [named]
+        else:
+            pod = pods.BY_KEY.get(pod_key)
+            seeds = [sd for sd in POOL
+                     if pod is not None and pod.matches(sd.slug.replace("-", " "))]
+        if not seeds:
+            unanswered.append({"gap": gap_id, "pod": pod_key, "arena": arena})
+        for sd in seeds:
+            matched.setdefault(sd.slug, []).append(gap_id)
+
+    queued: list[str] = []
+    already: list[str] = []
+    for slug in sorted(matched):
+        payload = score_concept(_seed_for(slug), today).to_dict()
+        payload["coverage_gaps"] = matched[slug]
+        job = ctx.enqueue("market_radar", "radar.score", payload,
+                          idempotency_key=f"score:{slug}:{today.isoformat()}")
+        (queued if job is not None else already).append(slug)
+    ctx.audit("radar.gap_queue_scored", detail={
+        "source": sorted(k for k in inputs if k != "slug") or ["no inputs"],
+        "open_gaps": len(gaps), "queued": queued, "already_queued": already,
+        "without_a_pool_concept": unanswered[:50], "handoff": handoff,
+        "as_of": today.isoformat()})
+    return {"slug": None, "score": None, "promoted": False, "mode": "coverage_handoff",
+            "open_gaps": len(gaps), "queued": queued, "already_queued": already,
+            "without_a_pool_concept": len(unanswered), "unanswered": unanswered[:50],
+            "reason": ("coverage-gap queue: each open gap's pool concepts re-scored by slug"
+                       if queued or already else
+                       "no open coverage gap has a concept in the radar pool; nothing to "
+                       "score (UNKNOWN, not zero)")}
+
+
 @handlers.register("radar.score")
 def handle_radar_score(ctx: JobContext) -> dict:
     """Re-score the candidate on its own and promote it only if it still clears the bar.
@@ -283,6 +349,12 @@ def handle_radar_score(ctx: JobContext) -> dict:
     can sit in the queue for days and a seasonal window can close underneath it.
     """
     c = dict(ctx.job.inputs)
+    if not c.get("slug"):
+        # A mission rather than a concept: the Intelligence charter generates radar.score
+        # from its CoverageGap handoff ("scores the coverage gap queue", autonomy/charters.py)
+        # and Laura's follow-on proposals do the same. This read `c["slug"]` and production
+        # 7bbbe72 dead-lettered two (KeyError 'slug', 2026-10-12T18:06Z) -- #195's window.
+        return _score_coverage_handoff(ctx, c)
     seed = _seed_for(c["slug"])
     if seed is None:
         ctx.audit("radar.unknown_concept", artifact=c.get("slug"))
@@ -2441,7 +2513,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "portfolio.review": ("actions",),
     "pricing.position": ("price_cad",),
     "radar.scan": ("selected",),
-    "radar.score": ("score",),
+    "radar.score": ("score", "queued"),  # W4-B2CLOSE: a gap-queue run (no slug) fans out
     "scale.trajectory": ("constraint_changed",),
     "seasonal.engine": ("breakouts", "takeovers_planned", "fast_lane_admitted",
                         "trend_rows_stamped", "teams_disbanded", "scored_events"),
@@ -3057,6 +3129,15 @@ def _listing_parity(ctx: JobContext) -> dict:
     if not review["reviewed"]:
         verdict["blocks_release"] = True
         verdict["why"] = f"{verdict['why']}; {review['why']}"
+    # W4-DISCLOSEDQA: a disclosed listing uploads its certified set, not the stored frames,
+    # so #61 must also have reviewed exactly those (`visual.exported_review`). Tightens only.
+    from ..visual import exported_review
+
+    exported = exported_review.review_state(ctx.db, slug, version)
+    verdict["exported_frame_review"] = exported
+    if not exported["reviewed"]:
+        verdict["blocks_release"] = True
+        verdict["why"] = f"{verdict['why']}; {exported['why']}"
 
     # #41 re-checked at publish: an owed purchase disclosure missing from the stored copy
     # blocks export, whatever parity says. UNMEASURED (no copy) is reported; publication

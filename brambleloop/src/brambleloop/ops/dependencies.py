@@ -53,20 +53,34 @@ class Dependency:
         if len(self.if_it_fails.split()) < 5:
             raise DependencyRefused(f"{self.key}: say what stops when this does")
 
-    def present(self, env: dict[str, str] | None = None) -> bool | None:
-        """Whether the dependency is configured. `None` where the code cannot tell."""
+    def present(self, env: dict[str, str] | None = None, db=None) -> bool | None:
+        """Whether the dependency is configured. `None` where the code cannot tell.
+
+        `ETSY_SHOP_ID` is also satisfied by the shop id bound from the owner's own grant
+        (W4-ETSYSHOPID), which is only stored after its shop name matched BrambleloopStudio.
+        """
         if not self.env_probe:
             return None
         e = env if env is not None else os.environ
-        return all((e.get(v) or "").strip() for v in self.env_probe)
+        return all(_configured(v, e, db) for v in self.env_probe)
 
-    def to_dict(self, env: dict[str, str] | None = None) -> dict:
+    def to_dict(self, env: dict[str, str] | None = None, db=None) -> dict:
         return {"key": self.key, "what": self.what, "impact": self.impact,
                 "if_it_fails": self.if_it_fails, "recovery": self.recovery,
                 "recovery_minutes": self.recovery_minutes,
                 "owner_only": self.owner_only,
-                "configured": self.present(env),
+                "configured": self.present(env, db),
                 "probe": list(self.env_probe)}
+
+
+def _configured(name: str, env, db) -> bool:
+    if (env.get(name) or "").strip():
+        return True
+    if name == "ETSY_SHOP_ID" and db is not None:
+        from ..integrations.etsy_shop_binding import bound_shop_id
+
+        return bool(bound_shop_id(db))
+    return False
 
 
 DEPENDENCIES: tuple[Dependency, ...] = (
@@ -152,7 +166,7 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
     would stop", and vendor prestige gets that backwards routinely — Postgres holds the
     company's memory and GitHub holds a copy of code that also exists on disk.
     """
-    rows = [d.to_dict(env) for d in DEPENDENCIES]
+    rows = [d.to_dict(env, db) for d in DEPENDENCIES]
     # F-128 / F-131: `configured` is a fact about variables and stays named as one; it is never
     # the capability. Where a dependency has a probe-based executor gate, `capability` reads
     # that gate -- the same recorded probe the executor trusts -- and a configured dependency

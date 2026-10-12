@@ -57,3 +57,33 @@ results are recorded below.
 
 **Row status:** F-056 is advanced to *implemented and tested*. It is not closed: closing
 needs the deploy and the release record.
+
+## Checkpoint (owner controlled pause, 2026-10-12)
+
+**Status: DONE for code and its own tests. The required regression set has not been run on
+the merged head.**
+
+Tests on base 9fd62cc, all through testslot:
+
+| test | result |
+|---|---|
+| `test_w4_size_shape_intent` | 5 of 5 OK |
+| `test_commerce` | rc=0 |
+| `test_search_truth` | rc=0 |
+| `test_w3_k1_search` | rc=0 |
+| `test_launch0_listing_truth` | rc=0 |
+| `test_w3_seo_strategy` | rc=0 |
+| `test_vacuity` | rc=0, after guarding one loop |
+| `test_product_run` | not run |
+
+After merging INTEG2 16e36ae (c8ddf2b), the required set (test_vacuity, test_launch,
+test_cost_governance_wave2, test_search_hero_publish, test_cert_listing_frames,
+test_v11_autonomy_timeline) was queued but **not run**: it was stopped at the pause.
+
+`test_search_hero_publish` will fail on this branch with `LISTING_PRICE_NOT_PLAN` until
+W4-PRICEFIX is merged, because the same failure exists on clean INTEG2.
+
+**Row:** F-056 is advanced to implemented and tested. It is not closed.
+
+**Next executable step:** run the required set and `test_product_run` through testslot, then
+hand the branch to the integrator.

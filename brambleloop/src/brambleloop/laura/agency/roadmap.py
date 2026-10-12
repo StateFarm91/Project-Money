@@ -41,8 +41,14 @@ ROWS: tuple[dict, ...] = (
      "supported, the same voice's private delivery)", "required": True,
      "source": "spec/07 Ruling 2; D-FB-15; D-FB-16 item 11; D-FB-18 item 6",
      "gate": {"kind": "owner", "key": "laura_private_register",
-              "detail": "PRIV infrastructure exists; the conversational register needs its own "
-                        "owner-approved lane bounded by the provider's usage policies"}},
+              "detail": "text register built (gateway.laura_register, LAURA_PRIVATE_REPLY@1; "
+                        "D-W4-PL-1, pending owner acknowledgement) and bounded by the "
+                        "provider's usage policies (never sexually explicit). Enabled only by "
+                        "the owner: private key, register switch "
+                        "BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1, spend authorisation "
+                        "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (default CA$0), human Laura's "
+                        "consent attested by the owner; then a production soak. The voice "
+                        "delivery stays GATED on LAURA-VOICE-P2"}},
     {"id": "LAURA-VOICE-IMPROVE", "title": "Voice as a permanent improvement domain: realism, "
      "latency, prosody, expressiveness, conversation quality -- without changing her "
      "recognisable identity", "required": True, "source": "D-FB-18 item 7",
@@ -79,6 +85,13 @@ def status_of(row: dict) -> str:
         return "ACTIVE (verify, then certify)"
     if row["id"] == "LAURA-LIVE-P3" and caps.get("live") == "ACTIVE":
         return "ACTIVE (verify, then certify)"
+    if row["id"] == "LAURA-PRIVATE-REGISTER":
+        from ...gateway import laura_register
+
+        # Text register only: enabled by the owner's switch + spend authorisation + keys. It
+        # is never COMPLETE by declaration -- the class-B production soak certifies it.
+        if laura_register.enablement()["enabled"]:
+            return "ACTIVE (text register; verify, then certify)"
     return "GATED"
 
 

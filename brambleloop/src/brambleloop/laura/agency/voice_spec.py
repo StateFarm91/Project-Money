@@ -15,9 +15,12 @@ ONE canonical voice. Registers are contexts of that one voice, never a second vo
 * business/public -- polished and appropriate (ACTIVE once a voice is selected);
 * private owner   -- the same voice, warmer, more intimate, playful and flirtatious through
   prosody, pacing and delivery only; available only where the PRIV rules (owner-private
-  principal, `app/command_center/private_context`) AND the underlying provider support it. It
-  stays GATED: the private conversational register is not implemented, and the provider's usage
-  policies are the outer limit, which this code does not try to bypass.
+  principal, `app/command_center/private_context`) AND the underlying provider support it. The
+  VOICE delivery stays GATED on LAURA-VOICE-P2 (no voice is selected), and the provider's usage
+  policies are the outer limit, which this code does not try to bypass. The private TEXT
+  register now exists (D-W4-PL-1: `gateway.laura_register`, owner-enabled); `TEXT_REGISTER` /
+  `private_text_register()` report it beside the pinned v2 spec, whose own `private_owner`
+  entry (written when no text register existed) is history and is not edited in place.
 
 Hard rules (not tunable):
 * A voice cloned from, or designed to imitate, a real person -- including the human Laura --
@@ -262,12 +265,33 @@ def promotion_requirements(qualification: dict) -> dict:
                    "what is missing"}
 
 
+#: The private TEXT register (D-W4-PL-1), reported beside the pinned spec (not part of it).
+VOICE_PRIVATE_WHY_GATED = ("the voice delivery of the private register is GATED on "
+                           "LAURA-VOICE-P2 (no voice is selected) and the provider's usage "
+                           "policies; never on any business, public or customer surface")
+
+
+def private_text_register() -> dict:
+    """{status: ACTIVE|GATED, voice: GATED, ...}: the text register is ACTIVE only when the
+    owner has enabled it (key + switch + spend authorisation + provider); voice stays GATED."""
+    from ...gateway import laura_register
+
+    enabled = bool(laura_register.enablement()["enabled"])
+    return {"status": "ACTIVE" if enabled else "GATED",
+            "surface": "owner-private context only (app/command_center/private_context)",
+            "decision": "D-W4-PL-1 (pending owner acknowledgement)",
+            "bounds": "warm, affectionate, romantic, playful; never sexually explicit (the "
+                      "provider's usage policy is the outer limit)",
+            "voice": "GATED (LAURA-VOICE-P2)"}
+
+
 def public_view() -> dict:
-    """The spec as the Command Center shows it (no private-register detail beyond GATED)."""
+    """The spec as the Command Center shows it (no private-register detail beyond status)."""
     out = json.loads(json.dumps(SPEC))
     out["registers"]["private_owner"] = {"status": "GATED",
-                                         "why_gated": SPEC["registers"]["private_owner"]
-                                         ["why_gated"]}
+                                         "why_gated": VOICE_PRIVATE_WHY_GATED}
+    out["private_text_register"] = {"status": private_text_register()["status"],
+                                    "voice": "GATED (LAURA-VOICE-P2)"}
     out["spec_sha256"] = SPEC_SHA256
     out["required_readings"] = list(REQUIRED_READINGS)
     out["min_samples"] = dict(MIN_SAMPLES)

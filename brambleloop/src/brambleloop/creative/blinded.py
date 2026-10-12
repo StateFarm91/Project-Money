@@ -805,7 +805,14 @@ def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
                    "thumbnail": ((r.detail or {}).get("image_urls") or [""])[0]}
                   for r in rows if ((r.detail or {}).get("image_urls") or [""])[0]]
 
-    mine = [{"side": OURS, "ref": str(f.get("slug") or ""),
+    # F-278: a product may enter several hero candidates; each cell's ref names its
+    # candidate, and only cells marked `counts_for_verdict` (the hero on file, by default
+    # every cell) feed the pod's #126 verdict. The others are ranked in the same blinded
+    # grid so the product's own candidates can be compared.
+    mine = [{"side": OURS,
+             "ref": str(f.get("slug") or "") + (f"#{f['candidate']}" if f.get("candidate")
+                                                 else ""),
+             "counts": bool(f.get("counts_for_verdict", True)),
              "thumbnail": str(f.get("image_ref") or f.get("image") or "")}
             for f in ours if f.get("made", True) and (f.get("image_ref") or f.get("image"))]
     if len(theirs) < MIN_GRID_BENCHMARKS:
@@ -825,7 +832,8 @@ def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
     presented = []
     for index, cell in enumerate(cells):
         cell_id = _grid_cell_id(seed, index)
-        key[cell_id] = {"side": cell["side"], "ref": cell["ref"]}
+        key[cell_id] = {"side": cell["side"], "ref": cell["ref"],
+                        "counts": cell.get("counts", True)}
         # What a judge sees: a position, a pointer to a picture, a pod. No side, no ref, no
         # seller, no price, no reviews, no title.
         presented.append({"cell": cell_id, "row": index // max(1, columns),
@@ -837,7 +845,7 @@ def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
             raise GridRefused(f"grid cell leaks {leak}")
 
     judgements = judgements or {}
-    ours_ids = [c for c, k in key.items() if k["side"] == OURS]
+    ours_ids = [c for c, k in key.items() if k["side"] == OURS and k.get("counts", True)]
     scores: dict[str, float | None] = {}
     for field_name in GRID_JUDGE_FIELDS:
         got = [float(judgements[c][field_name]) for c in ours_ids
@@ -1038,15 +1046,22 @@ def grid_tournament(db, ours: list[dict], *, pod: str, provider, seed: int = 0,
     panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
     judged = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key,
                          judgements=panel["judgements"])
+    # F-278: each of our cells' scores by its candidate ref, read through the key after
+    # judging (the judges never saw it), so a product's candidates can be compared.
+    judged["candidate_scores"] = {
+        k["ref"]: {f: (panel["judgements"].get(cell) or {}).get(f) for f in GRID_JUDGE_FIELDS}
+        for cell, k in (judged.get("key") or {}).items() if k["side"] == OURS}
     # W4-B2VISION: our cells' scores by product, and each judge's own reading of them, so
     # the #218 challenge can read desirability, distinctiveness and (from the gift-buyer
-    # judge) giftability for the product itself rather than for the pod.
+    # judge) giftability for the product itself rather than for the pod. With F-278
+    # candidates in the grid, only the cell that counts for the verdict (the hero on file)
+    # speaks for the product.
     key = grid["key"]
     by_product: dict[str, dict] = {}
     for cell, k in key.items():
-        if k["side"] != OURS:
+        if k["side"] != OURS or not k.get("counts", True):
             continue
-        by_product[k["ref"]] = {
+        by_product[k["ref"].split("#", 1)[0]] = {
             "scores": dict(panel["judgements"].get(cell) or {}),
             "by_judge": {j: dict((panel.get("per_judge") or {}).get(j, {}).get(cell) or {})
                          for j in panel.get("judges") or []}}

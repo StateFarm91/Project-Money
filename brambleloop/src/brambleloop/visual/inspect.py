@@ -202,6 +202,15 @@ def compare(description: dict, claim: dict) -> dict:
         problems.append({"check": "size_reference", "claim": "a scale reference",
                          "seen": description.get("object_count"),
                          "why": "a size card that cannot be counted communicates no size"})
+    if claim.get("shows_size_reference") and description.get("text_present") is not True:
+        # #61 "a size card must communicate scale clearly": the scale is the measured label
+        # and the named reference object, both type. A describer that saw no legible text
+        # on a size card saw no scale (W4-B2CLOSE).
+        problems.append({"check": "size_label", "claim": "a measured scale",
+                         "seen": "no legible text" if description.get("text_present") is False
+                         else description.get("text_present"),
+                         "why": "a size card whose measurement cannot be read communicates "
+                                "no scale (#61)"})
     if claim.get("shows_chart_preview") and description.get("chart_or_diagram") is not True:
         problems.append({"check": "chart_preview", "claim": "a chart preview",
                          "seen": description.get("object_shown"),
@@ -299,9 +308,6 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
     exactly as `inspect_image`'s calls are.
     """
     import os
-    import tempfile
-
-    from PIL import Image
 
     from ..commerce.thumbnail import GRID_PX
     from ..gateway import anthropic as gw
@@ -317,8 +323,20 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
     provider = provider or gw.provider_for(TASK)
     out["model"] = provider.model
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
-    tmp_dir = work_dir or tempfile.mkdtemp(prefix="grid_identify_")
-    small_path = os.path.join(tmp_dir, f"grid_{grid}.png")
+    from ..core import workspace
+
+    # A supplied `work_dir` is used and never deleted; otherwise the directory is scoped to
+    # this call (`core.workspace`, prefix counted by `ops.health.TEMP_PREFIXES`).
+    with workspace.work_dir(work_dir, prefix="grid-identify-") as tmp_dir:
+        return _identify_in(image_ref, os.path.join(tmp_dir, f"grid_{grid}.png"), grid=grid,
+                            fams=fams, db=db, provider=provider, billed=billed, out=out)
+
+
+def _identify_in(image_ref: str, small_path: str, *, grid: int, fams: list, db, provider,
+                 billed: dict, out: dict) -> dict:
+    from PIL import Image
+
+    from ..gateway import anthropic as gw
 
     def _call(system, prompt, max_tokens):
         # The same ceiling discipline as `inspect_image._call`: reserve against this run's
@@ -358,11 +376,6 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
         out.update(verdict="unjudged", why=f"no grid description: {exc}"[:300])
         _bill(db, provider, billed, image_ref)
         return out
-    finally:
-        if work_dir is None:
-            import shutil
-
-            shutil.rmtree(tmp_dir, ignore_errors=True)
     _bill(db, provider, billed, image_ref)
     ident = identification(description, fams)
     clarity = str(description.get("clarity") or "")

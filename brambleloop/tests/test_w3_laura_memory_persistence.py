@@ -15,7 +15,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from w3_laura_memory_harness import ROOT, check, finish, fresh_db, owner_session
+from w3_laura_memory_harness import ROOT, check, finish, fresh_db, owner_session, store_url
 
 from brambleloop.laura import memory as lm
 
@@ -60,7 +60,7 @@ def _populate(db):
 
 def test_survives_a_process_restart_and_a_model_swap():
     with tempfile.TemporaryDirectory(prefix="w3e-persist-") as td:
-        url = f"sqlite:///{td}/persist.sqlite"
+        url = store_url(f"{td}/persist.sqlite")      # dialect-aware (SQLite or opt-in PG)
         db = fresh_db(f"{td}/persist.sqlite")
         _populate(db)
         before = _snapshot(db)

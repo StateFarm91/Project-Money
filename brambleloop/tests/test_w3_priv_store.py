@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import json
 import pickle
-from pathlib import Path
 
 from sqlalchemy import select, text, update
-from w3_laura_memory_harness import check, finish, fresh_db, raises
+from w3_laura_memory_harness import check, finish, fresh_db, raises, raw_storage_bytes
 
 from brambleloop.core.db import Base
 from brambleloop.laura.private import _testkit as kit
@@ -24,14 +23,7 @@ kit.set_key(KEY)
 
 
 def _db_bytes(db) -> bytes:
-    path = Path(db.engine.url.database)
-    with db.engine.connect() as c:          # flush WAL into the main file
-        c.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
-    blob = path.read_bytes()
-    for extra in (path.with_name(path.name + "-wal"), path.with_name(path.name + "-shm")):
-        if extra.exists():
-            blob += extra.read_bytes()
-    return blob
+    return raw_storage_bytes(db)       # dialect-aware: SQLite file+WAL, or Postgres files+WAL
 
 
 def test_roundtrip_returns_private_values():

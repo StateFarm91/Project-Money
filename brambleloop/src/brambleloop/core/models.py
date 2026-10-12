@@ -1471,7 +1471,10 @@ class PolicySnapshot(Base):
     source: Mapped[str] = mapped_column(String(40), index=True)
     url: Mapped[str] = mapped_column(Text, default="")
     checked_on: Mapped[str] = mapped_column(String(10), default="")
-    version: Mapped[str] = mapped_column(String(40), default="")
+    # INTEG3: was String(40). The repository seed's version is "<read_on>:<basis>" (49 chars
+    # for "search_engine_excerpt_of_official_page"), so ops.policy_watch dead-lettered on
+    # Postgres. Widened by `migrate.widen` on existing databases; never truncated.
+    version: Mapped[str] = mapped_column(String(120), default="")
     digest: Mapped[str] = mapped_column(String(64), default="", index=True)
     summary: Mapped[str] = mapped_column(Text, default="")
     material_change: Mapped[bool] = mapped_column(Boolean, default=False)

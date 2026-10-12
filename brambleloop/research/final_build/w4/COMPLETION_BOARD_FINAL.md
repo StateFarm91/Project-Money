@@ -1,79 +1,71 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-12T14:03:13Z by `research/final_build/w4/completion_board_final.py` on branch head c76be4c. Production runs `0417f3516f30` (read 20261011T1828Z; /api/verify ok=False, failing ['every_agent_has_a_cost_ceiling', 'no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-12T20:12:06Z by `research/final_build/w4/completion_board_final.py` on branch head 1875a4e. Production runs `7bbbe72e205b` (read 20261012T1856Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
-| Build 2 | 320 | 215 | 12 | 0 | 2 | 39 | 49 | 3 |
-| Final Master launch-critical | 490 | 362 | 1 | 3 | 26 | 69 | 29 | 0 |
-| Final Master total | 917 | 385 | 1 | 17 | 255 | 162 | 90 | 7 |
+| Build 2 | 320 | 215 | 13 | 0 | 3 | 37 | 49 | 3 |
+| Final Master launch-critical | 490 | 362 | 1 | 5 | 45 | 48 | 29 | 0 |
+| Final Master total | 917 | 385 | 1 | 24 | 277 | 133 | 90 | 7 |
+| Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 
-Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 1}; Final Master launch-critical {'COMPLETE': 363, 'GATED': 119, 'OPEN': 8}.
+Ledger-native counts: Build 2 {'PROVEN': 228, 'OWNER-GATED': 42, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 0}; Final Master launch-critical {'COMPLETE': 363, 'GATED': 119, 'OPEN': 8}.
 
 ## Critical path
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 16 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
-2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 13 rows (1 FM launch-critical, 12 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
-3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 8 rows (7 FM launch-critical, 0 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
-4. **Etsy API credential refused (HTTP 403)** (owner): unblocks 14 rows (14 FM launch-critical, 0 Build 2). Estimate: owner minutes, then 1 daily cadence -- listing.taxonomy_refresh cadence 24 h (runtime/worker.py); etsy.probe 6-hourly
-5. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
-6. **Etsy OAuth missing transactions_r** (owner): unblocks 18 rows (8 FM launch-critical, 2 Build 2). Estimate: owner ~3 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
-7. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
-8. **No real customers / market outcomes yet** (external): unblocks 93 rows (4 FM launch-critical, 38 Build 2). Estimate: unbounded (market) -- no buyer exists; cannot be scheduled
+2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 14 rows (1 FM launch-critical, 13 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
+3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 30 rows (26 FM launch-critical, 2 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
+4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
+5. **Etsy OAuth missing transactions_r** (engineering): unblocks 11 rows (4 FM launch-critical, 0 Build 2). Estimate: UNKNOWN
+6. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
+7. **No real customers / market outcomes yet** (external): unblocks 93 rows (4 FM launch-critical, 38 Build 2). Estimate: unbounded (market) -- no buyer exists; cannot be scheduled
 
 ## Root causes (unfinished rows)
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
 | No real customers / market outcomes yet | 93 | 38 | 4 | 51 | {'blocked_external': 93} |  |
+| Gate now OPEN in production: unparked, re-verify | 30 | 2 | 26 | 2 | {'blocked_engineering': 30} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Image/vision provider capability | 24 | 6 | 15 | 3 | {'blocked_external': 23, 'in_progress': 1} |  |
-| Etsy API credential refused (HTTP 403) | 14 | 0 | 14 | 0 | {'blocked_owner': 14} | Fix the Etsy API credential so etsy.probe succeeds: production gets HTTP 403 ('Etsy v3 requires x-api-key as k |
+| Proven only on the integration branch (release + production evidence needed) | 14 | 13 | 1 | 0 | {'implemented_unverified': 14} |  |
 | Etsy surface has no API or is 403 to automation | 19 | 2 | 11 | 6 | {'blocked_external': 19} |  |
 | Release not deployed (successor + 24h window) | 16 | 1 | 12 | 3 | {'blocked_engineering': 16} |  |
-| Proven only on the integration branch (release + production evidence needed) | 13 | 12 | 1 | 0 | {'implemented_unverified': 13} |  |
-| Etsy OAuth missing transactions_r | 18 | 2 | 8 | 8 | {'blocked_owner': 18} | Re-authorise the Etsy app with the transactions_r scope (consent screen). The gate also needs the Etsy API cre |
 | Marketplace Insights / Stats paste | 21 | 5 | 4 | 12 | {'blocked_owner': 21} | Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists). |
-| Open engineering work | 246 | 1 | 7 | 238 | {'blocked_engineering': 233, 'in_progress': 13} |  |
 | Owned channels (site / Pinterest) | 18 | 7 | 1 | 10 | {'blocked_owner': 18} | The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static  |
 | Testers and physical samples | 16 | 4 | 4 | 8 | {'blocked_owner': 16} | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREA |
-| Gate now OPEN in production: unparked, re-verify | 8 | 0 | 7 | 1 | {'blocked_engineering': 8} |  |
-| Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings) | 7 | 0 | 7 | 0 | {'blocked_owner': 6, 'in_progress': 1} | rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act |
+| Open engineering work | 245 | 0 | 7 | 238 | {'blocked_engineering': 234, 'in_progress': 11} |  |
+| Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings) | 7 | 0 | 7 | 0 | {'blocked_owner': 7} | rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act |
 | Owner rulings | 7 | 4 | 2 | 1 | {'blocked_owner': 7} | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no |
 | Benchmark purchases | 14 | 5 | 0 | 9 | {'blocked_owner': 14} | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARAN |
 | Offsite storage bucket | 6 | 1 | 4 | 1 | {'blocked_owner': 6} | Create a Backblaze B2 account, a PRIVATE bucket and an application key restricted to that bucket (read+write+d |
+| Etsy OAuth missing transactions_r | 11 | 0 | 4 | 7 | {'in_progress': 11} |  |
 | Etsy Shop Manager settings | 10 | 0 | 4 | 6 | {'blocked_owner': 10} | subscribing is consequential spend |
 | Paid-media authority | 23 | 2 | 1 | 20 | {'blocked_owner': 22, 'in_progress': 1} | Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the re |
 | Banking / payment-ledger feeds | 4 | 0 | 3 | 1 | {'blocked_owner': 4} | Etsy statement is a browser download only |
 | Data that only accrues with time / seasons | 3 | 3 | 0 | 0 | {'blocked_external': 3} |  |
 | Provider admin usage keys | 3 | 0 | 3 | 0 | {'blocked_owner': 3} | provider usage/cost APIs need admin-scope keys (Anthropic Admin API, OpenAI organization usage) only the owner |
 | Paid image generation approval | 2 | 0 | 2 | 0 | {'blocked_owner': 2} | OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0  |
-| Model / vision provider credit | 2 | 0 | 1 | 1 | {'blocked_owner': 1, 'in_progress': 1} | a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100) |
 | Launch-0 catalogue cap (CAP-1) | 1 | 0 | 1 | 0 | {'blocked_owner': 1} | decide the Launch-0 depth (PRODUCT_FIX.md CAP-1) |
+| Model / vision provider credit | 1 | 0 | 0 | 1 | {'blocked_owner': 1} | a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100) |
 | Session environment | 1 | 0 | 0 | 1 | {'blocked_external': 1} |  |
+| Private Laura register: owner gates, then production soak | 1 | 0 | 0 | 0 | {'blocked_owner': 1} | PRIVATE_LAURA_TRACE §5 owner actions: OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge D-W4-PL- |
 
 ## Active worker branches (unmerged, last 24 h)
 
+- `claude/w4-AESTHETIC` @ 68247ca (2 ahead, 2026-10-12T14:04:29+00:00): rows named ['F-055']
 - `claude/w4-B2ASSETS` @ cf42b23 (1 ahead, 2026-10-12T13:57:21+00:00): rows named ['F-527']
-- `claude/w4-B2MOAT` @ 4625075 (1 ahead, 2026-10-12T13:57:09+00:00): rows named none
 - `claude/w4-CCFINST` @ 450a468 (3 ahead, 2026-10-12T14:02:18+00:00): rows named ['F-620']
 - `claude/w4-CCMKTLAB` @ d51df29 (2 ahead, 2026-10-12T14:02:20+00:00): rows named ['F-684']
-- `claude/w4-CCNOTIFY` @ 9e1aeec (3 ahead, 2026-10-12T14:02:16+00:00): rows named ['F-897']
-- `claude/w4-DISCLOSEDQA` @ 9df29d3 (7 ahead, 2026-10-12T13:59:12+00:00): rows named none
 - `claude/w4-DRIFTMARGIN` @ a9fb6de (1 ahead, 2026-10-12T09:11:08+00:00): rows named ['F-218']
-- `claude/w4-ETSYREV` @ 6281f17 (1 ahead, 2026-10-11T15:39:47+00:00): rows named none
-- `claude/w4-ETSYREVIEW` @ 8df180c (1 ahead, 2026-10-12T13:58:30+00:00): rows named none
+- `claude/w4-FMCLOSE` @ 013c2e3 (7 ahead, 2026-10-12T19:58:25+00:00): rows named ['F-283', 'F-501', 'F-512', 'F-558', 'F-570', 'F-574', 'F-575', 'F-590', 'F-595', 'F-657', 'F-682']
 - `claude/w4-FUNDING` @ 58a56b3 (1 ahead, 2026-10-12T14:00:29+00:00): rows named none
-- `claude/w4-HEROTOURNEY` @ 9814b80 (5 ahead, 2026-10-12T14:00:45+00:00): rows named ['F-278']
 - `claude/w4-HYGIENE` @ c977f6d (1 ahead, 2026-10-12T14:00:10+00:00): rows named ['F-146', 'F-149', 'F-150']
-- `claude/w4-IMGFIX` @ 35ff340 (1 ahead, 2026-10-12T13:59:09+00:00): rows named none
-- `claude/w4-LAURAREL` @ c498888 (2 ahead, 2026-10-12T04:01:04+00:00): rows named none
-- `claude/w4-LAURAREV` @ a64a244 (5 ahead, 2026-10-11T16:40:08+00:00): rows named none
 - `claude/w4-ROLLBACK` @ 572105b (1 ahead, 2026-10-12T14:00:25+00:00): rows named none
-- `claude/w4-SECREVIEW` @ b2181bb (2 ahead, 2026-10-11T18:50:34+00:00): rows named none
+- `claude/w4-SECREVIEW-HF` @ dc560a2 (3 ahead, 2026-10-12T16:06:57+00:00): rows named none
 - `claude/w4-SETCONSIST` @ 41f72ee (1 ahead, 2026-10-12T08:36:27+00:00): rows named ['F-746']
 - `claude/w4-STITCHFAM` @ c8f1602 (1 ahead, 2026-10-12T13:59:16+00:00): rows named ['F-759']
-- `claude/w4-SWARMCONTROL` @ b352b34 (2 ahead, 2026-10-12T13:58:09+00:00): rows named ['F-457', 'F-470', 'F-473']
 - `claude/w4-SWARMQUEUES` @ aab7a55 (1 ahead, 2026-10-12T13:58:23+00:00): rows named ['F-630', 'F-656']
 - `claude/w4-UPGRADECMP` @ 8b24bbc (1 ahead, 2026-10-12T09:11:11+00:00): rows named ['F-738']
 
@@ -86,8 +78,8 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | B2#8 | blocked_external | external: real buyers | True | True | parked on customers: needs real customers |
 | B2#9 | blocked_owner | owner: testers / sample | True | True | parked on owner gate tester_roster |
 | B2#10 | blocked_owner | owner: open owned channels | True | True | parked on owner gate owned_surfaces |
-| B2#11 | blocked_owner | owner: Etsy OAuth scope | True | True | parked on owner gate transactions_r |
-| B2#12 | blocked_owner | owner: Etsy OAuth scope | True | True | parked on owner gate transactions_r |
+| B2#11 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | parked on owner gate transactions_r |
+| B2#12 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | parked on owner gate transactions_r |
 | B2#14 | blocked_owner | owner: go-live / publication grant | True | True | parked on owner gate live_listings |
 | B2#15 | implemented_unverified | engineering: release + deploy | True | True |  |
 | B2#16 | blocked_owner | owner: go-live / publication grant | True | True | parked on owner gate live_listings |
@@ -111,7 +103,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | B2#48 | blocked_external | external: real buyers | True | True | parked on customers: needs real customers |
 | B2#51 | blocked_owner | owner: offsite bucket | True | True | parked on owner gate offsite_storage |
 | B2#54 | blocked_owner | owner: Marketplace Insights paste | True | True | parked on owner gate insights_access |
-| B2#61 | blocked_engineering | engineering | True | True | gate image_vision has opened; the remaining work is no longer parked |
+| B2#61 | implemented_unverified | engineering: release + deploy | True | True |  |
 | B2#64 | blocked_owner | owner: testers / sample | True | True | parked on owner gate physical_proof |
 | B2#67 | implemented_unverified | engineering: release + deploy | True | True |  |
 | B2#72 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
@@ -183,21 +175,21 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | B2#315 | blocked_owner | owner: buy benchmark set | True | True | parked on owner gate benchmark_purchases |
 | B2#317 | blocked_owner | owner: buy benchmark set | True | True | parked on owner gate benchmark_purchases |
 | B2#320 | blocked_owner | owner: ruling | True | True | parked on owner gate acceptance_ruling |
-| F-005 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_api: certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gat |
-| F-007 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_api: set_listing_property wired (pipeline); node property schema read needs etsy_api |
-| F-009 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_api: a working Etsy credential lets listing.taxonomy_refresh read the node schema |
-| F-010 | blocked_owner | owner: Etsy API credential | True | True | Add a weekly handler (runtime/worker cadence) storing a taxonomy/properties snapshot digest and opening a blocking incid |
-| F-027 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | When image_vision opens, add a vision 'identify the product' check to the hero in handle_assets_build; meanwhile keep de |
+| F-005 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_api: certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gat |
+| F-007 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_api: set_listing_property wired (pipeline); node property schema read needs etsy_api |
+| F-009 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_api: a working Etsy credential lets listing.taxonomy_refresh read the node schema |
+| F-010 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Add a weekly handler (runtime/worker cadence) storing a taxonomy/properties snapshot digest and opening a blocking incid |
+| F-027 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | When image_vision opens, add a vision 'identify the product' check to the hero in handle_assets_build; meanwhile keep de |
 | F-030 | blocked_owner | owner: paid image calls | True | True | owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual |
-| F-031 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | Once image_vision opens, add a grid-scale identification check; otherwise none |
+| F-031 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Once image_vision opens, add a grid-scale identification check; otherwise none |
 | F-039 | blocked_external | external: Etsy pages 403 to automation / no API | True | True | Add a 'search_guidance' POLICY_SOURCES entry governing ('listing','search') and on its change enqueue listing.seo re-run |
-| F-040 | blocked_owner | owner: Etsy API credential | True | True | Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only  |
-| F-041 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | none beyond F-027 vision step |
+| F-040 | blocked_engineering | engineering: gate etsy_shop is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only  |
+| F-041 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | none beyond F-027 vision step |
 | F-042 | blocked_external | external: Etsy pages 403 to automation / no API | True | True | Build an owner-recorded Customer Service Stats intake (response rate, case count, review average) plus getShop review_av |
 | F-059 | blocked_owner | owner: Marketplace Insights paste | True | True | Label search_share on /api/catalogue as internal_score and retire it from readiness once Stats exist |
 | F-081 | blocked_owner | owner: testers / sample | True | True | owner gate tester_roster: physical intake fixed (fb4-PUB); Class C needs an independent tester's make |
 | F-088 | blocked_external | external: real buyers | True | True | Scope incidents to slug@version plus rebuild_graph descendants and feed confirmed defects into gates/confidence |
-| F-100 | blocked_engineering | engineering: gate model_provider is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | Add a launch/access.py AccessRequest 'second model provider' whose card carries scale/dependency.py's measured provider  |
+| F-100 | blocked_engineering | engineering: gate model_provider is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Add a launch/access.py AccessRequest 'second model provider' whose card carries scale/dependency.py's measured provider  |
 | F-103 | blocked_owner | owner: provider admin keys | True | True | owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only) |
 | F-106 | blocked_owner | owner: provider admin keys | True | True | owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only) |
 | F-118 | blocked_owner | owner: testers / sample | True | True | owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester |
@@ -211,23 +203,23 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-225 | blocked_external | external: image provider capability | True | True | Add a cross-frame consistency check (same colourway/motif verdicts across frames) to parity GALLERY and plan hero/detail |
 | F-227 | blocked_external | external: image provider capability | True | True | Integrate a deterministic structure reader (count/pitch/edging/dimension) into motif_fidelity or parity PRODUCT_TRUTH; e |
 | F-239 | blocked_external | external: Etsy pages 403 to automation / no API | None | None | Build brand/storefront_preview.py rendering icon at 40/70px, banner 1600x400 centre-crop at 360px phone width with safe- |
-| F-240 | blocked_owner | owner: Etsy API credential | None | None | Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied |
-| F-243 | blocked_owner | owner: Etsy API credential | True | True | Read Etsy seller taxonomy (getSellerTaxonomyNodes / getPropertiesByTaxonomyId, public API-key reads already sanctioned)  |
+| F-240 | blocked_engineering | engineering: gate etsy_shop is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | None | None | Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied |
+| F-243 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Read Etsy seller taxonomy (getSellerTaxonomyNodes / getPropertiesByTaxonomyId, public API-key reads already sanctioned)  |
 | F-246 | blocked_owner | owner: Marketplace Insights paste | True | True | Add a scheduled re-tag job that re-runs choose_tags for published listings when a new attribution.stats reading or serp  |
-| F-247 | blocked_owner | owner: Etsy API credential | True | True | Verify taxonomy_id against Etsy seller taxonomy (sanctioned API-key read) and add a check that every attribute value map |
+| F-247 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Verify taxonomy_id against Etsy seller taxonomy (sanctioned API-key read) and add a check that every attribute value map |
 | F-248 | blocked_owner | owner: go-live / publication grant | None | None | Build an opsauth-guarded POST /api/search-visibility (rows: observed_at, listing_id, scope shop/listing/service, categor |
 | F-249 | blocked_owner | owner: Marketplace Insights paste | True | True | Add an explicit rule in growth/listing experiment code refusing any 'manual search rank' evidence source, and route Shop |
-| F-252 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | Add resolution (min long edge) and exposure/lighting floors to thumbnail.evaluate_thumbnail; keep comparative click appe |
-| F-253 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate image_vision: Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain |
+| F-252 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Add resolution (min long edge) and exposure/lighting floors to thumbnail.evaluate_thumbnail; keep comparative click appe |
+| F-253 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate image_vision: Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain |
 | F-254 | blocked_owner | owner: paid image calls | True | True | owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual |
 | F-258 | blocked_owner | owner: go-live / publication grant | True | True | Add an authenticated owner Stats listing-level intake (POST /api/listing-outcomes -> style_learning.record_outcome, sour |
 | F-260 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build |
 | F-261 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build |
-| F-273 | blocked_owner | owner: Etsy OAuth scope | True | True | owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r |
-| F-278 | in_progress | in progress | True | True | Owner: fund the vision provider account (image_vision gate). Software: none beyond keeping candidates per product >=2 at |
+| F-273 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r |
+| F-278 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Owner: fund the vision provider account (image_vision gate). Software: none beyond keeping candidates per product >=2 at |
 | F-280 | blocked_owner | owner: go-live / publication grant | None | None | After F-248, add a cadence in runtime/worker.py that, for 7 days after the phase leaves shadow, raises a daily owner car |
 | F-282 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build |
-| F-283 | blocked_owner | owner: Etsy OAuth scope | True | True | Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed i |
+| F-283 | in_progress | in progress | True | True | Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed i |
 | F-284 | blocked_external | external: real buyers | True | True | none for launch beyond F-258/F-283 data paths; post-launch: feed review distribution into trust rungs. |
 | F-285 | blocked_owner | owner: Marketplace Insights paste | True | True | Add a seasonal.engine step that, N days before each occasion's indexing milestone, re-runs listing.seo tag choice for th |
 | F-287 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: the sections fill from ListingOutcome periods once a listing is live |
@@ -235,7 +227,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-293 | blocked_external | external: Etsy pages 403 to automation / no API | None | None | Build the storefront preview renderer (F-239) at desktop and mobile widths and a launch/readiness Requirement comparing  |
 | F-295 | blocked_owner | owner: ad budget authority | True | True | Add an ads dry-run acceptance test: granted authority fixture + one uncertified, one stale-certificate and one over-budg |
 | F-297 | blocked_external | external: Etsy Ads data | True | True | Build the listing-level intake (F-258) and a 'measurement proven' readiness requirement (a recorded organic listing read |
-| F-299 | blocked_owner | owner: Etsy API credential | True | True | Add a PhaseTransition record (from/to, owner approval ref, readiness snapshot id, rollback proof id) required by store.p |
+| F-299 | blocked_engineering | engineering: gate etsy_shop is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Add a PhaseTransition record (from/to, owner approval ref, readiness snapshot id, rollback proof id) required by store.p |
 | F-301 | blocked_owner | owner: provider admin keys | True | True | Add ops/provider_accounts.observe(provider) reading provider usage endpoints when an admin key is configured, persist ob |
 | F-321 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing |
 | F-323 | blocked_external | external: real buyers | True | True | Add per-order contribution in commerce/order_readings (gross - fees - refunds - ads - attributed variable AI cost for th |
@@ -247,29 +239,29 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-380 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | add scripts/deploy_gate.sh (or CI workflow) that refuses a Railway deploy unless run_tests.sh passed on the SHA, then re |
 | F-381 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | add a code-deploy rollback runbook check: record previous Railway deployment id at each deploy and a rehearsal that rede |
 | F-396 | blocked_owner | owner: offsite bucket | True | True | owner: configure offsite storage destination and approve Build 2 deploy |
-| F-437 | blocked_owner | owner: Etsy API credential | True | True | owner: complete Etsy OAuth; then run POST /api/etsy/exercise and record the verification matrix |
+| F-437 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner: complete Etsy OAuth; then run POST /api/etsy/exercise and record the verification matrix |
 | F-461 | blocked_owner | owner: deploy_trigger_config | None | None | owner gate deploy_trigger_config: guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipp |
 | F-495 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | After the owner deploys Build 2, let the 24h window run and read autonomy.launch_item until PROVEN |
 | F-497 | blocked_owner | owner: plane_violations | True | True | Enforce GET-only production access for build sessions in tooling (separate read-only ops token scope in core/opsauth.py) |
-| F-501 | blocked_owner | owner: Etsy OAuth scope | True | True | Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver i |
+| F-501 | in_progress | in progress | True | True | Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver i |
 | F-518@v0.15 | blocked_owner | owner: publication grant | True | True | owner: production window + write grant; then the attached plan is executed through listing_rollback.execute |
-| F-515@v0.16 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_shop: daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build |
+| F-515@v0.16 | blocked_engineering | engineering: gate etsy_shop is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_shop: daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build |
 | F-524 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: store.publish sends certified images; hero experiments need a live listing |
 | F-532 | blocked_external | external: Etsy has no API | True | True | Add an owner-paste intake for Etsy Customer Service Stats (response rate/time, case count) with thresholds that open an  |
-| F-535 | blocked_owner | owner: Etsy OAuth scope | True | True | owner gate transactions_r: re-authorise Etsy with transactions_r; the coding and repetition trigger then run on real rec |
+| F-535 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate transactions_r: re-authorise Etsy with transactions_r; the coding and repetition trigger then run on real rec |
 | F-536 | blocked_external | external: Etsy pages 403 to automation / no API | True | True | Wire listing_census_drift to a daily getListingsByShop poll so a suppressed/removed listing raises an owner incident (po |
-| F-538 | blocked_owner | owner: Etsy OAuth scope | True | True | Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/ |
-| F-540 | blocked_owner | owner: Etsy API credential | True | True | owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the dep |
-| F-542 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_api: store.publish reads back fields/properties/files; the controlled round trip is owner-authorised |
+| F-538 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/ |
+| F-540 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the dep |
+| F-542 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_api: store.publish reads back fields/properties/files; the controlled round trip is owner-authorised |
 | F-543 | blocked_owner | owner: publication grant | True | True | owner gate publication_authority: store.activate built with revalidated authority; going live is the owner's grant + pha |
 | F-556 | blocked_external | external: Etsy has no API | True | True | external gate no_messages_api: SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API |
 | F-557 | blocked_external | external: Etsy has no API | True | True | Extend support/department.py _ROUTES with pre_sale, refund, safety, policy and abuse_spam classes (refund/safety/policy  |
-| F-558 | blocked_owner | owner: Etsy OAuth scope | True | True | owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from r |
+| F-558 | in_progress | in progress | True | True | owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from r |
 | F-577 | blocked_owner | owner: Etsy shop settings | True | True | owner gate payout: drift monitor built; owner completes Etsy Payments onboarding |
 | F-578 | blocked_owner | owner: legal_and_tax | True | True | Persist the owner's dated tax-position decision (POST /api/owner/decision key legal_and_tax) and surface it in shop_pack |
 | F-587 | blocked_owner | owner: Etsy Shop Manager setting | True | True | In the shop snapshot cadence, compare getShop policy_* strings to commerce.shop_package.policies() and route any mismatc |
 | F-588 | blocked_owner | owner: Etsy Shop Manager setting | True | True | Surface Evidence(UNKNOWN) entries in coverage()['unknowns'] so the partners question reaches readiness; add a test that  |
-| F-594 | blocked_owner | owner: Etsy API credential | True | True | owner gate etsy_api: readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains |
+| F-594 | blocked_engineering | engineering: gate etsy_api is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_api: readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains |
 | F-608 | blocked_owner | owner: banking export | True | True | owner gate bank_and_payment_ledger_feed: connect or export the statements; reconciliation then runs on them |
 | F-617 | blocked_external | external: Etsy has no API | True | True | Provide the owner case-intake route (F-556) so real buyer messages enter support_cases; route review themes via commerce |
 | F-628 | blocked_owner | owner: offsite bucket | True | True | Owner: provide an off-provider bucket credential (offsite_storage) and authorise the production window; then read autono |
@@ -277,7 +269,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-665 | blocked_owner | owner: dashboard_truth.evidence | True | True | Define an Evidence dict (source, as_of, transform, confidence, reconciliation) and attach it to /api/console, /api/finan |
 | F-674 | blocked_external | external: image provider capability | True | True | external gate visual_v1_provider_capability: generative redraw refused (F-852); B+C photoreal stays R&D, not launch-crit |
 | F-676 | blocked_external | external: image provider capability | True | True | external gate model_bearing_render: F-852 refusal; protected-region enhancement waits on V2/provider fidelity |
-| F-682 | blocked_owner | owner: Etsy OAuth scope | True | True | Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepa |
+| F-682 | in_progress | in progress | True | True | Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepa |
 | F-689 | blocked_external | external: Etsy has no API | True | True | external gate no_messages_api: ingest messages when Etsy exposes them; until then the owner intake (F-556) feeds the wor |
 | F-695 | blocked_owner | owner: spend_policy numbers | True | True | Owner: supply provider and department ceilings (PROVIDER_CEILINGS_CAD, department allocations); software: record infrast |
 | F-697 | blocked_owner | owner: offsite bucket | True | True | Owner: create offsite bucket + credential; then ops.offsite_archive writes and a scheduled restore drill verifies it; in |
@@ -299,15 +291,16 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-849 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | Buildable now: re-run tests/test_cert_claude_independence.py on the frozen candidate and commit the evidence; owner: aut |
 | F-850 | blocked_owner | owner: authorise a live drill | True | True | Buildable now: add a restart test that kills the worker mid store.publish (grant-approved, fake Etsy) and mid orders.ing |
 | F-851 | blocked_external | external: image provider capability | True | True | external gate visual_v1_provider_capability: V1 redraw refused; protected photoreal presentation waits on V2 R&D |
-| F-871 | blocked_engineering | engineering: gate model_provider is OPEN in production (20261011T1828Z); the row is unparked and must be re-verified, not assumed done | True | True | Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit |
-| F-872 | blocked_owner | owner: Etsy OAuth scope | True | True | Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence |
+| F-871 | blocked_engineering | engineering: gate model_provider is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit |
+| F-872 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence |
 | F-878 | blocked_engineering | engineering | True | True | integrator: full suite + release record + deploy of the successor carrying the PACKETREL packet fix; then read /api/cc/l |
 | F-880 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | owner gate production_window: deploy the candidate, run the 24h soak and grade it with ops/slo soak grading |
 | F-881 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | owner gate production_window: deploy, then grade a soak in which no development session drives work |
 | F-895 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | owner gate production_window: deploy, then read one unattended night's useful work per department from ops/slo departmen |
-| F-897 | in_progress | in progress | True | True | owner gate casl_notification_authority: approve one external channel; the deduplicated severity-ranked queue then feeds  |
+| F-897 | blocked_owner | owner: casl_notification_authority | True | True | owner gate casl_notification_authority: approve one external channel; the deduplicated severity-ranked queue then feeds  |
 | F-904 | blocked_owner | owner: banking export | True | True | owner gate bank_and_payment_ledger_feed: connect or export a statement feed |
 | F-908 | blocked_owner | owner: banking export | True | True | owner gate bank_and_payment_ledger_feed: connect a bank / Etsy ledger feed |
 | F-923 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | owner gate production_window: deploy the candidate with the watchdog probe |
 | F-924 | blocked_engineering | engineering: deployed release + hosted history | True | True | owner gate hosted_operating_history: deploy; the slo_check cadence then measures real error budgets |
 | F-926 | blocked_owner | owner: Etsy Shop Manager setting | True | True | Owner: review the v2 vs v1 comparison in the Command Center store preview and accept or annotate; OA-A1/OA-OBS let the p |
+| LAURA-PRIVATE-REGISTER | blocked_owner | owner: OA-PL-1..4 (private key, D-W4-PL-1 acknowledgement, human Laura's consent, spend authorisation), then the class-B production soak | True | False | code + tests built (W4-PRIVLAURA); enablement is owner-only: BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement,  |

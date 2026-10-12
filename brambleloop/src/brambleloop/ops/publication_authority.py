@@ -201,13 +201,19 @@ def _parity(db, slug, version):
     unjudged = sorted(d for d, v in dims.items() if v not in (parity.PASS, parity.FAIL))
     failed = sorted(d for d, v in dims.items() if v == parity.FAIL)
     review = frame_review_state(db, slug, version)
+    from ..visual import exported_review
+
+    exported = exported_review.review_state(db, slug, version)
     ok = not unjudged and not failed and verdict.get("verdict") == parity.PASS and bool(
-        review.get("reviewed"))
+        review.get("reviewed")) and bool(exported.get("reviewed"))
     return {"state": PASS if ok else FAIL if failed else UNKNOWN,
             "verdict": verdict.get("verdict"), "dimensions": dims, "unjudged": unjudged,
             "failed": failed, "frames_judged": len(frames),
             "frame_review": {"reviewed": bool(review.get("reviewed")),
                              "why": str(review.get("why") or "")[:300]},
+            "exported_frame_review": {"applies": bool(exported.get("applies")),
+                                      "reviewed": bool(exported.get("reviewed")),
+                                      "why": str(exported.get("why") or "")[:300]},
             "why": ("every dimension passed and the frames were independently reviewed" if ok
                     else f"failed {failed}" if failed else
                     f"unjudged {unjudged}" if unjudged else
@@ -390,6 +396,11 @@ def display(evidence_: dict) -> list[dict]:
 
 def approve(db, *, authorization, slug, version, release, expected_digest, reason):
     """Record a sealed owner grant for exactly the previewed content."""
+    from ..laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((authorization, slug, version, release, expected_digest, reason),
+                   context="publication")
     opsauth.check(authorization)
     if not isinstance(reason, str) or not reason.strip():
         raise ValueError("owner decision reason required")

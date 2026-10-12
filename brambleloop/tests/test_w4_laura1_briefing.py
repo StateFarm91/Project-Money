@@ -302,7 +302,9 @@ def test_model_synthesis_grounded_answer_goes_through_the_gateway_and_is_used():
     expect = must + [i for i in reversed(pack_ids) if i not in must]   # mandatory, then model order
     assert [l.rsplit("[", 1)[1].rstrip("]") for l in lw] == expect, (lw, expect)
     assert _factual_lines_are_records(r) >= 10
-    assert r["method"].startswith("model synthesis via gateway laura.ceo_briefing@3")
+    # W4-LAURAFIX: was "@3". The prompt version is bumped to 4 because v3's unbounded id list
+    # was cut off at the output cap in production; the assertion still pins the exact version.
+    assert r["method"].startswith("model synthesis via gateway laura.ceo_briefing@4")
     _assert_briefing(r)
 
 

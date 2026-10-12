@@ -27,7 +27,6 @@ def review_disclosed_hero(db, slug: str, *, provider=None, store=None,
                           gate_open: bool | None = None) -> dict:
     """Describe the usable disclosed hero of `slug` blind and file the reading."""
     import os
-    import tempfile
 
     from ..core.artifacts import ArtifactStore
     from ..core.models import AuditLog
@@ -54,20 +53,19 @@ def review_disclosed_hero(db, slug: str, *, provider=None, store=None,
     st = store if hasattr(store, "get") else ArtifactStore(store or hero.get("artifact_dir")
                                                            or None)
     data = st.get(sha, db=db)
-    tmp = tempfile.mkdtemp(prefix="hero_review_")
-    path = os.path.join(tmp, f"{slug}-hero.png")
-    try:
+    from ..core import workspace
+
+    # Scoped to the call and removed with it (`core.workspace`; prefix counted by
+    # `ops.health.TEMP_PREFIXES`), so a review never leaves a directory behind.
+    with workspace.work_dir(None, prefix="hero-review-") as tmp:
+        path = os.path.join(tmp, f"{slug}-hero.png")
         with open(path, "wb") as fh:
             fh.write(data)
         got = inspection_mod.describe_image(
             path, db=db, provider=provider,
             claim={**HERO_CLAIM, "identifies_as": families})
         grid = inspection_mod.identify_at_grid(path, families=families, db=db,
-                                               provider=provider)
-    finally:
-        import shutil
-
-        shutil.rmtree(tmp, ignore_errors=True)
+                                               provider=provider, work_dir=tmp)
     inspection = {"described": got.get("described"), "description": got.get("description"),
                   "semantic": got.get("semantic"),
                   "description_error": got.get("description_error"),

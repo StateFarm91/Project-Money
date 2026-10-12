@@ -1,0 +1,7 @@
+changes on first create_all: []
+version column: VARCHAR(40)
+seed on VARCHAR(40): FAILED DataError (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(40)
+create_all (migrate) changes: ['policy_snapshots.version VARCHAR(40) -> VARCHAR(120)']
+version column: VARCHAR(120)
+seeded: 7 max version length: 49
+second create_all changes: []

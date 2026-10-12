@@ -1261,6 +1261,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # certified image set is judged and the completed certificate written back with its
     # evidence -- the stored verdict reaches PASS on the merits or stays PENDING/REFUSED.
     hero_reading = _judge_search_hero(ctx, slug, version)
+    # W4-DISCLOSEDQA (#61): with image_vision open, the frames this listing will upload (the
+    # certified disclosed set + supplements) are described blind and filed bound to their
+    # bytes; closed, nothing is called and publication reads them as unreviewed.
+    try:
+        from ..visual import exported_review
+
+        if exported_review.applies(ctx.db, slug, version):
+            got = exported_review.review(ctx.db, slug, version)
+            ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
+                      detail={k: got.get(k) for k in ("reviewed", "why", "not_clear")})
+    except Exception as exc:  # noqa: BLE001 - an unmade review leaves the frames unreviewed
+        ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
+                  detail={"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]})
     # W4-SEO: the listing's Etsy search package (intents, title, 13 tags, attributes,
     # category, description, price context, seasonality, evidence, certificate, readiness)
     # is assembled from what this handler just stored and persisted as a durable record.
@@ -1516,6 +1529,8 @@ FRAME_REVIEW_ACTION = "assets.frame_review"
 ROLE_CLAIMS: dict[str, dict] = {
     "hero": {"shows_finished_object": True},
     "whats_included": {"shows_text": True},
+    # #61 "a size card must communicate scale clearly": a countable piece AND legible text
+    # (the measured label and the named reference), read by a describer that never sees them.
     "size": {"shows_size_reference": True},
     "materials": {"shows_text": True},
     "pattern_preview": {"shows_text": True},
@@ -1564,7 +1579,13 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
         verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
                                     "why": verdict.get("why"),
                                     "unmade": verdict.get("unmade"),
-                                    "semantic": (got.get("semantic") or {}).get("problems")}
+                                    "semantic": (got.get("semantic") or {}).get("problems"),
+                                    # W4-B2CLOSE: production 7bbbe72 recorded a size card
+                                    # `blocked` with no semantic problem and no way to tell
+                                    # which of the other two reasons blocked it.
+                                    "failed_realism": verdict.get("failed_realism") or [],
+                                    "third_party_marks": verdict.get("third_party_marks")
+                                    or []}
         if frame.role == "hero":
             # F-027 / F-031: identification needs a family to compare against, and the hero
             # must still read as that product at search-grid size. Either missing is
@@ -6998,7 +7019,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
     catalogue_pods = frozenset(blind_review.pod_for(slug, title)
                                for slug, title in blind_review.catalogue_slugs())
     result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=fit["units"],
-                            job_id=ctx.job.id, prefer_pods=catalogue_pods)
+                            job_id=ctx.job.id, prefer_pods=catalogue_pods,
+                            should_stop=ctx.should_yield)
     ctx.audit("intel.gallery_analysis", detail={
         "prefer_pods": sorted(catalogue_pods),
         "judged": result["judged"], "attempted": result["attempted"],
@@ -7006,6 +7028,12 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
         "batch_derived_from": fit["binding_ceiling"],
         "batch_units": fit["units"], "stopped_by": result.get("stopped_by", ""),
         "failures": result["failures"][:5]})
+    if result.get("stopped_by") == "preempted":
+        # F-473: what was judged is recorded; the job goes back to the queue (un-counted)
+        # and resumes the backlog once the higher-band work has run.
+        ctx.yield_now(f"gallery analysis yielded after {result['judged']} image(s) to "
+                      f"higher-band work", key="gallery_progress",
+                      state={"judged": result["judged"], "remaining": result["remaining"]})
     return {"ran": True, "judged": result["judged"], "attempted": result["attempted"],
             "remaining": result["remaining"], "cost_cad": result["cost_cad"],
             "batch_units": fit["units"], "binding_ceiling": fit["binding_ceiling"],
@@ -7079,6 +7107,16 @@ def handle_blind_review(ctx: JobContext) -> dict:
 
 @handlers.register("creative.grid_tournament")
 def handle_grid_tournament(ctx: JobContext) -> dict:
+    """See `_grid_tournament_in`. The candidates' files live in a directory scoped to this run
+    (`core.workspace`; prefix counted by `ops.health.TEMP_PREFIXES`), removed when the handler
+    returns or raises."""
+    from ..core import workspace
+
+    with workspace.work_dir(None, prefix="grid-tournament-") as work_dir:
+        return _grid_tournament_in(ctx, work_dir)
+
+
+def _grid_tournament_in(ctx: JobContext, work_dir: str) -> dict:
     """#126: the search-grid blind tournament, judged by an independent panel.
 
     For each pod with enough audited benchmark thumbnails and at least one render of ours,
@@ -7093,24 +7131,30 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
     from ..gateway import anthropic as gw
     from ..publish import listing_asset
 
+    from ..visual import hero_candidates
+
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
     pod_of: dict[str, str] = {}
+    offered: dict[str, dict] = {}
     unresolvable: dict[str, str] = {}
+    # F-278: every verified hero candidate of each product enters the blinded grid as a file
+    # a judge can be shown (a disclosed hero's `sha256:` address is not one; W4-B2VISION's
+    # `blinded.resolve_image` reached the same finding). Only the hero on file counts toward
+    # the pod's #126 verdict. A product with no showable candidate is recorded unresolvable
+    # and never sent to a judge.
     for slug, title in blind_review.catalogue_slugs():
         pod_of[slug] = blind_review.pod_for(slug, title)
-        frames = listing_asset.frames_for(ctx.db, slug=slug)
-        hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
-        if hero:
-            # W4-B2VISION: the hero is shown to judges only if a judge can be shown it. The
-            # 2026-10-11 production run sent a dead /tmp path to all three judges and paid
-            # CA$0.93 for no reading; now the render resolves from the artifact store by its
-            # digest, or the product is recorded as unresolvable and never sent.
-            ref, why = blinded.resolve_image(ctx.db, hero[0])
-            if not ref:
-                unresolvable[slug] = why
-                continue
-            by_pod.setdefault(pod_of[slug], []).append(dict(hero[0], image_ref=ref))
+        got = hero_candidates.candidates(ctx.db, slug, work_dir=work_dir)
+        offered[slug] = got
+        if not got["candidates"]:
+            if (got.get("refused") or {}).get("hero") != "no hero on file":
+                unresolvable[slug] = str((got.get("refused") or {}).get("hero") or
+                                         "no hero candidate a judge can be shown")
+            continue
+        for c in got["candidates"]:
+            by_pod.setdefault(pod_of[slug], []).append(
+                dict(c, counts_for_verdict=(c["candidate"] == "hero")))
     results = {}
     stopped = False
     for pod, ours in sorted(by_pod.items()):
@@ -7120,6 +7164,7 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
             results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
                                                   "benchmark_cells", "our_cells")}
             results[pod]["panel"] = out["panel"]
+            results[pod]["candidate_scores"] = out.get("candidate_scores") or {}
             results[pod]["by_product"] = out.get("by_product") or {}
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
@@ -7167,6 +7212,16 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
                        # W4-B2VISION: this product's own cell scores, read by #218.
                        **(((results.get(pod) or {}).get("by_product") or {}).get(slug) or {})}
                 for slug, pod in pod_of.items()}
+    # F-278: the product's own hero tournament, from the same blinded panel.
+    for slug, pod in pod_of.items():
+        scores = (results.get(pod) or {}).get("candidate_scores") or {}
+        mine = {ref.split("#", 1)[1]: v for ref, v in scores.items()
+                if ref.split("#", 1)[0] == slug and "#" in ref}
+        for c in (offered.get(slug) or {}).get("candidates") or []:
+            mine.setdefault(c["candidate"], {})
+        products[slug]["hero_tournament"] = {
+            **hero_candidates.winner(mine),
+            "refused": (offered.get(slug) or {}).get("refused") or {}}
     for slug, why in unresolvable.items():
         products[slug].update(verdict=None, why=f"our render could not be shown to a judge: "
                                                 f"{why}", unresolvable=True)
@@ -7455,12 +7510,26 @@ def handle_offsite_archive(ctx: JobContext) -> dict:
     if not record.get("ok") and offsite.configured():
         # Configured and failing is an incident; unconfigured is a gate the owner has not
         # opened yet and is already reported as an owner action.
+        # INTEG3: this was `Incident(kind=..., severity="high")` -- `kind` is not an Incident
+        # column and `signature` (NOT NULL) was missing, so the one path that reports a
+        # configured archive failing raised instead and dead-lettered the job. One open
+        # incident per signature; a repeat failure counts against it.
+        from sqlalchemy import select
+
         from ..core.models import Incident
 
+        signature = "offsite_archive_failed"
         with ctx.db.session() as s:
-            s.add(Incident(kind="offsite_archive_failed", severity="high",
-                           summary=f"off-provider archive failed at {record.get('stage')}",
-                           detail={"reason": record.get("reason", "")[:400]}))
+            open_inc = s.scalars(select(Incident).where(
+                Incident.signature == signature,
+                Incident.resolved == False)).first()  # noqa: E712
+            if open_inc is None:
+                s.add(Incident(severity="P1", signature=signature,
+                               summary=f"off-provider archive failed at {record.get('stage')}",
+                               detail={"reason": record.get("reason", "")[:400],
+                                       "stage": record.get("stage")}))
+            else:
+                open_inc.report_count = (open_inc.report_count or 1) + 1
 
     return {"ok": bool(record.get("ok")), "stage": record.get("stage"),
             "reason": record.get("reason", "")[:300], "pruned": pruned}

@@ -778,7 +778,8 @@ DEFAULT_AGENTS.append(dict(
     allowed_job_types=["laura.executive_tick"],
     # Owner decision 2026-10-11 (DECISION_LOG D-W4-LAURA1-BUDGET): CA$0.50/day of model
     # budget for Laura's CEO-briefing synthesis (`gateway.laura_briefing`, purpose
-    # `laura.ceo_briefing@3`), inside the unchanged monthly ceiling and the approved
+    # `gateway.laura_briefing.PROMPT.ref`, `laura.ceo_briefing@4` since W4-LAURAFIX), inside
+    # the unchanged monthly ceiling and the approved
     # model-selection policy. Checked and reserved before every call; at the cap the call is
     # refused and the deterministic briefing answers. Authority is unchanged: GREEN, and she
     # still publishes, activates and messages nothing.

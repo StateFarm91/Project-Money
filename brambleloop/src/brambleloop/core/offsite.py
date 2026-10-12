@@ -468,7 +468,12 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
 
                 restored_path = root / "restored.jsonl"
                 restored_path.write_bytes(gzip.decompress(opened))
-                scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}")
+                # INTEG3 (production dead letter 2026-10-12): the restore proof is a throwaway
+                # SQLite file inside this work dir. Without `scratch=True` the hosted guard
+                # (BRAMBLELOOP_REQUIRE_POSTGRES=1 refuses every SQLite URL) killed the job
+                # after the upload and read-back had succeeded -- the same exemption
+                # `continuity.prove_restore` already carries.
+                scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}", scratch=True)
                 scratch.create_all()
                 counts = continuity.restore(restored_path, scratch)
 

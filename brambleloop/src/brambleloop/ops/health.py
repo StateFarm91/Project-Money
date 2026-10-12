@@ -81,6 +81,9 @@ SIGNALS: dict[str, str] = {
     # workers were busy.
     "starved_ready": ("runnable jobs older than their band's READY SLA while the pool had "
                       "idle capacity"),
+    # F-470 (W4-SWARMCONTROL): memory, load and database connections against the
+    # container's own limits; `swarm.capacity.worker_target` scales down while saturated.
+    "resources": "memory, CPU load and database connections against the container's limits",
     "job_durations": ("running jobs against 3x their job type's rolling median duration, "
                       "each over-envelope job diagnosed from records and never restarted"),
 }
@@ -328,8 +331,33 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
     readings.append(_job_durations(db, now))
 
     readings.append(_starved_ready(db, runner_state, now))
+    readings.append(_resources_reading(db))
 
     return readings
+
+
+def _resources_reading(db) -> "Reading":
+    """F-470: the container's capacity, read from the kernel (swarm.resources)."""
+    try:
+        from ..swarm.resources import read as read_resources
+
+        bind = db if hasattr(db, "engine") else None
+        if bind is None:
+            try:
+                eng = db.get_bind()
+                bind = type("_B", (), {"engine": eng})()
+            except Exception:  # noqa: BLE001
+                bind = None
+        r = read_resources(bind)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("resources", UNKNOWN, {}, f"unreadable: {type(exc).__name__}")
+    state = (UNKNOWN if r["saturated"] is None else DEGRADED if r["saturated"] else HEALTHY)
+    return Reading("resources", state,
+                   {k: r[k] for k in ("memory_share", "cpu_pressure_avg60", "load_per_cpu",
+                                      "rss_bytes",
+                                      "memory_limit_source", "usable_cpus", "cpu_seconds")}
+                   | {"db_connections": r["db_connections"]},
+                   "" if state == HEALTHY else r["why"])
 
 
 def _starved_ready(db, runner_state: dict, now: datetime) -> "Reading":
@@ -677,7 +705,14 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # Laura executive runtime proof (`laura.executive.proof`): a TemporaryDirectory scoped to
     # one proof run. Added by W3-HYG (2026-10-06) -- it was in `src/` and not counted, which
     # `test_cost_governance_wave2` refuses.
-    "bl-laura-proof-")
+    "bl-laura-proof-",
+    # W4-IMGFIX: the disclosed hero review and the 230 px grid identification write the bytes
+    # a vision judge is shown into a directory scoped to the call (`core.workspace`).
+    "hero-review-", "grid-identify-",
+    # DISCLOSEDQA: the exported-frame review scoped directory.
+    "exported-review-",
+    # HEROTOURNEY: the grid tournament candidates scoped directory.
+    "grid-tournament-")
 
 
 def disk_facts() -> dict:
