@@ -204,10 +204,14 @@ def test_the_week_executes_only_approved_tested_scoring_changes():
 def test_the_retrospective_names_what_to_stop_and_what_is_next():
     db = _db()
     cells.record_capability(db, "seo_search", 3.0, sample=5)
-    for _ in range(2):
+    for i in range(2):
+        # W4-FAILMEM (F-706): an identical re-proposal of a measured failure is refused unless
+        # it cites new evidence, so each attempt names the run it rests on. The rejection
+        # reason is still the same both times, which is what `stop_doing` is about.
         iid = cells.propose(db, cell="seo_search", hypothesis=H.format(cell="seo_search"),
                             expected_effect="more clusters", rollback_ref="w:1",
-                            touches=("weights",), proposed_by="listing")
+                            touches=("weights",), proposed_by="listing",
+                            evidence_ids=(f"run:{i}",))
         cells.test_result(db, iid, 1.0)          # worse: rejected, the same reason twice
     _tested(db, "pricing", proposed_by="pricing")
     report = cells.retrospective(db)

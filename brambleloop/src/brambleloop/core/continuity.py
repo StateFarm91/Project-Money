@@ -62,6 +62,8 @@ NON_REDERIVABLE = (
     "benchmark_products",
     "teardown_findings",
     "improvements",
+    # F-378: remembered negative findings (scope + evidence); a record, not a derivation.
+    "failure_memory",
     "lessons",
     "capability_history",
     "growth_loops",

@@ -184,6 +184,8 @@ def prioritise(candidates: list[dict]) -> dict:
     permission to burn unlimited tokens", and the mechanism that makes that real is having to
     say in advance what would count as it having worked.
     """
+    from . import tiers
+
     rows = []
     for c in candidates:
         expected = c.get("expected_impact")
@@ -193,17 +195,34 @@ def prioritise(candidates: list[dict]) -> dict:
                 f"{c.get('key', 'a candidate')}: say what improvement is expected and on "
                 f"which metric. A candidate that cannot say what would count as working "
                 f"cannot be prioritised, and cannot be assessed afterwards either")
+        # F-394: a launch blocker names the readiness item it unblocks. `True` is a claim.
+        blocker = c.get("blocks_launch")
+        if blocker is not None and (not isinstance(blocker, str) or not blocker.strip()):
+            raise RoiRefused(
+                f"{c.get('key', 'a candidate')}: a launch-blocker flag names the readiness "
+                f"item it unblocks (e.g. 'launch.readiness:<item>'), not {blocker!r}")
+        tier = c.get("tier")
+        if tier is not None and tier not in tiers.TIER_BY_KEY:
+            raise RoiRefused(f"{c.get('key', 'a candidate')}: unknown risk tier {tier!r}")
         rows.append({**c, "cost_cad": cost,
+                     "blocks_launch": blocker.strip() if blocker else None,
+                     "reversibility_rank": (tiers.TIER_BY_KEY[tier].rank if tier else None),
                      "impact_per_cad": (round(float(expected) / cost, 4) if cost > 0
                                         else None)})
-    # A free change with real expected impact outranks a paid one: sorted with None first.
-    # Among free changes, the larger expected impact first -- otherwise every free candidate
-    # ties and the order is whatever order the rows were read in.
-    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
-                             -float(r["expected_impact"])))
+    # Launch blockers first (F-394): a change that unblocks a named readiness item outranks
+    # any amount of expected impact elsewhere while the company cannot sell. Then, as before,
+    # a free change with real expected impact outranks a paid one (None first) and, among
+    # free changes, the larger expected impact first. Reversibility breaks the remaining
+    # ties: the lower risk tier (scoring before gate) is the cheaper one to be wrong about.
+    rows.sort(key=lambda r: (r["blocks_launch"] is None,
+                             r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
+                             -float(r["expected_impact"]),
+                             r["reversibility_rank"] if r["reversibility_rank"] is not None
+                             else len(tiers.TIERS)))
     return {"ranked": rows,
-            "note": ("Ordered by expected impact per dollar, with free changes first. "
-                     "Continuous learning is not permission to burn unlimited tokens (#99).")}
+            "note": ("Launch blockers first; then expected impact per dollar, with free "
+                     "changes first; reversibility (risk tier) breaks ties. Continuous "
+                     "learning is not permission to burn unlimited tokens (#99).")}
 
 
 # ---------------------------------------------------------------------------
