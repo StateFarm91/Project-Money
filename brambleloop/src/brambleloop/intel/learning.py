@@ -63,13 +63,23 @@ class LearningRefused(ValueError):
 
 
 def record(db, *, domain: str, source: str, citation: str, summary: str,
-           observed_on: date, detail: dict | None = None) -> int:
+           observed_on: date, detail: dict | None = None, claim_class: str = "source_claim",
+           query_terms=(), decision_ref: str = "") -> int:
     """Store one external observation, with where and when it was observed.
 
     A source and a date are required rather than encouraged. An observation that cannot say
     where it came from is a belief, and the reason this refuses instead of flagging is that
     a flagged row is still a row somebody will quote.
+
+    W4-RESEARCH: each observation also carries its `claim_class` (F-409; an outside
+    observation defaults to `source_claim` -- somebody said it), the `query_terms` that found
+    it and the `decision_ref` it was gathered for (F-424), so the search can be repeated and
+    the decision traced. They live in `detail`, beside whatever the caller recorded.
     """
+    from .research import CLAIM_CLASSES
+
+    if claim_class not in CLAIM_CLASSES:
+        raise LearningRefused(f"claim_class must be one of {CLAIM_CLASSES}")
     from ..core.models import LearningObservation
 
     if domain not in DOMAIN_BY_KEY:
@@ -92,9 +102,12 @@ def record(db, *, domain: str, source: str, citation: str, summary: str,
         raise LearningRefused("an observation cannot have been made in the future")
 
     with db.session() as s:
+        extra = {"claim_class": claim_class,
+                 "query_terms": [str(t).strip() for t in query_terms or () if str(t).strip()],
+                 "decision_ref": str(decision_ref or "").strip()}
         row = LearningObservation(domain=domain, source=source.strip(),
                                   citation=citation.strip(), summary=summary.strip(),
-                                  observed_on=when, detail=detail or {})
+                                  observed_on=when, detail={**(detail or {}), **extra})
         s.add(row)
         s.flush()
         return row.id
@@ -127,7 +140,12 @@ def observations(db, *, domain: str | None = None, today: date | None = None) ->
                         "observed_on": _aware(row.observed_on).date().isoformat(),
                         "age_days": age, "fresh_for_days": window,
                         "fresh": age <= window,
-                        "kind": "external_signal"})
+                        "kind": "external_signal",
+                        # Rows written before W4-RESEARCH carry no class: unresolved, never
+                        # silently promoted to a claim class nobody assigned.
+                        "claim_class": (row.detail or {}).get("claim_class") or "unresolved",
+                        "query_terms": list((row.detail or {}).get("query_terms") or []),
+                        "decision_ref": (row.detail or {}).get("decision_ref") or None})
         return out
 
 
