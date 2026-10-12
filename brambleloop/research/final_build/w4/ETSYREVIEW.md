@@ -33,3 +33,6 @@ reading of Etsy's OpenAPI document is DRIFTED or its fingerprint changed.
 
 Regression suites green: test_w4_etsysurf 8/8, test_w4_fm2_surface_reverify 8/8,
 test_w4_owner_actions 6/0, test_cert_owner_decision.
+
+## Checkpoint 2026-10-12
+Status: DONE (F-599 as batched owner-queue card store:etsy.openapi_review, CA$0, 15 min). test_w4_etsyreview 3/3. Required regression set: not run (pushed before the rule; pause ordered). Next step: run the regression set, then merge.
