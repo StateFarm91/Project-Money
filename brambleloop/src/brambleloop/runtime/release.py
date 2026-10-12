@@ -4140,12 +4140,15 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         # rather than a guess, and the comparison is recorded: a rebuild that says "nothing
         # to do" without showing its reasoning is unfalsifiable from outside the process,
         # and this decision has now been wrong twice.
-        built_from = {
-            (l.product_slug, l.version): f"c{l.chain_version}:{l.release_hash or 'none'}"
-            for l in s.scalars(select(Listing))
-        }
+        built_from = {}
+        listed_price: dict[tuple[str, str], float | None] = {}
+        for l in s.scalars(select(Listing)):
+            built_from[(l.product_slug, l.version)] = \
+                f"c{l.chain_version}:{l.release_hash or 'none'}"
+            listed_price[(l.product_slug, l.version)] = l.price_cad
 
     started: list[str] = []
+    repriced: list[str] = []
     reasons: dict[str, str] = {}
     withheld_releases: list[str] = []
     for pv in certified:
@@ -4163,6 +4166,17 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         wanted = f"c{CHAIN_VERSION}:{pv.release_hash or 'none'}"
         actual = built_from.get((slug, pv.version), "missing")
         if actual == wanted:
+            # W4-PLACEMATPRICE: a listing current by chain and release can still carry a price
+            # its Launch-0 plan no longer gives (mosaic-placemat-pair@1.3.0 was drafted at
+            # CA$9.50 on the generic band before CAP-1 put it in Launch-0; the plan is
+            # CA$5.00). Re-price it through the release path: pricing.position, then
+            # listing.seo and the listing row. Nothing reaches Etsy from here.
+            drift = _reprice_on_plan_drift(ctx, slug, pv,
+                                           listed_price.get((slug, pv.version)))
+            if drift is not None:
+                repriced.append(f"{slug}@{pv.version}")
+                reasons[slug] = drift
+                continue
             reasons[slug] = "current"
             continue
         token = hashlib.sha256(f"{actual}->{wanted}".encode()).hexdigest()[:12]
@@ -4249,11 +4263,56 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "redrafted_count": len(redrafted),
                                        "collections_restarted": collections_started,
                                        "withheld": withheld_releases,
+                                       "repriced": repriced,
                                        "listings": reasons})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
             "redrafted": redrafted, "collections_restarted": collections_started,
-            "withheld": withheld_releases}
+            "withheld": withheld_releases, "repriced": repriced}
+
+
+def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str | None:
+    """Enqueue pricing.position for a current Launch-0 listing priced off its plan, or None.
+
+    The payload is the latest completed `assets.build` output for this release -- the same
+    measurement `_targeted_rebuild` re-prices from -- so pricing and everything after it read
+    what assets.build measured. Without one, nothing is enqueued and the reason says so (the
+    listing stays refused at publication by `release_gates.launch_price_check`). Keyed by the
+    drift itself, so one stale price is re-priced once, not once per cadence.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+    from ..publish.release_gates import launch_price_check
+
+    chk = launch_price_check(slug, listing_price)
+    if chk["state"] != "DRIFT":
+        return None
+    with ctx.db.session() as s:
+        built = next((dict(j.outputs or {}) for j in s.scalars(
+            select(Job).where(Job.job_type == "assets.build",
+                              Job.status == JobStatus.DONE).order_by(desc(Job.id)))
+            if (j.outputs or {}).get("slug") == slug
+            and (j.outputs or {}).get("version") == pv.version
+            and (j.outputs or {}).get("pdf_sha256")), None)
+    detail = {"listing_cad": chk["listing_cad"], "plan_cad": chk["plan_cad"],
+              "why": chk["why"], "version": pv.version}
+    if built is None:
+        ctx.audit("chain.reprice_refused", artifact=f"{slug}@{pv.version}", detail={
+            **detail, "refused": "no completed assets.build output for this release to "
+                                 "re-price from; the listing stays refused at publication"})
+        return (f"price plan drift (CA${chk['listing_cad']:.2f} vs plan "
+                f"CA${chk['plan_cad']:.2f}): no assets.build output to re-price from")
+    token = hashlib.sha256(
+        f"reprice:{chk['listing_cad']}->{chk['plan_cad']}".encode()).hexdigest()[:12]
+    job = ctx.enqueue("pricing", "pricing.position",
+                      {**built, "release": pv.release_hash or "", "rebuild": token},
+                      idempotency_key=chain_key("price", slug, pv.version,
+                                                pv.release_hash or "", token))
+    ctx.audit("chain.reprice_requested", artifact=f"{slug}@{pv.version}",
+              detail={**detail, "stage_job": getattr(job, "id", None)})
+    return (f"price plan drift (CA${chk['listing_cad']:.2f} vs plan "
+            f"CA${chk['plan_cad']:.2f}): re-priced through pricing.position")
 
 
 # C-69 (#172): which chain stage re-derives each artefact class. Each stage cascades to the
