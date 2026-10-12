@@ -1,7 +1,7 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-11T18:31:01+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
-Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 20261011T1828Z.
+Generated 2026-10-12T04:20:00+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Gate readings: production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z.
 
 ## Reconciliation of the owner dashboard figure
 
@@ -9,12 +9,12 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 | state | rows |
 |---|---|
-| PROVEN | 215 |
+| PROVEN | 224 |
 | OWNER-GATED | 42 |
 | DATA-GATED | 41 |
-| EXTERNAL-GATED | 5 |
+| EXTERNAL-GATED | 6 |
 | NOT-APPLICABLE | 3 |
-| OPEN-DEFECT | 14 |
+| OPEN-DEFECT | 4 |
 
 ## Gated rows by exact gate
 
@@ -31,7 +31,7 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 | listing_traffic | DATA-GATED | closed | #23 |
 | live_listings | OWNER-GATED | closed | #14 #16 #46 #238 #239 #241 #254 #263 #266 |
 | market_outcomes | DATA-GATED | closed | #94 |
-| model_bearing_render | EXTERNAL-BLOCKED | closed | #72 #130 #202 #203 #300 |
+| model_bearing_render | EXTERNAL-BLOCKED | closed | #72 #130 #202 #203 #300 #308 |
 | offsite_storage | OWNER-GATED | closed | #51 |
 | owned_surfaces | OWNER-GATED | closed | #4 #10 #246 #247 #248 #251 #255 |
 | physical_proof | OWNER-GATED | closed | #64 |
@@ -45,4 +45,4 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 NOT-APPLICABLE (process directives to the auditor, followed): #32, #56, #197
 
-OPEN-DEFECT: 14 -- #15 gate image_vision has opened; the remaining work is no longer parked, #44 gate image_vision has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked, #67 gate image_vision has opened; the remaining work is no longer parked, #86 gate image_vision has opened; the remaining work is no longer parked, #88 gate image_vision has opened; the remaining work is no longer parked, #116 gate image_vision has opened; the remaining work is no longer parked, #126 gate image_vision has opened; the remaining work is no longer parked, #218 gate image_vision has opened; the remaining work is no longer parked, #277 gate image_vision has opened; the remaining work is no longer parked, #281 gate image_vision has opened; the remaining work is no longer parked, #304 gate image_vision has opened; the remaining work is no longer parked, #308 gate image_vision has opened; the remaining work is no longer parked, #309 gate image_vision has opened; the remaining work is no longer parked
+OPEN-DEFECT: 4 -- #15 gate image_vision has opened; the remaining work is no longer parked, #44 gate image_vision has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked, #86 gate image_vision has opened; the remaining work is no longer parked

@@ -66,6 +66,12 @@ class RunnerState:
     # v1.1 lane A: dedicated lanes (runtime.lanes), e.g. the control lane that keeps the
     # Executive Orchestrator turning while a long render holds the pool.
     lanes: dict = field(default_factory=dict)
+    # F-489 (parallelism efficiency): seconds the active pool workers spent working versus
+    # waiting with nothing claimable, summed over workers since this process started. Dormant
+    # workers (beyond the allocation's target) are counted in neither: they were not asked
+    # to work. Process-local, like every field here; reset on restart.
+    busy_seconds: float = 0.0
+    idle_seconds: float = 0.0
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
@@ -91,6 +97,8 @@ class RunnerState:
             "worker_target": self.worker_target,
             "worker_target_why": self.worker_target_why,
             "lanes": {k: dict(v) for k, v in self.lanes.items()},
+            "busy_seconds": round(self.busy_seconds, 1),
+            "idle_seconds": round(self.idle_seconds, 1),
             # Measured here because this is the process that owns the disk. A health sweep
             # reading its own filesystem measures whichever machine is answering the
             # request, which in a split deployment is not the container doing the work.
@@ -198,12 +206,17 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
                 if index > 0 and target is not None and index >= target.get():
                     stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it
                     continue
+                t0 = time.monotonic()
                 did_work = worker.run_once()
                 STATE.worker_last_tick = _now()
                 if index == 0:
                     _worker_heartbeat(db, name)
-                if not did_work:
+                if did_work:
+                    STATE.busy_seconds += time.monotonic() - t0
+                else:
+                    t1 = time.monotonic()
                     stop.wait(_IDLE_SLEEP)
+                    STATE.idle_seconds += time.monotonic() - t1 + (t1 - t0)
         except Exception as e:  # noqa: BLE001
             STATE.worker_restarts += 1
             STATE.last_error = f"{type(e).__name__}: {e}"
@@ -223,10 +236,16 @@ def _lane_loop(db: Database, name: str, phase: Phase, stop: threading.Event, lan
         try:
             worker = Worker(db, name, phase=phase, job_types=job_types, live_phase=True)
             while not stop.is_set():
+                t0 = time.monotonic()
                 did_work = worker.run_once()
                 info["last_tick"] = _now().isoformat()
-                if not did_work:
+                if did_work:
+                    info["busy_seconds"] = round(float(info.get("busy_seconds") or 0.0)
+                                                 + time.monotonic() - t0, 1)
+                else:
                     stop.wait(_IDLE_SLEEP)
+                    info["idle_seconds"] = round(float(info.get("idle_seconds") or 0.0)
+                                                 + time.monotonic() - t0, 1)
         except Exception as e:  # noqa: BLE001
             info["restarts"] = int(info.get("restarts") or 0) + 1
             info["last_error"] = f"{type(e).__name__}: {e}"[:300]

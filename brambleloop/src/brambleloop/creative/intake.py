@@ -936,6 +936,17 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
         return {"judged": False,
                 "why": "the board on file has no content digest; a judgement could not be "
                        "bound to the bytes it saw"}
+    # W4-B2VISION 2026-10-12: the board reference on file is the render's path in the
+    # container that made it; by the time a vision judge exists it is usually gone (the same
+    # defect production's first grid tournament paid for). Resolve the bytes by the digest
+    # this judgement is bound to, and send nothing when they cannot be found.
+    from .blinded import resolve_image
+
+    shown, missing = resolve_image(ctx.db, {"image_ref": board,
+                                            "image": {"sha256": board_sha}})
+    if not shown:
+        return {"judged": False, "why": f"the board's bytes cannot be shown to a judge: "
+                                        f"{missing}"[:200]}
     provider = provider or gw.provider_for(JUDGE_TASK)
     held = None
     try:
@@ -945,7 +956,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
             max_tokens=JUDGE_MAX_TOKENS, agent=ctx.job.agent, purpose=JUDGE_TASK,
             job_id=ctx.job.id)
         held = reservation["reservation_id"]
-        response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [board],
+        response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [shown],
                                 max_tokens=JUDGE_MAX_TOKENS)
     except gw.BudgetExceeded as exc:
         gw.release_reservation(ctx.db, held)
@@ -997,16 +1008,22 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
             continue
         board = board_for(ctx.db, slug)
         judged = judgement_for(ctx.db, slug)
+        asked: dict = {}
         if not judged and board and vision_ok and not stopped:
             asked = judge_held(ctx, slug=slug, board=board, provider=provider)
             stopped = bool(asked.get("stopped"))
             judged = judgement_for(ctx.db, slug) if asked.get("judged") else None
         if not judged:
-            held.append({"slug": slug, "waiting_on": (
+            entry = {"slug": slug, "waiting_on": (
                 (["board_image (Product-Only Visual V1 image generation)"] if not board
                  else []) + (["vision_model (no vision probe has succeeded)"]
                              if not vision_ok else [])
-                or ["a vision judgement of the board on file"])})
+                or ["a vision judgement of the board on file"])}
+            # W4-B2VISION: production held nine boarded winners on 2026-10-12 with vision
+            # open and no reason recorded; the judge's own refusal now travels with them.
+            if asked and not asked.get("judged"):
+                entry["judge_said"] = str(asked.get("why") or "")[:200]
+            held.append(entry)
             continue
         known = detail.get("judgement") or {}
         if all(known.get(k) == judged.get(k) for k in ("thumbnail_reads_small",

@@ -109,7 +109,7 @@ export async function render({ rerender }) {
     changes && changes.status && changes.status !== "OK" ? statusPill(changes.status) : null,
     changes ? sourcesList(changes.sources) : null),
     briefR.status === "fulfilled" ? morningCard(briefR.value) : errorState(briefR.reason),
-    ...renderAll(data, [["owner_actions", "Your actions"], ["launch", "Launch"], ["money", "Money (controller)"],
+    ...renderAll(data, [["executive", "Executive: today, month, 90 days"], ["owner_actions", "Your actions"], ["launch", "Launch"], ["money", "Money (controller)"],
       ["store", "Store foundation"], ["products", "Products"], ["autonomy", "Autonomy health"], ["work_24h", "Work (24 h)"],
       ["incidents", "Incidents"], ["opportunities", "Opportunities"]],
     { result, limit: 3, required: ["money", "owner_actions"], skip: ["headline", "changes_since_last_view", "last_seen_at", "overview"] })));

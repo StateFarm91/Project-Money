@@ -64,6 +64,8 @@ NON_REDERIVABLE = (
     "improvements",
     # F-378: remembered negative findings (scope + evidence); a record, not a derivation.
     "failure_memory",
+    # F-431: research questions, sources and labelled findings; a record of what was asked.
+    "research_tasks",
     "lessons",
     "capability_history",
     "growth_loops",

@@ -154,6 +154,7 @@ class Database:
         from ..gateway import paid_calls as _paid_calls  # noqa: F401; PaidCallRecord (SPEND)
         from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
+        from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)
