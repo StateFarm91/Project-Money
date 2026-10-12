@@ -123,9 +123,17 @@ def _chain():
                    {"slug": SLUG, "version": cir.version, "release": rh,
                     "rebuild": "disclosed"})
         assert job.status is JobStatus.DONE, job.last_error
+        # The price is the one the release path gives this Launch-0 product: pricing.position
+        # prices Launch-0 from its own SOURCED plan (PT-04), CA$7.50 for the blanket. The
+        # fixture used to hand listing.seo CA$9.50, a price no release path produces for it,
+        # which publication now refuses as LISTING_PRICE_NOT_PLAN (W4-CAP1).
+        from brambleloop.products import launch0 as _l0
+
+        plan = _l0.launch_price(SLUG)
+        assert plan is not None and plan["within_plan_band"], plan
         job = _run(db, "listing", "listing.seo",
-                   {"slug": SLUG, "version": cir.version, "release": rh, "price_cad": 9.5,
-                    "category": "baby_blanket"})
+                   {"slug": SLUG, "version": cir.version, "release": rh,
+                    "price_cad": plan["price_cad"], "category": "baby_blanket"})
         assert job.status is JobStatus.DONE and job.outputs["ok"], job.outputs
         db.engine.dispose()
         _BUILT[key] = (path, cir.version, rh)
