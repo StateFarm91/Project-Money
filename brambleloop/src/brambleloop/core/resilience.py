@@ -136,6 +136,42 @@ class MalformedModelOutput(PermanentError):
     """A model returned something the caller cannot safely use."""
 
 
+class OutputTruncated(MalformedModelOutput):
+    """The reply was cut off at the request's output-token cap (W4-LAURAFIX).
+
+    A subclass, so every existing `except MalformedModelOutput` still refuses it; distinct, so
+    the caller can say *why* the reply was unusable. A truncated reply is a contract problem
+    (the request let the model write more than the cap holds), not a provider fault, and
+    retrying it unchanged reproduces it. `basis` says how it is known: the provider's own
+    `stop_reason`, or -- when a provider reports none -- the reply's output tokens reaching
+    the cap while its JSON did not close."""
+
+    def __init__(self, *, cap: int, output_tokens: int, basis: str, detail: str = ""):
+        self.cap = int(cap)
+        self.output_tokens = int(output_tokens)
+        self.basis = basis
+        super().__init__(f"model output truncated at the {self.cap}-token output cap "
+                         f"({basis}; {self.output_tokens} tokens written)"
+                         + (f": {detail}" if detail else ""))
+
+
+def truncation(response, max_tokens: int, cause: BaseException | None = None):
+    """An `OutputTruncated` for this response if it was cut off at the cap, else None.
+
+    Only called once the reply has failed to parse: a reply that parsed was complete."""
+    stop = str(getattr(response, "stop_reason", "") or "")
+    out = int(getattr(response, "output_tokens", 0) or 0)
+    detail = str(cause or "")[:160]
+    if stop == "max_tokens":
+        return OutputTruncated(cap=max_tokens, output_tokens=out,
+                               basis="stop_reason=max_tokens", detail=detail)
+    if not stop and max_tokens and out >= int(max_tokens):
+        return OutputTruncated(cap=max_tokens, output_tokens=out,
+                               basis="output_tokens reached the cap; no stop_reason reported",
+                               detail=detail)
+    return None
+
+
 def parse_model_json(text: str, *, required: tuple[str, ...] = ()) -> dict:
     """Parse model output strictly.
 

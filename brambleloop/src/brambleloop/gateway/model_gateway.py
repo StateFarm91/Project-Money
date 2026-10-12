@@ -33,6 +33,7 @@ from typing import Callable, Protocol
 from ..agents.registry import BudgetExceeded, Registry
 from ..core.resilience import (
     CircuitBreaker, MalformedModelOutput, PermanentError, TransientError, parse_model_json,
+    truncation,
 )
 from . import prompts as prompt_registry
 from . import routing
@@ -57,6 +58,10 @@ class ModelResponse:
     # True when `paid_calls` served this answer from an earlier attempt of the same job:
     # nothing was sent, nothing is billed (F-307). Never set by a live call.
     replayed: bool = False
+    # W4-LAURAFIX: why the provider stopped writing ("end_turn", "max_tokens", ...), when it
+    # says. "max_tokens" means the reply was cut off at the request's cap; the gateway then
+    # raises `OutputTruncated` instead of a generic malformed-output error. "" = not reported.
+    stop_reason: str = ""
 
     @property
     def total_tokens(self) -> int:
@@ -243,7 +248,15 @@ class ModelGateway:
                     response = breaker.call(
                         lambda: provider.complete(prompt.system, user,
                                                   max_tokens=prompt.max_output_tokens))
-                    data = parse_model_json(response.text, required=tuple(needed))
+                    try:
+                        data = parse_model_json(response.text, required=tuple(needed))
+                    except MalformedModelOutput as bad:
+                        # W4-LAURAFIX: name a reply cut off at the cap as truncation, so the
+                        # caller can say so; still a MalformedModelOutput (and still billed).
+                        cut = truncation(response, prompt.max_output_tokens, bad)
+                        if cut is not None:
+                            raise cut from bad
+                        raise
                 except Exception as e:  # noqa: BLE001 - every failure is billed or not, below
                     # RC1 audit B1: a provider that answered has billed, whatever the answer
                     # looked like. This recorded 0 tokens for a malformed reply, so a retry

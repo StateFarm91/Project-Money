@@ -167,14 +167,20 @@ class CapCuttingStub:
     cost_per_1k_input_cad = 0.001
     cost_per_1k_output_cad = 0.001
 
-    def __init__(self, model, calls, *, ignore_bound=False, report_stop_reason=True):
+    def __init__(self, model, calls, *, ignore_bound=False, report_stop_reason=True,
+                 overrun=False):
         self.model = model
+        self.overrun = overrun
         self.calls = calls
         self.ignore_bound = ignore_bound
         self.report_stop_reason = report_stop_reason
 
     def complete(self, system, user, *, max_tokens):
-        text = json.dumps(_obedient_reply(user, ignore_bound=self.ignore_bound), indent=2)
+        reply = _obedient_reply(user, ignore_bound=self.ignore_bound)
+        if self.overrun:      # a model that ignores the bound and keeps going past any cap
+            for sec in reply["sections"]:
+                sec["evidence"] = sec["evidence"] * 40
+        text = json.dumps(reply, indent=2)
         raw = text.encode()
         tokens = math.ceil(len(raw) / STUB_BYTES_PER_TOKEN)
         stop = "end_turn"
@@ -238,6 +244,7 @@ def test_a_prompt_requests_a_bounded_number_of_ids_per_component():
     bounded = {m.group(1): (int(m.group(2)), re.findall(r"[EP]\d+", m.group(3)))
                for m in _BOUNDED.finditer(user)}
     # K is exactly the number of optional lines the renderer shows for that component
+    assert len(parsed["components"]) == 6 and len(bounded) == 4, (parsed, bounded)
     for comp in parsed["components"]:
         k = briefing.PICK_LIMITS[comp]
         if k == 0:                # decisions / facts_unknowns: wholly code-rendered
@@ -305,7 +312,8 @@ def test_c_truncation_is_reported_as_truncation():
             before = len(_ledger())
             r = talk.converse(DB, Q, session_public_id=f"s_fix_c_{report}",
                               provider_factory=_factory(calls, ignore_bound=True,
-                                                        report_stop_reason=report))
+                                                        report_stop_reason=report,
+                                                        overrun=True))
         finally:
             _set_laura_ceiling(0.0)
         assert calls and calls[0]["stop"] == "max_tokens", calls[:1]
