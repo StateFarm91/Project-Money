@@ -662,7 +662,8 @@ def agents_card(db, env: dict, *, now: datetime | None = None) -> dict:
     reasons = [r for r in (
         f"{counts['UNKNOWN']} agent(s) have no recorded job" if counts.get("UNKNOWN") else None,
         f"{overdue} agent(s) past their wake with nothing run" if overdue else None,
-        env.get("reason") if env.get("reason") not in (None, "provider gave no reason") else None)
+        env.get("reason") if env.get("reason") and not str(env.get("reason")).startswith(
+            providers.NO_REASON) else None)
         if r]
     return {**env, "items": items, "counts": counts, "status": status,
             "reason": "; ".join(reasons) or env.get("reason"),

@@ -507,7 +507,16 @@ def overview(db) -> dict:
                                                    "public_identity", "truthful_identity",
                                                    "authority", "source", "sources",
                                                    "verified", "identity_disagreement")},
-            "needs_you": {"status": q["status"], "count": len(q["facts"]),
+            # CC_GAP FU-5: "Needs you" is the Approvals count (the same inbox, the same
+            # number), not the number of evidence lines -- which capped cards at 10, added P0/P1
+            # incidents and counted "nothing is open" as one. Incidents are reported apart.
+            "needs_you": {"status": q["status"],
+                          "count": q.get("open") if isinstance(q.get("open"), int) else None,
+                          "decisions_open": q.get("open") if isinstance(q.get("open"), int)
+                          else None,
+                          "p0_p1_incidents": sum(1 for f in q["facts"] if str(
+                              f.get("statement") or "").startswith("open P")),
+                          "same_as": "Approvals (build2.executor.approval_inbox)",
                           "reason": q.get("reason"), "items": q["facts"][:5]},
             "departments": {"status": d["status"], "reason": d.get("reason"),
                             "by_status": by_status if d["facts"] else None},
