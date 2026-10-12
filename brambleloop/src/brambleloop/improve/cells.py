@@ -157,7 +157,9 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
             spend_cad: float = 0.0, spend_authorised_cad: float = 5.0,
             proposed_by: str = "", trial: str = "", trial_metric: str = "",
             higher_is_better: bool | None = None, baseline: float | None = None,
-            baseline_ref: str = "", change: dict | None = None) -> int:
+            baseline_ref: str = "", change: dict | None = None, premise: str = "",
+            method: str = "", evidence_ids: tuple[str, ...] = (),
+            scope: dict | None = None) -> int:
     """Record a hypothesis, with its baseline taken now.
 
     The baseline is captured at proposal time on purpose. Taking it after the change means
@@ -170,6 +172,11 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
     anything changes -- or None when the trial has nothing to read yet, in which case the
     trial's first reading becomes the baseline and never a result. `change` names what the
     promotion executes (a configuration version, a standard floor).
+
+    F-378/F-706 (failure memory): a proposal that repeats a measured failure -- same cell,
+    hypothesis (or `method`), touches and premise, inside the failure's `scope` -- is refused
+    unless it cites `evidence_ids` the failure did not have or states a changed `premise`.
+    See `improve.failure_memory` for what counts as a failure and why refusals do not.
     """
     from ..core.models import Improvement
 
@@ -187,6 +194,20 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
     governance.check(hypothesis, touches=touches, reversible=reversible,
                      spend_cad=spend_cad, spend_authorised_cad=spend_authorised_cad,
                      cell=cell).raise_if_refused()
+
+    from . import failure_memory
+
+    repeat = failure_memory.check(
+        db, cell=cell, hypothesis=hypothesis, touches=touches, premise=premise, method=method,
+        evidence_ids=evidence_ids, scope=scope, trial=trial,
+        metric=(trial_metric[:60] if trial else ""))
+    if repeat is not None:
+        failure_memory.note_refusal(db, cell=cell, proposed_by=proposed_by, repeat=repeat)
+        raise ImprovementRefused(
+            f"this repeats a measured failure ({repeat['failure']}: {repeat['why'] or 'no reason recorded'}) "
+            f"inside its scope {repeat['scope']}. Cite evidence it did not have "
+            f"(evidence_ids; it had {repeat['evidence_ids'] or 'none'}) or state the changed "
+            f"premise -- the same evidence does not reopen a closed question (F-378/F-706)")
 
     # Surfaces and the proposer are stored normalised, so every later comparison -- the
     # tier, the Director's shared-surface check, separation of duties -- compares like with
@@ -216,6 +237,13 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
                           expected_effect=expected_effect, rollback_ref=rollback_ref,
                           cost_cad=spend_cad,
                           evidence={"touches": list(governance.normalise_touches(touches)),
+                                    "failure_fingerprint": failure_memory.fingerprint(
+                                        cell, hypothesis, touches, premise),
+                                    **({"premise": premise[:500]} if premise else {}),
+                                    **({"method": method[:200]} if method else {}),
+                                    **({"evidence_ids": [str(e) for e in evidence_ids]}
+                                       if evidence_ids else {}),
+                                    **({"scope": dict(scope)} if scope else {}),
                                     **({"proposed_by": proposer} if proposer
                                        else {"unattributed": True}), **extra})
         s.add(row)
