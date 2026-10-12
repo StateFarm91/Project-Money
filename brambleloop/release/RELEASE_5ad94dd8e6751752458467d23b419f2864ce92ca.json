@@ -1,0 +1,93 @@
+{
+  "deployable": {
+    "dirs": [
+      "src/"
+    ],
+    "excluded": [
+      "__pycache__/",
+      "*.pyc",
+      "*.pyo",
+      "symlinks"
+    ],
+    "files": [
+      "requirements.lock"
+    ],
+    "prefix_stripped": "brambleloop/"
+  },
+  "full_log": {
+    "note": "per-test log, outside the image; release/ holds its summary",
+    "path": "research/release_evidence/20261012T021131Z-7169.full.log",
+    "relative_to": "brambleloop/",
+    "sha256": "b12b1f003accfdcc754d2342c966f5b25c325c3838477d48ed2569b6ac13d883"
+  },
+  "kind": "brambleloop.release_record",
+  "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard and the runtime boot guard read it from git / the image, never from artifacts/",
+  "recorded_at": "2026-10-12T03:59:34Z",
+  "release_eligible": true,
+  "sha": "5ad94dd8e6751752458467d23b419f2864ce92ca",
+  "source_tree_sha256": "802554a0d17f780a3de25545cee4b8d341de404a957b68d391181fe7d35708c9",
+  "suite_log": {
+    "path": "suite_runs/20261012T021131Z-7169.log",
+    "sha256": "788e4ebb8e1191d2821cb69b66bad8c1f6c8d1146b024276d5e3c6a6d70204fa"
+  },
+  "suite_record": {
+    "path": "suite_runs/20261012T021131Z-7169.json",
+    "sha256": "773164b7cf3e8474e0ecf17b7d4cd4391b307e8ebd28f1839ff305875305fd36"
+  },
+  "supply_chain": {
+    "change_since_deployed": {
+      "added": [
+        "Jinja2==3.1.6",
+        "MarkupSafe==3.0.3",
+        "PyYAML==6.0.3",
+        "SQLAlchemy==2.0.54",
+        "annotated-doc==0.0.5",
+        "annotated-types==0.8.0",
+        "anyio==4.15.1",
+        "cffi==2.1.1",
+        "charset-normalizer==3.5.1",
+        "click==8.5.0",
+        "cryptography==50.0.1",
+        "fastapi==0.141.1",
+        "greenlet==3.5.6",
+        "h11==0.16.0",
+        "httptools==0.8.0",
+        "idna==3.19",
+        "numpy==2.4.6",
+        "pillow==12.3.0",
+        "psycopg2-binary==2.9.13",
+        "pycparser==3.0",
+        "pydantic==2.13.5",
+        "pydantic_core==2.46.5",
+        "pypdf==6.19.0",
+        "pypdfium2==5.13.0",
+        "python-dotenv==1.2.3",
+        "python-multipart==0.0.32",
+        "reportlab==5.0.1",
+        "starlette==1.6.0",
+        "typing-inspection==0.4.4",
+        "typing_extensions==4.16.0",
+        "uvicorn==0.53.0",
+        "uvloop==0.22.1",
+        "watchfiles==1.2.0",
+        "websockets==17.1"
+      ],
+      "base": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+      "base_had_lock": false,
+      "hash_changed_same_version": [],
+      "material": true,
+      "removed": [],
+      "version_changed": []
+    },
+    "distributions": 34,
+    "findings": [],
+    "hashes": 1375,
+    "lock_sha256": "3765ff05abc4d650b5fbebaa407734bf0256532db2eb4f06508ca2dc77203523",
+    "ok": true,
+    "problems": [],
+    "sbom_components": 34,
+    "sbom_sha256": "b23f7b29f2df3f4dab98885ca2820c74a6445bcc1e3fb668c91dd6200bc84c83",
+    "status": "verified"
+  },
+  "version": 1
+}
