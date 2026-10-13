@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-12T20:12:06Z",
- "branch_head": "1875a4e",
+ "generated_at": "2026-10-12T22:18:06Z",
+ "branch_head": "17aaa58",
  "production": {
   "commit": "7bbbe72e205bd922297c398e0cce7e714479eeed",
   "known": true,
@@ -100,9 +100,9 @@
   "build2": {
    "total": 320,
    "verified_complete": 215,
-   "implemented_unverified": 13,
+   "implemented_unverified": 12,
    "in_progress": 0,
-   "blocked_engineering": 3,
+   "blocked_engineering": 4,
    "blocked_owner": 37,
    "blocked_external": 49,
    "not_applicable": 3
@@ -139,12 +139,12 @@
   },
   "ledger_native": {
    "build2": {
-    "PROVEN": 228,
+    "PROVEN": 227,
     "OWNER-GATED": 42,
     "DATA-GATED": 41,
     "EXTERNAL-GATED": 6,
     "NOT-APPLICABLE": 3,
-    "OPEN-DEFECT": 0
+    "OPEN-DEFECT": 1
    },
    "final_master_launch_critical": {
     "COMPLETE": 363,
@@ -428,39 +428,6 @@
    "estimate": null
   },
   {
-   "root": "release_undeployed_code",
-   "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 14,
-   "build2": 13,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 0,
-   "tracked": 0,
-   "classes": {
-    "implemented_unverified": 14
-   },
-   "owner_actions": [],
-   "ids": [
-    "B2#15",
-    "B2#44",
-    "B2#61",
-    "B2#67",
-    "B2#86",
-    "B2#88",
-    "B2#116",
-    "B2#126",
-    "B2#218",
-    "B2#277",
-    "B2#281",
-    "B2#304",
-    "B2#309",
-    "F-845"
-   ],
-   "estimate": {
-    "figure": "one release cycle",
-    "basis": "same release evidence: ~78 min suite + ~4 h observed record-to-deploy"
-   }
-  },
-  {
    "root": "etsy_no_api_or_403",
    "title": "Etsy surface has no API or is 403 to automation",
    "rows": 19,
@@ -531,6 +498,38 @@
    }
   },
   {
+   "root": "release_undeployed_code",
+   "title": "Proven only on the integration branch (release + production evidence needed)",
+   "rows": 13,
+   "build2": 12,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 0,
+   "tracked": 0,
+   "classes": {
+    "implemented_unverified": 13
+   },
+   "owner_actions": [],
+   "ids": [
+    "B2#15",
+    "B2#44",
+    "B2#67",
+    "B2#86",
+    "B2#88",
+    "B2#116",
+    "B2#126",
+    "B2#218",
+    "B2#277",
+    "B2#281",
+    "B2#304",
+    "B2#309",
+    "F-845"
+   ],
+   "estimate": {
+    "figure": "one release cycle",
+    "basis": "same release evidence: ~78 min suite + ~4 h observed record-to-deploy"
+   }
+  },
+  {
    "root": "insights_paste",
    "title": "Marketplace Insights / Stats paste",
    "rows": 21,
@@ -585,107 +584,20 @@
    }
   },
   {
-   "root": "owned_surfaces",
-   "title": "Owned channels (site / Pinterest)",
-   "rows": 18,
-   "build2": 7,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 10,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 18
-   },
-   "owner_actions": [
-    {
-     "id": "owned_surfaces",
-     "batch": "channels",
-     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
-     "max_cost_cad": 25.0,
-     "minutes": 65
-    }
-   ],
-   "ids": [
-    "B2#4",
-    "B2#10",
-    "B2#246",
-    "B2#247",
-    "B2#248",
-    "B2#251",
-    "B2#255",
-    "F-572",
-    "F-613",
-    "F-767",
-    "F-771",
-    "F-772",
-    "F-773",
-    "F-808",
-    "F-810",
-    "F-811",
-    "F-812",
-    "F-819"
-   ],
-   "estimate": {
-    "figure": "owner ~65 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_actions": [
-    {
-     "id": "tester_outreach",
-     "batch": "go_live",
-     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
-     "max_cost_cad": 185.0,
-     "minutes": 25
-    }
-   ],
-   "ids": [
-    "B2#9",
-    "B2#43",
-    "B2#64",
-    "B2#250",
-    "F-075",
-    "F-076",
-    "F-077",
-    "F-081",
-    "F-082",
-    "F-083",
-    "F-085",
-    "F-118",
-    "F-360",
-    "F-363",
-    "F-385",
-    "F-876"
-   ],
-   "estimate": {
-    "figure": "owner ~25 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 245,
-   "build2": 0,
+   "rows": 246,
+   "build2": 1,
    "fm_launch_critical": 7,
    "fm_post_launch": 238,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 234,
+    "blocked_engineering": 235,
     "in_progress": 11
    },
    "owner_actions": [],
    "ids": [
+    "B2#61",
     "F-016",
     "F-017",
     "F-018",
@@ -933,6 +845,94 @@
     "F-878"
    ],
    "estimate": null
+  },
+  {
+   "root": "owned_surfaces",
+   "title": "Owned channels (site / Pinterest)",
+   "rows": 18,
+   "build2": 7,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 10,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 18
+   },
+   "owner_actions": [
+    {
+     "id": "owned_surfaces",
+     "batch": "channels",
+     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+     "max_cost_cad": 25.0,
+     "minutes": 65
+    }
+   ],
+   "ids": [
+    "B2#4",
+    "B2#10",
+    "B2#246",
+    "B2#247",
+    "B2#248",
+    "B2#251",
+    "B2#255",
+    "F-572",
+    "F-613",
+    "F-767",
+    "F-771",
+    "F-772",
+    "F-773",
+    "F-808",
+    "F-810",
+    "F-811",
+    "F-812",
+    "F-819"
+   ],
+   "estimate": {
+    "figure": "owner ~65 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "testers_physical_proof",
+   "title": "Testers and physical samples",
+   "rows": 16,
+   "build2": 4,
+   "fm_launch_critical": 4,
+   "fm_post_launch": 8,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 16
+   },
+   "owner_actions": [
+    {
+     "id": "tester_outreach",
+     "batch": "go_live",
+     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+     "max_cost_cad": 185.0,
+     "minutes": 25
+    }
+   ],
+   "ids": [
+    "B2#9",
+    "B2#43",
+    "B2#64",
+    "B2#250",
+    "F-075",
+    "F-076",
+    "F-077",
+    "F-081",
+    "F-082",
+    "F-083",
+    "F-085",
+    "F-118",
+    "F-360",
+    "F-363",
+    "F-385",
+    "F-876"
+   ],
+   "estimate": {
+    "figure": "owner ~25 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
   },
   {
    "root": "owner_other",
@@ -1499,9 +1499,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 14,
+   "unblocks_rows": 13,
    "unblocks_fm_launch_critical": 1,
-   "unblocks_build2": 13,
+   "unblocks_build2": 12,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -1618,9 +1618,9 @@
    "b2": []
   },
   "claude/w4-FMCLOSE": {
-   "head": "013c2e3",
-   "last_commit": "2026-10-12T19:58:25+00:00",
-   "commits_ahead": 7,
+   "head": "13aed5e",
+   "last_commit": "2026-10-12T20:30:11+00:00",
+   "commits_ahead": 9,
    "fm": [
     "F-283",
     "F-501",
@@ -1703,6 +1703,13 @@
    "fm": [
     "F-738"
    ],
+   "b2": []
+  },
+  "claude/w4-VISROLE": {
+   "head": "52b702d",
+   "last_commit": "2026-10-12T20:50:02+00:00",
+   "commits_ahead": 2,
+   "fm": [],
    "b2": []
   }
  },
@@ -2845,7 +2852,7 @@
     "source": "build2",
     "scope": "build2",
     "title": "Visual Semantic QA",
-    "ledger_state": "PROVEN",
+    "ledger_state": "OPEN-DEFECT",
     "modules": [
      "publish/eligibility.py",
      "publish/layout_qa.py",
@@ -2855,11 +2862,12 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "cls": "implemented_unverified",
-    "root": "release_undeployed_code",
-    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
-    "blocked_by": "engineering: release + deploy",
-    "responsible": "integrator (release)"
+    "remaining": "gate image_vision has opened; the remaining work is no longer parked",
+    "cls": "blocked_engineering",
+    "root": "engineering_open",
+    "blocked_by": "engineering",
+    "responsible": "next engineering lane (publish)",
+    "missing_evidence": "gate image_vision has opened; the remaining work is no longer parked"
    },
    {
     "id": 62,

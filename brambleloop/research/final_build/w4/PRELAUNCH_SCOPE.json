@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-12T20:12:06Z",
-  "branch_head": "1875a4e"
+  "generated_at": "2026-10-12T22:18:06Z",
+  "branch_head": "17aaa58"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -601,7 +601,7 @@
    "A B2#292 [blocked_external] Evergreen-to-Seasonal Multiplier",
    "A B2#315 [blocked_owner] MJs Quality Challenge Is Release-Blocking",
    "A B2#39 [blocked_external] Policy Freshness Watch",
-   "A B2#61 [implemented_unverified] Visual Semantic QA",
+   "A B2#61 [blocked_engineering] Visual Semantic QA",
    "A B2#72 [blocked_external] Mandatory Brambleloop Model for Applicable Products",
    "A B2#9 [blocked_owner] Creator and Tester Distribution",
    "A F-065 [blocked_owner] Promise-vs-Delivery Audit",
@@ -1206,9 +1206,9 @@
    "id": 61,
    "scope": "build2",
    "title": "Visual Semantic QA",
-   "board_class": "implemented_unverified",
-   "blocked_by": "engineering: release + deploy",
-   "root": "release_undeployed_code",
+   "board_class": "blocked_engineering",
+   "blocked_by": "engineering",
+   "root": "engineering_open",
    "domain": "image_visual",
    "verifiability": "A",
    "criterion_quote": null,

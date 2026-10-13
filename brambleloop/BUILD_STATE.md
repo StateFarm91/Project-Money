@@ -1,3 +1,8 @@
+> **2026-10-12 (later) — INTEG3 freeze 1 (056398c) full suite FAILED 16/629; causes fixed on INTEG2** (tmp hygiene,
+> harness-unreadable OK markers, stale generated artefacts, a pre-existing W4-AUTONOMY duplicate-mission defect on a
+> reclaimed tick, and B2CLOSE's #61 closure HELD because it silently removed the fund-the-model owner card). Re-freeze
+> and full suite follow; see INTEG3.md §6.
+
 > **2026-10-12 — W4-INTEG3: INTEG2 release candidate (NOT deployed; production stays 7bbbe72, SHADOW).**
 > INTEG2 had NOT contained the deployed hotfix 7bbbe72 (LAURAFIX + ETSYSHOPID): merged first. Fixed the three
 > production dead letters that are still occurring on 7bbbe72 (first seen 18:01-18:08Z, i.e. after the hotfix, not

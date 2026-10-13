@@ -27,6 +27,11 @@ sys.path.insert(0, str(ROOT / "src"))
 _TMP = tempfile.mkdtemp(prefix="w4_ccfm1_")
 STATIC = ROOT / "src" / "brambleloop" / "app" / "command_center" / "static"
 NOW = datetime.now(timezone.utc)
+# INTEG3: "today" offsets that stay inside today's UTC date. NOW - 1 h / 2 h fall on yesterday
+# between 00:00 and 02:00 UTC, which failed the per-day trend assertions in the 00:25Z full run.
+_TODAY0 = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
+EARLIER_TODAY_1 = _TODAY0 + (NOW - _TODAY0) * 2 / 3
+EARLIER_TODAY_2 = _TODAY0 + (NOW - _TODAY0) / 3
 
 
 def _db():
@@ -56,8 +61,8 @@ def test_completed_trend_is_measured_per_department_and_day():
 
     db = _db()
     with db.session() as s:
-        _job(s, dept="intelligence", finished=NOW - timedelta(hours=1))
-        _job(s, dept="intelligence", finished=NOW - timedelta(hours=2))
+        _job(s, dept="intelligence", finished=EARLIER_TODAY_1)
+        _job(s, dept="intelligence", finished=EARLIER_TODAY_2)
         _job(s, dept="intelligence", finished=NOW - timedelta(days=2))
         _job(s, dept="growth", finished=NOW - timedelta(days=10))          # outside the window
         _job(s, dept="growth", finished=NOW - timedelta(hours=3), status="DEAD")  # not completed
@@ -97,7 +102,7 @@ def test_departments_carry_objective_spend_and_trend():
 
     db = _db()
     with db.session() as s:
-        _job(s, dept="intelligence", finished=NOW - timedelta(hours=1))
+        _job(s, dept="intelligence", finished=EARLIER_TODAY_1)
     keys = [c.key for c in charters.CHARTERS]
     assert keys
     auto = {"status": "OK", "as_of": NOW.isoformat(),

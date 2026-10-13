@@ -189,7 +189,12 @@ def test_offsite_round_trip_encrypts_to_the_owner_key_and_reads_back():
         print("SKIP gpg/curl not installed")
         return
     d = _dir()
-    pub_b64, priv_b64 = _gpg_key(d.parent / "ownerhome")
+    # INTEG3: gpg-agent's socket lives in GNUPGHOME, and a Unix socket path is capped at ~107
+    # bytes. Under run_tests.sh the per-suite TMPDIR alone is ~100 bytes, so --quick-gen-key
+    # failed (exit 2) in every full run while passing alone. The owner's keyring gets a short
+    # home of its own, removed below.
+    owner = Path(tempfile.mkdtemp(prefix="gpg-", dir="/tmp")) / "h"
+    pub_b64, priv_b64 = _gpg_key(owner)
     srv = HTTPServer(("127.0.0.1", 0), _Store)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     secret = "s3cr3t-never-on-a-command-line"
@@ -209,7 +214,6 @@ def test_offsite_round_trip_encrypts_to_the_owner_key_and_reads_back():
         assert all(a.startswith("AWS4-HMAC-SHA256") and "KEYID123" in a and secret not in a
                    for a in _Store.auth)
         # Only the owner's private key opens it (decrypted here as the owner would).
-        owner = d.parent / "ownerhome"
         out = subprocess.run(["gpg", "--batch", "--pinentry-mode", "loopback", "--passphrase",
                               "", "--decrypt"], input=blob, capture_output=True,
                              env=dict(os.environ, GNUPGHOME=str(owner)))
@@ -219,6 +223,9 @@ def test_offsite_round_trip_encrypts_to_the_owner_key_and_reads_back():
         assert r.returncode == 3 and "PRIVATE key" in r.stdout
     finally:
         srv.shutdown()
+        subprocess.run(["gpgconf", "--kill", "gpg-agent"], capture_output=True,
+                       env=dict(os.environ, GNUPGHOME=str(owner)))
+        shutil.rmtree(owner.parent, ignore_errors=True)
 
 
 def test_the_script_never_deletes_offsite_and_ships_disabled():

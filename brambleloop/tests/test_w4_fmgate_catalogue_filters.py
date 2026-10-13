@@ -3,6 +3,8 @@ the ones it loses -- read from the search profile listing.seo stored -- and says
 (never an empty "nothing lost") when the node's schema has not been read."""
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+
 import os
 import sys
 import tempfile

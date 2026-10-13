@@ -1,49 +1,59 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-11T18:35:11Z",
- "branch_head": "61ddc18",
- "production_commit": "0417f3516f30",
- "production_read_at": "20261011T1828Z",
+ "generated_at": "2026-10-12T22:18:06Z",
+ "branch_head": "17aaa58",
+ "production_commit": "7bbbe72e205b",
+ "production_read_at": "20261012T1856Z",
  "headline": {
   "build2": {
    "total": 320,
    "verified_complete": 215,
-   "implemented_unverified": 0,
+   "implemented_unverified": 12,
    "in_progress": 0,
-   "blocked_engineering": 15,
-   "blocked_owner": 39,
-   "blocked_external": 48,
+   "blocked_engineering": 4,
+   "blocked_owner": 37,
+   "blocked_external": 49,
    "not_applicable": 3
   },
   "final_master_launch_critical": {
    "total": 490,
    "verified_complete": 362,
    "implemented_unverified": 1,
-   "in_progress": 0,
-   "blocked_engineering": 27,
-   "blocked_owner": 70,
-   "blocked_external": 30,
+   "in_progress": 5,
+   "blocked_engineering": 45,
+   "blocked_owner": 48,
+   "blocked_external": 29,
    "not_applicable": 0
   },
   "final_master_total": {
    "total": 917,
    "verified_complete": 385,
    "implemented_unverified": 1,
-   "in_progress": 0,
-   "blocked_engineering": 269,
-   "blocked_owner": 164,
-   "blocked_external": 91,
+   "in_progress": 24,
+   "blocked_engineering": 277,
+   "blocked_owner": 133,
+   "blocked_external": 90,
    "not_applicable": 7
+  },
+  "tracked_requirements": {
+   "total": 1,
+   "verified_complete": 0,
+   "implemented_unverified": 0,
+   "in_progress": 0,
+   "blocked_engineering": 0,
+   "blocked_owner": 1,
+   "blocked_external": 0,
+   "not_applicable": 0
   },
   "ledger_native": {
    "build2": {
-    "PROVEN": 215,
+    "PROVEN": 227,
     "OWNER-GATED": 42,
     "DATA-GATED": 41,
-    "EXTERNAL-GATED": 5,
+    "EXTERNAL-GATED": 6,
     "NOT-APPLICABLE": 3,
-    "OPEN-DEFECT": 14
+    "OPEN-DEFECT": 1
    },
    "final_master_launch_critical": {
     "COMPLETE": 363,
@@ -68,12 +78,12 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 23,
-   "build2": 14,
-   "fm_launch_critical": 8,
-   "fm_post_launch": 1,
+   "rows": 30,
+   "build2": 2,
+   "fm_launch_critical": 26,
+   "fm_post_launch": 2,
    "classes": {
-    "blocked_engineering": 23
+    "blocked_engineering": 30
    },
    "owner_action": null
   },
@@ -92,26 +102,15 @@
   {
    "root": "image_provider_capability",
    "title": "Image/vision provider capability",
-   "rows": 23,
-   "build2": 5,
+   "rows": 24,
+   "build2": 6,
    "fm_launch_critical": 15,
    "fm_post_launch": 3,
    "classes": {
-    "blocked_external": 23
+    "blocked_external": 23,
+    "in_progress": 1
    },
    "owner_action": null
-  },
-  {
-   "root": "etsy_credential_403",
-   "title": "Etsy API credential refused (HTTP 403)",
-   "rows": 14,
-   "build2": 0,
-   "fm_launch_critical": 14,
-   "fm_post_launch": 0,
-   "classes": {
-    "blocked_owner": 14
-   },
-   "owner_action": "Fix the Etsy API credential so etsy.probe succeeds: production gets HTTP 403 ('Etsy v3 requires x-api-key as keystring:shared_secret; check ETSY_SHARED_SECRET'); then use the Command Center Etsy re-ch"
   },
   {
    "root": "etsy_no_api_or_403",
@@ -138,16 +137,16 @@
    "owner_action": null
   },
   {
-   "root": "oauth_transactions_r",
-   "title": "Etsy OAuth missing transactions_r",
-   "rows": 18,
-   "build2": 2,
-   "fm_launch_critical": 8,
-   "fm_post_launch": 8,
+   "root": "release_undeployed_code",
+   "title": "Proven only on the integration branch (release + production evidence needed)",
+   "rows": 13,
+   "build2": 12,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 0,
    "classes": {
-    "blocked_owner": 18
+    "implemented_unverified": 13
    },
-   "owner_action": "Re-authorise the Etsy app with the transactions_r scope (consent screen). The gate also needs the Etsy API credential to read: if the latest etsy.probe was refused (GET /api/capabilities/probes or /ap"
+   "owner_action": null
   },
   {
    "root": "insights_paste",
@@ -162,6 +161,19 @@
    "owner_action": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists)."
   },
   {
+   "root": "engineering_open",
+   "title": "Open engineering work",
+   "rows": 246,
+   "build2": 1,
+   "fm_launch_critical": 7,
+   "fm_post_launch": 238,
+   "classes": {
+    "blocked_engineering": 235,
+    "in_progress": 11
+   },
+   "owner_action": null
+  },
+  {
    "root": "owned_surfaces",
    "title": "Owned channels (site / Pinterest)",
    "rows": 18,
@@ -172,18 +184,6 @@
     "blocked_owner": 18
    },
    "owner_action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.ga"
-  },
-  {
-   "root": "engineering_open",
-   "title": "Open engineering work",
-   "rows": 245,
-   "build2": 0,
-   "fm_launch_critical": 7,
-   "fm_post_launch": 238,
-   "classes": {
-    "blocked_engineering": 245
-   },
-   "owner_action": null
   }
  ],
  "critical_path": [
@@ -204,9 +204,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 1,
+   "unblocks_rows": 13,
    "unblocks_fm_launch_critical": 1,
-   "unblocks_build2": 0,
+   "unblocks_build2": 12,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -217,9 +217,9 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 23,
-   "unblocks_fm_launch_critical": 8,
-   "unblocks_build2": 14,
+   "unblocks_rows": 30,
+   "unblocks_fm_launch_critical": 26,
+   "unblocks_build2": 2,
    "who": "engineering",
    "estimate": {
     "figure": "one engineering pass over the unparked rows",
@@ -228,19 +228,6 @@
   },
   {
    "step": 4,
-   "root": "etsy_credential_403",
-   "title": "Etsy API credential refused (HTTP 403)",
-   "unblocks_rows": 14,
-   "unblocks_fm_launch_critical": 14,
-   "unblocks_build2": 0,
-   "who": "owner",
-   "estimate": {
-    "figure": "owner minutes, then 1 daily cadence",
-    "basis": "listing.taxonomy_refresh cadence 24 h (runtime/worker.py); etsy.probe 6-hourly"
-   }
-  },
-  {
-   "step": 5,
    "root": "launch0_cap_CAP1",
    "title": "Launch-0 catalogue cap (CAP-1)",
    "unblocks_rows": 1,
@@ -253,20 +240,17 @@
    }
   },
   {
-   "step": 6,
+   "step": 5,
    "root": "oauth_transactions_r",
    "title": "Etsy OAuth missing transactions_r",
-   "unblocks_rows": 18,
-   "unblocks_fm_launch_critical": 8,
-   "unblocks_build2": 2,
-   "who": "owner",
-   "estimate": {
-    "figure": "owner ~3 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
+   "unblocks_rows": 11,
+   "unblocks_fm_launch_critical": 4,
+   "unblocks_build2": 0,
+   "who": "engineering",
+   "estimate": null
   },
   {
-   "step": 7,
+   "step": 6,
    "root": "live_listings",
    "title": "No live listings (go-live not authorised)",
    "unblocks_rows": 38,
@@ -279,7 +263,7 @@
    }
   },
   {
-   "step": 8,
+   "step": 7,
    "root": "real_customers",
    "title": "No real customers / market outcomes yet",
    "unblocks_rows": 93,

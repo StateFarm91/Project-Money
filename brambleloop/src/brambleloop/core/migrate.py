@@ -103,6 +103,9 @@ def widen(engine: Engine) -> list[str]:
     changes: list[str] = []
     for table, column, got, want in widen_plan(engine):
         with engine.begin() as conn:
+            # Security review of 59675ef (LOW): never queue behind a long transaction holding
+            # the table at boot; fail this pass fast instead (the next boot retries).
+            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
             conn.execute(text(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" '
                               f'TYPE VARCHAR({want})'))
         changes.append(f"{table}.{column} VARCHAR({got}) -> VARCHAR({want})")
