@@ -1,12 +1,12 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-12T22:18:06Z by `research/final_build/w4/completion_board_final.py` on branch head 17aaa58. Production runs `7bbbe72e205b` (read 20261012T1856Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-13T00:43:58Z by `research/final_build/w4/completion_board_final.py` on branch head 602e505. Production runs `7bbbe72e205b` (read 20261012T1856Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
 | Build 2 | 320 | 215 | 12 | 0 | 4 | 37 | 49 | 3 |
-| Final Master launch-critical | 490 | 362 | 1 | 5 | 45 | 48 | 29 | 0 |
-| Final Master total | 917 | 385 | 1 | 24 | 277 | 133 | 90 | 7 |
+| Final Master launch-critical | 490 | 362 | 1 | 1 | 49 | 48 | 29 | 0 |
+| Final Master total | 917 | 385 | 1 | 13 | 288 | 133 | 90 | 7 |
 | Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 
 Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 1}; Final Master launch-critical {'COMPLETE': 363, 'GATED': 119, 'OPEN': 8}.
@@ -15,18 +15,17 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 16 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
 2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 13 rows (1 FM launch-critical, 12 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
-3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 30 rows (26 FM launch-critical, 2 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
+3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 41 rows (30 FM launch-critical, 2 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
 4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
-5. **Etsy OAuth missing transactions_r** (engineering): unblocks 11 rows (4 FM launch-critical, 0 Build 2). Estimate: UNKNOWN
-6. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
-7. **No real customers / market outcomes yet** (external): unblocks 93 rows (4 FM launch-critical, 38 Build 2). Estimate: unbounded (market) -- no buyer exists; cannot be scheduled
+5. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
+6. **No real customers / market outcomes yet** (external): unblocks 93 rows (4 FM launch-critical, 38 Build 2). Estimate: unbounded (market) -- no buyer exists; cannot be scheduled
 
 ## Root causes (unfinished rows)
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
 | No real customers / market outcomes yet | 93 | 38 | 4 | 51 | {'blocked_external': 93} |  |
-| Gate now OPEN in production: unparked, re-verify | 30 | 2 | 26 | 2 | {'blocked_engineering': 30} |  |
+| Gate now OPEN in production: unparked, re-verify | 41 | 2 | 30 | 9 | {'blocked_engineering': 41} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Image/vision provider capability | 24 | 6 | 15 | 3 | {'blocked_external': 23, 'in_progress': 1} |  |
 | Etsy surface has no API or is 403 to automation | 19 | 2 | 11 | 6 | {'blocked_external': 19} |  |
@@ -40,7 +39,6 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | Owner rulings | 7 | 4 | 2 | 1 | {'blocked_owner': 7} | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no |
 | Benchmark purchases | 14 | 5 | 0 | 9 | {'blocked_owner': 14} | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARAN |
 | Offsite storage bucket | 6 | 1 | 4 | 1 | {'blocked_owner': 6} | Create a Backblaze B2 account, a PRIVATE bucket and an application key restricted to that bucket (read+write+d |
-| Etsy OAuth missing transactions_r | 11 | 0 | 4 | 7 | {'in_progress': 11} |  |
 | Etsy Shop Manager settings | 10 | 0 | 4 | 6 | {'blocked_owner': 10} | subscribing is consequential spend |
 | Paid-media authority | 23 | 2 | 1 | 20 | {'blocked_owner': 22, 'in_progress': 1} | Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the re |
 | Banking / payment-ledger feeds | 4 | 0 | 3 | 1 | {'blocked_owner': 4} | Etsy statement is a browser download only |
@@ -54,21 +52,23 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 
 ## Active worker branches (unmerged, last 24 h)
 
+- `claude/w4-ACTIVATION` @ aa16fce (1 ahead, 2026-10-13T00:31:30+00:00): rows named none
 - `claude/w4-AESTHETIC` @ 68247ca (2 ahead, 2026-10-12T14:04:29+00:00): rows named ['F-055']
 - `claude/w4-B2ASSETS` @ cf42b23 (1 ahead, 2026-10-12T13:57:21+00:00): rows named ['F-527']
 - `claude/w4-CCFINST` @ 450a468 (3 ahead, 2026-10-12T14:02:18+00:00): rows named ['F-620']
 - `claude/w4-CCMKTLAB` @ d51df29 (2 ahead, 2026-10-12T14:02:20+00:00): rows named ['F-684']
 - `claude/w4-DRIFTMARGIN` @ a9fb6de (1 ahead, 2026-10-12T09:11:08+00:00): rows named ['F-218']
-- `claude/w4-FMCLOSE` @ 13aed5e (9 ahead, 2026-10-12T20:30:11+00:00): rows named ['F-283', 'F-501', 'F-512', 'F-558', 'F-570', 'F-574', 'F-575', 'F-590', 'F-595', 'F-657', 'F-682']
 - `claude/w4-FUNDING` @ 58a56b3 (1 ahead, 2026-10-12T14:00:29+00:00): rows named none
+- `claude/w4-HANDOFF` @ 69370d3 (2 ahead, 2026-10-13T00:26:48+00:00): rows named none
 - `claude/w4-HYGIENE` @ c977f6d (1 ahead, 2026-10-12T14:00:10+00:00): rows named ['F-146', 'F-149', 'F-150']
 - `claude/w4-ROLLBACK` @ 572105b (1 ahead, 2026-10-12T14:00:25+00:00): rows named none
+- `claude/w4-SECREVIEW-59675ef` @ 172b757 (1 ahead, 2026-10-13T00:25:52+00:00): rows named none
 - `claude/w4-SECREVIEW-HF` @ dc560a2 (3 ahead, 2026-10-12T16:06:57+00:00): rows named none
 - `claude/w4-SETCONSIST` @ 41f72ee (1 ahead, 2026-10-12T08:36:27+00:00): rows named ['F-746']
 - `claude/w4-STITCHFAM` @ c8f1602 (1 ahead, 2026-10-12T13:59:16+00:00): rows named ['F-759']
 - `claude/w4-SWARMQUEUES` @ aab7a55 (1 ahead, 2026-10-12T13:58:23+00:00): rows named ['F-630', 'F-656']
 - `claude/w4-UPGRADECMP` @ 8b24bbc (1 ahead, 2026-10-12T09:11:11+00:00): rows named ['F-738']
-- `claude/w4-VISROLE` @ 52b702d (2 ahead, 2026-10-12T20:50:02+00:00): rows named none
+- `claude/w4-VISROLE-WIP` @ 4dcb7c9 (1 ahead, 2026-10-13T00:30:42+00:00): rows named none
 
 ## Unfinished launch-critical / Build 2 rows
 
@@ -220,7 +220,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-278 | blocked_engineering | engineering: gate image_vision is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Owner: fund the vision provider account (image_vision gate). Software: none beyond keeping candidates per product >=2 at |
 | F-280 | blocked_owner | owner: go-live / publication grant | None | None | After F-248, add a cadence in runtime/worker.py that, for 7 days after the phase leaves shadow, raises a daily owner car |
 | F-282 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build |
-| F-283 | in_progress | in progress | True | True | Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed i |
+| F-283 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed i |
 | F-284 | blocked_external | external: real buyers | True | True | none for launch beyond F-258/F-283 data paths; post-launch: feed review distribution into trust rungs. |
 | F-285 | blocked_owner | owner: Marketplace Insights paste | True | True | Add a seasonal.engine step that, N days before each occasion's indexing milestone, re-runs listing.seo tag choice for th |
 | F-287 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: the sections fill from ListingOutcome periods once a listing is live |
@@ -244,7 +244,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-461 | blocked_owner | owner: deploy_trigger_config | None | None | owner gate deploy_trigger_config: guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipp |
 | F-495 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | After the owner deploys Build 2, let the 24h window run and read autonomy.launch_item until PROVEN |
 | F-497 | blocked_owner | owner: plane_violations | True | True | Enforce GET-only production access for build sessions in tooling (separate read-only ops token scope in core/opsauth.py) |
-| F-501 | in_progress | in progress | True | True | Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver i |
+| F-501 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver i |
 | F-518@v0.15 | blocked_owner | owner: publication grant | True | True | owner: production window + write grant; then the attached plan is executed through listing_rollback.execute |
 | F-515@v0.16 | blocked_engineering | engineering: gate etsy_shop is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate etsy_shop: daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build |
 | F-524 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: store.publish sends certified images; hero experiments need a live listing |
@@ -257,7 +257,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-543 | blocked_owner | owner: publication grant | True | True | owner gate publication_authority: store.activate built with revalidated authority; going live is the owner's grant + pha |
 | F-556 | blocked_external | external: Etsy has no API | True | True | external gate no_messages_api: SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API |
 | F-557 | blocked_external | external: Etsy has no API | True | True | Extend support/department.py _ROUTES with pre_sale, refund, safety, policy and abuse_spam classes (refund/safety/policy  |
-| F-558 | in_progress | in progress | True | True | owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from r |
+| F-558 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from r |
 | F-577 | blocked_owner | owner: Etsy shop settings | True | True | owner gate payout: drift monitor built; owner completes Etsy Payments onboarding |
 | F-578 | blocked_owner | owner: legal_and_tax | True | True | Persist the owner's dated tax-position decision (POST /api/owner/decision key legal_and_tax) and surface it in shop_pack |
 | F-587 | blocked_owner | owner: Etsy Shop Manager setting | True | True | In the shop snapshot cadence, compare getShop policy_* strings to commerce.shop_package.policies() and route any mismatc |
@@ -270,7 +270,7 @@ Ledger-native counts: Build 2 {'PROVEN': 227, 'OWNER-GATED': 42, 'DATA-GATED': 4
 | F-665 | blocked_owner | owner: dashboard_truth.evidence | True | True | Define an Evidence dict (source, as_of, transform, confidence, reconciliation) and attach it to /api/console, /api/finan |
 | F-674 | blocked_external | external: image provider capability | True | True | external gate visual_v1_provider_capability: generative redraw refused (F-852); B+C photoreal stays R&D, not launch-crit |
 | F-676 | blocked_external | external: image provider capability | True | True | external gate model_bearing_render: F-852 refusal; protected-region enhancement waits on V2/provider fidelity |
-| F-682 | in_progress | in progress | True | True | Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepa |
+| F-682 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done | True | True | Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepa |
 | F-689 | blocked_external | external: Etsy has no API | True | True | external gate no_messages_api: ingest messages when Etsy exposes them; until then the owner intake (F-556) feeds the wor |
 | F-695 | blocked_owner | owner: spend_policy numbers | True | True | Owner: supply provider and department ceilings (PROVIDER_CEILINGS_CAD, department allocations); software: record infrast |
 | F-697 | blocked_owner | owner: offsite bucket | True | True | Owner: create offsite bucket + credential; then ops.offsite_archive writes and a scheduled restore drill verifies it; in |

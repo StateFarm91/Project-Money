@@ -1,8 +1,8 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-12T22:18:06Z",
- "branch_head": "17aaa58",
+ "generated_at": "2026-10-13T00:43:58Z",
+ "branch_head": "602e505",
  "production_commit": "7bbbe72e205b",
  "production_read_at": "20261012T1856Z",
  "headline": {
@@ -20,8 +20,8 @@
    "total": 490,
    "verified_complete": 362,
    "implemented_unverified": 1,
-   "in_progress": 5,
-   "blocked_engineering": 45,
+   "in_progress": 1,
+   "blocked_engineering": 49,
    "blocked_owner": 48,
    "blocked_external": 29,
    "not_applicable": 0
@@ -30,8 +30,8 @@
    "total": 917,
    "verified_complete": 385,
    "implemented_unverified": 1,
-   "in_progress": 24,
-   "blocked_engineering": 277,
+   "in_progress": 13,
+   "blocked_engineering": 288,
    "blocked_owner": 133,
    "blocked_external": 90,
    "not_applicable": 7
@@ -78,12 +78,12 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 30,
+   "rows": 41,
    "build2": 2,
-   "fm_launch_critical": 26,
-   "fm_post_launch": 2,
+   "fm_launch_critical": 30,
+   "fm_post_launch": 9,
    "classes": {
-    "blocked_engineering": 30
+    "blocked_engineering": 41
    },
    "owner_action": null
   },
@@ -217,8 +217,8 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 30,
-   "unblocks_fm_launch_critical": 26,
+   "unblocks_rows": 41,
+   "unblocks_fm_launch_critical": 30,
    "unblocks_build2": 2,
    "who": "engineering",
    "estimate": {
@@ -241,16 +241,6 @@
   },
   {
    "step": 5,
-   "root": "oauth_transactions_r",
-   "title": "Etsy OAuth missing transactions_r",
-   "unblocks_rows": 11,
-   "unblocks_fm_launch_critical": 4,
-   "unblocks_build2": 0,
-   "who": "engineering",
-   "estimate": null
-  },
-  {
-   "step": 6,
    "root": "live_listings",
    "title": "No live listings (go-live not authorised)",
    "unblocks_rows": 38,
@@ -263,7 +253,7 @@
    }
   },
   {
-   "step": 7,
+   "step": 6,
    "root": "real_customers",
    "title": "No real customers / market outcomes yet",
    "unblocks_rows": 93,

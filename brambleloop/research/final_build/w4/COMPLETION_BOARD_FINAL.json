@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-12T22:18:06Z",
- "branch_head": "17aaa58",
+ "generated_at": "2026-10-13T00:43:58Z",
+ "branch_head": "602e505",
  "production": {
   "commit": "7bbbe72e205bd922297c398e0cce7e714479eeed",
   "known": true,
@@ -111,8 +111,8 @@
    "total": 490,
    "verified_complete": 362,
    "implemented_unverified": 1,
-   "in_progress": 5,
-   "blocked_engineering": 45,
+   "in_progress": 1,
+   "blocked_engineering": 49,
    "blocked_owner": 48,
    "blocked_external": 29,
    "not_applicable": 0
@@ -121,8 +121,8 @@
    "total": 917,
    "verified_complete": 385,
    "implemented_unverified": 1,
-   "in_progress": 24,
-   "blocked_engineering": 277,
+   "in_progress": 13,
+   "blocked_engineering": 288,
    "blocked_owner": 133,
    "blocked_external": 90,
    "not_applicable": 7
@@ -269,13 +269,13 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 30,
+   "rows": 41,
    "build2": 2,
-   "fm_launch_critical": 26,
-   "fm_post_launch": 2,
+   "fm_launch_critical": 30,
+   "fm_post_launch": 9,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 30
+    "blocked_engineering": 41
    },
    "owner_actions": [],
    "ids": [
@@ -298,15 +298,26 @@
     "F-253",
     "F-273",
     "F-278",
+    "F-283",
     "F-299",
     "F-437",
+    "F-501",
     "F-507",
+    "F-512",
     "F-515@v0.16",
     "F-535",
     "F-538",
     "F-540",
     "F-542",
+    "F-558",
+    "F-570",
+    "F-574",
+    "F-575",
+    "F-590",
     "F-594",
+    "F-595",
+    "F-657",
+    "F-682",
     "F-871",
     "F-872"
    ],
@@ -1115,33 +1126,6 @@
    }
   },
   {
-   "root": "oauth_transactions_r",
-   "title": "Etsy OAuth missing transactions_r",
-   "rows": 11,
-   "build2": 0,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 7,
-   "tracked": 0,
-   "classes": {
-    "in_progress": 11
-   },
-   "owner_actions": [],
-   "ids": [
-    "F-283",
-    "F-501",
-    "F-512",
-    "F-558",
-    "F-570",
-    "F-574",
-    "F-575",
-    "F-590",
-    "F-595",
-    "F-657",
-    "F-682"
-   ],
-   "estimate": null
-  },
-  {
    "root": "etsy_shop_settings",
    "title": "Etsy Shop Manager settings",
    "rows": 10,
@@ -1512,8 +1496,8 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 30,
-   "unblocks_fm_launch_critical": 26,
+   "unblocks_rows": 41,
+   "unblocks_fm_launch_critical": 30,
    "unblocks_build2": 2,
    "who": "engineering",
    "estimate": {
@@ -1536,16 +1520,6 @@
   },
   {
    "step": 5,
-   "root": "oauth_transactions_r",
-   "title": "Etsy OAuth missing transactions_r",
-   "unblocks_rows": 11,
-   "unblocks_fm_launch_critical": 4,
-   "unblocks_build2": 0,
-   "who": "engineering",
-   "estimate": null
-  },
-  {
-   "step": 6,
    "root": "live_listings",
    "title": "No live listings (go-live not authorised)",
    "unblocks_rows": 38,
@@ -1558,7 +1532,7 @@
    }
   },
   {
-   "step": 7,
+   "step": 6,
    "root": "real_customers",
    "title": "No real customers / market outcomes yet",
    "unblocks_rows": 93,
@@ -1572,6 +1546,13 @@
   }
  ],
  "active_worker_branches": {
+  "claude/w4-ACTIVATION": {
+   "head": "aa16fce",
+   "last_commit": "2026-10-13T00:31:30+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
   "claude/w4-AESTHETIC": {
    "head": "68247ca",
    "last_commit": "2026-10-12T14:04:29+00:00",
@@ -1617,29 +1598,17 @@
    ],
    "b2": []
   },
-  "claude/w4-FMCLOSE": {
-   "head": "13aed5e",
-   "last_commit": "2026-10-12T20:30:11+00:00",
-   "commits_ahead": 9,
-   "fm": [
-    "F-283",
-    "F-501",
-    "F-512",
-    "F-558",
-    "F-570",
-    "F-574",
-    "F-575",
-    "F-590",
-    "F-595",
-    "F-657",
-    "F-682"
-   ],
-   "b2": []
-  },
   "claude/w4-FUNDING": {
    "head": "58a56b3",
    "last_commit": "2026-10-12T14:00:29+00:00",
    "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-HANDOFF": {
+   "head": "69370d3",
+   "last_commit": "2026-10-13T00:26:48+00:00",
+   "commits_ahead": 2,
    "fm": [],
    "b2": []
   },
@@ -1657,6 +1626,13 @@
   "claude/w4-ROLLBACK": {
    "head": "572105b",
    "last_commit": "2026-10-12T14:00:25+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-59675ef": {
+   "head": "172b757",
+   "last_commit": "2026-10-13T00:25:52+00:00",
    "commits_ahead": 1,
    "fm": [],
    "b2": []
@@ -1705,10 +1681,10 @@
    ],
    "b2": []
   },
-  "claude/w4-VISROLE": {
-   "head": "52b702d",
-   "last_commit": "2026-10-12T20:50:02+00:00",
-   "commits_ahead": 2,
+  "claude/w4-VISROLE-WIP": {
+   "head": "4dcb7c9",
+   "last_commit": "2026-10-13T00:30:42+00:00",
+   "commits_ahead": 1,
    "fm": [],
    "b2": []
   }
@@ -12410,10 +12386,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed in main.CUSTOMER_DATA_ROUTES; test that it refuses without evidence and refreshes the first-sale record.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "no owner/Stats-export route to attribute organic, Etsy Ads or owned/direct (sources.attribute is only called by finance/reconcile for offsite_ads fee evidence); first sales will stay 'unknown' unless evidence arrives that way"
    },
    {
@@ -16122,10 +16098,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver in F-512 for lower latency",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "event layer is a 6-hourly receipts poll, idempotent on etsy:<receipt>:<transaction>; Etsy's push events (order.paid/canceled/shipped/delivered webhooks) are not received; the poll has never run against Etsy because transactions_r is not gra"
    },
    {
@@ -16339,10 +16315,10 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Build POST /api/etsy/webhook in app/main.py: verify HMAC-SHA256 over id.timestamp.body with whsec_ secret from env, reject >300 s skew, persist a WebhookDelivery row unique on webhook-id, enqueue commerce.orders_ingest idempotently, expose counts on /api/etsy; add tests with signed/unsigned/replayed",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "no webhook receiving route, signature verification, delivery table or dedupe exists; job-level idempotency/retries/dead letters exist only for the internal queue"
    },
    {
@@ -17374,10 +17350,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from real rows",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant"
    },
    {
@@ -17615,10 +17591,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Make Order.offsite_ad_attributed tri-state (None=unknown) in cohorts.record_order and orders_ingest, and set it only from Payment/ledger fee lines or an owner record; offsite_ads_forecast must report UNKNOWN while any order is None.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "No source for Offsite Ads attribution (absent from the API); 365-day threshold tracked from order sums; contribution recompute on attributed orders depends on an attribution flag nothing sets."
    },
    {
@@ -17700,10 +17676,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a channel field with values {organic_search, etsy_ads, offsite_ads, social, share_and_save, unknown} defaulting to unknown, enforce one channel per order, and report per product family in scale/evidence.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "No listing/product-family channel comparison across organic/Ads/Offsite/social/Share&Save and no single-credit rule; ingest hardcodes acquisition_source='etsy' and never sets search_term or offsite flag."
    },
    {
@@ -17716,10 +17692,10 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Add EtsyClient.get_ledger_entries(min_created,max_created) and finance/reconcile.py matching entries to Order/LedgerEntry by reference_id, opening an Incident 'finance.unexplained:<entry_id>' for unmatched movements; run from finance.reconcile.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "No Payment Account ledger-entry reader, no reconciliation to orders/fees/refunds/payouts, no finance incident for unexplained movement."
    },
    {
@@ -18023,10 +17999,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Store ShopReceipt.receipt_type on each Order in orders_ingest and alert if any non-Etsy.com channel appears.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "No runtime inventory; the receipt_type channel signal is not read by orders_ingest."
    },
    {
@@ -18107,10 +18083,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add commerce/first_ten.py: on each of the first ten ingested orders write a per-sale review record (source, term, support cases, refund) and hold non-emergency listing edits via listing_tests.may_test while the cohort is open.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "No explicit first-ten cohort with per-sale inspection record (search source, conversion path, questions, download friction) or a listing edit freeze; order readings run after each ingest and thrash detection exists."
    },
    {
@@ -18896,10 +18872,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add an event table + dispatcher (e.g. src/brambleloop/queue/events.py) mapping event kinds (order, message, review, refund, policy_change, incident, spend_anomaly, owner_decision) to job enqueues; have orders_ingest/support/governor/owner-decision emit events; test a wake per kind.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "Wakeups are fixed-period polling cadences plus follow-on enqueues on completion; no event ingestion (no webhooks, no Etsy event feed, no message/review/refund events). orders_ingest and support_triage cadences are post-fcb982d."
    },
    {
@@ -19326,10 +19302,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepancy rows (never zeroed) and a close status; expose on /api/finance; test a mismatch stays open.",
-    "cls": "in_progress",
-    "root": "oauth_transactions_r",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-FMCLOSE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261012T1856Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "Spend-side reconciliation exists (attribution must sum to the bill or is refused; estimate vs actual recorded). Revenue-side reconciliation against Etsy receipts/payments/payouts, discrepancy records, close status and tax/threshold alerts a"
    },
    {
