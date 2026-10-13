@@ -162,3 +162,17 @@ The failing suite was test_cert_growth_ops, `test_ads_adjust_reads_economics_fro
 - **Cause.** FMCLOSE (F-570) now marks the Offsite Ads share UNMEASURED while any order has no reading, and the UNMEASURED dict dropped the measured count of attributed orders.
 - **Fix.** The UNMEASURED reading keeps `attributed_orders`: the orders the ledger or evidence attributes. Unread orders stay in `attribution.unknown`, and the share is still not computed.
 - **Tests now passing:** test_cert_growth_ops, test_w4_fmclose_etsy, test_paid_media_economics, test_v11_ads_readiness and the required set.
+
+## 9. Release candidate a25a3774: verdicts
+
+- **Full suite.** Run 20261013T022833Z-14781 on a25a3774 **passed**: 631 suites, 8563 tests passing, 0 failing, 0 tmp leak. It ran with REQUIRE_CLEAN=1, JOBS=3, the .venv python and the SIG_DFL launcher.
+- **Release record.** `deploy_guard record` wrote `release/RELEASE_a25a3774….json` (tree_sha256 6499098f…). It is committed with `release/NOTES_a25a3774.md` as 1b21e81 on `claude/final-candidate-a25a377`.
+- **Deploy dry run.** `DRY_RUN=1 sh ops/deploy.sh` returned **ALLOW** on 1b21e81. The built-in rollback rehearsal to 7bbbe72 also returned ALLOW. Nothing was pushed.
+- **Rollback rehearsal.** I ran `DRY_RUN=1 sh ops/deploy.sh --rollback-to 7bbbe72… --deployed 1b21e81…`. With the one-word reason "rehearsal" it was REFUSED, because the guard requires a reason of at least 10 characters. With a full reason it returned **ALLOW**: the rollback commit was built and nothing was pushed.
+- **Fast-forward.** 7bbbe72 is an ancestor of the candidate.
+- **Migration.** The only schema change is widen-only: policy_snapshots.version goes from VARCHAR(40) to VARCHAR(120) on Postgres, under lock_timeout. It is additive and rollback-safe; see NOTES.
+- **Excluded from this release:**
+  - the PRIVLAURA updates: the laura_private agent, the atomic reserve, and removal of the consent gate;
+  - the VISROLE legibility rework;
+  - #61's closure (held).
+- **Not done:** no deploy. Deploying needs owner approval.
