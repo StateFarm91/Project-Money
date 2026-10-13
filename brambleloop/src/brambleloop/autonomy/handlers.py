@@ -41,7 +41,15 @@ def handle_orchestrate(ctx: JobContext) -> dict:
         report["laura_woken"] = results_wake(ctx.db, ctx.queue, now=_now(ctx))
     except Exception:  # noqa: BLE001 - a failed wake never stops the company loop
         report["laura_woken"] = False
+    # F-657: business events since the last tick wake the team that owns them.
+    try:
+        from .event_wakes import scan
+
+        report["event_wakes"] = scan(ctx.db, ctx.queue, now=_now(ctx))
+    except Exception as exc:  # noqa: BLE001 - a failed scan never stops the company loop
+        report["event_wakes"] = {"error": type(exc).__name__}
     return {"ran": True, "enqueued": report["created"],
+            "event_wakes": [w["kind"] for w in report["event_wakes"].get("woken", [])],
             "missions": [m["key"] for m in report["missions"]],
             "approvals": [a["requirement_key"] for a in report["approvals"]],
             "states": {k: v.get("state") for k, v in report["departments"].items()},

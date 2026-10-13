@@ -311,6 +311,15 @@ def _learning_window(item: dict, events: dict, today: date) -> dict:
                     "demand rather than discovered during it (#294)")}
 
 
+def _channel_comparison(db) -> dict:
+    from ..finance import channel_comparison
+
+    try:
+        return channel_comparison.compare(db)
+    except Exception as exc:  # noqa: BLE001 - one reading never sinks the plan
+        return {"reading": "UNKNOWN", "why": type(exc).__name__}
+
+
 def ads_plan(db, *, today: date | None = None) -> dict:
     """Every paid-media decision the rows support, and what the plan would enqueue."""
     from sqlalchemy import select
@@ -394,11 +403,29 @@ def ads_plan(db, *, today: date | None = None) -> dict:
         since = datetime.now(timezone.utc) - timedelta(days=365)
         trailing = sum(float(o.revenue_cad or 0.0) for o in orders_all
                        if _aware(o.at) and _aware(o.at) >= since)
-        offsite = paid_media.offsite_ads_forecast(
-            orders=len(orders_all), aov_usd=(revenue / len(orders_all)) * USD_PER_CAD,
-            offsite_share=sum(1 for o in orders_all if o.offsite_ad_attributed) / len(orders_all),
-            trailing_365_sales_usd=trailing * USD_PER_CAD,
-            contribution_rate=min(1.0, max(0.01, contribution / revenue)) if revenue else 1.0)
+        # F-570: the share is measured only when every order has an Offsite Ads reading;
+        # `offsite_ad_attributed` defaults to False, so counting it would read "unread" as "no".
+        share = paid_media.offsite_share(orders_all)
+        if share["status"] == "measured":
+            offsite = paid_media.offsite_ads_forecast(
+                orders=len(orders_all), aov_usd=(revenue / len(orders_all)) * USD_PER_CAD,
+                offsite_share=share["share"],
+                trailing_365_sales_usd=trailing * USD_PER_CAD,
+                contribution_rate=min(1.0, max(0.01, contribution / revenue)) if revenue
+                else 1.0)
+            offsite["offsite_share_status"] = "measured from Etsy's payment-account ledger"
+        else:
+            terms = paid_media.offsite_ads_terms()
+            above = trailing * USD_PER_CAD >= terms["threshold_usd"]
+            offsite = {"status": UNMEASURED, "why": share["why"],
+                       "terms": {k: v for k, v in terms.items() if k != "source"},
+                       "trailing_365_sales_usd": round(trailing * USD_PER_CAD, 2),
+                       "participation": ("mandatory" if above and
+                                         terms["mandatory_above_threshold"] else "optional"),
+                       "fee_rate_applied": (terms["reduced_fee_rate"] if above
+                                            else terms["standard_fee_rate"])}
+        offsite["attribution"] = {k: share[k] for k in ("orders", "attributed",
+                                                         "not_attributed", "unknown")}
     else:
         offsite = {"status": UNMEASURED, "why": "no order exists to attribute",
                    "terms": {k: v for k, v in paid_media.offsite_ads_terms().items()
@@ -431,6 +458,8 @@ def ads_plan(db, *, today: date | None = None) -> dict:
                           "draft_ready": level.get("draft_ready")},
         "cac_split": evidence.cac(db, today=today),
         "offsite_ads": offsite,
+        # F-574: organic / Etsy Ads / Offsite / social / Share & Save per listing and family.
+        "channel_comparison": _channel_comparison(db),
         "share_and_save": share_and_save,
         "products": products,
         "eligible": [p["slug"] for p in eligible],

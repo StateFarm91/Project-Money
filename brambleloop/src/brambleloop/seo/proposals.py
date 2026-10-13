@@ -141,7 +141,18 @@ def propose(db, facts, *, evidence_rows: list[dict] | None = None,
     for p in provenance:
         basis_of_tags[p["basis"]] = basis_of_tags.get(p["basis"], 0) + 1
     ok = validation["ok"] and not attribute_problems
+    # F-595: while the first-ten-sales cohort is open, a proposal for a LIVE listing is held.
+    try:
+        from ..commerce import first_ten
+
+        from ._db import as_database
+
+        hold = first_ten.edit_hold(as_database(db), facts.slug,
+                                   live=bool(current and current.get("etsy_listing_id")))
+    except Exception as exc:  # noqa: BLE001 - a hold reading never sinks a proposal
+        hold = {"held": False, "reading": "UNKNOWN", "why": type(exc).__name__}
     return {
+        "edit_hold": hold,
         "version": PROPOSAL_VERSION, "slug": facts.slug, "candidate": facts.candidate,
         "state": "PROPOSED", "writes_to_etsy": False, "ok": ok,
         "title": title, "tags": tags, "attributes": attributes,

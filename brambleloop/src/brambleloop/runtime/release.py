@@ -483,9 +483,13 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # review blocks stops the chain here.
     from ..visual.inspect import product_families
 
+    from ..visual.frame_role import expected_labels
+
     review = _review_frames(ctx, slug, version, frames, frame_paths,
                             shas={f["position"]: f["sha256"] for f in stored_frames},
-                            families=product_families(cir))
+                            families=product_families(cir), truth=truth,
+                            plan_findings=list(structural),
+                            labels=expected_labels(frames, cir, twin))
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -1540,7 +1544,9 @@ ROLE_CLAIMS: dict[str, dict] = {
 
 
 def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
-                   shas: dict[int, str] | None = None, families=None) -> dict:
+                   shas: dict[int, str] | None = None, families=None, *, truth=(),
+                   plan_findings=(), labels: dict[int, list[str]] | None = None) -> dict:
+    from ..visual import frame_role
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
@@ -1566,18 +1572,44 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
             # F-027: the first image must clearly show what is sold. The hero's claim names
             # the product families the certified CIR makes; the describer never sees them.
             claim = {**claim, "identifies_as": list(families or ())}
+        # D-W4-VISROLE: the frame's visual role comes from its plan (asset class + role),
+        # never from the model. A photographic frame is asked every realism check; a chart,
+        # diagram, infographic or disclosed twin drawing is described blind (no realism call)
+        # and held to its role checks. Neither is exempt, and unanswered is never passed.
+        visual_role = frame_role.classify(frame)
+        role_checks = None
         try:
-            got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db, claim=claim)
-            verdict = inspection_mod.gate(got)
+            if visual_role in frame_role.NON_PHOTO:
+                got = inspection_mod.describe_image(paths[frame.position], db=ctx.db,
+                                                    claim=claim)
+                role_checks = frame_role.role_checks(
+                    frame, slug=slug, visual_role=visual_role,
+                    description=got.get("description") if got.get("described") else None,
+                    truth_findings=truth, plan_findings=plan_findings,
+                    labels=(labels or {}).get(frame.position))
+                verdict = frame_role.verdict(
+                    described=bool(got.get("described")),
+                    semantic_problems=(got.get("semantic") or {}).get("problems") or [],
+                    marks=inspection_mod.marks_found(got.get("description") or {}),
+                    checks=role_checks)
+                verdict["third_party_marks"] = inspection_mod.marks_found(
+                    got.get("description") or {})
+            else:
+                got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db,
+                                                   claim=claim)
+                verdict = inspection_mod.gate(got)
         except Exception as exc:  # noqa: BLE001 - a review that failed is unmade, not passed
-            verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+            verdicts[frame.position] = {"role": frame.role, "visual_role": visual_role,
+                                        "verdict": "unreviewed",
                                         "why": f"{type(exc).__name__}: {exc}"[:200]}
             continue
         # C-80 defect 6 (Codex P06): an unjudged verdict stays unjudged. Unmade checks are
         # not passed checks, whatever kind of frame they were not made on; the publish path
         # reads anything other than `clear` as not independently reviewed.
-        verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
+        verdicts[frame.position] = {"role": frame.role, "visual_role": visual_role,
+                                    "verdict": verdict["verdict"],
                                     "why": verdict.get("why"),
+                                    "role_checks": role_checks,
                                     "unmade": verdict.get("unmade"),
                                     "semantic": (got.get("semantic") or {}).get("problems"),
                                     # W4-B2CLOSE: production 7bbbe72 recorded a size card
@@ -1610,7 +1642,14 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                 verdicts[frame.position]["why"] = (
                     "the hero's product identification was not made: "
                     f"{identity['why']}; grid {grid.get('verdict')}: {grid.get('why')}")[:300]
-        if verdict["verdict"] == "blocked":
+        role_failed = verdict.get("failed_role_checks") or []
+        if verdict["verdict"] == "blocked" and role_failed:
+            blocking.append(f"FRAME_REVIEW_ROLE_CHECK_FAILED: frame {frame.position} "
+                            f"({frame.role}, {visual_role}): "
+                            f"{role_failed}: {verdict.get('why')}"[:400])
+        if verdict["verdict"] == "blocked" and (
+                not role_failed or (got.get("semantic") or {}).get("problems")
+                or verdict.get("third_party_marks")):
             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
                             f"does not communicate what it claims: "
                             f"{(got.get('semantic') or {}).get('problems')}"[:400])
