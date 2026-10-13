@@ -91,7 +91,7 @@ def test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed()
     assert not any(v["verdict"] == "unclaimed" for v in review["frames"].values())
 
 
-def _fake_vision(unmade: list[str]):
+def _fake_vision(unmade: list[str], marks: str = "none"):
     from brambleloop.visual import inspect as inspection
 
     def fake_inspect(ref, *, db=None, provider=None, claim=None):
@@ -101,11 +101,23 @@ def _fake_vision(unmade: list[str]):
         description = {"object_shown": "a chart" if chart else "a set of hexagon coasters",
                        "chart_or_diagram": chart, "finished_or_in_progress": "finished",
                        "object_count": "1", "clarity": "clear", "text_present": True,
-                       "third_party_marks": "none", "human_present": False}
+                       "third_party_marks": marks, "human_present": False}
         return {"described": True, "description": description,
                 "realism": {}, "realism_unjudged": list(unmade),
                 "semantic": inspection.compare(description, claim or {})}
     return fake_inspect
+
+
+def _fake_describe(marks: str = "none"):
+    """`inspect.describe_image`: the blind description a non-photo frame gets (D-W4-VISROLE),
+    with no realism call at all."""
+    inspect = _fake_vision([], marks)
+
+    def fake_describe(ref, *, db=None, provider=None, claim=None):
+        got = inspect(ref, db=db, provider=provider, claim=claim)
+        got.pop("realism"), got.pop("realism_unjudged")
+        return dict(got, realism_not_applicable=True)
+    return fake_describe
 
 
 def _fake_grid(verdict: str = "clear"):
@@ -116,37 +128,61 @@ def _fake_grid(verdict: str = "clear"):
 
 
 def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publication():
-    """C-80 defects 6 and 7 (Codex P06): an unjudged frame is not cleared because it was
-    described; an empty review or a review of other bytes does not count; a complete clear
-    review of exactly the stored frames does."""
+    """C-80 defects 6 and 7 (Codex P06), under the role-appropriate rule (D-W4-VISROLE).
+
+    Every frame this builder makes is a deterministic non-photo frame (a disclosed twin
+    drawing, a chart, infographics, a pattern preview). They are classified from the frame
+    plan and are never asked the photographic realism checks; a realism checklist the
+    reviewer could not answer no longer holds them. They are held to their role checks
+    instead, and an unanswered role check is unjudged, never a pass. An empty review or a
+    review of other bytes does not count; a complete clear review of exactly the stored
+    frames does."""
     from brambleloop.build2 import executor
     from brambleloop.core.models import ListingAsset
+    from brambleloop.visual import frame_role
     from brambleloop.visual import inspect as inspection
 
     db, cir = _certified()
     gate = executor.GATE_BY_KEY["image_vision"]
     original_check, original_inspect = gate.check, inspection.inspect_image
+    original_describe = inspection.describe_image
     original_grid = inspection.identify_at_grid
     gate.check = lambda db_, env: True
     # W4-FIRSTIMG: the hero's grid identification (F-031) is a vision call; stubbed clear.
     inspection.identify_at_grid = _fake_grid("clear")
+    # The realism inspection would leave a check unmade on every frame; no non-photo frame
+    # may reach it, so it is wired to say so if it is ever called.
+    inspection.inspect_image = _fake_vision(["texture_not_repeating"])
     try:
-        inspection.inspect_image = _fake_vision(["texture_not_repeating"])
+        # 1. A role check left unanswered ("unclear" on third-party marks): unjudged.
+        inspection.describe_image = _fake_describe(marks="unclear")
         out = _build(db, cir, "unjudged")
         review = _review(db, cir)
         assert set(v["verdict"] for v in review["frames"].values()) == {"unjudged"}, review
-        assert all(v["unmade"] == ["texture_not_repeating"] for v in review["frames"].values())
+        assert all(v["visual_role"] in frame_role.NON_PHOTO
+                   for v in review["frames"].values()), review
+        assert all(v["unmade"] == ["no_third_party_marks"]
+                   for v in review["frames"].values()), review
+        assert not any(v["failed_realism"] for v in review["frames"].values())
         # unjudged does not stop assets.build (nothing failed) but it is not a pass at publish
         assert out.get("ok") is not False, out
         state = release.frame_review_state(db, cir.slug, cir.version)
         assert state["reviewed"] is False and set(state["not_clear"].values()) == {"unjudged"}
 
-        inspection.inspect_image = _fake_vision([])
+        # 2. Every role check answered and passed, with the realism inspection still saying
+        # it would leave a check unmade: the non-photo frames are clear, because the realism
+        # checks are not theirs -- and every role check is recorded as passed.
+        inspection.describe_image = _fake_describe(marks="none")
         _build(db, cir, "clear")
+        review = _review(db, cir)
+        assert all(set(v["role_checks"]) == set(frame_role.ROLE_CHECKS)
+                   and all(c["passed"] is True for c in v["role_checks"].values())
+                   for v in review["frames"].values()), review
         state = release.frame_review_state(db, cir.slug, cir.version)
         assert state["reviewed"] is True and state["bound_to_stored_frames"] is True, state
     finally:
         gate.check, inspection.inspect_image = original_check, original_inspect
+        inspection.describe_image = original_describe
         inspection.identify_at_grid = original_grid
 
     # the same review no longer counts once the stored bytes differ
@@ -229,12 +265,20 @@ def test_a_chart_preview_the_independent_review_says_is_not_a_chart_stops_the_ch
                 "realism": {}, "realism_unjudged": [],
                 "semantic": inspection.compare(description, claim or {})}
 
+    def fake_describe(ref, *, db=None, provider=None, claim=None):
+        got = fake_inspect(ref, db=db, provider=provider, claim=claim)
+        got.pop("realism"), got.pop("realism_unjudged")
+        return got
+
     gate.check = lambda db_, env: True
+    original_describe = inspection.describe_image
     inspection.inspect_image = fake_inspect
+    inspection.describe_image = fake_describe
     try:
         out = _build(db, cir, "review")
     finally:
         gate.check, inspection.inspect_image = original_check, original_inspect
+        inspection.describe_image = original_describe
     assert out.get("ok") is False
     assert any("FRAME_REVIEW_BLOCKED" in p and "(chart)" in p
                for p in out["blocking_image_problems"]), out["blocking_image_problems"]

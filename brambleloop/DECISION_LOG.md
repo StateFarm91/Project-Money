@@ -1850,3 +1850,69 @@ the Anthropic usage policy). The edit was blocked by the Claude Code permission 
 chose not to bypass it. The existing supported register (`laura.private_reply@1`, D-W4-PL-1) is preserved
 unchanged. The provider stays Anthropic, and model-selection policy is unchanged. This is an open decision, not a
 defect.
+
+## D-W4-VISROLE: role-appropriate independent visual review (owner decision, 2026-10-12)
+
+**Owner, as relayed by the coordinator:**
+
+> "distinguish photographic renders from charts, diagrams and infographics, and apply checks
+> appropriate to each role. Non-photo assets must NOT be exempted from verification. For every
+> frame keep: product truth, semantic accuracy (what it shows matches the CIR/pattern record),
+> legibility at listing sizes, disclosure, and ALL publication vetoes. The photographic realism
+> checks apply only to photographic frames. Non-photo frames get role checks instead: data and
+> labels match the record, text is legible at 340 px, no misleading scale, no third-party
+> marks, disclosure present. Any check left unanswered still means not passed."
+
+**Problem it resolves (found by W-B2CLOSE in production).** `release._review_frames` (#61)
+asked every listing frame the ten photographic realism checks. Charts, size cards and
+infographics cannot answer questions such as `drape` or `hands_and_fingers`, so the reviewer
+answered "unclear". An unmade check is never a pass, so every deterministic non-photo frame
+stayed `unjudged` and blocked publication for a reason unrelated to the frame.
+
+**Applied (`visual/frame_role.py`, `release._review_frames`):**
+
+1. **The role is classified deterministically from the frame plan, never by the model.**
+   - It is read from (asset class, frame role):
+     - DIGITAL_TWIN_RENDER as hero is a disclosed twin drawing (the D-FB-9 precedent);
+     - DIGITAL_TWIN_RENDER as chart is a chart;
+     - INFOGRAPHIC is an infographic;
+     - PATTERN_PREVIEW is a pattern preview.
+   - Everything else is photographic. This includes PHYSICAL_PRODUCT_PHOTO,
+     AI_LIFESTYLE_CONCEPT, any frame carrying a model, and any combination the table does not
+     name. An unknown frame therefore always gets the strictest rule.
+2. **A photographic frame is unchanged.** It still gets the full realism inspection, and an
+   unclear realism check is still `unjudged` (C-80 / Codex P06).
+3. **A non-photo frame is described blind.** It goes through `inspect.describe_image`, with
+   no realism call. It keeps the semantic comparison (`inspect.compare`) and, for the hero,
+   product identification and the 230 px grid reading. It must also pass five role checks:
+   - `data_matches_record`: no Asset Truth error and no frame-plan finding on this frame, and
+     every record label is drawn. For the size card these are the `size_frame_displays`
+     label and the named reference; for the materials card, every CIR colour.
+   - `text_legible_340`: two parts.
+     - At 340 px the headline is at least `thumbnail.MIN_LEGIBLE_TEXT_PX` (11 px), and no
+       line is set under `layout_qa.MIN_TEXT_PT`. The smallest line's px at 340 is recorded
+       with the verdict.
+     - A frame with no type fails. A frame with no recorded layout is unanswered.
+   - `scale_not_misleading`: no `CLAIM_SIZE_*` or `ASSET_STITCH_SCALE_*` finding on the
+     frame, and a size card must draw its scale.
+   - `no_third_party_marks`: the blind describer's answer. "unclear" or no answer is
+     unanswered, not "none".
+   - `disclosure_present`: two parts.
+     - The frame's image provenance kind (#36) must be a simulated render, never proof.
+     - A frame that draws the product (the disclosed twin drawing) must also draw "not a
+       photograph" in its own pixels.
+4. **Outcomes.**
+   - A failed role check blocks (`FRAME_REVIEW_ROLE_CHECK_FAILED`).
+   - An unanswered or missing role check is `unjudged`, which publication reads as not
+     reviewed.
+   - Semantic problems and third-party marks still block (`FRAME_REVIEW_BLOCKED`).
+   - Every existing veto (Asset Truth, frame plan, layout QA, hero thumbnail, identity gate,
+     provenance) still applies independently of the review.
+5. **No threshold was lowered and no frame is exempt.** The only thing a non-photo frame no
+   longer gets is a set of questions about photographs.
+
+**For the owner to tighten if wanted.** The 340 px rule applies the 11 px floor to the headline
+only. Body and label lines on today's infographics land at 7 to 11.6 px at 340 px (for example,
+the size label at 60 pt is 10.2 px). That is recorded per frame (`smallest_px`). Holding every
+line to 11 px would block every current infographic until the frames are redesigned with larger
+type.
