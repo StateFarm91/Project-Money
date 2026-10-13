@@ -422,6 +422,38 @@ def offsite_ads_forecast(*, orders: int, aov_usd: float, offsite_share: float,
     }
 
 
+def offsite_attribution(order) -> bool | None:
+    """One order's Offsite Ads attribution, tri-state (F-570).
+
+    True: Etsy charged an Offsite Ads fee on it (or evidence attributed it). False: Etsy's
+    payment-account ledger was read for it and carried no Offsite Ads fee
+    (`offsite_ads_fee_cad == 0.0`). None: not read -- unknown, never counted as "no".
+    `offsite_ad_attributed` defaults to False on every new order, so it alone cannot say no.
+    """
+    if bool(getattr(order, "offsite_ad_attributed", False)):
+        return True
+    fee = getattr(order, "offsite_ads_fee_cad", None)
+    if fee is None:
+        return None
+    return float(fee) > 0
+
+
+def offsite_share(orders) -> dict:
+    """The measured Offsite Ads share, or UNMEASURED naming how many orders are unknown."""
+    states = [offsite_attribution(o) for o in orders]
+    attributed = sum(1 for x in states if x is True)
+    unknown = sum(1 for x in states if x is None)
+    known = len(states) - unknown
+    out = {"orders": len(states), "attributed": attributed, "not_attributed": known - attributed,
+           "unknown": unknown}
+    if not states or unknown:
+        return {**out, "status": "UNMEASURED", "share": None,
+                "why": (f"{unknown} of {len(states)} order(s) have no Offsite Ads reading "
+                        f"(Etsy's payment-account ledger not read for them); an unread order "
+                        f"is not a non-attributed one") if states else "no orders"}
+    return {**out, "status": "measured", "share": attributed / len(states)}
+
+
 # ---------------------------------------------------------------------------
 # #245: Share & Save / direct-link economics.
 

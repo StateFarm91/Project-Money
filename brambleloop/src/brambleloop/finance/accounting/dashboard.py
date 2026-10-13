@@ -239,10 +239,21 @@ def _summary(db, window, now, refresh):
                                   else f"{len(exc)} open exception(s)"),
         "integrity": integrity,
         "close": close_status,
+        "activity": _activity(db, now),
         "forecast": forecast,
         "totals_micros": {k: m[k] for k in ("gross", "refunds", "fees", "operating",
                                             "net_profit")},
     }
+
+
+def _activity(db, now) -> dict:
+    """F-682: last reconciliation, discrepancies, close, tax/threshold alerts, evidence."""
+    try:
+        from .activity import activity
+
+        return activity(db, now=now)
+    except Exception as e:  # noqa: BLE001 - never sinks the Money view
+        return {"reading": "UNKNOWN", "why": type(e).__name__}
 
 
 def _integrity(db) -> dict:

@@ -41,12 +41,17 @@ _TO_CHANNEL = {
     "offsite_ads": "offsite_ads",
     "owned_direct": "owned_direct", "direct": "owned_direct", "email": "owned_direct",
     "pinterest": "owned_direct", "google": "owned_direct", "seo": "owned_direct",
+    # F-574: the finer channels `finance.channel_comparison` reports separately; in this
+    # four-channel table they are the company's own (owned/direct) traffic.
+    "social": "owned_direct", "instagram": "owned_direct", "tiktok": "owned_direct",
+    "facebook": "owned_direct", "share_and_save": "owned_direct",
 }
 
 # Sources `attribute` accepts. The four channels plus the owned sub-channels other readers
 # already key on; `unknown` is the default and needs no evidence.
 ATTRIBUTABLE = frozenset(CHANNELS) | frozenset({"etsy_search", "pinterest", "google", "email",
-                                                "direct"})
+                                                "direct", "social", "instagram", "tiktok",
+                                                "facebook", "share_and_save"})
 
 FIRST_SALE_KIND = "commerce.first_sale"
 FIRST_SALE_NOTE = ("One sale proves possibility, not scale. It says a buyer can find, trust "
