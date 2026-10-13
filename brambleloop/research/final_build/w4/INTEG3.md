@@ -154,3 +154,11 @@ Every cause was fixed on INTEG2. No test or gate was weakened.
 | (security review of 59675ef, LOW) | — | `migrate.widen` now runs `SET LOCAL lock_timeout = '5s'`. The second LOW, an atomic reserve for Private Laura, belongs to the PRIVLAURA worker and is deferred to the next release. |
 
 FMCLOSE@13aed5e and VISROLE@52b702d merged cleanly. All 33 focused suites passed on the first try: the required set, accounting and money, auth, the visual suites, the board and snapshots, and recovery. Per FMCLOSE, F-575 stays OPEN (its wiring was reverted). PRIVLAURA updates and the VISROLE legibility rework are excluded and go to the next release.
+
+## 8. Freeze 3 (9522fac): 1 of 631 suites failed (8562 tests passing); freeze 4
+
+The failing suite was test_cert_growth_ops, `test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner`, with `KeyError 'attributed_orders'`.
+
+- **Cause.** FMCLOSE (F-570) now marks the Offsite Ads share UNMEASURED while any order has no reading, and the UNMEASURED dict dropped the measured count of attributed orders.
+- **Fix.** The UNMEASURED reading keeps `attributed_orders`: the orders the ledger or evidence attributes. Unread orders stay in `attribution.unknown`, and the share is still not computed.
+- **Tests now passing:** test_cert_growth_ops, test_w4_fmclose_etsy, test_paid_media_economics, test_v11_ads_readiness and the required set.

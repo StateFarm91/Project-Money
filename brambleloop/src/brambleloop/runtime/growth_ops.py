@@ -417,7 +417,11 @@ def ads_plan(db, *, today: date | None = None) -> dict:
         else:
             terms = paid_media.offsite_ads_terms()
             above = trailing * USD_PER_CAD >= terms["threshold_usd"]
+            # INTEG3: the count of orders the ledger or evidence DOES attribute is measured
+            # even while the share is not (#244 reads it from the orders table); the unread
+            # orders are counted separately in `attribution.unknown`, never as "no".
             offsite = {"status": UNMEASURED, "why": share["why"],
+                       "attributed_orders": share["attributed"],
                        "terms": {k: v for k, v in terms.items() if k != "source"},
                        "trailing_365_sales_usd": round(trailing * USD_PER_CAD, 2),
                        "participation": ("mandatory" if above and
