@@ -1,3 +1,98 @@
+# INTEG3 (2026-10-19): release candidate cd7e7dc on top of production 1b21e81
+
+Integrator: W-INTEG3. Worktree `.claude/worktrees/W4-INTEG3`, branch `claude/w4-INTEG3`, created from
+`origin/claude/w4-INTEG2` 9c3812b. Production: 1b21e81 (= a25a377 + release record), SHADOW.
+No deploy, no production write, no spend. Production contact: none (local Postgres only).
+
+**Candidate: `cd7e7dc8483b90347b73de4c1e104a6965ee59b2`, branch `claude/final-candidate-cd7e7dc`.**
+(`claude/final-candidate-5f18d11` was frozen first and is SUPERSEDED: BRANDRULE arrived after the
+freeze, see §2.)
+
+## 1. Merges (in order, one implementation per defect)
+
+| # | Branch @ head | Merge commit | Conflicts and resolution |
+|---|---|---|---|
+| 1 | w4-REL2 @ c314c36 (webhook M1/L1/L2, I2/I3, spend B1-B5) | c591529 | none |
+| 2 | w4-PLACT @ 6c9d177 (laura_private budget, D-W4-PL-3, status prerequisites) | 20d8b69 | none (gateway/anthropic.py auto-merged with REL2) |
+| 3 | w4-BOARD @ e6ee1aa (recount, closures, generator fixes) | 88e91da | `creative/reference.py`: **REL2's B4 fix kept** (canonical; also records refused readings), BOARD's duplicate dropped. `test_w4_board_close.py:174` `test_b195_...` passes unchanged against REL2's implementation. Board files: placeholder, regenerated once (§3). |
+| 4 | w4-VISREF @ 8eab43b (compose.py glue, tests, VISREF.md, owner PDF) | e969eb3 | none |
+| - | INTEG3 FX fix | c8c4abc | §4 |
+| - | INTEG3 boot tables | 93431f8 | §6 |
+| 5 | w4-PRODREADY @ 9b25797 (B1 contract-3 legibility, B2 taxonomy, ornament/placemat Product Truth, scipy lock, #61) | 5b16704 | Polled 14:45-16:06Z; head moved fb32507 -> bdd8968 -> 9b25797 (15:42Z), then stable 24 min; PRODREADY.md second pass reports B1, B2 and the motif fixes. `DECISION_LOG.md`: both appended sections kept, no line removed. Generated board/ledger/scope/card files: placeholder, regenerated (§3). |
+| - | Regeneration | 5f18d11 | §3 |
+| 6 | w4-BRANDRULE @ 75d3bd1 (D-W4-LAURA-OUTFIT, records only; coordinator addition) | cd7e7dc | `DECISION_LOG.md` append-only, both kept; `src/brambleloop/core/decision_index.json` regenerated (26 ids), `test_w3_decision_index` 3/3. |
+
+## 2. Why the candidate was refrozen (5f18d11 -> cd7e7dc)
+
+BRANDRULE arrived while the 5f18d11 suite was half way. "Records commit, no refreeze" was not
+possible without breaking something: D-W4-LAURA-OUTFIT is a heading, so `decision_index.json`
+(under `src/`) must change for `test_w3_decision_index` to stay green, and any `src/` change in
+the records commit breaks the release record's `source_tree_sha256` (deploy_guard `check` and
+the boot guard compare it). The 5f18d11 run (20261019T162018Z-22556) was stopped with SIGTERM
+(record `interrupted`), BRANDRULE was merged on INTEG3 and the candidate refrozen at cd7e7dc.
+The delta 5f18d11..cd7e7dc is DECISION_LOG.md (+26 lines) and decision_index.json (+1 id): no code.
+
+## 3. Regeneration (once, after all merges)
+
+With the fresh venv: `build2_ledger.py evidence_BOARD/prod_api_build_20261019T1249Z.json`
+(PROVEN 229, OPEN-DEFECT 2: #11, #12), `aggregate.py`, `fm_ledger.py` (no change),
+`completion_board_final.py`, `prelaunch_scope.py`, CC snapshots, `decision_index`.
+
+Generator defect found and fixed (`completion_board_final.py`, unfinished-row branch):
+BOARD's rule makes a production module edited since the deploy "not deployed". The
+`exists and deployed is False` branch then promoted OPEN rows F-144 (app/main.py, edited by
+REL2) and F-718 (core/db.py, edited by INTEG3) to implemented_unverified, so the board's
+launch-critical done count (367) exceeded the ledger's COMPLETE (365) and `test_w4_board`
+failed. Now an unfinished row is implemented_unverified only when its module is new (absent
+from production). The test was not changed.
+
+Effect of BOARD's rule on this candidate (honest, by design): Build 2 production_verified
+reads 117 and dev_proven_not_deployed 107, because many verified rows name modules this release
+edits; they return to verified after the deploy is read back.
+
+`test_w4_prodready_contract3::test_the_honest_frames_still_verify_pass` gained a
+non-emptiness assertion before its loop (test_vacuity).
+
+## 4. FX reference rate
+
+`core/fx.py` was 1/0.715 = 1.3986 CAD/USD, labelled an assumption (not a DECISION_LOG policy).
+Now `ASSUMED_CAD_PER_USD = 1.4154` (Bank of Canada, 2026-10-16), USD/CAD derived. USD-priced
+calls reserve ~1.2% more CAD (conservative). No ceiling, cap or limit changed: all are CAD
+and none reads the rate (asserted). Labels in `routing.FX_NOTE` and `listing_costs` derive
+from the constant. Tests: `tests/test_w4_integ3_fx.py` (4); `test_model_access` pin 0.715 -> 1.4154.
+FX-dependent suites passed: model_access, v11_wiring, currency, fee_schedule, cert_commerce,
+gateway, model_provider, w4_spenda_k5a, w4_finhealth, insights_budget.
+
+## 5. Fresh venv
+
+`/home/user/bl-runs/venv-integ3`: Python 3.11.17, `pip install --no-deps --require-hashes -r
+requirements.lock` (lock identical to the merged one, sha256 d7b9a8e6...), plus test-only
+httpx 0.28.1, httpcore 1.0.9, certifi 2026.10.18 (not in the lock). `pip freeze` = lock pins + those
+3. `pip check` clean. test_dependency_lock, test_w4_prodready_deps, test_cert_dependencies,
+test_dependency, test_w3_supply_chain, test_w4_fm2_lock_boot_guard: all pass. (The old `.venv`
+had drifted on 20 distributions, e.g. SQLAlchemy 2.1.5, pillow 13; it was left in place.)
+
+## 6. New DB tables and migration
+
+| table | from | created |
+|---|---|---|
+| `etsy_webhook_refusals` (reason PK, count, last_status, first_at, last_at, last_audit_epoch) | REL2 M1 | at boot (`etsy_webhooks` is imported in `Database.create_all`) and on first use |
+| `prospecting_brief_cursors` (event, pod, form PK, offset, updated_at) | REL2 B3 | REL2 created it only lazily (`__table__.create(checkfirst=True)`, not atomic across processes). INTEG3 registers `creative.prospecting` in `Database.create_all`, so boot creates it. |
+
+Proof on a local throwaway PostgreSQL 16.15 (`evidence_INTEG3/rc_pg_boot_output.txt`,
+scripts `rc_pg_boot.py`, `rc_pg_exercise.py`): schema built by production 1b21e81 code = 129
+tables, neither new table; candidate boot `create_all` -> 131 tables, exactly the two new ones,
+`apply_migrations` changes `[]` (no column change on any existing table); second boot no-op;
+both tables exercised (counter upsert 5 bad_signature + 1 `other`, 2 sampled audit rows, summary
+aggregates; brief offset 0 -> 3 -> 5; reserved word `offset` quoted). Test:
+`tests/test_w4_integ3_boot_tables.py` (2). Purely additive: rollback to 1b21e81 ignores the tables.
+
+## 7. Full suite, guard, rollback, security: pending (see next update)
+
+---
+
+# Earlier integration record (2026-10-12/13, candidate a25a377), kept verbatim
+
 # INTEG3: integration release candidate on `claude/w4-INTEG2` (2026-10-12)
 
 Integrator: W-INTEG. Worktree: `.claude/worktrees/W4-INTEG2`, branch `claude/w4-INTEG2`.
