@@ -51,10 +51,12 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
-# The eight products the owner named (2026-10-19), in that order.
+# The eight Launch-0 products (CAP-1). The owner's first list named harvest-table-runner; the
+# code's eighth is nordic-forest-mosaic-throw-baby, and the coordinator confirmed it
+# (2026-10-19). Run with --with-harvest to add the reserve runner as an extra row.
 NAMED = ("nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
-         "nordic-star-ornaments", "winter-village-graphghan", "harvest-table-runner",
-         "housewarming-key-basket", "mosaic-placemat-pair")
+         "nordic-star-ornaments", "winter-village-graphghan", "housewarming-key-basket",
+         "mosaic-placemat-pair", "nordic-forest-mosaic-throw-baby")
 CHECKS = ("certification", "product_truth", "pdfs", "recovery", "listing_images",
           "legibility", "hero_thumbnail", "visual_roles", "price", "copy", "publish_gate")
 
@@ -79,11 +81,11 @@ def _norm(text: str) -> str:
     return " ".join(str(text or "").replace("­", "").split())
 
 
-def products() -> list[dict]:
+def products(extra: tuple[str, ...] = ()) -> list[dict]:
     from brambleloop.products import launch0 as l0
 
     out = []
-    for slug in NAMED + tuple(s for s in l0.LAUNCH0_SLUGS if s not in NAMED):
+    for slug in NAMED + tuple(s for s in l0.LAUNCH0_SLUGS if s not in NAMED) + extra:
         cand = l0.candidate(slug)
         out.append({
             "candidate": slug, "title": cand.title, "named_by_owner": slug in NAMED,
@@ -94,33 +96,70 @@ def products() -> list[dict]:
     return out
 
 
-# Fixed type sizes of the frames the Launch-0 listing actually uploads (the disclosed render
-# set and its verified supplements), classified with the same rule as the listing frames:
-# a disclosure, a dimension or scale label, or a frame headline is essential.
-def uploaded_type_sizes() -> list[dict]:
-    from brambleloop.commerce.thumbnail import MIN_LEGIBLE_TEXT_PX
+def _uploaded_lettering(db, prod, rel, art, images) -> dict:
+    """Every lettered line of every image `store.publish` would upload, measured at its real
+    display size (D-W4-VISROLE-LEGIBILITY).
+
+    The uploaded bytes are matched by sha256 to a deterministic local re-render of the same
+    frames (disclosed set and angle view, gallery supplements, CONTENTS preview), and each
+    matched frame's recorded lettering (`text_layout`) is classified by `frame_role.text_tier`.
+    An uploaded image no re-render matches is UNMEASURED, never legible."""
+    import hashlib
+
+    from brambleloop.products import launch0 as l0
     from brambleloop.visual import contents_frame as CF
+    from brambleloop.visual import disclosed_render as D
     from brambleloop.visual import frame_role as FR
     from brambleloop.visual import gallery_frames as GF
-    from brambleloop.visual import render_contract as K
 
-    rows = [("disclosed render", "disclosure caption", K.CAPTION_PX, "disclosure"),
-            ("disclosed render", "scale-bar label / dimension annotations", K.LABEL_PX,
-             "size_label"),
-            ("gallery supplement", "title", GF.TITLE_PX, "headline"),
-            ("gallery supplement", "body", GF.BODY_PX, "row_value"),
-            ("gallery supplement", "small", GF.SMALL_PX, "row_label"),
-            ("contents supplement", "title", CF.TITLE_PX, "headline"),
-            ("contents supplement", "body", CF.BODY_PX, "row_value"),
-            ("contents supplement", "small", CF.SMALL_PX, "row_label")]
-    out = []
-    for renderer, line, pt, slot in rows:
-        tier = FR.text_tier("", slot)
-        px = round(pt * tier["display_px"] / K.CANVAS_PX, 1)
-        out.append({"renderer": renderer, "line": line, "pt_on_2000": pt, "slot": slot,
-                    "display_px": tier["display_px"], "px": px,
-                    "legible": px >= MIN_LEGIBLE_TEXT_PX})
-    return out
+    cand = l0.candidate(prod["candidate"])
+    cirs = [l0.cir_for(v.build) for v in cand.variants]
+    cir = l0.cir_for(rel["build"])
+    primary, siblings = cirs[0], cirs[1:]
+    layouts: dict[str, tuple[str, list]] = {}
+    for rf in D.listing_set(cir):
+        layouts[hashlib.sha256(rf.png).hexdigest()] = (
+            f"disclosed {rf.view}", rf.manifest["layout"]["caption"]["text_layout"])
+    try:
+        rf = D.render(primary, "angle")
+        layouts[hashlib.sha256(rf.png).hexdigest()] = (
+            "disclosed angle", rf.manifest["layout"]["caption"]["text_layout"])
+    except Exception:  # noqa: BLE001 - a product with no angle view uploads none
+        pass
+    for job in GF.applicable_jobs(primary, siblings=siblings):
+        try:
+            g = GF.render(primary, job, siblings=siblings)
+        except GF.FrameRefused:
+            continue
+        layouts[hashlib.sha256(g.png).hexdigest()] = (f"gallery {job}", g.manifest["text_layout"])
+    try:
+        pdfs = CF.released_pdf(db, primary.slug, primary.version, store=None)
+        c = CF.render(pdfs[CF.TERMINOLOGY][1], slug=primary.slug, version=primary.version,
+                      title=primary.title or primary.slug, editions=list(pdfs))
+        layouts[hashlib.sha256(c.png).hexdigest()] = ("contents", c.manifest["text_layout"])
+    except Exception:  # noqa: BLE001 - reported below as an unmatched upload
+        pass
+    rows, unmatched, failing = [], [], []
+    for name, data in images:
+        sha = hashlib.sha256(data).hexdigest()
+        hit = layouts.get(sha)
+        if hit is None:
+            unmatched.append(name)
+            continue
+        what, lay = hit
+        lines = []
+        for e in lay:
+            tier = FR.text_tier("", e.get("slot"))
+            px = round(e["pt"] * tier["display_px"] / 2000, 1)
+            lines.append({"text": str(e["text"])[:60], "slot": e.get("slot"),
+                          "tier": tier["tier"], "display_px": tier["display_px"], "px": px})
+            if tier["essential"] and px < 11:
+                failing.append(f"{name} ({what}) {e['text'][:40]!r} {px}px")
+        ess = [x["px"] for x in lines if x["tier"] == FR.ESSENTIAL]
+        rows.append({"image": name, "frame": what, "lines": len(lines),
+                     "smallest_essential_px": min(ess) if ess else None})
+    return {"measured": rows, "unmatched": unmatched, "failing": failing,
+            "ok": None if (unmatched or not rows) else not failing}
 
 
 def _pdfs(db, build, slug, version, release, cert):
@@ -213,7 +252,7 @@ def _listing_frames(db, build):
     return plan, legs, roles
 
 
-def _release(db, prod, rel, art, type_sizes):
+def _release(db, prod, rel, art):
     from sqlalchemy import select
 
     from brambleloop.core.models import Listing
@@ -280,16 +319,17 @@ def _release(db, prod, rel, art, type_sizes):
         plan, legs, roles = frames
     else:
         plan, legs, roles = [f"unreadable: {frames.get('why')}"], {}, {}
-    upl_bad = [t for t in type_sizes if not t["legible"]]
+    upl = _guard(lambda: _uploaded_lettering(db, prod, rel, art, imgs.get("images") or []))
     frames_bad = {p: v for p, v in legs.items() if v["ok"] is not True}
+    ok = not frames_bad and bool(legs) and upl.get("ok") is True
     out["legibility"] = _row(
-        PASS if not frames_bad and not upl_bad and legs else FAIL,
-        ("every essential line clears 11 px at its display size on the listing frames and "
-         "on the uploaded set" if not frames_bad and not upl_bad and legs else
-         f"listing frames failing: {sorted(frames_bad)}; uploaded-set type below the floor: "
-         + "; ".join(f"{t['renderer']} {t['line']} {t['px']}px at {t['display_px']}px"
-                     for t in upl_bad)),
-        listing_frames=legs, uploaded_type=type_sizes, frame_plan_problems=plan)
+        PASS if ok else FAIL if (frames_bad or upl.get("failing")) else UNKNOWN,
+        ("every essential line clears 11 px at its display size on the listing frames and on "
+         f"all {len(upl.get('measured') or [])} uploaded images" if ok else
+         f"listing frames failing: {sorted(frames_bad)}; uploaded failing: "
+         f"{(upl.get('failing') or [])[:6]}; uploaded unmatched: {upl.get('unmatched')}; "
+         f"{upl.get('why', '')}"),
+        listing_frames=legs, uploaded=upl, frame_plan_problems=plan)
 
     search = ev.get("search") or {}
     out["hero_thumbnail"] = _row(search.get("state", UNKNOWN), search.get("why", ""),
@@ -364,7 +404,7 @@ def main(argv: list[str]) -> dict:
     socket.socket.connect = _closed            # type: ignore[assignment]
     socket.create_connection = _closed         # type: ignore[assignment]
     t0 = time.time()
-    prods = products()
+    prods = products(("harvest-table-runner",) if "--with-harvest" in argv else ())
     chain = None
     if "--chain" in argv:
         import pipe_chain_run
@@ -375,15 +415,14 @@ def main(argv: list[str]) -> dict:
 
     db = Database(f"sqlite:///{d}/run.sqlite", scratch=True)
     db.create_all()
-    type_sizes = uploaded_type_sizes()
     rows = []
     for p in prods:
-        rels = [_release(db, p, r, d / "art", type_sizes) for r in p["releases"]]
+        rels = [_release(db, p, r, d / "art") for r in p["releases"]]
         rows.append({**{k: p[k] for k in ("candidate", "title", "named_by_owner",
                                           "in_launch0_scope")},
                      "ready": all(r["ready"] for r in rels), "releases": rels})
     doc = {"generated_seconds": round(time.time() - t0, 1), "chain": chain,
-           "checks": list(CHECKS), "uploaded_type_sizes": type_sizes, "products": rows,
+           "checks": list(CHECKS), "products": rows,
            "publishes_anything": False}
     (d / "prodready.json").write_text(json.dumps(doc, indent=1, default=str) + "\n")
     return {"wrote": str(d / "prodready.json"), "seconds": doc["generated_seconds"],

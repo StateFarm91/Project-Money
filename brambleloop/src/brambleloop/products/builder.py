@@ -374,16 +374,21 @@ CATALOGUE: dict[str, Design] = {
         motif="chevron-band", palette="autumn", width_stitches=48, motif_repeats=14),
     # W4-PIPE 1.3.0: the title claimed a pair and a mosaic; the CIR made one panel with one
     # colour per row. It now makes two (pieces=2) and is named for the relief it works.
+    # W4-PRODREADY 1.4.0 (owner directive 2026-10-19): the lattice exists only as raised
+    # stitches (one colour per row), so the title says so (launch0.motif_promise).
     "mosaic-placemat-pair": Design(
-        slug="mosaic-placemat-pair", title="Diamond Lattice Placemat Pair",
+        slug="mosaic-placemat-pair", title="Raised Diamond Lattice Placemat Pair",
         motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5,
         pieces=2,
         note="Make two. The lattice is a relief: double crochet standing above a "
              "single-crochet ground, one colour per row."),
     # W4-PIPE 1.3.0: "Set (6)" over a CIR that made one ornament; the pattern now makes six.
     # 1.4.0: the snowfall motif depicts snowflakes, not stars (creative HELD).
+    # W4-PRODREADY 1.5.0 (owner directive 2026-10-19): the CIR draws six striped pieces with
+    # scattered raised crosses and no snowflake outline; "Snowflake" was not true of it, so the
+    # title names what it makes (launch0.motif_promise refuses the old one).
     "nordic-star-ornaments": Design(
-        slug="nordic-star-ornaments", title="Nordic Snowflake Ornament Set (6)",
+        slug="nordic-star-ornaments", title="Textured Stripe Ornament Set (6)",
         motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1, pieces=6,
         note="One ornament per repeat; the twelve-row snowfall keeps each one ornament-sized "
              "rather than the twenty-four rows the fir band would impose. Make six."),
@@ -453,6 +458,10 @@ RELEASE_VERSIONS: dict[str, str] = {slug: "1.2.0" for slug in CATALOGUE}
 # the relief fabric it works rather than a mosaic it cannot.
 RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.3.0"
 RELEASE_VERSIONS["nordic-star-ornaments"] = "1.4.0"
+# W4-PRODREADY (2026-10-19): titles corrected to what the CIR makes (a title is release
+# content): "Raised Diamond Lattice Placemat Pair" and "Textured Stripe Ornament Set (6)".
+RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.4.0"
+RELEASE_VERSIONS["nordic-star-ornaments"] = "1.5.0"
 # W4-PIPE (2026-10-07, W4-CREATIVE HELD titles): retitled to what the motif depicts and the
 # fabric makes; the library makes twelve; the wall hanging carries its rod-pocket seam.
 for _slug in ("winter-village-graphghan", "pressed-flower-motifs", "cottage-wall-hanging"):

@@ -54,13 +54,16 @@ MAX_OFF_PALETTE_SHARE = 0.001
 
 # Zones, as fractions of the canvas. Everything sits inside the 8 % title-safe band
 # (publish.mobile.TITLE_SAFE_MARGIN), so nothing the marketplace overlays can hide it.
-# Contract 3 rows, top to bottom on the 2000 px canvas: the product 180-1490; the scale bar
+# Contract 3 rows, top to bottom on the 2000 px canvas: the product 170-1490; the scale bar
 # and its "N cm" label on the row from 1504; up to two annotation lines from 1570; the two
 # disclosure lines from 1704. The last line's glyphs end at 1836, inside the 8 % title-safe
 # band (1840). The product keeps 95 % of contract 2's height: measured, a smaller drawing
 # loses a thin contrast row at 340 px (the cloudline blanket's cream at 0.68), and the 340 px
 # colour check is not relaxed to make room for type.
-PRODUCT_ZONE = (0.09, 0.09, 0.91, 0.745)        # x0, y0, x1, y1
+# The top edge moved from 0.09 to 0.085 (170 px, still 10 px inside the 160 px title-safe
+# band): a tall assembled piece (the stocking hero) sat at exactly the 25 % coverage floor of
+# the 340 px check after the lettering rows took 3.5 % of the height; the floor is unchanged.
+PRODUCT_ZONE = (0.09, 0.085, 0.91, 0.745)        # x0, y0, x1, y1
 SCALE_ZONE = (0.09, 0.753, 0.91, 0.77)
 ANNOTATION_TOP = 0.785
 CAPTION_TOP = 0.852

@@ -273,14 +273,19 @@ def _tampered_scale(build="cloudline_blanket", *, size=True, claim=True):
     d = ImageDraw.Draw(img)
     d.fontmode = "1"
     fo = K.font(K.LABEL_PX)
-    zx0, zy0, zx1, zy1 = K.zone_px(K.SCALE_ZONE)
+    # Contract 3: the size is lettered on the annotation rows (`annotation_layout`), so the
+    # attack paints those rows out and re-letters a false size there; the claim goes in the
+    # free band between the size rows and the disclosure.
+    rows = K.annotation_layout(f.manifest["layout"]["caption"]["lines"])
+    ax, ay = rows[0][1]
     if size:
-        d.rectangle([600, zy0, zx1 + 10, zy1], fill=K.BACKGROUND)
-        txt = "Finished size at the stated gauge: 120.0 cm wide x 150.0 cm long"
-        d.text((zx1 - d.textlength(txt, font=fo), zy0), txt, fill=K.CAPTION, font=fo)
+        d.rectangle([ax, ay, 1830, rows[-1][1][1] + K.LABEL_PX + 12], fill=K.BACKGROUND)
+        for i, txt in enumerate(("Finished size at the stated gauge:",
+                                 "120.0 cm wide x 150.0 cm long")):
+            d.text((ax, ay + i * K.LINE_STEP_PX), txt, fill=K.CAPTION, font=fo)
     if claim:
-        d.text((430, 1860), "Pure merino wool - certified safe for newborns - machine washable",
-               fill=K.CAPTION, font=fo)
+        d.text((430, 1870), "Pure merino wool - safe for newborns",
+               fill=K.CAPTION, font=K.font(30))
     return png(img)
 
 
@@ -291,11 +296,16 @@ def test_false_size_and_claim_text_fail_verification():
 
 
 def test_the_audits_tampered_image_does_not_pass():
-    """The exact bytes the audit produced (a v1.1.0 render) fail against the certified CIR."""
+    """The exact bytes the audit produced (a v1.1.0 render) fail against the certified CIR.
+
+    Under contract 2 they failed on `annotation_text`. Under contract 3 (W4-PRODREADY) they
+    are not a contract render at all -- their disclosure is one 34 px line where the contract
+    letters two 58 px lines -- so they fail earlier, on `disclosure_in_image`, and the
+    annotation check is never reached. Either way they do not pass."""
     path = Path(__file__).resolve().parent / "data" / "audit2_attack_tampered_scale.png"
     assert path.exists(), path
     r = verdict(path.read_bytes(), "cloudline_blanket", "scale")
-    _not_pass(r, "annotation_text")
+    _not_pass(r, "annotation_text", "disclosure_in_image")
 
 
 def test_a_single_wrong_figure_in_the_size_label_fails():
@@ -306,11 +316,14 @@ def test_a_single_wrong_figure_in_the_size_label_fails():
     d = ImageDraw.Draw(img)
     d.fontmode = "1"
     fo = K.font(K.LABEL_PX)
-    zx0, zy0, zx1, zy1 = K.zone_px(K.SCALE_ZONE)
-    d.rectangle([700, zy0, zx1 + 10, zy0 + 34], fill=K.BACKGROUND)
-    bad = lines[0].replace("96.4", "99.4")
-    assert bad != lines[0]
-    d.text((round(zx1 - d.textlength(bad, font=fo)), zy0), bad, fill=K.CAPTION, font=fo)
+    # Contract 3: the figures are on the second annotation row (`annotation_layout`).
+    placed = K.annotation_layout(lines)
+    line, (x, y) = next((t, xy) for t, xy in placed if "96.4" in t)
+    d.rectangle([x, y, x + d.textlength(line, font=fo) + 4, y + K.LABEL_PX + 12],
+                fill=K.BACKGROUND)
+    bad = line.replace("96.4", "99.4")
+    assert bad != line
+    d.text((x, y), bad, fill=K.CAPTION, font=fo)
     _not_pass(verdict(png(img), "cloudline_blanket", "scale"), "annotation_text")
 
 

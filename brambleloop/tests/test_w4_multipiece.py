@@ -105,9 +105,16 @@ def test_alt_text_states_the_true_count_and_per_piece_size():
 
 
 def test_single_piece_heroes_are_byte_identical_to_before():
-    # sha256 of the hero frames before this change (W4-IMAGES review, 2026-10-11).
-    before = {"basket_medium": "2853edb459191a8d", "cloudline_blanket": "bf30686b90bff8e0",
-              "hexagon_coasters": "dde60f6bbe780d18", "snowfall_throw": "c7c15427340597e4"}
+    # sha256 of the single-piece hero frames, pinned so a multi-piece change cannot move
+    # them. Re-pinned once, deliberately, for disclosed-render contract 3 (W4-PRODREADY,
+    # 2026-10-19: legible lettering and the zone that gives it rows); the contract-2 pins
+    # were basket_medium 2853edb459191a8d, cloudline_blanket bf30686b90bff8e0,
+    # hexagon_coasters dde60f6bbe780d18, snowfall_throw c7c15427340597e4.
+    from brambleloop.visual import render_contract as K
+
+    assert K.CONTRACT_VERSION == "disclosed-render-contract/3"
+    before = {"basket_medium": "a0011d65108949e3", "cloudline_blanket": "95f59af9b7e0bdee",
+              "hexagon_coasters": "fd296d0e413c4bd8", "snowfall_throw": "0d76c06c3339e5a9"}
     assert before
     for build, prefix in before.items():
         assert hashlib.sha256(hero(build).png).hexdigest().startswith(prefix), build

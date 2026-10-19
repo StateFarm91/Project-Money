@@ -1965,3 +1965,44 @@ INTEG2 9c3812b:
    - The recorder now measures with the anchor, and the label is kept inside the safe area.
    - The scale bar is placed clear of the label. The piece and the bar are recorded as
      graphics, so a collision with them is now measured.
+
+## D-W4-CONTRACT3: disclosed-render contract 3, so the uploaded images letter legibly (2026-10-19; applies D-W4-VISROLE-LEGIBILITY)
+
+**Problem.** The images Launch-0 actually uploads break the owner's legibility rule. That set
+is the disclosed renders plus the gallery and CONTENTS frames. At their display size:
+- the disclosure was 6.6 px and the scale and dimension labels 5.8 px, at 390 px;
+- the gallery and contents frames ran 7.0 to 9.8 px at 390 px, and their titles 10.9 px at
+  340 px.
+
+**Applied.**
+- **The contract is versioned, not patched.** `render_contract.CONTRACT_VERSION` is
+  `disclosed-render-contract/3`. Each component's version is bumped, so no cached contract-2
+  render is reused:
+  - disclosed-render 3.0.0;
+  - assembled 2.0.0;
+  - verifier 3.0.0;
+  - gallery-frames 2.0.0;
+  - contents-frame 2.0.0.
+  `product_authority` qualifies only the contract-3 renderers.
+- **Every contract word is set at `TEXT_PX` = 58 px on the 2000 px canvas**, which is 11.3 px at
+  390 px. Frame titles are 66 px, 11.2 px at 340 px.
+  - The disclosure is set on two lines, split after its comma.
+  - The annotation lines are at most two, and are wrapped to the zone.
+  - Each gets its own row below the product.
+  - Lettering that cannot fit refuses (`LetteringRefused`), and is never shrunk.
+- **The verifier re-letters exactly the lines the contract functions place.** It computes them
+  from its own CIR figures.
+  - The caption IoU spans both lines.
+  - A frame in contract-2 type, a dropped "not a photograph", or one edited figure each fails.
+  - No tolerance was changed.
+- **The product zone ends at 0.745 instead of 0.78.** That keeps 95 % of contract 2's height.
+  - At 0.68, the cloudline blanket's cream row fell to 0.4 % at 340 px, and the 340 px colour
+    check refused it.
+  - That check was kept as it is, and the layout was made to fit it.
+- **Every lettered line is recorded with a slot.** `frame_role.text_tier` classifies it:
+  `annotation` and `scale_label` are essential at 390 px.
+
+**Boundary.**
+- W-VISREF owns compose, owned_photography and gateway/images.
+- The only change made outside the render contract, its renderers and its verifier is the
+  one-line `product_authority.QUALIFIED_RENDERERS` update that the version bump requires.

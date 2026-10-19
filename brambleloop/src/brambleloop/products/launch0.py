@@ -166,6 +166,102 @@ def title_promise(cir: CIR) -> dict:
             "backed": backed, "why": why}
 
 
+# ---- motif words (owner directive 2026-10-19, W4-PRODREADY) -------------------------------
+#
+# A title or a line of copy that names a depicted motif -- a snowflake, a star, a diamond, a
+# lattice -- promises the buyer a shape. The CIR declares its motif in its provenance
+# (`primitives_used`, e.g. "products.motifs:snowfall"), and this table states, per declared
+# motif, which motif words it backs and how it shows them. Every Launch-0 motif is a RELIEF
+# (one colour per row; the shape is raised stitches), so a title-like text naming it must also
+# say so (raised / relief / textured / texture). A motif the table does not know backs nothing.
+MOTIF_WORDS: frozenset[str] = frozenset({
+    "snowflake", "snowflakes", "snow", "snowfall", "star", "stars", "diamond", "diamonds",
+    "lattice", "fir", "firs", "tree", "trees", "forest", "heart", "hearts", "pumpkin",
+    "pumpkins", "chevron", "chevrons", "basketweave", "cable", "cables", "flower", "flowers",
+    "floral", "leaf", "leaves", "oak", "acorn", "acorns", "village", "house", "houses",
+    "deer", "reindeer", "bird", "birds", "cloud", "clouds", "ghost", "ghosts", "bat", "bats",
+})
+RELIEF = "relief"
+RELIEF_QUALIFIERS: frozenset[str] = frozenset({"raised", "relief", "textured", "texture"})
+MOTIF_DECLARATIONS: dict[str, dict] = {
+    "products.motifs:diamond-lattice": {"backs": frozenset({"diamond", "diamonds", "lattice"}),
+                                        "medium": RELIEF},
+    # Scattered 3 x 3 raised crosses on a 12-stitch repeat: snowfall, not a snowflake outline.
+    "products.motifs:snowfall": {"backs": frozenset({"snow", "snowfall"}), "medium": RELIEF},
+    "products.motifs:chevron-band": {"backs": frozenset({"chevron", "chevrons"}),
+                                     "medium": RELIEF},
+    "products.motifs:basketweave": {"backs": frozenset({"basketweave"}), "medium": RELIEF},
+    "products.nordic_forest.MOTIF": {"backs": frozenset({"fir", "firs", "star", "stars", "tree",
+                                                         "trees", "forest"}),
+                                     "medium": RELIEF},
+}
+
+
+def declared_motifs(cir: CIR) -> list[str]:
+    """The motif primitives the CIR's provenance declares (`primitives_used`)."""
+    prov = getattr(cir, "provenance", None)
+    used = getattr(prov, "primitives_used", None) or ()
+    return [u for u in used if u in MOTIF_DECLARATIONS or u.startswith("products.motifs:")
+            or u.endswith(".MOTIF")]
+
+
+def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
+                  tags: dict[str, list[str]] | None = None) -> dict:
+    """Whether every motif word in the title and copy is backed by the CIR's declared motif.
+
+    `texts` are title-like sentences ({where: text}); the CIR's own title is always one. A
+    motif word there needs the CIR to declare a motif that backs it, and, when that motif is a
+    relief, a relief qualifier in the same text. `tags` are short phrases ({where: [phrases]})
+    where only the backing is required. Deterministic: names, never pixels or a model.
+    """
+    texts = {"cir.title": cir.title, **(texts or {})}
+    declared = declared_motifs(cir)
+    backs: set[str] = set()
+    relief = False
+    for d in declared:
+        dec = MOTIF_DECLARATIONS.get(d)
+        if dec:
+            backs |= dec["backs"]
+            relief = relief or dec["medium"] == RELIEF
+    problems = []
+    for where, text in texts.items():
+        found = [w for w in re.findall(r"[a-z]+", str(text or "").lower()) if w in MOTIF_WORDS]
+        for w in sorted(set(found) - backs):
+            problems.append(f"{where}: {w!r} is a motif word the CIR's declared motif "
+                            f"{declared or 'none'} does not back")
+        backed_here = sorted(set(found) & backs)
+        if backed_here and relief and not (set(re.findall(r"[a-z]+", str(text).lower()))
+                                           & RELIEF_QUALIFIERS):
+            problems.append(f"{where}: {backed_here} exist only as raised stitches, and the "
+                            f"text does not say so (raised / relief / texture)")
+    for where, phrases in (tags or {}).items():
+        for ph in phrases:
+            for w in sorted({w for w in re.findall(r"[a-z]+", ph.lower()) if w in MOTIF_WORDS}
+                            - backs):
+                problems.append(f"{where}: {ph!r} names {w!r}, which the CIR does not back")
+    return {"declared": declared, "backs": sorted(backs), "relief": relief,
+            "backed": not problems, "problems": problems,
+            "why": ("every motif word in the title and copy is backed by the CIR's declared "
+                    "motif" if not problems else "; ".join(problems)[:600])}
+
+
+def _copy_texts(slug: str) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The listing title, description lead and keyword phrases written for `slug`."""
+    try:
+        from ..seo import strategy as S
+    except Exception:  # noqa: BLE001 - no copy module, no copy to check
+        return {}, {}
+    texts, tags = {}, {}
+    if slug in getattr(S, "TITLES", {}):
+        texts["seo.TITLES"] = S.TITLES[slug]
+    for name in ("FAMILIES", "TAGS"):
+        pool = getattr(S, name, None)
+        if isinstance(pool, dict) and isinstance(pool.get(slug), list):
+            tags[f"seo.{name}"] = [q for p in pool[slug]
+                                   for q in ([p] if isinstance(p, str) else p.get("phrases", []))]
+    return texts, tags
+
+
 def assembly_promise(cir: CIR) -> dict:
     """Whether a name that describes an assembled object has assembly behind it.
 
@@ -670,11 +766,14 @@ _BASE_CANDIDATES: tuple[Candidate, ...] = (
     # can carry truthful imagery yet. Both are winter products, and October is the window.
     Candidate(
         slug="nordic-star-ornaments",
-        title="Nordic Snowflake Ornament Set (6)",
+        # W4-PRODREADY (owner directive 2026-10-19): retitled from "Nordic Snowflake Ornament
+        # Set (6)" -- the CIR draws striped pieces with scattered raised crosses and no
+        # snowflake outline, and `motif_promise` refuses a motif word the CIR does not declare.
+        title="Textured Stripe Ornament Set (6)",
         what_it_is=(
-            "Six flat snowflake ornaments, about 9.6 x 10.2 cm each at the stated gauge, worked "
-            "in rows in two colours, one colour per row, the snowflake a double-crochet relief "
-            "standing above a single-crochet ground."),
+            "Six flat ornaments, about 9.6 x 10.2 cm each at the stated gauge, worked in rows "
+            "in two colours that alternate every row (a stripe), with small raised "
+            "double-crochet crosses scattered over a single-crochet ground."),
         why_at_launch=(
             "The only seasonal product whose window is open now: a buyer who purchases in "
             "October has time to make six small pieces before the holiday. It is the small, "
@@ -683,7 +782,7 @@ _BASE_CANDIDATES: tuple[Candidate, ...] = (
         variants=(Variant("set_of_six", "6 pieces, 9.6 x 10.2 cm each", "snowflake_ornaments"),),
         pod="ornaments",
         listing=ListingIdentity(kind="ornament", etsy_category="ornament",
-                                nouns=("ornament",), qualifiers=("snowflake", "nordic"),
+                                nouns=("ornament",), qualifiers=("stripe", "textured"),
                                 techniques=("texture",)),
         price=PriceBand(
             *_CLUSTER_BAND, proposed_cad=4.50, basis=SOURCED,
@@ -691,8 +790,8 @@ _BASE_CANDIDATES: tuple[Candidate, ...] = (
                  "its floor: a small seasonal make. An ornament-specific observed price is "
                  "UNKNOWN; no profiled shop's ornament price was captured")),
         disqualifiers=(
-            "a worked sample whose relief does not read as a snowflake at ornament size, which "
-            "only fabric confirms",
+            "copy, tags or imagery that call the raised crosses snowflakes or stars: the CIR "
+            "declares a scattered relief, not a snowflake outline (motif_promise)",
             "a hanging loop or applied trim added without a CIR step for it",
         ),
         aspiration=(
@@ -830,7 +929,8 @@ PROPOSED_CANDIDATES: tuple[Candidate, ...] = (
     ),
     Candidate(
         slug="mosaic-placemat-pair",
-        title="Diamond Lattice Placemat Pair",
+        # W4-PRODREADY: "Raised" because the lattice exists only as raised stitches.
+        title="Raised Diamond Lattice Placemat Pair",
         what_it_is=(
             "Two placemats, each 28.8 x 47.7 cm at the stated gauge, worked flat in cream and "
             "wine, one colour per row, with a raised diamond lattice in double crochet "
@@ -1203,6 +1303,9 @@ def product_truth(cand: Candidate) -> dict:
             "pieces": sum(c.make for c in cir.components),
             "title_promise": title_promise(cir),
             "assembly_promise": assembly_promise(cir),
+            "motif_promise": motif_promise(
+                cir, {"candidate.title": cand.title, "candidate.what_it_is": cand.what_it_is,
+                      **_copy_texts(cand.slug)[0]}, tags=_copy_texts(cand.slug)[1]),
         }
         if result.ok:
             twin = build_twin(cir, result)
@@ -1221,6 +1324,8 @@ def product_truth(cand: Candidate) -> dict:
         "compiles_clean": all(v["compiles"] and not v["warnings"] for v in variants),
         "title_promise_backed": all(v["title_promise"]["backed"] for v in variants),
         "assembly_promise_backed": all(v["assembly_promise"]["backed"] for v in variants),
+        # W4-PRODREADY: a motif word in the title or copy is backed by the CIR's declared motif.
+        "motif_promise_backed": all(v["motif_promise"]["backed"] for v in variants),
         "fabric_claim_backed": all(v.get("fabric_truth", {}).get("backed", False)
                                    for v in variants),
         "size_label_backed": all(v.get("size_label", {}).get("backed", False)
@@ -1240,7 +1345,8 @@ def product_truth(cand: Candidate) -> dict:
                                                   for v in variants),
             "name_matches_what_the_cir_makes": (gates["title_promise_backed"]
                                                 and gates["assembly_promise_backed"]
-                                                and gates["fabric_claim_backed"]),
+                                                and gates["fabric_claim_backed"]
+                                                and gates["motif_promise_backed"]),
         },
         "aspiration": {
             "physically_calibrated": calibrated,
