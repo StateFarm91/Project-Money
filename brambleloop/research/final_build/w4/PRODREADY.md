@@ -1,4 +1,4 @@
-# W4-PRODREADY: eight-product customer readiness, the legibility rule, the #61 closure, and scipy
+# W4-PRODREADY: eight-product customer readiness, legibility, #61, scipy, taxonomy, motif truth
 
 **Context**
 - **Branch:** `claude/w4-PRODREADY`, from `origin/claude/w4-INTEG2` 9c3812b. That base already
@@ -7,90 +7,103 @@
 - **Production:** 1b21e81, in SHADOW. Nothing was deployed, published, POSTed or spent.
 - **No model was called, and no paid image was generated.** Every render in this report is
   deterministic and was made locally.
+- **Second pass (same day).** Three changes since the first pass:
+  - B1 is fixed with disclosed-render contract 3 (§7).
+  - B2 is re-diagnosed: no owner action is needed (§8).
+  - The ornament and placemat names are corrected through Product Truth (§9).
+  - The eighth product is `nordic-forest-mosaic-throw-baby`, the code's CAP-1 product. The
+    coordinator confirmed it. `harvest-table-runner` stays a reserve, and its first-pass row is
+    kept for the record.
 
-**Verdict: none of the eight named products is customer-ready.** Every one is certified, has
-true Product Truth, has complete US and UK PDFs, and can be rebuilt byte-for-byte from its CIR.
-Every one is still NOT READY, because of the blockers below. Certified does not mean
-customer-ready.
+**Verdict: none of the eight Launch-0 products is customer-ready yet.**
 
-## 1. Per-product matrix
+Every product now passes all eight of these checks:
+- certification;
+- Product Truth, including the new motif gate;
+- US and UK PDFs;
+- byte-identical rebuild from the CIR;
+- the listing image set;
+- **legibility of every uploaded image at its real display size**;
+- price;
+- copy with the AI disclosure.
 
-### How it was measured
+**What still blocks all of them:**
+1. **The search certificate (B2).** No category is matched. This is a company code fix, not an
+   owner action.
+2. **The independent vision review (B3).** It is unreviewed. It needs a funded run.
+3. **The first-customer gate (B4 to B6).** It needs a physical sample, durable storage and a
+   confirmed Etsy upload.
 
+Certified does not mean customer-ready.
+
+## 1. Per-product matrix (second pass, final code)
+
+**How it was measured**
 - **Script:** `research/final_build/w4/prodready_run.py <dir> --chain`.
-- **What it runs:** the REAL release chain in a SHADOW worker, on a fresh SQLite database, with
-  the network refused:
-  - gate.certify, then listing.draft, assets.build, pricing.position, listing.seo and
-    launch.plan;
-  - store.publish last, which is refused because the system is in SHADOW (as designed).
-- **Scope:** every release of the eight products, which is 10 releases because the baskets come
-  in S, M and L. The code's own 8th Launch-0 product (see §1.3) was run as well.
+- **What it runs:** the real release chain in a SHADOW worker, on a fresh SQLite database, with
+  the network refused. Every release goes through:
+  - gate.certify, listing.draft, assets.build, pricing.position, listing.seo and launch.plan;
+  - then store.publish, which is refused in SHADOW (as designed).
 - **How each check was read:** from the code that enforces it. UNKNOWN never counts as PASS.
-- **Evidence:** `evidence_PRODREADY/prodready.json` (per release, per check, with reasons) and
-  `evidence_PRODREADY/chain_run.json`. The chain took 556 s and the report 782 s.
+- **How uploaded images were measured:** the bytes `store.publish` would upload
+  (`etsy_ops.certified_images`) are matched by sha256 to a deterministic re-render of the same
+  frames:
+  - the disclosed hero, scale, detail and angle views;
+  - the gallery frames;
+  - the CONTENTS frame.
+  Every matched frame's recorded lettering is then measured at its display size. An upload
+  that no re-render matches reads UNKNOWN.
+- **Evidence:** `evidence_PRODREADY/prodready.json` and `chain_run.json` (second pass).
 
 ### 1.1 Summary
 
-| check | baskets S/M/L | cloudline blanket | hexagon coasters | nordic star ornaments | winter village graphghan | harvest table runner | housewarming key basket | mosaic placemat pair |
+| check | baskets S/M/L | cloudline blanket | hexagon coasters | ornaments (1.5.0) | winter graphghan | key basket | placemats (1.4.0) | nordic forest baby |
 |---|---|---|---|---|---|---|---|---|
-| certification (certificate granted, nothing withheld) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| Product Truth (compiles clean; title, assembly, fabric and size promises backed) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| US + UK PDFs (both rendered; every package section; AI disclosure in each; children's statements complete where owed) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| deliverable recovery (fresh CIR equals the certified content hash; both PDFs byte-identical to the certified hashes) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| listing image set (listing set certified; certified bytes readable for upload) | PASS (9/8/8 images) | PASS (6) | PASS (6) | PASS (6) | PASS (6) | PASS (6) | PASS (8) | PASS (6) |
-| legibility at actual display size (uploaded set) | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** |
-| hero / thumbnail (search certificate incl. hero) | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** |
-| role-specific visual checks | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN |
-| price consistency (listing = Launch-0 plan) | PASS (CA$6.50) | PASS (CA$7.50) | PASS (CA$4.00) | PASS (CA$4.50) | PASS (CA$7.50) | **FAIL** | PASS (CA$5.50) | PASS (CA$5.00) |
-| customer copy incl. AI disclosure | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| publication gate (`release_gates.for_publish`) | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** | **FAIL** |
+| certification | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| Product Truth (incl. motif_promise) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| US + UK PDFs (sections, AI disclosure, children's statements) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| deliverable recovery (fresh CIR = certified hash; PDFs byte-identical) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| listing image set (certified, uploadable bytes) | PASS (9/8/8) | PASS (6) | PASS (6) | PASS (6) | PASS (6) | PASS (8) | PASS (6) | PASS (6) |
+| **legibility: every uploaded image, every essential line** | PASS (9/8/8 images, min 11.2 px) | PASS (6/6, min 11.2 px) | PASS (6/6) | PASS (6/6) | PASS (6/6) | PASS (8/8) | PASS (6/6) | PASS (6/6) |
+| hero / thumbnail (search certificate) | FAIL (B2) | FAIL (B2) | FAIL (B2) | FAIL (B2) | FAIL (B2) | FAIL (B2) | FAIL (B2) | FAIL (B2) |
+| role-specific visual checks | UNKNOWN (B3) | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN | UNKNOWN |
+| price = Launch-0 plan | PASS CA$6.50 | PASS CA$7.50 | PASS CA$4.00 | PASS CA$4.50 | PASS CA$7.50 | PASS CA$5.50 | PASS CA$5.00 | PASS CA$7.50 |
+| copy incl. AI disclosure | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| publication gate | FAIL (B2, B4-B6) | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL |
 | **status** | **NOT READY** | **NOT READY** | **NOT READY** | **NOT READY** | **NOT READY** | **NOT READY** | **NOT READY** | **NOT READY** |
 
-**What the passing rows mean:**
-- **Customer copy:** the disclosure section is complete, and two `platform_policy.DISCLOSURES`
-  sentences appear verbatim in the stored description: `ai_assisted_design` and
-  `disclosed_render`. `pdf.AI_DISCLOSURE` is in both PDFs.
-- **Listing image set:** the images are the bytes `store.publish` would upload
-  (`etsy_ops.certified_images`).
-- **Deterministic role checks:** these pass on every non-photo frame of every product (record
-  labels, legibility, scale and disclosure). Only the vision answers are missing.
+Notes on the matrix:
+- **Role checks.** The deterministic role checks pass on every non-photo listing frame:
+  record labels, legibility, scale and disclosure. Only `no_third_party_marks` is unanswered,
+  because it needs the describer.
+- **Copy.** The stored descriptions carry the `ai_assisted_design` and `disclosed_render`
+  sentences verbatim, and both PDFs carry `pdf.AI_DISCLOSURE`.
+- **The stored listings now read as follows:**
+  - "Textured Stripe Ornament Set (6) | Crochet Pattern PDF | US and UK Terms", tagged
+    stripe/textured ornament;
+  - "Raised Diamond Lattice Placemat Pair | Crochet Pattern PDF | US and UK Terms".
 
-### 1.2 The exact blockers
+### 1.2 Blockers (exact)
 
-Products 1 to 8 are, in order: baskets, cloudline, coasters, ornaments, graphghan, runner, key
-basket, placemats.
-
-| # | blocker | products | owner | exact evidence |
+| # | blocker | products | owner | status / exact next step |
 |---|---|---|---|---|
-| B1 | **Uploaded listing images break the owner's legibility rule.** The set `store.publish` uploads for Launch-0 is the disclosed-render set (D-FB-7: 3 disclosed renders) plus verified gallery and contents supplements. It is not the `listing_assets` frames fixed in §2. Its type sizes are fixed constants, measured at their real display size (390 px phone gallery; 340 px for headlines). | all 8 | company | disclosure caption `render_contract.CAPTION_PX` 34 → **6.6 px**; scale-bar and dimension labels `LABEL_PX` 30 → **5.8 px**; gallery body 50 → 9.8 px, small 40 → 7.8 px, title 64 → 10.9 px at 340; contents body 46 → 9.0 px, small 36 → 7.0 px, title 64 → 10.9 px at 340. Floor: 11 px. |
-| B2 | **No Etsy category, so the search certificate refuses**, and with it the hero/thumbnail judgement it carries. F-005: "category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed". F-004: attributes have no schema to be complete against. | all 8 | owner, then company | The owner supplies the Etsy app keystring (read-only `GET /seller-taxonomy`). `listing.taxonomy_refresh` is then company work. |
-| B3 | **Independent visual review not made.** #61 `frame_review_state`: every listing frame is `unreviewed`. Parity is unjudged on `competitive_blind_review` and `hero`. The one role check that needs the describer, `no_third_party_marks`, is unanswered, which is never a pass. | all 8 | company, on a funded model | A funded `image_vision` run of `assets.build` and the blind review is needed. Not run here, because no model calls or spend were allowed. |
-| B4 | **First-customer gate:** gauge and size claims are UNRESOLVED. No passed physical sample is bound to the content, so every finished dimension is arithmetic from the stated gauge. | 1–5, 7, 8 | owner / tester | Work a physical sample (tester roster / physical proof). |
-| B5 | **First-customer gate:** `etsy_remote_state` is UNVERIFIABLE. Etsy has never confirmed a listing-image upload (9 open claims). | 1–5, 7, 8 | owner (go-live) / external | A first draft upload under an owner publication grant. |
-| B6 | **First-customer gate:** `fulfilment_and_download` FAIL. The artifact store is not durable, so a paid download can resolve to nothing after a redeploy. | 1–5, 7, 8 | owner | Object storage (the offsite storage bucket owner action). |
-| B7 | **The harvest table runner is not a Launch-0 product in the code.** `launch0.py` keeps it as the "first reserve". It is not among the CAP-1 three, which are `nordic-forest-mosaic-throw-baby`, `mosaic-placemat-pair` and `housewarming-key-basket`. Its Thanksgiving (CA) window closed 2026-10-12. Because of this: | 6 | owner decision | Add it to Launch-0 with a price plan, or replace it in the named eight. |
-| | • `launch_price_check` has no plan. `pricing.position` set CA$6.94, against the candidate's proposed CA$5.50. | | | |
-| | • The first-customer gate does not run for it at all. That is why B4 to B6 are absent for it. This is **not** a pass. | | | |
-| B8 | **Production defect (fixed on this branch, see §4):** scipy was not installed in the production image. | all 8 | company (release) | Production 1b21e81 could not run the disclosed-render verifier or the listing export check. |
+| B1 | Uploaded images broke the legibility rule (6.6 / 5.8 / 7.0-10.9 px) | all | company | **Resolved on this branch**: disclosed-render contract 3 (§7). Every uploaded image's essential lines measure ≥ 11.2 px at their display size. It needs a release and deploy, and production then re-renders the sets. |
+| B2 | Search certificate: category UNKNOWN (F-005), so no attribute schema (F-004) and no hero/search PASS | all | **company** (was listed as owner) | Production already reads Etsy's 3065-node seller taxonomy daily with the configured keystring (§8). The matcher `etsy_taxonomy.pattern_subtree` finds 0 crochet-pattern nodes. This branch makes the refresh record the tree's pattern and crochet names. After the next deploy, one daily run shows Etsy's real structure, and the matcher is corrected from that. **No owner action is needed.** |
+| B3 | Independent vision review: every frame `unreviewed` (#61); parity unjudged (`competitive_blind_review`, `hero`); `no_third_party_marks` unanswered | all | company, on a funded model | A funded `image_vision` run of `assets.build` and the blind review, in production after deploy. Not run here, because no model calls or spend were allowed. |
+| B4 | First-customer gate: gauge and size claims UNRESOLVED; no physical sample is bound to the content | all | owner / tester | Work a physical sample (tester roster / physical proof). |
+| B5 | First-customer gate: `etsy_remote_state` UNVERIFIABLE; Etsy has never confirmed an image upload | all | owner (go-live) / external | The first draft upload under an owner publication grant. |
+| B6 | First-customer gate: `fulfilment_and_download` FAIL; the artifact store is not durable | all | owner | Object storage (the offsite storage bucket owner action). |
+| B7 | `harvest-table-runner` is not Launch-0 in the code (a reserve; window closed 2026-10-12; no price plan) | (reserve) | owner decision | Replaced in the eight by `nordic-forest-mosaic-throw-baby`, as confirmed. |
+| B8 | Production defect: scipy missing from the production image | all | company (release) | Fixed on this branch (§4). It ships with the next release. |
+| B9 | Names promised motifs the CIR does not draw: "Snowflake" ornaments, an unqualified "Diamond Lattice" | ornaments, placemats | company | **Resolved on this branch** (§9): retitled, re-versioned and re-chained, and a Product Truth gate now refuses the old names. |
 
-### 1.3 Scope note
+### 1.3 First pass (for the record)
 
-- `products.launch0.LAUNCH0_SLUGS` (CATALOGUE_FLOOR_APPROVED=True) names
-  `nordic-forest-mosaic-throw-baby`, not `harvest-table-runner`.
-- That product was run as well. It reads exactly like the other Launch-0 products: every
-  deterministic check PASS, and NOT READY on B1 to B6.
-
-### 1.4 What would make a product READY
-
-The products need, in this order:
-1. **B1:** a disclosed-render contract with legible type (company). It touches the render
-   contract and its verifier, which redraws exactly those words, so it is a contract version
-   bump. It was not attempted on this branch.
-2. **B2:** the taxonomy keystring (owner).
-3. **B3:** one funded vision pass (company).
-4. **B4 to B6:** a physical sample, object storage and the first draft upload (owner).
-
-The harvest runner also needs B7.
+| check | baskets S/M/L | cloudline | coasters | ornaments 1.4.0 | graphghan | harvest runner | key basket | placemats 1.3.0 | nordic forest baby |
+|---|---|---|---|---|---|---|---|---|---|
+| legibility of uploaded set | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL |
+| price | PASS | PASS | PASS | PASS | PASS | **FAIL** (no plan; CA$6.94 vs CA$5.50) | PASS | PASS | PASS |
+| every other check | as in 1.1 | | | | | | | | |
 
 ## 2. Legibility (owner ruling 2026-10-19, D-W4-VISROLE-LEGIBILITY)
 
@@ -228,3 +241,151 @@ in the lock.
   - Registry: `src/brambleloop/build2/requirements.json` (id 61).
   - Board class: `implemented_unverified` until a release deploys.
 - No other row is closed. B1 to B7 are open blockers.
+
+## 7. B1: disclosed-render contract 3 (D-W4-CONTRACT3)
+
+**What Launch-0 uploads.** `release_gates.listing_set` takes the `disclosed_listing_set` branch
+(D-FB-7). Each listing uploads:
+- 3 disclosed renders: hero, scale and detail, plus the angle view for vessels;
+- verified supplements: the gallery MATERIALS, COLOUR_CONTEXT, CONSTRUCTION and SIZING frames,
+  and the CONTENTS preview.
+
+The `listing_assets` frames fixed in §2 are reviewed by #61, but they are not uploaded.
+
+**Before (contract 2), at display size:**
+- disclosure 34 px → 6.6 px;
+- scale and dimension labels 30 px → 5.8 px;
+- gallery body 50 → 9.8 px and small 40 → 7.8 px;
+- contents body 46 → 9.0 px and small 36 → 7.0 px;
+- titles 64 → 10.9 px at 340 px.
+
+**After (contract 3):**
+- every contract word is set at 58 px (11.3 px at 390 px), and titles at 66 px (11.2 px at
+  340 px);
+- the disclosure is on two lines, with "not a photograph" whole;
+- annotations are at most two lines, wrapped to the zone;
+- lettering that cannot fit refuses (`LetteringRefused`) and is never shrunk.
+
+**Rows on the 2000 px canvas:**
+
+| element | position |
+|---|---|
+| product | 170-1490 |
+| scale bar and label | from 1504 |
+| annotations | from 1570 |
+| disclosure | from 1704, last glyph ends at 1836 |
+| title-safe limit | 1840 |
+
+**Why the product zone is 0.745, not smaller.** It was measured, not assumed:
+- at 0.68, the cloudline blanket's cream row fell to 0.4 % at 340 px, and the unchanged 340 px
+  colour check refused it;
+- at 0.745, the lowest share is cream at 1.65 %, against a 0.5 % floor;
+- the top edge moved from 0.09 to 0.085 for the stocking hero, which sat exactly at the 25 %
+  coverage floor.
+
+**Verifier.** The verifier re-letters exactly the contract-3 lines, from its own CIR figures.
+- The caption IoU spans both lines.
+- No tolerance was changed.
+- `tests/test_w4_prodready_contract3.py` proves that each of these fails:
+  - contract-2 type;
+  - a painted-out "not a photograph";
+  - one edited figure.
+
+**Versions.** No cached contract-2 render can be reused:
+
+| component | version |
+|---|---|
+| disclosed-render | 3.0.0 |
+| assembled | 2.0.0 |
+| verifier | 3.0.0 |
+| gallery-frames | 2.0.0 |
+| contents-frame | 2.0.0 |
+
+- `product_authority.QUALIFIED_RENDERERS` qualifies only the contract-3 renderers. This is a
+  one-line change in W-VISREF's file, required by the version bump; nothing else in that file
+  was touched.
+- The multipiece hero hash pins were re-pinned once, with the old values recorded.
+- Three attack tests in `test_disclosed_render` were moved to contract-3 geometry. Every one
+  still fails the forged frame.
+
+**Measured on the chain, every essential line of every uploaded image, all 8 products:** see
+§1.1. The smallest essential line is 11.2 px, the floor is 11 px, and no line is below it.
+
+## 8. B2: the Etsy taxonomy needs no owner action
+
+**Read-only production GETs:**
+- `/health`: 1b21e81.
+- `/api/audit?action=etsy.taxonomy_refreshed`: daily runs on 2026-10-17, 18 and 19 (00:34Z),
+  each recording:
+  - `ran: true` and `reading: measured`;
+  - `nodes: 3065`, `network_calls: 1`;
+  - `credential_refused: false` and `gate_missing: []`;
+  - `pattern_subtree: 0`, with why "read Etsy's taxonomy; no node is named both pattern and
+    crochet, so every category stays UNKNOWN".
+- `/api/audit?action=etsy.taxonomy_unmeasured`: empty.
+
+**Findings:**
+- The code path already exists: `listing.taxonomy_refresh`, scheduled daily as
+  `etsy_taxonomy`. It uses the API-key-only client (`etsy_taxonomy.ApiKeyTaxonomyClient`, GET
+  `/seller-taxonomy/*` only), with the keystring already configured.
+  - The successful read is the proof that the keystring is configured and healthy.
+  - I did not list Railway variables. Their values would have entered this session, and the
+    read itself answers the question.
+- The blocker is the company's own matcher. `pattern_subtree` needs an ancestor-or-self named
+  "pattern" **and** one named "crochet", and Etsy's real tree has no such path. The likely
+  reason is that crochet is a property ("craft type"), not a node. That is unverified until
+  the evidence below lands.
+- **The change on this branch:**
+  - When the subtree is empty, the refresh's audit row now records `name_evidence`: the paths of
+    nodes named pattern or crochet, and the children of the pattern nodes (bounded).
+  - It is served by the existing read-only `/api/audit`.
+  - Test: `tests/test_w4_prodready_taxonomy.py` (3).
+  - After the next deploy, the first daily run shows Etsy's structure, and the matcher (and,
+    if crochet is a property, the attribute schema) is corrected from it.
+- **Verdict: no owner action is needed for B2.** It is company work, gated only on the next
+  release.
+
+## 9. Motif truth: names corrected through Product Truth (owner directive 2026-10-19)
+
+**The new gate.** `products.launch0.motif_promise` adds the `motif_promise_backed` gate to
+`product_truth` and to `certified.name_matches_what_the_cir_makes`.
+- **What it checks:** every motif word in these texts:
+  - the CIR title;
+  - the candidate's title and what_it_is;
+  - the SEO title, keyword families and tags.
+- **What backs a word:** the motif the CIR's provenance declares (`primitives_used`, for
+  example `products.motifs:snowfall`), read through `MOTIF_DECLARATIONS`. The vocabulary
+  includes snowflake, star, diamond, lattice, fir, heart and others.
+- **Relief motifs.** Every Launch-0 motif is a relief, so title-like text must also say raised,
+  relief or texture.
+- **Unknown motifs.** A motif not in the table backs nothing.
+
+**The two products:**
+
+| product | old name | what the CIR makes | new name (version) |
+|---|---|---|---|
+| nordic-star-ornaments | "Nordic Snowflake Ornament Set (6)" | six striped pieces with scattered 3 x 3 raised crosses; no snowflake outline | "Textured Stripe Ornament Set (6)" (1.4.0 → **1.5.0**) |
+| mosaic-placemat-pair | "Diamond Lattice Placemat Pair" | the lattice is only raised stitches, one colour per row | "Raised Diamond Lattice Placemat Pair" (1.3.0 → **1.4.0**) |
+
+**What else changed:**
+- The SEO title, keyword families, tags and description lead were corrected. The snowflake
+  phrases were replaced with stripe and textured phrases.
+- The listing-identity qualifiers were corrected.
+- The two creative briefs were corrected, and `emotional_brief.MOTIF_IMAGERY["snowfall"]` no
+  longer licenses "snowflake".
+- The release fingerprints were updated with the version bumps.
+
+**No pattern was redesigned.** The copy could be made truthful.
+
+**Proof** (`tests/test_w4_prodready_motif.py`, 5 tests):
+- The old titles are refused: "Nordic Snowflake …", production 1.0.0's "Nordic Star …", and
+  the unqualified "Diamond Lattice …".
+- The old phrases "snowflake ornament" and "nordic snowflake" are refused.
+- The new titles and copy are backed.
+- All 8 Launch-0 products pass Product Truth.
+
+**Re-chained:** both products certify at their new versions, with every gate as before (§1.1).
+- The slug `nordic-star-ornaments` is an internal identifier. It is not shown to buyers and is
+  unchanged.
+- Production holds an older draft at 1.0.0 that still uses the old title. The next release
+  supersedes it. Nothing was written to production.

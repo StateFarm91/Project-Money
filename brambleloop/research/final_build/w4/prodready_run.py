@@ -120,25 +120,32 @@ def _uploaded_lettering(db, prod, rel, art, images) -> dict:
     for rf in D.listing_set(cir):
         layouts[hashlib.sha256(rf.png).hexdigest()] = (
             f"disclosed {rf.view}", rf.manifest["layout"]["caption"]["text_layout"])
-    try:
-        rf = D.render(primary, "angle")
-        layouts[hashlib.sha256(rf.png).hexdigest()] = (
-            "disclosed angle", rf.manifest["layout"]["caption"]["text_layout"])
-    except Exception:  # noqa: BLE001 - a product with no angle view uploads none
-        pass
-    for job in GF.applicable_jobs(primary, siblings=siblings):
+    for one in cirs:
         try:
-            g = GF.render(primary, job, siblings=siblings)
-        except GF.FrameRefused:
-            continue
-        layouts[hashlib.sha256(g.png).hexdigest()] = (f"gallery {job}", g.manifest["text_layout"])
-    try:
-        pdfs = CF.released_pdf(db, primary.slug, primary.version, store=None)
-        c = CF.render(pdfs[CF.TERMINOLOGY][1], slug=primary.slug, version=primary.version,
-                      title=primary.title or primary.slug, editions=list(pdfs))
-        layouts[hashlib.sha256(c.png).hexdigest()] = ("contents", c.manifest["text_layout"])
-    except Exception:  # noqa: BLE001 - reported below as an unmatched upload
-        pass
+            rf = D.render(one, "angle")
+            layouts[hashlib.sha256(rf.png).hexdigest()] = (
+                "disclosed angle", rf.manifest["layout"]["caption"]["text_layout"])
+        except Exception:  # noqa: BLE001 - a product with no angle view uploads none
+            pass
+    # Each size's release certifies its own supplements, drawn with that size as the primary
+    # and the other sizes as its siblings, so every arrangement is re-rendered.
+    for one in cirs:
+        others = [c for c in cirs if c.slug != one.slug]
+        for sib in (others, []):
+            for job in GF.applicable_jobs(one, siblings=sib):
+                try:
+                    g = GF.render(one, job, siblings=sib)
+                except GF.FrameRefused:
+                    continue
+                layouts[hashlib.sha256(g.png).hexdigest()] = (f"gallery {job}",
+                                                              g.manifest["text_layout"])
+        try:
+            pdfs = CF.released_pdf(db, one.slug, one.version, store=None)
+            c = CF.render(pdfs[CF.TERMINOLOGY][1], slug=one.slug, version=one.version,
+                          title=one.title or one.slug, editions=list(pdfs))
+            layouts[hashlib.sha256(c.png).hexdigest()] = ("contents", c.manifest["text_layout"])
+        except Exception:  # noqa: BLE001 - reported below as an unmatched upload
+            pass
     rows, unmatched, failing = [], [], []
     for name, data in images:
         sha = hashlib.sha256(data).hexdigest()

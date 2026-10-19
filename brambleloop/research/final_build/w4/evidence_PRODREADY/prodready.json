@@ -1,5 +1,5 @@
 {
- "generated_seconds": 394.0,
+ "generated_seconds": 445.9,
  "chain": null,
  "checks": [
   "certification",
@@ -13,80 +13,6 @@
   "price",
   "copy",
   "publish_gate"
- ],
- "uploaded_type_sizes": [
-  {
-   "renderer": "disclosed render",
-   "line": "disclosure caption",
-   "pt_on_2000": 34,
-   "slot": "disclosure",
-   "display_px": 390,
-   "px": 6.6,
-   "legible": false
-  },
-  {
-   "renderer": "disclosed render",
-   "line": "scale-bar label / dimension annotations",
-   "pt_on_2000": 30,
-   "slot": "size_label",
-   "display_px": 390,
-   "px": 5.8,
-   "legible": false
-  },
-  {
-   "renderer": "gallery supplement",
-   "line": "title",
-   "pt_on_2000": 64,
-   "slot": "headline",
-   "display_px": 340,
-   "px": 10.9,
-   "legible": false
-  },
-  {
-   "renderer": "gallery supplement",
-   "line": "body",
-   "pt_on_2000": 50,
-   "slot": "row_value",
-   "display_px": 390,
-   "px": 9.8,
-   "legible": false
-  },
-  {
-   "renderer": "gallery supplement",
-   "line": "small",
-   "pt_on_2000": 40,
-   "slot": "row_label",
-   "display_px": 390,
-   "px": 7.8,
-   "legible": false
-  },
-  {
-   "renderer": "contents supplement",
-   "line": "title",
-   "pt_on_2000": 64,
-   "slot": "headline",
-   "display_px": 340,
-   "px": 10.9,
-   "legible": false
-  },
-  {
-   "renderer": "contents supplement",
-   "line": "body",
-   "pt_on_2000": 46,
-   "slot": "row_value",
-   "display_px": 390,
-   "px": 9.0,
-   "legible": false
-  },
-  {
-   "renderer": "contents supplement",
-   "line": "small",
-   "pt_on_2000": 36,
-   "slot": "row_label",
-   "display_px": 390,
-   "px": 7.0,
-   "legible": false
-  }
  ],
  "products": [
   {
@@ -109,7 +35,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -202,8 +128,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 9 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -350,80 +276,67 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-small-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-7.png",
+         "frame": "gallery SIZING",
+         "lines": 9,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-8.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-9.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -533,11 +446,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -567,7 +475,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -659,8 +567,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -807,80 +715,61 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-medium-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -990,11 +879,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -1024,7 +908,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -1116,8 +1000,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -1264,80 +1148,61 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-large-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -1447,11 +1312,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -1490,7 +1350,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -1580,8 +1440,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -1715,80 +1575,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "cloudline-baby-blanket-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -1909,11 +1738,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -1952,7 +1776,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -2012,8 +1836,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -2160,80 +1984,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "hexagon-coaster-set-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "hexagon-coaster-set-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "hexagon-coaster-set-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -2343,11 +2136,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -2368,15 +2156,15 @@
   },
   {
    "candidate": "nordic-star-ornaments",
-   "title": "Nordic Snowflake Ornament Set (6)",
+   "title": "Textured Stripe Ornament Set (6)",
    "named_by_owner": true,
    "in_launch0_scope": true,
    "ready": false,
    "releases": [
     {
      "slug": "nordic-star-ornaments",
-     "version": "1.4.0",
-     "release": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+     "version": "1.5.0",
+     "release": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711",
      "label": "6 pieces, 9.6 x 10.2 cm each",
      "certification": {
       "state": "PASS",
@@ -2386,16 +2174,16 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
       "why": "US and UK rendered; every package statement and the AI disclosure in each",
       "per": {
        "US": {
-        "bytes": 47369,
-        "sha256": "dcafdc1eb69c2d36fe37f69164b8dda4afe991e5aaa976c55843f92230f2ba4f",
-        "certified_sha256": "dcafdc1eb69c2d36fe37f69164b8dda4afe991e5aaa976c55843f92230f2ba4f",
+        "bytes": 47001,
+        "sha256": "ca9af8ebec0d726a06ff345fb2e73fcdf7e35089649a3361648d3cba10cc97ed",
+        "certified_sha256": "ca9af8ebec0d726a06ff345fb2e73fcdf7e35089649a3361648d3cba10cc97ed",
         "byte_identical_to_certified": true,
         "package_statements_missing": [],
         "ai_disclosure_in_pdf": true,
@@ -2409,9 +2197,9 @@
         }
        },
        "UK": {
-        "bytes": 47364,
-        "sha256": "ca889f71f63951f8faa01e4178589c1a3830d9637348051e0d0585627dfb8b88",
-        "certified_sha256": "ca889f71f63951f8faa01e4178589c1a3830d9637348051e0d0585627dfb8b88",
+        "bytes": 46998,
+        "sha256": "66336a513a13525ab215d601b2cbdea4df827b8866d3f45311caca0cfec92180",
+        "certified_sha256": "66336a513a13525ab215d601b2cbdea4df827b8866d3f45311caca0cfec92180",
         "byte_identical_to_certified": true,
         "package_statements_missing": [],
         "ai_disclosure_in_pdf": true,
@@ -2429,8 +2217,8 @@
      "recovery": {
       "state": "PASS",
       "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
-      "content_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
-      "certified_content_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4"
+      "content_hash": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711",
+      "certified_content_hash": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711"
      },
      "listing_images": {
       "state": "PASS",
@@ -2446,8 +2234,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -2490,12 +2278,12 @@
         "essential_failing": [],
         "secondary_below_floor": [
          {
-          "text": "Nordic Snowflake Ornament Set (6)",
+          "text": "Textured Stripe Ornament Set (6)",
           "slot": "excerpt",
           "px": 9.4
          },
          {
-          "text": "Version 1.4.0",
+          "text": "Version 1.5.0",
           "slot": "excerpt",
           "px": 9.4
          },
@@ -2611,80 +2399,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "nordic-star-ornaments-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-star-ornaments-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-star-ornaments-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -2787,28 +2544,23 @@
      "copy": {
       "state": "PASS",
       "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
-      "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
-      "title_chars": 73,
+      "title": "Textured Stripe Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
+      "title_chars": 72,
       "tags": 13
      },
      "publish_gate": {
       "state": "FAIL",
-      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
       "reasons": [
        "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
        "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
        "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
        "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
       ]
      },
      "ready": false,
      "blockers": [
-      {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
       {
        "check": "hero_thumbnail",
        "state": "FAIL",
@@ -2822,7 +2574,7 @@
       {
        "check": "publish_gate",
        "state": "FAIL",
-       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
       }
      ]
     }
@@ -2848,7 +2600,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -2908,8 +2660,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -3066,80 +2818,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "winter-village-graphghan-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "winter-village-graphghan-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "winter-village-graphghan-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -3249,11 +2970,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -3267,452 +2983,6 @@
        "check": "publish_gate",
        "state": "FAIL",
        "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "candidate": "harvest-table-runner",
-   "title": "Harvest Table Runner",
-   "named_by_owner": true,
-   "in_launch0_scope": false,
-   "ready": false,
-   "releases": [
-    {
-     "slug": "harvest-table-runner",
-     "version": "1.2.0",
-     "release": "179cb1277bec748b342efa2d9574cf6e63a2531866c702a5e55d8d7a685e2123",
-     "label": "32 x 122 cm",
-     "certification": {
-      "state": "PASS",
-      "why": "certificate granted for this release, nothing withheld",
-      "blocking": [],
-      "physical_proof": "not_required"
-     },
-     "product_truth": {
-      "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
-     },
-     "pdfs": {
-      "state": "PASS",
-      "why": "US and UK rendered; every package statement and the AI disclosure in each",
-      "per": {
-       "US": {
-        "bytes": 49141,
-        "sha256": "3a929260e5ed134f56aa6ab94d54b475e75d9dcbab57296d62a49b071d3dd6d9",
-        "certified_sha256": "3a929260e5ed134f56aa6ab94d54b475e75d9dcbab57296d62a49b071d3dd6d9",
-        "byte_identical_to_certified": true,
-        "package_statements_missing": [],
-        "ai_disclosure_in_pdf": true,
-        "statement_audit": {
-         "slug": "harvest-table-runner",
-         "is_a_childrens_product": false,
-         "required": [],
-         "present": [],
-         "missing": [],
-         "complete": true
-        }
-       },
-       "UK": {
-        "bytes": 49141,
-        "sha256": "54bc4941f584512005000605bde8b2153fee972c67aa333387ac9671e354aa20",
-        "certified_sha256": "54bc4941f584512005000605bde8b2153fee972c67aa333387ac9671e354aa20",
-        "byte_identical_to_certified": true,
-        "package_statements_missing": [],
-        "ai_disclosure_in_pdf": true,
-        "statement_audit": {
-         "slug": "harvest-table-runner",
-         "is_a_childrens_product": false,
-         "required": [],
-         "present": [],
-         "missing": [],
-         "complete": true
-        }
-       }
-      }
-     },
-     "recovery": {
-      "state": "PASS",
-      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
-      "content_hash": "179cb1277bec748b342efa2d9574cf6e63a2531866c702a5e55d8d7a685e2123",
-      "certified_content_hash": "179cb1277bec748b342efa2d9574cf6e63a2531866c702a5e55d8d7a685e2123"
-     },
-     "listing_images": {
-      "state": "PASS",
-      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
-      "reasons": [],
-      "uploaded": [
-       "harvest-table-runner-frame-1.png",
-       "harvest-table-runner-frame-2.png",
-       "harvest-table-runner-frame-3.png",
-       "harvest-table-runner-frame-4.png",
-       "harvest-table-runner-frame-5.png",
-       "harvest-table-runner-frame-6.png"
-      ]
-     },
-     "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
-      "listing_frames": {
-       "1": {
-        "role": "hero",
-        "ok": true,
-        "smallest_essential_px": 11.1,
-        "essential_failing": [],
-        "secondary_below_floor": [
-         {
-          "text": "BRAMBLELOOP STUDIO",
-          "slot": "brand",
-          "px": 9.4
-         }
-        ]
-       },
-       "2": {
-        "role": "whats_included",
-        "ok": true,
-        "smallest_essential_px": 11.3,
-        "essential_failing": [],
-        "secondary_below_floor": []
-       },
-       "3": {
-        "role": "size",
-        "ok": true,
-        "smallest_essential_px": 11.1,
-        "essential_failing": [],
-        "secondary_below_floor": []
-       },
-       "4": {
-        "role": "materials",
-        "ok": true,
-        "smallest_essential_px": 11.1,
-        "essential_failing": [],
-        "secondary_below_floor": []
-       },
-       "5": {
-        "role": "pattern_preview",
-        "ok": true,
-        "smallest_essential_px": 11.1,
-        "essential_failing": [],
-        "secondary_below_floor": [
-         {
-          "text": "Harvest Table Runner",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Version 1.2.0",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Materials: worsted acrylic; worsted acrylic",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Terminology: US terms",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "## panel",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Foundation: ch 40.",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 1 (wine): Ch 1, turn. sc in next 40 sts. (40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 2 (gold): Ch 1, turn. [sc in next 3 sts, dc in next 3",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sts, sc in next 2 sts] x 5. (40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 3 (wine): Ch 1, turn. [sc in next 2 sts, dc in next 2",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sts, sc in next st, dc in next 2 sts, sc in next st] x 5.",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "(40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 4 (gold): Ch 1, turn. [sc in next st, dc in next 2 sts,",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sc in next 3 sts, dc in next 2 sts] x 5. (40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 5 (wine): Ch 1, turn. [dc in next 2 sts, sc in next 5",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sts, dc in next st] x 5. (40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 6 (gold): Ch 1, turn. [sc in next st, dc in next 2 sts,",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sc in next 3 sts, dc in next 2 sts] x 5. (40 sts)",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "Row 7 (wine): Ch 1, turn. [sc in next 2 sts, dc in next 2",
-          "slot": "excerpt",
-          "px": 9.4
-         },
-         {
-          "text": "sts, sc in next st, dc in next 2 sts, sc in next st] x 5.",
-          "slot": "excerpt",
-          "px": 9.4
-         }
-        ]
-       },
-       "6": {
-        "role": "chart",
-        "ok": true,
-        "smallest_essential_px": 17.7,
-        "essential_failing": [],
-        "secondary_below_floor": []
-       }
-      },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
-      "frame_plan_problems": []
-     },
-     "hero_thumbnail": {
-      "state": "FAIL",
-      "why": "search certificate refuses",
-      "reasons": [
-       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
-      ]
-     },
-     "visual_roles": {
-      "state": "UNKNOWN",
-      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
-      "role_checks": {
-       "1": {
-        "role": "hero",
-        "visual_role": "disclosed_render",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       },
-       "2": {
-        "role": "whats_included",
-        "visual_role": "infographic",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       },
-       "3": {
-        "role": "size",
-        "visual_role": "infographic",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       },
-       "4": {
-        "role": "materials",
-        "visual_role": "infographic",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       },
-       "5": {
-        "role": "pattern_preview",
-        "visual_role": "pattern_preview",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       },
-       "6": {
-        "role": "chart",
-        "visual_role": "chart",
-        "checks": {
-         "data_matches_record": true,
-         "text_legible_340": true,
-         "scale_not_misleading": true,
-         "no_third_party_marks": null,
-         "disclosure_present": true
-        }
-       }
-      }
-     },
-     "price": {
-      "state": "FAIL",
-      "why": "no Launch-0 price plan for this slug; stored listing CA$6.94; launch0.price_plan CA$5.5 (proposed CA$5.5); net after fees CA$6.0027 (modelled)",
-      "listing_cad": 6.94,
-      "plan_cad": 5.5
-     },
-     "copy": {
-      "state": "PASS",
-      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
-      "title": "Harvest Table Runner | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-      "title_chars": 93,
-      "tags": 13
-     },
-     "publish_gate": {
-      "state": "FAIL",
-      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "reasons": [
-       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
-      ]
-     },
-     "ready": false,
-     "blockers": [
-      {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
-       "check": "hero_thumbnail",
-       "state": "FAIL",
-       "why": "search certificate refuses"
-      },
-      {
-       "check": "visual_roles",
-       "state": "UNKNOWN",
-       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
-      },
-      {
-       "check": "price",
-       "state": "FAIL",
-       "why": "no Launch-0 price plan for this slug; stored listing CA$6.94; launch0.price_plan CA$5.5 (proposed CA$5.5); net after fees CA$6.0027 (modelled)"
-      },
-      {
-       "check": "publish_gate",
-       "state": "FAIL",
-       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against"
       }
      ]
     }
@@ -3738,7 +3008,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -3800,8 +3070,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -3948,80 +3218,61 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "housewarming-key-basket-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -4131,11 +3382,6 @@
      "ready": false,
      "blockers": [
       {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
-      {
        "check": "hero_thumbnail",
        "state": "FAIL",
        "why": "search certificate refuses"
@@ -4156,15 +3402,15 @@
   },
   {
    "candidate": "mosaic-placemat-pair",
-   "title": "Diamond Lattice Placemat Pair",
+   "title": "Raised Diamond Lattice Placemat Pair",
    "named_by_owner": true,
    "in_launch0_scope": true,
    "ready": false,
    "releases": [
     {
      "slug": "mosaic-placemat-pair",
-     "version": "1.3.0",
-     "release": "b2cd736f0f34442cb7985aa10d621d0321190d077f92f65ca4e4e0fe27a4532d",
+     "version": "1.4.0",
+     "release": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc",
      "label": "2 pieces, 28.8 x 47.7 cm each",
      "certification": {
       "state": "PASS",
@@ -4174,16 +3420,16 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
       "why": "US and UK rendered; every package statement and the AI disclosure in each",
       "per": {
        "US": {
-        "bytes": 48853,
-        "sha256": "535739fca7f5314dc02fb92598aba03271bc0a75d261e5d75dac54c4181def65",
-        "certified_sha256": "535739fca7f5314dc02fb92598aba03271bc0a75d261e5d75dac54c4181def65",
+        "bytes": 49153,
+        "sha256": "94eb278e45cc960abd03a117b626c0e5beaa1a56b56b51cc11066eb9e6919c0c",
+        "certified_sha256": "94eb278e45cc960abd03a117b626c0e5beaa1a56b56b51cc11066eb9e6919c0c",
         "byte_identical_to_certified": true,
         "package_statements_missing": [],
         "ai_disclosure_in_pdf": true,
@@ -4197,9 +3443,9 @@
         }
        },
        "UK": {
-        "bytes": 48851,
-        "sha256": "748c0cba7aa5a65b318846832151ab40c8e0662cdcd3b6834e932c94425a05e9",
-        "certified_sha256": "748c0cba7aa5a65b318846832151ab40c8e0662cdcd3b6834e932c94425a05e9",
+        "bytes": 49157,
+        "sha256": "57ef505539c038c471aaf8b65f16f464615f5d8783c8d3a0895d3fe2656c6a9a",
+        "certified_sha256": "57ef505539c038c471aaf8b65f16f464615f5d8783c8d3a0895d3fe2656c6a9a",
         "byte_identical_to_certified": true,
         "package_statements_missing": [],
         "ai_disclosure_in_pdf": true,
@@ -4217,8 +3463,8 @@
      "recovery": {
       "state": "PASS",
       "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
-      "content_hash": "b2cd736f0f34442cb7985aa10d621d0321190d077f92f65ca4e4e0fe27a4532d",
-      "certified_content_hash": "b2cd736f0f34442cb7985aa10d621d0321190d077f92f65ca4e4e0fe27a4532d"
+      "content_hash": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc",
+      "certified_content_hash": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc"
      },
      "listing_images": {
       "state": "PASS",
@@ -4234,8 +3480,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -4278,12 +3524,12 @@
         "essential_failing": [],
         "secondary_below_floor": [
          {
-          "text": "Diamond Lattice Placemat Pair",
+          "text": "Raised Diamond Lattice Placemat Pair",
           "slot": "excerpt",
           "px": 9.4
          },
          {
-          "text": "Version 1.3.0",
+          "text": "Version 1.4.0",
           "slot": "excerpt",
           "px": 9.4
          },
@@ -4392,80 +3638,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "mosaic-placemat-pair-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -4557,28 +3772,23 @@
      "copy": {
       "state": "PASS",
       "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
-      "title": "Diamond Lattice Placemat Pair | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-      "title_chars": 102,
+      "title": "Raised Diamond Lattice Placemat Pair | Crochet Pattern PDF | US and UK Terms",
+      "title_chars": 76,
       "tags": 13
      },
      "publish_gate": {
       "state": "FAIL",
-      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b2cd736f0f34); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
       "reasons": [
        "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
        "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b2cd736f0f34); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
        "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
        "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
       ]
      },
      "ready": false,
      "blockers": [
-      {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
       {
        "check": "hero_thumbnail",
        "state": "FAIL",
@@ -4592,7 +3802,7 @@
       {
        "check": "publish_gate",
        "state": "FAIL",
-       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b2cd736f0f34); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
       }
      ]
     }
@@ -4601,7 +3811,7 @@
   {
    "candidate": "nordic-forest-mosaic-throw-baby",
    "title": "Nordic Forest Relief Baby Blanket",
-   "named_by_owner": false,
+   "named_by_owner": true,
    "in_launch0_scope": true,
    "ready": false,
    "releases": [
@@ -4618,7 +3828,7 @@
      },
      "product_truth": {
       "state": "PASS",
-      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
      },
      "pdfs": {
       "state": "PASS",
@@ -4708,8 +3918,8 @@
       ]
      },
      "legibility": {
-      "state": "FAIL",
-      "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px",
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
       "listing_frames": {
        "1": {
         "role": "hero",
@@ -4868,80 +4078,49 @@
         "secondary_below_floor": []
        }
       },
-      "uploaded_type": [
-       {
-        "renderer": "disclosed render",
-        "line": "disclosure caption",
-        "pt_on_2000": 34,
-        "slot": "disclosure",
-        "display_px": 390,
-        "px": 6.6,
-        "legible": false
-       },
-       {
-        "renderer": "disclosed render",
-        "line": "scale-bar label / dimension annotations",
-        "pt_on_2000": 30,
-        "slot": "size_label",
-        "display_px": 390,
-        "px": 5.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "body",
-        "pt_on_2000": 50,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.8,
-        "legible": false
-       },
-       {
-        "renderer": "gallery supplement",
-        "line": "small",
-        "pt_on_2000": 40,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.8,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "title",
-        "pt_on_2000": 64,
-        "slot": "headline",
-        "display_px": 340,
-        "px": 10.9,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "body",
-        "pt_on_2000": 46,
-        "slot": "row_value",
-        "display_px": 390,
-        "px": 9.0,
-        "legible": false
-       },
-       {
-        "renderer": "contents supplement",
-        "line": "small",
-        "pt_on_2000": 36,
-        "slot": "row_label",
-        "display_px": 390,
-        "px": 7.0,
-        "legible": false
-       }
-      ],
+      "uploaded": {
+       "measured": [
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
       "frame_plan_problems": []
      },
      "hero_thumbnail": {
@@ -5061,11 +4240,6 @@
      },
      "ready": false,
      "blockers": [
-      {
-       "check": "legibility",
-       "state": "FAIL",
-       "why": "listing frames failing: []; uploaded-set type below the floor: disclosed render disclosure caption 6.6px at 390px; disclosed render scale-bar label / dimension annotations 5.8px at 390px; gallery supplement title 10.9px at 340px; gallery supplement body 9.8px at 390px; gallery supplement small 7.8px at 390px; contents supplement title 10.9px at 340px; contents supplement body 9.0px at 390px; contents supplement small 7.0px at 390px"
-      },
       {
        "check": "hero_thumbnail",
        "state": "FAIL",
