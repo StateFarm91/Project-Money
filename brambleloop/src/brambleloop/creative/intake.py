@@ -320,6 +320,54 @@ def motifs_for(concept: Concept, season: str | None) -> list[str]:
     return found
 
 
+def qualifiers_for(concept: Concept) -> list[str]:
+    """#108: the silhouette qualifiers the concept's premise words or construction carry."""
+    return sorted({QUALIFIER_OF_WOW[m] for m, needles in WOW_WORDS
+                   if m in QUALIFIER_OF_WOW
+                   and set(_words(concept.premise)) & set(needles)}
+                  | ({QUALIFIER_OF_WOW[WOW_BY_CONSTRUCTION[concept.construction]]}
+                     if concept.construction in WOW_BY_CONSTRUCTION
+                     and WOW_BY_CONSTRUCTION[concept.construction] in QUALIFIER_OF_WOW
+                     else set()))
+
+
+def qualifier_constructions(constructions) -> dict[str, str]:
+    """#108: which of these constructions carry a silhouette qualifier by themselves."""
+    return {c: QUALIFIER_OF_WOW[WOW_BY_CONSTRUCTION[c]] for c in sorted(constructions)
+            if c in WOW_BY_CONSTRUCTION and WOW_BY_CONSTRUCTION[c] in QUALIFIER_OF_WOW}
+
+
+def qualifier_words() -> dict[str, tuple[str, ...]]:
+    """#108: the premise words that declare each silhouette qualifier, as `qualifiers_for`
+    reads them."""
+    out: dict[str, tuple[str, ...]] = {}
+    for mechanism, needles in WOW_WORDS:
+        q = QUALIFIER_OF_WOW.get(mechanism)
+        if q:
+            out[q] = tuple(dict.fromkeys(out.get(q, ()) + tuple(needles)))
+    return out
+
+
+def free_gate_check(concept: Concept, *, arena=None, today: date | None = None) -> dict:
+    """REL2: the free, deterministic #108 silhouette and #110 motif-grammar gates, run on a
+    shortlisted concept with exactly the brief fields `brief_for` would derive for it.
+
+    The pre-engineering gate itself is unchanged and still runs at intake; this only lets
+    selection prefer a concept that will pass those two gates over one that cannot, so a
+    paid field is not wasted on a winner the free gates refuse."""
+    from .preengineering import FAIL, _motif_grammar, _silhouette
+
+    event, _date, _days = _event_for(concept, arena, today or date.today())
+    season = season_of(concept, event)
+    brief = {"motifs": motifs_for(concept, season), "season": season,
+             "silhouette_qualifiers": qualifiers_for(concept)}
+    checks = {"silhouette": _silhouette(concept, brief),
+              "motif_grammar": _motif_grammar(concept, brief)}
+    failed = sorted(k for k, v in checks.items() if v.get("status") == FAIL)
+    return {"passes": not failed, "failed": failed,
+            "reasons": [r for k in failed for r in (checks[k].get("reasons") or [])][:4]}
+
+
 def wow_for(concept: Concept) -> tuple[str | None, str]:
     """#115: the WOW mechanism the concept's own words or construction carry, and its basis."""
     words = set(_words(concept.premise)) | set(_words(concept.title))
@@ -449,13 +497,7 @@ def brief_for(db, concept: Concept, *, event: str = "", event_date: date | None 
     season = season_of(concept, event)
     mechanism, wow_basis = wow_for(concept)
     grounding = " ".join(w for w in _specific(concept.premise))
-    qualifiers = sorted({QUALIFIER_OF_WOW[m] for m, needles in WOW_WORDS
-                         if m in QUALIFIER_OF_WOW
-                         and set(_words(concept.premise)) & set(needles)}
-                        | ({QUALIFIER_OF_WOW[WOW_BY_CONSTRUCTION[concept.construction]]}
-                           if concept.construction in WOW_BY_CONSTRUCTION
-                           and WOW_BY_CONSTRUCTION[concept.construction] in QUALIFIER_OF_WOW
-                           else set()))
+    qualifiers = qualifiers_for(concept)
     level = skill_level_for_make_lane(concept.make_lane)
     make_time = make_time_for(db, concept, event=event, event_date=event_date, today=today)
     try:

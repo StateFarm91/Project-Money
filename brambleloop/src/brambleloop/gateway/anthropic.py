@@ -691,7 +691,7 @@ class AnthropicProvider:
         return self._guarded(payload, key, "anthropic.messages")
 
     def see(self, system: str, prompt: str, image_urls: list[str], *,
-            max_tokens: int) -> ModelResponse:
+            max_tokens: int, json_schema: dict | None = None) -> ModelResponse:
         """The same call with pictures in it. A model with eyes, not a browser.
 
         This is the half of the old `browser_vision` gate that never needed a browser. The
@@ -721,9 +721,14 @@ class AnthropicProvider:
         content: list[dict] = [_image_block(ref) for ref in image_urls]
         content.append({"type": "text", "text": prompt})
 
+        # REL2: `json_schema` asks the API for structured output (`output_config.format`), so
+        # the answer is one JSON object of that schema rather than prose a parser refuses
+        # after the image has been paid for. (Assistant prefill is rejected by current models.)
         payload = json.dumps({
             "model": self.model, "max_tokens": max_tokens,
             **({"system": system} if system else {}),
+            **({"output_config": {"format": {"type": "json_schema", "schema": json_schema}}}
+               if json_schema else {}),
             "messages": [{"role": "user", "content": content}],
         }).encode()
         return self._guarded(payload, key, "anthropic.vision")

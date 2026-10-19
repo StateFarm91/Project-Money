@@ -711,7 +711,7 @@ def quotas(ordered: list, *, share: float = universe.DOMINANCE_ALARM) -> dict:
 
 
 def select(ideation_plan: dict, *, candidates: list, survivors: list,
-           window: dict | None = None) -> dict:
+           window: dict | None = None, free_gates=None) -> dict:
     """Apply the floor, the quotas and the role to what survived, and name the winner.
 
     `window` is `family.shift_capacity` over the survivors at the arena's real days to the
@@ -763,7 +763,29 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list,
 
     missing = set((ideation_plan.get("skill_gap") or {}).get("missing") or [])
     filling = [c for c in pool if skill_level_for_make_lane(c.concept.make_lane) in missing]
-    winner = (filling or pool or [None])[0]
+    # REL2: `free_gates(candidate) -> {"passes", "failed"}` runs the free deterministic
+    # pre-engineering gates (#108 silhouette, #110 motif grammar) on the shortlist, and the
+    # winner is the best shortlisted concept that passes them -- in the same preference order
+    # as before (skill gap, then role/window pool, then the rest of the shortlist). October's
+    # winners failed those gates 75 times after the field had been paid for, while a
+    # shortlisted sibling could pass. With none passing, the order is the old one and the
+    # gate refuses at intake exactly as before: no gate is skipped or loosened here.
+    screened: dict[str, dict] = {}
+    winner = None
+    if free_gates is not None:
+        for c in list(filling) + list(pool) + list(admitted):
+            if c.concept.key in screened:
+                continue
+            try:
+                screened[c.concept.key] = free_gates(c)
+            except Exception as exc:  # noqa: BLE001 - an unscreenable concept is not preferred
+                screened[c.concept.key] = {"passes": False,
+                                           "failed": [f"unscreened: {type(exc).__name__}"]}
+            if screened[c.concept.key].get("passes") is True:
+                winner = c
+                break
+    if winner is None:
+        winner = (filling or pool or [None])[0]
     return {
         "taste_rejected": taste_rejected,
         "hit_quality": (None if winner is None else winner.nearest_distance),
@@ -786,6 +808,9 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list,
                     "window_hurry": winner.concept.key in hurry}
                    if winner is not None else None),
         "window_deferred": sorted(hurry & {c.concept.key for c in admitted}),
+        "free_gate_screen": ({k: {"passes": v.get("passes"), "failed": v.get("failed")}
+                              for k, v in screened.items()} if free_gates is not None
+                             else None),
     }
 
 

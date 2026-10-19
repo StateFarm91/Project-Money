@@ -204,3 +204,30 @@ CONCEPT_FIELD = register(Prompt(
               "\"wow\": \"the physical mechanism that makes it worth looking at twice\"}}]}}"),
     output_schema=("concepts",),
     max_output_tokens=4000))
+
+# Version 3 (REL2) carries the two free deterministic gates the winner is held to after the
+# field has been paid for: the season's motif grammar (#110) and, for a generic form, the
+# silhouette qualifiers (#108). October's fields lost 46 winners to "declared no motifs" and 29
+# to "generic form" because the prompt never named either; the gates themselves are unchanged
+# and still decide. Version 2 stays registered so earlier output remains explainable.
+CONCEPT_FIELD_V3 = register(Prompt(
+    name="creative.concept_field", version="3",
+    system=CONCEPT_FIELD.system,
+    template=("Form: {form}\nOccasion: {occasion}\nRecipient lane: {make_lane}\n"
+              "Market evidence: {evidence}\n"
+              "Allowed construction values: {constructions}\n"
+              "Allowed feeling values: {feelings}\n"
+              "Allowed recipient values: {recipients}\n"
+              "Allowed occasion values: {occasions}\n"
+              "Season motif grammar: {motif_grammar}\n"
+              "Silhouette: {silhouette}\n"
+              "Invention brief: {brief}\n\n"
+              "Propose {count} concepts. JSON: {{\"concepts\": [{{"
+              "\"title\": \"...\", \"premise\": \"one sentence, at least twelve words, "
+              "describing the object so a buyer could picture it\", "
+              "\"construction\": \"...\", \"motif\": \"...\", \"palette_story\": \"...\", "
+              "\"recipient\": \"...\", \"occasion\": \"...\", \"feeling\": \"...\", "
+              "\"function\": \"what it does for the person who owns it\", "
+              "\"wow\": \"the physical mechanism that makes it worth looking at twice\"}}]}}"),
+    output_schema=("concepts",),
+    max_output_tokens=4000))
