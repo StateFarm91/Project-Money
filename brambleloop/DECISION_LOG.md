@@ -2028,3 +2028,29 @@ is the disclosed renders plus the gallery and CONTENTS frames. At their display 
 - W-VISREF owns compose, owned_photography and gateway/images.
 - The only change made outside the render contract, its renderers and its verifier is the
   one-line `product_authority.QUALIFIED_RENDERERS` update that the version bump requires.
+
+## D-W4-LAURA-OUTFIT — one Laura outfit per listing (owner rule, 2026-10-19, permanent)
+
+**Owner's rule:** "Each distinct product listing must use a different Laura outfit, while multiple
+photographs within one listing may share the same outfit. Preserve Laura's canonical face and body
+proportions across all listings."
+
+**What it binds.**
+- Every customer-facing image of Laura belongs to exactly one listing.
+- **Within a listing:** every photograph may share one outfit.
+- **Across listings:** no two distinct listings may use the same outfit.
+- **Identity:** the canonical identity `laura-r2-a42aeac7` is unchanged. That covers the face, hair, eyes,
+  apparent age, facial structure and body proportions from the three-frame reference pack (neutral
+  portrait `a42aeac7…`, torso `afe6191f…`, full length `f32bac68…`).
+- **Outfit vs identity:** the outfit is styling, never identity. Changing outfits never permits
+  changing any locked feature.
+- **Gates unchanged:** the Laura gate order stays as it is: identity, photorealism, anatomy, Product
+  Truth, brand QA, disclosure, publication. This rule adds an outfit-uniqueness check. It removes
+  nothing.
+
+**Not built yet.**
+- No outfit registry or deterministic outfit-uniqueness check exists in code.
+- Until one does, no Laura listing image may pass publication on this rule's account. Its state is
+  UNKNOWN, and UNKNOWN is not PASS.
+- **Engineering follow-up:** record an outfit descriptor and fingerprint per listing. Refuse a second
+  listing whose outfit matches an existing one.
