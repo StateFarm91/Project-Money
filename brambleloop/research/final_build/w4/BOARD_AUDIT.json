@@ -1,0 +1,500 @@
+{
+ "kind": "brambleloop.board_audit",
+ "schema": 1,
+ "generated_by": "W4-BOARD spot audit 2026-10-19 (hand-audited; read by completion_board_final.py)",
+ "deployed_commit": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+ "rule": "each sampled verified_complete row's evidence must demonstrate the quoted criterion: a test asserting it, plus a production reading where the criterion needs production (class B). DOWNGRADE moves a row out of verified_complete with the reason; a downgraded row returns only through `reclosed` (a named test that now asserts the missing part, present in tests/). PASS never upgrades a row the ledgers do not prove.",
+ "sample": {
+  "criterion_B_pattern": "every verified row whose criterion matches prelaunch_scope.B_PATTERNS (15)",
+  "criterion_C_pattern": "8 of the 20 verified rows whose criterion matches C_PATTERNS",
+  "random": "18 rows, random.seed(20261019) over the verified_complete rows"
+ },
+ "rows": [
+  {
+   "source": "build2",
+   "id": 5,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "two lanes fast/flagship routed after certification; a release that skipped an owed gate is withdrawn ('production queues' = making queues, not deploy)",
+   "evidence": [
+    "tests/test_cert_lanes_capacity.py::test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits",
+    "tests/test_cert_preengineering.py::test_gate_lanes_withdraws_a_release_that_skipped_an_owed_gate"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof.evidence.job_types includes gate.lanes"
+  },
+  {
+   "source": "build2",
+   "id": 170,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "manifest generated on arrival (BENCHMARK_MANIFEST.md), structured import audited, gap verdicts, needs_owner empty when the catalogue identifies the pick; teardown queue length is reported in the manifest but not separately asserted",
+   "evidence": [
+    "tests/test_cert_culture_teardown.py::test_intake_runs_the_promise_audit_prefills_the_audits_and_writes_the_manifest",
+    "tests/test_intake.py::test_intake_fills_the_manifest_from_the_catalogue",
+    "tests/test_intake.py::test_a_promised_chart_that_did_not_arrive_is_a_gap"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 181,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "core OS/scheduler/queues/workers/database run on Railway with no owner device; overnight operation read from production",
+   "evidence": [
+    "tests/test_deploy.py",
+    "tests/test_health.py"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof (window 2026-10-18T12:49Z..2026-10-19T12:49Z, deployed 1b21e81 from 12:43Z): jobs_completed 1408, distinct_job_types 90, activity_spread 25 h, scheduler_alive 25 h; research/final_build/w4/evidence_BOARD/prod_health_20261019T1249Z.json db ok, runner worker_alive"
+  },
+  {
+   "source": "build2",
+   "id": 182,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "production control plane and durable state cloud-hosted (Postgres on Railway; boot guard enforced)",
+   "evidence": [
+    "tests/test_deploy.py",
+    "tests/test_health.py"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_status_20261019T1249Z.json boot_guard enforced ok; research/final_build/w4/evidence_BOARD/prod_api_verify_20261019T1249Z.json state_is_in_a_durable_database ok"
+  },
+  {
+   "source": "build2",
+   "id": 186,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "an idle queue takes the highest-value standing items once; backlog idempotent within a window (no token-burning loop); spent lanes skipped",
+   "evidence": [
+    "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
+    "tests/test_swarm_runtime.py::test_the_backlog_is_idempotent_within_a_window",
+    "tests/test_swarm.py::test_an_idle_agent_takes_the_backlog_rather_than_polling_or_stopping"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof job_types includes swarm.backlog"
+  },
+  {
+   "source": "build2",
+   "id": 190,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "the risk tier decides the lane; a gate-tier proposal never auto-promotes; promotion needs a rollback path",
+   "evidence": [
+    "tests/test_upgrades.py::test_the_tier_decides_the_lane_and_the_proposal_has_no_say",
+    "tests/test_upgrades.py::test_a_gate_tier_proposal_never_auto_promotes_however_complete",
+    "tests/test_improve.py::test_a_promotion_without_a_rollback_path_cannot_be_proposed"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 223,
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "every access request is bounded and carries the directive format; a recurring request without a ceiling cannot be constructed. NOTE: the ledger row cites no test (PROVEN on 'a test imports the module')",
+   "evidence": [
+    "tests/test_access.py::test_every_request_is_bounded_and_carries_the_directive_format",
+    "tests/test_access.py::test_a_request_that_recurs_without_a_ceiling_cannot_be_constructed"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-182",
+   "sample": "criterion_B_pattern",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'fail the dashboard verification if already-satisfied actions remain presented'",
+   "evidence": [
+    "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_verify_20261019T1249Z.json no_satisfied_owner_action_presented ok=True on 1b21e81",
+   "downgrade_reason": "only the green path is tested (the row's own evidence says so): no test forces a presented-but-satisfied card and asserts the check FAILS",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_board_close.py::test_f182_a_satisfied_action_still_presented_fails_the_verification"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
+  },
+  {
+   "source": "final_master",
+   "id": "F-340",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "wall-time bound stops observing and returns the registry diagnosis; observer cap; never spawns a process",
+   "evidence": [
+    "tests/test_waiter.py::test_the_wall_time_bound_stops_observing_and_returns_the_registry_diagnosis",
+    "tests/test_waiter.py::test_at_the_observer_cap_no_new_waiter_is_started"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-799",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "Learn department queue/metrics/runtime tested; runs continuously in production",
+   "evidence": [
+    "tests/test_w3_k10_learn.py::test_f799_department_metrics_are_derived_from_rows",
+    "tests/test_learn_launch.py::test_source_graph_queue_restart_and_idempotence"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof job_types includes learn.scan; research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261019T1249Z.json dedupe_hits learn.scan"
+  },
+  {
+   "source": "final_master",
+   "id": "F-884",
+   "sample": "criterion_B_pattern",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion lists money, store, work completed, work in progress, incidents, opportunities, launch state, owner actions and changes since last view",
+   "evidence": [
+    "tests/test_v11_cc_views.py::test_home_and_morning_brief_come_from_real_database_state"
+   ],
+   "downgrade_reason": "the cited test asserts work completed, incidents, owner decisions, launch and changes only; money, store, work in progress and opportunities on Home are not asserted",
+   "reclosed": {
+    "tests": [
+     "tests/test_v11_cc_views.py::test_f884_home_carries_every_element_the_brief_names"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
+  },
+  {
+   "source": "final_master",
+   "id": "F-890",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "eleven charters valid and cover every wired job type; orchestrator is a scheduled cadence",
+   "evidence": [
+    "tests/test_v11_autonomy_orchestrator.py::test_eleven_charters_are_valid_and_cover_every_wired_job_type"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof job_types includes autonomy.orchestrate, autonomy.department_review (90 types)"
+  },
+  {
+   "source": "final_master",
+   "id": "F-896",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "brief asserts what_changed, completed, money_spent, incidents, discoveries, queued_actions, decisions_needed",
+   "evidence": [
+    "tests/test_v11_cc_views.py::test_home_and_morning_brief_come_from_real_database_state"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json off_device_proof job_types includes autonomy.morning_handoff"
+  },
+  {
+   "source": "final_master",
+   "id": "F-928",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "answers grounded in gate records with sources; UNKNOWN rather than invented; /api/cc/ask is authenticated",
+   "evidence": [
+    "tests/test_v11_cc_views.py::test_ask_why_is_a_product_blocked_is_grounded_in_gate_records",
+    "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing",
+    "tests/test_v11_cc_auth.py"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-930",
+   "sample": "criterion_B_pattern",
+   "verdict": "PASS",
+   "basis": "no protected job type is generatable; zero-spend under the real worker; ceiling enforced even with owner authority",
+   "evidence": [
+    "tests/test_v11_autonomy_orchestrator.py::test_no_protected_job_type_is_ever_generatable_and_coo_is_structurally_forbidden",
+    "tests/test_v11_ads_challenge.py::test_ceiling_enforced_even_with_owner_authority"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 24,
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "contribution per visitor is the optimised quantity; UNMEASURED without traffic",
+   "evidence": [
+    "tests/test_commerce.py::test_optimisation_is_on_contribution_per_visitor_not_gross",
+    "tests/test_cert_growth_ops.py::test_pricing_prices_the_customer_outcome_and_reads_contribution_per_visitor"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 47,
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "sequential stages (NO_EVIDENCE before exposure, SEO, APPEAL, CONVERSION, QUALITY) and no retirement before exposure. NOTE: the ledger cites only test_cert_orders (one stage); the other stages are asserted in tests/test_departments.py",
+   "evidence": [
+    "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+    "tests/test_departments.py"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 259,
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "first-hundred priorities are tracked as outstanding obligations; validation cohort defined",
+   "evidence": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_cohorts.py::test_every_customer_joins_every_axis_and_the_first_hundred_are_the_validation_cohort"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 276,
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "war-room fields reported with reasons when absent; winner alerts; top five actions by contribution",
+   "evidence": [
+    "tests/test_war_room.py::test_an_empty_database_reports_every_absent_field_with_its_reason",
+    "tests/test_war_room.py::test_top_actions_rank_by_expected_contribution_and_stop_at_five"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-058",
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "dashboard exposes CTR/conversion as UNMEASURED without periods; empty shop is UNKNOWN not zero",
+   "evidence": [
+    "tests/test_w3_k1_search.py::test_a_listing_reads_ctr_and_conversion_as_unmeasured_without_periods"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-281",
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "plan predefined (day 1/3/7/14/30) and reviews snapshot once",
+   "evidence": [
+    "tests/test_w3_k4_launch_verdict.py::test_F281_learning_plan_is_predefined_and_reviews_snapshot_once"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-400",
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "post-launch rows never block; readiness consumes the closure",
+   "evidence": [
+    "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-879",
+   "sample": "criterion_C_pattern",
+   "verdict": "PASS",
+   "basis": "as F-400 (code gate); the owner's D-W4-LAUNCH-SCOPE changes when the store opens, not this criterion",
+   "evidence": [
+    "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 62,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "a chart cannot become the hero; heroes judged at thumbnail size and mobile crop. NOTE: the ledger row cites no test",
+   "evidence": [
+    "tests/test_eligibility.py::test_a_chart_cannot_become_the_hero_by_rendering_successfully",
+    "tests/test_layout_qa.py::test_an_image_that_dies_at_thumbnail_size_is_caught",
+    "tests/test_layout_qa.py::test_a_subject_the_mobile_crop_removes_is_caught"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 90,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "improvement promotions need a better result, a rollback path, no fabricated evidence; degrading promotions revert",
+   "evidence": [
+    "tests/test_improve.py::test_a_result_that_is_not_better_cannot_be_promoted",
+    "tests/test_improve.py::test_a_degrading_promotion_reverts_itself_rather_than_waiting_for_agreement"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 112,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "make time per skill planned against the real window; closing window exits on make time",
+   "evidence": [
+    "tests/test_cert_design_pipeline.py::test_the_tournament_judges_the_real_window_and_plans_make_time_per_skill_112_283",
+    "tests/test_cert_culture_teardown.py::test_a_closing_window_exits_on_make_time_even_while_interest_is_rising"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 121,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "four-season programme agent; evergreen never drops to zero",
+   "evidence": [
+    "tests/test_cert_ideation.py::test_the_four_season_agent_writes_the_programme_ideation_then_reads",
+    "tests/test_engine.py::test_evergreen_never_drops_to_zero_however_strong_the_season"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 162,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "composite standard built from competitor benchmarks, never from our own scores",
+   "evidence": [
+    "tests/test_cert_culture_teardown.py"
+   ]
+  },
+  {
+   "source": "build2",
+   "id": 184,
+   "sample": "random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'Test kill/restart/reclaim, clock drift, overlapping schedules, dead-letter recovery and exactly-once-effect behavior'",
+   "evidence": [
+    "tests/test_cert_orchestration.py::test_crash_mid_handler_is_reclaimed_and_completed_exactly_once",
+    "tests/test_acceptance_gates.py::test_gate_a_dead_letter_and_backoff_work",
+    "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
+   ],
+   "downgrade_reason": "no test exercises clock drift (the criterion names it); the ledger row cites no test at all",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_board_close.py::test_b184_a_fast_clock_reclaims_but_the_stale_holder_cannot_complete_over_it",
+     "tests/test_w4_board_close.py::test_b184_a_slow_clock_never_takes_a_live_lease_and_takes_an_expired_one_late",
+     "tests/test_w4_board_close.py::test_b184_a_drifted_enqueue_of_the_same_cadence_slot_is_deduplicated"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
+  },
+  {
+   "source": "build2",
+   "id": 199,
+   "sample": "random",
+   "verdict": "PASS_PRODUCTION",
+   "basis": "candidates generated from one brief; the tournament never selects; the owner is queued to choose",
+   "evidence": [
+    "tests/test_model_tournament.py::test_no_function_in_the_tournament_selects_a_canonical_model",
+    "tests/test_model_tournament.py::test_the_handler_presents_and_queues_the_owner_rather_than_choosing"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json gates.canonical_model open=true (an identity was selected)"
+  },
+  {
+   "source": "build2",
+   "id": 264,
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "constraint solver ranks by gain per week",
+   "evidence": [
+    "tests/test_growth.py::test_the_constraint_solver_ranks_by_gain_per_week_not_by_gap"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-003",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "five dimensions independent; launch plan calls the profile",
+   "evidence": [
+    "tests/test_ranking_readiness.py::test_dimensions_are_independent"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-023",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "long title is a soft finding, not a block",
+   "evidence": [
+    "tests/test_search_truth.py::test_a_long_title_is_a_soft_readability_finding_not_a_block"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-136",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "runtime recomputes every verdict and agrees with the adjudicator",
+   "evidence": [
+    "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-236",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "stuffed tagline fails; drafted storefront passes its SEO check",
+   "evidence": [
+    "tests/test_storefront_fb4.py::test_a_stuffed_tagline_fails"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-267",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "ads refused without the owner gate; ceilings enforced",
+   "evidence": [
+    "tests/test_cert_growth_ops.py::test_ads_are_refused_without_the_owner_gate_and_planned_never_spent_with_it"
+   ],
+   "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_verify_20261019T1249Z.json no_paid_advertising ok"
+  },
+  {
+   "source": "final_master",
+   "id": "F-316",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "closed schemas and sized output budgets; truncated output rejected",
+   "evidence": [
+    "tests/test_w4_spend_paid_discipline.py::test_every_prompt_and_task_has_a_closed_schema_and_a_sized_output_budget"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-425",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "every statement cites an existing source or admits none",
+   "evidence": [
+    "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none"
+   ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-754",
+   "sample": "random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'Body fabric, ribbing, edging, cuffs, collars, bands and decorative sections must carry their own gauge/stitch identities when the source specifies them'",
+   "evidence": [
+    "tests/test_fb4_lc.py::test_certify_refuses_a_component_gauge_that_differs_from_the_main_gauge"
+   ],
+   "downgrade_reason": "the test asserts the opposite of support: certify REFUSES a component gauge that differs from the main gauge (fail-closed). The CIR still carries one gauge (cir/model.py); per-region gauge identities are not implemented (the row's own evidence defers them to F-753)"
+  },
+  {
+   "source": "final_master",
+   "id": "F-907",
+   "sample": "random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion lists marketplace fees, ads, model/API, image/render, refunds, benchmark purchases, software, contractor/physical-test and other expenses",
+   "evidence": [
+    "tests/test_v11_accounting_drill.py::test_cost_attribution_by_product_release_department_provider"
+   ],
+   "downgrade_reason": "the test asserts four of the nine categories (marketplace fees, model API, image render, benchmark); ads, refunds, software, contractor/physical-test and other are mapped in attribution.CATEGORY but never asserted",
+   "reclosed": {
+    "tests": [
+     "tests/test_v11_accounting_drill.py::test_f907_every_named_cost_category_is_attributed"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
+  },
+  {
+   "source": "final_master",
+   "id": "F-913",
+   "sample": "random",
+   "verdict": "PASS",
+   "basis": "forecast is a range with assumptions, never a booked point",
+   "evidence": [
+    "tests/test_v11_accounting_money.py::test_forecast_is_a_range_with_assumptions_never_a_booked_point"
+   ]
+  }
+ ]
+}

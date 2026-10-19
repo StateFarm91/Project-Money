@@ -71,6 +71,70 @@ def test_root_causes_count_the_rows_they_unblock():
     assert BOARD["critical_path"] and all(s["unblocks_rows"] > 0 for s in BOARD["critical_path"])
 
 
+
+def _gen():
+    sys.path.insert(0, str(W4))
+    import completion_board_final as gen
+    return gen
+
+
+def test_recount_puts_every_row_in_one_of_the_nine_categories():
+    rc = BOARD["headline"]["recount"]
+    for scope in ("build2", "final_master_total", "final_master_launch_critical"):
+        c = rc[scope]
+        assert sum(c[k] for k in rc["categories"]) == c["total"], scope
+        assert c["unfinished"] == c["total"] - c["production_verified"] - c["not_applicable"]
+        assert (c["executable_engineering"] + c["post_launch_empirical"]
+                + c["owner_or_external_non_empirical"]) == c["unfinished"], scope
+        assert c["production_verified"] == BOARD["headline"][scope]["verified_complete"]
+    assert BOARD["rows"]["build2"] and BOARD["rows"]["final_master"]
+    for r in BOARD["rows"]["build2"] + BOARD["rows"]["final_master"]:
+        if r["recount"] == "live_customer_C":
+            assert r.get("c_quote"), r["id"]          # C only with the criterion's own words
+
+
+def test_the_audit_downgrades_and_never_upgrades():
+    gen = _gen()
+    rows = [{"source": "final_master", "id": "F-X", "cls": "verified_complete"},
+            {"source": "final_master", "id": "F-Y", "cls": "blocked_owner"},
+            {"source": "final_master", "id": "F-Z", "cls": "verified_complete"},
+            {"source": "final_master", "id": "F-W", "cls": "verified_complete"}]
+    audit = {("final_master", "F-X"): {"verdict": "DOWNGRADE", "downgrade_reason": "r"},
+             ("final_master", "F-Y"): {"verdict": "PASS"},
+             ("final_master", "F-Z"): {"verdict": "DOWNGRADE", "downgrade_reason": "r",
+                                       "reclosed": {"tests": ["tests/test_w4_board.py::"
+                                                              "test_no_such_test"]}},
+             ("final_master", "F-W"): {"verdict": "DOWNGRADE", "downgrade_reason": "r",
+                                       "reclosed": {"tests": ["tests/test_w4_board.py::"
+                                                              "test_the_audit_downgrades_and_never_upgrades"]}}}
+    gen.apply_audit(rows, audit)
+    assert rows[0]["cls"] == "implemented_unverified"
+    assert rows[0]["root"] == "audit_criterion_not_demonstrated"
+    assert rows[1]["cls"] == "blocked_owner"            # PASS never upgrades
+    assert rows[2]["cls"] == "implemented_unverified"   # a reclosure naming no real test
+    assert rows[3]["cls"] == "verified_complete"        # a reclosure naming a real test
+
+
+def test_a_module_edited_since_the_deployed_commit_is_not_deployed():
+    gen = _gen()
+    in_prod = {"brambleloop/src/brambleloop/core/models.py"}
+    assert gen._deploy_state(["core/models.py"], in_prod, set()) == (True, True)
+    assert gen._deploy_state(["core/models.py"], in_prod, in_prod) == (True, False)
+
+
+def test_a_closure_needs_evidence_read_from_the_deployed_commit():
+    gen = _gen()
+    prod = {"commit": BOARD["production"]["commit"]}
+    ok = gen._closures(prod)
+    assert ok, "BOARD_CLOSURES.json rows read against the deployed commit"
+    assert not gen._closures({"commit": "0" * 40}), "another commit's readings close nothing"
+    assert BOARD["headline"]["closed_on_production_evidence"]
+    assert BOARD["rows"]["build2"] and BOARD["rows"]["final_master"]
+    for x in BOARD["rows"]["build2"] + BOARD["rows"]["final_master"]:
+        if x.get("closed_on_production_evidence"):
+            assert x["cls"] == "verified_complete"
+            assert (x["source"], x["id"]) in ok
+
 def test_the_card_snapshot_ships_and_the_reader_serves_it():
     card = W4 / "COMPLETION_BOARD_FINAL_CARD.json"
     assert "COMPLETION_BOARD_FINAL_CARD.json" in snapshots.NAMES

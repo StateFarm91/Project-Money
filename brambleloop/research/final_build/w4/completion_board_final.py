@@ -144,6 +144,8 @@ ROOT_TITLES = {
     "data_accrual": "Data that only accrues with time / seasons",
     "session_environment": "Session environment",
     "gate_open_reverify": "Gate now OPEN in production: unparked, re-verify",
+    "audit_criterion_not_demonstrated": "Spot audit: the evidence does not demonstrate the "
+                                        "criterion (BOARD_AUDIT.json)",
     "private_laura_owner_gates": "Private Laura register: owner gates, then production soak",
     "engineering_open": "Open engineering work",
     "release_undeployed_code": "Proven only on the integration branch (release + production "
@@ -166,7 +168,7 @@ def _latest(pattern: str) -> Path:
 def _prod() -> dict:
     health = json.loads(_latest("prod_health_*.json").read_text())
     build = json.loads(_latest("prod_api_build_*.json").read_text())
-    verify = json.loads(_latest("prod_api_verify_*.json").read_text())
+    verify = json.loads(_latest("prod_api_verify_2*.json").read_text())
     status = json.loads(_latest("prod_api_status_*.json").read_text())
     dead = json.loads(_latest("prod_api_queue_dead_*.json").read_text())
     read_at = _latest("prod_health_*.json").stem.rsplit("_", 1)[-1]
@@ -187,7 +189,9 @@ def _prod() -> dict:
 def _deployed_index(prod_commit: str) -> tuple[set, set]:
     in_prod = set(_git("ls-tree", "-r", "--name-only", prod_commit, "--",
                        "brambleloop/src/brambleloop").split())
-    changed = set(_git("diff", "--name-only", prod_commit, "HEAD", "--",
+    # against the working tree, not HEAD: an uncommitted edit is no more deployed than a
+    # committed one
+    changed = set(_git("diff", "--name-only", prod_commit, "--",
                        "brambleloop/src/brambleloop").split())
     return in_prod, changed
 
@@ -244,12 +248,16 @@ def _modules_fm(row) -> list[str]:
 
 
 def _deploy_state(mods, in_prod, changed):
-    """(code exists on this branch, every named module is in the deployed tree)."""
+    """(code exists on this branch, every named module is in the deployed tree UNCHANGED).
+
+    W4-BOARD recount (2026-10-19): a module present in production but edited on this branch
+    since is not the code production runs, so it no longer counts as deployed (the `changed`
+    set was computed and ignored before)."""
     if not mods:
         return None, None
     src = [f"brambleloop/src/brambleloop/{m}" for m in mods]
     exists = all((REPO / p).exists() for p in src)
-    deployed = all(p in in_prod for p in src)
+    deployed = all(p in in_prod and p not in changed for p in src)
     return exists, deployed
 
 
@@ -491,6 +499,122 @@ def _rows_tracked():
             for t in TRACKED_ROWS]
 
 
+AUDIT_FILE = HERE / "BOARD_AUDIT.json"
+CLOSURES_FILE = HERE / "BOARD_CLOSURES.json"
+
+
+def _audit() -> dict:
+    """The hand spot-audit of verified rows (BOARD_AUDIT.json): (source, id) -> entry."""
+    if not AUDIT_FILE.exists():
+        return {}
+    return {(r["source"], r["id"]): r for r in json.loads(AUDIT_FILE.read_text())["rows"]}
+
+
+def _test_exists(ref: str) -> bool:
+    f, _, fn = ref.partition("::")
+    path = BL / f
+    if not path.is_file():
+        return False
+    return not fn or re.search(r"^def " + re.escape(fn) + r"\(", path.read_text(), re.M) is not None
+
+
+def apply_audit(rows: list[dict], audit: dict) -> None:
+    """Downgrade, never upgrade. A sampled verified_complete row whose evidence does not
+    demonstrate its criterion leaves verified_complete with the reason, unless `reclosed`
+    names tests (present in tests/) that now assert the missing part. A row the ledgers do not
+    prove is never moved by the audit."""
+    for x in rows:
+        a = audit.get((x["source"], x["id"]))
+        if not a:
+            continue
+        x["audit"] = {k: a.get(k) for k in ("verdict", "basis", "production_reading",
+                                               "downgrade_reason", "reclosed")}
+        if a["verdict"] != "DOWNGRADE" or x["cls"] != "verified_complete":
+            continue
+        rc = a.get("reclosed") or {}
+        if rc.get("tests") and all(_test_exists(t) for t in rc["tests"]):
+            x["audit"]["reclosed_verified"] = True
+            continue
+        x.update(cls="implemented_unverified", root="audit_criterion_not_demonstrated",
+                 blocked_by="engineering: the evidence does not demonstrate the criterion",
+                 responsible="next engineering lane",
+                 missing_evidence=a.get("downgrade_reason"))
+
+
+def _closures(prod: dict) -> dict:
+    """Rows closed on committed production evidence of the DEPLOYED commit (BOARD_CLOSURES.json).
+    Accepted only when every named evidence file exists and the production /health read with
+    the same timestamp names the deployed commit; the ledger must still say done."""
+    if not CLOSURES_FILE.exists():
+        return {}
+    data = json.loads(CLOSURES_FILE.read_text())
+    ok = {}
+    for c in data.get("rows", []):
+        files = [BL / f for f in c.get("evidence_files", [])]
+        health = BL / c.get("health_file", "")
+        if not files or not all(f.is_file() for f in files) or not health.is_file():
+            continue
+        commit = json.loads(health.read_text()).get("build", {}).get("commit", "")
+        if not commit or commit != prod["commit"]:
+            continue
+        if any(not _test_exists(t) for t in c.get("tests", [])):
+            continue
+        ok[(c["source"], c["id"])] = c
+    return ok
+
+
+RECOUNT = ("production_verified", "dev_proven_not_deployed", "implemented_unverified",
+           "in_progress", "engineering_blocked", "owner_blocked", "external_blocked",
+           "live_customer_C", "not_applicable")
+EMPIRICAL_ROOTS = {"real_customers", "data_accrual"}
+
+
+def recount(rows: list[dict], crit: dict) -> list[dict]:
+    """The nine categories the owner asked for, one per row. Class C (criterion words demand
+    live customers / post-launch history, prelaunch_scope.classify) is carved out of whatever
+    blocked/unverified class the row is in; verified and n/a rows keep their class."""
+    import prelaunch_scope as ps
+    for x in rows:
+        if x["cls"] == "not_applicable":
+            cat = "not_applicable"
+        elif x["cls"] == "verified_complete":
+            cat = "production_verified"
+        else:
+            v = ps.classify(x, crit.get((x["source"], x["id"]), ""), (x["source"], x["id"]))
+            x["verifiability"] = v["class"]
+            if v["class"] == "C":
+                x["c_quote"] = v["quote"]
+                cat = "live_customer_C"
+            elif x["cls"] == "implemented_unverified":
+                cat = ("dev_proven_not_deployed" if x.get("root") == "release_undeployed_code"
+                       else "implemented_unverified")
+            else:
+                cat = {"in_progress": "in_progress", "blocked_engineering": "engineering_blocked",
+                       "blocked_owner": "owner_blocked",
+                       "blocked_external": "external_blocked"}[x["cls"]]
+        x["recount"] = cat
+        x["empirical"] = (cat == "live_customer_C" or (cat not in ("production_verified",
+                          "not_applicable") and x.get("root") in EMPIRICAL_ROOTS))
+    return rows
+
+
+def recount_counts(rows: list[dict]) -> dict:
+    c = {k: sum(1 for x in rows if x["recount"] == k) for k in RECOUNT}
+    unfinished = [x for x in rows if x["recount"] not in ("production_verified",
+                                                           "not_applicable")]
+    c["total"] = len(rows)
+    c["unfinished"] = len(unfinished)
+    c["post_launch_empirical"] = sum(1 for x in unfinished if x["empirical"])
+    c["executable_engineering"] = sum(
+        1 for x in unfinished if not x["empirical"] and x["recount"] in (
+            "dev_proven_not_deployed", "implemented_unverified", "in_progress",
+            "engineering_blocked"))
+    c["owner_or_external_non_empirical"] = sum(
+        1 for x in unfinished if not x["empirical"] and x["recount"] in (
+            "owner_blocked", "external_blocked"))
+    return c
+
+
 ESTIMATES = {
     "release_not_deployed": ("release cycle + 24h", "suite 4693 s (RELEASE_5dfd1ac run "
                              "20261011T083839Z-21062); record 09:56Z -> deployed worker "
@@ -515,12 +639,32 @@ def main() -> int:
     owner_by_gate = _owner_actions()
     b2_rows, led = _rows_b2(prod["commit"])
     fm_rows, matrix = _rows_fm(prod["commit"])
+    closed = _closures(prod)
+    for r in b2_rows + fm_rows:
+        if (r["source"], r["id"]) in closed and r["state"] == "done":
+            r["done_at_deployed"] = True
+            r["closed_on"] = closed[(r["source"], r["id"])]
     b2 = classify(b2_rows, prod, in_prod, changed, branches, owner_by_gate)
     fm = classify(fm_rows, prod, in_prod, changed, branches, owner_by_gate)
+    for rec, src in zip(b2 + fm, b2_rows + fm_rows):
+        if src.get("closed_on") and rec["cls"] == "verified_complete":
+            rec["closed_on_production_evidence"] = {
+                k: src["closed_on"].get(k) for k in ("evidence_files", "health_file", "reading",
+                                                     "tests", "worker")}
+    audit = _audit()
+    apply_audit(b2 + fm, audit)
     tr_in = _rows_tracked()
     tracked = classify(tr_in, prod, in_prod, changed, branches, owner_by_gate)
     for rec, src in zip(tracked, tr_in):
         rec.update(criterion=src["criterion"], verifiability=src["verifiability"])
+    import sys
+    sys.path.insert(0, str(HERE))
+    import prelaunch_scope as ps
+    crit = ps._criteria()
+    recount(b2 + fm, crit)
+    for x in tracked:
+        x["recount"] = "owner_blocked" if x["cls"] == "blocked_owner" else x["cls"]
+        x["empirical"] = False
 
     def counts(rows):
         return {c: sum(1 for x in rows if x["cls"] == c) for c in CLASSES + ("not_applicable",)}
@@ -591,6 +735,29 @@ def main() -> int:
             "final_master_launch_critical": {"total": len(fm_lc), **counts(fm_lc)},
             "final_master_total": {"total": len(fm), **counts(fm)},
             "tracked_requirements": {"total": len(tracked), **counts(tracked)},
+            "recount": {"build2": recount_counts(b2),
+                        "final_master_total": recount_counts(fm),
+                        "final_master_launch_critical": recount_counts(fm_lc),
+                        "categories": list(RECOUNT),
+                        "rule": ("production_verified = verified_complete after the spot "
+                                 "audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven "
+                                 "on the branch only; live_customer_C = the criterion's own "
+                                 "words demand live customers / post-launch history "
+                                 "(prelaunch_scope C_PATTERNS, quoted); post_launch_empirical "
+                                 "= live_customer_C plus rows parked on real customers / data "
+                                 "accrual; executable_engineering = the rest of the unfinished "
+                                 "rows the company itself can move")},
+            "audit": {"sampled": len(audit),
+                      "verdicts": dict(Counter(a["verdict"] for a in audit.values())),
+                      "downgraded": sorted(
+                          f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}"
+                          for x in b2 + fm if x.get("root") == "audit_criterion_not_demonstrated"),
+                      "reclosed": sorted(
+                          f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}"
+                          for x in b2 + fm if (x.get("audit") or {}).get("reclosed_verified"))},
+            "closed_on_production_evidence": sorted(
+                f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}"
+                for x in b2 + fm if x.get("closed_on_production_evidence")),
             "ledger_native": {"build2": led["counts"],
                               "final_master_launch_critical":
                                   matrix["summary"]["launch_critical_completion"]}},
@@ -636,6 +803,24 @@ def _markdown(b):
                      {"total": 0, "not_applicable": 0, **{k: 0 for k in CLASSES}})):
         L.append(f"| {name} | {c['total']} | " + " | ".join(str(c[k]) for k in CLASSES)
                  + f" | {c['not_applicable']} |")
+    rc = h.get("recount")
+    if rc:
+        L += ["", "## Recount (nine categories, after the spot audit)", "",
+              "| scope | " + " | ".join(rc["categories"]) + " | executable engineering | "
+              "post-launch empirical | owner/external (non-empirical) |",
+              "|---|" + "---|" * (len(rc["categories"]) + 3)]
+        for name, key in (("Build 2", "build2"), ("Final Master launch-critical",
+                                                   "final_master_launch_critical"),
+                          ("Final Master total", "final_master_total")):
+            c = rc[key]
+            L.append(f"| {name} | " + " | ".join(str(c[k]) for k in rc["categories"])
+                     + f" | {c['executable_engineering']} | {c['post_launch_empirical']} | "
+                     f"{c['owner_or_external_non_empirical']} |")
+        L += ["", f"Rule: {rc['rule']}.", "",
+              f"Spot audit: {h['audit']['sampled']} rows, verdicts {h['audit']['verdicts']}; "
+              f"downgraded {h['audit']['downgraded']}; re-closed with new tests "
+              f"{h['audit']['reclosed']}. Closed on production evidence of the deployed "
+              f"commit: {h['closed_on_production_evidence']}."]
     L += ["", f"Ledger-native counts: Build 2 {h['ledger_native']['build2']}; Final Master "
           f"launch-critical {h['ledger_native']['final_master_launch_critical']}.", "",
           "## Critical path", ""]

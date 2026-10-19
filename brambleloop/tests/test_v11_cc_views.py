@@ -301,6 +301,35 @@ def test_home_and_morning_brief_come_from_real_database_state():
             "queued_actions", "decisions_needed"} <= set(secs)
 
 
+
+def test_f884_home_carries_every_element_the_brief_names():
+    """W4-BOARD audit (2026-10-19): F-884 lists money, store, work completed, work in
+    progress, incidents, opportunities, launch state, owner actions and changes since the last
+    view. Each must be on Home with a status envelope (UNKNOWN allowed, never absent), and the
+    two counts a reader acts on must move with the database."""
+    c, _ = session()
+    _seed_activity()
+    h0 = c.get("/api/cc/home").json()
+    open0 = sum(i.get("open_jobs") or 0 for i in h0["sections"]["autonomy"].get("items") or [])
+    with DB.session() as s:
+        s.add(Job(agent="orchestrator", job_type="etsy.shop_snapshot", status=JobStatus.RUNNING,
+                  idempotency_key=f"f884-running-{uuid.uuid4().hex}", leased_by="w",
+                  lease_expires_at=NOW + timedelta(minutes=5)))
+    h = c.get("/api/cc/home").json()
+    secs, hl = h["sections"], h["headline"]
+    for key in ("money", "store", "products", "work_24h", "autonomy", "incidents",
+                "opportunities", "launch", "owner_actions", "changes_since_last_view"):
+        assert key in secs and secs[key].get("status") in ("OK", "BLOCKED", "DEGRADED",
+                                                            "UNKNOWN", "EMPTY"), (key, secs.get(key))
+    # money and store reach the headline (UNKNOWN is None there, never a fabricated 0)
+    assert "revenue" in hl and "profit" in hl and "store" in hl
+    # work completed and work in progress are both read from jobs
+    assert hl["autonomy"]["jobs_completed_24h"] >= 3
+    open1 = sum(i.get("open_jobs") or 0 for i in secs["autonomy"].get("items") or [])
+    assert open1 == open0 + 1, (open0, open1)
+    assert secs["opportunities"].get("sources"), secs["opportunities"]
+    assert hl["owner_decisions"] >= 1 and hl["incidents_open"] >= 1
+
 def test_approval_cards_carry_the_f885_fields():
     c, _ = session()
     box = c.get("/api/cc/approvals").json()

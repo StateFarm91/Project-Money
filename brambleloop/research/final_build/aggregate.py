@@ -77,7 +77,10 @@ REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
               "2f36fe0": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
               # wave-4 lane FMGATE on the deployed release 0417f35 (w4/close_fmgate.py;
               # w4/CLOSE_REPORT_FMGATE.json)
-              "0417f35": "0417f3516f30bb7c52926187fc475a0f46536e86"}
+              "0417f35": "0417f3516f30bb7c52926187fc475a0f46536e86",
+              # W4-BOARD on the deployed release 1b21e81: rows closed on production readings
+              # of that commit (w4/close_board.py; w4/BOARD_RECOUNT.md)
+              "1b21e81": "1b21e81c6d1b228a93f72be44cfdf8193740b61b"}
 PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}
