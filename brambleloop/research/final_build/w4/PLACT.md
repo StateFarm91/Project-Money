@@ -96,10 +96,52 @@ for both, where both reply.
 
 ## Tests
 
-All runs go through `/home/user/bl-runs/testslot.sh` on 2026-10-19, on SQLite. The table is filled
-from the run logs.
+All runs go through `/home/user/bl-runs/testslot.sh` on 2026-10-19, on SQLite.
 
-TESTS_TABLE_PLACEHOLDER
+Every suite listed exited 0. Counts are the passing tests each suite reported.
+
+**PRIV / Laura / PL (37 files, 224/224):**
+- New: test_w4_plact 8/8.
+- PL suites: test_w4_pl_budget 5, pl_reply 3, pl_leak 2, pl_boundary 4, pl_auth 2, pl_continuity 3.
+- PRIV suites: test_w3_priv_store 8, access 7, provenance 7, firewall 7, continuity 3, leak 7.
+- Laura CC: test_w3_laura_cc_access 5, delegation 5, followon 4, integration 5, private 7, providers 7,
+  talk 9, wiring 5.
+- Laura core: test_w3_laura_core_constitution 8, continuity 3, executive 8, identity 12, wiring 7.
+- Laura memory: test_w3_laura_memory_canonical 6, isolation 5, permissions 9, persistence 2, provenance 6.
+- Laura presence and voice: test_w3_laura_presence 4, voice_selection 4, voice_spec 7.
+- Briefing and spend: test_w4_laura1_briefing 19, laura1_budget 4, test_w3_spend_laura_phrase 7.
+
+**Agents / registry / cost governance:**
+- Registry and agents: test_w4_finhealth 11, test_roles 35, test_w3_k11_authority 19,
+  test_w4_auto_status 12, test_v11_autonomy_orchestrator 15, test_v11_wiring 15, test_swarm_runtime 10,
+  test_platform 22, test_fb4_ops 13, test_w4_fmclose_etsy 21, test_w4_auto_pipe2_wiring 3,
+  test_search_truth 32, test_cert_improve_wave 24, test_cert_residue 6, test_image_bench 59.
+- Cost governance: test_w4_auditfix_ceiling 6, test_gateway 30, test_spend_policy 24,
+  test_model_spend_paths 12, test_w4_spend_paid_discipline 14, test_v11_reliability_gateway 14,
+  test_model_access 13, test_pods_routing 32.
+- Verify: test_deploy_verify 10, test_rc1_own_verify 5.
+- UI views (laura.js changed): test_w4_ccgap_views 10, test_w4_ccgap2 3, test_w4_ccrel 8.
+
+**Required regression set, all green:**
+- test_vacuity 8/8. Its first run caught one loop in the new test; the loop was fixed by adding a
+  non-emptiness assertion.
+- test_launch 28, test_cost_governance_wave2 39, test_search_hero_publish 4, test_cert_listing_frames 7.
+- test_v11_autonomy_timeline 7. `autonomy_map.json` was regenerated: agents 29 to 30, nothing else
+  changed.
+
+**Total: 71 files, 795 tests, 0 failing.**
+
+Existing assertions changed, with the reason for each:
+- `test_w4_pl_budget`, `test_w4_pl_reply`: the billed agent is now `laura_private` (owner decision).
+  In `test_w4_pl_budget`, case 3 now expects `SPEND_CEILING` from the laura_private ceiling, where it
+  used to expect `BUDGET` from Laura's ceiling.
+- `test_w4_pl_boundary`: the owner-action id is now `OA-PL-1/2/4`, and the test asserts there is no
+  OA-PL-3.
+- `test_w4_pl_leak`: the export check looks for `laura_private_` (every private table has this
+  prefix) instead of `laura_private`, which is now also the billing agent's name. The tables are
+  still detected exactly as before.
+
+No gate or ceiling was loosened.
 
 ## Exact owner activation steps
 
