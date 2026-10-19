@@ -1917,7 +1917,7 @@ the size label at 60 pt is 10.2 px). That is recorded per frame (`smallest_px`).
 line to 11 px would block every current infographic until the frames are redesigned with larger
 type.
 
-### D-W4-LAURA-OUTFIT — one Laura outfit per listing (owner rule, 2026-10-19, permanent)
+## D-W4-LAURA-OUTFIT — one Laura outfit per listing (owner rule, 2026-10-19, permanent)
 
 **Owner's rule:** "Each distinct product listing must use a different Laura outfit, while multiple
 photographs within one listing may share the same outfit. Preserve Laura's canonical face and body
