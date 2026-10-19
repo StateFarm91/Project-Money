@@ -353,8 +353,9 @@ def test_dry_run_reaches_the_approval_card_unattended():
     s = H.run(live=False, out=out)
     check("dry_no_orchestrator_errors", s["orchestrator_errors"] == [], s["orchestrator_errors"])
     check("dry_outfit_distinct_from_canonical_and_owner_wrap_outfit",
-          s["outfit"] and "brown" not in s["outfit"] and "beige" not in s["outfit"]
-          and "ivory" not in s["outfit"] and "cream" not in s["outfit"], s["outfit"])
+          s["outfit"] and not any(w in s["outfit"] for w in (
+              "brown fitted", "brown top", "beige", "ivory", "cream", "tan leather",
+              "gold pendant", "gold chain")), s["outfit"])
     check("dry_ready_for_owner_review", s["run_state"] == "ready_for_owner_review", s)
     check("dry_card_through_command_center", XP.LABEL in (s.get("card_title") or ""), s)
     check("dry_no_spend", s["spent_cad"] == 0.0 and s["vision_calls"] == 0)

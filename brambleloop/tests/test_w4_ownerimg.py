@@ -556,7 +556,11 @@ def test_wrap_experiment_is_the_seeded_learning_example():
 
     shared = RR.shared_codes()
     assert set(shared["product_truth"]) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
-                                            "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}, shared
+                                            "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT",
+                                            # W4-WRAPTEST: W-FIDELITY's measured codes
+                                            "WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR",
+                                            "WRONG_COLOUR_LAYOUT", "WRONG_REPEAT_COUNT",
+                                            "WRONG_PIECE_COUNT"}, shared
     assert set(shared["wardrobe"]) == {"WARDROBE_REPETITION", "REFERENCE_CLOTHING_CARRYOVER"}
     assert set(shared["codes"]) <= set(RR.ROUTES)                  # every shared code routed
     db = make_db()

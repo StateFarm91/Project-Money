@@ -500,7 +500,7 @@ def flat_lay_environment(palette_hexes) -> str:
     return (f"a plain, matte, mid-tone {s['name']} surface ({s['hex']}), at least "
             f"{MIN_SURFACE_DE:g} colour-distance units (CIE delta E) from every yarn colour so "
             f"every edge and band of the piece separates from it; soft, even daylight; no "
-            f"white, cream or light-neutral surface")
+            f"white, cream or pale background")
 
 
 FLAT_LAY_SCENE = {

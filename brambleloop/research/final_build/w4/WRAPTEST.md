@@ -2,8 +2,9 @@
 
 **EXPERIMENT — UNCERTIFIED — NOT FOR PUBLICATION**
 
-Branch `claude/w4-WRAPTEST` (from `origin/claude/w4-VISAUTO`, with `origin/claude/w4-VISAUTO`
-@c194d18 and `origin/claude/w4-FIDELITY` @57820b3 merged in, conflicts resolved in their favour).
+Branch `claude/w4-WRAPTEST` (from `origin/claude/w4-VISAUTO`). Both finished branches are merged in,
+conflicts resolved in their favour: `origin/claude/w4-VISAUTO` @d767208 and
+`origin/claude/w4-FIDELITY` @298e3156. This branch now owns their files.
 Production is unchanged (1b21e81, SHADOW). No paid call was made, no key was read, nothing
 was deployed or published, and no credential was changed.
 
@@ -115,6 +116,35 @@ Paid roles never draw text cards; every text frame is deterministic.
   idempotency keys, input/output sha256, cost and status. There are no owner actions between
   start and card.
 
+## 3a. FIDELITY follow-ups (folded in, tested in `test_w4_wraptest.py`)
+
+* **Measured codes are shared.** `WRONG_ASPECT_RATIO`, `OFF_PALETTE_COLOUR`,
+  `WRONG_COLOUR_LAYOUT`, `WRONG_REPEAT_COUNT` and `WRONG_PIECE_COUNT` are now in
+  `creative.failure_codes.PRODUCT_TRUTH_CODES`, as `MEASURED_CODES`.
+  * `visual.fidelity.LOCAL_CODES` and its five constants are views of that constant.
+  * `OWNER_RECORD_CODES` keeps the owner's original four.
+  * `repair_routes.ROUTES` routes all five as prompt negatives.
+  * `image_stages.fidelity_verdict` accepts them, through `failure_codes.ALL_CODES`.
+  * Test pins were updated in `test_w4_fluxtexture`, `test_w4_fidelity` and
+    `test_w4_flux3generator`.
+* **Layout rows are drawn at their compiled heights.** `pattern_refs._render_layout` now uses
+  `_weighted_rows` on flat pieces: each row is drawn at its compiled height from
+  `render_verification.expected_model`, as in `test_w4_fidelity._weighted_rows`.
+  * `VERSION` is now `pattern-refs/3.1.0`.
+  * Cloudline's end band, measured against the compiled heights, went from 1.30x to 0.97x.
+  * The wrap's band equals W-FIDELITY's model of it.
+* **Flat-lay surface.** `image_stages.flat_lay_surface` picks the first mid-tone surface that is
+  at least 25 CIE ΔE from every palette colour. It tries taupe #7A746C first, then a list of
+  fallbacks, and refuses if none is far enough.
+  * The prompt names the surface hex and the distance rule, and the words "neutral surface"
+    are gone.
+  * Every catalogue palette resolves to taupe; a taupe palette gets terracotta.
+* **Effect on the experiment.**
+  * A wrong-product flat lay now gets one bounded correction that carries the
+    measured-code negatives.
+  * "Stop early" now fires only on unroutable failures, such as an output under 2000 px.
+  * The experiment never re-rolls a failure that regeneration cannot change.
+
 ## 4. Dry run (stub provider)
 
 `--dry-run` completed unattended:
@@ -140,7 +170,7 @@ reserved).
 |---|---|---|---|
 | flat lay fails hard, no correction (stop early) | 1 | 1 | ≈0.18 |
 | flat lay UNKNOWN (verifier cannot see it) | 1 | 1 | ≈0.18 |
-| happy path | 3 | ≈5 | ≈0.65 |
+| live path as rehearsed offline (3 FLUX, 6 vision readings) | 3 | 6 | 0.64 |
 | worst case (2 attempts on each of 3 roles, every vision call) | 6 | ≈12 | ≈1.4 |
 
 The gallery spend plan caps generation at CA$2.00; the experiment's hard cap is CA$5.00.
@@ -167,8 +197,13 @@ sage-cardigan image, but its bytes show the ivory-tank frame.
    UNKNOWN (for example, the wrap cannot be isolated), the run truthfully stops at the
    fidelity gate after one image, and no Laura image is generated.
 3. **Etsy taxonomy for "wrap"** is BLOCKED (no snapshot in the scratch DB).
-4. **The Laura lifestyle Product Truth** depends on a vision-provided wrap box
-   (`product_region`). Without one, region palette stays UNKNOWN and the card is `blocked`
-   (still delivered).
+4. **The hero (LIFESTYLE job) cannot reach technical PASS under today's gates.**
+   `compose.lifestyle_evidence` treats pattern-derived references as informational, not
+   photographic, and FAILs them. A generated LIFESTYLE image therefore always fails Product
+   Truth. In the offline rehearsal of the live path, the run ended
+   `blocked(lifestyle: FAIL (product_truth))` with its card delivered and every image shown.
+   The experiment does not buy a re-roll, because regeneration cannot change that result.
+   Only a photographic reference (a made sample) or an owner policy decision changes it.
+   The back view (ANGLE job) is not subject to that check.
 5. **Certification** remains refused until a physical calibration sample of `cable2x2`
    exists. Nothing here can or does change that.
