@@ -1,10 +1,7 @@
 """Product Truth failure codes, routed to targeted repairs, and the seeded learning example.
 
-**Codes.** W-FLUXAPI owns the one shared constant of Product Truth failure codes. This
-module does not redefine it. `shared_codes` imports it when that branch is present. Until
-then it reads the codes from the evidence they came from: the owner's manual FLUX 3 Reading
-Nook Cable Wrap experiment (`research/final_build/w4/flux_experiments/
-2026-10-19_reading_nook_cable_wrap/RECORD.json`).
+**Codes.** The one shared constant is `creative.failure_codes` (W-FLUXAPI). This module
+imports it and does not redefine it.
 
 **Routing.** `ROUTES` is this workflow's repair decision for each code: either prompt
 negatives or a reference change, applied within the attempt cap
@@ -19,23 +16,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-UNVERIFIABLE_COUNT = "UNVERIFIABLE_COUNT"
+from ..creative import failure_codes as FC
+
+UNVERIFIABLE_COUNT = FC.UNVERIFIABLE_COUNT
 PROMPT_NEGATIVE, REFERENCE_CHANGE, VERIFY_UNFOLDED = (
     "prompt_negative", "reference_change", "verify_on_product_only")
 
+# Keyed by the shared constant (creative.failure_codes); this table is only the routing.
 ROUTES: dict[str, dict] = {
-    "INVENTED_END_BAND_TREATMENT": {
+    FC.INVENTED_END_BAND_TREATMENT: {
         "kind": PROMPT_NEGATIVE,
         "negatives": ["no ribbing in the end bands", "no stripe in the end bands",
                       "end bands exactly as the pattern's plain rows"]},
-    "INVENTED_EDGING": {
+    FC.INVENTED_EDGING: {
         "kind": PROMPT_NEGATIVE,
         "negatives": ["no edging", "no border", "plain row edges exactly as the pattern"]},
-    "WRONG_CRAFT_TEXTURE": {
+    FC.WRONG_CRAFT_TEXTURE: {
         "kind": REFERENCE_CHANGE,
         "reference": "stitch-texture reference rendered from the stitch definitions",
         "negatives": ["not knitting", "no knitted rope cables", "crochet fabric only"]},
-    UNVERIFIABLE_COUNT: {
+    FC.UNVERIFIABLE_COUNT: {
         "kind": VERIFY_UNFOLDED,
         "why": ("a count hidden by folds cannot be verified on a lifestyle image; it stays "
                 "UNKNOWN and is verified only on the unfolded product-only image")},
@@ -55,22 +55,7 @@ def _record() -> dict | None:
 
 def shared_codes() -> dict:
     """The shared failure-code set and where it was read from. Never redefined here."""
-    import importlib
-
-    for mod, name in (("brambleloop.creative.image_stages", "PRODUCT_TRUTH_FAILURE_CODES"),
-                      ("brambleloop.creative.image_stages", "FAILURE_CODES"),
-                      ("brambleloop.creative.product_truth_codes", "FAILURE_CODES")):
-        try:
-            codes = getattr(importlib.import_module(mod), name)
-            return {"codes": tuple(codes), "source": f"{mod}.{name}"}
-        except (ImportError, AttributeError):
-            continue
-    rec = _record()
-    if rec:
-        return {"codes": tuple(c["code"] for c in rec.get("failure_categories") or []),
-                "source": "flux_experiments/2026-10-19_reading_nook_cable_wrap/RECORD.json "
-                          "(W-FLUXAPI constant not on this branch yet)"}
-    return {"codes": (), "source": "unavailable"}
+    return {"codes": tuple(sorted(FC.ALL_CODES)), "source": "creative.failure_codes.ALL_CODES"}
 
 
 def route(codes) -> dict:

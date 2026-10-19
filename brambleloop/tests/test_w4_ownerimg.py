@@ -23,8 +23,10 @@ from PIL import Image  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import AuditLog, Job, PatternVersion, Product  # noqa: E402
 
-RELEASE = "7c63dbdd501f" + "0" * 52
-RELEASE_GV = "1f4eca4f0000" + "1" * 52
+def _release_of(listing):
+    from brambleloop.creative.pattern_refs import release_hash_of
+
+    return release_hash_of(_cir(listing))
 _colour = [0]
 
 
@@ -43,7 +45,14 @@ def _cir(listing):
     return _listing_parts(listing)[1][0]
 
 
+RELEASE = None
+RELEASE_GV = None
+
+
 def make_db():
+    global RELEASE, RELEASE_GV
+    RELEASE = RELEASE or _release_of("cloudline-baby-blanket")
+    RELEASE_GV = RELEASE_GV or _release_of("winter-village-graphghan")
     tmp = tempfile.mkdtemp(prefix="ownerimg-db-")
     db = Database("sqlite:///" + str(Path(tmp) / "s.db"), scratch=True)
     db.create_all()
@@ -450,16 +459,18 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     assert learn["accepted"] >= 1 and learn["cost_per_accepted_cad"] == 0.0
 
 
-def test_no_generator_wired_blocks_without_notifying():
+def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     from brambleloop.visual import image_production as IP
 
     db = make_db()
-    assert IP.resolve_generator(db) is None
+    gen = IP.resolve_generator(db)
+    assert gen is not None and gen.name == "flux3-image-stages" and gen.paid
     follow, _ = drain(db, generator=None, judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     drain(db, generator=None, judges=StubJudges())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
-    assert run["state"] == "blocked" and "no image generator" in run["blocked_reason"]
+    assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
+    assert run["spent_cad"] == 0.0 and run["generation_calls"] == 0
     assert not run["attempts_exhausted"] and IP.notification_candidates(db) == []
 
 
@@ -549,6 +560,7 @@ def test_wrap_experiment_is_the_seeded_learning_example():
     db = make_db()
     first, again = RR.seed_experiment(db), RR.seed_experiment(db)
     assert first["seeded"] and not again["seeded"]
+    assert shared["source"] == "creative.failure_codes.ALL_CODES"
     learn = IP.learning_summary(db, slug="reading-nook-cable-wrap")
     assert learn["candidates"] == 1 and learn["accepted"] == 0
     assert learn["cost_per_accepted_cad"] is None

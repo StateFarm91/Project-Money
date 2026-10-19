@@ -129,6 +129,15 @@ def register_generator(name: str, factory) -> None:
 
 
 def resolve_generator(db):
+    """The registered generator. The FLUX 3 stages (W-FLUXAPI) register themselves on
+    first use. A paid generator is still refused while the image_generation gate is closed."""
+    if not _GENERATORS:
+        try:
+            from ..creative import flux3_generator
+
+            flux3_generator.register(register_generator)
+        except ImportError:
+            return None
     for _name, factory in sorted(_GENERATORS.items()):
         return factory(db)
     return None
@@ -377,6 +386,10 @@ class ConditioningRefused(RuntimeError):
     pass
 
 
+class CapabilityBlocked(RuntimeError):
+    """A missing capability (a closed gate), not a failed attempt: shown, not notified."""
+
+
 def _spend_plan() -> dict:
     from . import spend_plan
 
@@ -399,7 +412,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         calls, spent = int(r.generation_calls or 0), float(r.spent_cad or 0.0)
     if getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
-        raise BudgetStop("image_generation gate closed: a paid generator may not be called")
+        raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
+                                "called")
     try:
         spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
                          next_cost_cad=float(getattr(gen, "max_cost_cad_per_call", 0.0)))
@@ -707,6 +721,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         return block(f"budget stop: {exc}", exhausted=True)
     except ConditioningRefused as exc:
         return block(f"conditioning refused: {exc}")
+    except CapabilityBlocked as exc:
+        return block(str(exc))
+    except Exception as exc:  # noqa: BLE001 - a generator refusal is a recorded block
+        if type(exc).__name__ in ("GeneratorRefused", "StageRefused"):
+            return block(f"generator refused: {type(exc).__name__}: {str(exc)[:400]}")
+        raise
 
     if stage == "gallery_assembly":
         view = readiness(db, run["listing"], run_key_=key)
