@@ -712,7 +712,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # DISCLOSEDQA: the exported-frame review scoped directory.
     "exported-review-",
     # HEROTOURNEY: the grid tournament candidates scoped directory.
-    "grid-tournament-")
+    "grid-tournament-",
+    # W-FIDELITY: the bytes the fidelity vision judge is shown, scoped to the call.
+    "fidelity-judge-")
 
 
 def disk_facts() -> dict:

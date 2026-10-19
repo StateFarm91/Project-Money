@@ -92,7 +92,9 @@ def binding(db, slug: str, version: str, release: str) -> dict:
     pdfs = _certified_pdf_hashes(db, slug, version, release_hash) or {}
     fp = None
     try:
-        fp = cir.fingerprint()
+        # `CIR.fingerprint` is a property; calling it raised and left every binding with
+        # cir_fingerprint None, which made campaign_consistency's CIR comparison vacuous.
+        fp = cir.fingerprint() if callable(cir.fingerprint) else cir.fingerprint
     except Exception:  # noqa: BLE001
         pass
     if not pdfs:

@@ -601,6 +601,18 @@ def test_publication_gates_are_not_relaxed():
     assert pt["status"] == "UNKNOWN"
 
 
+def test_binding_records_the_real_cir_fingerprint():
+    import test_w4_ownerimg as O
+    from brambleloop.visual import candidate_gates as CG
+
+    db = O.make_db()
+    b = CG.binding(db, CLOUD, "1.2.0", O.RELEASE)
+    assert b["status"] == "PASS" and b["cir_fingerprint"] == _cir(CLOUD).fingerprint
+    rows = [{"listing": "l", "version": "1", "release": "r", "cir_fingerprint": fp}
+            for fp in (b["cir_fingerprint"], "0" * 16)]
+    assert CG.campaign_consistency(rows)["status"] == "FAIL"
+
+
 if __name__ == "__main__":
     fails = passes = 0
     only = sys.argv[1:]
