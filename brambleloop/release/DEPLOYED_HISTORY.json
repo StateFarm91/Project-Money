@@ -21,6 +21,11 @@
       "sha": "7bbbe72e205bd922297c398e0cce7e714479eeed",
       "observed": "2026-10-12",
       "evidence": "owner-approved hotfix deploy 2026-10-12 (Laura briefing truncation fix + Etsy shop binding), Railway deployment b02e9241; fresh backup brambleloop_prod_20261012T173525Z.dump restore_ok before deploy; production /health build.commit 7bbbe72e205bd922297c398e0cce7e714479eeed known=true at ~17:42Z"
+    },
+    {
+      "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+      "observed": "2026-10-19",
+      "evidence": "owner-approved release of tested candidate a25a3774 (+record commit); pre-deploy backup brambleloop_prod_20261019T123853Z.dump restore_ok; /health build.commit 1b21e81 known=true 12:43Z; worker alive, SHADOW, nothing published"
     }
   ]
 }
