@@ -261,11 +261,11 @@ All runs used testslot, with no network and no provider.
 | test_owned_photography | all OK, exit 0 |
 | test_w4_visrole | 8/8 |
 | test_cert_listing_frames | 0 failing |
-| test_vacuity | see note |
-| test_launch, test_cost_governance_wave2, test_search_hero_publish, test_v11_autonomy_timeline | see note |
-
-The vacuity and regression results are recorded in the final-results note at the end of this
-file.
+| test_vacuity | 4/4 OK. The first run flagged one loop in the new test, so a non-emptiness assertion was added and the suite was rerun clean. |
+| test_launch | 28 OK, exit 0 |
+| test_cost_governance_wave2 | 39 OK, exit 0 |
+| test_search_hero_publish | 4/4 |
+| test_v11_autonomy_timeline | 0 failing, exit 0 |
 
 What `test_w4_visref.py` covers:
 
@@ -376,4 +376,8 @@ F-030/F-254 cannot close truthfully before step 5, whatever model is chosen.
 
 ## Final results note
 
-The full regression set run before reporting is recorded below.
+The full required regression set (test_vacuity, test_launch, test_cost_governance_wave2,
+test_search_hero_publish, test_cert_listing_frames, test_v11_autonomy_timeline) plus the
+visual, certification and owned-photography suites all pass on this branch (§6). The first
+batch run was stopped at its 30-minute background limit during test_launch. The four
+remaining suites were rerun separately and all passed.
