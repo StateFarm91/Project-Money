@@ -1,14 +1,14 @@
 {
- "as_of": "2026-10-19T12:51:19+00:00",
+ "as_of": "2026-10-19T13:10:51+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 227,
+  "PROVEN": 228,
   "OWNER-GATED": 39,
   "DATA-GATED": 41,
   "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 4
+  "OPEN-DEFECT": 3
  },
  "gate_source": "production GET /api/build (read-only), deployed commit 1b21e81, read 20261019T1249Z",
  "rows": [
@@ -2376,13 +2376,14 @@
    "id": 51,
    "title": "Business Continuity Export",
    "section": "Adversarial commercial + policy audit",
-   "registry_status": "owner_gated",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate offsite_storage has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module core/continuity.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_continuity.py"
+     "tests/test_continuity.py",
+     "tests/test_offsite.py"
     ],
     "tested_modules": [
      "core/continuity.py"

@@ -10,11 +10,11 @@ Reachability: HEAD 0417f35 (deployed production 0417f3516f30bb7c52926187fc475a0f
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 257 | 138 | 386 |
-| launch-critical | 29 | 26 | 0 | 8 | 64 | 363 |
-| post-launch (not blocking) | 65 | 9 | 0 | 249 | 74 | 23 |
+| all rows | 94 | 35 | 7 | 256 | 136 | 389 |
+| launch-critical | 29 | 26 | 0 | 7 | 63 | 365 |
+| post-launch (not blocking) | 65 | 9 | 0 | 249 | 73 | 24 |
 
-Launch-critical OPEN-DEFECT: **8**
+Launch-critical OPEN-DEFECT: **7**
 
 ## Open clusters (launch-critical)
 
@@ -23,7 +23,7 @@ Launch-critical OPEN-DEFECT: **8**
 | K13 | FM | 1 | Closure/certification tooling in code |
 | PROCESS | integrator | 3 | PROCESS |
 | REGATE | FM | 2 | Wave-3 audit found an owner/data/external gate the canonical mapping does not re |
-| UNCLUSTERED | FM | 2 | Launch-critical OPEN rows not in any wave-3 cluster |
+| UNCLUSTERED | FM | 1 | Launch-critical OPEN rows not in any wave-3 cluster |
 
 ## Launch-critical rows not PROVEN
 
@@ -51,7 +51,6 @@ Launch-critical OPEN-DEFECT: **8**
 | F-144 Production Readback Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the depl |
 | F-152 Scratch Non-Authority | OWNER-GATED | DEPLOYED | owner:offsite_storage |
 | F-160 Credential Rotation Register | OWNER-GATED | TESTED | owner:credential_rotation |
-| F-171 Production Smoke Matrix | OPEN-DEFECT | EXERCISED | coverage PARTIAL: the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final |
 | F-221 Photographic Realism Hard Floor | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-222 Natural, Not Over-Polished | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-225 Gallery-as-Real-Photo-Shoot | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
@@ -126,7 +125,6 @@ Launch-critical OPEN-DEFECT: **8**
 | F-682 Accountant Activity | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-689 Customer Workspace | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
 | F-695 Spend Governance | OWNER-GATED | DEPLOYED | owner:spend_policy numbers |
-| F-697 Business Continuity | OWNER-GATED | DEPLOYED | owner:offsite_storage |
 | F-701 Autonomy Is Core | DATA-GATED | DEPLOYED | data:production_window |
 | F-718 No Chat as Source of Truth | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved c |
 | F-731 Canonical Model Is Mandatory | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |

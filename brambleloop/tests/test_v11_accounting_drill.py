@@ -132,6 +132,39 @@ def test_cost_attribution_by_product_release_department_provider():
     assert abs(sum(a["by"]["category"].values()) - a["total_cad"]) < 1e-3
 
 
+
+def test_f907_every_named_cost_category_is_attributed():
+    """W4-BOARD audit (2026-10-19): F-907 names nine kinds of cost -- marketplace fees, ads,
+    model/API spend, image/render, refunds, benchmark purchases, software, contractor /
+    physical-test and other operating expenses. The test above asserted four. Each of the
+    other five is posted here with a known amount and must come back under its own category,
+    with the categories still summing to the total."""
+    from brambleloop.finance.accounting import accounts as A
+    from brambleloop.finance.accounting.models import AcctJournalEntry, AcctPosting
+
+    db = _db()
+    before = attribution.report(db)["by"]["category"]
+    extra = {A.ADS: ("ads", 3.25), A.REFUNDS: ("refunds", 1.5),
+             A.INFRA: ("software_infra", 7.0), A.TESTING: ("contractor_physical_test", 40.0),
+             A.OTHER_EXPENSE: ("other", 2.75)}
+    with db.session() as s:
+        for i, (acct, (_cat, cad)) in enumerate(sorted(extra.items())):
+            e = AcctJournalEntry(entry_key=f"f907-{acct}-{i}", at=NOW, period=NOW.strftime("%Y-%m"),
+                                 rule="f907_fixture", source_key=f"f907:{acct}",
+                                 department="ops")
+            s.add(e)
+            s.flush()
+            s.add(AcctPosting(entry_id=e.id, line=0, account=acct,
+                              debit_micros=int(round(cad * 1_000_000)), basis="measured"))
+    a = attribution.report(db)
+    cats = a["by"]["category"]
+    for acct, (cat, cad) in extra.items():
+        assert abs(cats.get(cat, 0) - before.get(cat, 0) - cad) < 1e-4, (cat, cats, before)
+    for cat in ("marketplace_fees", "ads", "model_api", "image_render", "refunds",
+                "benchmark_purchases", "software_infra", "contractor_physical_test", "other"):
+        assert cats.get(cat, 0) > 0, (cat, cats)
+    assert abs(sum(cats.values()) - a["total_cad"]) < 1e-3
+
 def test_drill_never_shows_a_stale_zero_for_unposted_source_rows():
     """Integration defect: a cost row existed, no summary refresh had run, and drill showed
     CA$0.00 with status OK."""

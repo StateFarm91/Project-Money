@@ -1,39 +1,39 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-13T00:43:58Z",
- "branch_head": "602e505",
- "production_commit": "7bbbe72e205b",
- "production_read_at": "20261012T1856Z",
+ "generated_at": "2026-10-19T13:12:34Z",
+ "branch_head": "43aec01a",
+ "production_commit": "1b21e81c6d1b",
+ "production_read_at": "20261019T1308Z",
  "headline": {
   "build2": {
    "total": 320,
-   "verified_complete": 215,
-   "implemented_unverified": 12,
-   "in_progress": 0,
-   "blocked_engineering": 4,
-   "blocked_owner": 37,
+   "verified_complete": 225,
+   "implemented_unverified": 3,
+   "in_progress": 1,
+   "blocked_engineering": 3,
+   "blocked_owner": 36,
    "blocked_external": 49,
    "not_applicable": 3
   },
   "final_master_launch_critical": {
    "total": 490,
-   "verified_complete": 362,
+   "verified_complete": 364,
    "implemented_unverified": 1,
-   "in_progress": 1,
-   "blocked_engineering": 49,
-   "blocked_owner": 48,
-   "blocked_external": 29,
+   "in_progress": 0,
+   "blocked_engineering": 51,
+   "blocked_owner": 44,
+   "blocked_external": 30,
    "not_applicable": 0
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 385,
+   "verified_complete": 388,
    "implemented_unverified": 1,
-   "in_progress": 13,
-   "blocked_engineering": 288,
-   "blocked_owner": 133,
-   "blocked_external": 90,
+   "in_progress": 0,
+   "blocked_engineering": 301,
+   "blocked_owner": 129,
+   "blocked_external": 91,
    "not_applicable": 7
   },
   "tracked_requirements": {
@@ -46,19 +46,104 @@
    "blocked_external": 0,
    "not_applicable": 0
   },
+  "recount": {
+   "build2": {
+    "production_verified": 225,
+    "dev_proven_not_deployed": 3,
+    "implemented_unverified": 0,
+    "in_progress": 1,
+    "engineering_blocked": 2,
+    "owner_blocked": 29,
+    "external_blocked": 39,
+    "live_customer_C": 18,
+    "not_applicable": 3,
+    "total": 320,
+    "unfinished": 92,
+    "post_launch_empirical": 49,
+    "executable_engineering": 6,
+    "owner_or_external_non_empirical": 37
+   },
+   "final_master_total": {
+    "production_verified": 388,
+    "dev_proven_not_deployed": 0,
+    "implemented_unverified": 1,
+    "in_progress": 0,
+    "engineering_blocked": 297,
+    "owner_blocked": 123,
+    "external_blocked": 82,
+    "live_customer_C": 19,
+    "not_applicable": 7,
+    "total": 917,
+    "unfinished": 522,
+    "post_launch_empirical": 65,
+    "executable_engineering": 298,
+    "owner_or_external_non_empirical": 159
+   },
+   "final_master_launch_critical": {
+    "production_verified": 364,
+    "dev_proven_not_deployed": 0,
+    "implemented_unverified": 1,
+    "in_progress": 0,
+    "engineering_blocked": 51,
+    "owner_blocked": 42,
+    "external_blocked": 29,
+    "live_customer_C": 3,
+    "not_applicable": 0,
+    "total": 490,
+    "unfinished": 126,
+    "post_launch_empirical": 6,
+    "executable_engineering": 52,
+    "owner_or_external_non_empirical": 68
+   },
+   "categories": [
+    "production_verified",
+    "dev_proven_not_deployed",
+    "implemented_unverified",
+    "in_progress",
+    "engineering_blocked",
+    "owner_blocked",
+    "external_blocked",
+    "live_customer_C",
+    "not_applicable"
+   ],
+   "rule": "production_verified = verified_complete after the spot audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven on the branch only; live_customer_C = the criterion's own words demand live customers / post-launch history (prelaunch_scope C_PATTERNS, quoted); post_launch_empirical = live_customer_C plus rows parked on real customers / data accrual; executable_engineering = the rest of the unfinished rows the company itself can move"
+  },
+  "audit": {
+   "sampled": 41,
+   "verdicts": {
+    "PASS_PRODUCTION": 8,
+    "PASS": 28,
+    "DOWNGRADE": 5
+   },
+   "downgraded": [
+    "F-754"
+   ],
+   "reclosed": [
+    "B2#184",
+    "F-182",
+    "F-884",
+    "F-907"
+   ]
+  },
+  "closed_on_production_evidence": [
+   "B2#51",
+   "F-171",
+   "F-486",
+   "F-697"
+  ],
   "ledger_native": {
    "build2": {
-    "PROVEN": 227,
-    "OWNER-GATED": 42,
+    "PROVEN": 228,
+    "OWNER-GATED": 39,
     "DATA-GATED": 41,
     "EXTERNAL-GATED": 6,
     "NOT-APPLICABLE": 3,
-    "OPEN-DEFECT": 1
+    "OPEN-DEFECT": 3
    },
    "final_master_launch_critical": {
-    "COMPLETE": 363,
-    "GATED": 119,
-    "OPEN": 8
+    "COMPLETE": 365,
+    "GATED": 118,
+    "OPEN": 7
    }
   }
  },
@@ -78,12 +163,12 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 41,
-   "build2": 2,
-   "fm_launch_critical": 30,
-   "fm_post_launch": 9,
+   "rows": 43,
+   "build2": 0,
+   "fm_launch_critical": 33,
+   "fm_post_launch": 10,
    "classes": {
-    "blocked_engineering": 41
+    "blocked_engineering": 43
    },
    "owner_action": null
   },
@@ -107,8 +192,7 @@
    "fm_launch_critical": 15,
    "fm_post_launch": 3,
    "classes": {
-    "blocked_external": 23,
-    "in_progress": 1
+    "blocked_external": 24
    },
    "owner_action": null
   },
@@ -127,24 +211,25 @@
   {
    "root": "release_not_deployed",
    "title": "Release not deployed (successor + 24h window)",
-   "rows": 16,
+   "rows": 15,
    "build2": 1,
    "fm_launch_critical": 12,
-   "fm_post_launch": 3,
+   "fm_post_launch": 2,
    "classes": {
-    "blocked_engineering": 16
+    "blocked_engineering": 15
    },
    "owner_action": null
   },
   {
-   "root": "release_undeployed_code",
-   "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 13,
-   "build2": 12,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 0,
+   "root": "engineering_open",
+   "title": "Open engineering work",
+   "rows": 247,
+   "build2": 3,
+   "fm_launch_critical": 6,
+   "fm_post_launch": 238,
    "classes": {
-    "implemented_unverified": 13
+    "blocked_engineering": 246,
+    "in_progress": 1
    },
    "owner_action": null
   },
@@ -161,19 +246,6 @@
    "owner_action": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists)."
   },
   {
-   "root": "engineering_open",
-   "title": "Open engineering work",
-   "rows": 246,
-   "build2": 1,
-   "fm_launch_critical": 7,
-   "fm_post_launch": 238,
-   "classes": {
-    "blocked_engineering": 235,
-    "in_progress": 11
-   },
-   "owner_action": null
-  },
-  {
    "root": "owned_surfaces",
    "title": "Owned channels (site / Pinterest)",
    "rows": 18,
@@ -184,6 +256,18 @@
     "blocked_owner": 18
    },
    "owner_action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.ga"
+  },
+  {
+   "root": "testers_physical_proof",
+   "title": "Testers and physical samples",
+   "rows": 16,
+   "build2": 4,
+   "fm_launch_critical": 4,
+   "fm_post_launch": 8,
+   "classes": {
+    "blocked_owner": 16
+   },
+   "owner_action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, ma"
   }
  ],
  "critical_path": [
@@ -191,7 +275,7 @@
    "step": 1,
    "root": "release_not_deployed",
    "title": "Release not deployed (successor + 24h window)",
-   "unblocks_rows": 16,
+   "unblocks_rows": 15,
    "unblocks_fm_launch_critical": 12,
    "unblocks_build2": 1,
    "who": "engineering",
@@ -204,9 +288,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 13,
-   "unblocks_fm_launch_critical": 1,
-   "unblocks_build2": 12,
+   "unblocks_rows": 3,
+   "unblocks_fm_launch_critical": 0,
+   "unblocks_build2": 3,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -217,9 +301,9 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 41,
-   "unblocks_fm_launch_critical": 30,
-   "unblocks_build2": 2,
+   "unblocks_rows": 43,
+   "unblocks_fm_launch_critical": 33,
+   "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
     "figure": "one engineering pass over the unparked rows",

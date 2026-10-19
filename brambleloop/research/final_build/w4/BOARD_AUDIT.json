@@ -104,7 +104,15 @@
     "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render"
    ],
    "production_reading": "research/final_build/w4/evidence_BOARD/prod_api_verify_20261019T1249Z.json no_satisfied_owner_action_presented ok=True on 1b21e81",
-   "downgrade_reason": "only the green path is tested (the row's own evidence says so): no test forces a presented-but-satisfied card and asserts the check FAILS"
+   "downgrade_reason": "only the green path is tested (the row's own evidence says so): no test forces a presented-but-satisfied card and asserts the check FAILS",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_board_close.py::test_f182_a_satisfied_action_still_presented_fails_the_verification"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
   },
   {
    "source": "final_master",
@@ -138,7 +146,15 @@
    "evidence": [
     "tests/test_v11_cc_views.py::test_home_and_morning_brief_come_from_real_database_state"
    ],
-   "downgrade_reason": "the cited test asserts work completed, incidents, owner decisions, launch and changes only; money, store, work in progress and opportunities on Home are not asserted"
+   "downgrade_reason": "the cited test asserts work completed, incidents, owner decisions, launch and changes only; money, store, work in progress and opportunities on Home are not asserted",
+   "reclosed": {
+    "tests": [
+     "tests/test_v11_cc_views.py::test_f884_home_carries_every_element_the_brief_names"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
   },
   {
    "source": "final_master",
@@ -335,7 +351,17 @@
     "tests/test_acceptance_gates.py::test_gate_a_dead_letter_and_backoff_work",
     "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts"
    ],
-   "downgrade_reason": "no test exercises clock drift (the criterion names it); the ledger row cites no test at all"
+   "downgrade_reason": "no test exercises clock drift (the criterion names it); the ledger row cites no test at all",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_board_close.py::test_b184_a_fast_clock_reclaims_but_the_stale_holder_cannot_complete_over_it",
+     "tests/test_w4_board_close.py::test_b184_a_slow_clock_never_takes_a_live_lease_and_takes_an_expired_one_late",
+     "tests/test_w4_board_close.py::test_b184_a_drifted_enqueue_of_the_same_cadence_slot_is_deduplicated"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
   },
   {
    "source": "build2",
@@ -450,7 +476,15 @@
    "evidence": [
     "tests/test_v11_accounting_drill.py::test_cost_attribution_by_product_release_department_provider"
    ],
-   "downgrade_reason": "the test asserts four of the nine categories (marketplace fees, model API, image render, benchmark); ads, refunds, software, contractor/physical-test and other are mapped in attribution.CATEGORY but never asserted"
+   "downgrade_reason": "the test asserts four of the nine categories (marketplace fees, model API, image render, benchmark); ads, refunds, software, contractor/physical-test and other are mapped in attribution.CATEGORY but never asserted",
+   "reclosed": {
+    "tests": [
+     "tests/test_v11_accounting_drill.py::test_f907_every_named_cost_category_is_attributed"
+    ],
+    "at": "2026-10-19",
+    "by": "W4-BOARD",
+    "what": "the missing part of the criterion is now asserted by the named test(s); code unchanged (behaviour already in the deployed 1b21e81)"
+   }
   },
   {
    "source": "final_master",

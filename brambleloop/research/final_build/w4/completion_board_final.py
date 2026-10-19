@@ -168,7 +168,7 @@ def _latest(pattern: str) -> Path:
 def _prod() -> dict:
     health = json.loads(_latest("prod_health_*.json").read_text())
     build = json.loads(_latest("prod_api_build_*.json").read_text())
-    verify = json.loads(_latest("prod_api_verify_*.json").read_text())
+    verify = json.loads(_latest("prod_api_verify_2*.json").read_text())
     status = json.loads(_latest("prod_api_status_*.json").read_text())
     dead = json.loads(_latest("prod_api_queue_dead_*.json").read_text())
     read_at = _latest("prod_health_*.json").stem.rsplit("_", 1)[-1]
@@ -189,7 +189,9 @@ def _prod() -> dict:
 def _deployed_index(prod_commit: str) -> tuple[set, set]:
     in_prod = set(_git("ls-tree", "-r", "--name-only", prod_commit, "--",
                        "brambleloop/src/brambleloop").split())
-    changed = set(_git("diff", "--name-only", prod_commit, "HEAD", "--",
+    # against the working tree, not HEAD: an uncommitted edit is no more deployed than a
+    # committed one
+    changed = set(_git("diff", "--name-only", prod_commit, "--",
                        "brambleloop/src/brambleloop").split())
     return in_prod, changed
 

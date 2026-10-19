@@ -2625,19 +2625,24 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "post-deploy truth of critical paths",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "the smoke matrix does not exercise queues end to end, provider probes, continuity or search intelligence, and on the Final Build deploy it is red on two checks",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/main.py::api_verify",
   "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
-  "consumer": null,
+  "consumer": "ops/readback.py MANIFEST 'smoke matrix' (run by ops/deploy.sh after every deploy; exit 5 unless PASS)",
   "protected_effect": "production smoke of critical invariants",
   "tests": [
    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
-   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+   "tests/test_w4_smoke.py::test_a_healthy_production_passes_every_check_and_a_refused_probe_still_ran",
+   "tests/test_w4_smoke.py::test_stale_cadences_and_a_stopped_queue_fail",
+   "tests/test_w4_smoke.py::test_the_smoke_route_is_public_read_only_and_never_200_unless_pass"
   ],
   "evidence": [
    "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)",
-   "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h"
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h",
+   "research/final_build/w4/evidence_BOARD/prod_api_verify_smoke_20261019T1308Z.json (production 1b21e81, research/final_build/w4/evidence_BOARD/prod_health_20261019T1308Z.json build.commit): verdict PASS on every check -- probe_ran:model.probe, probe_ran:vision.probe, probe_ran:etsy.probe, continuity_restore_proven, cadence_coverage, queue_round_trip, search_intelligence_captured; HTTP 200 (the route never answers 200 unless PASS)",
+   "research/final_build/w4/evidence_BOARD/readback_1b21e81_20261019T1308Z.json: ops/readback.py --sha 1b21e81 run after the deploy: 11 PASS, 1 FAIL (no unexpected dead letters, #195)"
   ],
   "build2_rows": [
    "#181 COMPLETE+PROVEN"
@@ -2648,7 +2653,7 @@
    "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "company: extend /api/verify (probe recency, continuity proof, cadence coverage, queue round-trip); deploy the dead-letter fixes (843af70, 4b55f22); integrator decides the 0.0 agent ceilings",
+  "next_action": "none -- the smoke matrix passed on the deployed 1b21e81",
   "confidence": "HIGH",
   "searched": " | w4-FMGATE 0417f35"
  },

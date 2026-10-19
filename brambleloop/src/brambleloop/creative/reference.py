@@ -409,9 +409,19 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
             read.append(ref)
         except Exception as exc:  # noqa: BLE001 - one unreadable image is skipped, not faked
             failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200]})
-    stored = []
+    stored, refused = [], []
     for pod in sorted({p for _r, p, _u in rows if p}):
-        b = brief(db, pod, benchmark_key=key)
+        # W4-BOARD (production dead letter 2026-10-19T12:47Z on 1b21e81): one department
+        # whose evidence names a subject ('pumpkin' in a gallery setting) refused its brief by
+        # raising out of the loop, which killed the whole daily job -- every other
+        # department's decomposition went unstored and the refusal read as a crash. The
+        # refusal stands (nothing is stored for that department, and the reason is
+        # returned); the other departments continue.
+        try:
+            b = brief(db, pod, benchmark_key=key)
+        except ReferenceRefused as exc:
+            refused.append({"pod": pod, "why": str(exc)[:300]})
+            continue
         if not b.get("usable"):
             continue
         payload = {"as_of": today.isoformat(), "pod": pod,
@@ -427,7 +437,8 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
             else:
                 row.payload = payload
         stored.append(pod)
-    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored}
+    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored,
+            "decompositions_refused": refused}
 
 
 def stored_decomposition(db, pod: str) -> dict | None:

@@ -1,6 +1,6 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-19T12:51:19+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Generated 2026-10-19T13:10:51+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
 Gate readings: production GET /api/build (read-only), deployed commit 1b21e81, read 20261019T1249Z.
 
 ## Reconciliation of the owner dashboard figure
@@ -9,12 +9,12 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 | state | rows |
 |---|---|
-| PROVEN | 227 |
+| PROVEN | 228 |
 | OWNER-GATED | 39 |
 | DATA-GATED | 41 |
 | EXTERNAL-GATED | 6 |
 | NOT-APPLICABLE | 3 |
-| OPEN-DEFECT | 4 |
+| OPEN-DEFECT | 3 |
 
 ## Gated rows by exact gate
 
@@ -43,4 +43,4 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 
 NOT-APPLICABLE (process directives to the auditor, followed): #32, #56, #197
 
-OPEN-DEFECT: 4 -- #11 gate transactions_r has opened; the remaining work is no longer parked, #12 gate transactions_r has opened; the remaining work is no longer parked, #51 gate offsite_storage has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked
+OPEN-DEFECT: 3 -- #11 gate transactions_r has opened; the remaining work is no longer parked, #12 gate transactions_r has opened; the remaining work is no longer parked, #61 gate image_vision has opened; the remaining work is no longer parked
