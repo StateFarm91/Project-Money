@@ -644,7 +644,9 @@ GENERATION_TASK = "concept_generation"
 # "inexpensive" concepts by name, and the funnel's whole shape is to spend little on a wide
 # field and concentrate cost only after it has been cut.
 IDEATION_TASK = "concept_ideation"
-PROMPT = "creative.concept_field@2"
+# REL2: version 3 names the season's motif grammar (#110) and the silhouette qualifiers
+# (#108) the winner is gated on, so the field is not paid for and then refused for free.
+PROMPT = "creative.concept_field@3"
 FIELD_SIZE = 6
 
 # What one concept costs in output tokens: nine fields, one of them a sentence. Measured
@@ -749,6 +751,141 @@ def _brief_for(slot: Slot, count: int = 1, *, offset: int = 0) -> str:
         f"structural idea from one to the next.\n" + "\n".join(lines))
 
 
+# ---------------------------------------------------------------------------
+# REL2: where each arena's brief walk stopped, kept across runs
+#
+# `_crosses_for` walks 81 distinct questions per slot, but the walk restarted at offset 0 in
+# every run, so a slot visited once a day asked the same twelve questions every day and the
+# field it bought was the one it had bought yesterday. The offset now persists per
+# (event, pod, form) and every run continues where the last one stopped.
+
+_CURSOR_FLAG = "_brambleloop_brief_cursor_ready"
+
+
+from sqlalchemy import DateTime as _DateTime, Integer as _Integer, String as _String  # noqa: E402
+from sqlalchemy.orm import Mapped as _Mapped, mapped_column as _mapped_column  # noqa: E402
+
+from ..core.db import Base as _Base  # noqa: E402
+from ..core.models import utcnow as _utcnow  # noqa: E402
+
+
+class BriefCursor(_Base):
+    """REL2: one row per (event, pod, form): how far its brief walk has gone."""
+
+    __tablename__ = "prospecting_brief_cursors"
+
+    event: _Mapped[str] = _mapped_column(_String(80), primary_key=True)
+    pod: _Mapped[str] = _mapped_column(_String(80), primary_key=True)
+    form: _Mapped[str] = _mapped_column(_String(60), primary_key=True)
+    offset: _Mapped[int] = _mapped_column(_Integer, default=0)
+    updated_at: _Mapped[object] = _mapped_column(_DateTime(timezone=True), default=_utcnow,
+                                                 onupdate=_utcnow)
+
+
+def _cursor_table(db):
+    model = BriefCursor
+    engine = db.engine
+    if not getattr(engine, _CURSOR_FLAG, False):
+        model.__table__.create(engine, checkfirst=True)
+        setattr(engine, _CURSOR_FLAG, True)
+    return model
+
+
+def _cursor_id(slot: Slot) -> tuple[str, str, str]:
+    return (slot.arena.event[:80], slot.arena.pod[:80], slot.form[:60])
+
+
+def brief_offset(db, slot: Slot) -> int:
+    """Where this slot's brief walk stopped last run (0 for a slot never asked)."""
+    model = _cursor_table(db)
+    with db.session() as s:
+        row = s.get(model, _cursor_id(slot))
+        return int(row.offset or 0) if row is not None else 0
+
+
+def advance_brief_offset(db, slot: Slot, by: int) -> int:
+    """Record that `by` more questions of this slot's walk were asked. Returns the new offset."""
+    from sqlalchemy import update
+    from sqlalchemy.exc import IntegrityError
+
+    model = _cursor_table(db)
+    event, pod, form = _cursor_id(slot)
+    bump = (update(model).where(model.event == event, model.pod == pod, model.form == form)
+            .values(offset=model.offset + int(by)))
+    with db.session() as s:
+        hit = s.execute(bump).rowcount
+    if not hit:
+        try:
+            with db.session() as s:
+                s.add(model(event=event, pod=pod, form=form, offset=int(by)))
+        except IntegrityError:
+            with db.session() as s:
+                s.execute(bump)
+    return brief_offset(db, slot)
+
+
+def motif_grammar_text(slot: Slot) -> str:
+    """#110 for the prompt: the season's grammar the winner's own words are read against, or
+    a plain statement that none applies. Words, not codes: `motifs_for` reads the concept's
+    text, so `post_box` is asked for as "post box"."""
+    from ..seasonal.remerchandising import MOTIF_SEASON
+    from .invention import MOTIF_GRAMMAR, SATURATED
+    from .preengineering import GRAMMAR_SEASON
+
+    season = (GRAMMAR_SEASON.get(EVENT_OCCASION.get(slot.arena.event, ""))
+              or MOTIF_SEASON.get(slot.arena.event))
+    if not season or season not in MOTIF_GRAMMAR:
+        return "none applies to this occasion"
+    saturated = SATURATED.get(season, frozenset())
+    fresh = [m.replace("_", " ") for m in MOTIF_GRAMMAR[season] if m not in saturated]
+    cliche = [m.replace("_", " ") for m in MOTIF_GRAMMAR[season] if m in saturated]
+    return (f"every concept names, in its motif field and its premise, at least one of these "
+            f"{season} motifs spelled exactly so: {', '.join(fresh)}"
+            + (f". These are clichés and never count on their own: {', '.join(cliche)}"
+               if cliche else ""))
+
+
+def qualifier_constructions_for(slot: Slot) -> dict[str, str]:
+    """#108: the slot's buildable, engine-routed constructions that carry a silhouette
+    qualifier by themselves."""
+    from .intake import qualifier_constructions
+
+    buildable = slot.constructions or tuple(FORM_CONSTRUCTIONS.get(slot.form) or ())
+    return {c: q for c, q in qualifier_constructions(buildable).items()
+            if ENGINE_ROUTE.get(c) is not None}
+
+
+def qualifier_possible(slot: Slot) -> bool:
+    """REL2/#108: can a concept in this slot carry a silhouette qualifier the code can read?
+
+    A recognisable outline needs none. A generic form (a disc, a tube, a panel) survives the
+    gate only with a qualifier, and the only qualifier this company can guarantee before
+    paying for a field is a buildable construction that carries one; a slot with none is a
+    field of concepts the free #108 gate will refuse."""
+    from .invention import GENERIC_FORMS
+
+    return slot.form not in GENERIC_FORMS or bool(qualifier_constructions_for(slot))
+
+
+def silhouette_text(slot: Slot) -> str:
+    """#108 for the prompt: what a generic form needs to read as a distinct object."""
+    from .intake import qualifier_words
+    from .invention import GENERIC_FORMS, QUALIFIERS
+
+    if slot.form not in GENERIC_FORMS:
+        return "this form is a recognisable outline; no silhouette qualifier is required"
+    by_construction = qualifier_constructions_for(slot)
+    words = qualifier_words()
+    parts = [f"{q} ({QUALIFIERS[q]}): say {', '.join(words[q][:5])}"
+             for q in sorted(QUALIFIERS) if q in words]
+    return (f"a {slot.form.replace('_', ' ')} is a generic shape that every listing shares, "
+            f"so each concept must carry a silhouette qualifier: either use one of these "
+            f"constructions, "
+            + ", ".join(f"{c} ({q})" for c, q in by_construction.items())
+            + ", or name the mechanism in the premise with one of these words -- "
+            + "; ".join(parts))
+
+
 def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
             agent: str = "creative_director", brief_offset: int = 0,
             key_prefix: str = "") -> tuple[list[Candidate], list[str]]:
@@ -778,6 +915,8 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
             "feelings": ", ".join(FEELINGS),
             "recipients": ", ".join(RECIPIENTS),
             "occasions": ", ".join(OCCASIONS),
+            "motif_grammar": motif_grammar_text(slot),
+            "silhouette": silhouette_text(slot),
             "brief": _brief_for(slot, count, offset=brief_offset),
             "count": count,
         },
@@ -837,7 +976,8 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
 
     catalogue = list(catalogue or [])
     plan = slots(arena, catalogue=catalogue, today=today)
-    chosen = plan["slot_objects"][:max_slots]
+    # REL2/#108: skip a generic form no buildable construction can qualify (see `field`).
+    chosen = [s for s in plan["slot_objects"] if qualifier_possible(s)][:max_slots]
     if not chosen:
         raise ProspectingRefused(
             f"no slot survives in {arena.event}/{arena.pod}: "
@@ -860,7 +1000,16 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
             refusals.append(str(e)[:200])
             break
         try:
-            field_, refused = propose(slot, gateway=gateway, count=count, agent=agent)
+            try:
+                offset = brief_offset(db, slot)
+            except Exception:  # noqa: BLE001 - an unreadable cursor restarts the walk
+                offset = 0
+            field_, refused = propose(slot, gateway=gateway, count=count, agent=agent,
+                                      brief_offset=offset)
+            try:
+                advance_brief_offset(db, slot, count)
+            except Exception:  # noqa: BLE001 - the field stands; the cursor is advisory
+                pass
         except Exception as e:  # noqa: BLE001 - one failed field is not a failed expedition
             refusals.append(f"{slot.form}: {type(e).__name__}: {e}"[:220])
             continue
@@ -1141,6 +1290,10 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
         # #117: a form the saturation detector excluded (crowded, no named unmet angle) is
         # not drawn from, however many listings prove it sells.
         reachable.extend(s for s in plan["slot_objects"] if s.form not in exclude_forms)
+    # REL2/#108: a generic form no buildable construction can qualify is a field the free
+    # silhouette gate refuses after it has been paid for; it is skipped, and said so.
+    skipped_generic = [s.to_dict() for s in reachable if not qualifier_possible(s)]
+    reachable = [s for s in reachable if qualifier_possible(s)]
     if not reachable:
         raise ProspectingRefused(
             "no proven arena has a form that can still be made in time, so a tournament "
@@ -1154,7 +1307,13 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     # Round-robin across slots so the field is wide by construction rather than by luck: a
     # field that took the first slot to target would be one department again.
     index = 0
+    # REL2: each slot's walk resumes where the last run stopped (persisted per arena/form).
     asked: dict[int, int] = {}
+    for s_ in reachable:
+        try:
+            asked[id(s_)] = brief_offset(db, s_)
+        except Exception as e:  # noqa: BLE001 - an unreadable cursor restarts the walk
+            problems.append(f"brief cursor unread for {s_.form}: {type(e).__name__}"[:200])
     while len(candidates) < target:
         slot = reachable[index % len(reachable)]
         index += 1
@@ -1178,6 +1337,11 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
                                      brief_offset=asked.get(id(slot), 0),
                                      key_prefix=f"t{index}-")
             asked[id(slot)] = asked.get(id(slot), 0) + want
+            try:
+                advance_brief_offset(db, slot, want)
+            except Exception as e:  # noqa: BLE001 - the field stands; the cursor is advisory
+                problems.append(f"brief cursor not saved for {slot.form}: "
+                                f"{type(e).__name__}"[:200])
         except Exception as e:  # noqa: BLE001 - one failed batch is not a failed field
             problems.append(f"{slot.form}: {type(e).__name__}: {e}"[:200])
             continue
@@ -1194,6 +1358,7 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
         "forms": forms,
         "pods": pods_seen,
         "stopped_on_ceiling": stopped,
+        "skipped_generic_slots": skipped_generic,
         "cost_cad": round(routing.spent_this_month(db) - started, 6),
         "problems": problems[:12],
         "wide_enough": len(candidates) >= _ideation_floor(),

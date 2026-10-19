@@ -480,6 +480,28 @@ def analysis_prompt() -> str:
     )
 
 
+def observation_schema() -> dict:
+    """REL2: the closed vocabulary as a JSON schema for structured output. Every field is
+    optional (omit what cannot be judged); `shot_type` is the closed enum; nothing else is
+    allowed. The parser below still checks every answer -- the schema only stops paying for
+    answers that were never JSON."""
+    props = {f: {"type": "string"} for f in OBSERVATION_FIELDS}
+    if "shot_type" in props:
+        props["shot_type"] = {"type": "string", "enum": list(SHOT_TYPES)}
+    return {"type": "object", "properties": props, "additionalProperties": False}
+
+
+def _accepts_schema(provider) -> bool:
+    import inspect
+
+    try:
+        params = inspect.signature(provider.see).parameters
+    except (TypeError, ValueError):
+        return False
+    return "json_schema" in params or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
 def parse_observation(text: str) -> dict:
     """Read the model's answer, and refuse anything that is not an observation.
 
@@ -511,7 +533,11 @@ def method_version() -> str:
     """The analysis method's identity: system prompt, user prompt and token budget."""
     import hashlib
 
-    blob = f"{ANALYSIS_SYSTEM}\x00{analysis_prompt()}\x00{ANALYSIS_MAX_TOKENS}"
+    import json
+
+    # REL2: the structured-output schema is part of the method (a new method resets F-309).
+    blob = (f"{ANALYSIS_SYSTEM}\x00{analysis_prompt()}\x00{ANALYSIS_MAX_TOKENS}\x00"
+            f"{json.dumps(observation_schema(), sort_keys=True)}")
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
 
@@ -588,7 +614,9 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             estimate = reservation["estimate_cad"]
             held = reservation["reservation_id"]
             response = provider.see(ANALYSIS_SYSTEM, analysis_prompt(), [item.image_url],
-                                    max_tokens=ANALYSIS_MAX_TOKENS)
+                                    max_tokens=ANALYSIS_MAX_TOKENS,
+                                    **({"json_schema": observation_schema()}
+                                       if _accepts_schema(provider) else {}))
         except gw.AgentCeilingExceeded as exc:
             # This agent is finished for today. The month may well have room, so this is
             # reported as a stop with a named ceiling rather than as a failure -- the images

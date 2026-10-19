@@ -2966,7 +2966,14 @@ async def api_etsy_webhook(request: Request):
     2xx = stored or already stored; 4xx = refused (not retried usefully); 5xx = Etsy retries."""
     from ..integrations import etsy_webhooks
 
-    body = await request.body()
+    # REL2/L1: refuse on a declared Content-Length above the cap, and read the body as a
+    # stream with a running cap, so an oversized body is never buffered whole.
+    try:
+        body = await etsy_webhooks.read_body(request.stream(),
+                                             request.headers.get("content-length"))
+    except etsy_webhooks.WebhookRefused as exc:
+        status, payload = etsy_webhooks.refuse(db, exc)
+        return JSONResponse(payload, status_code=status)
     status, payload = etsy_webhooks.receive(db, dict(request.headers), body)
     return JSONResponse(payload, status_code=status)
 

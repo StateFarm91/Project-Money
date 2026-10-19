@@ -1705,6 +1705,12 @@ def veto_state(db) -> dict:
 # #311: the deadline sentinel for MJs-derived opportunities
 
 
+def tournament_group(pod: str, arena: str, target_event: str) -> tuple[str, str, str]:
+    """REL2: the identity of one seasonal tournament question. Events that share it share a
+    tournament; the handler adds the ISO week to the idempotency key."""
+    return (str(pod or ""), str(arena or ""), str(target_event or ""))
+
+
 def seasonal_sentinel(db, *, today: date | None = None) -> dict:
     """Days to preferred and latest launch for every MJs-derived seasonal opportunity.
 
@@ -1730,6 +1736,16 @@ def seasonal_sentinel(db, *, today: date | None = None) -> dict:
     with db.session() as s:
         events = list(s.scalars(select(MjsMissionEvent).where(
             MjsMissionEvent.entered == True)))  # noqa: E712
+        # REL2: events of one (pod, arena, target event) ask one question. Before this, every
+        # MJs listing in an arena bought its own tournament on the same brief (October: 99
+        # tournaments over 22 distinct arena/brief pairs). A group member that already has a
+        # tournament lends it to its siblings rather than each queuing another.
+        group_job: dict[tuple, int] = {}
+        for ev in sorted(events, key=lambda e: e.id):
+            tgt = (ev.seasonal or {}).get("target") or {}
+            if ev.tournament_job_id and ev.arena and tgt.get("event"):
+                group_job.setdefault(tournament_group(ev.pod, ev.arena, tgt["event"]),
+                                     ev.tournament_job_id)
         for ev in events:
             target = (ev.seasonal or {}).get("target")
             if not target or not ev.arena:
@@ -1749,15 +1765,25 @@ def seasonal_sentinel(db, *, today: date | None = None) -> dict:
                     []).append(row)
                 jobs = [j for j in s.scalars(select(Job).where(
                     Job.status == JobStatus.PENDING))
-                    if (j.inputs or {}).get("mjs_event_id") == ev.id]
+                    if (j.inputs or {}).get("mjs_event_id") == ev.id
+                    or ev.id in ((j.inputs or {}).get("mjs_event_ids") or ())]
                 for j in jobs:
                     if j.priority > seasonal_band:
                         row["reallocated"].append({"job_id": j.id, "from": j.priority,
                                                    "to": seasonal_band})
                         j.priority = seasonal_band
                 if not jobs and not ev.tournament_job_id:
-                    row["reallocated"].append({"queue": "creative.tournament",
-                                               "priority": seasonal_band})
+                    group = tournament_group(ev.pod, ev.arena, target["event"])
+                    sibling = group_job.get(group)
+                    if sibling:
+                        ev.tournament_job_id = sibling
+                        row["reallocated"].append({"attached": sibling, "group": list(group),
+                                                   "why": "a sibling event in this arena "
+                                                          "already has its tournament"})
+                    else:
+                        row["reallocated"].append({"queue": "creative.tournament",
+                                                   "priority": seasonal_band,
+                                                   "group": list(group)})
             elif status == MISSED:
                 # Simplify only when product truth permits: with no CIR there is no simpler
                 # product anybody can prove true, so the opportunity defers.

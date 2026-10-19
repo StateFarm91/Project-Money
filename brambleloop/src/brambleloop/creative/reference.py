@@ -255,9 +255,20 @@ def primitives(observations: list[dict], readings: list[dict],
         **structure_of(listings or []),
     }
     present = {k: v for k, v in out.items() if v}
+    # REL2: one depicting value withholds that primitive, not the department's whole
+    # decomposition. Each value passes the same containment check on its own; a value that
+    # fails it is left out and named, never stored. The joint check below still runs.
+    withheld: dict[str, str] = {}
+    for k in list(present):
+        try:
+            check_free_of_depiction([present[k]])
+        except ReferenceRefused:
+            withheld[k] = "names what the product depicts; withheld by the containment check"
+            del present[k]
     check_free_of_depiction(present.values())
     return {
         "primitives": present,
+        "withheld": withheld,
         "absent": sorted(k for k in PRIMITIVES if k not in present),
         "why_absent": ("a primitive nobody could read from the evidence is left out rather "
                        "than filled with a neutral value, which would keep the brief's shape "
@@ -362,6 +373,42 @@ def record_reading(db, listing_ref: str, reading: dict, *, benchmark_key: str = 
 
 DECOMPOSITION_KIND = "creative.reference_decomposition"
 READS_PER_RUN = 6
+# REL2: a reading the model answered and the containment/format check refused. Recorded so
+# the same image is not bought again every day: the answer was paid for, and the same image
+# asked the same question gives the same refusal.
+READING_REFUSED_ACTION = "creative.construction_reading_refused"
+
+
+def _refusal_artifact(benchmark_key: str, listing_ref: str) -> str:
+    return f"{benchmark_key}:{listing_ref}"[:200]
+
+
+def reading_refused(db, listing_ref: str, benchmark_key: str) -> bool:
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        return s.scalar(select(AuditLog.id).where(
+            AuditLog.action == READING_REFUSED_ACTION,
+            AuditLog.artifact == _refusal_artifact(benchmark_key, listing_ref)).limit(1)) \
+            is not None
+
+
+def record_refused_reading(db, listing_ref: str, *, benchmark_key: str, image_key: str,
+                           exc: Exception) -> None:
+    """Record that this image's paid reading was refused. Only the refusal's class is kept:
+    a refused reading's text is exactly what must not be stored."""
+    from ..core.models import AuditLog
+
+    why = str(exc)
+    kind = ("depiction" if "depicts" in why else "not_json" if "JSON" in why
+            else "closed_vocabulary" if "construction fields" in why
+            else "empty" if "empty reading" in why else "refused")
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=READING_REFUSED_ACTION,
+                       artifact=_refusal_artifact(benchmark_key, listing_ref),
+                       detail={"refusal": kind, "image": image_key[-64:]}))
 
 
 def run(db, *, provider=None, env: dict | None = None, today=None,
@@ -394,7 +441,7 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
                 for r in s.scalars(select(BenchmarkListing).where(
                     BenchmarkListing.benchmark_key == key,
                     BenchmarkListing.audit_state != "withdrawn"))]
-    read, failed = [], []
+    read, failed, skipped_refused = [], [], []
     for ref, _pod, urls in rows:
         if len(read) >= reads:
             break
@@ -402,20 +449,40 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
             continue
         if _stored_readings(db, ref, key):
             continue
+        if reading_refused(db, ref, key):   # REL2: bought once, refused once; not re-bought
+            skipped_refused.append(ref)
+            continue
         try:
             reading = read_listing(urls[0], db=db, provider=provider)
             record_reading(db, ref, reading, benchmark_key=key, image_key=urls[0][-64:],
                            env=env)
             read.append(ref)
+        except ReferenceRefused as exc:
+            # The model answered (and was paid); its answer failed the containment or format
+            # check. Recorded, so tomorrow does not buy the same refusal again.
+            try:
+                record_refused_reading(db, ref, benchmark_key=key, image_key=urls[0],
+                                       exc=exc)
+            except Exception:  # noqa: BLE001 - the refusal still stands unrecorded
+                pass
+            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200],
+                           "recorded_refusal": True})
         except Exception as exc:  # noqa: BLE001 - one unreadable image is skipped, not faked
             failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200]})
-    stored = []
+    stored, refused_pods = [], []
     for pod in sorted({p for _r, p, _u in rows if p}):
-        b = brief(db, pod, benchmark_key=key)
+        # REL2: one department's refusal is that department's, not the run's. A depiction
+        # refusal here used to end the job, so no department's decomposition was stored.
+        try:
+            b = brief(db, pod, benchmark_key=key)
+        except ReferenceRefused as exc:
+            refused_pods.append({"pod": pod, "why": str(exc)[:200]})
+            continue
         if not b.get("usable"):
             continue
         payload = {"as_of": today.isoformat(), "pod": pod,
                    "primitives": b["primitives"], "absent": b["absent"],
+                   "withheld": b.get("withheld") or {},
                    "listings_with_evidence": b["listings_with_evidence"]}
         with db.session() as s:
             row = s.scalar(select(OperatingReading).where(
@@ -427,7 +494,8 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
             else:
                 row.payload = payload
         stored.append(pod)
-    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored}
+    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored,
+            "decompositions_refused": refused_pods, "skipped_refused_readings": skipped_refused}
 
 
 def stored_decomposition(db, pod: str) -> dict | None:
