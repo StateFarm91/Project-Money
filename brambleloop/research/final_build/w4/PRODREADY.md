@@ -389,3 +389,43 @@ The `listing_assets` frames fixed in §2 are reviewed by #61, but they are not u
   unchanged.
 - Production holds an older draft at 1.0.0 that still uses the old title. The next release
   supersedes it. Nothing was written to production.
+
+## 10. Second-pass tests (testslot, final code)
+
+**New suites:**
+
+| suite | result |
+|---|---|
+| test_w4_prodready_contract3 | 6/6 |
+| test_w4_prodready_motif | 5/5 |
+| test_w4_prodready_taxonomy | 3/3 |
+
+**Contract-3 visual suites, all green after the updates below:**
+- test_disclosed_render 27/27, after three attack tests moved to contract-3 geometry;
+- test_w4_multipiece 5/5, after the hero pins were re-pinned for contract 3;
+- test_w4_render_assembled 50, test_w4_verify_pockets 7/7, test_w4_visual2 8/8;
+- test_disclosed_certified_upload 7/7, test_disclosed_render_runtime 3/3, test_fb4_lc 16,
+  test_final_visual_authority 10/10;
+- test_w4_disclosedqa, test_w4_herovision, test_w4_imgfix, test_w4_thumbfloors,
+  test_w4_visual_gallery_frames, test_w4_visual_certified_gallery, test_w4_visual_angle,
+  test_w4_render_corners, test_w4_cand_garland, test_w4_visualseo;
+- test_owned_photography 30, test_parity 8, test_w3_k12_model_photography 10.
+
+**The 85 suites that import launch0, the SEO strategy, the emotional brief or the release
+fingerprints, plus the required set:**
+- 82 green on the first run: 1186 OK lines.
+- 3 not green on that run:
+  - **test_vacuity**: one loop needed a non-emptiness assertion. Fixed, now 8/8.
+  - **test_w3_seo_strategy**: the ornament phrase "striped" was not traceable, the tag
+    "two color crochet" had no query family, and the "ornament" stem filled 6 of 13 tag slots.
+    Fixed, now 12/12. test_w4_seo_packages 6, test_v11_seo_truth 9 and test_w3_seo_constraints
+    8 also pass.
+  - **test_product_run**: hit the runner's 1800 s timeout after 7 OK, with no failures. It was
+    re-run alone with a 5400 s timeout: **36/36 OK, rc=0**. It is slow on a shared, rationed host, not failing.
+- test_release_versions passes, with the two bumped rows.
+- These all pass: test_launch, test_launch0*, test_w4_l0_product_readiness,
+  test_w4_cap1_placemat_price, test_w4_placemat_reprice, test_w4_catalog_reconciliation,
+  test_w4_creative_brief and test_w4_pipe_name_truth.
+
+**Required set:** test_vacuity, test_launch, test_cost_governance_wave2, test_search_hero_publish,
+test_cert_listing_frames and test_v11_autonomy_timeline all pass.

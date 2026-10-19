@@ -148,7 +148,9 @@ FAMILIES: dict[str, list[dict]] = {
         # W4-PRODREADY (owner directive 2026-10-19): the CIR draws stripes and scattered raised
         # crosses, no snowflake outline; "snowflake" phrases are refused by launch0.motif_promise.
         {"family": "motif", "intent": "attribute", "priority": 1,
-         "phrases": ["striped ornament", "textured ornament", "stripe crochet"]},
+         "phrases": ["stripe ornament", "textured ornament", "stripe crochet"]},
+        {"family": "colour_pattern", "intent": "attribute", "priority": 2,
+         "phrases": ["two color crochet", "worsted yarn"]},
         {"family": "set_count", "intent": "attribute", "priority": 1,
          "phrases": ["set of 6 ornaments"]},
         {"family": "occasion_use", "intent": "use/room", "priority": 2,
@@ -245,9 +247,9 @@ TAGS: dict[str, list[str]] = {
         "textured crochet", "diamond crochet", "two color crochet", "beginner crochet",
         "pdf crochet pattern"],
     "nordic-star-ornaments": [
-        "ornament pattern", "crochet ornament", "striped ornament", "textured ornament",
-        "stripe crochet", "set of 6 ornaments", "christmas ornament", "christmas crochet",
-        "holiday decor", "two color crochet", "christmas decor", "textured crochet",
+        "ornament pattern", "crochet ornament", "stripe ornament", "stripe crochet",
+        "set of 6 ornaments", "christmas ornament", "christmas crochet", "holiday decor",
+        "two color crochet", "christmas decor", "textured crochet", "worsted yarn",
         "pdf crochet pattern"],
     "winter-village-graphghan": [
         "throw pattern", "crochet throw", "crochet blanket", "blanket pattern",
