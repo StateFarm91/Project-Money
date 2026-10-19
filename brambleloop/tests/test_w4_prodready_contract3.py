@@ -113,6 +113,7 @@ def test_every_lettered_line_of_the_disclosed_set_is_legible_where_shown():
 
 def test_the_honest_frames_still_verify_pass():
     for key in BUILDS:
+        assert _set(key), key
         for rf in _set(key):
             r = _verdict(rf.png, key, rf.view)
             assert r["status"] == "PASS", (key, rf.view, [c for c in r["checks"]
