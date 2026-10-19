@@ -423,28 +423,41 @@ def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplica
     """F-663: owner actions 19/20 were one decision shown twice."""
     from brambleloop.build2 import executor
 
-    # W4-B2GATES: the example gate is image_vision (fund_model; 14 rows truly parked on it).
-    # It was model_provider, whose card existed only because a stale table entry claimed it
-    # unblocked #94, a data-gated row no model call opens; that card is now correctly
-    # suppressed. The merge assertions below are unchanged, and the card must also be real:
-    # it unblocks rows, and every one of them is parked on this very gate.
+    # W4-PRODREADY: the example gate is benchmark_purchases (spend; 5 rows truly parked on it).
+    # It was image_vision until Build 2 #61 closed: #61 was the last row parked on
+    # image_vision, so that gate now unblocks nothing and its card is correctly suppressed
+    # (asserted below, as the etsy_shop card is). Before that it was model_provider, whose
+    # card existed only because a stale table entry claimed it unblocked #94. The merge
+    # assertions are unchanged, and the card must also be real: it unblocks rows, and every
+    # one of them is parked on this very gate.
     seeded()
     with main.db.session() as s:
-        row = OwnerAction(requirement_key="image_vision",
-                          action="Fund a vision-capable model MERGE-SENTINEL", max_cost_cad=20.0,
+        row = OwnerAction(requirement_key="benchmark_purchases",
+                          action="Buy the benchmark patterns MERGE-SENTINEL", max_cost_cad=20.0,
                           minutes=5)
         s.add(row)
         s.flush()
         rid = row.id
+        stale = OwnerAction(requirement_key="image_vision",
+                            action="Fund a vision-capable model STALE-SENTINEL",
+                            max_cost_cad=20.0, minutes=5)
+        s.add(stale)
+        s.flush()
+        sid = stale.id
     inbox = executor.approval_inbox(main.db, env=dict(os.environ))
-    model_cards = [c for c in inbox["cards"] if c["gate"] == "image_vision"]
-    assert len(model_cards) == 1
-    assert rid in model_cards[0]["merged_owner_action_ids"]
-    assert model_cards[0]["unblocks"] and all(
-        executor.gate_for(u) == "image_vision" for u in model_cards[0]["unblocks"])
+    cards = [c for c in inbox["cards"] if c["gate"] == "benchmark_purchases"]
+    assert len(cards) == 1
+    assert rid in cards[0]["merged_owner_action_ids"]
+    assert cards[0]["unblocks"] and all(
+        executor.gate_for(u) == "benchmark_purchases" for u in cards[0]["unblocks"])
+    # A legacy row for a gate that parks nothing is accounted for, not dropped, and not a card.
+    assert not [c for c in inbox["cards"] if c["gate"] == "image_vision"]
+    vision = [g for g in inbox["suppressed_unblocks_nothing"] if g["gate"] == "image_vision"]
+    assert len(vision) == 1 and sid in vision[0]["owner_action_ids"], vision
     html = seeded().get("/").text
     assert html.count("MERGE-SENTINEL") == 1
     with main.db.session() as s:
+        s.get(OwnerAction, sid).done = True
         s.get(OwnerAction, rid).done = True
 
 

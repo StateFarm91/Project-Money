@@ -1,14 +1,14 @@
 {
- "as_of": "2026-10-12T22:17:51+00:00",
+ "as_of": "2026-10-19T13:00:54+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
-  "PROVEN": 227,
+  "PROVEN": 228,
   "OWNER-GATED": 42,
   "DATA-GATED": 41,
   "EXTERNAL-GATED": 6,
   "NOT-APPLICABLE": 3,
-  "OPEN-DEFECT": 1
+  "OPEN-DEFECT": 0
  },
  "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-12T03:35Z",
  "rows": [
@@ -2772,13 +2772,15 @@
    "id": 61,
    "title": "Visual Semantic QA",
    "section": "Visual asset production audit",
-   "registry_status": "partial",
-   "state": "OPEN-DEFECT",
-   "closure_state": "OPEN",
-   "why": "gate image_vision has opened; the remaining work is no longer parked",
+   "registry_status": "covered",
+   "state": "PROVEN",
+   "closure_state": "COMPLETE+PROVEN",
+   "why": "module publish/layout_qa.py exists and is tested",
    "evidence": {
     "tests": [
-     "tests/test_cert_listing_frames.py"
+     "tests/test_cert_listing_frames.py",
+     "tests/test_w4_b2close2.py",
+     "tests/test_w4_visrole.py"
     ],
     "tested_modules": [
      "publish/layout_qa.py",
