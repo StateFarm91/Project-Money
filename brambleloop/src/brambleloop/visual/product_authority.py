@@ -15,7 +15,9 @@ import hashlib
 # 1.0.0 is withdrawn: its frames carried unverified annotation text (PT-05).
 # disclosed-render-assembled/1.0.0 (W4-RENDER) is qualified with its verifier
 # `render_verification._verify_assembled` (W4-VISUAL2), which measures its hero/scale.
-QUALIFIED_RENDERERS = frozenset({"disclosed-render/2.0.0", "disclosed-render-assembled/1.0.0"})
+# W4-PRODREADY: contract 3 (legible lettering) replaces contract 2; a 2.x render letters its
+# disclosure at 6.6 px in a phone gallery and no longer qualifies.
+QUALIFIED_RENDERERS = frozenset({"disclosed-render/3.0.0", "disclosed-render-assembled/2.0.0"})
 
 
 def redraw_refusal(slug):

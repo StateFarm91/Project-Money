@@ -65,7 +65,9 @@ IMAGERY: frozenset[str] = frozenset({
     "birds", "deer", "reindeer", "mushroom", "mushrooms", "bee", "bees", "cloud", "clouds",
 })
 MOTIF_IMAGERY: dict[str, frozenset[str]] = {
-    "snowfall": frozenset({"snow", "snowfall", "snowflake", "snowflakes"}),
+    # W4-PRODREADY (owner directive 2026-10-19): snowfall is scattered raised 3 x 3 crosses;
+    # it carries "snow" and "snowfall", not a snowflake outline (launch0.MOTIF_DECLARATIONS).
+    "snowfall": frozenset({"snow", "snowfall"}),
     "fir-and-star": frozenset({"fir", "star", "stars", "tree", "trees"}),
     "heart-row": frozenset({"heart", "hearts"}),
     "pumpkin-row": frozenset({"pumpkin", "pumpkins", "gourd"}),
@@ -343,7 +345,7 @@ CATALOGUE_BRIEFS: dict[str, EmotionalBrief] = {
                   "evenings after the holidays"),
         gifting=("Given to a grandparent on Christmas morning by the grandchild who made it, "
                  "to stay over the arm of their chair all winter."),
-        sensory=("raised double crochet snowflakes standing above a flat single crochet "
+        sensory=("raised double crochet flakes standing above a flat single crochet "
                  "ground",
                  "deep forest and cream rows that read as snowfall from across the room"),
         handmade_life=("A winter-long make that turns a season of evenings into a gift a "
@@ -374,12 +376,13 @@ CATALOGUE_BRIEFS: dict[str, EmotionalBrief] = {
         key="nordic-star-ornaments", recipient="newlyweds", occasion="christmas",
         feeling="heirloom",
         moment=("A couple decorate their first tree together in a new home, and the first "
-                "six things on its branches are snowflakes made for them that autumn."),
+                "six things on its branches are ornaments made for them that autumn."),
         function=("gives a couple their first set of ornaments that will come out of the box "
                   "every December of their married life"),
         gifting=("Given in early December to newlyweds or a couple in their first home "
                  "together, ready for the first tree they trim."),
-        sensory=("six small raised snowflake panels, each about ten by fifteen centimetres",
+        sensory=("six small striped panels scattered with raised crosses, each about ten "
+                 "centimetres square",
                  "crisp forest and cream rows that read clearly against green needles"),
         handmade_life=("Six quick pieces that start a family's own box of decorations with "
                        "something made rather than bought."),

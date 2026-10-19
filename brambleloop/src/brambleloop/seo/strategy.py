@@ -145,9 +145,10 @@ FAMILIES: dict[str, list[dict]] = {
     "nordic-star-ornaments": [
         {"family": "object_core", "intent": "object+format", "priority": 1,
          "phrases": ["ornament pattern", "crochet ornament", "christmas ornament"]},
+        # W4-PRODREADY (owner directive 2026-10-19): the CIR draws stripes and scattered raised
+        # crosses, no snowflake outline; "snowflake" phrases are refused by launch0.motif_promise.
         {"family": "motif", "intent": "attribute", "priority": 1,
-         "phrases": ["snowflake ornament", "crochet snowflake", "snowflake pattern",
-                     "nordic snowflake"]},
+         "phrases": ["striped ornament", "textured ornament", "stripe crochet"]},
         {"family": "set_count", "intent": "attribute", "priority": 1,
          "phrases": ["set of 6 ornaments"]},
         {"family": "occasion_use", "intent": "use/room", "priority": 2,
@@ -244,9 +245,9 @@ TAGS: dict[str, list[str]] = {
         "textured crochet", "diamond crochet", "two color crochet", "beginner crochet",
         "pdf crochet pattern"],
     "nordic-star-ornaments": [
-        "ornament pattern", "crochet ornament", "snowflake ornament", "crochet snowflake",
-        "snowflake pattern", "set of 6 ornaments", "christmas ornament", "christmas crochet",
-        "holiday decor", "nordic snowflake", "christmas decor", "textured crochet",
+        "ornament pattern", "crochet ornament", "striped ornament", "textured ornament",
+        "stripe crochet", "set of 6 ornaments", "christmas ornament", "christmas crochet",
+        "holiday decor", "two color crochet", "christmas decor", "textured crochet",
         "pdf crochet pattern"],
     "winter-village-graphghan": [
         "throw pattern", "crochet throw", "crochet blanket", "blanket pattern",
@@ -280,7 +281,7 @@ TITLES: dict[str, str] = {
                             "Confident Beginner | PDF with Chart, US and UK Terms"),
     "cloudline-baby-blanket": ("Textured Baby Blanket Crochet Pattern | Cloudline Diamond "
                                "Lattice in Two Colors | PDF with Chart, US and UK Terms"),
-    "nordic-star-ornaments": ("Snowflake Ornament Crochet Pattern, Set of 6 | Nordic "
+    "nordic-star-ornaments": ("Ornament Crochet Pattern, Set of 6 | Textured Stripe "
                               "Christmas Decor | Worsted Yarn | PDF with Chart, US and UK "
                               "Terms"),
     "winter-village-graphghan": ("Winter Throw Blanket Crochet Pattern | Snowfall Texture in "
@@ -288,8 +289,8 @@ TITLES: dict[str, str] = {
     "nordic-forest-mosaic-throw-baby": ("Baby Blanket Crochet Pattern | Nordic Fir and Star "
                                         "Texture in Two Colors | Worsted Yarn | PDF with "
                                         "Chart, US and UK Terms"),
-    "mosaic-placemat-pair": ("Placemat Crochet Pattern, Set of 2 | Diamond Lattice Texture in "
-                             "Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms"),
+    "mosaic-placemat-pair": ("Placemat Crochet Pattern, Set of 2 | Raised Diamond Lattice "
+                             "Texture | Worsted Yarn | PDF with Chart, US and UK Terms"),
     "housewarming-key-basket": ("Key Basket Crochet Pattern | Basketweave Texture in Pine and "
                                 "Cream | Worsted Cotton | PDF with Chart, US and UK Terms"),
 }
@@ -348,7 +349,7 @@ def _description(facts, cand) -> dict:
     obj = {"nursery-nesting-baskets": "a set of three hexagon nesting baskets",
            "hexagon-coaster-set": "a set of four hexagon coasters",
            "cloudline-baby-blanket": "the Cloudline baby blanket",
-           "nordic-star-ornaments": "a set of six snowflake ornaments",
+           "nordic-star-ornaments": "a set of six textured stripe ornaments",
            "winter-village-graphghan": "the Winter Snowfall throw"}.get(cand.slug,
                                                                       cand.title.lower())
     lead = {
@@ -365,9 +366,9 @@ def _description(facts, cand) -> dict:
             "over a single crochet ground, in two colors that change every two rows, with "
             "plain cream rows at each end."),
         "nordic-star-ornaments": (
-            "Make a set of six snowflake ornaments: small flat pieces worked in rows, the "
-            "snowflake a raised double crochet relief over a single crochet ground, in two "
-            "colors, one color per row."),
+            "Make a set of six textured stripe ornaments: small flat pieces worked in rows, "
+            "two colors alternating every row, with small raised double crochet crosses "
+            "scattered over a single crochet ground."),
         "winter-village-graphghan": (
             "Make the Winter Snowfall throw: a sparse snowfall of raised double crochet over "
             "a single crochet ground, worked flat in two colors, one color per row."),

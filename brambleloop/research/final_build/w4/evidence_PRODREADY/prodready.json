@@ -1,0 +1,4264 @@
+{
+ "generated_seconds": 445.9,
+ "chain": null,
+ "checks": [
+  "certification",
+  "product_truth",
+  "pdfs",
+  "recovery",
+  "listing_images",
+  "legibility",
+  "hero_thumbnail",
+  "visual_roles",
+  "price",
+  "copy",
+  "publish_gate"
+ ],
+ "products": [
+  {
+   "candidate": "nursery-nesting-baskets",
+   "title": "Nesting Baskets, three sizes",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "market-basket-small",
+     "version": "1.2.0",
+     "release": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+     "label": "16.0 cm across the points, 13.9 cm across the flats, 9 cm tall",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 380817,
+        "sha256": "f22752fe6904bb81e92661c030c822e590aeadec9f9b26128153ea0aa541978f",
+        "certified_sha256": "f22752fe6904bb81e92661c030c822e590aeadec9f9b26128153ea0aa541978f",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-small",
+         "is_a_childrens_product": true,
+         "pages": 9,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 380825,
+        "sha256": "e070fe375287748f4b6b96788449b562605aa71932000991a3544f47a3391e8a",
+        "certified_sha256": "e070fe375287748f4b6b96788449b562605aa71932000991a3544f47a3391e8a",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-small",
+         "is_a_childrens_product": true,
+         "pages": 9,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+      "certified_content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 9 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "market-basket-small-frame-1.png",
+       "market-basket-small-frame-2.png",
+       "market-basket-small-frame-3.png",
+       "market-basket-small-frame-4.png",
+       "market-basket-small-frame-5.png",
+       "market-basket-small-frame-6.png",
+       "market-basket-small-frame-7.png",
+       "market-basket-small-frame-8.png",
+       "market-basket-small-frame-9.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 9 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Crochet Hexagonal Bread Basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.2.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted cotton (cream); worsted cotton (wine)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Join each round with a sl st to the first stitch, then ch 1",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "to begin the next round.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 1 (cream): 6 sc in magic ring. (6 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 2 (cream): [inc in next st] x 6. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 3 (cream): [sc in next st, inc in next st] x 6. (18 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 4 (cream): [sc in next 2 sts, inc in next st] x 6. (24",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 5 (cream): [sc in next 3 sts, inc in next st] x 6. (30",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 6 (cream): [sc in next 4 sts, inc in next st] x 6. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 7 (cream): [sc in next 5 sts, inc in next st] x 6. (42",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-small-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-small-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-7.png",
+         "frame": "gallery SIZING",
+         "lines": 9,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-8.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-small-frame-9.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$6.5; launch0.price_plan CA$6.5 (proposed CA$6.5); net after fees CA$5.6045 (modelled)",
+      "listing_cad": 6.5,
+      "plan_cad": 6.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 105,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    },
+    {
+     "slug": "market-basket-medium",
+     "version": "1.2.0",
+     "release": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+     "label": "20.8 cm across the points, 18.0 cm across the flats, 16 cm tall",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 388611,
+        "sha256": "8c9cf6e644c3d1a77719a427e425b9cb97e99de52ede0277c6da9ac7561a7731",
+        "certified_sha256": "8c9cf6e644c3d1a77719a427e425b9cb97e99de52ede0277c6da9ac7561a7731",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-medium",
+         "is_a_childrens_product": true,
+         "pages": 10,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 388625,
+        "sha256": "454a606a117d2152c02b96cb257852745057852b600abe4139ab23d9de0819f5",
+        "certified_sha256": "454a606a117d2152c02b96cb257852745057852b600abe4139ab23d9de0819f5",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-medium",
+         "is_a_childrens_product": true,
+         "pages": 10,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+      "certified_content_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 8 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "market-basket-medium-frame-1.png",
+       "market-basket-medium-frame-2.png",
+       "market-basket-medium-frame-3.png",
+       "market-basket-medium-frame-4.png",
+       "market-basket-medium-frame-5.png",
+       "market-basket-medium-frame-6.png",
+       "market-basket-medium-frame-7.png",
+       "market-basket-medium-frame-8.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Crochet Hexagonal Storage Basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.2.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted cotton (cream); worsted cotton (wine)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Join each round with a sl st to the first stitch, then ch 1",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "to begin the next round.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 1 (cream): 6 sc in magic ring. (6 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 2 (cream): [inc in next st] x 6. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 3 (cream): [sc in next st, inc in next st] x 6. (18 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 4 (cream): [sc in next 2 sts, inc in next st] x 6. (24",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 5 (cream): [sc in next 3 sts, inc in next st] x 6. (30",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 6 (cream): [sc in next 4 sts, inc in next st] x 6. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 7 (cream): [sc in next 5 sts, inc in next st] x 6. (42",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-medium-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-medium-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-medium-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$6.5; launch0.price_plan CA$6.5 (proposed CA$6.5); net after fees CA$5.6045 (modelled)",
+      "listing_cad": 6.5,
+      "plan_cad": 6.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 107,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    },
+    {
+     "slug": "market-basket-large",
+     "version": "1.2.0",
+     "release": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+     "label": "25.6 cm across the points, 22.2 cm across the flats, 23 cm tall",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 327248,
+        "sha256": "12e0dc7efe6f9678598a83a004c67296749759b83d65219807721cc1e31c99c4",
+        "certified_sha256": "12e0dc7efe6f9678598a83a004c67296749759b83d65219807721cc1e31c99c4",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-large",
+         "is_a_childrens_product": true,
+         "pages": 11,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 327254,
+        "sha256": "b94a7ec2e244e8e1a839aa425bf1a38512540ca9c3e10a5b21f63fd384fe6739",
+        "certified_sha256": "b94a7ec2e244e8e1a839aa425bf1a38512540ca9c3e10a5b21f63fd384fe6739",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "market-basket-large",
+         "is_a_childrens_product": true,
+         "pages": 11,
+         "subcategory": "nursery_decor",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+      "certified_content_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 8 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "market-basket-large-frame-1.png",
+       "market-basket-large-frame-2.png",
+       "market-basket-large-frame-3.png",
+       "market-basket-large-frame-4.png",
+       "market-basket-large-frame-5.png",
+       "market-basket-large-frame-6.png",
+       "market-basket-large-frame-7.png",
+       "market-basket-large-frame-8.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Crochet Hexagonal Market Basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.2.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted cotton (cream); worsted cotton (wine)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Join each round with a sl st to the first stitch, then ch 1",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "to begin the next round.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 1 (cream): 6 sc in magic ring. (6 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 2 (cream): [inc in next st] x 6. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 3 (cream): [sc in next st, inc in next st] x 6. (18 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 4 (cream): [sc in next 2 sts, inc in next st] x 6. (24",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 5 (cream): [sc in next 3 sts, inc in next st] x 6. (30",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 6 (cream): [sc in next 4 sts, inc in next st] x 6. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 7 (cream): [sc in next 5 sts, inc in next st] x 6. (42",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "market-basket-large-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "market-basket-large-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "market-basket-large-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$6.5; launch0.price_plan CA$6.5 (proposed CA$6.5); net after fees CA$5.6045 (modelled)",
+      "listing_cad": 6.5,
+      "plan_cad": 6.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 106,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "cloudline-baby-blanket",
+   "title": "Cloudline Baby Blanket",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "cloudline-baby-blanket",
+     "version": "1.2.0",
+     "release": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+     "label": "79.2 x 96.4 cm",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 1081013,
+        "sha256": "93fbfd6a8a3319e2aa29490a89e4c0b17dd2f81c3a75e5b4317b693ee6f6ee4f",
+        "certified_sha256": "93fbfd6a8a3319e2aa29490a89e4c0b17dd2f81c3a75e5b4317b693ee6f6ee4f",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "cloudline-baby-blanket",
+         "is_a_childrens_product": true,
+         "pages": 35,
+         "subcategory": "baby_blanket",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 1080978,
+        "sha256": "564c50f935055e2ec0d27b40f00c9d3d1c9aa556b514e547577ad9c7709c35ed",
+        "certified_sha256": "564c50f935055e2ec0d27b40f00c9d3d1c9aa556b514e547577ad9c7709c35ed",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "cloudline-baby-blanket",
+         "is_a_childrens_product": true,
+         "pages": 35,
+         "subcategory": "baby_blanket",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+      "certified_content_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "cloudline-baby-blanket-frame-1.png",
+       "cloudline-baby-blanket-frame-2.png",
+       "cloudline-baby-blanket-frame-3.png",
+       "cloudline-baby-blanket-frame-4.png",
+       "cloudline-baby-blanket-frame-5.png",
+       "cloudline-baby-blanket-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Cloudline Textured Baby Blanket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.2.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted acrylic; worsted acrylic",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## panel",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Foundation: ch 99.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 1 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 2 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 3 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 4 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 5 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 6 (cream): Ch 1, turn. sc in next 99 sts. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 7 (ink): Ch 1, turn. [sc in next 4 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 4 sts] x 11. (99 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "7": {
+        "role": "collection",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "cloudline-baby-blanket-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "cloudline-baby-blanket-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "7": {
+        "role": "collection",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$7.5; launch0.price_plan CA$7.5 (proposed CA$7.5); net after fees CA$6.5095 (modelled)",
+      "listing_cad": 7.5,
+      "plan_cad": 7.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 104,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "hexagon-coaster-set",
+   "title": "Hexagon Coaster Set (4)",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "hexagon-coaster-set",
+     "version": "1.2.0",
+     "release": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+     "label": "4 pieces, 9.7 cm across the points, 8.4 cm across the flats",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 60878,
+        "sha256": "2347c6d9d55668d4cece800e198695c0458c993e7abb0ab20ca162f8f1f45f7f",
+        "certified_sha256": "2347c6d9d55668d4cece800e198695c0458c993e7abb0ab20ca162f8f1f45f7f",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "hexagon-coaster-set",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 60885,
+        "sha256": "11c951540e818d34e01edc0a199a038103e79036f5083601bfc18cad87bcb642",
+        "certified_sha256": "11c951540e818d34e01edc0a199a038103e79036f5083601bfc18cad87bcb642",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "hexagon-coaster-set",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+      "certified_content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "hexagon-coaster-set-frame-1.png",
+       "hexagon-coaster-set-frame-2.png",
+       "hexagon-coaster-set-frame-3.png",
+       "hexagon-coaster-set-frame-4.png",
+       "hexagon-coaster-set-frame-5.png",
+       "hexagon-coaster-set-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Hexagon Coaster Set",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.2.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 14.5 sts x 16.0 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: dk cotton (cream); dk cotton (wine)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## coaster (make 4)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Join each round with a sl st to the first stitch, then ch 1",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "to begin the next round.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 1 (cream): 6 sc in magic ring. (6 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 2 (cream): [inc in next st] x 6. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 3 (cream): [sc in next st, inc in next st] x 6. (18 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 4 (cream): [sc in next 2 sts, inc in next st] x 6. (24",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 5 (cream): [sc in next 3 sts, inc in next st] x 6. (30",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 6 (wine): [sc in next 4 sts, inc in next st] x 6. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 7 (cream): [sc in next 5 sts, inc in next st] x 6. (42",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "hexagon-coaster-set-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "hexagon-coaster-set-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "hexagon-coaster-set-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "hexagon-coaster-set-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$4.0; launch0.price_plan CA$4.0 (proposed CA$4.0); net after fees CA$3.342 (modelled)",
+      "listing_cad": 4.0,
+      "plan_cad": 4.0
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 92,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "nordic-star-ornaments",
+   "title": "Textured Stripe Ornament Set (6)",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "nordic-star-ornaments",
+     "version": "1.5.0",
+     "release": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711",
+     "label": "6 pieces, 9.6 x 10.2 cm each",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 47001,
+        "sha256": "ca9af8ebec0d726a06ff345fb2e73fcdf7e35089649a3361648d3cba10cc97ed",
+        "certified_sha256": "ca9af8ebec0d726a06ff345fb2e73fcdf7e35089649a3361648d3cba10cc97ed",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "nordic-star-ornaments",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 46998,
+        "sha256": "66336a513a13525ab215d601b2cbdea4df827b8866d3f45311caca0cfec92180",
+        "certified_sha256": "66336a513a13525ab215d601b2cbdea4df827b8866d3f45311caca0cfec92180",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "nordic-star-ornaments",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711",
+      "certified_content_hash": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "nordic-star-ornaments-frame-1.png",
+       "nordic-star-ornaments-frame-2.png",
+       "nordic-star-ornaments-frame-3.png",
+       "nordic-star-ornaments-frame-4.png",
+       "nordic-star-ornaments-frame-5.png",
+       "nordic-star-ornaments-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Textured Stripe Ornament Set (6)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.5.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted acrylic; worsted acrylic",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## panel (make 6)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Foundation: ch 12.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 1 (forest): Ch 1, turn. sc in next 12 sts. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 2 (cream): Ch 1, turn. [sc in next 3 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 6 sts, dc in next st, sc in next st] x 1. (12",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 3 (forest): Ch 1, turn. [sc in next 2 sts, dc in next 3",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 4 sts, dc in next 3 sts] x 1. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 4 (cream): Ch 1, turn. [sc in next 3 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 6 sts, dc in next st, sc in next st] x 1. (12",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 5 (forest): Ch 1, turn. [sc in next 12 sts] x 1. (12",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 6 (cream): Ch 1, turn. [sc in next 7 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 4 sts] x 1. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 7 (forest): Ch 1, turn. [sc in next 6 sts, dc in next 3",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "7": {
+        "role": "collection",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "nordic-star-ornaments-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-star-ornaments-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-star-ornaments-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-star-ornaments-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "7": {
+        "role": "collection",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$4.5; launch0.price_plan CA$4.5 (proposed CA$4.5); net after fees CA$3.7945 (modelled)",
+      "listing_cad": 4.5,
+      "plan_cad": 4.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Textured Stripe Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
+      "title_chars": 72,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3c97c95970d3); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "winter-village-graphghan",
+   "title": "Winter Snowfall Relief Throw",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "winter-village-graphghan",
+     "version": "1.3.0",
+     "release": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+     "label": "86.4 x 91.8 cm",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 45997,
+        "sha256": "c9c856f3df45321536b4619824994299ece4ece3fa09bc19158226fbf3acf565",
+        "certified_sha256": "c9c856f3df45321536b4619824994299ece4ece3fa09bc19158226fbf3acf565",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "winter-village-graphghan",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 45996,
+        "sha256": "0ae3e365517a3e52565a3aef1b2e131a21a3939265ff89f8d96c8681896fd97b",
+        "certified_sha256": "0ae3e365517a3e52565a3aef1b2e131a21a3939265ff89f8d96c8681896fd97b",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "winter-village-graphghan",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+      "certified_content_hash": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "winter-village-graphghan-frame-1.png",
+       "winter-village-graphghan-frame-2.png",
+       "winter-village-graphghan-frame-3.png",
+       "winter-village-graphghan-frame-4.png",
+       "winter-village-graphghan-frame-5.png",
+       "winter-village-graphghan-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Winter Snowfall Relief Throw",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.3.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted acrylic; worsted acrylic",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## panel",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Foundation: ch 108.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 1 (forest): Ch 1, turn. sc in next 108 sts. (108 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 2 (cream): Ch 1, turn. [sc in next 3 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 6 sts, dc in next st, sc in next st] x 9. (108",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 3 (forest): Ch 1, turn. [sc in next 2 sts, dc in next 3",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 4 sts, dc in next 3 sts] x 9. (108 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 4 (cream): Ch 1, turn. [sc in next 3 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 6 sts, dc in next st, sc in next st] x 9. (108",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 5 (forest): Ch 1, turn. [sc in next 12 sts] x 9. (108",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 6 (cream): Ch 1, turn. [sc in next 7 sts, dc in next st,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 4 sts] x 9. (108 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 7 (forest): Ch 1, turn. [sc in next 6 sts, dc in next 3",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "winter-village-graphghan-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "winter-village-graphghan-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "winter-village-graphghan-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "winter-village-graphghan-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$7.5; launch0.price_plan CA$7.5 (proposed CA$7.5); net after fees CA$6.5095 (modelled)",
+      "listing_cad": 7.5,
+      "plan_cad": 7.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket | US and UK Terms",
+      "title_chars": 78,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "housewarming-key-basket",
+     "version": "0.1.0",
+     "release": "142b52f0f9c62e9f3b22a96fd13bf0ae387108fc8b2293d78cad1980b75d7760",
+     "label": "18.3 x 11.1 cm",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 361432,
+        "sha256": "dbff095515cbd0de3dd3b84ada1bebbded12a8d3da01ef00715c94fe7359845c",
+        "certified_sha256": "dbff095515cbd0de3dd3b84ada1bebbded12a8d3da01ef00715c94fe7359845c",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "housewarming-key-basket",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 361433,
+        "sha256": "06e31dac40a6a66e7951317d12a18823127dbc8c24144134993f0a9cc1f2df73",
+        "certified_sha256": "06e31dac40a6a66e7951317d12a18823127dbc8c24144134993f0a9cc1f2df73",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "housewarming-key-basket",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "142b52f0f9c62e9f3b22a96fd13bf0ae387108fc8b2293d78cad1980b75d7760",
+      "certified_content_hash": "142b52f0f9c62e9f3b22a96fd13bf0ae387108fc8b2293d78cad1980b75d7760"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 8 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "housewarming-key-basket-frame-1.png",
+       "housewarming-key-basket-frame-2.png",
+       "housewarming-key-basket-frame-3.png",
+       "housewarming-key-basket-frame-4.png",
+       "housewarming-key-basket-frame-5.png",
+       "housewarming-key-basket-frame-6.png",
+       "housewarming-key-basket-frame-7.png",
+       "housewarming-key-basket-frame-8.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 8 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Housewarming Key Basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 0.1.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted cotton (pine); worsted cotton (cream)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## basket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Join each round with a sl st to the first stitch, then ch 1",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "to begin the next round.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 1 (cream): 6 sc in magic ring. (6 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 2 (cream): [inc in next st] x 6. (12 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 3 (cream): [sc in next st, inc in next st] x 6. (18 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 4 (cream): [sc in next st, inc in next st, sc in next",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "st] x 6. (24 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 5 (cream): [sc in next 3 sts, inc in next st] x 6. (30",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 6 (cream): [sc in next 2 sts, inc in next st, sc in next",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "2 sts] x 6. (36 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Rnd 7 (cream): [sc in next 5 sts, inc in next st] x 6. (42",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "housewarming-key-basket-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 4,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-4.png",
+         "frame": "disclosed angle",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "housewarming-key-basket-frame-5.png",
+         "frame": "gallery CONSTRUCTION",
+         "lines": 5,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-6.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-7.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "housewarming-key-basket-frame-8.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$5.5; launch0.price_plan CA$5.5 (proposed CA$5.5); net after fees CA$4.6995 (modelled)",
+      "listing_cad": 5.5,
+      "plan_cad": 5.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Housewarming Key Basket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "title_chars": 96,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (142b52f0f9c6); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (142b52f0f9c6); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (142b52f0f9c6); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "mosaic-placemat-pair",
+   "title": "Raised Diamond Lattice Placemat Pair",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "mosaic-placemat-pair",
+     "version": "1.4.0",
+     "release": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc",
+     "label": "2 pieces, 28.8 x 47.7 cm each",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 49153,
+        "sha256": "94eb278e45cc960abd03a117b626c0e5beaa1a56b56b51cc11066eb9e6919c0c",
+        "certified_sha256": "94eb278e45cc960abd03a117b626c0e5beaa1a56b56b51cc11066eb9e6919c0c",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "mosaic-placemat-pair",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 49157,
+        "sha256": "57ef505539c038c471aaf8b65f16f464615f5d8783c8d3a0895d3fe2656c6a9a",
+        "certified_sha256": "57ef505539c038c471aaf8b65f16f464615f5d8783c8d3a0895d3fe2656c6a9a",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "mosaic-placemat-pair",
+         "is_a_childrens_product": false,
+         "required": [],
+         "present": [],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc",
+      "certified_content_hash": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "mosaic-placemat-pair-frame-1.png",
+       "mosaic-placemat-pair-frame-2.png",
+       "mosaic-placemat-pair-frame-3.png",
+       "mosaic-placemat-pair-frame-4.png",
+       "mosaic-placemat-pair-frame-5.png",
+       "mosaic-placemat-pair-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Raised Diamond Lattice Placemat Pair",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.4.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted acrylic; worsted acrylic",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## panel (make 2)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Foundation: ch 36.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 1 (cream): Ch 1, turn. sc in next 36 sts. (36 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 2 (wine): Ch 1, turn. [sc in next 3 sts, dc in next 3",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 3 sts] x 4. (36 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 3 (cream): Ch 1, turn. [sc in next 2 sts, dc in next 2",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next st, dc in next 2 sts, sc in next 2 sts] x 4.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "(36 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 4 (wine): Ch 1, turn. [sc in next st, dc in next 2 sts,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 3 sts, dc in next 2 sts, sc in next st] x 4. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 5 (cream): Ch 1, turn. [dc in next 2 sts, sc in next 5",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, dc in next 2 sts] x 4. (36 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 6 (wine): Ch 1, turn. [sc in next st, dc in next 2 sts,",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sc in next 3 sts, dc in next 2 sts, sc in next st] x 4. (36",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "mosaic-placemat-pair-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "mosaic-placemat-pair-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$5.0; launch0.price_plan CA$5.0 (proposed CA$5.0); net after fees CA$4.247 (modelled)",
+      "listing_cad": 5.0,
+      "plan_cad": 5.0
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Raised Diamond Lattice Placemat Pair | Crochet Pattern PDF | US and UK Terms",
+      "title_chars": 76,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5f1c939a89f9); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "candidate": "nordic-forest-mosaic-throw-baby",
+   "title": "Nordic Forest Relief Baby Blanket",
+   "named_by_owner": true,
+   "in_launch0_scope": true,
+   "ready": false,
+   "releases": [
+    {
+     "slug": "nordic-forest-mosaic-throw-baby",
+     "version": "1.3.0",
+     "release": "01679f95e4ddd1b73aff7247265063308f2cbf945be7a16b411aff738766996c",
+     "label": "57.6 x 67.8 cm",
+     "certification": {
+      "state": "PASS",
+      "why": "certificate granted for this release, nothing withheld",
+      "blocking": [],
+      "physical_proof": "not_required"
+     },
+     "product_truth": {
+      "state": "PASS",
+      "why": "gates {'compiles_clean': True, 'title_promise_backed': True, 'assembly_promise_backed': True, 'motif_promise_backed': True, 'fabric_claim_backed': True, 'size_label_backed': True}; physically calibrated: False"
+     },
+     "pdfs": {
+      "state": "PASS",
+      "why": "US and UK rendered; every package statement and the AI disclosure in each",
+      "per": {
+       "US": {
+        "bytes": 61071,
+        "sha256": "fcaf710d5a64adef4a0d5489fa485d7ce240ac7ece8b88ade2d16a8b5d8833f3",
+        "certified_sha256": "fcaf710d5a64adef4a0d5489fa485d7ce240ac7ece8b88ade2d16a8b5d8833f3",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "nordic-forest-mosaic-throw-baby",
+         "is_a_childrens_product": true,
+         "pages": 10,
+         "subcategory": "baby_blanket",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       },
+       "UK": {
+        "bytes": 60917,
+        "sha256": "5fc51e5ff89872161c1a503c9c4e485f06821b715a63a0af495abc82a608f2c7",
+        "certified_sha256": "5fc51e5ff89872161c1a503c9c4e485f06821b715a63a0af495abc82a608f2c7",
+        "byte_identical_to_certified": true,
+        "package_statements_missing": [],
+        "ai_disclosure_in_pdf": true,
+        "statement_audit": {
+         "slug": "nordic-forest-mosaic-throw-baby",
+         "is_a_childrens_product": true,
+         "pages": 10,
+         "subcategory": "baby_blanket",
+         "audience": "under_3",
+         "required": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "present": [
+          "age_suitability",
+          "fibre_and_care",
+          "not_legal_advice",
+          "safe_sleep",
+          "selling_finished_items"
+         ],
+         "missing": [],
+         "complete": true
+        }
+       }
+      }
+     },
+     "recovery": {
+      "state": "PASS",
+      "why": "fresh CIR build matches the certified content hash and both re-rendered PDFs are byte-identical to the certified files",
+      "content_hash": "01679f95e4ddd1b73aff7247265063308f2cbf945be7a16b411aff738766996c",
+      "certified_content_hash": "01679f95e4ddd1b73aff7247265063308f2cbf945be7a16b411aff738766996c"
+     },
+     "listing_images": {
+      "state": "PASS",
+      "why": "listing set PASS: listing set certified; 6 certified image(s) store.publish would upload; problems []",
+      "reasons": [],
+      "uploaded": [
+       "nordic-forest-mosaic-throw-baby-frame-1.png",
+       "nordic-forest-mosaic-throw-baby-frame-2.png",
+       "nordic-forest-mosaic-throw-baby-frame-3.png",
+       "nordic-forest-mosaic-throw-baby-frame-4.png",
+       "nordic-forest-mosaic-throw-baby-frame-5.png",
+       "nordic-forest-mosaic-throw-baby-frame-6.png"
+      ]
+     },
+     "legibility": {
+      "state": "PASS",
+      "why": "every essential line clears 11 px at its display size on the listing frames and on all 6 uploaded images",
+      "listing_frames": {
+       "1": {
+        "role": "hero",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "BRAMBLELOOP STUDIO",
+          "slot": "brand",
+          "px": 9.4
+         }
+        ]
+       },
+       "2": {
+        "role": "whats_included",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "3": {
+        "role": "size",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "4": {
+        "role": "materials",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "5": {
+        "role": "pattern_preview",
+        "ok": true,
+        "smallest_essential_px": 11.1,
+        "essential_failing": [],
+        "secondary_below_floor": [
+         {
+          "text": "Nordic Forest Relief Baby Blanket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Version 1.3.0",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Gauge: 12.5 sts x 13.8 rows = 10cm in sc, 5.0mm hook",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Materials: worsted acrylic; worsted acrylic",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Terminology: US terms",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "## blanket",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Foundation: ch 72.",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 1 (forest): Ch 1, turn. sc in next 72 sts. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 2 (cream): Ch 1, turn. [sc in next 5 sts, dc in next 2",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 5 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 3 (forest): Ch 1, turn. [sc in next 4 sts, dc in next 4",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 4 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 4 (cream): Ch 1, turn. [sc in next 3 sts, dc in next 6",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 3 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 5 (forest): Ch 1, turn. [sc in next 5 sts, dc in next 2",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 5 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 6 (cream): Ch 1, turn. [sc in next 4 sts, dc in next 4",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 4 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "Row 7 (forest): Ch 1, turn. [sc in next 3 sts, dc in next 6",
+          "slot": "excerpt",
+          "px": 9.4
+         },
+         {
+          "text": "sts, sc in next 3 sts] x 6. (72 sts)",
+          "slot": "excerpt",
+          "px": 9.4
+         }
+        ]
+       },
+       "6": {
+        "role": "chart",
+        "ok": true,
+        "smallest_essential_px": 17.7,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       },
+       "7": {
+        "role": "collection",
+        "ok": true,
+        "smallest_essential_px": 11.3,
+        "essential_failing": [],
+        "secondary_below_floor": []
+       }
+      },
+      "uploaded": {
+       "measured": [
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-1.png",
+         "frame": "disclosed hero",
+         "lines": 3,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-2.png",
+         "frame": "disclosed scale",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-3.png",
+         "frame": "disclosed detail",
+         "lines": 5,
+         "smallest_essential_px": 11.3
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-4.png",
+         "frame": "gallery COLOUR_CONTEXT",
+         "lines": 7,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-5.png",
+         "frame": "gallery MATERIALS",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        },
+        {
+         "image": "nordic-forest-mosaic-throw-baby-frame-6.png",
+         "frame": "contents",
+         "lines": 8,
+         "smallest_essential_px": 11.2
+        }
+       ],
+       "unmatched": [],
+       "failing": [],
+       "ok": true
+      },
+      "frame_plan_problems": []
+     },
+     "hero_thumbnail": {
+      "state": "FAIL",
+      "why": "search certificate refuses",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "visual_roles": {
+      "state": "UNKNOWN",
+      "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']",
+      "role_checks": {
+       "1": {
+        "role": "hero",
+        "visual_role": "disclosed_render",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "2": {
+        "role": "whats_included",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "3": {
+        "role": "size",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "4": {
+        "role": "materials",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "5": {
+        "role": "pattern_preview",
+        "visual_role": "pattern_preview",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "6": {
+        "role": "chart",
+        "visual_role": "chart",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       },
+       "7": {
+        "role": "collection",
+        "visual_role": "infographic",
+        "checks": {
+         "data_matches_record": true,
+         "text_legible_340": true,
+         "scale_not_misleading": true,
+         "no_third_party_marks": null,
+         "disclosure_present": true
+        }
+       }
+      }
+     },
+     "price": {
+      "state": "PASS",
+      "why": "listing carries the plan; stored listing CA$7.5; launch0.price_plan CA$7.5 (proposed CA$7.5); net after fees CA$6.5095 (modelled)",
+      "listing_cad": 7.5,
+      "plan_cad": 7.5
+     },
+     "copy": {
+      "state": "PASS",
+      "why": "disclosure section PASS (missing []); verbatim in the description: {'ai_assisted_design': True, 'disclosed_render': True}; AI disclosure in both PDFs: True",
+      "title": "Nordic Forest Relief Baby Blanket | Crochet Pattern PDF | US and UK Terms",
+      "title_chars": 73,
+      "tags": 13
+     },
+     "publish_gate": {
+      "state": "FAIL",
+      "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (01679f95e4dd); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (01679f95e4dd); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ]
+     },
+     "ready": false,
+     "blockers": [
+      {
+       "check": "hero_thumbnail",
+       "state": "FAIL",
+       "why": "search certificate refuses"
+      },
+      {
+       "check": "visual_roles",
+       "state": "UNKNOWN",
+       "why": "deterministic role checks pass on every non-photo frame; unanswered without a vision run: ['no_third_party_marks']; independent frame review: NOT reviewed (frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': ); parity UNKNOWN: unjudged ['competitive_blind_review', 'hero']"
+      },
+      {
+       "check": "publish_gate",
+       "state": "FAIL",
+       "why": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed; search certificate (F-004) attributes: no category, so no property schema to be complete against; FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (01679f95e4dd); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text; FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Ets"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "publishes_anything": false
+}

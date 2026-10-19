@@ -259,6 +259,35 @@ def pattern_subtree(nodes: list[dict]) -> list[dict]:
     return out
 
 
+# How many paths `name_evidence` reports per word. Enough to see where Etsy files patterns and
+# crochet; small enough for an audit row.
+NAME_EVIDENCE_MAX = 40
+
+
+def name_evidence(nodes: list[dict]) -> dict:
+    """W4-PRODREADY: the paths of every node whose OWN name says pattern or crochet.
+
+    Production read the real tree daily (3065 nodes) and `pattern_subtree` found nothing, so
+    every category stayed UNKNOWN and search certification refused -- with no record of what
+    the tree does contain. This is that record, written to the refresh audit row the existing
+    read-only `/api/audit?action=etsy.taxonomy_refreshed` serves, so the matcher can be
+    corrected from Etsy's own names rather than from remembered ones. Names only: no ids are
+    trusted and nothing here decides a category.
+    """
+    def paths(word: str) -> list[str]:
+        hits = [" > ".join(n["path_names"]) for n in nodes if word in n["name"].lower()]
+        return hits[:NAME_EVIDENCE_MAX]
+
+    pattern_children = []
+    for n in nodes:
+        if "pattern" in n["name"].lower():
+            kids = [c["name"] for c in nodes if c.get("parent_id") == n["id"]]
+            pattern_children.append({"path": " > ".join(n["path_names"]),
+                                     "children": kids[:NAME_EVIDENCE_MAX]})
+    return {"pattern_named": paths("pattern"), "crochet_named": paths("crochet"),
+            "pattern_node_children": pattern_children[:NAME_EVIDENCE_MAX]}
+
+
 def fingerprint(nodes: list[dict], properties: dict) -> str:
     blob = json.dumps({"nodes": nodes, "properties": properties}, sort_keys=True,
                       default=str).encode("utf-8")
@@ -394,6 +423,7 @@ def refresh(db, *, now: datetime | None = None) -> dict:
             "snapshot_id": sid, "new_snapshot": written, "nodes": len(nodes),
             "pattern_subtree": len(subtree), "properties_read": len(properties),
             "truncated": truncated,
+            "name_evidence": name_evidence(nodes) if not subtree else None,
             "why": ("read Etsy's taxonomy and the crochet-pattern subtree's property schemas"
                     if subtree else
                     "read Etsy's taxonomy; no node is named both pattern and crochet, so "

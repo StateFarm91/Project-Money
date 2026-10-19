@@ -49,7 +49,7 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_render"
-RENDERER_VERSION = "disclosed-render/2.0.0"
+RENDERER_VERSION = "disclosed-render/3.0.0"   # contract 3: legible lettering
 
 # The views a listing set is built from, and the gallery role each plays. One job each
 # (publish.eligibility.check_set refuses duplicate jobs).
@@ -230,7 +230,9 @@ def _scale_bar(d, px_per_cm: float) -> dict:
     o = K.SCALE_BAR_OUTLINE_PX
     d.rectangle([x0 - o, y0 - o, round(end) - 1 + o, y1 + o], outline=K.SCALE_DARK, width=o)
     label = K.scale_label(segments)
-    d.text(K.scale_label_xy(round(end), y0), label, fill=K.CAPTION, font=K.font(K.LABEL_PX))
+    xy = K.scale_label_xy(round(end), y0)
+    d.text(xy, label, fill=K.CAPTION, font=K.font(K.LABEL_PX))
+    d._bl_scale_label = (label, xy)   # recorded with the caption's lettering layout
     return {"segments_cm": segments, "x0": x0, "y0": y0, "px_per_cm": px_per_cm}
 
 
@@ -238,24 +240,28 @@ def _caption(d, lines: list[str] | None = None) -> dict:
     """The disclosure, and the contract annotation lines (`render_contract.annotation_lines`).
 
     Nothing else is ever lettered on a frame: the verifier re-draws exactly these words from
-    its own reading of the CIR and refuses any other text (PT-05)."""
+    its own reading of the CIR and refuses any other text (PT-05). Contract 3: both are set at
+    `render_contract.TEXT_PX` at positions `caption_layout` / `annotation_layout` compute, so
+    the producer and the verifier letter the same lines in the same places."""
+    try:
+        cap = K.caption_layout()
+        notes = K.annotation_layout(list(lines or []))
+    except K.LetteringRefused as exc:
+        raise RenderRefused(f"lettering does not fit the contract rows: {exc}") from exc
     f = K.font(K.CAPTION_PX)
-    text = K.DISCLOSURE
-    w = d.textlength(text, font=f)
-    x = round((K.CANVAS_PX - w) / 2)
-    y = round(K.CAPTION_TOP * K.CANVAS_PX)
-    d.text((x, y), text, fill=K.CAPTION, font=f)
-    out = {"text": text, "x": x, "y": y}
+    for line, xy in cap:
+        d.text(xy, line, fill=K.CAPTION, font=f)
+    out = {"text": K.DISCLOSURE, "x": cap[0][1][0], "y": cap[0][1][1],
+           "caption_lines": [t for t, _xy in cap]}
     if lines:
         lf = K.font(K.LABEL_PX)
-        widths = [d.textlength(line, font=lf) for line in lines]
-        positions = K.annotation_xy(widths)
-        if min(px for px, _py in positions) < K.ANNOTATION_MIN_X_FRACTION * K.CANVAS_PX:
-            raise RenderRefused("annotation text is too long for the scale zone")
-        for line, xy in zip(lines, positions):
+        for line, xy in notes:
             d.text(xy, line, fill=K.CAPTION, font=lf)
         out["label"] = " ".join(lines)
         out["lines"] = list(lines)
+        out["wrapped_lines"] = [t for t, _xy in notes]
+    scale = getattr(d, "_bl_scale_label", None)
+    out["text_layout"] = K.lettering(cap, notes, scale)
     return out
 
 

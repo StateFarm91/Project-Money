@@ -29,13 +29,16 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "pattern_contents_preview"
-VERSION = "contents-frame/1.0.0"
+VERSION = "contents-frame/2.0.0"   # contract 3: every lettered line legible where shown
 JOB = "CONTENTS"
 TERMINOLOGY = "US"            # the edition previewed; the others are listed, not shown
 MAX_PAGES_SHOWN = 4           # a 2 x 2 grid: legible at listing scale, honest about the rest
-TITLE_PX = 64
-BODY_PX = 46
-SMALL_PX = 36
+# D-W4-VISROLE-LEGIBILITY: the title reads at the 340 px grid (65 px needed), every other
+# lettered line in the 390 px phone gallery (57 px). 1.0.0 set 64 / 46 / 36 px: 10.9, 9.0
+# and 7.0 px where shown. The rasterised PDF pages are the document itself, not lettering.
+TITLE_PX = 66
+BODY_PX = K.TEXT_PX
+SMALL_PX = K.TEXT_PX
 PAGE_BORDER = (88, 70, 44)    # K.GAP: the page edge reads as a sheet on the sage canvas
 
 #: PDFium is not thread-safe: two threads inside it at once abort or segfault the whole
@@ -138,9 +141,20 @@ def _facts(pdf: bytes, pages: int, *, slug, version, title, editions) -> dict:
 
 # --------------------------------------------------------------------------- drawing
 
-def _text(d, xy, text: str, px: int) -> int:
-    d.text(xy, text, fill=K.CAPTION, font=K.font(px))
-    return int(round(px * 1.35))
+def _text(d, xy, text: str, px: int, *, max_w: float | None = None,
+          slot: str = "row_value") -> int:
+    """Letter `text`, wrapped to `max_w` when given, recording each line (`d._bl_layout`)."""
+    f = K.font(px)
+    lines = K.wrap(text, px, max_w) if max_w else [text]
+    step = int(round(px * 1.25))
+    rec = getattr(d, "_bl_layout", None)
+    for i, line in enumerate(lines):
+        at = (xy[0], xy[1] + i * step)
+        d.text(at, line, fill=K.CAPTION, font=f)
+        if rec is not None:
+            rec.append({"kind": "text", "text": line, "pt": px, "slot": slot,
+                        "box": list(d.textbbox(at, line, font=f))})
+    return step * len(lines)
 
 
 def _paste_pages(d, img, doc, f: dict, x0, y, x1, y1) -> None:
@@ -149,7 +163,7 @@ def _paste_pages(d, img, doc, f: dict, x0, y, x1, y1) -> None:
     cols = 2 if n > 1 else 1
     rows = (n + cols - 1) // cols
     gap = 48
-    label_h = int(SMALL_PX * 1.35) + 8
+    label_h = int(round(SMALL_PX * 1.25)) + 8
     cell_w = (x1 - x0 - gap * (cols - 1)) / cols
     cell_h = (y1 - y - gap * (rows - 1)) / rows - label_h
     for i in range(n):
@@ -167,34 +181,39 @@ def _paste_pages(d, img, doc, f: dict, x0, y, x1, y1) -> None:
         img.paste(bmp, (px, py))
         d.rectangle([px - 3, py - 3, px + bmp.width + 2, py + bmp.height + 2],
                     outline=PAGE_BORDER, width=3)
-        _text(d, (px, py + bmp.height + 8), f"Page {i + 1} of {f['pages']}", SMALL_PX)
+        _text(d, (px, py + bmp.height + 8), f"Page {i + 1} of {f['pages']}", SMALL_PX,
+              slot="caption")
 
 
-def draw(f: dict, pdf: bytes) -> bytes:
-    """Pixels from facts and the PDF's own pages. Producer and verifier both call this."""
+def draw(f: dict, pdf: bytes, layout: list | None = None) -> bytes:
+    """Pixels from facts and the PDF's own pages. Producer and verifier both call this.
+    `layout`, when given, receives every lettered line; the bytes do not depend on it."""
     import pypdfium2 as pdfium
 
     img = Image.new("RGB", (K.CANVAS_PX, K.CANVAS_PX), K.BACKGROUND)
     d = ImageDraw.Draw(img)
     d.fontmode = "1"
+    d._bl_layout = layout
     x0, y0, x1, y1 = K.zone_px(K.PRODUCT_ZONE)
     y = y0
-    y += _text(d, (x0, y), f"What you download: a {f['pages']}-page PDF pattern", TITLE_PX)
+    y += _text(d, (x0, y), f"What you download: a {f['pages']}-page PDF pattern", TITLE_PX,
+               max_w=x1 - x0, slot="headline")
     others = [e for e in f["editions"] if e != f["terminology"]]
     sub = (f"Shown: the {f['terminology']}-terms edition"
            + (f"; also included: {', '.join(others)}-terms edition" if others else ""))
-    y += _text(d, (x0, y), sub, SMALL_PX) + 24
+    y += _text(d, (x0, y), sub, SMALL_PX, max_w=x1 - x0) + 24
     with PDFIUM_LOCK:
         doc = pdfium.PdfDocument(pdf)
         try:
             _paste_pages(d, img, doc, f, x0, y, x1, y1)
         finally:
             doc.close()
-    label = preview_label()
     lf = K.font(K.CAPTION_PX)
-    w = d.textlength(label, font=lf)
-    d.text((round((K.CANVAS_PX - w) / 2), round(K.CAPTION_TOP * K.CANVAS_PX)), label,
-           fill=K.CAPTION, font=lf)
+    for line, xy in K.caption_layout(lines=[preview_label()]):
+        d.text(xy, line, fill=K.CAPTION, font=lf)
+        if layout is not None:
+            layout.append({"kind": "text", "text": line, "pt": K.CAPTION_PX,
+                           "slot": "disclosure", "box": list(d.textbbox(xy, line, font=lf))})
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=False, compress_level=9)
     return buf.getvalue()
@@ -204,9 +223,10 @@ def draw(f: dict, pdf: bytes) -> bytes:
 
 def render(pdf: bytes, *, slug: str, version: str, title: str, editions=()) -> ContentsFrame:
     f = facts(pdf, slug=slug, version=version, title=title, editions=editions)
-    png = draw(f, pdf)
+    layout: list = []
+    png = draw(f, pdf, layout)
     return ContentsFrame(png=png, manifest={
-        "kind": KIND, "version": VERSION, "job": JOB, "facts": f,
+        "kind": KIND, "version": VERSION, "job": JOB, "facts": f, "text_layout": layout,
         "label": preview_label(), "image_sha256": hashlib.sha256(png).hexdigest(),
         "generated": False, "photograph": False, "model_in_path": False})
 

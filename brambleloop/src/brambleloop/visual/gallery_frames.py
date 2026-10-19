@@ -43,7 +43,7 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_gallery_frame"
-VERSION = "gallery-frames/1.1.0"
+VERSION = "gallery-frames/2.0.0"   # contract 3: every lettered line legible where shown
 
 MATERIALS, COLOUR_CONTEXT, CONSTRUCTION, SIZING = (
     "MATERIALS", "COLOUR_CONTEXT", "CONSTRUCTION", "SIZING")
@@ -62,9 +62,14 @@ NOT_DRAWABLE = {
                  "certification (it needs the assets.built PDF on record)"),
 }
 
-TITLE_PX = 64
-BODY_PX = 50
-SMALL_PX = 40
+# Owner ruling 2026-10-19 (D-W4-VISROLE-LEGIBILITY): the title reads at the 340 px grid
+# (11 px needs 65 px here), every other line is essential text read in the 390 px phone
+# gallery (57 px). 1.x set 64 / 50 / 40 px: 10.9, 9.8 and 7.8 px where shown. Lines that no
+# longer fit wrap; nothing is shrunk below these.
+TITLE_PX = 66
+BODY_PX = K.TEXT_PX
+SMALL_PX = K.TEXT_PX
+LINE_H = int(round(K.TEXT_PX * 1.25))
 
 
 class FrameRefused(ValueError):
@@ -307,9 +312,22 @@ def _canvas():
     return img, d
 
 
-def _text(d, xy, text: str, px: int) -> int:
-    d.text(xy, text, fill=K.CAPTION, font=K.font(px))
-    return int(round(px * 1.35))
+def _text(d, xy, text: str, px: int, *, max_w: float | None = None,
+          slot: str = "row_value") -> int:
+    """Letter `text` (wrapped to `max_w` when given) and record each line's box, size and
+    slot on the draw (`d._bl_layout`) for the legibility measurement. Returns the height."""
+    f = K.font(px)
+    lines = K.wrap(text, px, max_w) if max_w else [text]
+    step = int(round(px * 1.25))
+    x, y = xy
+    rec = getattr(d, "_bl_layout", None)
+    for i, line in enumerate(lines):
+        at = (x, y + i * step)
+        d.text(at, line, fill=K.CAPTION, font=f)
+        if rec is not None:
+            rec.append({"kind": "text", "text": line, "pt": px, "slot": slot,
+                        "box": list(d.textbbox(at, line, font=f))})
+    return step * len(lines)
 
 
 def _chip(d, x: float, y: float, w: float, h: float, rgb, *, cols: int, rows: int) -> None:
@@ -324,9 +342,12 @@ def _chip(d, x: float, y: float, w: float, h: float, rgb, *, cols: int, rows: in
 
 def _disclosure(d) -> None:
     f = K.font(K.CAPTION_PX)
-    w = d.textlength(K.DISCLOSURE, font=f)
-    d.text((round((K.CANVAS_PX - w) / 2), round(K.CAPTION_TOP * K.CANVAS_PX)), K.DISCLOSURE,
-           fill=K.CAPTION, font=f)
+    rec = getattr(d, "_bl_layout", None)
+    for line, xy in K.caption_layout():
+        d.text(xy, line, fill=K.CAPTION, font=f)
+        if rec is not None:
+            rec.append({"kind": "text", "text": line, "pt": K.CAPTION_PX,
+                        "slot": "disclosure", "box": list(d.textbbox(xy, line, font=f))})
 
 
 def _n(v) -> str:
@@ -344,14 +365,26 @@ def _draw_pieces(d, f: dict, rgb: dict, zone) -> None:
     y = y0
     joins = f["joins"]
     y += _text(d, (x0, y), f"How it is made: {len(pieces)} pieces, {joins} "
-                           f"join{'' if joins == 1 else 's'}", BODY_PX) + 20
+                           f"join{'' if joins == 1 else 's'}", TITLE_PX, max_w=x1 - x0,
+               slot="headline") + 20
     cols = math.ceil(math.sqrt(len(pieces) * (x1 - x0) / max(1, (y1 - y))))
     cols = max(1, min(len(pieces), cols))
     grid_rows = math.ceil(len(pieces) / cols)
     gap = 30
     cw = ((x1 - x0) - gap * (cols - 1)) / cols
     ch = ((y1 - y) - gap * (grid_rows - 1)) / grid_rows
-    label_h = 2 * int(SMALL_PX * 1.35)
+    def labels(pc):
+        prof = pc["profile"]
+        how = "round" if pc["construction"] != "flat_rows" else "row"
+        make = f" x{pc['make']}" if pc["make"] > 1 else ""
+        n = len(prof)
+        most = max(p["stitches"] for p in prof)
+        return (f"{pc['piece']}{make}",
+                f"{n} {how}{'' if n == 1 else 's'}, widest {most} sts")
+
+    # Each panel's two labels wrap to the panel's width; every panel reserves the tallest.
+    label_h = max(sum(len(K.wrap(t, SMALL_PX, cw)) for t in labels(pc)) for pc in pieces
+                  ) * LINE_H
     for i, pc in enumerate(pieces):
         px0 = x0 + (i % cols) * (cw + gap)
         py0 = y + (i // cols) * (ch + gap)
@@ -360,10 +393,10 @@ def _draw_pieces(d, f: dict, rgb: dict, zone) -> None:
         n = len(prof)
         most = max(p["stitches"] for p in prof)
         make = f" x{pc['make']}" if pc["make"] > 1 else ""
-        line = int(SMALL_PX * 1.35)
-        _text(d, (round(px0), round(py0)), f"{pc['piece']}{make}", SMALL_PX)
-        _text(d, (round(px0), round(py0) + line),
-              f"{n} {how}{'' if n == 1 else 's'}, widest {most} sts", SMALL_PX)
+        first, second = labels(pc)
+        used = _text(d, (round(px0), round(py0)), first, SMALL_PX, max_w=cw,
+                     slot="row_label")
+        _text(d, (round(px0), round(py0) + used), second, SMALL_PX, max_w=cw)
         top, bottom = py0 + label_h + 6, py0 + ch
         bar_h = (bottom - top) / len(prof)
         cx = px0 + cw / 2
@@ -375,26 +408,27 @@ def _draw_pieces(d, f: dict, rgb: dict, zone) -> None:
                         width=1 if bar_h < 8 else K.GAP_PX)
 
 
-def draw(f: dict) -> bytes:
-    """Pixels from facts alone. Both producer and verifier call this; they differ in facts."""
+def draw(f: dict, layout: list | None = None) -> bytes:
+    """Pixels from facts alone. Both producer and verifier call this; they differ in facts.
+
+    `layout`, when given, receives every lettered line ({text, pt, slot, box}) so the frame's
+    legibility can be measured from the record (`frame_role.legibility`); the bytes do not
+    depend on it."""
     img, d = _canvas()
+    d._bl_layout = layout
     x0, y0, x1, y1 = K.zone_px(K.PRODUCT_ZONE)
+    width = x1 - x0
     rgb = {k: K.hex_rgb(v) for k, v in f["colours"].items()}
     job = f["job"]
+
+    def lines_h(texts, px=BODY_PX, max_w=width):
+        return sum(len(K.wrap(t, px, max_w)) for t in texts) * int(round(px * 1.25))
+
     if job == MATERIALS:
         y = y0
-        y += _text(d, (x0, y), "Materials for this pattern", TITLE_PX) + 20
+        y += _text(d, (x0, y), "Materials for this pattern", TITLE_PX, max_w=width,
+                   slot="headline") + 20
         used = f["colours_used"]
-        # Chips sized to compose the card: at 1.0.0 they were 360 x 216 px and the card read
-        # 95% background, which layout QA (FRAME_FLAT) rightly refuses for a gallery frame.
-        chip_w = min(720, (x1 - x0 - 40 * (len(used) - 1)) / max(1, len(used)))
-        chip_h = min(chip_w, 520)
-        for i, col in enumerate(used):
-            cx = x0 + i * (chip_w + 40)
-            _chip(d, cx, y, chip_w, chip_h, rgb[col], cols=max(1, round(chip_w / 80)),
-                  rows=max(1, round(chip_h / 80)))
-            _text(d, (cx, y + chip_h + 14), col, BODY_PX)
-        y += int(chip_h) + 14 + int(BODY_PX * 1.35) + 40
         yarn = f["yarn"]
         lines = []
         if yarn["yarn_weight"] or yarn["fibre"]:
@@ -408,26 +442,44 @@ def draw(f: dict) -> bytes:
             g = yarn["gauge"]
             lines.append(f"Gauge: {_n(g['stitches_per_10cm'])} sts x {_n(g['rows_per_10cm'])} "
                          f"rows = 10 cm in {g['stitch']}")
+        # Chips sized to compose the card: at 1.0.0 they were 360 x 216 px and the card read
+        # 95% background, which layout QA (FRAME_FLAT) rightly refuses for a gallery frame.
+        # 2.0.0: they give up height to the legible lines below them, never the reverse.
+        chip_w = min(720, (width - 40 * (len(used) - 1)) / max(1, len(used)))
+        names_h = max(lines_h([c], BODY_PX, chip_w) for c in used)
+        chip_h = min(chip_w, 520, (y1 - y) - names_h - 14 - 40 - lines_h(lines))
+        if chip_h < 120:
+            raise FrameRefused("the materials card cannot letter its lines legibly and still "
+                               "show the yarn chips")
+        for i, col in enumerate(used):
+            cx = x0 + i * (chip_w + 40)
+            _chip(d, cx, y, chip_w, chip_h, rgb[col], cols=max(1, round(chip_w / 80)),
+                  rows=max(1, round(chip_h / 80)))
+            _text(d, (cx, y + chip_h + 14), col, BODY_PX, max_w=chip_w, slot="colour_name")
+        y += int(chip_h) + 14 + names_h + 40
         for line in lines:
-            y += _text(d, (x0, y), line, BODY_PX)
+            y += _text(d, (x0, y), line, BODY_PX, max_w=width)
     elif job == COLOUR_CONTEXT:
         y = y0
-        y += _text(d, (x0, y), "Colour share of the finished piece", TITLE_PX) + 30
-        band_h = 360
+        y += _text(d, (x0, y), "Colour share of the finished piece", TITLE_PX, max_w=width,
+                   slot="headline") + 30
+        shares = [f"{s['colour']}: {_n(s['percent'])}% of {f['total_stitches']} stitches"
+                  for s in f["shares"]]
+        note = "Counted from the pattern; on-screen colour varies by display"
+        band_h = min(360, (y1 - y) - 40 - lines_h(shares) - 20 - lines_h([note], SMALL_PX))
+        if band_h < 120:
+            raise FrameRefused("the colour card cannot letter its lines legibly")
         x = float(x0)
-        width = x1 - x0
         for s in f["shares"]:
             w = width * s["stitches"] / f["total_stitches"]
             cols = max(1, int(round(w / 60)))
             _chip(d, x, y, w, band_h, rgb[s["colour"]], cols=cols, rows=6)
             x += w
         y += band_h + 40
-        for s in f["shares"]:
-            y += _text(d, (x0, y), f"{s['colour']}: {_n(s['percent'])}% of "
-                                   f"{f['total_stitches']} stitches", BODY_PX)
+        for line in shares:
+            y += _text(d, (x0, y), line, BODY_PX, max_w=width)
         y += 20
-        _text(d, (x0, y), "Counted from the pattern; on-screen colour varies by display",
-              SMALL_PX)
+        _text(d, (x0, y), note, SMALL_PX, max_w=width, slot="caption")
     elif job == CONSTRUCTION and f.get("construction") == "pieces":
         _draw_pieces(d, f, rgb, (x0, y0, x1, y1))
     elif job == CONSTRUCTION:
@@ -435,8 +487,13 @@ def draw(f: dict) -> bytes:
         y = y0
         how = "rounds" if f["construction"] != "flat_rows" else "rows"
         y += _text(d, (x0, y), f"How it is made: {len(prof)} {how}, stitch count per {how[:-1]}",
-                   BODY_PX) + 20
-        top, bottom = y, y1 - 2 * int(SMALL_PX * 1.35)
+                   TITLE_PX, max_w=width, slot="headline") + 20
+        first, last = prof[0], prof[-1]
+        foot = [f"{how[:-1].capitalize()} 1: {first['stitches']} stitches; "
+                f"{how[:-1]} {last['row']}: {last['stitches']} stitches"]
+        if f["make"] > 1:
+            foot.append(f"Make {f['make']}")
+        top, bottom = y, y1 - lines_h(foot, SMALL_PX) - 10
         most = max(p["stitches"] for p in prof)
         bar_h = (bottom - top) / len(prof)
         cx = (x0 + x1) / 2
@@ -446,34 +503,41 @@ def draw(f: dict) -> bytes:
             d.rectangle([round(cx - w / 2), round(yb), round(cx + w / 2) - 1,
                          round(yb + bar_h) - 1], fill=rgb[p["colour"]], outline=K.GAP,
                         width=1 if bar_h < 8 else K.GAP_PX)
-        first, last = prof[0], prof[-1]
         y = bottom + 10
-        y += _text(d, (x0, y), f"{how[:-1].capitalize()} 1: {first['stitches']} stitches; "
-                               f"{how[:-1]} {last['row']}: {last['stitches']} stitches",
-                   SMALL_PX)
-        if f["make"] > 1:
-            _text(d, (x0, y), f"Make {f['make']}", SMALL_PX)
+        for line in foot:
+            y += _text(d, (x0, y), line, SMALL_PX, max_w=width)
     elif job == SIZING:
         outs = f["outlines"]
         y = y0
-        y += _text(d, (x0, y), "Every size, drawn to one scale", TITLE_PX) + 30
-        label_h = int(BODY_PX * 1.35) * 2
+        y += _text(d, (x0, y), "Every size, drawn to one scale", TITLE_PX, max_w=width,
+                   slot="headline") + 30
+        probe = ImageDraw.Draw(Image.new("L", (1, 1)))
+        dims = [f"{_n(o['width_cm'])} x {_n(o['height_cm'])} cm" for o in outs]
+        # Each outline's slot is at least as wide as its labels, so a small size's label
+        # never runs into the next size (2.0.0: the labels are legible, hence wider).
+        lab_w = [max(probe.textlength(o["size"], font=K.font(BODY_PX)),
+                     probe.textlength(dm, font=K.font(SMALL_PX))) for o, dm in zip(outs, dims)]
+        label_h = 2 * LINE_H
         gap = 60
-        avail_w = (x1 - x0) - gap * (len(outs) - 1)
         avail_h = (y1 - y) - label_h
-        px = min(avail_w / sum(o["width_cm"] for o in outs),
+        px = min((width - gap * (len(outs) - 1)) / sum(o["width_cm"] for o in outs),
                  avail_h / max(o["height_cm"] for o in outs))
+        while px > 0.5 and (sum(max(o["width_cm"] * px, lw) for o, lw in zip(outs, lab_w))
+                            + gap * (len(outs) - 1)) > width:
+            px *= 0.97
+        if sum(lab_w) + gap * (len(outs) - 1) > width:
+            raise FrameRefused("the size labels do not fit side by side at a legible size")
         ground = y + avail_h
         x = float(x0)
         main = next(iter(rgb.values()))
-        for o in outs:
+        for o, dm, lw in zip(outs, dims, lab_w):
             w, h = o["width_cm"] * px, o["height_cm"] * px
             d.rectangle([round(x), round(ground - h), round(x + w) - 1, round(ground) - 1],
                         fill=main, outline=K.GAP, width=K.GAP_PX)
-            _text(d, (round(x), round(ground) + 10), o["size"], BODY_PX)
-            _text(d, (round(x), round(ground) + 10 + int(BODY_PX * 1.35)),
-                  f"{_n(o['width_cm'])} x {_n(o['height_cm'])} cm", SMALL_PX)
-            x += w + gap
+            _text(d, (round(x), round(ground) + 10), o["size"], BODY_PX, slot="row_label")
+            _text(d, (round(x), round(ground) + 10 + LINE_H), dm, SMALL_PX,
+                  slot="size_label")
+            x += max(w, lw) + gap
     else:
         raise FrameRefused(f"{job!r} is not drawable")
     _disclosure(d)
@@ -498,8 +562,10 @@ def applicable_jobs(cir, *, siblings=None) -> list[str]:
 
 def render(cir, job: str, *, siblings=None) -> GalleryFrame:
     f = facts(cir, job, siblings=siblings)
-    png = draw(f)
+    layout: list = []
+    png = draw(f, layout)
     manifest = {"kind": KIND, "version": VERSION, "job": job, "facts": f,
+                "text_layout": layout,
                 "slug": cir.slug, "cir_version": cir.version,
                 "cir_fingerprint": cir.fingerprint,
                 "siblings": [c.slug for c in (siblings or [])],

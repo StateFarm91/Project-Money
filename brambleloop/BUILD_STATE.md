@@ -1,3 +1,14 @@
+> **2026-10-19 — W4-PRODREADY (branch `claude/w4-PRODREADY`, NOT deployed; production 1b21e81 SHADOW).** None of the eight
+> named products is customer-ready. All pass certification, Product Truth, US+UK PDFs, byte-identical rebuild from CIR, listing-set
+> certification, price (except the harvest runner, which is not Launch-0 in code) and copy/AI disclosure. All fail on: the
+> uploaded disclosed-render set's type (6.6/5.8/7.8-10.9 px at display size vs the owner's 11 px rule), no Etsy taxonomy (search
+> certificate refuses), no independent vision review, and the first-customer gate (physical sample, Etsy upload never confirmed,
+> non-durable artifact store). Fixed: listing_assets essential text legible at actual display size (D-W4-VISROLE-LEGIBILITY) and an
+> off-image size label; Build 2 #61 closure restored with the two held tests asserting the correct consequence (ledger PROVEN 228);
+> **production defect: scipy imported unguarded but absent from requirements.lock** (render verifier and listing export could not
+> run in the production image) -- declared and locked with hashes, plus an import-vs-lock test. The local venv has drifted from the
+> lock on 20 packages: rebuild it from requirements.lock before the next freeze. Report: `research/final_build/w4/PRODREADY.md`.
+
 > **2026-10-12 (later) — INTEG3 freeze 1 (056398c) full suite FAILED 16/629; causes fixed on INTEG2** (tmp hygiene,
 > harness-unreadable OK markers, stale generated artefacts, a pre-existing W4-AUTONOMY duplicate-mission defect on a
 > reclaimed tick, and B2CLOSE's #61 closure HELD because it silently removed the fund-the-model owner card). Re-freeze

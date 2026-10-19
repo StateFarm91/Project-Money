@@ -1431,7 +1431,8 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
     summary = {k: got.get(k) for k in ("ran", "reading", "network_calls", "snapshot_id",
                                        "new_snapshot", "nodes", "pattern_subtree",
                                        "properties_read", "truncated", "why",
-                                       "credential_refused", "status")}
+                                       "credential_refused", "status",
+                                       "name_evidence")}
     # W4-ETSYCOMM: a refused credential is a reported stand-aside, never a dead letter.
     summary["credential_refused"] = bool(got.get("credential_refused"))
     if got.get("etsy_error"):

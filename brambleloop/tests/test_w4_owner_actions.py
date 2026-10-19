@@ -112,9 +112,14 @@ def test_production_nine_merge_into_decisions():
     inbox = executor.approval_inbox(db, env={})
     items = {i["id"]: i for b in inbox["batches"]["batches"] for i in b["items"]}
     assert items
+    # The Anthropic top-up appeared twice in production (#19/#20). model_provider_balance is
+    # the account balance every model call needs, and stays a fund_model decision.
+    # model_credits is aliased to image_vision; since Build 2 #61 closed (W4-PRODREADY) no row
+    # is parked on image_vision, so that row is suppressed as unblocking nothing -- accounted
+    # for below, never dropped and never shown twice.
     fund = items["fund_model"]
-    assert {ids["model_credits"], ids["model_provider_balance"]} <= set(
-        fund["owner_action_ids"]), fund
+    assert ids["model_provider_balance"] in set(fund["owner_action_ids"]), fund
+    assert ids["model_credits"] not in set(fund["owner_action_ids"]), fund
     assert "phase" in items["leave_shadow"]["requirement_keys"]
     assert "live_listings" in items["leave_shadow"]["gates"]
     assert "benchmark_challenge" in items["benchmark_purchase"]["requirement_keys"]
@@ -127,11 +132,15 @@ def test_production_nine_merge_into_decisions():
     suppressed = {oid for g in inbox["suppressed_unblocks_nothing"]
                   for oid in g["owner_action_ids"]}
     assert ids["etsy_shop"] in suppressed, inbox["suppressed_unblocks_nothing"]
-    assert set(ids.values()) - {ids["etsy_shop"]} <= shown, (ids, shown)
+    vision = [g for g in inbox["suppressed_unblocks_nothing"] if g["gate"] == "image_vision"]
+    assert len(vision) == 1 and ids["model_credits"] in vision[0]["owner_action_ids"], vision
+    assert not shown & suppressed, (shown, suppressed)
+    assert set(ids.values()) - {ids["etsy_shop"], ids["model_credits"]} <= shown, (ids, shown)
+    assert set(ids.values()) <= shown | suppressed, (ids, shown, suppressed)
     batch_of = {i["id"]: i["batch"] for i in items.values()}
     assert batch_of["listing_fees"] == batch_of["leave_shadow"] == "go_live"
     assert not inbox["batches"]["incomplete"], inbox["batches"]["incomplete"]
-    ok(f"production's 9 rows land in {len(items)} decisions; 19/20 merged, phase+"
+    ok(f"production's 9 rows land in {len(items)} decisions or are suppressed; phase+"
        f"live_listings and benchmark rows merged")
 
 
