@@ -157,8 +157,7 @@ def test_prompt_carries_the_negatives_and_names_the_texture_reference():
     assert "image 2 = certified crochet stitch texture close-up" in text
     assert "The fabric looks exactly like image 2" in text
     assert "exactly 8 cable columns" in text and "rows 153-156" in text
-    assert "image.flux3.negatives@1" in [s["ref"] for s in FP.SECTIONS and
-                                         [{"ref": p.ref} for p in FP.SECTIONS]]
+    assert "image.flux3.negatives@1" in [p.ref for p in FP.SECTIONS]
     bare = dict(m["technical_rules"], negatives=[])
     assert _refused(lambda: FP.build(rules=bare, roles=list(S.PRODUCT_ROLES), role="x"),
                     FP.PromptBuildRefused)

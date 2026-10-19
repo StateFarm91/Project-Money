@@ -56,36 +56,56 @@ credit balance is **UNKNOWN**.
 - **Result bytes** are fetched and written to `work_dir` at once and `sha256`-fingerprinted. The result also carries `model` and `provider_receipt` (`id`/`task_id`, `cost` credits, `input_mp`, `output_mp`, `duration_s`, `seed` (always None on FLUX 3), the expanded-prompt sha256, and `settled_cost_credits`).
 - **Conditioning packages regenerated.** `SINGLE_REFERENCE_DIALECTS` is now empty, so BFL packages carry the full Laura pack (portrait, torso, full length): `flux-2-pro.json` has `transmitted: 3`, and a new `flux-3-image.json` was added.
 
-## 4. Deterministic pattern references (`creative/pattern_refs.py`)
+## 4. Product references from the certified pattern (`creative/pattern_refs.py`, `creative/stitch_texture.py`)
 
-`build(cir, release_hash=..., out_dir=...)` renders three PNGs from the compiled CIR and twin. No model is involved and the cost is CA$0:
+D-W4-LAURA-FLUX3 rule 2, plus the owner directive after the reading-nook test. `build(cir,
+release_hash=..., out_dir=..., version=None)` renders **four** PNGs from the compiled CIR and twin.
+No model is involved and the cost is CA$0. They become provider image inputs 4–7:
 
-- `layout`: the full stitch/colour fabric (`charts.render_fabric`), rescaled with nearest-neighbour sampling to the **twin's true proportion**. The raw render came out landscape (1188×700), while the blanket is 79.2 × 96.4 cm.
-- `motif`: two horizontal repeats by 24 rows, enlarged (44 px cells), with stitch glyphs, colour letters and row numbers (`charts.render_chart`).
-- `construction`: the title, slug@version, release hash, construction, finished size, stitch and row counts, gauge, hook, repeat, yarns with hex swatches and metres, and constraints.
+| # | role | content |
+|---|---|---|
+| 4 | `layout` | The complete product. Every component is drawn `make` times at **one shared px-per-cm** in its true finished proportion. Flat pieces use `render_fabric`; round pieces use `render_round_fabric`, scaled uniformly so a schematic circle is not stretched into an ellipse. There is no text, because words in a reference get copied. |
+| 5 | `texture` | **New, with priority over the chart.** A close-up of what the crochet fabric looks like, drawn from `cir.stitches` and the twin's cells: the sideways chain of top-loop Vs, short sc bodies, dc posts with the diagonal yarn-over and open gaps, hdc bars, and 2-over-2 cable crossings with the front pair raised over the back pair. It uses gauge-true proportions. The crop runs from the bottom edge up until every stitch type in the piece appears, plus one cycle, and it never splits a cable group. Where the CIR gives no crossing side, the manifest records `UNKNOWN (drawn as front by convention)`. |
+| 6 | `detail` | The symbolic chart, kept: per component, enlarged, with glyphs and row numbers, plus the legend. |
+| 7 | `rules` | The technical rules: pieces (×make, rows×sts, cm, shape), piece count, garment size and built measures (when graded), gauge, repeat, stitches, exact colours with swatches and metres, assembly, prohibited additions, and **"THIS FABRIC: NEVER"**, the CIR-derived negatives. |
 
-Each file is fingerprinted, and the manifest is bound to the release hash (`runtime.release._content_hash_of`, the hash `certify` names). A hash for different content is refused. `verify(manifest)` re-checks the bytes. The output is byte-deterministic. Cloudline 1.2.0 gives 99 stitches × 100 rows, a 9-stitch repeat, release `7c63dbdd501f…`.
+- **Category adapts from the data.** Multi-piece: the hexagon set draws 4 coasters, and the Harbour pullover draws body ×1, sleeve ×2 and neckband ×1, with assembly steps and garment measures. Front and back appear separately only where the CIR models them as separate components; the Harbour body is a single piece.
+- **Binding.** Each file is sha256-fingerprinted and named with the release-hash prefix. The manifest is bound to the release hash (`runtime.release._content_hash_of`). A wrong hash, a wrong `version`, or another version's content with this hash are all **refused**. Every reference is kept inside FLUX 3's input bounds (≥256 px, ≤16 MP). The output is byte-deterministic.
+- **`fabric_facts` / `negatives`** are derived from the cells, never typed by hand. They cover: end bands (maximal uniform runs at each end); edging (declared only by a component or assembly naming edging/border/trim/fringe); ribbing (declared only by front/back-loop stitches or fpdc+bpdc); cable columns, crossing size, separator, edge stitches and row period; and the rows where colour changes. On the reading-nook wrap they reproduce exactly the owner's line-by-line check: 8 cable columns, 2-over-2 crossings, 3 dc between, 3 dc at the edges, crossings every 4 rows, plain cream sc at rows 1–4 and 153–156, and colour changes only at rows 5 and 153.
+- **Certification** is the caller's input. Stages take a `Release` whose hash the orchestrator reads from the certified ProductVersion row. pattern_refs proves content identity but does not run `certify` (the reading-nook wrap is uncertified because of UNCALIBRATED_PRIMITIVE cable2x2).
 
-## 5. Generation-stage interface for W-OWNERIMG (`creative/image_stages.py`)
+## 5. Generation stages (`creative/image_stages.py`, `creative/flux_prompt.py`): interface for W-OWNERIMG
 
 ```python
-release = release_from_cir(cir, release_hash=..., out_dir=...)        # Release (pattern refs built, free)
-product_only(release, refs=None, *, renderer=None, work_dir, db=None, job_id=None, max_attempts=2) -> Candidate
-lifestyle(release, product_candidate, laura_refs, outfit, *, setting=..., action=..., renderer=None,
-          work_dir, db=None, job_id=None, max_attempts=2) -> Candidate
-variant(release, base_candidate, role, edit_instruction="", *, renderer=None, work_dir, db=None,
-        job_id=None, max_attempts=2) -> Candidate
-gallery_cost(lifestyle_count=2, variant_count=3, expected_attempts_per_accept=2.0, tier="1k") -> dict
+release = release_from_cir(cir, release_hash=..., out_dir=..., version=None)       # refs 4-7, free
+flat    = product_only(release, *, scene=None, renderer=None, work_dir, db=None, job_id=None, max_attempts=2)
+verdict = fidelity_verdict(flat, status="PASS"|"FAIL"|"UNKNOWN", checker=..., failures=[failure_codes...])
+life    = lifestyle(release, flat, laura_refs=None, outfit, *, fidelity=verdict, scene={environment,pose,framing},
+                    role="lifestyle_hero", supplementary=(), renderer=None, work_dir, db=None, job_id=None, max_attempts=2)
+var     = variant(release, base, role, edit_instruction="", *, outfit=None, scene=None, laura_refs=None,
+                  renderer=None, work_dir, ...)
+gallery_cost(...) ; campaign_references(...) ; combined_reference_sheet(...) ; laura_references(...)
 ```
 
-- `Candidate(stage, role, path, sha256, release_hash, receipt)`. The receipt holds `model`, `provider`, `release_hash`, `prompt_ref`, `prompt_sha256`, `prompt_text_sha256`, `input_sha256s` (every reference, in order), `size`, `task_id`, `seed`, `cost_cad`, `provider_cost_credits`, `cost_entry_id`, `latency_ms`, `output_sha256`, `attempts`, `attempt_errors` and `price`.
-- Reference order follows the owner's workflow. product_only: [layout, motif, construction]. lifestyle: [product candidate, Laura 1–3, outfit image?]. variant: [base candidate] (a FLUX 3 edit).
-- `outfit` is W-OWNERIMG's registry entry, `{"id", "description", "image"?}`. `role` is one of `VARIANT_ROLES` (`detail_closeup`, `flat_lay`, `scale_in_hand`, `styled_scene`, `wardrobe_change`, `colour_context`). `wardrobe_change` requires the instruction.
-- Prompts are pinned in `gateway.prompts`: `image.product_only@1`, `image.lifestyle@1` and `image.variant@1` are immutable and content-hashed.
-- `renderer=None` means `flux3_renderer()`, which is `images.generate(provider_key="flux-3-image")`: reserve first, all references sent, bytes stored, billed. `StubRenderer` has the same call signature, makes no network call and spends nothing.
-- Attempts: a `TransientError` is retried up to `max_attempts`, with a hard cap of `MAX_ATTEMPTS = 3`. `ImagesRefused`, `QuotaUnavailable` and `BudgetExceeded` are final after one call. Inside a job, `paid_calls` turns a retry of an already-billed render into a replay instead of a second purchase.
-- Spend is attributed to agent `creative_director` (CA$28/day permission), with purpose `image.<stage>`.
-- A candidate is **not** an approval. Verification and gallery approval stay with the gates (§7, steps 8–10).
+D-W4-LAURA-FLUX3 compliance, each rule with a test:
+
+| Rule | Implementation | Test |
+|---|---|---|
+| 1. Three canonical Laura references, always | `laura_references()` checks bytes against `canonical.CURRENT_REFERENCE_HASHES` (a42aeac7, afe6191f, f32bac68) and the forbidden list. Exactly three, in canonical order, at inputs 1–3. Re-checked in `_run` immediately before the call. Missing, altered, reordered, substituted, extra or forbidden references are refused before any call. | `test_w4_fluxstages`: `…canonical_laura_fingerprints…`, `…every_laura_generation_supplies_all_three…`, `…invalid_missing_or_substituted…refused_before_any_call` |
+| Supplementary added, never substituted | Supplementary images go only after the campaign set (product candidate, outfit image, approved lifestyle). | `…supplementary_images_are_added_after_the_originals…` |
+| 2. Product references from the exact certified version | `pattern_refs.build` binding plus `campaign_references`, which re-hashes every product reference against the release's fingerprints. | `…product_refs_come_only_from_the_exact_certified_version`, `test_w4_fluxtexture::…binds_to_the_release_and_the_stitch_set` |
+| 3. Campaign set: face, torso, body, layout, **texture**, chart, rules | Seven inputs, plus the flat-lay product candidate and the outfit image: 9 of FLUX 3's 10. If a provider's documented limit is lower, references 4–7 are merged **losslessly** (pixel for pixel, no scaling, refused above 16 MP) into one sheet, and the receipt records `limitation` and `combined_sheet`. If even that does not fit, the call is refused. The Laura originals are never merged. | `…all_campaign_references_reach_the_provider_payload` (captured payload: 8 `images`, exact bytes), `…lower_provider_limit_merges_4_to_7_losslessly…` (crop equality; limit 4 is refused) |
+| Receipt | Every position/role/sha256, the provider task id, seed (None on FLUX 3), cost, credits, latency, request sha256, conditioning proof, output sha256, attempts, prompt sections and text hash. | the payload test |
+| Product-only needs no Laura or outfit | `product_only` carries references 4–7 only, and its prompt has no IDENTITY section. | `…product_only_needs_no_laura_and_no_outfit` |
+| 7. Full prompt, generated and versioned | `flux_prompt.build` assembles seven pinned sections: `image.flux3.references@1`, `identity@1` (face, bust and body preservation), `product@2` (id, version, release, construction, pieces, size, exact hex colours, stitches, assembly, prohibited additions, the texture reference), `negatives@1`, `scene@1` (role, outfit, environment, pose and framing from W-OWNERIMG), `realism@1`, and `disclosure@1` (AI-disclosure, candidate-only publication restriction). The receipt holds each section's ref and sha256, `builder_version` and the text sha256. | `…the_full_prompt_is_built_from_certified_data_and_pinned`, `test_w4_fluxtexture::…prompt_carries_the_negatives…` |
+
+**After the reading-nook test (owner directive):**
+(a) The stitch-texture reference, above.
+(b) The category-aware negatives, above. They always include "crochet, not knitting". A prompt cannot be built without them.
+(c) **Stage order.** `product_only` is an unfolded, countable flat lay seen from directly above with margins. `lifestyle` is refused unless `fidelity` is a PASS verdict for **that exact flat lay** (matching sha256 and release). FAIL, UNKNOWN, a verdict for another image, and a non-flat-lay product image are all refused before any call. The check that produces the verdict is W-OWNERIMG's or the gates' (Product Truth unchanged); `fidelity_verdict` only binds its answer to the bytes.
+(d) **`creative/failure_codes.py`** is the one shared constant: `INVENTED_END_BAND_TREATMENT`, `INVENTED_EDGING`, `WRONG_CRAFT_TEXTURE` and `UNVERIFIABLE_COUNT`, each in category `product_fidelity` (= `candidate_gates.FAILURE_CATEGORY["product_truth"]` on W-OWNERIMG), and each naming its counter. W-OWNERIMG's learning records should import it. The test asserts it equals the RECORD.json codes.
+
+Bounded attempts: only `TransientError` retries, up to `max_attempts`, with a hard cap of 3. Refusals, moderation, `QuotaUnavailable` and `BudgetExceeded` are final. `StubRenderer` has the same interface, no network and no spend, and accepts `reference_limit=` to imitate a smaller provider.
 
 ## 6. Cost model (published price; the pass rate is UNKNOWN)
 
@@ -109,21 +129,41 @@ lifestyle shot at 1.5k instead of 1k costs $0.070. A 4k hero costs $0.607, which
 | # | Step | Existing modules | Status | Missing | Est. h |
 |---|---|---|---|---|---|
 | 1 | Retrieve the certified product | `runtime.release` (`_load_cir`, `_released_on`, `_content_hash_of`), `gates.certificate.certify`, `products.launch0.cir_for` | EXISTS | A one-call `certified_release(db, slug)` that returns (CIR, release_hash) only when certified | 1 |
-| 2 | Pattern-derived refs (layout 99×100, motif, construction sheet) | **`creative.pattern_refs`** (new, tested on Cloudline), built on `publish.charts` | **BUILT** | Round-worked products (coasters, baskets) take the `render_round_chart` path; currently only flat CIRs are exercised | 2 |
+| 2 | Pattern-derived refs: layout (99×100 for Cloudline), stitch texture, chart, rules | **`creative.pattern_refs`** + **`creative.stitch_texture`** (flat, round, multi-piece and garment all tested) | **BUILT** | Texture realism is diagrammatic, not photographic; its effect on FLUX output is unmeasured until a paid run | 0 |
 | 3 | Laura refs | `visual.canonical` (laura-r2-a42aeac7, `reference_file`), `visual.conditioning` packages (now 3 frames for BFL), `visual.model_registry.canonical_image_refs` | EXISTS | Nothing. Pass `canonical.reference_file(frame)` for `FRAME_ORDER` | 0 |
 | 4 | Unused outfit | W-OWNERIMG outfit registry (not on this branch) | MISSING here (owned by W-OWNERIMG) | Reserve-and-mark-used; passed to `lifestyle(outfit=...)` | (W-OWNERIMG) |
-| 5 | Product-only candidate | **`creative.image_stages.product_only`** + `gateway.images` FLUX 3 | **BUILT** (no live render yet) | First paid live render (owner-gated spend, about $0.05) | 0.5 |
-| 6 | Lifestyle candidates | **`image_stages.lifestyle`**; earlier paths are `publish.model_photography` and `visual.hero_candidates` | **BUILT** (no live render yet) | Orchestrator loop over 2 outfits/settings (W-OWNERIMG) | 1 |
+| 5 | Product-only flat lay | **`image_stages.product_only`** (unfolded, countable) + `gateway.images` FLUX 3 | **BUILT** (no live render yet) | First paid live render (owner-gated, about $0.05) | 0.5 |
+| 6 | Lifestyle candidates | **`image_stages.lifestyle`**: three canonical Laura refs, the campaign set, gated on a flat-lay PASS verdict | **BUILT** (no live render yet) | Orchestrator loop (W-OWNERIMG) | 1 |
 | 7 | Other roles | **`image_stages.variant`** (6 closed roles); deterministic frames come from `publish.listing_set`, `visual.gallery_frames`, `visual.frame_role` | **BUILT** | Mapping from gallery slots (`visual.gallery`, #77–81) to variant roles | 2 |
 | 8 | Independent verification | `visual.identity_gate` (F-213, Laura), `visual.final_image_gate` (Product Truth), `publish.motif_fidelity`, `visual.render_verification`, `gates.asset_truth`, `visual.photoreal` | PARTIAL | **Key gap:** `final_image_gate` can PASS a product region only by deterministic pixel proof against the disclosed renderer. A generative FLUX image can fail that gate but has no deterministic way to pass it. One option is a verifier that compares the candidate's product region with the pattern `layout` reference (palette, repeat period, aspect). Another is compositing the disclosed render into the scene. This needs a design decision before any generated product image can publish. | 8–12 |
-| 9 | Reject and learn failure categories | `finance.systematic` (breaker per purpose), `learn.*`, `visual.rnd`, `visual.drift_series`; W-OWNERIMG owns learning records | PARTIAL | A closed failure-category vocabulary per stage (identity drift, product truth, anatomy, moderation, transient), written from receipts | 3 |
+| 9 | Reject and learn failure categories | **`creative.failure_codes`** (shared, 4 owner codes); `visual.candidate_gates.FAILURE_CATEGORY` (W-OWNERIMG); `finance.systematic` | PARTIAL | W-OWNERIMG's learning records import `failure_codes` | 1 (+W-OWNERIMG) |
 | 10 | Gallery assembly and approval | `visual.gallery`, `publish.listing_assets` (W-PRODREADY), `publish.listing_set`, `visual.approval_record`, Command Center (W-OWNERIMG) | PARTIAL | Assemble accepted candidates with deterministic frames, then the owner approval card | 3 (+W-PRODREADY) |
 
 ## 8. Tests
 
-- `tests/test_w4_fluxapi.py` (13): all references are transmitted for FLUX 3 (`images[]`) and FLUX.2 (`input_image..8`); the defect shape is gone; over-limit (11/9) is refused with no POST and no reservation; the receipt lists every hash and field; the documented price is reserved before the POST and the ledger reconciles; the FLUX.2 MP formula is used; an exhausted budget means no POST; one POST on a transient failure; a bounded poll; terminal statuses stop the poll and the render is billed `accepted_then_failed`; bytes are stored and fingerprinted with the provider receipt; a 503 status body is read; aspect/tier mapping; unknown fields (`seed`) are refused.
-- `tests/test_w4_fluxstages.py` (14): Cloudline references are 99×100, bound to the release, fingerprinted and byte-deterministic; the layout has the twin's proportion; a wrong release hash is refused; tampering is detected; prompts are pinned and immutable; product_only, lifestyle and variant are tested on the stub (reference order and refusals); bounded attempts, with only transient failures retried; product_only and lifestyle go through the real `flux3_renderer` on a mock transport (reserve before POST, every reference in `images[]`, 1:1 and 4:5 at 1k); an exhausted budget means no POST; the gallery cost model.
-- Updated (stricter, not weaker): `test_w4_condpack` now requires BFL to transmit 3/3. `test_rc1_spend` and `test_cert_cost` now assert the render bills the documented per-call price (≥ the table price) instead of the stale US$0.02 table price.
+| file | count | covers |
+|---|---|---|
+| `tests/test_w4_fluxapi.py` | 13 | The adapter. Every reference is transmitted (FLUX 3 `images[]`, FLUX.2 `input_image..8`); the old defect shape is gone; over-limit references are refused before any spend; the receipt lists every hash and field; the documented price is reserved before the POST and the ledger reconciles; the FLUX.2 MP formula; an exhausted budget sends nothing; one POST per render; a bounded poll; terminal statuses stop the poll and are billed `accepted_then_failed`; bytes are stored and fingerprinted with the provider receipt; a 503 status body is read; aspect and tier mapping; unknown fields are refused. |
+| `tests/test_w4_fluxstages.py` | 16 | D-W4-LAURA-FLUX3. The three canonical refs are always supplied first; invalid, missing or substituted refs are refused before any call; supplementary refs are added, never substituted; product-only has no Laura; product refs come only from the exact version; multi-piece, round and garment adaptation stays inside FLUX bounds; the full campaign set reaches the provider (captured payload); the lossless combined sheet under a lower limit; the full pinned prompt; bounded attempts; reserve-before-POST; an exhausted budget; the gallery cost. |
+| `tests/test_w4_fluxtexture.py` | 9 | Reading-nook lessons. The texture binds to the release and stitch set; it shows the plain cream band and whole cable groups; the crop never splits a group; the wrap negatives name each owner failure; declared features are not forbidden; the prompt carries the negatives and names the texture; product-only is a flat lay; lifestyle is gated on a PASS for that exact flat lay; the shared failure codes equal RECORD.json. |
+| Updated (stricter) | | `test_w4_condpack` (BFL now 3/3), `test_rc1_spend` and `test_cert_cost` (bill at the documented per-call price). |
+
+Regression set (all through `testslot`, all green): vacuity 8, launch 28,
+cost_governance_wave2 39, search_hero_publish 4, cert_listing_frames 7, v11_autonomy_timeline 7,
+plus gateway 30, spend_paid_discipline 14, cert_cost 19, rc1_spend 20, image_bench 59,
+model_spend_paths 12, w3_spend_paid_calls 9, reference_pack 44, provider_trial 22, condpack 7.
+
+## API limitations (what the docs do not give us)
+
+- **No seed.** FLUX 3 Image neither accepts nor returns one, so exact regeneration is impossible; the task `id` and `result.prompt` hash are the receipt.
+- **The 10-reference cap** fits the campaign set (7) plus the flat lay and the outfit image (9). One slot is left for a supplementary image.
+- **References are not charged**, so the campaign set costs the same as text-to-image ($0.048 at 1k).
+- **Result URLs expire** (1 hour on the FLUX 3 page, 10 minutes in the integration guidelines); bytes are stored at once.
+- **`grounding` defaults to true**, which allows web and image search. The adapter sets it to false.
+- **Unknown fields return 422**, so no `seed`, `width` or `output_format`; resolution is a tier, not pixels.
+- **Reference bounds**: each reference must be ≤ 16 MP and ≥ 256 × 256, which every pattern reference is held to.
+- **Prompt length limit: not documented.** The built prompt is about 3–4 k characters; whether FLUX 3 truncates it is UNKNOWN until a paid run.
+- **Whether FLUX 3 follows the texture reference and the negatives is unmeasured.** These references address the four observed failures, but only a paid render plus the Product Truth gate can show it.
 
 ## 9. Owner actions
 
