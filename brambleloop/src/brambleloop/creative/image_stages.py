@@ -453,8 +453,58 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
 
 
 # -- the three stages ------------------------------------------------------------------------
+# The flat lay's ground (W-FIDELITY follow-up): a mid-tone surface at least MIN_SURFACE_DE CIE
+# colour-distance units from every palette colour, so a cream or white piece still separates
+# from it (a generic "neutral surface" came back cream and swallowed cream end bands). The first
+# candidate far enough from every yarn colour is chosen; none far enough is a refusal.
+MIN_SURFACE_DE = 25.0
+FLAT_LAY_SURFACES: tuple[tuple[str, str], ...] = (
+    ("taupe", "#7A746C"), ("slate blue-grey", "#5E6B78"), ("warm mid-brown", "#7B5E4A"),
+    ("muted sage-grey", "#7E8A78"), ("dusty plum-grey", "#7A6A78"), ("terracotta", "#A0583F"),
+    ("deep ink blue", "#2B3245"))
+
+
+def _lab(hex_: str) -> tuple[float, float, float]:
+    h = str(hex_).lstrip("#")
+    rgb = [int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+    x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
+    y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
+
+    def f(t):
+        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    fx, fy, fz = f(x), f(y), f(z)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def delta_e(a: str, b: str) -> float:
+    """CIE76 colour distance between two hex colours."""
+    la, lb = _lab(a), _lab(b)
+    return sum((p - q) ** 2 for p, q in zip(la, lb)) ** 0.5
+
+
+def flat_lay_surface(palette_hexes) -> dict:
+    """The first surface at least MIN_SURFACE_DE from every palette colour."""
+    pal = [str(h) for h in palette_hexes or () if h]
+    for name, hex_ in FLAT_LAY_SURFACES:
+        d = min((delta_e(hex_, p) for p in pal), default=float("inf"))
+        if d >= MIN_SURFACE_DE:
+            return {"name": name, "hex": hex_, "min_delta_e": round(d, 1)}
+    raise StageRefused(f"no flat-lay surface is {MIN_SURFACE_DE} colour-distance units from "
+                       f"every palette colour {pal}; the piece could not be separated from it")
+
+
+def flat_lay_environment(palette_hexes) -> str:
+    s = flat_lay_surface(palette_hexes)
+    return (f"a plain, matte, mid-tone {s['name']} surface ({s['hex']}), at least "
+            f"{MIN_SURFACE_DE:g} colour-distance units (CIE delta E) from every yarn colour so "
+            f"every edge and band of the piece separates from it; soft, even daylight; no "
+            f"white, cream or light-neutral surface")
+
+
 FLAT_LAY_SCENE = {
-    "environment": "a plain, matte, neutral surface with soft, even daylight",
+    "environment": flat_lay_environment(()),
     "pose": ("the product laid completely flat and unfolded, seen from directly above; no "
              "folds, no drape, no rolled or tucked edges"),
     "framing": ("the whole piece in frame with a margin on every side, square to the camera, "
@@ -513,9 +563,12 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
     render = renderer or flux3_renderer()
     plan = campaign_references(release, features_laura=False,
                                reference_limit=_limit(render), work_dir=work_dir)
+    palette = [c.get("hex") for c in (release.rules or {}).get("colours") or []]
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
                               role="product-only flat lay",
-                              scene={**FLAT_LAY_SCENE, **dict(scene or {})})
+                              scene={**FLAT_LAY_SCENE,
+                                     "environment": flat_lay_environment(palette),
+                                     **dict(scene or {})})
     return _run("product_only", "product_flat_lay", release, plan, built, size,
                 features_laura=False, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.product_only")

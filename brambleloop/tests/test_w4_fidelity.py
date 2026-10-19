@@ -489,8 +489,11 @@ def test_lifestyle_needs_anchor_pass_region_and_vision():
 def test_codes_and_verdict_contract():
     from brambleloop.creative import failure_codes as FCm
 
-    assert set(FCm.ALL_CODES) <= F.ALL_CODES
-    assert not set(F.LOCAL_CODES) & set(FCm.ALL_CODES)      # nothing redefined
+    assert set(FCm.ALL_CODES) == F.ALL_CODES
+    # W4-WRAPTEST: the five measured codes are folded into the one constant (not redefined)
+    assert set(F.LOCAL_CODES) <= set(FCm.ALL_CODES)
+    assert all(F.LOCAL_CODES[k] is FCm.PRODUCT_TRUTH_CODES[k] or
+               F.LOCAL_CODES[k] == FCm.PRODUCT_TRUTH_CODES[k] for k in F.LOCAL_CODES)
     assert all(r["category"] == FCm.PRODUCT_FIDELITY for r in F.LOCAL_CODES.values())
     assert F.worst(["PASS", "UNKNOWN"]) == "UNKNOWN" and F.worst([]) == "UNKNOWN"
     assert F.worst(["NOT_APPLICABLE"]) == "UNKNOWN" and F.worst(["PASS", "FAIL"]) == "FAIL"

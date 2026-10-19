@@ -44,6 +44,26 @@ ROUTES: dict[str, dict] = {
     FC.WARDROBE_REPETITION: {
         "kind": REPICK_OUTFIT,
         "why": "pick a distinct complete outfit (the current one excluded) and regenerate"},
+    FC.WRONG_ASPECT_RATIO: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["the piece's proportions exactly as the layout reference (image 4)",
+                      "not stretched, not shortened, not cropped"]},
+    FC.OFF_PALETTE_COLOUR: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["no colour that is not in the certified palette",
+                      "yarn colours exactly as the rules reference swatches"]},
+    FC.WRONG_COLOUR_LAYOUT: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["colour bands and colour changes exactly where the layout reference "
+                      "puts them", "no added or missing stripes or bands"]},
+    FC.WRONG_REPEAT_COUNT: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["exactly the motif/cable count in the layout reference",
+                      "no extra or missing repeats or cable columns"]},
+    FC.WRONG_PIECE_COUNT: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["exactly the number of pieces the pattern makes",
+                      "no extra or missing pieces"]},
     FC.UNVERIFIABLE_COUNT: {
         "kind": VERIFY_UNFOLDED,
         "why": ("a count hidden by folds cannot be verified on a lifestyle image; it stays "

@@ -692,6 +692,13 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 return {"run_key": key, "next": go(_next(stage))}
             pick = outfits.reserved_for(db, run["listing"])
             styled = None
+            retire = None
+            if (exp is not None and pick is not None and exp.outfit_rejects is not None
+                    and exp.outfit_rejects(pick)):
+                # Experiment: the outfit already held for this listing (e.g. the owner's manual
+                # test outfit, seeded as wardrobe history) is one the brief excludes; a new one
+                # is chosen and the old one retired, never reused.
+                retire, pick = pick["outfit_id"], None
             if pick is None:
                 # D-W4-LAURA-FLUX3 §5: Creative chooses the outfit and concept; the owner
                 # does not. Deterministic, and it avoids outfits/settings other listings use.
@@ -711,9 +718,15 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                            approved_by=f"creative_director:{styling.STYLING_VERSION}")
                 except outfits.OutfitRefused as exc:
                     return block(f"automatic styling refused by the wardrobe registry: {exc}")
-            got = outfits.reserve(db, pick["outfit_id"], run["listing"])
-            if got["status"] != "PASS":
-                return block(f"outfit reservation {got['status']}: {got['why']}")
+            if retire:
+                rep = outfits.replace(db, retire, pick["outfit_id"], run["listing"])
+                got = (outfits.reserve(db, pick["outfit_id"], run["listing"])
+                       if rep.get("replaced") else rep)
+                got = {**got, "retired": retire}
+            else:
+                got = outfits.reserve(db, pick["outfit_id"], run["listing"])
+            if got.get("status") != "PASS":
+                return block(f"outfit reservation {got.get('status')}: {got.get('why')}")
             _update(db, key, stage=stage, status=st, outfit_id=pick["outfit_id"],
                     record={"outputs": {**got, "styling": styled,
                                         "concept": (outfits.get(db, pick["outfit_id"]) or {})

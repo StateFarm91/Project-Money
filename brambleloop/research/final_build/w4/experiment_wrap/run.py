@@ -1114,7 +1114,8 @@ def _run(*, live: bool, out: Path, provider=None) -> dict:
                generator_factory=generator_factory(renderer=renderer, live=live,
                                                    work_root=str(work)),
                budget=budget, gallery_builder=gallery_builder(reg=reg, pdfs=pdfs, tl=tl),
-               outfit_selector=select_outfit)
+               outfit_selector=select_outfit,
+               outfit_rejects=lambda o: bool(outfit_problems(o.get("garments") or {})))
 
     # The trigger, through the orchestrator's own function, then the worker until idle.
     from brambleloop.queue.durable import JobQueue

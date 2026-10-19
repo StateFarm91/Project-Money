@@ -60,41 +60,15 @@ CHECKER = f"visual.fidelity {VERIFIER_VERSION}"
 PASS, FAIL, UNKNOWN, NA = "PASS", "FAIL", "UNKNOWN", "NOT_APPLICABLE"
 
 # ---- failure codes ------------------------------------------------------------------------
-# The four shared codes come from the one constant (creative.failure_codes). The five below
-# are new. W-VISAUTO owns failure_codes.py right now, so they live here until it folds them
-# in; `ALL_CODES` is the union and nothing here redefines a shared code.
-WRONG_ASPECT_RATIO = "WRONG_ASPECT_RATIO"
-OFF_PALETTE_COLOUR = "OFF_PALETTE_COLOUR"
-WRONG_COLOUR_LAYOUT = "WRONG_COLOUR_LAYOUT"
-WRONG_REPEAT_COUNT = "WRONG_REPEAT_COUNT"
-WRONG_PIECE_COUNT = "WRONG_PIECE_COUNT"
-LOCAL_CODES: dict[str, dict] = {
-    WRONG_ASPECT_RATIO: {
-        "category": FC.PRODUCT_FIDELITY,
-        "meaning": "the unfolded piece's long/short ratio differs from the digital twin's "
-                   "finished centimetres beyond tolerance",
-        "countered_by": "the layout reference at true proportion (pattern_refs 'layout')"},
-    OFF_PALETTE_COLOUR: {
-        "category": FC.PRODUCT_FIDELITY,
-        "meaning": "a colour the certified palette does not declare (added or substituted)",
-        "countered_by": "prompt negative 'colours not in the certified palette' "
-                        "(pattern_refs.PROHIBITED_ADDITIONS)"},
-    WRONG_COLOUR_LAYOUT: {
-        "category": FC.PRODUCT_FIDELITY,
-        "meaning": "colour bands, stripes or colour changes are not where the pattern puts "
-                   "them, or a declared colour is missing",
-        "countered_by": "prompt negative 'colour changes anywhere except ...' "
-                        "(pattern_refs.negatives)"},
-    WRONG_REPEAT_COUNT: {
-        "category": FC.PRODUCT_FIDELITY,
-        "meaning": "a measurable count of motif repeats or cable columns differs from the CIR",
-        "countered_by": "prompt negative on cable/motif count (pattern_refs.negatives)"},
-    WRONG_PIECE_COUNT: {
-        "category": FC.PRODUCT_FIDELITY,
-        "meaning": "more or fewer pieces than the CIR makes",
-        "countered_by": "prohibited addition 'extra or missing pieces'"},
-}
-ALL_CODES: frozenset[str] = frozenset(FC.ALL_CODES) | frozenset(LOCAL_CODES)
+# All nine codes live in the one constant (creative.failure_codes); the five measured here were
+# folded into it (W4-WRAPTEST). These names are views of it, never redefinitions.
+WRONG_ASPECT_RATIO = FC.WRONG_ASPECT_RATIO
+OFF_PALETTE_COLOUR = FC.OFF_PALETTE_COLOUR
+WRONG_COLOUR_LAYOUT = FC.WRONG_COLOUR_LAYOUT
+WRONG_REPEAT_COUNT = FC.WRONG_REPEAT_COUNT
+WRONG_PIECE_COUNT = FC.WRONG_PIECE_COUNT
+LOCAL_CODES: dict[str, dict] = dict(FC.MEASURED_CODES)
+ALL_CODES: frozenset[str] = frozenset(FC.ALL_CODES)
 
 # ---- tolerances (each stated with its reason; none tuned to pass a frame) -----------------
 MAX_SIDE_PX = 1024          # analysis resolution; a 2k flat lay keeps >= 4 px per stitch

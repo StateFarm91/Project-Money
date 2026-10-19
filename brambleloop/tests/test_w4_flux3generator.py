@@ -161,7 +161,11 @@ def test_the_shared_failure_codes_resolve_where_ownerimg_looks():
     mod = importlib.import_module("brambleloop.creative.image_stages")
     for name in ("PRODUCT_TRUTH_FAILURE_CODES", "FAILURE_CODES"):
         assert set(getattr(mod, name)) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
-                                           "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}
+                                           "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT",
+                                           # W4-WRAPTEST: W-FIDELITY's measured codes
+                                           "WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR",
+                                           "WRONG_COLOUR_LAYOUT", "WRONG_REPEAT_COUNT",
+                                           "WRONG_PIECE_COUNT"}
 
 
 def test_sizes_below_the_listing_floor_are_refused_never_upscaled():

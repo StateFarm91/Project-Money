@@ -206,11 +206,15 @@ def test_lifestyle_is_gated_on_a_pass_verdict_for_that_exact_flat_lay():
 
 # -- (d) shared failure taxonomy -------------------------------------------------------------
 def test_the_four_owner_failure_codes_are_one_shared_constant():
-    assert set(FC.PRODUCT_TRUTH_CODES) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
-                                           "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}
+    assert FC.OWNER_RECORD_CODES == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
+                                     "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}
+    # W4-WRAPTEST: W-FIDELITY's five measured codes are folded into the same constant.
+    assert set(FC.PRODUCT_TRUTH_CODES) == FC.OWNER_RECORD_CODES | {
+        "WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR", "WRONG_COLOUR_LAYOUT",
+        "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT"}
     assert set(FC.CATEGORY_OF.values()) == {"product_fidelity"}       # candidate_gates' name
     record = json.loads(RECORD.read_text())
-    assert {f["code"] for f in record["failure_categories"]} == FC.ALL_CODES
+    assert {f["code"] for f in record["failure_categories"]} == FC.OWNER_RECORD_CODES
 
 
 if __name__ == "__main__":

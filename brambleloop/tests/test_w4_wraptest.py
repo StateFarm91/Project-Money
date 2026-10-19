@@ -352,6 +352,9 @@ def test_dry_run_reaches_the_approval_card_unattended():
     out = Path(tempfile.mkdtemp(prefix="wraptest-dry-")) / "run"
     s = H.run(live=False, out=out)
     check("dry_no_orchestrator_errors", s["orchestrator_errors"] == [], s["orchestrator_errors"])
+    check("dry_outfit_distinct_from_canonical_and_owner_wrap_outfit",
+          s["outfit"] and "brown" not in s["outfit"] and "beige" not in s["outfit"]
+          and "ivory" not in s["outfit"] and "cream" not in s["outfit"], s["outfit"])
     check("dry_ready_for_owner_review", s["run_state"] == "ready_for_owner_review", s)
     check("dry_card_through_command_center", XP.LABEL in (s.get("card_title") or ""), s)
     check("dry_no_spend", s["spent_cad"] == 0.0 and s["vision_calls"] == 0)
@@ -551,18 +554,37 @@ def test_live_path_rehearsed_offline():
     print("   live rehearsal:", s["run_status"][:300], _per_role(ev), s["spent_cad"])
 
 
+def _small(png: bytes, px: int = 1800) -> bytes:
+    im = Image.open(io.BytesIO(png)).convert("RGB").resize((px, px))
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def test_live_stops_early_on_a_hard_flat_lay_failure():
     import test_w4_fidelity as TF
 
-    # The wrong product entirely (another CIR's flat lay): a hard, unroutable FAIL.
-    other = TF._cir("cloudline-baby-blanket")
+    # An unroutable hard FAIL: the 2k tier delivers under 2000 px (quality), nothing to correct.
     out = Path(tempfile.mkdtemp(prefix="wraptest-stop-")) / "run"
-    with FakeNetwork(_flat(other)) as net:
+    with FakeNetwork(_small(_flat(_wrap_cir()))) as net:
         s = H.run(live=True, out=out)
     check("stop_blocked_after_one_flat_lay", s["run_state"] == "blocked"
           and len(net.posts) == 1, (s["run_status"], len(net.posts)))
     check("stop_says_why", "no bounded correction" in s["run_status"], s["run_status"])
     check("stop_card_still_reaches_command_center", XP.LABEL in (s["card_title"] or ""), s)
+    ev = json.loads((Path(s["package"]).parent / "evidence.json").read_text())
+    check("stop_records_px_never_upscaled", ev["flux_calls"][0]["output_px"] == [1800, 1800]
+          and ev["flux_calls"][0]["upscaled"] is False)
+    # The wrong product (another CIR's flat lay): W-FIDELITY's measured codes are now routed,
+    # so it gets exactly one bounded correction carrying their negatives, then stops.
+    out1 = Path(tempfile.mkdtemp(prefix="wraptest-wrong-")) / "run"
+    with FakeNetwork(_flat(TF._cir("cloudline-baby-blanket"))) as net1:
+        s1 = H.run(live=True, out=out1)
+    check("wrong_product_corrected_once_then_stopped",
+          len(net1.posts) == 2 and s1["run_state"] == "blocked", (len(net1.posts),
+                                                                    s1["run_status"]))
+    check("wrong_product_retry_carries_measured_code_negatives",
+          "no colour that is not in the certified palette" in json.dumps(net1.posts[1]))
     # A routable failure (knitted texture) gets exactly one bounded correction, then stops.
     out2 = Path(tempfile.mkdtemp(prefix="wraptest-fix-")) / "run"
     knit = {"craft": "knitting", "ribbing_visible": "false",
@@ -574,6 +596,115 @@ def test_live_stops_early_on_a_hard_flat_lay_failure():
           len(net2.posts) == 2 and s2["run_state"] == "blocked", (len(net2.posts), s2[
               "run_status"]))
     check("retry_carries_the_repair_negatives", "not knitting" in json.dumps(net2.posts[1]))
+
+
+# ---- FIDELITY follow-ups -----------------------------------------------------------------
+
+MEASURED = ("WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR", "WRONG_COLOUR_LAYOUT",
+            "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT")
+
+
+def test_measured_fidelity_codes_are_shared_routed_and_accepted():
+    from brambleloop.creative import failure_codes as FC
+    from brambleloop.creative import image_stages as S
+    from brambleloop.visual import fidelity as F
+    from brambleloop.visual import repair_routes as RR
+
+    check("measured_codes_in_the_one_constant",
+          set(MEASURED) <= set(FC.PRODUCT_TRUTH_CODES) and set(MEASURED) <= FC.ALL_CODES)
+    check("fidelity_local_codes_are_views", set(F.LOCAL_CODES) == set(MEASURED)
+          and F.ALL_CODES == FC.ALL_CODES and F.WRONG_PIECE_COUNT is FC.WRONG_PIECE_COUNT)
+    got = RR.route(list(MEASURED))
+    check("measured_codes_routed_as_prompt_negatives", got["repairable"] and all(
+        d["kind"] == RR.PROMPT_NEGATIVE and d["negatives"] for d in got["directives"])
+          and len(got["directives"]) == 5, got)
+    cand = S.Candidate(stage="product_only", role="product_flat_lay", path="x", sha256="a" * 64,
+                       release_hash="b" * 64, receipt={})
+    for code in MEASURED:
+        v = S.fidelity_verdict(cand, status="FAIL", checker="t", failures=[code])
+        check(f"fidelity_verdict_accepts:{code}", v["failures"] == [code])
+    check("unknown_code_still_refused",
+          raises(lambda: S.fidelity_verdict(cand, status="FAIL", checker="t",
+                                            failures=["LOOKS_OFF"]), S.StageRefused)
+          is not None)
+
+
+def _band_fraction(png: bytes, cir) -> tuple[float, float]:
+    """(measured, compiled) share of the piece's height taken by the first colour band."""
+    import numpy as np
+
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.publish import charts
+    from brambleloop.visual.render_verification import expected_model
+
+    comp = cir.components[0]
+    twin = build_twin(cir, compile_cir(cir), component=comp.name)
+    colours = twin.color_grid()
+    n = 0
+    for row in colours:
+        if len(set(row)) == 1 and row[0] == colours[0][0]:
+            n += 1
+        else:
+            break
+    heights = [r["height_cm"] for r in expected_model(cir, comp.name, shape=False)["rows"]]
+    a = np.asarray(Image.open(io.BytesIO(png)).convert("RGB")).astype(int)
+    bg = a[2, 2]
+    ys, xs = np.where(np.abs(a - bg).sum(axis=2) > 30)
+    keys = list(cir.colors)
+    pal = np.stack([np.array(charts._hex_to_rgb(cir.colors[k])) for k in keys])
+    band = 0
+    for y in range(ys.max(), ys.min() - 1, -1):
+        row = a[y, xs.min():xs.max() + 1]
+        lab = np.array(keys)[np.abs(row[:, None, :] - pal[None]).sum(axis=2).argmin(axis=1)]
+        if (lab == colours[0][0]).mean() > 0.5:
+            band += 1
+        else:
+            break
+    return band / (ys.max() - ys.min() + 1), sum(heights[:n]) / sum(heights)
+
+
+def test_layout_reference_draws_rows_at_compiled_heights():
+    import test_w4_fidelity as TF
+
+    from brambleloop.creative import pattern_refs as P
+
+    check("pattern_refs_version_bumped", P.VERSION.startswith("pattern-refs/3.1"), P.VERSION)
+    for slug in ("cloudline-baby-blanket", "reading-nook-cable-wrap"):
+        cir = TF._cir(slug) if slug != "reading-nook-cable-wrap" else _wrap_cir()
+        img, _ = P._render_layout(cir, P._components(cir))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        got, want = _band_fraction(buf.getvalue(), cir)
+        ref, _ = _band_fraction(TF.flat_lay(cir, texture=False, shadow=False), cir)
+        check(f"layout_band_matches_fidelity_model:{slug}", abs(got - ref) <= 0.25 * ref,
+              (got, ref, want))
+        check(f"layout_band_not_too_tall:{slug}", got <= 1.15 * want, (got, want))
+        if slug == "cloudline-baby-blanket":
+            check("cloudline_band_within_15pct_of_compiled", 0.85 * want <= got <= 1.15 * want,
+                  (got, want))
+
+
+def test_flat_lay_surface_is_mid_tone_and_separable():
+    from brambleloop.creative import image_stages as S
+
+    wrap = S.flat_lay_surface(["#FAF6EB", "#22473A"])
+    check("wrap_surface_is_taupe", wrap["hex"] == "#7A746C" and wrap["min_delta_e"] >= 25, wrap)
+    other = S.flat_lay_surface(["#7A746C", "#FAF6EB"])
+    check("taupe_product_gets_another_surface", other["hex"] != "#7A746C"
+          and other["min_delta_e"] >= 25, other)
+    check("no_separable_surface_refused", raises(lambda: S.flat_lay_surface(
+        [h for _, h in S.FLAT_LAY_SURFACES]), S.StageRefused) is not None)
+    cir = _wrap_cir()
+    from brambleloop.creative.pattern_refs import release_hash_of
+
+    rel = S.release_from_cir(cir, release_hash=release_hash_of(cir),
+                             out_dir=tempfile.mkdtemp(prefix="wraptest-surf-"))
+    stub = S.StubRenderer()
+    S.product_only(rel, renderer=stub, work_dir=tempfile.mkdtemp(prefix="wraptest-surfw-"))
+    prompt = stub.calls[-1]["prompt"]
+    check("flat_lay_prompt_names_the_surface", "#7A746C" in prompt and "colour-distance" in
+          prompt and "neutral surface" not in prompt, prompt[:400])
 
 
 if __name__ == "__main__":
@@ -588,5 +719,8 @@ if __name__ == "__main__":
     test_dry_run_reaches_the_approval_card_unattended()
     test_live_path_rehearsed_offline()
     test_live_stops_early_on_a_hard_flat_lay_failure()
+    test_measured_fidelity_codes_are_shared_routed_and_accepted()
+    test_layout_reference_draws_rows_at_compiled_heights()
+    test_flat_lay_surface_is_mid_tone_and_separable()
     print(f"{'FAIL' if FAILED else 'OK'} test_w4_wraptest ({len(FAILED)} failed)")
     sys.exit(1 if FAILED else 0)

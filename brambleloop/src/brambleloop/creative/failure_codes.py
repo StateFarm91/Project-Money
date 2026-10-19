@@ -44,6 +44,42 @@ PRODUCT_TRUTH_CODES: dict[str, dict] = {
                         "(image_stages.lifestyle)"},
 }
 
+# W-FIDELITY's measured codes (visual.fidelity), folded into the one constant (W4-WRAPTEST).
+WRONG_ASPECT_RATIO = "WRONG_ASPECT_RATIO"
+OFF_PALETTE_COLOUR = "OFF_PALETTE_COLOUR"
+WRONG_COLOUR_LAYOUT = "WRONG_COLOUR_LAYOUT"
+WRONG_REPEAT_COUNT = "WRONG_REPEAT_COUNT"
+WRONG_PIECE_COUNT = "WRONG_PIECE_COUNT"
+OWNER_RECORD_CODES: frozenset[str] = frozenset({INVENTED_END_BAND_TREATMENT, INVENTED_EDGING,
+                                                WRONG_CRAFT_TEXTURE, UNVERIFIABLE_COUNT})
+MEASURED_CODES: dict[str, dict] = {
+    WRONG_ASPECT_RATIO: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "the unfolded piece's long/short ratio differs from the digital twin's "
+                   "finished centimetres beyond tolerance",
+        "countered_by": "the layout reference at true proportion (pattern_refs 'layout')"},
+    OFF_PALETTE_COLOUR: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "a colour the certified palette does not declare (added or substituted)",
+        "countered_by": "prompt negative 'colours not in the certified palette' "
+                        "(pattern_refs.PROHIBITED_ADDITIONS)"},
+    WRONG_COLOUR_LAYOUT: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "colour bands, stripes or colour changes are not where the pattern puts "
+                   "them, or a declared colour is missing",
+        "countered_by": "prompt negative 'colour changes anywhere except ...' "
+                        "(pattern_refs.negatives)"},
+    WRONG_REPEAT_COUNT: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "a measurable count of motif repeats or cable columns differs from the CIR",
+        "countered_by": "prompt negative on cable/motif count (pattern_refs.negatives)"},
+    WRONG_PIECE_COUNT: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "more or fewer pieces than the CIR makes",
+        "countered_by": "prohibited addition 'extra or missing pieces'"},
+}
+PRODUCT_TRUTH_CODES.update(MEASURED_CODES)
+
 # The owner's wardrobe-diversity fix (2026-10-19). FLUX carried the canonical references'
 # beige trousers and ivory top into lifestyle frames, and outfits differed only by the shirt.
 WARDROBE = "wardrobe"

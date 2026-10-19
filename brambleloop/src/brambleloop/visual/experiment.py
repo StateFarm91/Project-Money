@@ -364,6 +364,7 @@ class Context:
     budget: ExperimentBudget | None = None
     gallery_builder: object = None
     outfit_selector: object = None
+    outfit_rejects: object = None          # (outfit view) -> bool: the brief excludes it
     max_attempts_per_role: int = MAX_ATTEMPTS_PER_ROLE
 
     @property

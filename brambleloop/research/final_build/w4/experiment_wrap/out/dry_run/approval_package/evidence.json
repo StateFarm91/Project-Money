@@ -34,8 +34,8 @@
      "preferred_source": "generated",
      "source": "generated",
      "candidate": {
-      "candidate_id": 3,
-      "sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
+      "candidate_id": 4,
+      "sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
       "method": "autonomous",
       "technical_status": "PASS",
       "publishable": false,
@@ -98,8 +98,8 @@
      "preferred_source": "generated",
      "source": "generated",
      "candidate": {
-      "candidate_id": 4,
-      "sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
+      "candidate_id": 5,
+      "sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
       "method": "autonomous",
       "technical_status": "PASS",
       "publishable": false,
@@ -228,8 +228,8 @@
      "name": "hero",
      "role": "lifestyle",
      "source": "flux",
-     "sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
-     "candidate_id": 3,
+     "sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
+     "candidate_id": 4,
      "technical_status": "PASS",
      "failure_categories": [],
      "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
@@ -239,8 +239,8 @@
      "name": "product_flat_lay",
      "role": "product_anchor",
      "source": "flux",
-     "sha256": "a6e75fb940bd37dc4ff1f38dc2fbf98e1cf9ca8e6575c20b495bd29197eaa6d8",
-     "candidate_id": 2,
+     "sha256": "80b845d1bf69d9a43e242a44ddcefafbccfa1d0237f76c2132412c35f14b4f33",
+     "candidate_id": 3,
      "technical_status": "PASS",
      "failure_categories": [],
      "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
@@ -259,8 +259,8 @@
      "name": "laura_back_drape",
      "role": "angle",
      "source": "flux",
-     "sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
-     "candidate_id": 4,
+     "sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
+     "candidate_id": 5,
      "technical_status": "PASS",
      "failure_categories": [],
      "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
@@ -313,7 +313,7 @@
    "gallery_assembly",
    "owner_card"
   ],
-  "updated_at": "2026-10-19T22:32:52.985506"
+  "updated_at": "2026-10-19T23:22:25.133936"
  },
  "gallery": [
   {
@@ -321,8 +321,8 @@
    "name": "hero",
    "role": "lifestyle",
    "source": "flux",
-   "sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
-   "candidate_id": 3,
+   "sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
+   "candidate_id": 4,
    "technical_status": "PASS",
    "failure_categories": [],
    "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
@@ -333,8 +333,8 @@
    "name": "product_flat_lay",
    "role": "product_anchor",
    "source": "flux",
-   "sha256": "a6e75fb940bd37dc4ff1f38dc2fbf98e1cf9ca8e6575c20b495bd29197eaa6d8",
-   "candidate_id": 2,
+   "sha256": "80b845d1bf69d9a43e242a44ddcefafbccfa1d0237f76c2132412c35f14b4f33",
+   "candidate_id": 3,
    "technical_status": "PASS",
    "failure_categories": [],
    "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
@@ -355,8 +355,8 @@
    "name": "laura_back_drape",
    "role": "angle",
    "source": "flux",
-   "sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
-   "candidate_id": 4,
+   "sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
+   "candidate_id": 5,
    "technical_status": "PASS",
    "failure_categories": [],
    "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
@@ -579,7 +579,7 @@
   "live": false,
   "max_attempts_per_role": 2,
   "owner_approval": "owner-approved experiment 2026-10-19: Reading Nook Cable Wrap v0.1.0, first end-to-end autonomous listing test, CA$5.00 total new paid usage, no credit purchases, no publishing, SHADOW only",
-  "opened_at": "2026-10-19T22:32:41.696938+00:00"
+  "opened_at": "2026-10-19T23:22:14.219518+00:00"
  },
  "command_center_notification": {
   "id": 12,
@@ -594,8 +594,8 @@
    "image_production_runs:1"
   ],
   "deep_link": "/cc/#/images/reading-nook-cable-wrap",
-  "first_seen_at": "2026-10-19T22:32:53.320294+00:00",
-  "last_seen_at": "2026-10-19T22:32:53.320294+00:00",
+  "first_seen_at": "2026-10-19T23:22:25.342479+00:00",
+  "last_seen_at": "2026-10-19T23:22:25.342479+00:00",
   "occurrences": 1,
   "acked_at": null,
   "delivered": "in_app",
@@ -616,7 +616,7 @@
    "size": "2048x2048",
    "reserved_cad": 0.0,
    "would_cost_cad": 0.13986,
-   "at": "2026-10-19T22:32:45.303280+00:00",
+   "at": "2026-10-19T23:22:17.809799+00:00",
    "references": 4,
    "cost_cad": 0.0,
    "output_px": [
@@ -624,9 +624,9 @@
     2048
    ],
    "output_format": "PNG",
-   "output_sha256": "a6e75fb940bd37dc4ff1f38dc2fbf98e1cf9ca8e6575c20b495bd29197eaa6d8",
+   "output_sha256": "80b845d1bf69d9a43e242a44ddcefafbccfa1d0237f76c2132412c35f14b4f33",
    "task_id": "stub-1",
-   "latency_s": 0.16,
+   "latency_s": 0.13,
    "upscaled": false,
    "meets_2000px": true
   },
@@ -637,7 +637,7 @@
    "size": "2048x2048",
    "reserved_cad": 0.0,
    "would_cost_cad": 0.13986,
-   "at": "2026-10-19T22:32:47.148658+00:00",
+   "at": "2026-10-19T23:22:19.581155+00:00",
    "references": 8,
    "cost_cad": 0.0,
    "output_px": [
@@ -645,9 +645,9 @@
     2048
    ],
    "output_format": "PNG",
-   "output_sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
+   "output_sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
    "task_id": "stub-2",
-   "latency_s": 0.17,
+   "latency_s": 0.14,
    "upscaled": false,
    "meets_2000px": true
   },
@@ -658,7 +658,7 @@
    "size": "2048x2048",
    "reserved_cad": 0.0,
    "would_cost_cad": 0.13986,
-   "at": "2026-10-19T22:32:48.905844+00:00",
+   "at": "2026-10-19T23:22:21.143024+00:00",
    "references": 8,
    "cost_cad": 0.0,
    "output_px": [
@@ -666,7 +666,7 @@
     2048
    ],
    "output_format": "PNG",
-   "output_sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
+   "output_sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
    "task_id": "stub-3",
    "latency_s": 0.15,
    "upscaled": false,
@@ -729,38 +729,38 @@
    {
     "listing": "reading-nook-cable-wrap",
     "product": "reading-nook-cable-wrap@0.1.0",
-    "image_sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
-    "at": "2026-10-19T22:32:47.418356+00:00"
+    "image_sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
+    "at": "2026-10-19T23:22:19.790083+00:00"
    },
    {
     "listing": "reading-nook-cable-wrap",
     "product": "reading-nook-cable-wrap@0.1.0",
-    "image_sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
-    "at": "2026-10-19T22:32:49.115866+00:00"
+    "image_sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
+    "at": "2026-10-19T23:22:21.354712+00:00"
    }
   ],
   "replaced_by": null
  },
  "candidates": [
   {
-   "id": 2,
+   "id": 3,
    "role": "product_anchor",
    "attempt": 1,
-   "sha256": "a6e75fb940bd37dc4ff1f38dc2fbf98e1cf9ca8e6575c20b495bd29197eaa6d8",
+   "sha256": "80b845d1bf69d9a43e242a44ddcefafbccfa1d0237f76c2132412c35f14b4f33",
    "provider": "stub",
    "model": "stub (dry run)",
    "outcome": "accepted",
    "technical_status": "PASS",
    "publishable": false,
    "cost_cad": 0.0,
-   "latency_s": 1.316,
+   "latency_s": 1.171,
    "width": 2048,
    "height": 2048,
    "failure_categories": [],
    "prompt_sha256": "887fca568264ddf57ed3f3fa24c617764bc5a3701b30102d723ddbf676a8e6a6",
    "references": [
     {
-     "sha256": "4a780ac654bac4eae7377d24e70e55f7aec8d8b131b4a95300dc93fdaada5764",
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
      "kind": "pattern_derived"
     },
     {
@@ -808,24 +808,24 @@
    }
   },
   {
-   "id": 3,
+   "id": 4,
    "role": "lifestyle",
    "attempt": 1,
-   "sha256": "02618907a0014d257e8b1af1be059af8f5c45cb3d4b20cd8cf85c8974f416fe7",
+   "sha256": "05404710461d9a30a8e89ff9cd6b623a21b501b685f36837dd2237cbae7bf8e4",
    "provider": "stub",
    "model": "stub (dry run)",
    "outcome": "accepted",
    "technical_status": "PASS",
    "publishable": false,
    "cost_cad": 0.0,
-   "latency_s": 1.435,
+   "latency_s": 1.311,
    "width": 2048,
    "height": 2048,
    "failure_categories": [],
    "prompt_sha256": "e1aeab7550ce59e3d93c6db1073d6918baf40dd4666124a18aafc5a1160a0e0a",
    "references": [
     {
-     "sha256": "4a780ac654bac4eae7377d24e70e55f7aec8d8b131b4a95300dc93fdaada5764",
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
      "kind": "pattern_derived"
     },
     {
@@ -945,24 +945,24 @@
    }
   },
   {
-   "id": 4,
+   "id": 5,
    "role": "angle",
    "attempt": 1,
-   "sha256": "28f0deb11d313095aea620f819dedc2552a11eda23658f930248cbde949f61e0",
+   "sha256": "4f1782c61a76dd94b8f8fc945952c3924e8a6fe6654c0210d5507e4ffa8777ff",
    "provider": "stub",
    "model": "stub (dry run)",
    "outcome": "accepted",
    "technical_status": "PASS",
    "publishable": false,
    "cost_cad": 0.0,
-   "latency_s": 1.482,
+   "latency_s": 1.358,
    "width": 2048,
    "height": 2048,
    "failure_categories": [],
    "prompt_sha256": "e1aeab7550ce59e3d93c6db1073d6918baf40dd4666124a18aafc5a1160a0e0a",
    "references": [
     {
-     "sha256": "4a780ac654bac4eae7377d24e70e55f7aec8d8b131b4a95300dc93fdaada5764",
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
      "kind": "pattern_derived"
     },
     {
@@ -1084,10 +1084,10 @@
  ],
  "timeline": [
   {
-   "at": "2026-10-19T22:32:28.158+00:00",
+   "at": "2026-10-19T23:22:01.256+00:00",
    "stage": "scratch SHADOW database created",
    "actor": "harness",
-   "duration_s": 3.329,
+   "duration_s": 1.264,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": null,
@@ -1097,10 +1097,10 @@
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:29.596+00:00",
+   "at": "2026-10-19T23:22:02.411+00:00",
    "stage": "certification: gate.certify (real handler, scratch SHADOW DB)",
    "actor": "quality_director",
-   "duration_s": 1.429,
+   "duration_s": 1.147,
    "job_id": 1,
    "idempotency_key": "experiment:certify:reading-nook-cable-wrap:0.1.0:23420beed766",
    "inputs_sha256": "aaaab1c0327a15ba79ce7639496f8b71cdd35aef1656f8b23f2bea92ff9e4ffc",
@@ -1110,10 +1110,10 @@
    "note": "REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
   },
   {
-   "at": "2026-10-19T22:32:41.672+00:00",
+   "at": "2026-10-19T23:22:14.196+00:00",
    "stage": "uncertified PDFs rendered twice each, fixed released_on",
    "actor": "harness",
-   "duration_s": 12.076,
+   "duration_s": 11.785,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": "01b9715fd97dac80b3487d99e27d642ff7ddec43bc048a027a62f1ad71786e92",
@@ -1123,23 +1123,23 @@
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:41.704+00:00",
+   "at": "2026-10-19T23:22:14.227+00:00",
    "stage": "experiment opened (bound to content hash + uncertified PDF hashes)",
    "actor": "harness",
    "duration_s": 0.03,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": "857bd7c7ac9121ab7a3f8489caecf9c7cbd9b4db9271e43c0f6fde04a8760936",
-   "outputs_sha256": "3ba694eb90cc09a747de05f50b8eb19dac86aa5650b4855dfc4750446ee2b6c1",
+   "outputs_sha256": "0660ce538dbe0e5773bf93318420a8c3c959db20b9f449a2b405a9881e42d2fb",
    "cost_cad": 0.0,
    "owner_action": null,
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:42.693+00:00",
+   "at": "2026-10-19T23:22:15.346+00:00",
    "stage": "orchestrator triggered (experiment)",
    "actor": "harness",
-   "duration_s": 0.005,
+   "duration_s": 0.006,
    "job_id": null,
    "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:retrieve_release",
    "inputs_sha256": null,
@@ -1149,7 +1149,7 @@
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:42.975+00:00",
+   "at": "2026-10-19T23:22:15.538+00:00",
    "stage": "image_production.retrieve_release",
    "actor": "publishing",
    "duration_s": null,
@@ -1162,7 +1162,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:44.090+00:00",
+   "at": "2026-10-19T23:22:16.730+00:00",
    "stage": "image_production.prepare_references",
    "actor": "publishing",
    "duration_s": null,
@@ -1175,7 +1175,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:45.527+00:00",
+   "at": "2026-10-19T23:22:18.030+00:00",
    "stage": "image_production.product_generation",
    "actor": "publishing",
    "duration_s": null,
@@ -1188,7 +1188,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:45.571+00:00",
+   "at": "2026-10-19T23:22:18.061+00:00",
    "stage": "image_production.fidelity_gate",
    "actor": "publishing",
    "duration_s": null,
@@ -1201,7 +1201,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:45.690+00:00",
+   "at": "2026-10-19T23:22:18.152+00:00",
    "stage": "image_production.load_laura_references",
    "actor": "publishing",
    "duration_s": null,
@@ -1214,7 +1214,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:45.740+00:00",
+   "at": "2026-10-19T23:22:18.189+00:00",
    "stage": "image_production.reserve_outfit",
    "actor": "publishing",
    "duration_s": null,
@@ -1227,7 +1227,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:47.434+00:00",
+   "at": "2026-10-19T23:22:19.803+00:00",
    "stage": "image_production.lifestyle_generation",
    "actor": "publishing",
    "duration_s": null,
@@ -1240,7 +1240,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:49.127+00:00",
+   "at": "2026-10-19T23:22:21.366+00:00",
    "stage": "image_production.remaining_roles",
    "actor": "publishing",
    "duration_s": null,
@@ -1253,7 +1253,7 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:49.151+00:00",
+   "at": "2026-10-19T23:22:21.395+00:00",
    "stage": "image_production.verification",
    "actor": "publishing",
    "duration_s": null,
@@ -1266,20 +1266,20 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:52.936+00:00",
+   "at": "2026-10-19T23:22:25.107+00:00",
    "stage": "gallery assembly: deterministic frames rendered and stored",
    "actor": "publishing",
-   "duration_s": 3.763,
+   "duration_s": 3.695,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": null,
-   "outputs_sha256": "6d2a0f18d001d1406b3296fc37fcfedcbdb39686da5bd6fd8022a547ba86e5ba",
+   "outputs_sha256": "cbe4bd9ed5fb367d54b54184468fe80efb9e1ae6b9744a25c5148cc6e84bac20",
    "cost_cad": 0.0,
    "owner_action": null,
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:52.958+00:00",
+   "at": "2026-10-19T23:22:25.115+00:00",
    "stage": "image_production.gallery_assembly",
    "actor": "publishing",
    "duration_s": null,
@@ -1292,36 +1292,36 @@
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:52.999+00:00",
+   "at": "2026-10-19T23:22:25.140+00:00",
    "stage": "image_production.owner_card",
    "actor": "publishing",
    "duration_s": null,
    "job_id": 12,
    "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:owner_card",
    "inputs_sha256": "f104e5fe0ea4b6357b9e4a51ec542ee6c2884f05dc88bfc69ae94a9787643ad6",
-   "outputs_sha256": "4a70ff7a938e8f2ae96995ed92f65c88e9bf6920450338c9174e36b07c946ee9",
+   "outputs_sha256": "1efc3c8c32d21a5a2ce9b1018acd6c9c2d92965aa9d868f8c00777df21f73c6f",
    "cost_cad": 0.0,
    "owner_action": null,
    "note": "JobStatus.DONE"
   },
   {
-   "at": "2026-10-19T22:32:53.019+00:00",
+   "at": "2026-10-19T23:22:25.150+00:00",
    "stage": "orchestrator idle after 11 stage jobs",
    "actor": "harness",
-   "duration_s": 10.327,
+   "duration_s": 9.803,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": null,
-   "outputs_sha256": "e8fb5427a1e1bab26dff77bac2375896b99ce2cc1f2573f378149281e3f36443",
+   "outputs_sha256": "0e291a3333ccd33e9fe080ba66f2eb60089ff3ec795a8de6be98d2cdbcd9fac7",
    "cost_cad": 0.0,
    "owner_action": null,
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:53.171+00:00",
+   "at": "2026-10-19T23:22:25.170+00:00",
    "stage": "listing draft (seo/search/pricing/category reused)",
    "actor": "seo",
-   "duration_s": 0.151,
+   "duration_s": 0.02,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": null,
@@ -1331,20 +1331,20 @@
    "note": ""
   },
   {
-   "at": "2026-10-19T22:32:53.340+00:00",
+   "at": "2026-10-19T23:22:25.357+00:00",
    "stage": "approval card created (Command Center notifications.refresh)",
    "actor": "command_center",
-   "duration_s": 0.169,
+   "duration_s": 0.186,
    "job_id": null,
    "idempotency_key": null,
    "inputs_sha256": null,
-   "outputs_sha256": "6802ae08341754b881a1e803774a08d725d6a05ca287151b799a5f8188b8c1cb",
+   "outputs_sha256": "0e0e4313e15c78d6a82385627dc81dd8b8d676bdfed6cdc9bccb3fbbaf7cee2d",
    "cost_cad": 0.0,
    "owner_action": null,
    "note": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: gallery ready for your look: reading-nook-cable-wrap"
   },
   {
-   "at": "2026-10-19T22:32:53.411+00:00",
+   "at": "2026-10-19T23:22:25.385+00:00",
    "stage": "publication paths refused (store.publish, export, listing approval)",
    "actor": "harness",
    "duration_s": 0.0,

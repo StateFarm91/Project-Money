@@ -34,7 +34,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.0.0"
+VERSION = "pattern-refs/3.1.0"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
 # Texture before the symbolic chart: it has priority (owner directive after the reading-nook
 # test); the chart is kept for stitch placement.
 ROLES: tuple[str, ...] = ("layout", "texture", "detail", "rules")
@@ -321,7 +321,8 @@ def _render_layout(cir, parts):
     drawn = []
     for comp, twin, is_round in parts:
         img = (charts.render_round_fabric(cir, twin) if is_round
-               else charts.render_fabric(cir, twin, cell_px=12))
+               else _weighted_rows(cir, comp, twin,
+                                   charts.render_fabric(cir, twin, cell_px=12).convert("RGB")))
         copies = min(int(getattr(comp, "make", 1) or 1), MAX_COPIES_DRAWN)
         drawn.append((img, twin, copies, is_round))
     gap = 40
@@ -356,6 +357,47 @@ def _render_layout(cir, parts):
             canvas.paste(im.convert("RGB"), (x, gap + (height - 2 * gap - im.size[1]) // 2))
             x += im.size[0] + gap
     return canvas, basis
+
+
+def _weighted_rows(cir, comp, twin, im):
+    """The fabric render with each row at its compiled height (stitch-weighted, PT-08).
+
+    `charts.render_fabric` draws every row one cell tall, so a band of short sc rows next to a
+    body of tall dc rows came out too tall (1.33x on Cloudline's end bands, 1.47x on the
+    wrap's). Each row band is resampled to its own compiled height at the twin's true
+    proportion, the same model `visual.fidelity` measures against. Unreadable heights leave
+    the render as it was (the row count still holds)."""
+    from PIL import Image
+
+    try:
+        from ..visual.render_verification import expected_model
+
+        rows = len(twin.chart_grid())
+        heights = [float(r["height_cm"]) for r in
+                   expected_model(cir, comp.name, shape=False)["rows"]]
+    except Exception:  # noqa: BLE001 - no compiled heights: the uniform render stands
+        return im
+    if len(heights) != rows or rows == 0 or not all(h > 0 for h in heights) or not (
+            twin.width_cm and twin.height_cm):
+        return im
+    w, hs = im.size
+    band = hs / rows
+    h = max(rows, int(round(w * float(twin.height_cm) / float(twin.width_cm))))
+    scale = h / sum(heights)
+    out, y = [], 0.0
+    for r in range(rows - 1, -1, -1):          # top row first (row 1 is at the bottom)
+        top = int(round(hs - (r + 1) * band))
+        strip = im.crop((0, top, w, max(top + 1, int(round(top + band)))))
+        y_next = y + heights[r] * scale
+        out.append(strip.resize((w, max(1, int(round(y_next)) - int(round(y)))),
+                                Image.NEAREST))
+        y = y_next
+    canvas = Image.new("RGB", (w, sum(o.size[1] for o in out)))
+    yy = 0
+    for o in out:
+        canvas.paste(o, (0, yy))
+        yy += o.size[1]
+    return canvas
 
 
 def _stack(images, *, pad: int = 24):
