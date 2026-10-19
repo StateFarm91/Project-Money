@@ -156,6 +156,7 @@ def test_motif_border_colour_and_piece_corruptions_are_rejected():
         'fringe pixel moved': lambda im: im.putpixel((6, 30), (0, 0, 0)),
         'hole filled': lambda im: [im.putpixel((x, y), CREAM) for x in (8, 9) for y in (14, 15)],
     }
+    assert len(cases) == 6
     for name, fn in cases.items():
         verdict = C.verify_restored(src, gen, _corrupt(out, fn))
         assert verdict['status'] == 'FAIL', name
