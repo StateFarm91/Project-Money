@@ -50,6 +50,11 @@ _TMP = tempfile.mkdtemp(prefix="rc1-spend-")
 PNG = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 50).decode()
 IMAGE_KEY = "flux-2-pro"
 PROVIDER = images.BY_KEY[IMAGE_KEY]
+# W4-FLUXAPI: a render reserves and bills the documented price of *that* request (BFL's
+# published megapixel formula: US$0.03 for a 1 MP FLUX.2 [pro] render), never below the
+# table price. Every render below is 1024x1024 with no reference.
+RENDER_CAD = round(images.render_estimate_usd(PROVIDER, "1024x1024")["usd"] * images.USD_TO_CAD, 6)
+assert RENDER_CAD >= PROVIDER.cad_per_image
 ENV = {images.PROVIDER_VAR: IMAGE_KEY, images.KEY_VAR: "k" * 20}
 
 
@@ -193,8 +198,8 @@ def test_b2_every_render_writes_an_image_cost_row_and_the_ceiling_counts_it():
                for _ in range(3)]
     assert _count(db, kind=routing.IMAGE_COST_KIND) == 3
     assert all(g["cost_entry_id"] for g in got)
-    assert abs(gw.spent_this_month_cad(db) - 3 * PROVIDER.cad_per_image) < 1e-6
-    assert abs(routing.spent_this_month(db) - 3 * PROVIDER.cad_per_image) < 1e-6
+    assert abs(gw.spent_this_month_cad(db) - 3 * RENDER_CAD) < 1e-6
+    assert abs(routing.spent_this_month(db) - 3 * RENDER_CAD) < 1e-6
     month = spend_report.what_it_bought(db)
     assert month["by_provider"][IMAGE_KEY]["calls"] == 3, "the report reads what the ceiling reads"
     with db.session() as s:
@@ -257,7 +262,7 @@ def test_b3_a_render_accepted_then_failed_is_billed_not_released_as_free():
             raise AssertionError("an unfetchable link is no image")
         except images.ImagesRefused:
             pass
-    assert _reservation_rows(db) == [(PROVIDER.cad_per_image, PROVIDER.cad_per_image, True)]
+    assert _reservation_rows(db) == [(RENDER_CAD, RENDER_CAD, True)]
     with db.session() as s:
         row = s.scalar(select(CostEntry))
     assert row.kind == routing.IMAGE_COST_KIND and row.detail["billing"] == "accepted_then_failed"
@@ -309,7 +314,7 @@ def test_b3_a_refused_request_is_unbilled_and_a_read_timeout_is_counted():
                             provider_key=IMAGE_KEY)
         except images.ImagesRefused:
             pass
-    assert _count(db) == 0 and _reservation_rows(db) == [(PROVIDER.cad_per_image, None, True)]
+    assert _count(db) == 0 and _reservation_rows(db) == [(RENDER_CAD, None, True)]
 
     def timed_out(*_a, **_k):
         raise TimeoutError("The read operation timed out")

@@ -212,7 +212,11 @@ def test_a_successful_image_render_releases_with_its_price():
     with _Post() as post, tempfile.TemporaryDirectory() as work:
         out = images.generate("p", env=IMG_ENV, work_dir=work, db=db)
     (row,) = _reservations(db)
-    assert post.calls == 1 and row.actual_cad == images.BY_KEY["flux-2-pro"].cad_per_image
+    # W4-FLUXAPI: billed at the documented price of this request, never below the table.
+    price = round(images.render_estimate_usd(images.BY_KEY["flux-2-pro"], "1024x1024")["usd"]
+                  * images.USD_TO_CAD, 6)
+    assert price >= images.BY_KEY["flux-2-pro"].cad_per_image
+    assert post.calls == 1 and row.actual_cad == price == out["cad"]
     assert out["reservation_id"] == row.id
 
 
