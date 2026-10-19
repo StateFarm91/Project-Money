@@ -15,9 +15,15 @@ nothing is generated here.
 * **Complete outfit** (§4): a top or dress, a lower garment (none with a dress), shoes,
   outerwear and accessories. The outfit's colours are chosen so they do not compete with the
   product's colours.
-* **Uniqueness** (§4): a complete outfit whose signature (`outfits.signature`) is already
-  used by another listing is skipped. A setting already used by another listing is avoided
-  while an unused one fits.
+* **Distinctness** (owner wardrobe fix): a complete outfit too similar to any outfit another
+  listing holds (`wardrobe.similarity` >= `MAX_SIMILARITY`) is skipped automatically, and so
+  is anything too similar to the canonical references' own clothing
+  (`wardrobe.REFERENCE_OUTFIT`). That clothing is treated as already used and is never
+  defaulted to. No single colour or garment category is banned. A setting already used by
+  another listing is avoided while an unused one fits.
+* **Variety:** jeans, skirts, dresses, tailored and casual trousers, and a full range of
+  footwear and outerwear (`wardrobe.CATALOGUE`). The choice is filtered by season and ranked
+  by the product's formality.
 * **Natural direction** (§5): every concept names a believable everyday action, a real room
   and natural light, never a studio pose. The pose list excludes generic catalogue poses.
 """
@@ -25,23 +31,8 @@ from __future__ import annotations
 
 import hashlib
 
-STYLING_VERSION = "styling/1"
+STYLING_VERSION = "styling/2"
 BRAND_AESTHETIC = "warm, quiet Scandinavian-cottage: natural light, natural fibres, unhurried"
-
-TOPS = ("cream cable-knit cardigan over a white tee", "sage-green cardigan over a cream tee",
-        "oatmeal crew-neck jumper", "soft blue chambray shirt", "rust ribbed turtleneck",
-        "ivory linen blouse", "heather-grey fisherman jumper", "dusty-rose knit cardigan")
-DRESSES = ("charcoal knit midi dress", "olive corduroy pinafore over a cream tee")
-LOWERS = ("dark straight-leg jeans", "camel wide-leg trousers", "light-wash jeans",
-          "charcoal wool trousers", "brown corduroy trousers")
-SHOES = ("tan leather loafers", "grey wool slippers", "white canvas sneakers",
-         "brown ankle boots", "cream knit house socks")
-OUTERWEAR = ("none", "camel wool coat", "quilted olive vest", "none", "oatmeal shawl wrap")
-ACCESSORIES = ("small gold hoops", "thin gold chain", "tortoiseshell hair clip",
-               "silver stud earrings", "leather-strap watch")
-# Garment colour words, used to keep the outfit from competing with the product's colours.
-_COLOUR_WORDS = ("cream", "sage", "oatmeal", "blue", "rust", "ivory", "grey", "rose", "charcoal",
-                 "olive", "camel", "brown", "white", "tan", "gold", "silver")
 
 SETTINGS: dict[str, tuple[str, ...]] = {
     "baby": ("sunlit nursery with a wooden cot", "living-room sofa by a window",
@@ -59,7 +50,6 @@ ACTIONS: dict[str, str] = {
     "basket": "putting things into the basket", "coaster": "setting a mug down beside a coaster",
     "placemat": "laying a plate onto a placemat", "ornament": "hanging an ornament",
 }
-SEASONAL = {"winter": ("camel wool coat", "oatmeal shawl wrap")}
 
 
 def _rank(key: str, items) -> list:
@@ -68,64 +58,97 @@ def _rank(key: str, items) -> list:
 
 
 def _clashes(garment: str, product_colours: set[str]) -> bool:
-    words = {w for w in _COLOUR_WORDS if w in garment.lower()}
-    return bool(words & product_colours)
+    from .wardrobe import parse_garment
+
+    return bool(set(parse_garment("top_or_dress", garment)["colours"]) & product_colours)
+
+
+_FORMALITY = {"placemat": "smart", "coaster": "smart", "ornament": "smart"}
+
+
+def _pool(slot: str, key: str, season: str, formality: str) -> list[str]:
+    from .wardrobe import CATALOGUE
+
+    items = [(t, se, fo) for t, se, fo in CATALOGUE[slot]
+             if se == "any" or not season or se == season]
+    # Formality is a preference, never a ban: matching items first, the rest after.
+    ranked = sorted(items, key=lambda i: (i[2] not in ("any", formality),
+                                          hashlib.sha256(f"{key}|{slot}|{i[0]}".encode())
+                                          .hexdigest()))
+    return [t for t, _se, _fo in ranked]
 
 
 def select(listing: str, *, category: str, product_colours=(), season: str = "",
            target_customer: str = "", materials=(), use: str = "",
-           used_signatures=(), used_settings=()) -> dict:
-    """The complete outfit and photoshoot concept for one listing. Deterministic."""
+           used_outfits=(), used_settings=()) -> dict:
+    """The complete outfit and photoshoot concept for one listing. Deterministic.
+
+    `used_outfits` is [(name, garments)] for every outfit another listing holds. The
+    reference outfit (`wardrobe.REFERENCE_OUTFIT`) is always added: it is never chosen, and
+    nothing too similar to it is chosen either."""
     from .outfits import signature
+    from .wardrobe import REFERENCE_OUTFIT, too_similar
 
     pc = {str(c).lower() for c in product_colours}
-    pc |= {w for c in pc for w in _COLOUR_WORDS if w in c}
-    used_sig, used_set = set(used_signatures), set(used_settings)
-    outer_pool = SEASONAL.get(season, OUTERWEAR)
-    chosen = None
-    for top in _rank(listing + "|top", TOPS + DRESSES):
+    from .wardrobe import _COLOUR_FAMILY
+
+    pc |= {c for word in list(pc) for c in _COLOUR_FAMILY if c in word}
+    used = [("canonical reference outfit", REFERENCE_OUTFIT)] + list(used_outfits)
+    used_set = set(used_settings)
+    formality = _FORMALITY.get(category, "casual")
+    pools = {slot: _pool(slot, listing, season, formality) for slot in
+             ("top_or_dress", "lower", "shoes", "outerwear", "accessories")}
+    chosen, rejected = None, 0
+    for top in pools["top_or_dress"]:
         if _clashes(top, pc):
             continue
-        is_dress = top in DRESSES
-        for lower in ([""] if is_dress else _rank(listing + "|lower", LOWERS)):
-            for shoes in _rank(listing + "|shoes", SHOES):
+        is_dress = "dress" in top or "pinafore" in top
+        for lower in ([""] if is_dress else pools["lower"]):
+            if lower and _clashes(lower, pc):
+                continue
+            for shoes in pools["shoes"]:
                 garments = {"top_or_dress": top, "lower": lower, "shoes": shoes,
-                            "outerwear": _rank(listing + "|outer", outer_pool)[0],
-                            "accessories": _rank(listing + "|acc", ACCESSORIES)[0]}
-                colours = sorted({w for g in garments.values()
-                                  for w in _COLOUR_WORDS if w in g})
-                if signature(garments) not in used_sig:
-                    chosen = (garments, colours)
-                    break
+                            "outerwear": pools["outerwear"][0],
+                            "accessories": pools["accessories"][0]}
+                if too_similar(garments, used) is not None:
+                    rejected += 1
+                    continue
+                chosen = garments
+                break
             if chosen:
                 break
         if chosen:
             break
     if chosen is None:
-        return {"outfit": None, "why": "every complete outfit in the wardrobe is used or clashes; "
-                                       "the wardrobe needs new garments"}
-    garments, colours = chosen
+        return {"outfit": None, "why": "every complete outfit in the wardrobe is too similar to "
+                                       "one already used, or clashes with the product"}
+    from .wardrobe import parse_outfit
+
+    colours = sorted({c for g in parse_outfit(chosen).values() for c in g["colours"]})
     settings = SETTINGS.get(category, ("living room by a window",))
-    fresh = [s for s in _rank(listing + "|set", settings) if s not in used_set]
+    fresh = [x for x in _rank(listing + "|set", settings) if x not in used_set]
     setting = (fresh or _rank(listing + "|set", settings))[0]
-    oid = "auto-" + hashlib.sha256(f"{listing}|{signature(garments)}".encode()).hexdigest()[:10]
+    oid = "auto-" + hashlib.sha256(f"{listing}|{signature(chosen)}".encode()).hexdigest()[:10]
     return {
         "styling_version": STYLING_VERSION,
-        "outfit": {"outfit_id": oid, "garments": garments, "colours": colours,
-                   "description": "; ".join(v for v in garments.values() if v and v != "none")},
+        "outfit": {"outfit_id": oid, "garments": chosen, "colours": colours,
+                   "description": "; ".join(v for v in chosen.values() if v and v != "none")},
         "concept": {"setting": setting, "setting_reused": not fresh,
                     "action": ACTIONS.get(category, "using the finished piece"),
                     "light": "natural window light", "season": season or "any",
                     "target_customer": target_customer or "a maker who loves a calm home",
-                    "aesthetic": BRAND_AESTHETIC, "materials": list(materials), "use": use,
+                    "aesthetic": BRAND_AESTHETIC, "formality": formality,
+                    "materials": list(materials), "use": use,
                     "avoid": ["studio backdrop", "generic catalogue pose", "staring at camera "
                               "while holding the product up", "over-staged props",
-                              "hands hidden or merged with the yarn"]},
-        "inputs": {"category": category, "product_colours": sorted(pc), "season": season},
+                              "hands hidden or merged with the yarn",
+                              "the canonical references' clothing"]},
+        "inputs": {"category": category, "product_colours": sorted(pc), "season": season,
+                   "outfits_considered_too_similar": rejected},
     }
 
 
-def select_for_listing(db, listing: str) -> dict:
+def select_for_listing(db, listing: str, *, exclude=()) -> dict:
     """`select` with the facts read from the listing's certified CIR and the registry."""
     from . import outfits
     from .launch_imagery import _listing_parts
@@ -135,9 +158,12 @@ def select_for_listing(db, listing: str) -> dict:
     colours = [getattr(c, "name", str(c)) for c in (cir.colors or {})] if not isinstance(
         cir.colors, dict) else list(cir.colors)
     season = "winter" if any(w in listing for w in ("winter", "nordic", "star")) else ""
-    reg = [o for o in outfits.registry(db) if o.get("listing") and o["listing"] != listing]
-    used_sig = {outfits.signature(o.get("garments") or {}) for o in reg}
+    reg = [o for o in outfits.registry(db) if o.get("listing") and o["listing"] != listing
+           and o["outfit_id"] not in set(exclude)]
+    used = [(f"{o['outfit_id']} ({o['listing']})", o.get("garments") or {}) for o in reg]
+    used += [(f"{oid} (excluded)", (outfits.get(db, oid) or {}).get("garments") or {})
+             for oid in exclude]
     used_set = {o.get("setting") for o in reg if o.get("setting")}
     return select(listing, category=category, product_colours=colours, season=season,
                   materials=[m.name for m in getattr(cir, "materials", [])],
-                  used_signatures=used_sig, used_settings=used_set)
+                  used_outfits=used, used_settings=used_set)

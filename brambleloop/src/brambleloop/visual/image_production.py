@@ -508,9 +508,9 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     st = STAGE_STATE[stage]
     if stage == "retrieve_release":
         try:  # the first learning example (owner manual wrap experiment); idempotent
-            from .repair_routes import seed_experiment
+            from .repair_routes import seed_experiments
 
-            seed_experiment(db)
+            seed_experiments(db)
         except Exception:  # noqa: BLE001 - learning seed never blocks production
             pass
         bind = CG.binding(db, slug, version, release)
@@ -712,6 +712,15 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 if b.get("technical_status") == "FAIL" and _repair_for(b) is not None:
                     repairs[r["role"]] = _repair_for(b)
             failing = [r for r in roles if r["role"] in repairs]
+            repick = any(d.get("kind") == "repick_outfit" for rp in repairs.values()
+                         for d in rp.get("directives") or [])
+            if repick and run["outfit_id"]:
+                got = _repick_outfit(db, run["listing"], run["outfit_id"])
+                if not got.get("replaced"):
+                    return block(f"wardrobe repetition and no distinct outfit could be "
+                                 f"re-picked: {got.get('why')}", exhausted=True)
+                run["outfit_id"] = got["new"]
+                _update(db, key, stage=stage, outfit_id=got["new"])
             outs = gen_roles(failing, stage, repairs)
             _update(db, key, stage=stage, status=st, record={
                 "outputs": outs, "round": round_, "repairs": repairs,
@@ -763,6 +772,25 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                            status="ready_for_owner_review", card=card,
                                            record={"outputs": card})}
     raise ValueError(f"stage {stage!r} fell through")
+
+
+def _repick_outfit(db, listing: str, current: str) -> dict:
+    """WARDROBE_REPETITION repair: a new distinct complete outfit, the current one excluded,
+    replacing it for this listing. The old one stays bound to the listing (retired)."""
+    from . import styling
+
+    styled = styling.select_for_listing(db, listing, exclude=[current])
+    o = styled.get("outfit")
+    if not o:
+        return {"replaced": False, "why": styled.get("why")}
+    try:
+        outfits.register(db, outfit_id=o["outfit_id"], garments=o["garments"],
+                         colours=o["colours"], concept=styled["concept"])
+        outfits.approve(db, o["outfit_id"],
+                        approved_by=f"creative_director:{styling.STYLING_VERSION}")
+    except outfits.OutfitRefused as exc:
+        return {"replaced": False, "why": str(exc)}
+    return outfits.replace(db, current, o["outfit_id"], listing)
 
 
 def _repair_for(best: dict | None) -> dict | None:

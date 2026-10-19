@@ -327,8 +327,9 @@ def test_laura_gate_order_adds_outfit_and_identity_record_unchanged():
     g = canonical.LAURA_LISTING_GATES
     assert g[0] == "canonical_identity" and g[1] == "body_proportions"
     assert g.index("outfit_uniqueness") == g.index("product_truth_if_product_shown") + 1
-    assert g.index("outfit_consistency") == g.index("outfit_uniqueness") + 1
-    assert set(canonical.CUSTOMER_FACING_GATES) < set(g) and len(g) == 10
+    assert g.index("outfit_distinctness") == g.index("outfit_uniqueness") + 1
+    assert g.index("outfit_consistency") == g.index("outfit_distinctness") + 1
+    assert set(canonical.CUSTOMER_FACING_GATES) < set(g) and len(g) == 11
     assert LI.sha256_of(LI.record()) == LI.CURRENT_SHA256
 
 
@@ -554,13 +555,14 @@ def test_wrap_experiment_is_the_seeded_learning_example():
     from brambleloop.visual import repair_routes as RR
 
     shared = RR.shared_codes()
-    assert set(shared["codes"]) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
-                                    "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}, shared
+    assert set(shared["product_truth"]) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
+                                            "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}, shared
+    assert set(shared["wardrobe"]) == {"WARDROBE_REPETITION", "REFERENCE_CLOTHING_CARRYOVER"}
     assert set(shared["codes"]) <= set(RR.ROUTES)                  # every shared code routed
     db = make_db()
     first, again = RR.seed_experiment(db), RR.seed_experiment(db)
     assert first["seeded"] and not again["seeded"]
-    assert shared["source"] == "creative.failure_codes.ALL_CODES"
+    assert shared["source"] == "creative.failure_codes.EVERY_CODE"
     learn = IP.learning_summary(db, slug="reading-nook-cable-wrap")
     assert learn["candidates"] == 1 and learn["accepted"] == 0
     assert learn["cost_per_accepted_cad"] is None
@@ -641,7 +643,7 @@ def test_styling_is_chosen_automatically_deterministic_and_avoids_used():
     assert "cream" not in a["outfit"]["garments"]["top_or_dress"]      # no clash with product
     assert a["concept"]["setting"] in styling.SETTINGS["baby"]
     c = styling.select("cloudline-baby-blanket", category="baby", product_colours=["cream"],
-                       used_signatures={outfits.signature(a["outfit"]["garments"])},
+                       used_outfits=[("a", a["outfit"]["garments"])],
                        used_settings={a["concept"]["setting"]})
     assert outfits.signature(c["outfit"]["garments"]) != outfits.signature(
         a["outfit"]["garments"])
@@ -712,6 +714,216 @@ def test_reduced_identity_conditioning_is_refused():
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "reduced identity conditioning" in run["blocked_reason"]
     assert [r for r, _k, _o in gen.seen] == ["product_anchor"]
+
+
+# ---- owner wardrobe-diversity fix (2026-10-19) ------------------------------------------
+
+def _laura_prompt(outfit):
+    from brambleloop.creative import flux_prompt as FP
+    from brambleloop.creative import image_stages as S
+
+    rel = S.release_from_cir(_cir("cloudline-baby-blanket"), release_hash=_release_of(
+        "cloudline-baby-blanket"), out_dir=tempfile.mkdtemp(prefix="ownerimg-refs-"))
+    roles = ["laura_face", "laura_torso", "laura_body"] + list(FP.PRODUCT_ROLES)
+    return FP.build(rules=rel.rules, roles=roles, role="lifestyle_hero",
+                    scene={"outfit": outfit}), rel, FP
+
+
+def test_reference_clothing_is_never_copied_prompt_and_selector():
+    from brambleloop.products import launch0
+    from brambleloop.visual import styling, wardrobe
+
+    outfit = {"id": "x", "garments": dict(GARMENTS["oat-jumper-02"])}
+    built, rel, FP = _laura_prompt(outfit)
+    text = built.text
+    for must in ("These three references fix her identity and anatomy ONLY, never her clothing",
+                 "Preserve face, bust fullness and projection, shoulders, waist, hips, legs "
+                 "and silhouette exactly",
+                 "REPLACE ALL clothing from the reference images with the selected outfit",
+                 "do not reuse the reference beige trousers, ivory/cream tops or tan sandals",
+                 "LAURA MUST NOT WEAR", "never flatten, reduce, exaggerate or redesign the bust",
+                 "camel wide-leg trousers", "brown ankle boots", "oatmeal crew-neck jumper"):
+        assert must in text, must
+    assert [x["ref"] for x in built.receipt()["sections"]][1:3] == [
+        FP.IDENTITY.ref, FP.REFERENCE_CLOTHING.ref]
+    assert FP.IDENTITY.version == "2"
+    # Product-only prompts carry no Laura clothing text; a Laura prompt without an outfit is
+    # refused.
+    product = FP.build(rules=rel.rules, roles=list(FP.PRODUCT_ROLES), role="flat_lay")
+    assert "REPLACE ALL clothing" not in product.text
+    try:
+        FP.build(rules=rel.rules, roles=["laura_face", "laura_torso", "laura_body"]
+                 + list(FP.PRODUCT_ROLES), role="lifestyle_hero", scene={})
+        raise AssertionError("a Laura prompt without an outfit was built")
+    except FP.PromptBuildRefused:
+        pass
+    # The selector never lands on, or near, the reference clothing, for any listing.
+    picks = [styling.select(slug, category=c, product_colours=["cream", "beige"])
+             for slug, c in zip(launch0.LAUNCH0_SLUGS, ("basket", "baby", "coaster", "ornament",
+                                                         "blanket", "baby", "placemat",
+                                                         "basket"))]
+    assert len(picks) == 8
+    for p in picks:
+        assert wardrobe.similarity(p["outfit"]["garments"],
+                                   wardrobe.REFERENCE_OUTFIT)["score"] < wardrobe.MAX_SIMILARITY
+        assert "beige" not in p["outfit"]["description"] and "sandal" not in p["outfit"][
+            "description"]
+
+
+def test_a_shirt_only_change_is_rejected_but_no_garment_is_banned():
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import outfits, wardrobe
+
+    base = {"top_or_dress": "white linen shirt", "lower": "rust corduroy wide-leg trousers",
+            "shoes": "olive suede clogs", "outerwear": "quilted olive vest",
+            "accessories": "small gold hoops"}
+    shirt_only = {**base, "top_or_dress": "navy striped breton tee"}
+    sim = wardrobe.similarity(base, shirt_only)
+    assert sim["score"] >= wardrobe.MAX_SIMILARITY, sim
+    db = make_db()
+    outfits.register(db, outfit_id="corduroy-look", garments=base)
+    outfits.approve(db, "corduroy-look")
+    assert outfits.reserve(db, "corduroy-look", "hexagon-coaster-set")["status"] == "PASS"
+    outfits.register(db, outfit_id="corduroy-look-new-shirt", garments=shirt_only)
+    outfits.approve(db, "corduroy-look-new-shirt")
+    got = outfits.reserve(db, "corduroy-look-new-shirt", "cloudline-baby-blanket")
+    assert got["status"] == "FAIL" and got["codes"] == ["WARDROBE_REPETITION"]
+    d = outfits.distinctness(db, "corduroy-look-new-shirt", "cloudline-baby-blanket")
+    assert d["status"] == "FAIL"
+    # Jeans and black are not banned: a complete outfit that differs is accepted.
+    a = {"top_or_dress": "black fitted long-sleeve top", "lower": "dark indigo jeans",
+         "shoes": "brown leather ankle boots", "outerwear": "camel wool coat",
+         "accessories": "none"}
+    b = {"top_or_dress": "black knit midi dress", "lower": "", "shoes": "white canvas sneakers",
+         "outerwear": "denim jacket", "accessories": "silver ring"}
+    c = {"top_or_dress": "chambray button-down shirt", "lower": "light-wash wide-leg jeans",
+         "shoes": "burgundy suede ballet flats", "outerwear": "none",
+         "accessories": "leather-strap watch"}
+    assert wardrobe.similarity(a, b)["score"] < wardrobe.MAX_SIMILARITY
+    assert wardrobe.similarity(a, c)["score"] < wardrobe.MAX_SIMILARITY
+    # As a gate: the wardrobe failure blocks while every other check still ran.
+    v = CG.evaluate(db, cand(laura_present=True, outfit_id="corduroy-look-new-shirt"),
+                    judges=StubJudges())
+    assert v["technical_status"] == "FAIL" and not v["publishable"]
+    assert "WARDROBE_REPETITION" in v["failure_categories"]
+    for name in ("binding", "quality", "role", "product_truth", "identity",
+                 "body_proportions", "realism", "disclosure"):
+        assert v["checks"][name]["status"] == "PASS", name
+
+
+def test_complete_outfits_differ_meaningfully_between_listings():
+    from brambleloop.products import launch0
+    from brambleloop.visual import outfits, styling, wardrobe
+
+    db = make_db()
+    chosen = []
+    for listing in launch0.LAUNCH0_SLUGS:
+        pick = styling.select_for_listing(db, listing)
+        o = pick["outfit"]
+        outfits.register(db, outfit_id=o["outfit_id"], garments=o["garments"],
+                         concept=pick["concept"])
+        outfits.approve(db, o["outfit_id"], approved_by="test")
+        assert outfits.reserve(db, o["outfit_id"], listing)["status"] == "PASS", listing
+        chosen.append(o["garments"])
+    assert len(chosen) == 8
+    scores = [wardrobe.similarity(chosen[i], chosen[j])["score"]
+              for i in range(8) for j in range(i + 1, 8)]
+    assert len(scores) == 28 and max(scores) < wardrobe.MAX_SIMILARITY, max(scores)
+    lowers = {wardrobe.parse_garment("lower", g["lower"])["category"] for g in chosen}
+    assert len(lowers) >= 3, lowers                                  # real variety
+
+
+def test_reservations_survive_a_restart():
+    import subprocess
+
+    from brambleloop.visual import image_records, outfits
+
+    db = make_db()
+    approved_outfit(db)
+    assert outfits.reserve(db, "sage-cardigan-01", "cloudline-baby-blanket")["status"] == "PASS"
+    url = str(db.engine.url)
+    db.engine.dispose()
+    image_records._ensured.clear()
+    again = Database(url, scratch=True)                               # a new engine/session
+    held = outfits.reserved_for(again, "cloudline-baby-blanket")
+    assert held and held["outfit_id"] == "sage-cardigan-01"
+    code = ("import sys; from brambleloop.core.db import Database; "
+            "from brambleloop.visual import outfits; "
+            f"db = Database({url!r}, scratch=True); "
+            "r = outfits.reserve(db, 'sage-cardigan-01', 'winter-village-graphghan'); "
+            "h = outfits.reserved_for(db, 'cloudline-baby-blanket'); "
+            "print(r['status'], h['outfit_id'])")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         env={**os.environ, "PYTHONPATH": str(ROOT / "src")}, timeout=300)
+    assert out.stdout.split()[-2:] == ["FAIL", "sage-cardigan-01"], (out.stdout, out.stderr)
+
+
+def test_wardrobe_failures_route_to_repairs_and_block_approval():
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import outfits
+
+    class CarryOver(StubJudges):
+        def outfit_consistency(self, c, outfit):
+            return {"status": "FAIL", "why": "beige trousers from the reference",
+                    "codes": ["REFERENCE_CLOTHING_CARRYOVER"]}
+
+    db = make_db()
+    gen = StubGenerator()
+    follow, _ = drain(db, generator=gen, judges=CarryOver())
+    IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
+    drain(db, generator=gen, judges=CarryOver())
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    assert run["state"] == "blocked" and run["attempts_exhausted"]
+    reps = [r for r in gen.repairs if r]
+    assert reps and all("REPLACE ALL clothing" in " ".join(
+        n for d in r["directives"] for n in d.get("negatives", [])) for r in reps)
+    assert gen.calls <= IP.MAX_GENERATION_CALLS
+    assert IP.approve(db, run["run_key"], decided_by="owner:test")["approved"] is False
+    learn = IP.learning_summary(db, slug="cloudline-baby-blanket")
+    assert learn["failure_categories"].get("REFERENCE_CLOTHING_CARRYOVER", 0) >= 3
+
+    class Repetition(StubJudges):
+        first = None
+
+        def outfit_consistency(self, c, outfit):
+            Repetition.first = Repetition.first or c.get("outfit_id")
+            if c.get("outfit_id") == Repetition.first:
+                return {"status": "FAIL", "why": "same look as another listing",
+                        "codes": ["WARDROBE_REPETITION"]}
+            return {"status": "PASS", "why": "stub"}
+
+    db2 = make_db()
+    gen2 = StubGenerator()
+    follow, _ = drain(db2, generator=gen2, judges=Repetition())
+    IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
+    drain(db2, generator=gen2, judges=Repetition())
+    run2 = IP.get_run(db2, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    assert run2["outfit_id"] != Repetition.first                    # re-picked automatically
+    old = outfits.get(db2, Repetition.first)
+    assert old["approval_state"] == "retired" and old["replaced_by"] == run2["outfit_id"]
+    assert run2["state"] == "ready_for_owner_review", run2
+
+
+def test_scarf_experiment_is_recorded_as_wardrobe_history_and_learning():
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import outfits
+    from brambleloop.visual import repair_routes as RR
+
+    db = make_db()
+    seeded = {r["record"]: r for r in RR.seed_experiments(db)}
+    assert set(seeded) >= {"2026-10-19_chunky_ribbed_scarf", "2026-10-19_reading_nook_cable_wrap"}
+    sc = seeded["2026-10-19_chunky_ribbed_scarf"]
+    assert sc["seeded"] and sc["wardrobe"]["recorded"]
+    o = outfits.get(db, "owner-manual-chunky-ribbed-scarf")
+    assert o["listing"] == "chunky-ribbed-scarf" and o["approved_by"] == "owner:manual-experiment"
+    assert o["garments"]["lower"] == "dark indigo jeans"
+    assert o["uses"][0]["owner_manual"] and o["uses"][0]["image_sha256"] is None
+    assert outfits.reserve(db, "owner-manual-chunky-ribbed-scarf",
+                           "cloudline-baby-blanket")["status"] == "FAIL"
+    learn = IP.learning_summary(db, slug="chunky-ribbed-scarf")
+    assert learn["candidates"] == 1 and learn["accepted"] == 0
+    assert learn["candidates_with_unknown_cost"] == 1 and learn["cost_per_accepted_cad"] is None
+    assert all(not r["seeded"] for r in RR.seed_experiments(db))      # idempotent
 
 
 def test_runtime_wiring():

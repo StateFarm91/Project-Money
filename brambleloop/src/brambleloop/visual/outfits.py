@@ -240,7 +240,14 @@ def reserve(db, outfit_id: str | None, listing: str) -> dict:
             if row.signature and twin is not None:
                 return _result(FAIL, f"the same complete outfit is reserved by "
                                      f"{twin.listing!r} as {twin.outfit_id}",
-                               outfit_id=row.outfit_id)
+                               outfit_id=row.outfit_id, codes=["WARDROBE_REPETITION"])
+            near = _too_similar(s, row, listing)
+            if near is not None:
+                return _result(FAIL, f"outfit {row.outfit_id} is not distinct from "
+                                     f"{near['against']} (similarity {near['score']} >= "
+                                     f"{_max_sim()}); slots {near['slots']}",
+                               outfit_id=row.outfit_id, codes=["WARDROBE_REPETITION"],
+                               similarity=near)
         if not row.listing:
             row.listing, row.reserved_at = listing, _now()
         return _result(PASS, f"outfit {row.outfit_id} is reserved for {listing!r}",
@@ -334,3 +341,45 @@ def reserved_for(db, listing: str) -> dict | None:
         r = s.scalar(select(LauraOutfit).where(LauraOutfit.listing == listing,
                                                LauraOutfit.approval_state == "approved"))
         return _view(r) if r is not None else None
+
+
+def _max_sim() -> float:
+    from .wardrobe import MAX_SIMILARITY
+
+    return MAX_SIMILARITY
+
+
+def _too_similar(s, row, listing: str) -> dict | None:
+    """The first outfit held by another listing, or the reference clothing, that this
+    complete outfit is not distinct from (owner wardrobe fix)."""
+    from sqlalchemy import select
+
+    from .image_records import LauraOutfit
+    from .wardrobe import REFERENCE_OUTFIT, too_similar
+
+    others = [("the canonical reference clothing", REFERENCE_OUTFIT)]
+    for o in s.scalars(select(LauraOutfit).where(LauraOutfit.listing != "",
+                                                  LauraOutfit.listing != listing,
+                                                  LauraOutfit.outfit_id != row.outfit_id)):
+        others.append((f"{o.outfit_id} ({o.listing})", dict(o.garments or {})))
+    return too_similar(dict(row.garments or {}), others)
+
+
+def distinctness(db, outfit_id: str | None, listing: str) -> dict:
+    """Outfit distinctness across listings, as a gate reading: PASS, FAIL or UNKNOWN."""
+    from .image_records import ensure_tables
+
+    if not outfit_id:
+        return _result(UNKNOWN, "no outfit id; distinctness cannot be measured")
+    ensure_tables(db)
+    with db.session() as s:
+        row = _row(s, str(outfit_id).strip().lower())
+        if row is None or not row.garments:
+            return _result(UNKNOWN, f"outfit {outfit_id!r} has no registered garments")
+        near = _too_similar(s, row, listing)
+    if near is not None:
+        return _result(FAIL, f"not distinct from {near['against']} (similarity "
+                             f"{near['score']} >= {_max_sim()})", codes=["WARDROBE_REPETITION"],
+                       similarity=near)
+    return _result(PASS, "distinct from every other listing's outfit and from the reference "
+                         "clothing")
