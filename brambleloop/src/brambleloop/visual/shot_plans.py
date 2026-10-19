@@ -205,7 +205,9 @@ def campaign_plan(listing: str) -> dict:
         if r["conditional"]:
             continue
         gen = has_lifestyle and r["job"] in CAMPAIGN_GENERATED
-        slots.append({**r, "generate": gen or r["sources"][DISCLOSED] == NO_PRODUCER,
+        gap_gen = (r["sources"][DISCLOSED] == NO_PRODUCER
+                   and r["sources"][GENERATED] == BLOCKED_F852)
+        slots.append({**r, "generate": gen or gap_gen,
                       "laura": bool(gen and laura),
                       "campaign_role": CAMPAIGN_GENERATED.get(r["job"], r["role"]) if gen
                       else ("product full view" if r["job"] == el.DESIRE else r["role"]),
