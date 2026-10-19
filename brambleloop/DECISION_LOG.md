@@ -1916,3 +1916,52 @@ only. Body and label lines on today's infographics land at 7 to 11.6 px at 340 p
 the size label at 60 pt is 10.2 px). That is recorded per frame (`smallest_px`). Holding every
 line to 11 px would block every current infographic until the frames are redesigned with larger
 type.
+
+## D-W4-VISROLE-LEGIBILITY: essential text is legible at its actual display size (owner, 2026-10-19; amends D-W4-VISROLE)
+
+**Owner, as relayed by the coordinator:**
+
+> "Essential customer-facing text must be readable at the ACTUAL display size; there is no
+> blanket pixel floor."
+
+This answers D-W4-VISROLE's "for the owner to tighten if wanted": the 11 px floor
+(`thumbnail.MIN_LEGIBLE_TEXT_PX`) now applies to every *essential* line, measured at the size the
+line is really shown, and not only to the headline. It does not apply to every line.
+
+**Measured failures at 390 px** (the phone gallery, `mobile.CONTEXT_MEANS[PHONE_GALLERY]`), on
+INTEG2 9c3812b:
+- the hero's "not a photograph" disclosure: 8.0 px;
+- "CROCHET PATTERN · PDF": 9.75 px;
+- the size card's "180 cm adult": 10.1 px;
+- the materials colour names: 9.4 px;
+- every row label ("WRITTEN PATTERN", "YARN", "WORKED AT"): 10.1 px.
+
+**Applied:**
+1. **Each line is classified deterministically from the frame plan.**
+   - `listing_assets` records a `slot` for every line it draws.
+   - `visual/frame_role.text_tier(role, slot)` maps the slot to essential or secondary, and to
+     its display size:
+     - title and headline: essential, read in the 340 px grid;
+     - product type, disclosure, row label and value, size label, scale reference, colour
+       name, preview caption: essential, read in the 390 px phone gallery;
+     - the brand line and the pattern excerpt: secondary.
+   - A slot the table does not name is essential at 340 px, the strictest rule. No model is
+     consulted.
+2. **Essential lines are drawn at or above the floor for their display size** (`min_pt_for`):
+   65 pt on a 2000 px frame for grid text, and 57 pt for listing-view text. A line too wide at
+   the floor wraps instead of shrinking. The hero disclosure is set on two lines, split after
+   the comma, so "not a photograph" is always whole on one line.
+3. **An essential line below the floor blocks, deterministically.**
+   - `check_frame_plan` reports `LISTING_FRAME_<n>_ESSENTIAL_TEXT_ILLEGIBLE`.
+   - The `text_legible_340` role check fails on it.
+   - Secondary lines below the floor are reported with the verdict (`secondary_below_floor`)
+     and do not block.
+   - The headline-at-340 rule and the `layout_qa.MIN_TEXT_PT` rule for every line are
+     unchanged.
+4. **Found while measuring.** The size card's label was drawn centre-anchored, and the layout
+   recorder measured it without the anchor.
+   - A small piece's label therefore started up to 290 px off the left edge of the image, so
+     the measurement was cut off, while layout QA read a box that was not where the text was.
+   - The recorder now measures with the anchor, and the label is kept inside the safe area.
+   - The scale bar is placed clear of the label. The piece and the bar are recorded as
+     graphics, so a collision with them is now measured.
