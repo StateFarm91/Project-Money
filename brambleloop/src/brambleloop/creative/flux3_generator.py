@@ -31,7 +31,7 @@ negatives to the certified ones; they never remove one.
 from __future__ import annotations
 
 import hashlib
-import tempfile
+from contextlib import contextmanager
 import time
 from pathlib import Path
 from typing import Callable
@@ -97,8 +97,10 @@ class Flux3Generator:
         self.renderer = renderer
         self.cir_loader = cir_loader or _default_cir_loader(db)
         self.anchor_lookup = anchor_lookup or _default_anchor_lookup(db)
-        # Owned by the caller in production (a job's work dir); a private temp root otherwise.
-        self.work_root = Path(work_root or tempfile.mkdtemp(prefix="flux3-generator-"))
+        # A caller-owned directory, or (None) a scratch directory per call that is removed when
+        # the call returns: every method hands back bytes, so nothing must outlive it.
+        self.work_root = work_root
+        self._root: Path | None = None
         self.size = size
         # A stub renderer spends nothing; the paid flag is what opens W-OWNERIMG's gate check.
         self.paid = not isinstance(renderer, S.StubRenderer)
@@ -106,6 +108,17 @@ class Flux3Generator:
 
         tier_usd = images.BFL3_TIER_USD[images.bfl3_tier(size)]
         self.max_cost_cad_per_call = round(tier_usd * images.USD_TO_CAD, 6)
+
+    @contextmanager
+    def _scratch(self):
+        from ..core import workspace
+
+        with workspace.work_dir(self.work_root, prefix="generated-") as root:
+            self._root = Path(root)
+            try:
+                yield self._root
+            finally:
+                self._root = None
 
     # -- references --------------------------------------------------------------------------
     def _release(self, slug: str, version: str, release: str) -> S.Release:
@@ -115,10 +128,14 @@ class Flux3Generator:
                                    f"{release[:12]}; references are never built for other "
                                    f"content")
         return S.release_from_cir(cir, release_hash=release, version=version,
-                                  out_dir=self.work_root / f"{slug}-{release[:12]}")
+                                  out_dir=self._root / f"{slug}-{release[:12]}")
 
     def prepare_references(self, *, slug: str, version: str, release: str,
                            cir_fingerprint: str | None = None) -> list[dict]:
+        with self._scratch():
+            return self._prepare(slug, version, release)
+
+    def _prepare(self, slug: str, version: str, release: str) -> list[dict]:
         rel = self._release(slug, version, release)
         return [{"kind": _KIND_PRODUCT, "data": Path(p).read_bytes(),
                  "label": f"{role}|{slug}@{version}|{release}"}
@@ -143,7 +160,7 @@ class Flux3Generator:
         if not laura:
             return None
         out = []
-        root = self.work_root / "laura"
+        root = self._root / "laura"
         root.mkdir(parents=True, exist_ok=True)
         for r in laura:
             sha = hashlib.sha256(r["data"]).hexdigest()
@@ -155,6 +172,11 @@ class Flux3Generator:
     # -- generation --------------------------------------------------------------------------
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
                  outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
+        with self._scratch():
+            return self._generate(stage=stage, role=role, brief=brief, references=references,
+                                  outfit=outfit, attempt=attempt, repair=repair)
+
+    def _generate(self, *, stage, role, brief, references, outfit, attempt, repair) -> dict:
         started = time.time()
         rel, slug, version, release = self._bind(references)
         extra = _repair_negatives(repair)
@@ -162,7 +184,7 @@ class Flux3Generator:
             rules = dict(rel.rules)
             rules["negatives"] = list(rules.get("negatives") or []) + extra
             rel = S.Release(**{**rel.__dict__, "rules": rules})
-        work = str(self.work_root / f"{slug}-{release[:12]}" / f"{role}-{attempt}")
+        work = str(self._root / f"{slug}-{release[:12]}" / f"{role}-{attempt}")
         laura = self._laura_paths(references)
         kw = dict(renderer=self.renderer, work_dir=work, db=self.db)
         if role == ANCHOR_ROLE:
@@ -196,7 +218,7 @@ class Flux3Generator:
         sha = hashlib.sha256(got["data"]).hexdigest()
         if got.get("sha256") and got["sha256"] != sha:
             raise GeneratorRefused("the anchor's bytes are not the recorded anchor")
-        p = self.work_root / f"{slug}-{release[:12]}" / f"anchor-{sha[:12]}.png"
+        p = self._root / f"{slug}-{release[:12]}" / f"anchor-{sha[:12]}.png"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(got["data"])
         cand = S.Candidate(stage="product_only", role="product_flat_lay", path=str(p),

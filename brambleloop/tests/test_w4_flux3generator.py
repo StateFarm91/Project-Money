@@ -42,7 +42,7 @@ def _gen(anchor=None, renderer=None):
     stub = renderer or S.StubRenderer()
     g = FG.Flux3Generator(None, renderer=stub, cir_loader=lambda s, v: CIR,
                           anchor_lookup=(lambda s, v, r: anchor),
-                          work_root=str(_WORK / f"g{time.time_ns()}"))
+                          work_root=None)
     return g, stub
 
 

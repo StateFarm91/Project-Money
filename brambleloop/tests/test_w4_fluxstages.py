@@ -155,6 +155,7 @@ def test_refs_adapt_multi_piece_round_and_garment_and_stay_in_flux_bounds():
     for name, cir in cases.items():
         m = P.build(cir, release_hash=P.release_hash_of(cir), out_dir=_WORK / name)
         got[name] = m
+        assert len(m["references"]) == len(P.ROLES), name
         for r in m["references"]:
             assert min(r["width"], r["height"]) >= P.MIN_SIDE_PX, (name, r)
             assert r["width"] * r["height"] <= P.MAX_PIXELS, (name, r)
@@ -212,6 +213,7 @@ def test_an_invalid_missing_or_substituted_laura_reference_is_refused_before_any
         "four": canon + [approved_lifestyle], "missing_file": [canon[0], canon[1],
                                                               str(_WORK / "nope.png")]}
     before = len(stub.calls)
+    assert len(bad_sets) == 6
     for name, refs in bad_sets.items():
         assert _refused(lambda: _life(rel, prod, refs, OUTFIT, renderer=stub,
                                             work_dir=str(_WORK / "bad"))), name
