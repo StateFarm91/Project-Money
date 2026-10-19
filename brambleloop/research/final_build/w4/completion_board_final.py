@@ -356,7 +356,13 @@ def classify(rows_in, prod, in_prod, changed, branches, owner_by_gate):
                        owner_action={"id": "CAP-1", "action": "decide the Launch-0 depth "
                                      "(PRODUCT_FIX.md CAP-1)", "max_cost_cad": 0.0,
                                      "minutes": 5})
-        elif exists and deployed is False:
+        elif exists and deployed is False and any(
+                f"brambleloop/src/brambleloop/{m}" not in in_prod for m in mods):
+            # W4-INTEG3: an UNFINISHED row counts as implemented-awaiting-release only when
+            # its code is new (absent from production). BOARD's deploy rule makes a module
+            # edited since the deploy "not deployed"; an unrelated edit to an open row's module
+            # (REL2's main.py, INTEG3's core/db.py) must not promote OPEN F-144/F-718 to
+            # implemented -- the ledger still says OPEN (test_w4_board lc_done == COMPLETE).
             rec.update(cls="implemented_unverified", root="release_undeployed_code",
                        blocked_by="engineering: release + deploy, then production evidence",
                        responsible="integrator (release)")

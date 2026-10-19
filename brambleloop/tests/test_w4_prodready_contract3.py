@@ -112,8 +112,11 @@ def test_every_lettered_line_of_the_disclosed_set_is_legible_where_shown():
 
 
 def test_the_honest_frames_still_verify_pass():
+    assert BUILDS
     for key in BUILDS:
-        for rf in _set(key):
+        frames = _set(key)
+        assert frames, key  # INTEG3: non-empty before the loop (test_vacuity)
+        for rf in frames:
             r = _verdict(rf.png, key, rf.view)
             assert r["status"] == "PASS", (key, rf.view, [c for c in r["checks"]
                                                           if c["status"] != "PASS"])
