@@ -279,7 +279,7 @@ def test_all_campaign_references_reach_the_provider_payload():
     expect = _canon_paths() + list(rel.pattern_refs) + [prod.path]
     assert body["images"] == [base64.standard_b64encode(Path(p).read_bytes()).decode()
                               for p in expect]
-    assert body["aspect_ratio"] == "4:5" and body["resolution"] == "1k"
+    assert body["aspect_ratio"] == "1:1" and body["resolution"] == "2k"
     r = c.receipt
     assert len(body["images"]) == 8 and len(S.CAMPAIGN_MINIMUM) == 7
     assert r["input_sha256s"][:7] == list(S.canonical_laura_hashes()) + list(
@@ -385,8 +385,8 @@ def test_product_only_through_flux3_reserves_first_and_sends_every_product_ref()
     body = t.posts[0]["body"]
     assert body["images"] == [base64.standard_b64encode(Path(p).read_bytes()).decode()
                               for p in rel.pattern_refs]
-    assert body["aspect_ratio"] == "1:1" and body["resolution"] == "1k"
-    cad = round(0.048 * I.USD_TO_CAD, 6)
+    assert body["aspect_ratio"] == "1:1" and body["resolution"] == "2k"
+    cad = round(0.100 * I.USD_TO_CAD, 6)
     assert abs(c.receipt["cost_cad"] - cad) < 1e-9
     (row,) = _reservations(db)
     assert row.agent == S.AGENT and abs(row.amount_cad - cad) < 1e-9
@@ -408,9 +408,9 @@ def test_an_exhausted_budget_sends_nothing_from_a_stage():
 
 def test_gallery_cost_model_from_the_published_price():
     g = S.gallery_cost()
-    assert g["usd_per_image"] == 0.048 and g["accepted_images"] == 6
+    assert g["usd_per_image"] == 0.100 and g["tier"] == "2k" and g["accepted_images"] == 6
     assert g["references_charged"] is False
-    assert g["expected"]["renders"] == 12 and abs(g["expected"]["usd"] - 0.576) < 1e-9
+    assert g["expected"]["renders"] == 12 and abs(g["expected"]["usd"] - 1.2) < 1e-9
     assert g["worst_case_bounded"]["renders"] == 6 * S.MAX_ATTEMPTS
     assert g["galleries_per_month_at_expected"] == int(g["monthly_ceiling_cad"]
                                                        // g["expected"]["cad"])

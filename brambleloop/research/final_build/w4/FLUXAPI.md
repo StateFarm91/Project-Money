@@ -107,22 +107,71 @@ D-W4-LAURA-FLUX3 compliance, each rule with a test:
 
 Bounded attempts: only `TransientError` retries, up to `max_attempts`, with a hard cap of 3. Refusals, moderation, `QuotaUnavailable` and `BudgetExceeded` are final. `StubRenderer` has the same interface, no network and no spend, and accepts `reference_limit=` to imitate a smaller provider.
 
-## 6. Cost model (published price; the pass rate is UNKNOWN)
+## 6. Output size, listing floor, and cost model (published price; the pass rate is UNKNOWN)
 
-One gallery is 1 product-only + 2 lifestyle + 3 variants = 6 accepted images, all at the 1k tier ($0.048 each). CA$ uses the repo's assumed rate of 1.3986 per US$.
+**The listing floor** (W-OWNERIMG `candidate_gates.quality`) is **≥2000 px on each side**, opaque,
+and PNG or JPEG. FLUX 3's `resolution` is an equal-area tier documented only as "about"
+1/2/4/16 MP. Exact pixels per ratio are **not documented**, so `image_stages.expected_px`
+estimates them and `_run` measures the real bytes afterwards (`output_px`, `output_format`,
+`opaque`, `meets_listing_floor`, and `upscaled: False`). Nothing is ever upscaled. A request
+expected to land under the floor is **refused before any spend**.
+
+| request | tier | expected px | each side ≥2000? | US$ |
+|---|---|---|---|---|
+| 1024×1024 / 912×1140 (the old 1k defaults) | 1k | 1024² / 915×1144 | no, refused | 0.048 |
+| 1824×2280 (4:5) | 2k | ~1831×2289 | no, refused | 0.100 |
+| **2048×2048 (1:1, new default for every stage)** | **2k** | **~2048²** | **yes (expected)** | **0.100** |
+| 3664×4580 (4:5, `TALL_LIFESTYLE_SIZE`) | 4k | ~3663×4579 | yes | 0.607 |
+
+Whether a real 2k 1:1 output is ≥2000 px on both sides is **UNKNOWN until the first paid
+render**: "about 4 MP" could mean 2048² or 2000². The receipt records the measured size.
+The output format FLUX 3 delivers (PNG, JPEG or WebP) is **not documented**. A WebP output
+would fail the floor and is recorded as such, never converted silently.
+
+**Gallery cost at the 2k default**: 1 flat lay + 2 lifestyle + 3 variants = 6 accepted images at
+$0.100 each. References are not charged, so the 7-reference campaign set costs the same. CA$
+uses the repo rate of 1.3986.
 
 | renders bought per accepted image | renders | US$ | CA$ |
 |---|---|---|---|
-| 1.0 (everything passes first time) | 6 | 0.288 | 0.40 |
-| 1.5 | 9 | 0.432 | 0.60 |
-| **2.0 (planning assumption)** | **12** | **0.576** | **0.81** |
-| 3.0 (= per-call attempt cap, worst bounded) | 18 | 0.864 | 1.21 |
+| 1.0 | 6 | 0.60 | 0.84 |
+| 1.5 | 9 | 0.90 | 1.26 |
+| **2.0 (planning assumption)** | **12** | **1.20** | **1.68** |
+| 3.0 (= per-call attempt cap) | 18 | 1.80 | 2.52 |
 
-At the CA$100 monthly ceiling that is about **124 galleries per month** at the planning rate, and
-the `creative_director` daily permission (CA$28) allows about 34 galleries per day. A
-lifestyle shot at 1.5k instead of 1k costs $0.070. A 4k hero costs $0.607, which is 12.6× the
-1k price, so it is not a default. Excluded from these figures: vision-model verification
-(priced by the text gateway) and Klein ($0.009 at 1k), which was not evaluated.
+W-OWNERIMG's per-gallery plan (12 calls, CA$2.00, `image_production.MAX_SPEND_CAD_PER_GALLERY`)
+admits 12 × CA$0.1399 = CA$1.68, which matches the planning rate. At the CA$100 monthly ceiling
+that is about 59 galleries per month. A 4:5 4k frame costs CA$0.85 each, so it is not a
+default. Excluded: vision-model verification.
+
+## 6a. Alignment with W-OWNERIMG (origin/claude/w4-OWNERIMG @ c387c27)
+
+- **Failure codes**: `brambleloop.creative.image_stages.PRODUCT_TRUTH_FAILURE_CODES` and
+  `FAILURE_CODES` are views of the one constant in `creative.failure_codes`.
+  `repair_routes.shared_codes()` resolves the first name it tries. Tested.
+- **Generator (their E1, built here)**: `creative/flux3_generator.py::Flux3Generator` implements
+  `image_production.Generator` exactly. It has `name`, `paid`, `max_cost_cad_per_call` (the
+  2k price, CA$0.1399), `prepare_references(slug, version, release, cir_fingerprint)`, which
+  returns 4 `pattern_derived` references, and `generate(stage, role, brief, references, outfit,
+  attempt, repair)`, which returns `{data, provider, model, prompt, cost_cad, latency_s,
+  cost_basis, identity_evidence}`.
+  - **Binding without trusting the call**: the protocol does not pass the release to `generate`.
+    The release is carried in each reference's `label` (`role|slug@version|release`, which the
+    orchestrator stores). The CIR is reloaded from the **certified** `PatternVersion`, its
+    content hash must equal the release, and the references are re-rendered and must hash to
+    exactly the bytes handed in.
+  - `product_anchor` maps to `product_only` (flat lay). A role with `laura_canonical` refs maps
+    to `lifestyle`: the three originals are validated byte for byte and the reserved outfit's
+    `description` and `setting` go into the prompt. Any other role maps to a `variant` of the
+    anchor.
+  - **Fidelity gating** re-reads the anchor's verdict (`anchor_lookup`; by default
+    `image_production._best` plus `ArtifactStore`). Only PASS lets lifestyle or variants run.
+  - Repair directives (`repair_routes.route(...)["directives"][*]["negatives"]`) are appended
+    to the certified negatives and never replace them.
+  - To wire it: call `flux3_generator.register()` (it calls
+    `image_production.register_generator`) at worker start, after both branches merge. That is
+    the only remaining glue, and it is not done here because `image_production` is not on this
+    branch.
 
 ## 7. AUTONOMOUS_PIPELINE_PLAN
 
@@ -146,6 +195,7 @@ lifestyle shot at 1.5k instead of 1k costs $0.070. A 4k hero costs $0.607, which
 | `tests/test_w4_fluxapi.py` | 13 | The adapter. Every reference is transmitted (FLUX 3 `images[]`, FLUX.2 `input_image..8`); the old defect shape is gone; over-limit references are refused before any spend; the receipt lists every hash and field; the documented price is reserved before the POST and the ledger reconciles; the FLUX.2 MP formula; an exhausted budget sends nothing; one POST per render; a bounded poll; terminal statuses stop the poll and are billed `accepted_then_failed`; bytes are stored and fingerprinted with the provider receipt; a 503 status body is read; aspect and tier mapping; unknown fields are refused. |
 | `tests/test_w4_fluxstages.py` | 16 | D-W4-LAURA-FLUX3. The three canonical refs are always supplied first; invalid, missing or substituted refs are refused before any call; supplementary refs are added, never substituted; product-only has no Laura; product refs come only from the exact version; multi-piece, round and garment adaptation stays inside FLUX bounds; the full campaign set reaches the provider (captured payload); the lossless combined sheet under a lower limit; the full pinned prompt; bounded attempts; reserve-before-POST; an exhausted budget; the gallery cost. |
 | `tests/test_w4_fluxtexture.py` | 9 | Reading-nook lessons. The texture binds to the release and stitch set; it shows the plain cream band and whole cable groups; the crop never splits a group; the wrap negatives name each owner failure; declared features are not forbidden; the prompt carries the negatives and names the texture; product-only is a flat lay; lifestyle is gated on a PASS for that exact flat lay; the shared failure codes equal RECORD.json. |
+| `tests/test_w4_flux3generator.py` | 9 | The W-OWNERIMG Generator adapter. Protocol attributes and the 2k price; four bound `pattern_derived` references; anchor then lifestyle with the 3 Laura + 4 product hashes in the receipt; lifestyle refused without a PASS anchor (none, UNKNOWN, FAIL); references that are not the release's bytes, another release's label, or an altered Laura file are refused; repair negatives are added; the shared codes resolve where `shared_codes()` looks; sizes under the listing floor are refused and nothing is upscaled; the default loader refuses an uncertified or unknown product. |
 | Updated (stricter) | | `test_w4_condpack` (BFL now 3/3), `test_rc1_spend` and `test_cert_cost` (bill at the documented per-call price). |
 
 Regression set (all through `testslot`, all green): vacuity 8, launch 28,

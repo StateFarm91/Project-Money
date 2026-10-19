@@ -55,8 +55,17 @@ MODEL = "flux-3-image"
 MAX_ATTEMPTS = 3
 DEFAULT_ATTEMPTS = 2
 AGENT = "creative_director"
-PRODUCT_SIZE = "1024x1024"           # 1:1 at FLUX 3's 1k tier (US$0.048)
-LIFESTYLE_SIZE = "912x1140"          # 4:5 at the 1k tier (US$0.048)
+# The listing floor (W-OWNERIMG `candidate_gates.quality`): at least 2000 px on EACH side,
+# opaque, PNG or JPEG. FLUX 3's `resolution` is an equal-area tier ("about" 1/2/4/16 MP; exact
+# dimensions are not documented), so the cheapest documented request expected to clear 2000 px
+# on both sides is 1:1 at the 2k tier (about 2048 x 2048, US$0.100). A 4:5 frame at 2k would
+# be about 1832 x 2290 (short side under 2000), so 4:5 needs the 4k tier (US$0.607); 1:1 is the
+# default for every stage. The real output size is measured after the render and recorded;
+# nothing is ever upscaled.
+LISTING_MIN_PX = 2000
+PRODUCT_SIZE = "2048x2048"           # 1:1 at the 2k tier
+LIFESTYLE_SIZE = "2048x2048"         # 1:1 at the 2k tier
+TALL_LIFESTYLE_SIZE = "3664x4580"    # 4:5 at the 4k tier, when a portrait frame is required
 MAX_EDIT_CHARS = 400
 LAURA_ROLES: tuple[str, ...] = ("laura_face", "laura_torso", "laura_body")
 PRODUCT_ROLES: tuple[str, ...] = flux_prompt.PRODUCT_ROLES   # layout, texture, chart, rules
@@ -72,6 +81,33 @@ _ROLE_EDITS: dict[str, str] = {
     "second_angle": "show the same moment from another camera angle",
     "colour_context": "change only the background to a plain warm neutral",
 }
+
+
+from .failure_codes import ALL_CODES as _ALL_CODES  # noqa: E402
+
+# The shared failure codes, under the names W-OWNERIMG's `repair_routes.shared_codes()` reads.
+# One constant (`creative.failure_codes`); these are views of it, never a second list.
+PRODUCT_TRUTH_FAILURE_CODES: tuple[str, ...] = tuple(sorted(_ALL_CODES))
+FAILURE_CODES = PRODUCT_TRUTH_FAILURE_CODES
+
+
+def expected_px(size: str) -> tuple[int, int]:
+    """FLUX 3's output size for a request, estimated from the documented tier area and ratio.
+
+    An estimate: BFL documents the tiers as "about" N megapixels. `_run` measures the real
+    bytes afterwards."""
+    from ..gateway import images
+
+    tier_mp = {"768sq": 768 * 768 / images.BFL_MP, "1k": 1.0, "1.5k": 2.0, "2k": 4.0,
+               "4k": 16.0}[images.bfl3_tier(size)]
+    a, b = (int(x) for x in images.bfl3_aspect(size).split(":"))
+    area = tier_mp * images.BFL_MP
+    w = (area * a / b) ** 0.5
+    return int(w), int(w * b / a)
+
+
+def meets_listing_floor(size: str) -> bool:
+    return min(expected_px(size)) >= LISTING_MIN_PX
 
 
 class StageRefused(ValueError):
@@ -318,6 +354,25 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
 
 
 # -- the run ---------------------------------------------------------------------------------
+def _measure(path: str) -> dict:
+    """The output's real size, format and opacity: what the listing floor is judged on."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            w, h = im.size
+            fmt = str(im.format or "")
+            opaque = True
+            if im.mode in ("RGBA", "LA", "PA") or (im.mode == "P" and
+                                                  "transparency" in im.info):
+                opaque = im.convert("RGBA").getchannel("A").getextrema()[0] == 255
+        return {"px": [w, h], "format": fmt, "opaque": opaque,
+                "meets_floor": (min(w, h) >= LISTING_MIN_PX and opaque
+                                and fmt in ("PNG", "JPEG"))}
+    except Exception:  # noqa: BLE001 - unreadable output: the floor is UNKNOWN, not met
+        return {"px": None, "format": None, "opaque": None, "meets_floor": None}
+
+
 def _attempts(max_attempts: int) -> int:
     n = int(max_attempts)
     if not 1 <= n <= MAX_ATTEMPTS:
@@ -334,6 +389,11 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
          purpose: str) -> Candidate:
     if not work_dir:
         raise StageRefused("work_dir is required: the candidate's bytes must outlive the call")
+    if not meets_listing_floor(size):
+        w, h = expected_px(size)
+        raise StageRefused(f"{size} is expected to render about {w}x{h}, under the "
+                           f"{LISTING_MIN_PX} px listing floor on each side; ask for a tier "
+                           f"that meets it (1:1 at 2k, 4:5 at 4k). Nothing is upscaled")
     tries = _attempts(max_attempts)
     if features_laura:
         # Checked again here, the last moment before the request: the three originals lead.
@@ -361,6 +421,7 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
                                f"hash(es) and the stage supplied {len(refs['sha256s'])}; a "
                                f"render whose inputs cannot be proven is not a candidate")
         pr = dict(out.get("provider_receipt") or {})
+        measured = _measure(path)
         receipt = {
             "stage": stage, "role": role, "features_laura": features_laura,
             "model": out.get("model") or MODEL, "provider": out.get("provider"),
@@ -380,6 +441,11 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             "latency_ms": round((time.time() - started) * 1000, 2),
             "provider_latency_ms": out.get("latency_ms"),
             "output_sha256": out_sha, "attempts": attempt, "attempt_errors": errors,
+            "expected_px": list(expected_px(size)) if not size.startswith("stub") else None,
+            "output_px": measured.get("px"), "output_format": measured.get("format"),
+            "opaque": measured.get("opaque"),
+            "meets_listing_floor": measured.get("meets_floor"),
+            "upscaled": False,
         }
         return Candidate(stage=stage, role=role, path=path, sha256=out_sha,
                          release_hash=release.release_hash, receipt=receipt)
@@ -434,7 +500,8 @@ def _require_flat_lay_pass(release: Release, product_candidate: Candidate, fidel
 
 
 def product_only(release: Release, refs: Sequence[str] | None = None, *,
-                 scene: Mapping | None = None, renderer=None, work_dir: str, db=None,
+                 scene: Mapping | None = None, size: str = PRODUCT_SIZE, renderer=None,
+                 work_dir: str, db=None,
                  job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS
                  ) -> Candidate:
     """The product alone as an unfolded, countable flat lay, conditioned on references 4-7.
@@ -449,7 +516,7 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
                               role="product-only flat lay",
                               scene={**FLAT_LAY_SCENE, **dict(scene or {})})
-    return _run("product_only", "product_flat_lay", release, plan, built, PRODUCT_SIZE,
+    return _run("product_only", "product_flat_lay", release, plan, built, size,
                 features_laura=False, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.product_only")
 
@@ -457,7 +524,8 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
 def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequence[str] | None,
               outfit: Mapping, *, fidelity: Mapping | None = None,
               scene: Mapping | None = None, role: str = "lifestyle_hero",
-              supplementary: Sequence[str] = (), renderer=None, work_dir: str, db=None,
+              size: str = LIFESTYLE_SIZE, supplementary: Sequence[str] = (), renderer=None,
+              work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """Laura with the product: the six-reference campaign set, then the product photograph,
     the outfit image and any supplementary images.
@@ -482,14 +550,15 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
                                work_dir=work_dir)
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan), role=role,
                               scene={**dict(scene or {}), "outfit": outfit})
-    return _run("lifestyle", f"{role}:{outfit['id']}", release, plan, built, LIFESTYLE_SIZE,
+    return _run("lifestyle", f"{role}:{outfit['id']}", release, plan, built, size,
                 features_laura=True, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.lifestyle")
 
 
 def variant(release: Release, base_candidate: Candidate, role: str, edit_instruction: str = "",
             *, outfit: Mapping | None = None, scene: Mapping | None = None,
-            laura_refs: Sequence[str] | None = None, renderer=None, work_dir: str, db=None,
+            laura_refs: Sequence[str] | None = None, size: str | None = None, renderer=None,
+            work_dir: str, db=None,
             job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
 
@@ -518,7 +587,7 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan), role=role,
                               edit=edit, scene={**dict(scene or {}),
                                                 **({"outfit": outfit} if laura else {})})
-    size = LIFESTYLE_SIZE if laura else PRODUCT_SIZE
+    size = size or (LIFESTYLE_SIZE if laura else PRODUCT_SIZE)
     candidate = _run("variant", role, release, plan, built, size, features_laura=laura,
                      renderer=render, work_dir=work_dir, db=db, job_id=job_id,
                      max_attempts=max_attempts, purpose=f"image.variant.{role}")
@@ -532,7 +601,7 @@ def _prompt_roles(plan: dict) -> list[str]:
 
 # -- cost model ------------------------------------------------------------------------------
 def gallery_cost(*, lifestyle_count: int = 2, variant_count: int = 3,
-                 expected_attempts_per_accept: float = 2.0, tier: str = "1k") -> dict:
+                 expected_attempts_per_accept: float = 2.0, tier: str = "2k") -> dict:
     """Expected render spend for one complete gallery, from BFL's published FLUX 3 price.
 
     References are not charged on FLUX 3, so the six-reference set costs the same as one.
