@@ -1942,3 +1942,23 @@ proportions across all listings."
   UNKNOWN, and UNKNOWN is not PASS.
 - **Engineering follow-up:** record an outfit descriptor and fingerprint per listing. Refuse a second
   listing whose outfit matches an existing one.
+
+## D-W4-LAURA-FLUX3 — permanent FLUX 3 visual production standard (owner ruling, 2026-10-19)
+
+The owner ruled a permanent, test-enforced Creative standard for every listing featuring Laura. The full text
+is in `spec/12_FLUX3_Visual_Production_Standard_2026-10-19.md`.
+
+- **Laura's references:** all three canonical references (portrait, torso, full length) are mandatory provider
+  inputs on every Laura generation. Their fingerprints are validated, and a missing one is refused.
+- **Product references:** three deterministic product reference PNGs come from the certified pattern (layout,
+  stitch/construction detail, technical rules). Full written instructions also go in every prompt.
+- **Reference minimum:** a Laura product campaign uses at least six references. Nothing is silently omitted:
+  a provider limit is reported and a tested alternative is used.
+- **Outfits:** one complete outfit per listing, never reused across listings. A persistent registry enforces this
+  before approval, and it extends D-W4-LAURA-OUTFIT.
+- **Styling:** outfit and scene direction is chosen automatically.
+- **Campaign:** seven images, adapted to the product, with no filler.
+- **Prompts:** full versioned prompts.
+- **Process:** autonomous, bounded and resumable, with learning.
+- **Unchanged:** every Product Truth, identity, disclosure and publication gate. Manual FLUX images are a temporary
+  launch fallback only. Autonomy is not complete until a real unattended end-to-end test passes.
