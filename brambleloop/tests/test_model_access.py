@@ -356,7 +356,7 @@ def test_the_plan_states_the_ceiling_as_a_maximum_and_names_its_fx_assumption():
 
     assert plan["budget"]["ceiling_cad"] == ceiling_cad()
     assert "not a target" in plan["budget"]["note"]
-    assert "USD" in plan["fx"] and "0.715" in plan["fx"]
+    assert "USD" in plan["fx"] and "1.4154" in plan["fx"]  # core.fx reference (INTEG3)
     assert set(plan["tasks"]) == set(routing.TASKS)
     assert "pattern_instructions" in plan["refused"]
     assert "compiler" in plan["note"]

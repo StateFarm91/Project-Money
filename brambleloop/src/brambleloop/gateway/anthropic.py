@@ -58,7 +58,7 @@ PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 DEFAULT_MODEL = "claude-sonnet-5"
 
 # Assumed, not fetched. A rate this company does not control and does not measure.
-# Single source (core.fx): the reciprocal of the 0.715 USD/CAD the ceiling check uses.
+# Single source (core.fx): the reciprocal of the USD/CAD the ceiling check uses.
 from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402
 
 # Applied to every estimate before it is checked against the ceiling. A ceiling that trusts an

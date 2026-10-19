@@ -11,8 +11,17 @@ figure is derived from it rather than restated. Relative to the old 1.37 this re
 and image spend about 2.1% *higher* -- the conservative direction for every spend ceiling,
 none of which changed. It is an assumption, not a measurement, and is labelled so wherever
 it is used; a settlement statement replaces it.
+
+W4-INTEG3 (2026-10-19): the reference moved to the Bank of Canada daily rate for 2026-10-16,
+1 USD = CA$1.4154 (bankofcanada.ca, read 2026-10-19; research/final_build/w4/VISREF.md row 18).
+At the old 1/0.715 = 1.3986 every USD-priced call was reserved about 1.2% low against its
+CAD ceiling. The CAD-per-USD figure is now the stated one (it is what the Bank publishes) and
+USD-per-CAD is derived from it. No ceiling, cap or limit changed: they are all stated in CAD,
+and a higher CAD-per-USD only reserves more of them per USD call (the conservative direction).
 """
 from __future__ import annotations
 
-ASSUMED_USD_PER_CAD = 0.715
-ASSUMED_CAD_PER_USD = 1.0 / ASSUMED_USD_PER_CAD
+ASSUMED_CAD_PER_USD = 1.4154
+ASSUMED_RATE_AS_OF = "2026-10-16"
+ASSUMED_RATE_SOURCE = "Bank of Canada daily exchange rate, USD/CAD, 2026-10-16"
+ASSUMED_USD_PER_CAD = 1.0 / ASSUMED_CAD_PER_USD
