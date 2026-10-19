@@ -1,32 +1,40 @@
-"""Generation stages for the autonomous FLUX 3 gallery (W4-FLUXAPI; interface for W-OWNERIMG).
+"""FLUX 3 generation stages (W4-FLUXAPI; D-W4-LAURA-FLUX3; interface for W-OWNERIMG).
 
-The owner's staged workflow, as he ran it by hand on dashboard.bfl.ai, made callable:
+The owner's staged workflow, made callable and bound to the 2026-10-19 production standard:
 
-    canonical Laura references -> product references (pattern-derived, free) ->
-    product_only -> lifestyle (Laura + outfit + the product) -> variants (edits)
+    certified pattern -> product references 4/5/6 (deterministic, free) ->
+    validated canonical Laura references 1/2/3 -> product_only -> lifestyle -> variants
 
-Three functions, each with a stable signature the orchestrator calls:
+    release_from_cir(cir, release_hash=, out_dir=)                      -> Release
+    product_only(release, refs=None, ...)                               -> Candidate
+    lifestyle(release, product_candidate, laura_refs, outfit, ...)      -> Candidate
+    variant(release, base_candidate, role, edit_instruction, ...)       -> Candidate
 
-    product_only(release, refs)                                   -> Candidate
-    lifestyle(release, product_candidate, laura_refs, outfit)     -> Candidate
-    variant(release, base_candidate, role, edit_instruction)      -> Candidate
+Rules enforced here, each with a test (`tests/test_w4_fluxstages.py`):
 
-Every stage:
-- builds its prompt from a **pinned** prompt (`gateway.prompts`, immutable `name@version`,
-  content-hashed) -- never a string assembled at the call site;
-- spends only through the renderer it is given. The default renderer is
-  `gateway.images.generate` on `flux-3-image`, which reserves the documented price against the
-  monthly ceiling and the agent's daily permission *before* the request, transmits every
-  reference (refused above 10), stores the result bytes at once and fingerprints them;
-- makes at most `max_attempts` calls (hard cap `MAX_ATTEMPTS`), and retries only a transient
-  failure. A refusal, a moderation verdict, an empty balance or an exhausted budget is final;
-- returns a `Candidate` whose `receipt` carries model, every input's sha256, prompt ref and
-  hash, the provider's task id / seed, cost, latency and the output's sha256.
+1. **Every generation featuring Laura transmits all three canonical originals** (face a42aeac7,
+   torso afe6191f, full length f32bac68) as provider image inputs, in that order, first. Their
+   bytes are validated against the canonical fingerprints before anything is sent. A missing,
+   altered, forbidden or substituted reference is refused, never degraded. Supplementary images
+   may be added after them and never replace them. Product-only generations carry no Laura.
+2. **Product references 4/5/6** come from the exact certified release (`creative.pattern_refs`),
+   bound to its release hash.
+3. **The six-reference campaign set** (face, torso, body, layout, detail, rules) is sent as six
+   image inputs where the provider's documented limit allows (FLUX 3 Image: 10). Where it is
+   lower, nothing is dropped: the three product references are merged, losslessly, into one
+   combined sheet (`combined_reference_sheet`), and the limitation is recorded in the receipt.
+   If even that does not fit, the stage is refused. The Laura originals are never merged or
+   altered: identity conditions on the originals themselves.
+4. **The prompt is built**, not written (`creative.flux_prompt`), from certified data, brand
+   rules and W-OWNERIMG's scene, and every section is pinned and hashed.
+5. **Spend:** the default renderer is `gateway.images.generate` on `flux-3-image`, which
+   reserves the documented price before the request, proves every reference is in the body,
+   stores the result bytes at once and fingerprints them. Attempts are bounded (`MAX_ATTEMPTS`)
+   and only transient failures retry.
 
-`StubRenderer` has the same interface and spends nothing: tests and dry runs use it.
-
-A candidate is *only* a candidate. Verification (identity, Product Truth, anatomy, brand QA,
-disclosure) and the gallery decision are other modules' gates; nothing here approves an image.
+A candidate is only a candidate. Identity, bust and body proportion (UNKNOWN until an
+independent judge runs), outfit, Product Truth, anatomy, realism, disclosure and owner approval
+are other gates. Nothing here approves or publishes an image.
 """
 from __future__ import annotations
 
@@ -34,61 +42,30 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from ..core.resilience import TransientError
-from ..gateway import prompts
+from . import flux_prompt
 
 MODEL = "flux-3-image"
-MAX_ATTEMPTS = 3                     # hard cap per stage call; the caller may ask for fewer
+MAX_ATTEMPTS = 3
 DEFAULT_ATTEMPTS = 2
-AGENT = "creative_director"          # the agent whose daily permission the renders spend
+AGENT = "creative_director"
 PRODUCT_SIZE = "1024x1024"           # 1:1 at FLUX 3's 1k tier (US$0.048)
 LIFESTYLE_SIZE = "912x1140"          # 4:5 at the 1k tier (US$0.048)
 MAX_EDIT_CHARS = 400
+LAURA_ROLES: tuple[str, ...] = ("laura_face", "laura_torso", "laura_body")
+PRODUCT_ROLES: tuple[str, ...] = ("product_layout", "product_detail", "product_rules")
+CAMPAIGN_MINIMUM = LAURA_ROLES + PRODUCT_ROLES
 
-# Variant roles the gallery may ask for. Closed, so a role is a known shot rather than free text
-# that turns an edit into a new generation.
 VARIANT_ROLES: tuple[str, ...] = ("detail_closeup", "flat_lay", "scale_in_hand",
-                                  "styled_scene", "wardrobe_change", "colour_context")
-
-# -- pinned prompts --------------------------------------------------------------------------
-# Image prompts produce one image, not tokens. They go through the same immutable, hashed,
-# versioned registry as text prompts; `output_schema` names the single artefact and
-# `max_output_tokens` is the registry's minimum, which the image gateway never reads (an image
-# is priced per image, `gateway.images.render_estimate_usd`).
-_IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
-
-PRODUCT_ONLY = prompts.register(prompts.Prompt(
-    name="image.product_only", version="1", **_IMG, template=(
-        "Product photograph of the finished {title}, a real handmade crochet piece, "
-        "{size}. Image 1 is its exact stitch and colour layout, image 2 an enlarged motif "
-        "showing stitch placement, image 3 its construction sheet with the yarn colours "
-        "{colours}. Reproduce that layout, motif, colour order and proportion exactly; it is "
-        "worked in {stitch} crochet with visible yarn texture. Product only, no person, no "
-        "props that hide it, soft natural daylight, neutral linen background, whole piece in "
-        "frame. Do not add colours, motifs, borders, fringe, text or logos.")))
-
-LIFESTYLE = prompts.register(prompts.Prompt(
-    name="image.lifestyle", version="1", **_IMG, template=(
-        "Lifestyle photograph. Image 1 is the {title}; keep it exactly as in image 1: same "
-        "colours, motif, stitch texture and proportion. Images {laura_span} are the same "
-        "woman, Laura: keep her face, hair, skin tone and build exactly. {outfit_clause} "
-        "Laura is {action} in {setting}, natural light, candid, photorealistic, the product "
-        "clearly visible and in focus. No text, logos or watermarks.")))
-
-VARIANT = prompts.register(prompts.Prompt(
-    name="image.variant", version="1", **_IMG, template=(
-        "In image 1, {edit}. Keep everything else exactly unchanged: the {title} (colours, "
-        "motif, stitch texture, proportion), the person's face and body, the composition and "
-        "the lighting. No text, logos or watermarks.")))
-
+                                  "styled_scene", "second_angle", "colour_context")
 _ROLE_EDITS: dict[str, str] = {
     "detail_closeup": "crop in to a close-up of the stitch texture of the crochet piece",
     "flat_lay": "show the crochet piece laid flat from directly above on the same surface",
     "scale_in_hand": "show the crochet piece held in two hands so its size is clear",
-    "styled_scene": "place the scene in a calm, softly lit nursery corner",
-    "wardrobe_change": "change only the person's clothing as described",
+    "styled_scene": "move the scene to a different, natural setting suited to the product",
+    "second_angle": "show the same moment from another camera angle",
     "colour_context": "change only the background to a plain warm neutral",
 }
 
@@ -105,11 +82,10 @@ class Release:
     version: str
     release_hash: str
     title: str
-    size_text: str
-    colours_text: str
-    stitch: str
-    pattern_refs: tuple[str, ...]           # layout, motif, construction (pattern_refs.build)
+    rules: Mapping                         # pattern_refs.technical_rules
+    pattern_refs: tuple[str, ...]          # layout, detail, rules (references 4, 5, 6)
     pattern_ref_sha256s: tuple[str, ...] = ()
+    work_root: str = ""
 
 
 @dataclass(frozen=True)
@@ -121,18 +97,20 @@ class Candidate:
     release_hash: str
     receipt: dict = field(default_factory=dict)
 
+    @property
+    def features_laura(self) -> bool:
+        return bool(self.receipt.get("features_laura"))
+
 
 class Renderer(Protocol):
-    """What a stage calls. `gateway.images.generate`'s keyword contract, narrowed."""
-
     def __call__(self, prompt: str, *, reference_urls: Sequence[str], size: str,
                  work_dir: str, purpose: str, agent: str, db=None,
                  job_id: int | None = None) -> dict: ...
 
 
 def flux3_renderer(env: Mapping[str, str] | None = None, *,
-                   provider_key: str = MODEL) -> Renderer:
-    """The paid renderer: `images.generate` on FLUX 3 Image (reserve -> send -> store -> bill)."""
+                   provider_key: str = MODEL) -> "Renderer":
+    """The paid renderer: `images.generate` on FLUX 3 Image (reserve, send, store, bill)."""
     from ..gateway import images
 
     def render(prompt, *, reference_urls, size, work_dir, purpose, agent, db=None,
@@ -140,28 +118,36 @@ def flux3_renderer(env: Mapping[str, str] | None = None, *,
         return images.generate(prompt, reference_urls=list(reference_urls), env=env,
                                size=size, provider_key=provider_key, work_dir=work_dir,
                                db=db, agent=agent, purpose=purpose, job_id=job_id)
+    render.reference_limit = images.BY_KEY[provider_key].reference_images  # type: ignore[attr-defined]
+    render.provider_key = provider_key  # type: ignore[attr-defined]
     return render
 
 
 class StubRenderer:
-    """Same interface, no network, no spend. Writes a deterministic PNG per call.
+    """The same interface with no network and no spend. Writes a deterministic PNG per call.
 
-    `fail_with` raises the given exceptions in order before succeeding, to exercise attempts."""
+    `fail_with` raises the given exceptions in order before succeeding. `reference_limit`
+    imitates a provider with a lower documented limit."""
 
-    def __init__(self, fail_with: Sequence[BaseException] = ()):
+    def __init__(self, fail_with: Sequence[BaseException] = (), *, reference_limit: int = 10):
         self.calls: list[dict] = []
         self._fail = list(fail_with)
+        self.reference_limit = reference_limit
+        self.provider_key = "stub"
 
     def __call__(self, prompt, *, reference_urls, size, work_dir, purpose, agent, db=None,
                  job_id=None):
+        import io
+
+        from PIL import Image
+
         refs = list(reference_urls)
+        if len(refs) > self.reference_limit:
+            raise AssertionError("the stage sent more references than the provider takes")
         self.calls.append({"prompt": prompt, "refs": refs, "size": size, "purpose": purpose,
                            "agent": agent})
         if self._fail:
             raise self._fail.pop(0)
-        from PIL import Image
-        import io
-
         seed = hashlib.sha256((prompt + "|".join(refs) + size).encode()).digest()
         w, h = (int(x) for x in size.split("x"))
         buf = io.BytesIO()
@@ -172,35 +158,38 @@ class StubRenderer:
         root.mkdir(parents=True, exist_ok=True)
         path = root / f"stub-{seed.hex()[:12]}-{len(self.calls)}.png"
         path.write_bytes(raw)
-        ref_hashes = [hashlib.sha256(Path(r).read_bytes()).hexdigest() for r in refs]
+        hashes = [hashlib.sha256(Path(r).read_bytes()).hexdigest() for r in refs]
         return {"provider": "stub", "model": "stub", "path": str(path), "image_ref": str(path),
                 "sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw), "cad": 0.0,
                 "latency_ms": 0.0, "provider_receipt": {"id": f"stub-{len(self.calls)}",
                                                         "seed": None},
-                "conditioning": {"reference_sha256s": ref_hashes, "proven": bool(refs),
+                "conditioning": {"reference_sha256s": hashes, "proven": bool(refs),
                                  "transmitted": len(refs), "requested": len(refs)}}
 
 
-# -- helpers ---------------------------------------------------------------------------------
-def release_from_cir(cir, *, release_hash: str, out_dir: str | Path) -> Release:
-    """A `Release` for a certified CIR, with its pattern references rendered (free)."""
+# -- references ------------------------------------------------------------------------------
+def release_from_cir(cir, *, release_hash: str, out_dir: str | Path,
+                     version: str | None = None) -> Release:
+    """A `Release` for a certified CIR, with references 4/5/6 rendered from that exact version."""
     from . import pattern_refs
 
-    manifest = pattern_refs.build(cir, release_hash=release_hash, out_dir=out_dir)
+    manifest = pattern_refs.build(cir, release_hash=release_hash, out_dir=out_dir,
+                                  version=version)
     by_role = {r["role"]: r for r in manifest["references"]}
     ordered = [by_role[r] for r in pattern_refs.ROLES]
-    from ..cir.compiler import compile_cir
-    from ..cir.twin import build_twin
-
-    twin = build_twin(cir, compile_cir(cir))
-    size = (f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm"
-            if twin.width_cm and twin.height_cm else "its true proportions")
-    colours = ", ".join(f"{k} {v}" for k, v in cir.colors.items())
     return Release(slug=cir.slug, version=cir.version, release_hash=release_hash,
-                   title=cir.title, size_text=size, colours_text=colours,
-                   stitch=str(cir.gauge.stitch_type),
+                   title=cir.title, rules=manifest["technical_rules"],
                    pattern_refs=tuple(r["path"] for r in ordered),
-                   pattern_ref_sha256s=tuple(r["sha256"] for r in ordered))
+                   pattern_ref_sha256s=tuple(r["sha256"] for r in ordered),
+                   work_root=str(out_dir))
+
+
+def canonical_laura_hashes() -> tuple[str, str, str]:
+    """The three approved fingerprints, in the order they are transmitted (face, torso, body)."""
+    from ..visual import canonical, conditioning
+
+    return tuple(canonical.CURRENT_REFERENCE_HASHES[f]  # type: ignore[return-value]
+                 for f in conditioning.FRAME_ORDER)
 
 
 def _sha(path: str) -> str:
@@ -211,6 +200,120 @@ def _sha(path: str) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def laura_references(laura_refs: Sequence[str] | None = None) -> list[str]:
+    """The three canonical Laura originals, validated by their bytes. Never a substitute.
+
+    With no argument, the committed files of the current canonical revision are used. With an
+    argument, it must be exactly those three originals (by fingerprint) in canonical order;
+    anything else (missing, extra, reordered, altered, forbidden) is refused."""
+    from ..visual import canonical, conditioning
+
+    want = canonical_laura_hashes()
+    if laura_refs is None:
+        paths = [canonical.reference_file(f) for f in conditioning.FRAME_ORDER]
+        missing = [f for f, p in zip(conditioning.FRAME_ORDER, paths) if not p]
+        if missing:
+            raise StageRefused(f"canonical Laura reference(s) {missing} are missing or not the "
+                               f"approved bytes; refused rather than generating with reduced "
+                               f"identity conditioning")
+    else:
+        paths = [str(p) for p in laura_refs]
+    if len(paths) != 3:
+        raise StageRefused(f"{len(paths)} Laura reference(s) supplied; exactly the three "
+                           f"canonical originals are required (face, torso, full length)")
+    try:
+        forbidden = canonical.forbidden_hashes()
+    except Exception as exc:  # noqa: BLE001 - an unreadable manifest is refused, not ignored
+        raise StageRefused(f"the canonical manifest cannot be read ({exc}); refused") from exc
+    got = [_sha(p) for p in paths]
+    for frame, g, w in zip(conditioning.FRAME_ORDER, got, want):
+        if g.lower() in forbidden:
+            raise StageRefused(f"{frame}: {g[:12]} is forbidden as a reference")
+        if g != w:
+            raise StageRefused(f"{frame}: fingerprint {g[:12]} is not the canonical "
+                               f"{w[:12]}; a substituted or altered reference is refused")
+    return paths
+
+
+def combined_reference_sheet(paths: Sequence[str], out_path: str | Path) -> dict:
+    """Merge the product references into one image, top to bottom, at full resolution.
+
+    Legibility is kept by never scaling: each source is pasted pixel for pixel. If the merged
+    sheet would exceed FLUX 3's 16 MP input bound, it is refused rather than shrunk."""
+    from PIL import Image
+
+    from . import pattern_refs
+
+    images = []
+    for p in paths:
+        with Image.open(p) as im:
+            images.append(im.convert("RGB"))
+    pad = 24
+    width = max(i.size[0] for i in images) + 2 * pad
+    height = sum(i.size[1] for i in images) + pad * (len(images) + 1)
+    if width * height > pattern_refs.MAX_PIXELS:
+        raise StageRefused(f"a combined sheet of {len(images)} references would be "
+                           f"{width}x{height}, over the 16 MP input bound; refused rather "
+                           f"than shrinking it past legibility")
+    sheet = Image.new("RGB", (width, height), (255, 255, 255))
+    boxes, y = [], pad
+    for im in images:
+        x = (width - im.size[0]) // 2
+        sheet.paste(im, (x, y))
+        boxes.append([x, y, x + im.size[0], y + im.size[1]])
+        y += im.size[1] + pad
+    raw = pattern_refs._png_bytes(sheet)
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(raw)
+    return {"path": str(out), "sha256": hashlib.sha256(raw).hexdigest(),
+            "width": width, "height": height, "boxes": boxes,
+            "sources": [{"path": str(p), "sha256": _sha(str(p))} for p in paths],
+            "scaled": False}
+
+
+def campaign_references(release: Release, *, features_laura: bool, laura_refs=None,
+                        leading: Sequence[tuple[str, str]] = (),
+                        supplementary: Sequence[tuple[str, str]] = (),
+                        reference_limit: int, work_dir: str) -> dict:
+    """The ordered references for one generation, and how they fit the provider's limit.
+
+    Order: Laura face, torso, body (when Laura is featured); product layout, detail, rules;
+    `leading` (an edit's base image); then `supplementary` (a product candidate, the outfit, an
+    approved lifestyle image). Supplementary images never replace the originals."""
+    items: list[tuple[str, str]] = []
+    if features_laura:
+        items += list(zip(LAURA_ROLES, laura_references(laura_refs)))
+    items += list(zip(PRODUCT_ROLES, release.pattern_refs))
+    if len(release.pattern_refs) != 3 or [_sha(p) for p in release.pattern_refs] != list(
+            release.pattern_ref_sha256s):
+        raise StageRefused("the product references are not the release's fingerprinted "
+                           "layout, detail and rules")
+    items += list(leading) + list(supplementary)
+    combined = None
+    limitation = None
+    if len(items) > reference_limit:
+        # Lossless fallback: references 4/5/6 become one sheet. Laura originals stay separate.
+        sheet = combined_reference_sheet(
+            release.pattern_refs, Path(work_dir) / f"{release.slug}-{release.release_hash[:12]}"
+                                                   f"-product-sheet.png")
+        merged = [(r, p) for r, p in items if r not in PRODUCT_ROLES]
+        at = 3 if features_laura else 0
+        items = merged[:at] + [("product_combined", sheet["path"])] + merged[at:]
+        combined = sheet
+        limitation = (f"provider limit {reference_limit} is below the {len(merged) + 3} "
+                      f"references; product layout, detail and rules were merged losslessly "
+                      f"into one sheet")
+        if len(items) > reference_limit:
+            raise StageRefused(f"{len(items)} references even after merging the product "
+                               f"sheet; the provider takes {reference_limit}. Refused rather "
+                               f"than dropping any")
+    return {"roles": [r for r, _ in items], "paths": [p for _, p in items],
+            "sha256s": [_sha(p) for _, p in items], "combined_sheet": combined,
+            "limitation": limitation, "reference_limit": reference_limit}
+
+
+# -- the run ---------------------------------------------------------------------------------
 def _attempts(max_attempts: int) -> int:
     n = int(max_attempts)
     if not 1 <= n <= MAX_ATTEMPTS:
@@ -218,25 +321,28 @@ def _attempts(max_attempts: int) -> int:
     return n
 
 
-def _run(stage: str, role: str, release: Release, prompt: prompts.Prompt, values: dict,
-         refs: list[str], size: str, *, renderer: Renderer | None, work_dir: str, db,
-         job_id: int | None, max_attempts: int, purpose: str) -> Candidate:
-    from ..gateway import images
+def _limit(renderer) -> int:
+    return int(getattr(renderer, "reference_limit", 10))
 
+
+def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, *,
+         features_laura: bool, renderer, work_dir: str, db, job_id, max_attempts: int,
+         purpose: str) -> Candidate:
     if not work_dir:
         raise StageRefused("work_dir is required: the candidate's bytes must outlive the call")
-    if len(refs) > images.BY_KEY[MODEL].reference_images:
-        raise StageRefused(f"{len(refs)} references exceed FLUX 3 Image's documented 10")
-    input_hashes = [_sha(r) for r in refs]
-    text = prompt.render(**values)
-    render = renderer or flux3_renderer()
     tries = _attempts(max_attempts)
+    if features_laura:
+        # Checked again here, the last moment before the request: the three originals lead.
+        if tuple(refs["sha256s"][:3]) != canonical_laura_hashes():
+            raise StageRefused("the three canonical Laura references are not the first three "
+                               "inputs; refused")
     errors: list[str] = []
     started = time.time()
     for attempt in range(1, tries + 1):
         try:
-            out = render(text, reference_urls=refs, size=size, work_dir=work_dir,
-                         purpose=purpose, agent=AGENT, db=db, job_id=job_id)
+            out = renderer(built.text, reference_urls=refs["paths"], size=size,
+                           work_dir=work_dir, purpose=purpose, agent=AGENT, db=db,
+                           job_id=job_id)
         except TransientError as exc:          # the only failure worth another attempt
             errors.append(f"attempt {attempt}: {type(exc).__name__}: {str(exc)[:200]}")
             if attempt == tries:
@@ -246,24 +352,30 @@ def _run(stage: str, role: str, release: Release, prompt: prompts.Prompt, values
         out_sha = out.get("sha256") or _sha(path)
         cond = dict(out.get("conditioning") or {})
         sent = list(cond.get("reference_sha256s") or [])
-        if sent != input_hashes:
-            raise StageRefused(f"{stage}: the provider's receipt names {len(sent)} reference "
-                               f"hash(es), the stage supplied {len(input_hashes)}; a render "
-                               f"whose inputs cannot be proven is not a candidate")
+        if sent != refs["sha256s"]:
+            raise StageRefused(f"{stage}: the provider receipt names {len(sent)} reference "
+                               f"hash(es) and the stage supplied {len(refs['sha256s'])}; a "
+                               f"render whose inputs cannot be proven is not a candidate")
         pr = dict(out.get("provider_receipt") or {})
         receipt = {
-            "stage": stage, "role": role, "model": out.get("model") or MODEL,
-            "provider": out.get("provider"), "release_hash": release.release_hash,
-            "prompt_ref": prompt.ref, "prompt_sha256": prompt.sha256,
-            "prompt_text_sha256": hashlib.sha256(text.encode()).hexdigest(),
-            "input_sha256s": input_hashes, "size": size,
-            "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
+            "stage": stage, "role": role, "features_laura": features_laura,
+            "model": out.get("model") or MODEL, "provider": out.get("provider"),
+            "release_hash": release.release_hash, "product": f"{release.slug}@"
+                                                             f"{release.version}",
+            **built.receipt(),
+            "references": [{"position": i + 1, "role": r, "sha256": h}
+                           for i, (r, h) in enumerate(zip(refs["roles"], refs["sha256s"]))],
+            "input_sha256s": list(refs["sha256s"]),
+            "reference_limit": refs["reference_limit"],
+            "combined_sheet": refs["combined_sheet"], "limitation": refs["limitation"],
+            "size": size, "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
+            "request": {"provider_task": pr, "conditioning_proven": cond.get("proven"),
+                        "request_sha256": cond.get("request_sha256")},
             "cost_cad": out.get("cad"), "provider_cost_credits": pr.get("cost"),
-            "cost_entry_id": out.get("cost_entry_id"),
+            "cost_entry_id": out.get("cost_entry_id"), "price": cond.get("price") or {},
             "latency_ms": round((time.time() - started) * 1000, 2),
             "provider_latency_ms": out.get("latency_ms"),
             "output_sha256": out_sha, "attempts": attempt, "attempt_errors": errors,
-            "price": (cond.get("price") or {}),
         }
         return Candidate(stage=stage, role=role, path=path, sha256=out_sha,
                          release_hash=release.release_hash, receipt=receipt)
@@ -272,57 +384,63 @@ def _run(stage: str, role: str, release: Release, prompt: prompts.Prompt, values
 
 # -- the three stages ------------------------------------------------------------------------
 def product_only(release: Release, refs: Sequence[str] | None = None, *,
-                 renderer: Renderer | None = None, work_dir: str, db=None,
+                 scene: Mapping | None = None, renderer=None, work_dir: str, db=None,
                  job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS
                  ) -> Candidate:
-    """The product alone, conditioned on its pattern references (layout, motif, sheet).
+    """The product alone, conditioned on references 4/5/6. No Laura, no outfit.
 
-    `refs` defaults to the release's own pattern references, in that order."""
-    refs = list(refs if refs is not None else release.pattern_refs)
-    if not refs:
-        raise StageRefused("product_only needs the pattern references; none were given")
-    return _run("product_only", "hero_product", release, PRODUCT_ONLY,
-                {"title": release.title, "size": release.size_text,
-                 "colours": release.colours_text, "stitch": release.stitch},
-                refs, PRODUCT_SIZE, renderer=renderer, work_dir=work_dir, db=db,
+    `refs`, when given, must be the release's own pattern references (they cannot be swapped)."""
+    if refs is not None and [str(r) for r in refs] != list(release.pattern_refs):
+        raise StageRefused("product_only conditions on the release's own pattern references")
+    render = renderer or flux3_renderer()
+    plan = campaign_references(release, features_laura=False,
+                               reference_limit=_limit(render), work_dir=work_dir)
+    built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
+                              role="product only", scene=scene)
+    return _run("product_only", "product_full_view", release, plan, built, PRODUCT_SIZE,
+                features_laura=False, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.product_only")
 
 
-def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequence[str],
-              outfit: Mapping | None, *, setting: str = "a calm, sunlit nursery",
-              action: str = "holding the blanket", renderer: Renderer | None = None,
-              work_dir: str, db=None, job_id: int | None = None,
-              max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
-    """Laura with the product. References, in order: product, Laura (1-3), outfit image.
+def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequence[str] | None,
+              outfit: Mapping, *, scene: Mapping | None = None, role: str = "lifestyle_hero",
+              supplementary: Sequence[str] = (), renderer=None, work_dir: str, db=None,
+              job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
+    """Laura with the product: the six-reference campaign set, then the product photograph,
+    the outfit image and any supplementary images.
 
-    `outfit` comes from W-OWNERIMG's registry: {"id", "description", optional "image"}."""
+    `laura_refs`: None means the committed canonical originals; otherwise exactly those three
+    files. `outfit` is W-OWNERIMG's reserved outfit {"id", "description", "image"?}, and is
+    required. `scene` carries W-OWNERIMG's {environment, pose, framing}."""
     if product_candidate.release_hash != release.release_hash:
         raise StageRefused("the product candidate belongs to a different release")
-    laura = list(laura_refs or [])
-    if not 1 <= len(laura) <= 3:
-        raise StageRefused("lifestyle needs one to three canonical Laura references")
     outfit = dict(outfit or {})
-    refs = [product_candidate.path, *laura]
-    span = "2" if len(laura) == 1 else f"2 to {1 + len(laura)}"
-    clause = ""
+    if not (outfit.get("id") and (outfit.get("description") or outfit.get("image"))):
+        raise StageRefused("a Laura image needs the listing's reserved outfit (id and "
+                           "description or image)")
+    render = renderer or flux3_renderer()
+    supp = [("product_candidate", product_candidate.path)]
     if outfit.get("image"):
-        refs.append(str(outfit["image"]))
-        clause = f"She wears the outfit from image {len(refs)}"
-        clause += f" ({outfit['description']})." if outfit.get("description") else "."
-    elif outfit.get("description"):
-        clause = f"She wears {outfit['description']}."
-    return _run("lifestyle", f"lifestyle:{outfit.get('id') or 'unspecified'}", release,
-                LIFESTYLE, {"title": release.title, "laura_span": span,
-                            "outfit_clause": clause, "action": action, "setting": setting},
-                refs, LIFESTYLE_SIZE, renderer=renderer, work_dir=work_dir, db=db,
+        supp.append(("outfit", str(outfit["image"])))
+    supp += [("supplementary", str(p)) for p in supplementary]
+    plan = campaign_references(release, features_laura=True, laura_refs=laura_refs,
+                               supplementary=supp, reference_limit=_limit(render),
+                               work_dir=work_dir)
+    built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan), role=role,
+                              scene={**dict(scene or {}), "outfit": outfit})
+    return _run("lifestyle", f"{role}:{outfit['id']}", release, plan, built, LIFESTYLE_SIZE,
+                features_laura=True, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.lifestyle")
 
 
 def variant(release: Release, base_candidate: Candidate, role: str, edit_instruction: str = "",
-            *, renderer: Renderer | None = None, work_dir: str, db=None,
+            *, outfit: Mapping | None = None, scene: Mapping | None = None,
+            laura_refs: Sequence[str] | None = None, renderer=None, work_dir: str, db=None,
             job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
-    """An edit of an existing candidate (FLUX 3's single-reference edit): one closed `role`,
-    optionally made specific by `edit_instruction` (e.g. the wardrobe change)."""
+    """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
+
+    A variant of a Laura image is itself a Laura image: it carries the six-reference set again
+    and the listing's outfit. A product-only variant carries references 4/5/6 and the base."""
     if base_candidate.release_hash != release.release_hash:
         raise StageRefused("the base candidate belongs to a different release")
     if role not in VARIANT_ROLES:
@@ -330,13 +448,32 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
     extra = (edit_instruction or "").strip()
     if len(extra) > MAX_EDIT_CHARS:
         raise StageRefused(f"edit instruction is {len(extra)} chars; at most {MAX_EDIT_CHARS}")
-    if role == "wardrobe_change" and not extra:
-        raise StageRefused("wardrobe_change needs the new outfit described")
+    laura = base_candidate.features_laura
+    render = renderer or flux3_renderer()
+    supp: list[tuple[str, str]] = []
+    if laura:
+        outfit = dict(outfit or {})
+        if not outfit.get("id"):
+            raise StageRefused("a variant of a Laura image needs the listing's outfit")
+        if outfit.get("image"):
+            supp.append(("outfit", str(outfit["image"])))
+    plan = campaign_references(release, features_laura=laura, laura_refs=laura_refs,
+                               leading=[("base", base_candidate.path)], supplementary=supp,
+                               reference_limit=_limit(render), work_dir=work_dir)
     edit = _ROLE_EDITS[role] + (f": {extra}" if extra else "")
-    size = PRODUCT_SIZE if base_candidate.stage == "product_only" else LIFESTYLE_SIZE
-    return _run("variant", role, release, VARIANT, {"edit": edit, "title": release.title},
-                [base_candidate.path], size, renderer=renderer, work_dir=work_dir, db=db,
-                job_id=job_id, max_attempts=max_attempts, purpose=f"image.variant.{role}")
+    built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan), role=role,
+                              edit=edit, scene={**dict(scene or {}),
+                                                **({"outfit": outfit} if laura else {})})
+    size = LIFESTYLE_SIZE if laura else PRODUCT_SIZE
+    candidate = _run("variant", role, release, plan, built, size, features_laura=laura,
+                     renderer=render, work_dir=work_dir, db=db, job_id=job_id,
+                     max_attempts=max_attempts, purpose=f"image.variant.{role}")
+    return candidate
+
+
+def _prompt_roles(plan: dict) -> list[str]:
+    """Roles by position, as the prompt builder names them."""
+    return list(plan["roles"])
 
 
 # -- cost model ------------------------------------------------------------------------------
@@ -344,9 +481,8 @@ def gallery_cost(*, lifestyle_count: int = 2, variant_count: int = 3,
                  expected_attempts_per_accept: float = 2.0, tier: str = "1k") -> dict:
     """Expected render spend for one complete gallery, from BFL's published FLUX 3 price.
 
-    `expected_attempts_per_accept` is the number of renders bought per image the verifier
-    accepts (1.0 = everything passes first time). UNKNOWN until measured: the owner's hand
-    runs are not a pass rate, so the figure is reported at several rates, not one."""
+    References are not charged on FLUX 3, so the six-reference set costs the same as one.
+    `expected_attempts_per_accept` is UNKNOWN until measured and is reported at several rates."""
     from ..gateway import anthropic as gw
     from ..gateway import images
 
@@ -355,23 +491,22 @@ def gallery_cost(*, lifestyle_count: int = 2, variant_count: int = 3,
 
     def row(rate: float) -> dict:
         renders = accepted * rate
-        cad = renders * usd * images.USD_TO_CAD
         return {"attempts_per_accept": rate, "renders": round(renders, 2),
-                "usd": round(renders * usd, 4), "cad": round(cad, 4)}
+                "usd": round(renders * usd, 4),
+                "cad": round(renders * usd * images.USD_TO_CAD, 4)}
 
     expected = row(float(expected_attempts_per_accept))
     ceiling = gw.monthly_ceiling_cad()
     return {"model": MODEL, "tier": tier, "usd_per_image": usd,
-            "accepted_images": accepted, "breakdown": {
-                "product_only": 1, "lifestyle": int(lifestyle_count),
-                "variants": int(variant_count)},
+            "references_charged": False, "accepted_images": accepted,
+            "breakdown": {"product_only": 1, "lifestyle": int(lifestyle_count),
+                          "variants": int(variant_count)},
             "expected": expected,
             "sensitivity": [row(r) for r in (1.0, 1.5, 2.0, 3.0)],
             "worst_case_bounded": row(float(MAX_ATTEMPTS)),
             "monthly_ceiling_cad": ceiling,
             "galleries_per_month_at_expected": (int(ceiling // expected["cad"])
                                                 if expected["cad"] else None),
-            "excludes": ("verification (vision-model judging) and any other model spend: "
-                         "those are priced by their own gateways; pattern references are "
-                         "free (deterministic)"),
+            "excludes": ("verification (vision-model judging) and any other model spend; "
+                         "pattern references are free (deterministic)"),
             "price_basis": images.BFL_PRICE_BASIS}

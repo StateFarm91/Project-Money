@@ -1,24 +1,30 @@
-"""Deterministic pattern-derived conditioning references (W4-FLUXAPI, autonomous step 2).
+"""Deterministic product references from the certified pattern (W4-FLUXAPI; D-W4-LAURA-FLUX3 rule 2).
 
-An image model asked to draw "the Cloudline blanket" draws *a* blanket. What makes a render
-show *this* product is conditioning it on pictures of the product's own truth, and those
-pictures need no model at all: the CIR already says, stitch by stitch, what the fabric is.
-So this renders three PNGs from a certified CIR, deterministically, for free:
+FLUX takes images, not PDFs. So each certified release is turned into three PNG references,
+rendered from the exact compiled CIR. No model is involved and they are free:
 
-  (a) `layout`        the full stitch/colour layout, one cell per stitch (99 x 100 for
-                      Cloudline), drawn by `publish.charts.render_fabric`;
-  (b) `motif`         the smallest repeating block, enlarged, with stitch glyphs and row
-                      numbers -- stitch placement a model can read (`render_chart`);
-  (c) `construction`  a sheet of the facts a render must not contradict: finished size,
-                      stitch and row counts, gauge, hook, yarns with their exact colours,
-                      the repeat, and the constraints.
+  (4) `layout`  the complete product: every component, each drawn `make` times, at one shared
+                scale in its true finished proportion (the digital twin's centimetres), in its
+                own colours. Flat pieces come from `charts.render_fabric`, round-worked pieces
+                from `charts.render_round_fabric`. No text: words in a reference are words the
+                model may copy into the photograph.
+  (5) `detail`  stitch and construction detail. Per distinct component, an enlarged chart
+                (flat: two horizontal repeats by up to 24 rows, with glyphs and row numbers;
+                round: the round chart), plus the stitch/colour legend.
+  (6) `rules`   the technical rules a render must not contradict: identity, version and
+                release, components and piece count, finished size (and garment measures where
+                the CIR is graded), gauge, yarns and exact colours, stitches, repeat, assembly,
+                and the prohibited additions.
 
-Every file is fingerprinted (sha256) and the set is bound to the release hash -- the content
-hash `gates.certificate.certify` names (`runtime.release._content_hash_of`). A caller that
-passes a release hash for different content is refused: a reference pack that drifted from
-the certified pattern would condition a render on a product that is not for sale.
+Category adapts from the data rather than from a label. A multi-piece product shows every
+component. A graded garment adds its size and built measures; front and back are shown
+separately only where the CIR models them as separate components (the data must support it).
 
-No generation, no network, no spend. The same CIR always yields the same bytes.
+Every file is fingerprinted (sha256) and the set is bound to the release hash
+(`runtime.release._content_hash_of`, the hash `gates.certificate.certify` names). A release
+hash or version for different content is refused. Each reference is kept inside FLUX 3's
+documented input bounds (at least 256 x 256, at most 16 MP). The same CIR always gives the same
+bytes.
 """
 from __future__ import annotations
 
@@ -28,8 +34,22 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/1.0.0"
-ROLES: tuple[str, ...] = ("layout", "motif", "construction")
+VERSION = "pattern-refs/2.0.0"
+ROLES: tuple[str, ...] = ("layout", "detail", "rules")
+MIN_SIDE_PX = 256                      # FLUX 3: smaller than 256 x 256 is HTTP 422
+MAX_PIXELS = 16 * 1_048_576            # FLUX 3: larger than 16 MP is HTTP 400
+CANVAS_PX = 1800
+MAX_COPIES_DRAWN = 6
+BACKGROUND = (232, 232, 232)
+
+# What no render of a certified product may add. Applies to every product; a component, colour
+# or motif the CIR has is never in this list because the CIR is what is allowed.
+PROHIBITED_ADDITIONS: tuple[str, ...] = (
+    "colours not in the certified palette", "motifs, appliques or embroidery",
+    "borders, edgings, fringe, tassels or pom-poms not in the pattern",
+    "extra or missing pieces", "a different stitch, texture or construction",
+    "knit, woven or printed fabric", "text, logos, labels or watermarks",
+)
 
 
 class PatternRefsRefused(ValueError):
@@ -57,159 +77,324 @@ def release_hash_of(cir) -> str:
 
 
 def _png_bytes(image) -> bytes:
-    """PNG with no metadata, so equal pixels are equal bytes."""
+    """PNG with no metadata, so equal pixels give equal bytes."""
     buf = io.BytesIO()
     image.convert("RGB").save(buf, format="PNG", optimize=False, compress_level=6)
     return buf.getvalue()
 
 
-def _motif_block(grid, colors, col_period: int, row_period: int) -> tuple[int, int]:
-    """How much of the chart the enlargement shows: two horizontal repeats (so the join is
-    visible) and enough rows to show the vertical motif, capped so cells stay large."""
-    cols = max((len(r) for r in grid), default=0)
-    rows = len(grid)
-    want_cols = min(cols, max(col_period * 2, min(cols, 12)))
-    want_rows = min(rows, row_period if row_period < rows else 24)
-    return max(1, want_cols), max(1, min(want_rows, 30))
+def _within_bounds(image):
+    """Scale an image down until it is at most 16 MP. Refuse one whose short side is under 256."""
+    from PIL import Image
+
+    w, h = image.size
+    if w * h > MAX_PIXELS:
+        f = (MAX_PIXELS / float(w * h)) ** 0.5
+        image = image.resize((max(1, int(w * f)), max(1, int(h * f))), Image.LANCZOS)
+    if min(image.size) < MIN_SIDE_PX:
+        f = MIN_SIDE_PX / float(min(image.size))
+        image = image.resize((int(round(image.size[0] * f)), int(round(image.size[1] * f))),
+                             Image.NEAREST)
+    return image
 
 
-def _construction_sheet(cir, twin, *, release_hash: str, col_period: int, row_period: int,
-                        stitches_across: int, rows_total: int):
-    from PIL import Image, ImageDraw
-
-    from ..publish import charts
-
-    width = 1400
-    title_f, head_f, body_f = charts._font(40), charts._font(26), charts._font(22)
-    lines: list[tuple[str, object]] = []
-    g = cir.gauge
-    size = (f"{twin.width_cm:.1f} x {twin.height_cm:.1f} cm"
-            if twin.width_cm and twin.height_cm else "UNKNOWN (twin gives no size)")
-    lines += [("CONSTRUCTION", head_f),
-              (f"{cir.construction}; {len(cir.components)} component(s): "
-               f"{', '.join(c.name for c in cir.components)}", body_f),
-              (f"Finished size (digital twin): {size}", body_f),
-              (f"Stitches across: {stitches_across}    Rows: {rows_total}", body_f),
-              (f"Gauge: {g.stitches_per_10cm} sts x {g.rows_per_10cm} rows per 10 cm in "
-               f"{g.stitch_type}; hook {g.hook_mm} mm", body_f),
-              (f"Repeat: {col_period} stitch(es) x {row_period} row(s)"
-               + ("  (no vertical repeat: the motif runs the full height)"
-                  if row_period >= rows_total else ""), body_f),
-              ("", body_f), ("COLOURS AND YARN", head_f)]
-    letters = charts.color_letters(cir)
-    swatch_rows = []
-    for color_id, hexval in cir.colors.items():
-        mat = next((m for m in cir.materials if m.color_id == color_id), None)
-        metres = twin.yarn_metres_by_color.get(color_id)
-        swatch_rows.append((color_id, hexval, letters.get(color_id, "?"),
-                            f"{letters.get(color_id, '?')}  {color_id}  {hexval}  "
-                            f"{(mat.name + ', ' + str(mat.yarn_weight)) if mat else ''}  "
-                            f"{f'~{metres:.0f} m' if metres else 'metres UNKNOWN'}"))
-    constraints = [
-        "Render exactly this colour layout: no added colours, motifs, borders or fringe.",
-        f"Proportion: {stitches_across} stitches across to {rows_total} rows"
-        + (f" ({twin.width_cm:.1f} cm by {twin.height_cm:.1f} cm)" if twin.width_cm and
-           twin.height_cm else "") + "; do not stretch.",
-        f"Fabric is {g.stitch_type} crochet texture; not knit, not woven, not printed.",
-        "This sheet, the layout and the motif are the product truth; the prompt is not.",
-    ]
-    header = [(cir.title, title_f),
-              (f"{cir.slug}@{cir.version}   release {release_hash[:16]}", body_f), ("", body_f)]
-    height = 90 + 40 * (len(header) + len(lines) + len(swatch_rows) + len(constraints) + 3)
-    img = Image.new("RGB", (width, height), (255, 255, 255))
-    draw = ImageDraw.Draw(img)
-    y = 40
-    for text, font in header + lines:
-        draw.text((48, y), text, fill=(20, 20, 20), font=font)
-        y += 40
-    for color_id, hexval, _letter, text in swatch_rows:
-        rgb = charts._hex_to_rgb(hexval)
-        draw.rectangle((48, y + 2, 96, y + 32), fill=rgb, outline=(0, 0, 0))
-        draw.text((112, y + 2), text, fill=(20, 20, 20), font=body_f)
-        y += 40
-    y += 20
-    draw.text((48, y), "CONSTRAINTS", fill=(20, 20, 20), font=head_f)
-    y += 40
-    for c in constraints:
-        draw.text((48, y), "- " + c, fill=(20, 20, 20), font=body_f)
-        y += 40
-    return img
-
-
-def build(cir, *, release_hash: str, out_dir: str | Path) -> dict:
-    """Render and fingerprint the three references for `cir`, bound to `release_hash`.
-
-    Refuses when `release_hash` is not this CIR's content hash, or the pattern does not compile
-    (a twin of failing arithmetic would be fiction, `cir.twin.build_twin`)."""
+def _components(cir):
+    """(component, twin, is_round) for every component, compiled once."""
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
     from ..publish import charts
 
+    result = compile_cir(cir)
+    if not result.ok:
+        raise PatternRefsRefused("the CIR does not compile; no references from a broken pattern")
+    out = []
+    for comp in cir.components:
+        twin = build_twin(cir, result, component=comp.name)
+        if not twin.chart_grid():
+            raise PatternRefsRefused(f"{comp.name}: the twin has no cells to draw")
+        out.append((comp, twin, charts.is_round(cir, twin)))
+    return out
+
+
+def _grid_dims(twin) -> tuple[int, int]:
+    g = twin.chart_grid()
+    return max((len(r) for r in g), default=0), len(g)
+
+
+def technical_rules(cir, parts=None, *, release_hash: str) -> dict:
+    """The certified facts, structured. They go on the rules sheet and into the prompt."""
+    from ..publish import charts
+
+    parts = parts if parts is not None else _components(cir)
+    letters = charts.color_letters(cir)
+    stitches: set[str] = set()
+    components = []
+    for comp, twin, is_round in parts:
+        across, rows = _grid_dims(twin)
+        stitches |= set(twin.stitch_types_used)
+        components.append({
+            "name": comp.name, "make": int(getattr(comp, "make", 1) or 1),
+            "construction": comp.construction or cir.construction,
+            "worked": "in rounds" if is_round else "in flat rows",
+            "stitches_across": across, "rows": rows,
+            "width_cm": round(twin.width_cm, 1) if twin.width_cm else None,
+            "height_cm": round(twin.height_cm, 1) if twin.height_cm else None,
+            "shape": twin.shape or twin.outline})
+    main = max(parts, key=lambda p: _grid_dims(p[1])[0] * _grid_dims(p[1])[1])
+    grid, colors = main[1].chart_grid(), main[1].color_grid()
+    col_p, row_p = charts.detect_repeat(grid, colors)
+    yarn_m: dict[str, float] = {}
+    for comp, twin, _ in parts:
+        make = int(getattr(comp, "make", 1) or 1)
+        for k, v in twin.yarn_metres_by_color.items():
+            yarn_m[k] = yarn_m.get(k, 0.0) + v * make
+    colours = []
+    for cid, hexval in cir.colors.items():
+        mat = next((m for m in cir.materials if m.color_id == cid), None)
+        colours.append({"id": cid, "hex": hexval, "letter": letters.get(cid, "?"),
+                        "yarn": mat.name if mat else "", "weight": (mat.yarn_weight
+                                                                     if mat else None),
+                        "metres": round(yarn_m[cid]) if cid in yarn_m else None})
+    if not cir.colors:
+        mat = cir.materials[0] if cir.materials else None
+        colours.append({"id": "main", "hex": None, "letter": "A",
+                        "yarn": mat.name if mat else "", "weight": mat.yarn_weight
+                        if mat else None, "metres": None})
+    g = cir.gauge
+    garment = None
+    if getattr(cir, "grading", None):
+        try:
+            from ..products.garments import built_measures
+
+            garment = {"size": (cir.grading.size if hasattr(cir.grading, "size")
+                                else cir.to_dict()["grading"].get("size")),
+                       "measures_cm": built_measures(cir)}
+        except Exception:  # noqa: BLE001 - measures unavailable: say so, never invent
+            garment = {"size": None, "measures_cm": None}
+    assembly = []
+    for step in cir.to_dict().get("assembly") or []:
+        assembly.append(f"{step.get('method')}: {step.get('piece_a')} to "
+                        f"{step.get('piece_b')} - {step.get('note') or ''}".strip(" -"))
+    return {
+        "slug": cir.slug, "version": cir.version, "title": cir.title,
+        "release_hash": release_hash, "construction": cir.construction,
+        "components": components, "piece_count": sum(c["make"] for c in components),
+        "gauge": {"stitches_per_10cm": g.stitches_per_10cm, "rows_per_10cm": g.rows_per_10cm,
+                  "stitch": g.stitch_type, "hook_mm": g.hook_mm},
+        "colours": colours, "stitches": sorted(stitches),
+        "repeat": {"component": main[0].name, "stitches": col_p, "rows": row_p},
+        "finished_size_note": cir.finished_size_note, "garment": garment,
+        "assembly": assembly, "prohibited_additions": list(PROHIBITED_ADDITIONS),
+    }
+
+
+def _render_layout(cir, parts):
+    """Every component, drawn `make` times, at one px-per-cm, on a plain ground. No text."""
+    from PIL import Image
+
+    from ..publish import charts
+
+    drawn = []
+    for comp, twin, is_round in parts:
+        img = (charts.render_round_fabric(cir, twin) if is_round
+               else charts.render_fabric(cir, twin, cell_px=12))
+        copies = min(int(getattr(comp, "make", 1) or 1), MAX_COPIES_DRAWN)
+        drawn.append((img, twin, copies, is_round))
+    gap = 40
+    have_cm = all(t.width_cm and t.height_cm for _, t, _, _ in drawn)
+
+    def target(img, t, rnd, ppc):
+        # A round piece is drawn as a schematic of concentric rounds; its "width x height" is
+        # across-points x across-flats for a polygon, not a bounding box, so it is scaled
+        # uniformly to its width rather than stretched into an ellipse.
+        w = max(1, round(float(t.width_cm) * ppc))
+        if rnd:
+            return w, max(1, round(img.size[1] * w / float(img.size[0])))
+        return w, max(1, round(float(t.height_cm) * ppc))
+
+    if have_cm:
+        total_w = sum(float(t.width_cm) * n for _, t, n, _ in drawn)
+        tall = max(float(t.height_cm) for _, t, _, _ in drawn)
+        gaps = gap * (sum(n for _, _, n, _ in drawn) + 1)
+        ppc = min((CANVAS_PX - gaps) / total_w, (CANVAS_PX - 2 * gap) / tall)
+        sized = [(img.resize(target(img, t, rnd, ppc), Image.NEAREST), n)
+                 for img, t, n, rnd in drawn]
+        basis = "digital twin centimetres, one shared scale"
+    else:
+        sized = [(img, n) for img, _, n, _ in drawn]
+        basis = "chart cells (the twin gives no finished size)"
+    width = gap + sum((im.size[0] + gap) * n for im, n in sized)
+    height = 2 * gap + max(im.size[1] for im, _ in sized)
+    canvas = Image.new("RGB", (width, height), BACKGROUND)
+    x = gap
+    for im, n in sized:
+        for _ in range(n):
+            canvas.paste(im.convert("RGB"), (x, gap + (height - 2 * gap - im.size[1]) // 2))
+            x += im.size[0] + gap
+    return canvas, basis
+
+
+def _stack(images, *, pad: int = 24):
+    from PIL import Image
+
+    width = max(im.size[0] for im in images) + 2 * pad
+    height = sum(im.size[1] for im in images) + pad * (len(images) + 1)
+    out = Image.new("RGB", (width, height), (255, 255, 255))
+    y = pad
+    for im in images:
+        out.paste(im.convert("RGB"), ((width - im.size[0]) // 2, y))
+        y += im.size[1] + pad
+    return out
+
+
+def _render_detail(cir, parts):
+    """Enlarged stitch placement per distinct component, then the legend."""
+    from ..publish import charts
+
+    tiles = []
+    for comp, twin, is_round in parts:
+        if is_round:
+            tiles.append(charts.render_round_chart(
+                cir, twin, charts.ChartSpec(max_width_px=1400),
+                caption=f"{comp.name}: worked in rounds; full chart"))
+            continue
+        grid, colors = twin.chart_grid(), twin.color_grid()
+        cp, rp = charts.detect_repeat(grid, colors)
+        across, rows = _grid_dims(twin)
+        mc = max(1, min(across, max(cp * 2, min(across, 12))))
+        mr = max(1, min(rows, rp if rp < rows else 24, 30))
+        tiles.append(charts.render_chart(
+            cir, twin, charts.ChartSpec(cell_px=44, margin_px=56, max_width_px=1800),
+            grids=charts.crop_grids(grid, colors, mc, mr),
+            caption=(f"{comp.name}: {mc} stitches x {mr} rows from the bottom-left corner "
+                     f"(repeat {cp} sts); enlarged")))
+    main = max(parts, key=lambda p: _grid_dims(p[1])[0] * _grid_dims(p[1])[1])
+    tiles.append(charts.render_legend(cir, main[1]))
+    return _stack(tiles)
+
+
+def _render_rules(rules: dict):
+    from PIL import Image, ImageDraw
+
+    from ..publish import charts
+
+    width = 1500
+    title_f, head_f, body_f = charts._font(40), charts._font(26), charts._font(22)
+    probe = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    lines: list[tuple[str, object, tuple | None]] = []
+
+    def text(t, font=body_f, swatch=None):
+        for i, part in enumerate(charts._wrap(probe, t, font, width - 160) or [""]):
+            lines.append((part, font, swatch if i == 0 else None))
+
+    text(rules["title"], title_f)
+    text(f"{rules['slug']}@{rules['version']}   release {rules['release_hash'][:16]}")
+    text("")
+    text("PIECES (left to right in the layout reference)", head_f)
+    for c in rules["components"]:
+        size = (f"{c['width_cm']} x {c['height_cm']} cm" if c["width_cm"] and c["height_cm"]
+                else "size UNKNOWN")
+        text(f"{c['name']} x{c['make']}: worked {c['worked']}, {c['stitches_across']} sts "
+             f"x {c['rows']} rows, {size}" + (f", {c['shape']}" if c["shape"] else ""))
+    text(f"Total pieces: {rules['piece_count']}")
+    if rules.get("garment"):
+        gm = rules["garment"]
+        text(f"Garment size {gm.get('size') or 'UNKNOWN'}; built measures (cm): "
+             f"{gm.get('measures_cm') or 'UNKNOWN'}")
+    if rules.get("finished_size_note"):
+        text(rules["finished_size_note"])
+    g = rules["gauge"]
+    text(f"Gauge: {g['stitches_per_10cm']} sts x {g['rows_per_10cm']} rows per 10 cm in "
+         f"{g['stitch']}; hook {g['hook_mm']} mm")
+    r = rules["repeat"]
+    main = next(c for c in rules["components"] if c["name"] == r["component"])
+    if r["stitches"] >= main["stitches_across"] and r["rows"] >= main["rows"]:
+        text(f"Repeat ({r['component']}): none; the whole piece is one pattern")
+    else:
+        text(f"Repeat ({r['component']}): {r['stitches']} sts x {r['rows']} rows")
+    text(f"Stitches used: {', '.join(rules['stitches'])}")
+    text("")
+    text("COLOURS AND YARN (exact)", head_f)
+    for c in rules["colours"]:
+        text(f"{c['letter']}  {c['id']}  {c['hex'] or ''}  {c['yarn']}, {c['weight']}  "
+             f"{('~' + str(c['metres']) + ' m') if c['metres'] else 'metres UNKNOWN'}",
+             swatch=charts._hex_to_rgb(c["hex"]) if c["hex"] else None)
+    if rules["assembly"]:
+        text("")
+        text("ASSEMBLY", head_f)
+        for a in rules["assembly"]:
+            text("- " + a)
+    text("")
+    text("NEVER ADD", head_f)
+    for p in rules["prohibited_additions"]:
+        text("- " + p)
+    height = 80 + 38 * len(lines)
+    img = Image.new("RGB", (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    y = 40
+    for t, font, swatch in lines:
+        x = 48
+        if swatch is not None:
+            draw.rectangle((48, y + 2, 92, y + 30), fill=swatch, outline=(0, 0, 0))
+            x = 108
+        draw.text((x, y), t, fill=(20, 20, 20), font=font)
+        y += 38
+    return img
+
+
+def build(cir, *, release_hash: str, out_dir: str | Path, version: str | None = None) -> dict:
+    """Render, bound-check and fingerprint references 4/5/6 for `cir`, bound to `release_hash`.
+
+    Refused when `release_hash` is not this CIR's content hash, when `version` is given and is
+    not the CIR's version, or when the pattern does not compile."""
     if not release_hash:
         raise PatternRefsRefused("a release hash is required: references bind to a release")
+    if version is not None and str(version) != str(cir.version):
+        raise PatternRefsRefused(f"version {version} was asked for, but this CIR is "
+                                 f"{cir.slug}@{cir.version}; references come only from the "
+                                 f"exact certified version")
     actual = release_hash_of(cir)
     if actual != release_hash:
         raise PatternRefsRefused(
             f"release {release_hash[:16]} is not this CIR's content ({actual[:16]}); "
             f"references for different content would condition a render on another product")
-    result = compile_cir(cir)
-    if not result.ok:
-        raise PatternRefsRefused("the CIR does not compile; no references from a broken pattern")
-    twin = build_twin(cir, result)
-    grid, colors = twin.chart_grid(), twin.color_grid()
-    rows_total = len(grid)
-    stitches_across = max((len(r) for r in grid), default=0)
-    if not rows_total or not stitches_across:
-        raise PatternRefsRefused("the twin has no cells to draw")
-    col_period, row_period = charts.detect_repeat(grid, colors)
-
-    layout = charts.render_fabric(cir, twin, cell_px=12)
-    aspect_basis = "render_fabric row heights"
-    if twin.width_cm and twin.height_cm:
-        # The fabric render's row heights are a drawing convention; the twin's finished size
-        # is the product truth. A proportion reference in the wrong aspect teaches the model
-        # the wrong shape, so the layout is rescaled (nearest neighbour: hard stitch edges,
-        # no invented colours) to the twin's width:height.
-        from PIL import Image
-
-        w = layout.size[0]
-        h = max(1, round(w * float(twin.height_cm) / float(twin.width_cm)))
-        layout = layout.resize((w, h), Image.NEAREST)
-        aspect_basis = f"digital twin {twin.width_cm:.1f} x {twin.height_cm:.1f} cm"
-    mc, mr = _motif_block(grid, colors, col_period, row_period)
-    motif = charts.render_chart(
-        cir, twin, charts.ChartSpec(cell_px=44, margin_px=56, max_width_px=1800),
-        grids=charts.crop_grids(grid, colors, mc, mr),
-        caption=(f"{cir.title}: {mc} stitches x {mr} rows from the bottom-left corner "
-                 f"(repeat {col_period} sts); enlarged"))
-    sheet = _construction_sheet(cir, twin, release_hash=release_hash, col_period=col_period,
-                                row_period=row_period, stitches_across=stitches_across,
-                                rows_total=rows_total)
+    parts = _components(cir)
+    rules = technical_rules(cir, parts, release_hash=release_hash)
+    layout, basis = _render_layout(cir, parts)
+    detail = _render_detail(cir, parts)
+    sheet = _render_rules(rules)
 
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)
     refs: list[PatternRef] = []
-    for role, image in (("layout", layout), ("motif", motif), ("construction", sheet)):
+    for role, image in (("layout", layout), ("detail", detail), ("rules", sheet)):
+        image = _within_bounds(image)
         raw = _png_bytes(image)
         path = root / f"{cir.slug}-{release_hash[:12]}-{role}.png"
         path.write_bytes(raw)
         refs.append(PatternRef(role, str(path), hashlib.sha256(raw).hexdigest(),
                                image.size[0], image.size[1]))
+    main = rules["components"][0] if len(rules["components"]) == 1 else None
+    category = ("garment" if rules.get("garment") else
+                "multi_piece" if len(rules["components"]) > 1 or rules["piece_count"] > 1
+                else "round" if parts[0][2] else "flat")
     manifest = {
         "version": VERSION, "slug": cir.slug, "cir_version": cir.version,
-        "release_hash": release_hash,
-        "layout_aspect_basis": aspect_basis,
-        "grid": {"stitches_across": stitches_across, "rows": rows_total,
-                 "repeat": [col_period, row_period], "motif_block": [mc, mr]},
+        "release_hash": release_hash, "category": category,
+        "layout_aspect_basis": basis,
+        "grid": ({"stitches_across": main["stitches_across"], "rows": main["rows"],
+                  "repeat": [rules["repeat"]["stitches"], rules["repeat"]["rows"]]}
+                 if main else None),
+        "technical_rules": rules,
         "references": [r.to_dict() for r in refs],
         "cost_cad": 0.0, "basis": "deterministic render of the compiled CIR; no model",
     }
     manifest["manifest_sha256"] = hashlib.sha256(json.dumps(
         {k: v for k, v in manifest.items() if k != "references"}
         | {"references": [{"role": r.role, "sha256": r.sha256} for r in refs]},
-        sort_keys=True).encode()).hexdigest()
+        sort_keys=True, default=str).encode()).hexdigest()
     (root / f"{cir.slug}-{release_hash[:12]}-pattern-refs.json").write_text(
-        json.dumps(manifest, indent=1, sort_keys=True) + "\n")
+        json.dumps(manifest, indent=1, sort_keys=True, default=str) + "\n")
     return manifest
 
 
