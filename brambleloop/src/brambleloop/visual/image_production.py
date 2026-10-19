@@ -403,26 +403,42 @@ def _spend_plan() -> dict:
 
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
-              repair: dict | None = None) -> dict:
+              repair: dict | None = None, exp=None) -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
     with db.session() as s:
         r = _run(s, key)
         calls, spent = int(r.generation_calls or 0), float(r.spent_cad or 0.0)
-    if getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
+    next_cost = float(getattr(gen, "max_cost_cad_per_call", 0.0))
+    if exp is not None:
+        # W4-WRAPTEST: an experiment's paid call needs the owner's recorded experiment approval
+        # and headroom in its own hard budget; every ceiling below still applies on top.
+        from .experiment import ExperimentBudgetStop
+
+        if getattr(gen, "paid", True) and not exp.paid_authorised():
+            raise CapabilityBlocked("experiment is not live: a paid generator may not be "
+                                    "called (dry run uses the stub provider)")
+        if getattr(gen, "paid", True):
+            try:
+                exp.guard_paid(next_cost)
+            except ExperimentBudgetStop as exc:
+                raise BudgetStop(str(exc)) from None
+    elif getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
                                 "called")
     try:
         spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
-                         next_cost_cad=float(getattr(gen, "max_cost_cad_per_call", 0.0)))
+                         next_cost_cad=next_cost)
     except spend_plan.PlanRefused as exc:
         raise BudgetStop(str(exc)) from None
     _update(db, key, stage=stage, generation_calls=calls + 1)
     base = {"slug": slug, "version": version, "release": release, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
+    if exp is not None:
+        base["experiment"] = True
     try:
         kw = {"repair": repair} if repair else {}
         out = gen.generate(stage=stage, role=role, brief=brief, references=refs,
@@ -446,7 +462,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     _update(db, key, stage=stage, spent_cad=spent + float(cost or 0.0))
     data = out["data"]
     sha = store_bytes(db, data, key=f"{key}/{role}/{plan_attempt}",
-                      why="generated listing-image candidate (AI; never a photograph)")
+                      why="generated listing-image candidate (AI; never a photograph)" + (
+                          f"; {exp.label}" if exp is not None else ""))
     cand = {**base, "data": data, "sha256": sha, "provider": out.get("provider"),
             "model": out.get("model"), "prompt": out.get("prompt") or brief,
             "references": [{"sha256": r["sha256"], "kind": r["kind"]} for r in refs],
@@ -455,7 +472,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous",
             "repair": repair}
     if role == ANCHOR_ROLE:
-        bind = CG.binding(db, slug, version, release)
+        bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
         q = CG.quality(data)
         verdict = {"sha256": sha, "listing": base["listing"], "publishable": False,
@@ -472,6 +489,18 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "publishable": verdict["publishable"], "cost_cad": cost}
 
 
+def _binding(db, exp, slug, version, release) -> dict:
+    """The release binding: the certified one, or (EXPERIMENT mode only) the experiment's
+    content-identity binding, which is never a certification."""
+    if exp is not None:
+        from . import experiment as XP
+
+        got = XP.binding(db, slug, version, release)
+        if got is not None:
+            return got
+    return CG.binding(db, slug, version, release)
+
+
 # ---- the stages --------------------------------------------------------------------------
 
 def _next(stage: str) -> str | None:
@@ -486,19 +515,38 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     stage, round_ = inputs.get("stage") or STAGES[0][0], int(inputs.get("round") or 0)
     if stage not in STAGE_STATE:
         raise ValueError(f"unknown stage {stage!r}")
+    exp = None
+    if inputs.get("experiment"):
+        # W4-WRAPTEST: EXPERIMENT mode. Scratch database, an opened experiment for this exact
+        # content and an installed context, or a refusal; never a silent fallback.
+        from . import experiment as XP
+
+        exp = XP.context_for(db, slug, version, release)
     key = _ensure_run(db, slug, version, release)
     run = get_run(db, key)
     if run["state"] in ("blocked", "approved_for_publication") and stage != "repair":
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
-    judges = judges or CG.RealJudges(db)
-    gen = generator if generator is not None else resolve_generator(db)
-    plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
+    judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
+    if generator is not None:
+        gen = generator
+    elif exp is not None:
+        gen = exp.generator(db)
+    else:
+        gen = resolve_generator(db)
+    if exp is not None:
+        plan = exp.plan
+    else:
+        plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
+    max_att = exp.max_attempts_per_role if exp is not None else MAX_ATTEMPTS_PER_ROLE
 
     def go(next_stage: str | None, *, rnd: int = 0):
         if next_stage is None:
             return None
-        follow({"slug": slug, "version": version, "release": release, "stage": next_stage,
-                "round": rnd}, stage_key(slug, version, release, next_stage, rnd))
+        nxt = {"slug": slug, "version": version, "release": release, "stage": next_stage,
+               "round": rnd}
+        if exp is not None:
+            nxt["experiment"] = True
+        follow(nxt, stage_key(slug, version, release, next_stage, rnd))
         return next_stage
 
     def block(why: str, *, exhausted: bool = False, record: dict | None = None):
@@ -513,7 +561,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             seed_experiment(db)
         except Exception:  # noqa: BLE001 - learning seed never blocks production
             pass
-        bind = CG.binding(db, slug, version, release)
+        bind = _binding(db, exp, slug, version, release)
         if bind["status"] == CG.FAIL and "no certified release" in bind["why"]:
             return {"run_key": key, **_update(db, key, stage=stage,
                                                status="awaiting_certified_pattern",
@@ -523,9 +571,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                          record={"evidence": bind})
         if plan is None:
             return block(f"{run['listing']} has no shot plan (not a Launch-0 listing)")
-        _update(db, key, stage=stage, status=st,
-                record={"inputs": dict(inputs), "evidence": bind,
-                        "outputs": {"plan_roles": [r["role"] for r in plan["roles"]]}})
+        rec = {"inputs": dict(inputs), "evidence": bind,
+               "outputs": {"plan_roles": [r["role"] for r in plan["roles"]]}}
+        if exp is not None:
+            rec = {**rec, "experiment": True, "label": exp.label,
+                   "certification": exp.reg["certification"]}
+        _update(db, key, stage=stage, status=st, record=rec)
         return {"run_key": key, "next": go(_next(stage))}
 
     data = _stage_data(db, key)
@@ -563,11 +614,16 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
 
         if stage == "product_generation":
             attempt = _attempts(db, key, ANCHOR_ROLE) + 1
+            fix = None
+            if exp is not None and attempt > 1:
+                # Experiment: a retry is the bounded correction the router names, never a
+                # blind re-roll (the fidelity gate stopped the run when there is none).
+                fix = _repair_for(_best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key))
             got = _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
-                            plan_attempt=attempt)
+                            plan_attempt=attempt, exp=exp, repair=fix)
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
             return {"run_key": key, "next": go(_next(stage), rnd=attempt - 1)}
@@ -579,12 +635,18 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             if status == "PASS":
                 _update(db, key, stage=stage, status=st, record=record)
                 return {"run_key": key, "next": go(_next(stage))}
-            if status == "FAIL" and _attempts(db, key, ANCHOR_ROLE) < MAX_ATTEMPTS_PER_ROLE:
+            if status == "FAIL" and exp is not None and not (_repair_for(best) or {}).get(
+                    "directives"):
+                return block(f"{exp.label}: the flat lay failed a hard Product Truth check "
+                             f"and no bounded correction is routable "
+                             f"({(best or {}).get('failure_categories')}); stopped early, "
+                             f"nothing more is spent", exhausted=True, record=record)
+            if status == "FAIL" and _attempts(db, key, ANCHOR_ROLE) < max_att:
                 n = _attempts(db, key, ANCHOR_ROLE)
                 _update(db, key, stage=stage, status=st, record=record)
                 return {"run_key": key, "next": go("product_generation", rnd=n)}
             if status == "FAIL":
-                return block(f"product fidelity FAIL after {MAX_ATTEMPTS_PER_ROLE} attempts: "
+                return block(f"product fidelity FAIL after {max_att} attempts: "
                              f"{(best or {}).get('failed')}", exhausted=True, record=record)
             return block("product fidelity cannot be verified: no qualified verifier for "
                          "generated product images (product_authority: UNKNOWN). "
@@ -618,7 +680,9 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 # does not. Deterministic, and it avoids outfits/settings other listings use.
                 from . import styling
 
-                styled = styling.select_for_listing(db, run["listing"])
+                styled = (exp.outfit_selector(db, run["listing"])
+                          if exp is not None and exp.outfit_selector is not None
+                          else styling.select_for_listing(db, run["listing"]))
                 if not styled.get("outfit"):
                     return block(f"automatic styling found no unused complete outfit: "
                                  f"{styled.get('why')}")
@@ -664,7 +728,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
             for r in roles:
                 attempt = _attempts(db, key, r["role"]) + 1
-                if attempt > MAX_ATTEMPTS_PER_ROLE:
+                if attempt > max_att:
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
@@ -673,7 +737,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                       f"{r['job']}: the finished piece", refs=refs_,
                                       outfit=outfit if r["laura"] else None,
                                       plan_attempt=attempt,
-                                      repair=(repairs or {}).get(r["role"])))
+                                      repair=(repairs or {}).get(r["role"]), exp=exp))
             return outs
 
         if stage == "lifestyle_generation":
@@ -697,7 +761,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             per = {r["role"]: _best(db, listing=run["listing"], role=r["role"], run=key)
                    for r in roles}
             failing = [r for r in roles if (per[r["role"]] or {}).get("technical_status")
-                       == "FAIL" and _attempts(db, key, r["role"]) < MAX_ATTEMPTS_PER_ROLE
+                       == "FAIL" and _attempts(db, key, r["role"]) < max_att
                        and _repair_for(per[r["role"]]) is not None]
             _update(db, key, stage=stage, status=st, record={"evidence": per})
             if failing and round_ < MAX_REPAIR_ROUNDS:
@@ -729,13 +793,18 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         raise
 
     if stage == "gallery_assembly":
-        view = readiness(db, run["listing"], run_key_=key)
+        view = readiness(db, run["listing"], run_key_=key,
+                         plan=plan if exp is not None else None)
+        if exp is not None:
+            view = {**view, "experiment": True, "label": exp.label}
+            if exp.gallery_builder is not None:
+                view["experiment_gallery"] = exp.gallery_builder(db, key)
         _update(db, key, stage=stage, status=st, record={"outputs": view})
         return {"run_key": key, "next": go(_next(stage))}
 
     if stage == "owner_card":
         view = (data.get("gallery_assembly") or {}).get("outputs") or readiness(
-            db, run["listing"], run_key_=key)
+            db, run["listing"], run_key_=key, plan=plan if exp is not None else None)
         gen_roles_ = [r for r in view["roles"] if r["source"] == "generated"]
         not_ready = [r for r in gen_roles_ if (r.get("candidate") or {}).get(
             "technical_status") != "PASS"]
@@ -747,11 +816,33 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 "recommended_fix": _recommend(not_ready, view),
                 "owner_approval_is_not_technical_verification": True}
         card["campaign_consistency"] = view.get("campaign_consistency")
+        if exp is not None:
+            from . import experiment as XP
+
+            card.update(experiment=True, label=exp.label,
+                        certification=exp.reg["certification"],
+                        content_hash=exp.reg["release"],
+                        pdf_sha256_by_terminology=exp.reg["pdf_sha256_by_terminology"],
+                        gallery=view.get("experiment_gallery"),
+                        publication_blockers=sorted(set(card["publication_blockers"]) | set(
+                            XP.publication_blockers({"experiment": True}))),
+                        approvals_are_separate={
+                            "visual_approval": "the owner's look at these images only",
+                            "technical_certification": "REFUSED: " + "; ".join(
+                                exp.reg["certification"]["reasons"])[:300],
+                            "publication_authorization": "NOT AVAILABLE: experiments never "
+                                                         "publish"})
         if (view.get("campaign_consistency") or {}).get("status") == CG.FAIL:
             not_ready = not_ready or [{"role": "gallery", "candidate": {
                 "technical_status": "FAIL",
                 "failed": {"campaign_consistency": view["campaign_consistency"]["why"]}}}]
-        if not_ready or not view["set_check"]["ok"]:
+        if exp is not None and not view["set_check"]["ok"]:
+            # An experiment asks the owner for a look, not for a listing: the set check is a
+            # publication check, reported as a blocker rather than stopping the card.
+            card["publication_blockers"] = sorted(set(card["publication_blockers"]) | {
+                f"gallery set check: {p.get('kind')}: {p.get('why')}"
+                for p in view["set_check"]["problems"]})
+        if not_ready or (not view["set_check"]["ok"] and exp is None):
             why = "; ".join(f"{r['role']}: {(r.get('candidate') or {}).get('technical_status', 'no candidate')}"
                             f" (failed {sorted(((r.get('candidate') or {}).get('failed') or {}))},"
                             f" unknown {(r.get('candidate') or {}).get('unknown')})"
@@ -808,12 +899,12 @@ def _is_launch(listing: str) -> bool:
 
 # ---- gallery assembly / readiness (both methods) ----------------------------------------
 
-def readiness(db, listing: str, *, run_key_: str | None = None) -> dict:
+def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | None = None) -> dict:
     """The shot plan with what fills each role, the set check and publication blockers."""
     from ..gates.asset_truth import AssetClass
     from ..publish import eligibility as el
 
-    plan = SP.campaign_plan(listing)
+    plan = plan or SP.campaign_plan(listing)
     roles, set_cands, blockers, chosen = [], [], set(), []
     for r in plan["roles"]:
         entry = {"position": r["position"], "role": r["role"], "job": r["job"],
@@ -908,6 +999,23 @@ def notification_candidates(db) -> list[dict]:
             continue
         ready = r.status == "ready_for_owner_review"
         card = dict(r.card or {})
+        if card.get("experiment"):
+            # W4-WRAPTEST: the experiment's card, stamped; it asks for a look, never for
+            # publication.
+            out.append({
+                "dedupe_key": f"image_gallery:{r.run_key}:{r.status}:experiment",
+                "severity": "normal", "category": "decision",
+                "title": (f"{card.get('label')}: gallery "
+                          f"{'ready for your look' if ready else 'stopped'}: {r.listing}")[:300],
+                "body": (f"{card.get('label')}. Visual approval only. Technical certification: "
+                         f"REFUSED ({'; '.join((card.get('certification') or {}).get('reasons') or [])[:300]}). "
+                         f"Publication authorization: not available for an experiment. "
+                         + ("" if ready else f"Stopped: {r.blocked_reason}"))[:1000],
+                "consequence": ("nothing publishes: an experiment can never reach "
+                                "store.publish, export or listing approval")[:1000],
+                "evidence": [f"image_production_runs:{r.id}"],
+                "deep_link": f"/cc/#/images/{r.listing}", "count": 1})
+            continue
         out.append({
             "dedupe_key": f"image_gallery:{r.run_key}:{r.status}",
             "severity": "normal" if ready else "high",
@@ -936,6 +1044,13 @@ def approve(db, key: str, *, decided_by: str) -> dict:
     run = get_run(db, key)
     if run is None:
         return {"approved": False, "why": "no such run"}
+    from . import experiment as XP
+
+    if (run.get("card") or {}).get("experiment"):
+        XP.refuse_if_experiment(db, run["slug"], run["version"], action="listing approval")
+        raise XP.ExperimentRefused(f"{XP.LABEL}: an experiment run is never approved for "
+                                   f"publication")
+    XP.refuse_if_experiment(db, run["slug"], run["version"], action="listing approval")
     if run["state"] != "ready_for_owner_review":
         return {"approved": False, "why": f"run is {run['status']}, not ready_for_owner_review"}
     blockers = list(run["card"].get("publication_blockers") or [])

@@ -373,6 +373,9 @@ def certified_payload(db, slug: str, version: str):
     One builder for publish, activation and the census, so the three compare against the
     same thing. Taxonomy flows through `build_payload` unchanged (cluster A owns choosing it).
     """
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(db, slug, version, action="Etsy payload (publish/activation)")  # W4-WRAPTEST
     from sqlalchemy import select
 
     from ..cir.model import CIR
@@ -548,6 +551,9 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
     bytes under a certificate that did not certify them as one are refused. This is the one
     upload path; there is no other exporter.
     """
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(db, slug, version, action="listing image upload")  # W4-WRAPTEST
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
     cert = certified_frames(db, slug, version, release=release)

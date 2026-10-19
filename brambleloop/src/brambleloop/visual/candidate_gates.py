@@ -279,7 +279,16 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     cand = {**cand, "sha256": sha}
     job = JOB_OF_ROLE.get(cand.get("role"))
     checks: dict[str, dict] = {}
-    bind = binding(db, cand.get("slug", ""), cand.get("version", ""), cand.get("release", ""))
+    bind = None
+    if cand.get("experiment"):
+        # W4-WRAPTEST: an EXPERIMENT candidate binds to its uncertified content (scratch
+        # database only); without an open experiment it falls through and fails as usual.
+        from .experiment import binding as experiment_binding
+
+        bind = experiment_binding(db, cand.get("slug", ""), cand.get("version", ""),
+                                  cand.get("release", ""))
+    bind = bind or binding(db, cand.get("slug", ""), cand.get("version", ""),
+                           cand.get("release", ""))
     checks["binding"] = bind
     checks["provenance"] = provenance(cand)
     checks["quality"] = quality(data)
@@ -315,6 +324,11 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
         checks["outfit_consistency"] = _c(NA, "Laura does not appear")
     technical = worst(*(c["status"] for c in checks.values()))
     publication = publication_verdict(cand, checks, job, laura)
+    if bind.get("experiment"):
+        from .experiment import publication_blockers
+
+        publication = {**publication, "publishable": False, "may_export": False,
+                       "blockers": publication_blockers(bind) + list(publication["blockers"])}
     failures = sorted({FAILURE_CATEGORY[k] for k, c in checks.items() if c["status"] == FAIL})
     # The shared Product Truth failure codes (W-FLUXAPI's constant; repair_routes) are kept
     # as reported so learning and the repair router read the same words.

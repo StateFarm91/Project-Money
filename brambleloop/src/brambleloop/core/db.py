@@ -126,6 +126,9 @@ class Database:
                  scratch: bool = False):
         """`scratch=True` marks a deliberate throwaway database (see `resolve_url`)."""
         self.engine = make_engine(url, echo, scratch=scratch)
+        # Read by `visual.experiment`: an uncertified EXPERIMENT run is refused on any
+        # database not declared a throwaway at its call site (W4-WRAPTEST).
+        self.scratch = bool(scratch)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
 
     def create_all(self) -> list[str]:
