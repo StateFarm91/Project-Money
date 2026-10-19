@@ -94,7 +94,22 @@ both tables exercised (counter upsert 5 bad_signature + 1 `other`, 2 sampled aud
 aggregates; brief offset 0 -> 3 -> 5; reserved word `offset` quoted). Test:
 `tests/test_w4_integ3_boot_tables.py` (2). Purely additive: rollback to 1b21e81 ignores the tables.
 
-## 7. Full suite, guard, rollback, security: pending (see next update)
+## 7. Full suite on 8de23ad: 5 suites failed; 4 fixed, 1 needs a visual R&D decision
+
+Run 20261019T191237Z-13016 on 8de23ad (REQUIRE_CLEAN=1, JOBS=3, venv-integ3, SIG_DFL launcher,
+nice 10 / ionice idle; 7823 s): **8638 tests passing, 5 suites failing, 0 tmp leak.** Every
+failure reproduced alone; none on INTEG2 9c3812b with the same venv (so not venv drift).
+Bisected over the merge commits:
+
+| suite | introduced by | root cause | fix (e66d931) |
+|---|---|---|---|
+| test_improve_director, test_cert_improve_autonomy (2 tests) | REL2 (c591529) | REL2 registered `creative.concept_field@3` beside `@2` (kept for explainability). `improve.bootstrap.register_code_versions` registered every prompt under the key `prompt:<name>`, so @3 became the incumbent and @2 was demoted into a phantom challenger nobody runs | bootstrap registers one incumbent per prompt name: the newest version (the one `creative/prospecting.py` runs). Tests unchanged. League/learn regressions pass (league, league_holdout, cert_improve_wave, cert_owner_decision, r2_product_policy_alias, v11/w4_learn_loops, w4_rel2, cert_design_pipeline). |
+| test_final_closure_matrix | BOARD (88e91da) | BOARD's 1b21e81 closure remap also re-mapped post-launch F-486; `aggregate.launch_scope` assumes every remap row was launch-critical, so F-486 read "moved out by the launch-critical re-map wave" with an 18-character reason | `aggregate.CLOSURE_ONLY_REMAPS = {"1b21e81"}`: a closure remap records the mapping commit but is not a launch-class move. LAUNCH_SCOPE.json regenerated; only F-486 changes (back to INTEG2's). closure_matrix.json unchanged. |
+| test_provider_accounts (2 tests) | INTEG3 FX (c8c4abc) | the reconciliation pins were the 0.715 arithmetic | pinned to the 1.4154 reference, each derived from `core.fx` in the test: 14 CAD = US$9.8912, difference 0.1888, runway 342 renders (was 10.01 / 0.07 / 338). |
+| test_w3_visual_commercial_slowloop (3 tests) | PRODREADY (5b16704) | **Not fixed.** Disclosed-render contract 3 (owner D-W4-VISROLE-LEGIBILITY: 58 px lettering) shrinks the product zone to 95 % of its height for every frame. The free hero challenger `disclosed_finished_render_close` now beats the incumbent by 0.0185 proxy points (0.8272 vs 0.8087); `hero.PROXY_MARGIN` is 0.02. Before contract 3 the margin was 0.0215 (0.8425 vs 0.8210). The gate is behaving correctly; the test's fixture premise ("a free challenger promotes on proxy") no longer holds for any Launch-0 class (probed all 11 builders: only coasters_tabletop runs challengers; hexagon_coasters 0.0185, placemat_pair 0.0). | Not weakened, not tuned: lowering the margin or retuning `hero_gap_ratio` to pass a test is a product decision. Needs the visual R&D owner: re-design the free challengers for contract 3, or restate the test premise with an owner decision. |
+
+The board was not regenerated after the bootstrap fix (it was regenerated once, as asked);
+rows naming `improve/bootstrap.py` will read as changed-since-deploy on the next regeneration.
 
 Run history: 5f18d11 run 20261019T162018Z-22556 stopped by INTEG3 (BRANDRULE); cd7e7dc run
 20261019T171203Z-983 killed by the session's 2-hour background-task limit before it finished
