@@ -242,7 +242,9 @@ def select_outfit(db, listing: str) -> dict:
             rejected.append({"garments": g, "why": problems})
             continue
         oid = "exp-" + hashlib.sha256(f"{listing}|{outfits.signature(g)}".encode()).hexdigest()[:10]
-        colours = sorted({w for v in g.values() for w in styling._COLOUR_WORDS if w in v})
+        from brambleloop.visual.wardrobe import parse_outfit
+
+        colours = sorted({c for x in parse_outfit(g).values() for c in x["colours"]})
         concept = dict(st["concept"])
         concept.update(setting="a warm reading nook: an armchair, a wool rug, a lamp and a "
                                "bookshelf, late-afternoon window light",
@@ -286,10 +288,10 @@ def stub_renderer_class():
                 d.line([(i, 0), (i + h, h)], fill=(90, 100, 90), width=6)
             d.rectangle([0, h // 2 - 300, w, h // 2 + 300], fill=(250, 250, 250))
             d.text((80, h // 2 - 260), "STUB", fill=(200, 0, 0), font=big)
-            d.text((80, h // 2 - 110), STUB_MARK, fill=(0, 0, 0), font=small)
+            d.text((80, h // 2 - 110), _ascii(STUB_MARK), fill=(0, 0, 0), font=small)
             d.text((80, h // 2 - 30), f"{purpose}  call {len(self.calls)}", fill=(0, 0, 0),
                    font=small)
-            d.text((80, h // 2 + 50), "EXPERIMENT — UNCERTIFIED — NOT FOR PUBLICATION",
+            d.text((80, h // 2 + 50), "EXPERIMENT - UNCERTIFIED - NOT FOR PUBLICATION",
                    fill=(160, 0, 0), font=small)
             d.text((80, h // 2 + 130), f"{len(refs)} references sent (sha256-bound)",
                    fill=(0, 0, 0), font=small)
@@ -839,11 +841,16 @@ def stamp_copy(png: bytes, *, stub: bool) -> bytes:
     except TypeError:  # pragma: no cover
         font = ImageFont.load_default()
     d.rectangle([0, h - band, w, h], fill=(150, 0, 0))
-    d.text((band // 3, h - band + band // 5), LABEL + ("  ·  STUB" if stub else ""),
+    d.text((band // 3, h - band + band // 5), _ascii(LABEL) + ("  -  STUB" if stub else ""),
            fill=(255, 255, 255), font=font)
     buf = io.BytesIO()
     im.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _ascii(text: str) -> str:
+    """The bundled bitmap font has no em dash; burnt-in labels use a hyphen."""
+    return text.replace("\u2014", "-")
 
 
 def _esc(s) -> str:
@@ -1124,6 +1131,9 @@ def _run(*, live: bool, out: Path, provider=None) -> dict:
     n = drain(db, "experiment-images", [IP.JOB_TYPE], limit=120)
     _job_events(db, tl)
     run_view = IP.get_run(db, run_key)
+    stuck = _failed_stage_jobs(db)
+    if stuck:
+        run_view = {**run_view, "orchestrator_errors": stuck}
     tl.add(f"orchestrator idle after {n} stage jobs", started=t, outputs=run_view,
            cost_cad=round(budget.spent_cad, 4))
 
@@ -1171,6 +1181,7 @@ def _run(*, live: bool, out: Path, provider=None) -> dict:
                 {k: g.get(k) for k in ("position", "name", "source", "technical_status",
                                        "sha256")} for g in gallery],
             "refusals": refusals, "timeline_events": len(tl.events),
+            "orchestrator_errors": run_view.get("orchestrator_errors") or [],
             "owner_actions_between_start_and_card": 0}
 
 
@@ -1195,6 +1206,19 @@ def _job_events(db, tl: Timeline) -> None:
                 "idempotency_key": j.idempotency_key, "inputs_sha256": jsha(i),
                 "outputs_sha256": jsha(o), "cost_cad": float(getattr(j, "cost_cad", 0) or 0),
                 "owner_action": None, "note": str(j.status)})
+
+
+def _failed_stage_jobs(db) -> list[dict]:
+    """A stage job that raised (not a recorded block) is a defect, shown, never hidden."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job
+
+    with db.session() as s:
+        return [{"job_id": j.id, "status": str(j.status), "stage": (j.inputs or {}).get("stage"),
+                 "error": str(j.last_error or "")[:400]}
+                for j in s.scalars(select(Job).where(Job.job_type == "visual.image_production"))
+                if str(j.status).split(".")[-1] in ("FAILED", "DEAD", "PENDING", "RUNNING")]
 
 
 def _candidates(db, run_key: str) -> list[dict]:

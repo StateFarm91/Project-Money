@@ -199,7 +199,11 @@ def test_orchestrator_refuses_the_uncertified_release_without_experiment_mode():
           out_plain.get("state") == "awaiting_certified_pattern", out_plain)
     check("open_but_not_installed_refused",
           raises(lambda: IP.run_stage(db, exp_in, follow=lambda *a: None)) is not None)
-    XP.install(db, reg, judges_factory=H.StubJudges)
+    rend = H.BudgetedRenderer(H.stub_renderer_class()(), XP.ExperimentBudget(cap_cad=5.0),
+                              live=False, per_role=2, log=[])
+    XP.install(db, reg, judges_factory=H.StubJudges,
+               generator_factory=H.generator_factory(renderer=rend, live=False,
+                                                     work_root=tempfile.mkdtemp()))
     sent = []
     out = IP.run_stage(db, exp_in, follow=lambda i, k: sent.append((i, k)))
     check("installed_experiment_passes_retrieve", out.get("next") == "prepare_references", out)
@@ -347,6 +351,7 @@ def test_outfit_is_automatic_and_distinct():
 def test_dry_run_reaches_the_approval_card_unattended():
     out = Path(tempfile.mkdtemp(prefix="wraptest-dry-")) / "run"
     s = H.run(live=False, out=out)
+    check("dry_no_orchestrator_errors", s["orchestrator_errors"] == [], s["orchestrator_errors"])
     check("dry_ready_for_owner_review", s["run_state"] == "ready_for_owner_review", s)
     check("dry_card_through_command_center", XP.LABEL in (s.get("card_title") or ""), s)
     check("dry_no_spend", s["spent_cad"] == 0.0 and s["vision_calls"] == 0)
@@ -526,6 +531,7 @@ def test_live_path_rehearsed_offline():
     check("live_flux_posts_at_2k", net.posts and all(
         p.get("resolution") == "2k" for p in net.posts), [p.get("resolution")
                                                           for p in net.posts])
+    check("live_no_reroll_of_an_unroutable_failure", len(net.posts) == 3, _per_role(ev))
     check("live_at_most_two_per_role", all(n <= 2 for n in _per_role(ev).values())
           and len(net.posts) <= 6, _per_role(ev))
     check("live_every_flux_call_reserved_first", all(

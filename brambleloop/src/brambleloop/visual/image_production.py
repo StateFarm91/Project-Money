@@ -779,7 +779,11 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                    for r in roles}
             failing = [r for r in roles if (per[r["role"]] or {}).get("technical_status")
                        == "FAIL" and _attempts(db, key, r["role"]) < max_att
-                       and _repair_for(per[r["role"]]) is not None]
+                       and _repair_for(per[r["role"]]) is not None
+                       # Experiment: only a routable correction is bought, never a re-roll
+                       # of a failure regeneration cannot change.
+                       and (exp is None or (_repair_for(per[r["role"]]) or {}).get(
+                           "directives"))]
             _update(db, key, stage=stage, status=st, record={"evidence": per})
             if failing and round_ < MAX_REPAIR_ROUNDS:
                 return {"run_key": key, "next": go("repair", rnd=round_ + 1)}
@@ -790,7 +794,8 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             repairs = {}
             for r in roles:
                 b = _best(db, listing=run["listing"], role=r["role"], run=key) or {}
-                if b.get("technical_status") == "FAIL" and _repair_for(b) is not None:
+                if b.get("technical_status") == "FAIL" and _repair_for(b) is not None and (
+                        exp is None or (_repair_for(b) or {}).get("directives")):
                     repairs[r["role"]] = _repair_for(b)
             failing = [r for r in roles if r["role"] in repairs]
             repick = any(d.get("kind") == "repick_outfit" for rp in repairs.values()
@@ -1044,6 +1049,14 @@ def notification_candidates(db) -> list[dict]:
             continue
         ready = r.status == "ready_for_owner_review"
         card = dict(r.card or {})
+        if not card.get("experiment"):
+            from . import experiment as XP
+
+            if XP.is_experiment(db, r.slug, r.version):
+                # stopped before the card stage (e.g. at the fidelity gate): still stamped
+                reg = (XP._opened(db, r.slug, r.version) or [{}])[-1]
+                card = {**card, "experiment": True, "label": XP.LABEL,
+                        "certification": reg.get("certification") or {}}
         if card.get("experiment"):
             # W4-WRAPTEST: the experiment's card, stamped; it asks for a look, never for
             # publication.
