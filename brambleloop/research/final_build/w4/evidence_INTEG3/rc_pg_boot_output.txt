@@ -1,0 +1,18 @@
+# W4-INTEG3 2026-10-19: Postgres 16.x throwaway cluster (local, port 55432); not production
+PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+## 1. schema as production 1b21e81 builds it (W4-FCa25a377 worktree)
+reset tables: 129 changes: []
+   etsy_webhook_refusals False
+   prospecting_brief_cursors False
+## 2. candidate boot create_all on that database
+upgrade tables: 131 changes: []
+   etsy_webhook_refusals True
+   prospecting_brief_cursors True
+## 3. second boot (idempotent)
+again tables: 131 changes: []
+   etsy_webhook_refusals True
+   prospecting_brief_cursors True
+## 4. exercise the new tables
+refusal counters: [('bad_signature', 5), ('other', 1)] sampled audit rows: 2
+summary refused: {'bad_signature': 5, 'other': 1}
+offset0 0 after+3 3 after+2 5
