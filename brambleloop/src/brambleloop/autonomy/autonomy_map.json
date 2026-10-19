@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-12T20:15:27.562617+00:00",
+ "generated_at": "2026-10-19T17:12:32.488186+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -11,9 +11,9 @@
  "counts": {
   "departments": 11,
   "cadences": 114,
-  "handlers": 132,
+  "handlers": 133,
   "agents": 29,
-  "follow_on_edges": 59
+  "follow_on_edges": 62
  },
  "departments": [
   {
@@ -991,12 +991,15 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
+     "assets.build",
      "creative.image_benchmark",
      "listing.draft",
      "owner/API route _startup",
      "physical.record",
      "runtime/pipeline.py:_listing_parity",
-     "runtime/release.py:_intake_photo"
+     "runtime/release.py:_intake_photo",
+     "runtime/release.py:follow",
+     "visual.image_production"
     ]
    },
    "cadence": [
@@ -1044,6 +1047,7 @@
      "creative.photoreal_calibration",
      "seasonal.cycle_proof",
      "visual.identity_drift",
+     "visual.image_production",
      "visual.portrait_repair",
      "visual.provider_trial",
      "visual.rnd.cycle"

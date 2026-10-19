@@ -34,6 +34,15 @@ ROLE_JOBS: dict[str, tuple[str, str]] = {
     "pattern_preview": (el.PATTERN_PREVIEW, el.CUSTOMER_INFORMATION),
     "chart": (el.DETAIL, el.ENGINEERING_EVIDENCE),
     "collection": (el.CROSS_SELL, el.CUSTOMER_INFORMATION),
+    # VISGATE E-A: a photograph from `physical_upgrade` arrives as role "proof" and was
+    # removed as filler because this table did not know the role. PROOF is done only by
+    # PHYSICAL_PROOF, so a generated or drawn frame claiming it is refused when its Candidate
+    # is built. LIFESTYLE is a CONVERSION_CREATIVE job that a camera photo can do. A generated
+    # frame can also be classified for it, but `may_export` still refuses it (F-852).
+    # Both roles are photographic for the #61 review (`frame_role.classify`), so they keep
+    # every realism check. Nothing is lowered.
+    "proof": (el.PROOF, el.PHYSICAL_PROOF),
+    "lifestyle": (el.LIFESTYLE, el.CONVERSION_CREATIVE),
 }
 
 # The component the finished-size numbers describe. One per product today: every listing

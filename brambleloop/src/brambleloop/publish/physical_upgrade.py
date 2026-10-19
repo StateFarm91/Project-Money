@@ -120,8 +120,19 @@ def _outcome_metrics(rows) -> dict:
             "conversion": _ratio(orders, visits), "visits": visits}
 
 
-def plan_upgrade(db, photo_id: int, *, today: date | None = None) -> dict:
-    """Add the photograph as a proof frame, name what it can replace, record the baseline."""
+# The frame roles a camera photograph may be declared for (VISGATE E-A). Each is a
+# `release_gates.ROLE_JOBS` role whose job accepts PHYSICAL_PROOF or CONVERSION_CREATIVE.
+DECLARABLE_ROLES = ("proof", "lifestyle")
+
+
+def plan_upgrade(db, photo_id: int, *, today: date | None = None,
+                 role: str = "proof") -> dict:
+    """Add the photograph as a frame in its declared role (default PROOF), name what it can
+    replace, and record the baseline. The frame is unapproved until asset truth and the
+    listing-set certificate re-run, whatever the role."""
+    if role not in DECLARABLE_ROLES:
+        raise UpgradeRefused(f"{role!r} is not a role a photograph may be declared for: "
+                             f"{DECLARABLE_ROLES}")
     from sqlalchemy import func, select
     from sqlalchemy.orm.attributes import flag_modified
 
@@ -153,7 +164,7 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None) -> dict:
         position = (max((f.position for f in frames), default=0) or 0) + 1
         s.add(ListingAsset(
             product_slug=slug, version=version, position=position,
-            asset_class="PHYSICAL_PRODUCT_PHOTO", role="proof", sha256=photo.sha256,
+            asset_class="PHYSICAL_PRODUCT_PHOTO", role=role, sha256=photo.sha256,
             claims={"physical_photo_id": photo.id, "source": photo.source,
                     "rights_basis": photo.rights_basis, "taken_by": photo.taken_by,
                     "supplements": [r["position"] for r in replaceable],

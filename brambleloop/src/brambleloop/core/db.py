@@ -156,6 +156,7 @@ class Database:
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
+        from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)

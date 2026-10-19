@@ -248,6 +248,15 @@ def candidates(db) -> tuple[list[dict], int]:
             "consequence": row.consequence_of_delay or "the owner action expires unanswered",
             "evidence": [f"owner_actions:{oid}"], "deep_link": "/cc/#/approvals",
             "count": 1}, due, now))
+    # W-OWNERIMG: autonomous image production notifies on exactly two conditions. One is a
+    # gallery ready for owner review. The other is a gallery blocked after its permitted
+    # attempts. Dedupe is by run and state.
+    try:
+        from ...visual import image_production
+
+        out.extend(image_production.notification_candidates(db))
+    except Exception:  # noqa: BLE001 - an unreadable run table is visible on the Images tab
+        pass
     routine_suppressed = max(0, int(routine))
     return out, routine_suppressed
 

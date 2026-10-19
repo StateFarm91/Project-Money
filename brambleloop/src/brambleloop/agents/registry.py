@@ -202,7 +202,10 @@ DEFAULT_AGENTS: list[dict] = [
                             "visual.portrait_repair",
                             # W3 lane H: the Visual R&D cycle (deterministic, CA$0; paid
                             # challengers are only planned for the owner).
-                            "visual.rnd.cycle"],
+                            "visual.rnd.cycle",
+                            # W-OWNERIMG: autonomous listing-image production, one stage
+                            # per job, inside this agent's ceiling and a per-gallery plan.
+                            "visual.image_production"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

@@ -127,6 +127,14 @@ NOT_A_REAL_PERSON = TRUTHFUL_IDENTITY  # earlier name, kept for callers
 CUSTOMER_FACING_GATES: tuple[str, ...] = (
     "canonical_identity", "photorealism", "anatomy", "product_truth_if_product_shown",
     "composition_brand_qa", "disclosure_policy", "publication_gate")
+# D-W4-LAURA-OUTFIT: a Laura image on a product listing also passes outfit uniqueness
+# (`visual.outfits`). The rule adds a gate and removes none. It sits after Product Truth and
+# before brand QA, and identity stays first.
+# CUSTOMER_FACING_GATES itself is unchanged on purpose. It is part of Laura's identity record
+# (`laura.core.identity`), whose hash is pinned, and only a recorded owner amendment may
+# change that record.
+LAURA_LISTING_GATES: tuple[str, ...] = (
+    CUSTOMER_FACING_GATES[:4] + ("outfit_uniqueness",) + CUSTOMER_FACING_GATES[4:])
 
 # Asset publication status. `canonical_reference` defines her; it is not a licence to show
 # her to customers. Only `publication_approved` is, and nothing is.
