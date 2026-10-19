@@ -93,6 +93,9 @@ _LISTING_VIEW_SLOTS = frozenset({
     "scale_reference",   # size card: the named reference ("180 cm adult")
     "colour_name",       # materials card: every CIR colour, a record label
     "caption",           # pattern preview: "Actual pattern text from this release"
+    # The disclosed-render contract (3) and its gallery / contents frames (the set Launch-0
+    # actually uploads): the finished-dimension lines and the scale bar's "N cm".
+    "annotation", "scale_label",
 })
 
 
