@@ -794,6 +794,34 @@ DECLARED_IO["laura"] = {"inputs": ["autonomy.status", "company_memory", "owner_a
                         "function_metric": "useful_output_rate",
                         "function_reads": "executive ticks whose work_done > 0"}
 
+# W4-PLACT (owner decision 2026-10-13, DECISION_LOG D-W4-PL-3 item 1): Laura's PRIVATE-register
+# replies are billed to their own agent, with their own CA$0.50/day ceiling, independent of
+# Business Laura's CA$0.50/day above. Both sit inside the unchanged CA$100 monthly ceiling.
+# A separate agent is what makes the separation atomic: `gateway.anthropic.check_budget_cad`
+# checks and reserves an agent's day under `budget_lock`, so private spend can never consume
+# the CEO-briefing budget, the briefing can never consume private budget, and two concurrent
+# private turns cannot both pass the cap. It runs no job type (a private reply is only ever
+# generated in a live owner request, never in a job scope -- `gateway.laura_register`
+# refuses inside one), holds no authority and is forbidden everything Laura is.
+LAURA_PRIVATE_AGENT = "laura_private"
+DEFAULT_AGENTS.append(dict(
+    name=LAURA_PRIVATE_AGENT,
+    description=("Laura's private-register replies (same Laura, owner-only context; "
+                 "D-W4-PL-1, D-W4-PL-3). A billing identity only: runs no job type, "
+                 "publishes, activates, spends on nothing else and messages nobody."),
+    allowed_job_types=[],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.50))
+FORBIDDEN_COMBINATIONS[LAURA_PRIVATE_AGENT] = set(FORBIDDEN_COMBINATIONS["laura"])
+DECLARED_IO[LAURA_PRIVATE_AGENT] = {
+    "inputs": ["owner-private context (via app.command_center.private_context only)"],
+    "outputs": ["private reply (no-store response body; encrypted private store)"],
+    # "exempt": its output is owner-private by design, so no function-quality reading may
+    # read it (spec/07 Ruling 2: never consumed by ordinary agent logs or other departments).
+    "function_metric": "exempt",
+    "function_reads": "nothing: a billing identity; its replies are owner-private"}
+QUALITY_OVERRIDES[LAURA_PRIVATE_AGENT] = {
+    "exempt": "runs no jobs: a billing identity for owner-private replies, off by default"}
+
 
 
 # ---------------------------------------------------------------------------

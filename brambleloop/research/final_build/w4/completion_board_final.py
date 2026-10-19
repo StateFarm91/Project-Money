@@ -79,9 +79,9 @@ ROOT = {
                                  "engineering: deployed release + hosted history"),
     # Tracked requirement outside the FM/Build 2 ledgers (PRIVATE_LAURA_TRACE G-12).
     "laura_private_register": ("private_laura_owner_gates", "blocked_owner",
-                               "owner: OA-PL-1..4 (private key, D-W4-PL-1 acknowledgement, "
-                               "human Laura's consent, spend authorisation), then the "
-                               "class-B production soak"),
+                               "owner: OA-PL-1/2/4 (private key, D-W4-PL-1 acknowledgement, "
+                               "spend authorisation + register switch; no consent "
+                               "prerequisite, D-W4-PL-3), then the class-B production soak"),
     "model_bearing_render": ("image_provider_capability", "blocked_external",
                              "external: image provider capability"),
     "visual_v1_provider_capability": ("image_provider_capability", "blocked_external",
@@ -461,17 +461,19 @@ TRACKED_ROWS = (
                  "laura/private/store.py"],
      "gate_key": "laura_private_register", "gate_kind": "owner",
      "gate_detail": ("code + tests built (W4-PRIVLAURA); enablement is owner-only: "
-                     "BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, human Laura's "
-                     "consent attestation, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and "
-                     "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD; then an approved deploy and the "
+                     "BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, "
+                     "BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and "
+                     "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (agent laura_private); no consent "
+                     "prerequisite (D-W4-PL-3); then an approved deploy and the "
                      "class-B soak (one turn, a reply, persistence across a redeploy)"),
-     "owner_action": {"id": "OA-PL-1..4",
-                      "action": ("PRIVATE_LAURA_TRACE §5 owner actions: OA-PL-1 set "
-                                 "BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge "
-                                 "D-W4-PL-1; OA-PL-3 attest human Laura's consent; OA-PL-4 "
-                                 "authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD and set "
+     "owner_action": {"id": "OA-PL-1/2/4",
+                      "action": ("PRIVATE_LAURA_TRACE §5 owner actions (OA-PL-3 removed by "
+                                 "D-W4-PL-3): OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; "
+                                 "OA-PL-2 acknowledge D-W4-PL-1; OA-PL-4 authorise "
+                                 "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (at most the "
+                                 "laura_private CA$0.50/day) and set "
                                  "BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1"),
-                      "max_cost_cad": None, "minutes": 11},
+                      "max_cost_cad": None, "minutes": 9},
      "source_ref": "research/final_build/w4/PRIVATE_LAURA_TRACE.md; spec/07 Ruling 2"},
 )
 

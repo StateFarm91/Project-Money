@@ -10162,7 +10162,7 @@
    "scope": "required_component",
    "title": "Private Laura: owner-private conversational register (text; voice on LAURA-VOICE-P2)",
    "board_class": "blocked_owner",
-   "blocked_by": "owner: OA-PL-1..4 (private key, D-W4-PL-1 acknowledgement, human Laura's consent, spend authorisation), then the class-B production soak",
+   "blocked_by": "owner: OA-PL-1/2/4 (private key, D-W4-PL-1 acknowledgement, spend authorisation + register switch; no consent prerequisite, D-W4-PL-3), then the class-B production soak",
    "root": "private_laura_owner_gates",
    "domain": "autonomy_learning",
    "verifiability": "B",

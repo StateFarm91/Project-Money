@@ -46,9 +46,11 @@ ROWS: tuple[dict, ...] = (
                         "provider's usage policies (never sexually explicit). Enabled only by "
                         "the owner: private key, register switch "
                         "BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1, spend authorisation "
-                        "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (default CA$0), human Laura's "
-                        "consent attested by the owner; then a production soak. The voice "
-                        "delivery stays GATED on LAURA-VOICE-P2"}},
+                        "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (default CA$0; billed to its own "
+                        "agent laura_private, CA$0.50/day), on a deployed release; then a "
+                        "production soak. She is Brambleloop's AI persona and never claims "
+                        "to be human (D-W4-PL-3). The voice delivery stays GATED on "
+                        "LAURA-VOICE-P2"}},
     {"id": "LAURA-VOICE-IMPROVE", "title": "Voice as a permanent improvement domain: realism, "
      "latency, prosody, expressiveness, conversation quality -- without changing her "
      "recognisable identity", "required": True, "source": "D-FB-18 item 7",

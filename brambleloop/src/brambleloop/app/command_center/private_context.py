@@ -36,8 +36,9 @@ from datetime import datetime, timezone
 REPLY_GATED = ("Laura's private replies are off until the owner enables them: the private key "
                "(BRAMBLELOOP_PRIVATE_MEMORY_KEY), the register switch "
                "(BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1) and a spend authorisation "
-               "(BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD, default CA$0). Until then your words are "
-               "stored encrypted and no reply is generated (D-W4-PL-1, pending owner "
+               "(BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD, default CA$0, at most the laura_private "
+               "CA$0.50/day), on a deployed release. Until then your words are stored "
+               "encrypted and no reply is generated (D-W4-PL-1, pending owner "
                "acknowledgement).")
 REPLY_ENABLED = ("Laura replies in her private register: warm, affectionate, romantic and "
                  "playful, never sexually explicit (the provider's usage policy is the outer "
@@ -111,19 +112,97 @@ def _call(fn):
         raise _map(exc) from None
 
 
-def _enablement() -> dict:
+def _agent_present(db) -> bool:
+    """Is the `laura_private` billing agent registered here with a positive ceiling?"""
+    import math
+
+    from ...agents.registry import Registry
+    from ...gateway import laura_register
+
+    try:
+        row = Registry(db).get(laura_register.AGENT)
+    except Exception:  # noqa: BLE001 - absent (PermissionDenied) or unreadable is "unmet"
+        return False
+    c = float(row.daily_cost_ceiling_cad or 0.0)
+    return bool(math.isfinite(c) and c > 0)
+
+
+def _release_deployed(boot: dict | None = None, env=None) -> dict:
+    """Is the running process a proven, deployed release (not a dev or unproven build)?
+
+    Met only when all hold: the build commit is known (`core.build`), the process runs on the
+    hosting platform, and the runtime boot guard (`ops.release_record.BOOT`) found a committed,
+    release-eligible record for this exact tree. A build this process cannot prove is unmet,
+    never assumed. Returns non-secret facts only (short SHA and the record's file name).
+    """
+    from ...core import build
+    from ...ops import release_record
+
+    b = release_record.BOOT if boot is None else boot
+    ident = build.identity(env)
+    on_platform = bool((b or {}).get("platform_markers"))
+    proven = bool((b or {}).get("ok"))
+    met = bool(ident["known"] and on_platform and proven)
+    if met:
+        detail = (f"running {ident['commit_short']} on the hosting platform, proven by "
+                  f"release/{((b.get('record') or {}).get('file') or '?')}")
+    elif not ident["known"]:
+        detail = "the running build commit is unknown here"
+    elif not on_platform:
+        detail = "not running on the hosting platform"
+    else:
+        detail = "the boot guard found no committed release record for this build"
+    return {"met": met, "detail": detail, "commit_short": ident["commit_short"]}
+
+
+def prerequisites(db, *, env=None, boot: dict | None = None) -> list[dict]:
+    """Each activation prerequisite, met or unmet, by NAME (never a value of any secret).
+
+    W4-PLACT (owner decision 2026-10-13, D-W4-PL-3). Human consent is NOT a prerequisite:
+    Private Laura is Brambleloop's established AI persona, not an impersonation of a real
+    person (OA-PL-3 removed). Truthful AI representation still binds in the prompt.
+    """
+    from ...gateway import laura_register
+    from ...laura.private import store
+
+    e = laura_register.enablement(env)
+    try:
+        key = bool(store.configured())          # validates the key; never reads it out
+    except Exception:  # noqa: BLE001
+        key = False
+    rel = _release_deployed(boot, env)
+    n = e["names"]
+    return [
+        {"id": "key_configured", "met": key,
+         "label": f"private memory key configured ({n['private_key']})"},
+        {"id": "register_switch", "met": bool(e["register_switch"]),
+         "label": f"register switch {n['switch']}=1"},
+        {"id": "daily_cad_set", "met": e["spend_authorised_cad_per_day"] > 0,
+         "label": (f"daily spend set ({n['spend']}; CA$"
+                   f"{e['spend_authorised_cad_per_day']:.2f}/day, capped at the "
+                   f"{laura_register.AGENT} ceiling CA${laura_register.agent_ceiling_cad():.2f})")},
+        {"id": "laura_private_agent", "met": _agent_present(db),
+         "label": f"billing agent {laura_register.AGENT} registered with its own daily ceiling"},
+        {"id": "current_release_deployed", "met": rel["met"],
+         "label": f"current release deployed ({rel['detail']})"},
+    ]
+
+
+def _enablement(db=None) -> dict:
     """Non-content: whether a private reply may be attempted, and which gate is closed."""
     from ...gateway import laura_register
     from ...laura.private import store
 
     e = laura_register.enablement()
     key = store.configured()
+    agent = _agent_present(db) if db is not None else True
     return {"key_configured": key, "register_switch": e["register_switch"],
             "spend_authorised_cad_per_day": e["spend_authorised_cad_per_day"],
             "provider_configured": e["provider_configured"],
+            "laura_private_agent": agent,
             "enabled": bool(key and e["register_switch"]
                             and e["spend_authorised_cad_per_day"] > 0
-                            and e["provider_configured"])}
+                            and e["provider_configured"] and agent)}
 
 
 def _register_label(en: dict) -> str:
@@ -138,12 +217,16 @@ def status(db, session_public_id: str) -> dict:
         is_open = bool(session_public_id) and _grant_id(db, session_public_id) is not None
     except Exception:  # noqa: BLE001
         is_open = False
-    en = _enablement()
+    en = _enablement(db)
+    prereq = prerequisites(db)
     return {"configured": store.configured(), "open": is_open,
             "requires": "a fresh owner step-up to open; closes on logout/revoke or after 30 min",
             "reply_register": _register_label(en),
             "reply_why": REPLY_ENABLED if en["enabled"] else REPLY_GATED,
             "enablement": en,
+            # W4-PLACT: each activation prerequisite as met/unmet (names only, no secrets).
+            "prerequisites": prereq,
+            "prerequisites_met": all(p["met"] for p in prereq),
             "isolation": "encrypted owner-only store; never read by business, public, customer "
                          "or protected paths"}
 
@@ -191,7 +274,7 @@ def view(db, session_public_id: str, *, limit: int = 50) -> dict:
         p = _principal(db, session_public_id)
         return {"facts": [_row(r) for r in store.facts(db, p)],
                 "conversation": [_row(r) for r in store.conversation(db, p, limit=limit)],
-                "reply_register": _register_label(_enablement())}
+                "reply_register": _register_label(_enablement(db))}
     return _call(run)
 
 

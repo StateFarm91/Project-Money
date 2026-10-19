@@ -3,8 +3,13 @@
 Branch `claude/w4-PRIVLAURA`, from `origin/claude/w4-INTEG2` @ 84ee2a0. This file holds no private
 content, no key material and no intimate text. Environment variables are named, never valued.
 
+> **Superseded in part by D-W4-PL-3 (owner decisions 2026-10-13; W4-PLACT, `PLACT.md`):** private replies
+> are billed to their own agent `laura_private` (CA$0.50/day, atomic reservation), and OA-PL-3 (human consent)
+> is **removed** as a prerequisite: Private Laura is Brambleloop's established AI persona, not an impersonation
+> of a real person. The current activation steps are in `PLACT.md`.
+
 **Honest status: the engineering is DONE and tested; Private Laura is NOT complete.** It stays
-OFF until the owner acts (OA-PL-1..4), and it is complete only after the class-B production soak
+OFF until the owner acts (OA-PL-1, 2 and 4; OA-PL-3 removed by D-W4-PL-3), and it is complete only after the class-B production soak
 passes (owner turn → reply → persistence across a redeploy). Nothing was deployed. Nothing was
 spent (every model call in the tests is a stubbed `_send`; no network).
 
@@ -27,7 +32,7 @@ agent ceiling still binds (proven in `test_w4_pl_budget`).
 ### Enablement (all required; all default OFF/CA$0; owner-only)
 1. `BRAMBLELOOP_PRIVATE_MEMORY_KEY` configured (OA-PL-1).
 2. `BRAMBLELOOP_LAURA_PRIVATE_REGISTER` = `1` (register switch; any other value is off). The owner
-   sets it only after acknowledging D-W4-PL-1 (OA-PL-2) and attesting human Laura's consent (OA-PL-3).
+   sets it only after acknowledging D-W4-PL-1 (OA-PL-2). (No consent attestation: OA-PL-3 removed, D-W4-PL-3.)
 3. `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD` > 0 (spend authorisation per UTC day for purpose
    `laura.private_reply@1`; unset/0/invalid = refused pre-call and audited without content; OA-PL-4).
 4. `ANTHROPIC_API_KEY` configured. Then `anthropic.check_budget_cad` (month, provider, Laura's day,
@@ -54,7 +59,7 @@ Paths relative to `brambleloop/src/brambleloop/` unless they start with `tests/`
 | PL-7 Leak tests | DONE | `tests/test_w4_pl_leak.py` (2), `tests/test_w3_priv_leak.py` (7), `tests/test_w3_laura_cc_private.py` (7) |
 | PL-8 Model independence and continuity | DONE (tests); B | `test_w4_pl_continuity.py::test_restart_and_model_change_keep_one_laura`, `::test_key_missing_after_restart_means_no_reply_and_no_spend`; `tests/test_w3_priv_continuity.py` (3) — on SQLite and Postgres |
 | PL-9 Founder/CEO identity preserved | DONE | identity record untouched (`CURRENT_SHA256` asserted in `test_w4_pl_continuity` and `test_w4_pl_boundary`); laura-r2-a42aeac7 unchanged |
-| PL-10 Human Laura consent | OWNER (OA-PL-3) | prompt forbids asserting her consent (`laura_register.py:120-122`); attestation is an owner action, recorded in D-W4-PL-1 item 4 |
+| PL-10 Human Laura consent | DONE (D-W4-PL-3: no consent prerequisite; OA-PL-3 removed) | prompt forbids asserting anyone's consent (`laura_register.py:120-122`); see `PLACT.md` |
 | PL-11 Required, gated only where unsupported | DONE (tracking) / OWNER + B (completion) | tracked row `LAURA-PRIVATE-REGISTER` in `research/final_build/w4/completion_board_final.py` (`TRACKED_ROWS`, `_rows_tracked`) and `prelaunch_scope.py` (`tracked_verifiability`), owned by W-INTEG from now on; `test_w4_pl_boundary.py::test_register_is_tracked_and_its_decision_drafted` |
 | PL-12 Private voice register | GATED (correct) on LAURA-VOICE-P2 | `laura/agency/voice_spec.py:274` `private_text_register()` (voice "GATED (LAURA-VOICE-P2)"); `tests/test_w3_laura_voice_spec.py` (7) |
 | PL-13 One Laura across text → voice → live | DONE for text; voice/live GATED | `laura/agency/presence.py:167` invariant; `tests/test_w3_laura_presence.py` (4) |
@@ -74,7 +79,7 @@ Paths relative to `brambleloop/src/brambleloop/` unless they start with `tests/`
 | G-7 Firewall at protected entry points | DONE | 13 call sites; `test_w4_pl_boundary.py::test_protected_entry_points_reject_private_values` (14 sites incl. a private principal) |
 | G-8 Injection / privilege boundary | DONE | `test_w4_pl_boundary.py::test_injection_in_owner_text_cannot_act` |
 | G-9 Spend authority | DONE in code (default CA$0, refused pre-call, audited); OWNER sets the figure (OA-PL-4) | `test_w4_pl_budget.py` (5) |
-| G-10 Human Laura consent | OWNER (OA-PL-3) | — |
+| G-10 Human Laura consent | CLOSED by owner decision D-W4-PL-3 (OA-PL-3 removed) | `PLACT.md` |
 | G-11 Key rotation; Postgres | DONE | `laura/private/store.py:274` `rekey`; `test_w4_pl_continuity.py::test_key_rotation_via_sealed_export_restore`; PRIV/Laura/PL suites on Postgres (§Tests); opt-in `BRAMBLELOOP_TEST_PG_ADMIN_URL` in `tests/w3_laura_memory_harness.py` and `tests/w3_laura_cc_harness.py` |
 | G-12 Ledger tracking | DONE | tracked row (see PL-11) |
 | G-13 Private voice register | GATED (correct) | LAURA-VOICE-P2 |
@@ -142,7 +147,7 @@ The reply switch stays **OFF** and nothing is activated in production. Defaults 
 
 Activation needs all of:
 1. OA-PL-1: the private key.
-2. OA-PL-3: the owner's attestation of human Laura's consent.
+2. ~~OA-PL-3~~ removed by D-W4-PL-3 (no consent prerequisite).
 3. OA-PL-4: the owner's budget figure and the register switch.
 4. An owner-approved deploy.
 5. The class-B production soak.
@@ -167,14 +172,14 @@ Record only pass/fail and row counts here, never conversation content.
 5. Boundary respect: owner-stated boundaries hold.
 6. Over-refusal check: harmless adult references are not refused or lectured.
 7. Provider-limit redirect: a request past the provider's limit is redirected in character, with no lecture.
-8. No fabricated shared history, and no assertion of human Laura's consent.
+8. No fabricated shared history, and no assertion of consent, a signature or a physical act on anyone's behalf.
 9. Business requests are pointed to Talk to Laura; no company action is taken.
 10. Isolation: nothing from the private context appears in Talk to Laura, Ask Company, the store or the timeline.
 11. Unavailability: with the budget spent or the provider down, the owner sees UNAVAILABLE, never a canned reply.
 
 ## Open items / owner actions (unchanged from the trace)
 - OA-PL-1 set `BRAMBLELOOP_PRIVATE_MEMORY_KEY` (CA$0, ~5 min). OA-PL-2 acknowledge D-W4-PL-1 (2 min).
-  OA-PL-3 attest human Laura's consent (2 min). OA-PL-4 set `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD`
+  ~~OA-PL-3~~ (removed, D-W4-PL-3). OA-PL-4 set `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD`
   (suggest ≤ CA$0.50/day; bounded by Laura's CA$0.50/day) and `BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1` (2 min).
 - Approved deploy, then the class-B soak. Not done; Private Laura is not complete until it passes.
 - Voice delivery of the private register stays GATED on LAURA-VOICE-P2 (G-13, correct).
