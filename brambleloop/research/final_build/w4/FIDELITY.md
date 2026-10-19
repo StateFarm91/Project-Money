@@ -261,4 +261,23 @@ asserts it).
 
 ## 8. Tests
 
-See the commit that records the results.
+Every suite was run through `testslot`, and every one exited 0.
+
+| Suite | Result |
+|---|---|
+| `tests/test_w4_fidelity.py` (new) | 22/22 |
+| test_w4_ownerimg | 29/29 |
+| test_vacuity | 8/8 |
+| test_launch | 28/28 |
+| test_cost_governance_wave2 | 39/39 |
+| test_search_hero_publish | 4/4 |
+| test_cert_listing_frames | 6/6 |
+| test_v11_autonomy_timeline | 6/6 |
+| test_w4_fluxapi | 13/13 |
+| test_w4_fluxstages | 16/16 |
+| test_w4_fluxtexture | 9/9 |
+| test_w4_flux3generator | 9/9 |
+| test_w4_visref | 14/14 |
+
+- cost_governance_wave2 first failed: the judge's new scoped temp prefix `fidelity-judge-`
+  was not counted. It is now in `ops.health.TEMP_PREFIXES`, and the suite was rerun green.
