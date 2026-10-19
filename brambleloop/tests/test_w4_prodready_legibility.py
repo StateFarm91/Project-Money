@@ -148,6 +148,7 @@ def test_the_disclosure_keeps_not_a_photograph_whole_and_inside_the_title_safe_b
         assert lines, key
         assert any(FR.DRAWN_DISCLOSURE in e["text"].lower() for e in lines), lines
         band = int(hero.image.size[1] * (1 - mobile.TITLE_SAFE_MARGIN))
+        assert hero.image.info["layout"], key
         for e in hero.image.info["layout"]:
             if e.get("kind") == "text":
                 assert e["box"][3] <= band, (key, e)
