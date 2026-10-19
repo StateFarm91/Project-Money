@@ -448,5 +448,11 @@ Neither cost was verified against a supplier.
   `edited_at` dates shown.
 - The coverage, stitch-count and topology probes are local, deterministic and shadow-only. The
   probe scripts were kept out of the repository.
-- No source file was changed. The required regression set was run against this branch to
-  confirm the tree is unchanged in behaviour (see the commit message for results).
+- No source file was changed. The required regression set was run on this branch through
+  testslot on 2026-10-19, and every suite exited 0:
+  - test_vacuity: OK;
+  - test_search_hero_publish: 4/4;
+  - test_cert_listing_frames: 0 failing;
+  - test_cost_governance_wave2: OK;
+  - test_v11_autonomy_timeline: 0 failing;
+  - test_launch: OK.
