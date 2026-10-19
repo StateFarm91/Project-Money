@@ -1,12 +1,13 @@
-# INTEG3 (2026-10-19): release candidate cd7e7dc on top of production 1b21e81
+# INTEG3 (2026-10-19): release candidate 8de23ad on top of production 1b21e81
 
 Integrator: W-INTEG3. Worktree `.claude/worktrees/W4-INTEG3`, branch `claude/w4-INTEG3`, created from
 `origin/claude/w4-INTEG2` 9c3812b. Production: 1b21e81 (= a25a377 + release record), SHADOW.
 No deploy, no production write, no spend. Production contact: none (local Postgres only).
 
-**Candidate: `cd7e7dc8483b90347b73de4c1e104a6965ee59b2`, branch `claude/final-candidate-cd7e7dc`.**
-(`claude/final-candidate-5f18d11` was frozen first and is SUPERSEDED: BRANDRULE arrived after the
-freeze, see §2.)
+**Candidate: `8de23add98ad368ceaa344b901fa6fea04c52f35`, branch `claude/final-candidate-8de23ad`.**
+Superseded freezes (do not deploy): `claude/final-candidate-5f18d11` (BRANDRULE arrived after it,
+§2) and `claude/final-candidate-cd7e7dc` (PRODREADY's final head 407089e changed
+`seo/strategy.py`, a code change, so a refreeze was required).
 
 ## 1. Merges (in order, one implementation per defect)
 
@@ -21,6 +22,12 @@ freeze, see §2.)
 | 5 | w4-PRODREADY @ 9b25797 (B1 contract-3 legibility, B2 taxonomy, ornament/placemat Product Truth, scipy lock, #61) | 5b16704 | Polled 14:45-16:06Z; head moved fb32507 -> bdd8968 -> 9b25797 (15:42Z), then stable 24 min; PRODREADY.md second pass reports B1, B2 and the motif fixes. `DECISION_LOG.md`: both appended sections kept, no line removed. Generated board/ledger/scope/card files: placeholder, regenerated (§3). |
 | - | Regeneration | 5f18d11 | §3 |
 | 6 | w4-BRANDRULE @ 75d3bd1 (D-W4-LAURA-OUTFIT, records only; coordinator addition) | cd7e7dc | `DECISION_LOG.md` append-only, both kept; `src/brambleloop/core/decision_index.json` regenerated (26 ids), `test_w3_decision_index` 3/3. |
+| - | INTEG3.md checkpoint | afe1fc1 | - |
+| 7 | w4-PRODREADY final @ 407089e (ornament SEO phrases "stripe ornament", colour_pattern family; PRODREADY.md test record; BUILD_STATE) | 34dff34 | `test_w4_prodready_contract3.py`: INTEG3's assertions kept (`assert BUILDS` + per-key non-empty), a superset of PRODREADY's. Lock unchanged. Focused: prodready_motif, w3_seo_strategy, size_shape_intent, catalogue_floor_proposal, contract3, vacuity all pass. |
+| 8 | w4-BRANDRULE @ 3e01326 (spec/12 FLUX3 standard, D-W4-LAURA-FLUX3) | 7034cf5 | append-only; decision index regenerated (27 ids), test 3/3 |
+| 9 | w4-BRANDRULE @ 783af10 (flux_experiments record folder, images + RECORD.json) | 8de23ad | none; research files only |
+
+Freeze: `claude/final-candidate-8de23ad` = 8de23ad (INTEG3 head at freeze).
 
 ## 2. Why the candidate was refrozen (5f18d11 -> cd7e7dc)
 
@@ -88,6 +95,11 @@ aggregates; brief offset 0 -> 3 -> 5; reserved word `offset` quoted). Test:
 `tests/test_w4_integ3_boot_tables.py` (2). Purely additive: rollback to 1b21e81 ignores the tables.
 
 ## 7. Full suite, guard, rollback, security: pending (see next update)
+
+Run history: 5f18d11 run 20261019T162018Z-22556 stopped by INTEG3 (BRANDRULE); cd7e7dc run
+20261019T171203Z-983 killed by the session's 2-hour background-task limit before it finished
+(record `interrupted`, no totals). The 8de23ad run 20261019T191237Z-13016 is detached (setsid)
+so that limit cannot kill it.
 
 ---
 
