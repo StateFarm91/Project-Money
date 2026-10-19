@@ -32,7 +32,7 @@ REFERENCES = prompts.register(prompts.Prompt(
         "images decide who she is; the certified product images decide what the product is; "
         "any supplementary image adds context only and never overrides either.")))
 
-IDENTITY = prompts.register(prompts.Prompt(
+IDENTITY_V1 = prompts.register(prompts.Prompt(
     name="image.flux3.identity", version="1", **_IMG, template=(
         "IDENTITY: the woman is Laura, exactly the person in {face}, {torso} and {body}. "
         "Preserve her face from {face}: eyes, eyebrows, nose, lips, cheekbones, jawline, "
@@ -41,6 +41,29 @@ IDENTITY = prompts.register(prompts.Prompt(
         "flatten, reduce, exaggerate or redesign the bust; clothing fits and drapes over these "
         "approved proportions. Preserve her full-body silhouette from {body}: waist-to-hip and "
         "legs. Do not change her identity, body shape or proportions.")))
+
+# Version 2 (owner wardrobe fix, 2026-10-19). FLUX copied the clothes in the canonical body
+# references into lifestyle frames. The references fix identity and anatomy only. The prompt
+# says so, names the selected complete outfit and replaces all reference clothing with it.
+# Version 1 stays registered and immutable. It is no longer used for a Laura image.
+IDENTITY = prompts.register(prompts.Prompt(
+    name="image.flux3.identity", version="2", **_IMG, template=(
+        "IDENTITY: the woman is Laura, exactly the person in {face}, {torso} and {body}. These "
+        "three references fix her identity and anatomy ONLY, never her clothing. Preserve her "
+        "face from {face}: eyes, eyebrows, nose, lips, cheekbones, jawline, freckles, apparent "
+        "age, hairline and her highlighted wavy hair. Preserve face, bust fullness and "
+        "projection, shoulders, waist, hips, legs and silhouette exactly as in {torso} and "
+        "{body}; never flatten, reduce, exaggerate or redesign the bust; clothing fits and "
+        "drapes over these approved proportions. Keep her full-body silhouette from {body}: "
+        "waist-to-hip and legs. REPLACE ALL clothing from the reference images "
+        "with the selected outfit: {outfit}; do not reuse the reference beige trousers, "
+        "ivory/cream tops or tan sandals. Do not change her identity, body shape or "
+        "proportions.")))
+
+# CIR-independent: whatever the product, the reference clothing never reaches the image.
+REFERENCE_CLOTHING = prompts.register(prompts.Prompt(
+    name="image.flux3.reference_clothing", version="1", **_IMG, template=(
+        "LAURA MUST NOT WEAR: {negatives}.")))
 
 PRODUCT = prompts.register(prompts.Prompt(
     name="image.flux3.product", version="2", **_IMG, template=(
@@ -76,7 +99,8 @@ DISCLOSURE = prompts.register(prompts.Prompt(
     name="image.flux3.disclosure", version="1", **_IMG, template=(
         "STATUS: {disclosure} {restrictions}")))
 
-SECTIONS = (REFERENCES, IDENTITY, PRODUCT, NEGATIVES, SCENE, REALISM, DISCLOSURE)
+SECTIONS = (REFERENCES, IDENTITY, REFERENCE_CLOTHING, PRODUCT, NEGATIVES, SCENE, REALISM,
+            DISCLOSURE)
 
 DEFAULT_DISCLOSURE = ("This is an AI-generated image of a certified Brambleloop product and "
                       "will be disclosed as AI-generated wherever it is shown.")
@@ -138,6 +162,16 @@ def _size(rules: dict) -> str:
     return "true to the layout reference's proportions"
 
 
+def _outfit_text(outfit: Mapping) -> str:
+    g = dict(outfit.get("garments") or {})
+    if g:
+        names = {"top_or_dress": "top/dress", "lower": "bottoms", "shoes": "footwear",
+                 "outerwear": "outerwear", "accessories": "accessories"}
+        return "; ".join(f"{names.get(k, k)}: {v}" for k, v in g.items()
+                         if v and str(v).lower() != "none")
+    return str(outfit.get("description") or "")
+
+
 def build(*, rules: Mapping, roles: Sequence[str], role: str,
           scene: Mapping | None = None, edit: str = "", disclosure: str = DEFAULT_DISCLOSURE,
           restrictions: str = DEFAULT_RESTRICTIONS) -> BuiltPrompt:
@@ -183,10 +217,19 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     texts = [REFERENCES.render(reference_map=ref_map)]
     used = [REFERENCES]
     if features_laura:
+        if not (outfit.get("description") or outfit.get("garments") or "outfit" in pos):
+            raise PromptBuildRefused("a Laura image needs the listing's complete outfit")
+        from ..visual.wardrobe import REFERENCE_CLOTHING_NEGATIVES
+
         texts.append(IDENTITY.render(face=_img(pos["laura_face"]),
                                      torso=_img(pos["laura_torso"]),
-                                     body=_img(pos["laura_body"])))
+                                     body=_img(pos["laura_body"]),
+                                     outfit=_outfit_text(outfit) or (
+                                         f"the outfit in {_img(pos['outfit'])}")))
         used.append(IDENTITY)
+        texts.append(REFERENCE_CLOTHING.render(
+            negatives="; ".join(REFERENCE_CLOTHING_NEGATIVES)))
+        used.append(REFERENCE_CLOTHING)
     colours = ", ".join(f"{c['id']} {c['hex']}" if c.get("hex") else f"{c['id']} "
                         f"({c.get('yarn') or 'yarn'})" for c in rules["colours"])
     assembly = (("Assembly: " + "; ".join(rules["assembly"][:6]) + ". ")
@@ -211,8 +254,8 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     used.append(NEGATIVES)
     if features_laura:
         subject = "Laura with the product."
-        if outfit.get("description") or "outfit" in pos:
-            o = f"She wears {outfit.get('description') or 'the outfit'}"
+        if outfit.get("description") or outfit.get("garments") or "outfit" in pos:
+            o = f"She wears {_outfit_text(outfit) or 'the outfit'}"
             o += f", exactly as in {_img(pos['outfit'])}" if "outfit" in pos else ""
             outfit_text = o + "; the outfit is the same in every image of this listing."
         else:

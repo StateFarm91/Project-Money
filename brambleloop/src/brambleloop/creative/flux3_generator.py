@@ -196,7 +196,7 @@ class Flux3Generator:
                 cand = S.lifestyle(
                     rel, anchor["candidate"], laura,
                     {"id": o.get("outfit_id") or o.get("id"),
-                     "description": o.get("description")},
+                     "description": o.get("description"), "garments": o.get("garments")},
                     fidelity=anchor["verdict"], role=role, size=self.size,
                     scene={"environment": o.get("setting") or "",
                            "pose": brief or "", "framing": ""}, **kw)

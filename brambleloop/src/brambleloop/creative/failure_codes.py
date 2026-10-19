@@ -44,6 +44,34 @@ PRODUCT_TRUTH_CODES: dict[str, dict] = {
                         "(image_stages.lifestyle)"},
 }
 
+# The owner's wardrobe-diversity fix (2026-10-19). FLUX carried the canonical references'
+# beige trousers and ivory top into lifestyle frames, and outfits differed only by the shirt.
+WARDROBE = "wardrobe"
+WARDROBE_REPETITION = "WARDROBE_REPETITION"
+REFERENCE_CLOTHING_CARRYOVER = "REFERENCE_CLOTHING_CARRYOVER"
+
+WARDROBE_CODES: dict[str, dict] = {
+    WARDROBE_REPETITION: {
+        "category": WARDROBE,
+        "meaning": "the complete outfit is too similar to another listing's (or to the "
+                   "reference clothing): visual.wardrobe.similarity >= MAX_SIMILARITY",
+        "countered_by": "re-pick the outfit (visual.styling, the old one excluded) and "
+                        "regenerate"},
+    REFERENCE_CLOTHING_CARRYOVER: {
+        "category": WARDROBE,
+        "meaning": "the image shows clothing from the canonical reference images (beige "
+                   "trousers, ivory/cream top, tan sandals) instead of the reserved outfit",
+        "countered_by": "the replace-all-clothing identity prompt and the reference-clothing "
+                        "negatives, strengthened on repair"},
+}
+
+# Product Truth codes (what a fidelity verdict may carry; `image_stages.fidelity_verdict`).
 CATEGORY_OF: dict[str, str] = {code: row["category"] for code, row in
                                PRODUCT_TRUTH_CODES.items()}
 ALL_CODES: frozenset[str] = frozenset(CATEGORY_OF)
+# Wardrobe codes (outfit checks; never on a product-only fidelity verdict) and the union every
+# learning record and the repair router read.
+WARDROBE_CATEGORY_OF: dict[str, str] = {code: row["category"] for code, row in
+                                        WARDROBE_CODES.items()}
+WARDROBE_ALL_CODES: frozenset[str] = frozenset(WARDROBE_CATEGORY_OF)
+EVERY_CODE: frozenset[str] = ALL_CODES | WARDROBE_ALL_CODES

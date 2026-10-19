@@ -52,13 +52,14 @@ ETSY_POLICY_UNKNOWN = (
     "Whether a generated image may appear on a digital-pattern listing is UNKNOWN")
 CHECKS = ("binding", "provenance", "quality", "role", "product_truth", "identity",
           "body_proportions", "anatomy", "realism", "disclosure", "outfit",
-          "outfit_consistency")
+          "outfit_distinctness", "outfit_consistency")
 FAILURE_CATEGORY = {"identity": "identity_drift", "product_truth": "product_fidelity",
                     "anatomy": "anatomy", "quality": "quality", "outfit": "outfit_duplication",
                     "realism": "realism", "role": "role", "binding": "binding",
                     "provenance": "provenance", "disclosure": "disclosure",
                     "body_proportions": "body_proportion_drift",
-                    "outfit_consistency": "outfit_consistency"}
+                    "outfit_consistency": "outfit_consistency",
+                    "outfit_distinctness": "wardrobe_repetition"}
 
 
 def _c(status: str, why: str, **kw) -> dict:
@@ -314,6 +315,8 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
             db, cand.get("outfit_id"), listing=listing,
             product=f"{cand.get('slug')}@{cand.get('version')}", image_sha256=sha,
             record=record_outfit_use and checks["identity"]["status"] != FAIL)
+        checks["outfit_distinctness"] = outfits.distinctness(db, cand.get("outfit_id"),
+                                                             listing)
         reserved = outfits.get(db, cand["outfit_id"]) if cand.get("outfit_id") else None
         checks["outfit_consistency"] = (
             _judge(judges, "outfit_consistency", cand, reserved)
@@ -322,6 +325,7 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     else:
         checks["outfit"] = _c(NA, "Laura does not appear")
         checks["outfit_consistency"] = _c(NA, "Laura does not appear")
+        checks["outfit_distinctness"] = _c(NA, "Laura does not appear")
     technical = worst(*(c["status"] for c in checks.values()))
     publication = publication_verdict(cand, checks, job, laura)
     if bind.get("experiment"):
@@ -332,7 +336,11 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     failures = sorted({FAILURE_CATEGORY[k] for k, c in checks.items() if c["status"] == FAIL})
     # The shared Product Truth failure codes (W-FLUXAPI's constant; repair_routes) are kept
     # as reported so learning and the repair router read the same words.
-    failures += [str(c) for c in checks["product_truth"].get("codes") or []]
+    # Every check that reports codes (Product Truth, outfit uniqueness and distinctness,
+    # outfit consistency) contributes them, so a wardrobe failure is learnt like a fabric one.
+    for c in checks.values():
+        if c.get("status") in (FAIL, UNKNOWN):
+            failures += [str(x) for x in c.get("codes") or [] if str(x) not in failures]
     out = {"gates_version": GATES_VERSION, "sha256": sha, "listing": listing, "job": job,
            "checks": checks, "technical_status": technical,
            "publication": publication, "publishable": publication["publishable"],
@@ -373,7 +381,8 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
                       checks["role"]["why"]),
                 _gate(el.POLICY_PROVENANCE, worst(st["provenance"], st["identity"],
                                                   st["body_proportions"], st["disclosure"],
-                                                  st["outfit"], st["outfit_consistency"]),
+                                                  st["outfit"], st["outfit_distinctness"],
+                                                  st["outfit_consistency"]),
                       checks["provenance"]["why"])]
             export = el.may_export(c, results,
                                    truth_verdict=el.FAILED if st["product_truth"] == FAIL
@@ -401,6 +410,7 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
     m = {"canonical_identity": checks["identity"],
          "body_proportions": checks["body_proportions"],
          "outfit_consistency": checks["outfit_consistency"],
+         "outfit_distinctness": checks["outfit_distinctness"],
          "photorealism": checks["realism"],
          "anatomy": checks["anatomy"], "product_truth_if_product_shown": checks["product_truth"],
          "outfit_uniqueness": checks["outfit"],
