@@ -187,7 +187,8 @@ def test_register_is_tracked_and_its_decision_drafted():
     assert row["gate_key"] == "laura_private_register" and row["gate_kind"] == "owner"
     cls = board.classify(rows, {"commit": "0" * 7, "known": True, "gates": {},
                                 "read_at": "x"}, set(), set(), {}, {})
-    assert cls[0]["cls"] == "blocked_owner" and cls[0]["owner_action"]["id"] == "OA-PL-1..4"
+    assert cls[0]["cls"] == "blocked_owner" and cls[0]["owner_action"]["id"] == "OA-PL-1/2/4"
+    assert "OA-PL-3 attest" not in cls[0]["owner_action"]["action"]      # D-W4-PL-3
     v = scope.tracked_verifiability({**cls[0], **rows[0]})
     assert v["verifiability"] == "B" and v["parts"] == ["A", "B"], v
     assert "PL-11" in v["basis"]
