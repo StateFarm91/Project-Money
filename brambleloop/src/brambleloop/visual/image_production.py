@@ -351,7 +351,10 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
                               if c.get("status") == "UNKNOWN"),
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
                        if c.get("status") == "FAIL"},
-            "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers")}
+            "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
+            "listing": r.listing, "version": r.version, "release": r.release,
+            "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
+            "laura_present": r.laura_present, "outfit_id": r.outfit_id or None}
 
 
 def _attempts(db, run: str, role: str) -> int:
@@ -367,6 +370,10 @@ def _attempts(db, run: str, role: str) -> int:
 # ---- one generation, through the budget --------------------------------------------------
 
 class BudgetStop(RuntimeError):
+    pass
+
+
+class ConditioningRefused(RuntimeError):
     pass
 
 
@@ -468,7 +475,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
     judges = judges or CG.RealJudges(db)
     gen = generator if generator is not None else resolve_generator(db)
-    plan = SP.plan_for(run["listing"]) if _is_launch(run["listing"]) else None
+    plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
 
     def go(next_stage: str | None, *, rnd: int = 0):
         if next_stage is None:
@@ -581,15 +588,32 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             if not laura_roles:
                 _update(db, key, stage=stage, status=st, record={"outputs": {"outfit": None}})
                 return {"run_key": key, "next": go(_next(stage))}
-            pick = outfits.for_listing(db, run["listing"])
+            pick = outfits.reserved_for(db, run["listing"])
+            styled = None
             if pick is None:
-                return block("no approved, unreserved Laura outfit exists for "
-                             f"{run['listing']}; the owner approves one (D-W4-LAURA-OUTFIT)")
+                # D-W4-LAURA-FLUX3 §5: Creative chooses the outfit and concept; the owner
+                # does not. Deterministic, and it avoids outfits/settings other listings use.
+                from . import styling
+
+                styled = styling.select_for_listing(db, run["listing"])
+                if not styled.get("outfit"):
+                    return block(f"automatic styling found no unused complete outfit: "
+                                 f"{styled.get('why')}")
+                o = styled["outfit"]
+                try:
+                    outfits.register(db, outfit_id=o["outfit_id"], garments=o["garments"],
+                                     colours=o["colours"], concept=styled["concept"])
+                    pick = outfits.approve(db, o["outfit_id"],
+                                           approved_by=f"creative_director:{styling.STYLING_VERSION}")
+                except outfits.OutfitRefused as exc:
+                    return block(f"automatic styling refused by the wardrobe registry: {exc}")
             got = outfits.reserve(db, pick["outfit_id"], run["listing"])
             if got["status"] != "PASS":
                 return block(f"outfit reservation {got['status']}: {got['why']}")
             _update(db, key, stage=stage, status=st, outfit_id=pick["outfit_id"],
-                    record={"outputs": got})
+                    record={"outputs": {**got, "styling": styled,
+                                        "concept": (outfits.get(db, pick["outfit_id"]) or {})
+                                        .get("concept")}})
             return {"run_key": key, "next": go(_next(stage))}
 
         def laura_refs():
@@ -600,8 +624,16 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 for frame, sha in canonical.CURRENT_REFERENCE_HASHES.items():
                     path = canonical.reference_file(frame)
                     if path:  # '' = not the recorded bytes: never a substitute
-                        out.append({"kind": "laura_canonical", "sha256": sha,
-                                    "data": Path(path).read_bytes()})
+                        data_ = Path(path).read_bytes()
+                        if hashlib.sha256(data_).hexdigest() == sha:
+                            out.append({"kind": "laura_canonical", "sha256": sha,
+                                        "frame": frame, "data": data_})
+            if len(out) != len(canonical.CURRENT_REFERENCE_HASHES):
+                # D-W4-LAURA-FLUX3 §1: never continue with reduced identity conditioning.
+                raise ConditioningRefused(
+                    f"{len(out)} of {len(canonical.CURRENT_REFERENCE_HASHES)} canonical Laura "
+                    f"references validated; generation with reduced identity conditioning is "
+                    f"refused")
             return out
 
         def gen_roles(roles, rnd_stage):
@@ -659,6 +691,8 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             return {"run_key": key, "next": go("verification", rnd=round_)}
     except BudgetStop as exc:
         return block(f"budget stop: {exc}", exhausted=True)
+    except ConditioningRefused as exc:
+        return block(f"conditioning refused: {exc}")
 
     if stage == "gallery_assembly":
         view = readiness(db, run["listing"], run_key_=key)
@@ -678,6 +712,11 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 "spent_cad": get_run(db, key)["spent_cad"],
                 "recommended_fix": _recommend(not_ready, view),
                 "owner_approval_is_not_technical_verification": True}
+        card["campaign_consistency"] = view.get("campaign_consistency")
+        if (view.get("campaign_consistency") or {}).get("status") == CG.FAIL:
+            not_ready = not_ready or [{"role": "gallery", "candidate": {
+                "technical_status": "FAIL",
+                "failed": {"campaign_consistency": view["campaign_consistency"]["why"]}}}]
         if not_ready or not view["set_check"]["ok"]:
             why = "; ".join(f"{r['role']}: {(r.get('candidate') or {}).get('technical_status', 'no candidate')}"
                             f" (failed {sorted(((r.get('candidate') or {}).get('failed') or {}))},"
@@ -722,45 +761,61 @@ def readiness(db, listing: str, *, run_key_: str | None = None) -> dict:
     from ..gates.asset_truth import AssetClass
     from ..publish import eligibility as el
 
-    plan = SP.plan_for(listing)
-    roles, set_cands, blockers = [], [], set()
+    plan = SP.campaign_plan(listing)
+    roles, set_cands, blockers, chosen = [], [], set(), []
     for r in plan["roles"]:
         entry = {"position": r["position"], "role": r["role"], "job": r["job"],
+                 "campaign_role": r.get("campaign_role"), "laura": r.get("laura"),
                  "required_by": r["required_by"], "conditional": r["conditional"],
                  "preferred_source": r["preferred_source"]}
-        if r["sources"][SP.DISCLOSED] == SP.SATISFIES:
-            entry.update(source="disclosed_render",
-                         status="disclosed set (certified by the existing listing-set "
-                                "certificate path)")
+        best = None
+        if r.get("generate"):
+            best = _best(db, listing=listing, role=r["role"], run=run_key_) or \
+                (_best(db, listing=listing, role=r["role"]) if run_key_ else None)
+            if best is not None:
+                chosen.append(best)
+                for b in best.get("blockers") or []:
+                    blockers.add(b)
+        if best is not None and best["publishable"]:
+            entry.update(source="generated", candidate=best, status="publishable")
+            set_cands.append(el.Candidate(asset_id=f"{listing}-{r['role']}", medium=CG.MEDIUM,
+                                          purpose=el.CONVERSION_CREATIVE, job=r["job"],
+                                          position=r["position"]))
+        elif r["sources"][SP.DISCLOSED] == SP.SATISFIES:
+            entry.update(source="generated" if r.get("generate") else "disclosed_render",
+                         candidate=best,
+                         status=("disclosed set (certified by the existing listing-set "
+                                 "certificate path)" + (
+                                     f"; generated candidate {best['technical_status']}, "
+                                     f"not publishable" if best else
+                                     "; generated candidate missing" if r.get("generate")
+                                     else "")),
+                         fallback="disclosed_render")
             medium, purpose = r["disclosed_medium"]
             set_cands.append(el.Candidate(asset_id=f"{listing}-{r['role']}",
                                           medium=AssetClass(medium), purpose=purpose,
                                           job=r["job"], position=r["position"]))
         else:
-            best = _best(db, listing=listing, role=r["role"], run=run_key_) or \
-                (_best(db, listing=listing, role=r["role"]) if run_key_ else None)
-            entry.update(source="generated" if r in SP.generated_roles(plan) else r[
-                "preferred_source"], candidate=best,
+            entry.update(source="generated" if r.get("generate") else r["preferred_source"],
+                         candidate=best,
                          status=("missing" if best is None else
-                                 "publishable" if best["publishable"] else
                                  f"candidate {best['technical_status']}, not publishable"))
-            if r.get("gap"):
-                entry["gap"] = r["gap"]
-            for b in (best or {}).get("blockers") or []:
-                blockers.add(b)
-            if best is not None and best["publishable"]:
-                set_cands.append(el.Candidate(asset_id=f"{listing}-{r['role']}",
-                                              medium=CG.MEDIUM, purpose=el.CONVERSION_CREATIVE,
-                                              job=r["job"], position=r["position"]))
+        if r.get("gap"):
+            entry["gap"] = r["gap"]
         roles.append(entry)
     set_check = el.check_set(set_cands) if set_cands else {"ok": False, "problems": [
         {"kind": "no_valid_frames"}]}
+    consistency = CG.campaign_consistency(chosen) if chosen else CG._c(
+        CG.NA, "no generated images yet")
     return {"listing": listing, "category": plan["category"], "roles": roles,
+            "image_count": plan["image_count"],
             "set_check": {"ok": set_check["ok"], "problems": set_check["problems"]},
+            "campaign_consistency": consistency,
+            "ruling_conflicts": plan.get("ruling_conflicts") or [],
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
-                                 for e in roles if not e["conditional"]),
-            "basis": "visual.shot_plans + candidate_gates + eligibility.check_set"}
+                                 for e in roles) and consistency["status"] != CG.FAIL,
+            "basis": "visual.shot_plans.campaign_plan + candidate_gates + eligibility.check_set"}
 
 
 # ---- Command Center ---------------------------------------------------------------------

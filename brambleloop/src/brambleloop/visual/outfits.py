@@ -72,18 +72,40 @@ def _row(s, outfit_id: str):
     return s.scalar(select(LauraOutfit).where(LauraOutfit.outfit_id == outfit_id))
 
 
+GARMENT_KEYS = ("top_or_dress", "lower", "shoes", "outerwear", "accessories")
+
+
+def signature(garments: dict | None) -> str:
+    """The identity of a complete outfit: its normalised garments. Two outfit ids with the
+    same signature are the same outfit (D-W4-LAURA-FLUX3 §4)."""
+    g = garments or {}
+    norm = "|".join(" ".join(str(g.get(k) or "").lower().replace("none", "").split())
+                    for k in GARMENT_KEYS)
+    import hashlib
+
+    return hashlib.sha256(norm.encode()).hexdigest()
+
+
 def _view(r) -> dict:
-    return {"outfit_id": r.outfit_id, "description": r.description, "colours": list(r.colours or []),
+    return {"outfit_id": r.outfit_id, "description": r.description,
+            "garments": dict(r.garments or {}), "signature": r.signature,
+            "colours": list(r.colours or []),
             "reference_hashes": list(r.reference_hashes or []),
+            "approved_reference": r.approved_reference or None,
+            "setting": r.setting or None, "concept": dict(r.concept or {}),
             "approval_state": r.approval_state, "approved_by": r.approved_by,
             "listing": r.listing or None, "uses": list(r.uses or []),
             "replaced_by": r.replaced_by or None}
 
 
-def register(db, *, outfit_id: str, description: str, colours: list[str] | tuple = (),
-             reference_hashes: list[str] | tuple = (),
+def register(db, *, outfit_id: str, garments: dict, description: str = "",
+             colours: list[str] | tuple = (), reference_hashes: list[str] | tuple = (),
+             concept: dict | None = None,
              identity_changes: dict | list | None = None) -> dict:
-    """Propose an outfit. It is idempotent on the id and refuses any identity change."""
+    """Propose a complete outfit. Idempotent on the id. Refuses an identity change, an
+    incomplete outfit, and a complete outfit already registered under another id."""
+    from sqlalchemy import select
+
     from .image_records import LauraOutfit, ensure_tables
 
     oid = str(outfit_id or "").strip().lower()
@@ -94,12 +116,22 @@ def register(db, *, outfit_id: str, description: str, colours: list[str] | tuple
             "an outfit is styling, never identity: it may not change "
             f"{sorted(identity_changes) if isinstance(identity_changes, dict) else identity_changes}"
             " (locked: face, hair, eyes, apparent age, facial structure, body proportions)")
-    text = f"{description or ''} {' '.join(colours or ())}"
+    g = {k: str((garments or {}).get(k) or "").strip()[:200] for k in GARMENT_KEYS}
+    unknown = sorted(set(garments or {}) - set(GARMENT_KEYS))
+    if unknown:
+        raise OutfitRefused(f"unknown garment fields {unknown}; an outfit is {GARMENT_KEYS}")
+    if not g["top_or_dress"] or not g["shoes"]:
+        raise OutfitRefused("a complete outfit names its top or dress and its shoes "
+                            "(D-W4-LAURA-FLUX3 §4)")
+    if not g["lower"] and "dress" not in g["top_or_dress"].lower() and \
+            "pinafore" not in g["top_or_dress"].lower():
+        raise OutfitRefused("a complete outfit names its lower garment unless it is a dress")
+    text = f"{description or ''} {' '.join(colours or ())} {' '.join(g.values())}"
     hit = _IDENTITY_WORDS.search(text)
     if hit:
         raise OutfitRefused(
-            f"the outfit description names {hit.group(0)!r}, which is part of Laura's locked "
-            f"identity, not her clothes. An outfit never alters identity (D-W4-LAURA-OUTFIT)")
+            f"the outfit names {hit.group(0)!r}, which is part of Laura's locked identity, not "
+            f"her clothes. An outfit never alters identity (D-W4-LAURA-OUTFIT)")
     refs = [str(h).strip().lower() for h in reference_hashes or ()]
     bad = [h for h in refs if not _SHA.match(h)]
     if bad:
@@ -109,15 +141,26 @@ def register(db, *, outfit_id: str, description: str, colours: list[str] | tuple
     identity_refs = set(canonical.CURRENT_REFERENCE_HASHES.values())
     if identity_refs & set(refs):
         raise OutfitRefused("Laura's canonical identity references are not outfit references")
+    sig = signature(g)
     ensure_tables(db)
     with db.session() as s:
         row = _row(s, oid)
-        if row is None:
-            row = LauraOutfit(outfit_id=oid, description=str(description or "")[:2000],
-                              colours=[str(c)[:40] for c in colours or ()],
-                              reference_hashes=refs, approval_state="proposed")
-            s.add(row)
-            s.flush()
+        if row is not None:
+            return _view(row)
+        twin = s.scalar(select(LauraOutfit).where(LauraOutfit.signature == sig))
+        if twin is not None:
+            raise OutfitRefused(f"this complete outfit is already registered as "
+                                f"{twin.outfit_id} (listing {twin.listing or 'none yet'}); a "
+                                f"complete outfit is never reused across listings")
+        row = LauraOutfit(outfit_id=oid, garments=g, signature=sig,
+                          description=str(description or "; ".join(
+                              v for v in g.values() if v and v != "none"))[:2000],
+                          colours=[str(c)[:40] for c in colours or ()],
+                          reference_hashes=refs, approval_state="proposed",
+                          concept=dict(concept or {}),
+                          setting=str((concept or {}).get("setting") or "")[:200])
+        s.add(row)
+        s.flush()
         return _view(row)
 
 
@@ -178,6 +221,27 @@ def reserve(db, outfit_id: str | None, listing: str) -> dict:
             return _result(UNKNOWN, f"outfit {row.outfit_id} is {row.approval_state}, not "
                                     f"approved", outfit_id=row.outfit_id)
         if not row.listing:
+            from sqlalchemy import select
+
+            from .image_records import LauraOutfit
+
+            held = s.scalar(select(LauraOutfit).where(
+                LauraOutfit.listing == listing, LauraOutfit.approval_state == "approved",
+                LauraOutfit.outfit_id != row.outfit_id))
+            if held is not None:
+                return _result(FAIL, f"listing {listing!r} already uses outfit "
+                                     f"{held.outfit_id}; every Laura image in a listing uses "
+                                     f"the same outfit (D-W4-LAURA-FLUX3 §4). Replace it "
+                                     f"instead", outfit_id=row.outfit_id,
+                               listing_outfit=held.outfit_id)
+            twin = s.scalar(select(LauraOutfit).where(
+                LauraOutfit.signature == row.signature, LauraOutfit.listing != "",
+                LauraOutfit.listing != listing))
+            if row.signature and twin is not None:
+                return _result(FAIL, f"the same complete outfit is reserved by "
+                                     f"{twin.listing!r} as {twin.outfit_id}",
+                               outfit_id=row.outfit_id)
+        if not row.listing:
             row.listing, row.reserved_at = listing, _now()
         return _result(PASS, f"outfit {row.outfit_id} is reserved for {listing!r}",
                        outfit_id=row.outfit_id)
@@ -224,14 +288,19 @@ def replace(db, old_id: str, new_id: str, listing: str) -> dict:
     from .image_records import ensure_tables
 
     ensure_tables(db)
-    got = reserve(db, new_id, listing)
-    if got["status"] != PASS:
-        return {"replaced": False, **got}
     with db.session() as s:
         old = _row(s, old_id)
-        if old is not None and old.listing == listing:
-            old.approval_state, old.replaced_by = "retired", new_id
-            # A retired outfit stays bound to its listing: it may be on published images.
+        if old is None or old.listing != listing:
+            return {"replaced": False, "status": FAIL, "why": f"{old_id} is not {listing}'s"}
+        prior = old.approval_state
+        # A retired outfit stays bound to its listing: it may be on published images.
+        old.approval_state, old.replaced_by = "retired", new_id
+    got = reserve(db, new_id, listing)
+    if got["status"] != PASS:
+        with db.session() as s:
+            old = _row(s, old_id)
+            old.approval_state, old.replaced_by = prior, ""
+        return {"replaced": False, **got}
     return {"replaced": True, "old": old_id, "new": new_id, "listing": listing}
 
 
@@ -252,3 +321,16 @@ def for_listing(db, listing: str) -> dict | None:
             LauraOutfit.listing == "", LauraOutfit.approval_state == "approved")
             .order_by(LauraOutfit.id))
         return _view(free) if free is not None else None
+
+
+def reserved_for(db, listing: str) -> dict | None:
+    """The approved outfit this listing holds, or None (styling then chooses one)."""
+    from sqlalchemy import select
+
+    from .image_records import LauraOutfit, ensure_tables
+
+    ensure_tables(db)
+    with db.session() as s:
+        r = s.scalar(select(LauraOutfit).where(LauraOutfit.listing == listing,
+                                               LauraOutfit.approval_state == "approved"))
+        return _view(r) if r is not None else None

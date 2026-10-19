@@ -93,27 +93,44 @@ class StubJudges:
     def realism(self, c):
         return {"status": "PASS", "why": "stub"}
 
+    def body_proportions(self, c):
+        return {"status": "PASS", "why": "stub"}
+
+    def outfit_consistency(self, c, outfit):
+        return {"status": "PASS", "why": "stub"}
+
 
 class StubGenerator:
     name, paid, max_cost_cad_per_call = "stub", False, 0.0
 
     def __init__(self):
         self.calls = 0
+        self.seen = []
 
     def prepare_references(self, **kw):
         return [{"kind": "pattern_derived", "data": png(64, 64), "label": "layout"}]
 
     def generate(self, **kw):
         self.calls += 1
+        self.seen.append((kw["role"], [r["kind"] for r in kw["references"]], kw["outfit"]))
         return {"data": png(), "provider": "stub", "model": "stub-1",
                 "prompt": kw["brief"], "cost_cad": 0.0, "latency_s": 0.01}
+
+
+GARMENTS = {
+    "sage-cardigan-01": {"top_or_dress": "sage-green cardigan over a cream tee",
+                         "lower": "dark straight-leg jeans", "shoes": "tan leather loafers",
+                         "outerwear": "none", "accessories": "small gold hoops"},
+    "oat-jumper-02": {"top_or_dress": "oatmeal crew-neck jumper",
+                      "lower": "camel wide-leg trousers", "shoes": "brown ankle boots",
+                      "outerwear": "none", "accessories": "thin gold chain"},
+}
 
 
 def approved_outfit(db, oid="sage-cardigan-01"):
     from brambleloop.visual import outfits
 
-    outfits.register(db, outfit_id=oid, description="sage-green cardigan, cream tee",
-                     colours=["sage", "cream"])
+    outfits.register(db, outfit_id=oid, garments=GARMENTS[oid], colours=["sage", "cream"])
     return outfits.approve(db, oid)
 
 
@@ -251,10 +268,11 @@ def test_outfit_never_alters_identity():
     from brambleloop.visual import candidate_gates as CG
 
     db = make_db()
-    for bad in ({"identity_changes": {"hair": "bob"}, "description": "red coat"},
-                {"description": "red coat and a new haircut"},
-                {"description": "linen dress", "reference_hashes":
-                 [canonical.FACE_SHA256]}):
+    g = GARMENTS["oat-jumper-02"]
+    for bad in ({"identity_changes": {"hair": "bob"}, "garments": g},
+                {"garments": {**g, "accessories": "a new haircut"}},
+                {"garments": g, "reference_hashes": [canonical.FACE_SHA256]},
+                {"garments": {"top_or_dress": "linen shirt", "shoes": "boots"}}):
         try:
             outfits.register(db, outfit_id="bad-outfit", **bad)
         except outfits.OutfitRefused:
@@ -297,9 +315,10 @@ def test_laura_gate_order_adds_outfit_and_identity_record_unchanged():
     from brambleloop.visual import canonical
 
     g = canonical.LAURA_LISTING_GATES
-    assert g[0] == "canonical_identity" and "outfit_uniqueness" in g
+    assert g[0] == "canonical_identity" and g[1] == "body_proportions"
     assert g.index("outfit_uniqueness") == g.index("product_truth_if_product_shown") + 1
-    assert set(canonical.CUSTOMER_FACING_GATES) < set(g) and len(g) == 8
+    assert g.index("outfit_consistency") == g.index("outfit_uniqueness") + 1
+    assert set(canonical.CUSTOMER_FACING_GATES) < set(g) and len(g) == 10
     assert LI.sha256_of(LI.record()) == LI.CURRENT_SHA256
 
 
@@ -393,7 +412,6 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     from brambleloop.visual import image_production as IP
 
     db = make_db()
-    approved_outfit(db)
     gen = StubGenerator()
     follow, _ = drain(db, generator=gen, judges=StubJudges())       # empty queue: no-op
     first = IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
@@ -403,7 +421,15 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     assert ran >= 10
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "ready_for_owner_review", run
-    assert run["outfit_id"] == "sage-cardigan-01" and gen.calls == 2   # anchor + lifestyle
+    # Styling chose the outfit; anchor + lifestyle + scale + colour-context were generated.
+    assert run["outfit_id"].startswith("auto-") and gen.calls == 4
+    anchor = [kinds for role, kinds, _o in gen.seen if role == "product_anchor"][0]
+    assert "laura_canonical" not in anchor                         # product-only: no Laura
+    laura_calls = [(kinds, o) for role, kinds, o in gen.seen if role != "product_anchor"]
+    assert len(laura_calls) == 3
+    assert all(k.count("laura_canonical") == 3 for k, _o in laura_calls)
+    assert {o["outfit_id"] for _k, o in laura_calls} == {run["outfit_id"]}
+    assert run["card"]["campaign_consistency"]["status"] == "PASS"
     card = run["card"]
     assert card["owner_approval_is_not_technical_verification"]
     assert any("F-852" in b for b in card["publication_blockers"])
@@ -465,7 +491,7 @@ def test_repair_is_bounded_then_blocked_and_notified():
     drain(db, generator=gen, judges=LifestyleFails())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and run["attempts_exhausted"]
-    assert gen.calls == 1 + IP.MAX_ATTEMPTS_PER_ROLE <= IP.MAX_GENERATION_CALLS
+    assert gen.calls == 1 + IP.MAX_ATTEMPTS_PER_ROLE + 2 <= IP.MAX_GENERATION_CALLS
     note = IP.notification_candidates(db)
     assert len(note) == 1 and note[0]["severity"] == "high"
     assert "recommended fix" in note[0]["consequence"]
@@ -489,6 +515,131 @@ def test_paid_generator_needs_the_image_generation_gate():
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
     assert gen.calls == 0
+
+
+# ---- D-W4-LAURA-FLUX3 -------------------------------------------------------------------
+
+def test_one_listing_keeps_one_outfit_across_its_campaign():
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import outfits
+    from brambleloop.visual import shot_plans as SP
+
+    db = make_db()
+    plan = SP.campaign_plan("cloudline-baby-blanket")
+    assert plan["image_count"] == 7 and plan["one_outfit"] and plan["laura_in_campaign"]
+    assert len({r["job"] for r in plan["roles"]}) == 7                # one job each, no filler
+    follow, _ = drain(db, generator=StubGenerator(), judges=StubJudges())
+    IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
+    drain(db, generator=StubGenerator(), judges=StubJudges())
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    view = IP.readiness(db, "cloudline-baby-blanket", run_key_=run["run_key"])
+    laura = [e["candidate"] for e in view["roles"] if e.get("laura") and e.get("candidate")]
+    assert len(laura) == 3 and {c["outfit_id"] for c in laura} == {run["outfit_id"]}
+    approved_outfit(db, "oat-jumper-02")
+    assert outfits.reserve(db, "oat-jumper-02", "cloudline-baby-blanket")["status"] == "FAIL"
+    v = CG.evaluate(db, cand(laura_present=True, outfit_id="oat-jumper-02", role="size"),
+                    judges=StubJudges())
+    assert v["checks"]["outfit"]["status"] == "FAIL" and not v["publishable"]
+
+
+def test_a_different_listing_cannot_reuse_a_complete_outfit():
+    from brambleloop.visual import outfits, styling
+
+    db = make_db()
+    approved_outfit(db)
+    assert outfits.reserve(db, "sage-cardigan-01", "cloudline-baby-blanket")["status"] == "PASS"
+    try:
+        outfits.register(db, outfit_id="same-clothes-new-id",
+                         garments=dict(GARMENTS["sage-cardigan-01"]))
+        raise AssertionError("the same complete outfit was registered twice")
+    except outfits.OutfitRefused:
+        pass
+    other = styling.select_for_listing(db, "winter-village-graphghan")
+    assert outfits.signature(other["outfit"]["garments"]) != \
+        outfits.signature(GARMENTS["sage-cardigan-01"])
+
+
+def test_styling_is_chosen_automatically_deterministic_and_avoids_used():
+    from brambleloop.visual import outfits, styling
+
+    a = styling.select("cloudline-baby-blanket", category="baby", product_colours=["cream"])
+    b = styling.select("cloudline-baby-blanket", category="baby", product_colours=["cream"])
+    assert a == b and a["outfit"]["garments"]["top_or_dress"]
+    assert "cream" not in a["outfit"]["garments"]["top_or_dress"]      # no clash with product
+    assert a["concept"]["setting"] in styling.SETTINGS["baby"]
+    c = styling.select("cloudline-baby-blanket", category="baby", product_colours=["cream"],
+                       used_signatures={outfits.signature(a["outfit"]["garments"])},
+                       used_settings={a["concept"]["setting"]})
+    assert outfits.signature(c["outfit"]["garments"]) != outfits.signature(
+        a["outfit"]["garments"])
+    assert c["concept"]["setting"] != a["concept"]["setting"]
+    assert "generic catalogue pose" in " ".join(a["concept"]["avoid"])
+
+
+def test_product_truth_cannot_be_bypassed_and_no_publication_without_approvals():
+    from brambleloop.visual import candidate_gates as CG
+
+    db = make_db()
+    bad = CG.evaluate(db, cand(role="detail"), judges=StubJudges(product="FAIL"))
+    assert bad["technical_status"] == "FAIL" and not bad["publishable"]
+    assert not bad["publication"]["may_export"]
+    approved_outfit(db)
+    good = CG.evaluate(db, cand(laura_present=True, outfit_id="sage-cardigan-01"),
+                       judges=StubJudges())
+    assert good["technical_status"] == "PASS" and not good["publishable"]
+    joined = " ".join(good["publication"]["blockers"])
+    assert "Laura publication gate" in joined and "F-852" in joined
+
+
+def test_body_proportions_and_outfit_consistency_unknown_until_judged():
+    from brambleloop.visual import candidate_gates as CG
+
+    db = make_db()
+    approved_outfit(db)
+    v = CG.evaluate(db, cand(laura_present=True, outfit_id="sage-cardigan-01"))
+    assert v["checks"]["body_proportions"]["status"] == "UNKNOWN"
+    assert v["checks"]["outfit_consistency"]["status"] == "UNKNOWN"
+
+    class Drift(StubJudges):
+        def body_proportions(self, c):
+            return {"status": "FAIL", "why": "bust flattened against the torso reference"}
+
+        def outfit_consistency(self, c, outfit):
+            return {"status": "FAIL", "why": "cardigan changed to a coat"}
+
+    d = CG.evaluate(db, cand(laura_present=True, outfit_id="sage-cardigan-01"), judges=Drift())
+    assert {"body_proportion_drift", "outfit_consistency"} <= set(d["failure_categories"])
+
+
+def test_incompatible_gallery_mix_is_refused():
+    from brambleloop.visual import candidate_gates as CG
+
+    row = {"listing": "cloudline-baby-blanket", "version": "1.2.0", "release": RELEASE,
+           "cir_fingerprint": "f1", "laura_present": True, "outfit_id": "a"}
+    assert CG.campaign_consistency([row, dict(row)])["status"] == "PASS"
+    assert CG.campaign_consistency([row, {**row, "version": "1.3.0"}])["status"] == "FAIL"
+    assert CG.campaign_consistency([row, {**row, "cir_fingerprint": "f2"}])["status"] == "FAIL"
+    assert CG.campaign_consistency([row, {**row, "outfit_id": "b"}])["status"] == "FAIL"
+
+
+def test_reduced_identity_conditioning_is_refused():
+    from unittest.mock import patch
+
+    from brambleloop.visual import canonical
+    from brambleloop.visual import image_production as IP
+
+    db = make_db()
+    real = canonical.reference_file
+    gen = StubGenerator()
+    with patch.object(canonical, "reference_file",
+                      lambda f: "" if f == "torso_fit_reference" else real(f)):
+        follow, _ = drain(db, generator=gen, judges=StubJudges())
+        IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
+        drain(db, generator=gen, judges=StubJudges())
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    assert run["state"] == "blocked" and "reduced identity conditioning" in run["blocked_reason"]
+    assert [r for r, _k, _o in gen.seen] == ["product_anchor"]
 
 
 def test_runtime_wiring():

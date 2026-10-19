@@ -180,8 +180,47 @@ def all_plans() -> dict:
             "basis": "publish.eligibility.gallery_jobs_for + VISGATE §2 + F-852"}
 
 
+# D-W4-LAURA-FLUX3 §6: the campaign. A typical set of seven is a lifestyle hero, a product
+# full view, Laura using it from another angle, a verified close-up, a second lifestyle,
+# size/scale and a detail or customer-information frame. The roles adapt to the category, and
+# each keeps exactly one job, because #65's one-job rule and `check_set`'s duplicate-job refusal
+# still apply. The ruling's three Laura frames map onto three distinct applicable jobs:
+# LIFESTYLE, SCALE ("against something a person knows": her) and COLOUR_CONTEXT ("the
+# colourway ... in a room"). Under today's gates the hero stays the disclosed render: a
+# generated image may not be the hero (ASSET_CONCEPT_AS_HERO). `ruling_conflicts` records
+# that rather than hiding it.
+CAMPAIGN_GENERATED: dict[str, str] = {
+    el.LIFESTYLE: "lifestyle: Laura using the piece where it lives",
+    el.SCALE: "Laura using it from another angle, which also shows its size",
+    el.COLOUR_CONTEXT: "second lifestyle: the colourway in the room",
+}
+
+
+def campaign_plan(listing: str) -> dict:
+    plan = plan_for(listing)
+    has_lifestyle = any(r["job"] == el.LIFESTYLE for r in plan["roles"])
+    laura = any(r["laura"] for r in plan["roles"])
+    slots = []
+    for r in plan["roles"]:
+        if r["conditional"]:
+            continue
+        gen = has_lifestyle and r["job"] in CAMPAIGN_GENERATED
+        slots.append({**r, "generate": gen or r["sources"][DISCLOSED] == NO_PRODUCER,
+                      "laura": bool(gen and laura),
+                      "campaign_role": CAMPAIGN_GENERATED.get(r["job"], r["role"]) if gen
+                      else ("product full view" if r["job"] == el.DESIRE else r["role"]),
+                      "fallback": DISCLOSED if r["sources"][DISCLOSED] == SATISFIES else None,
+                      "brief": r["brief"] or (CAMPAIGN_GENERATED[r["job"]] if gen else "")})
+    return {**plan, "roles": slots, "image_count": len(slots),
+            "one_outfit": True, "laura_in_campaign": any(s["laura"] for s in slots),
+            "ruling_conflicts": ([
+                "D-W4-LAURA-FLUX3 §6 names a lifestyle hero; ASSET_CONCEPT_AS_HERO and F-852 keep "
+                "a generated image out of position 1, so the hero is the disclosed product "
+                "view until an owner policy decision"] if has_lifestyle else [])}
+
+
 def generated_roles(plan: dict) -> list[dict]:
-    """Roles the autonomous workflow generates candidates for: no disclosed render satisfies
-    them, and the generated medium's purpose can do the job (LIFESTYLE today)."""
-    return [r for r in plan["roles"] if r["sources"][DISCLOSED] != SATISFIES
-            and r["sources"][GENERATED] == BLOCKED_F852]
+    """Roles the autonomous workflow generates candidates for (from a campaign plan)."""
+    if not any("generate" in r for r in plan["roles"]):
+        plan = campaign_plan(plan["listing"])
+    return [r for r in plan["roles"] if r.get("generate")]

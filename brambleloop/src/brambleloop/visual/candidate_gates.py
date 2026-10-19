@@ -50,12 +50,15 @@ ETSY_POLICY_UNKNOWN = (
     "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help "
     "articles conflict on 'use your own photographs' for designed items (VISGATE §3, V1). "
     "Whether a generated image may appear on a digital-pattern listing is UNKNOWN")
-CHECKS = ("binding", "provenance", "quality", "role", "product_truth", "identity", "anatomy",
-          "realism", "disclosure", "outfit")
+CHECKS = ("binding", "provenance", "quality", "role", "product_truth", "identity",
+          "body_proportions", "anatomy", "realism", "disclosure", "outfit",
+          "outfit_consistency")
 FAILURE_CATEGORY = {"identity": "identity_drift", "product_truth": "product_fidelity",
                     "anatomy": "anatomy", "quality": "quality", "outfit": "outfit_duplication",
                     "realism": "realism", "role": "role", "binding": "binding",
-                    "provenance": "provenance", "disclosure": "disclosure"}
+                    "provenance": "provenance", "disclosure": "disclosure",
+                    "body_proportions": "body_proportion_drift",
+                    "outfit_consistency": "outfit_consistency"}
 
 
 def _c(status: str, why: str, **kw) -> dict:
@@ -231,6 +234,16 @@ class RealJudges:
     def anatomy(self, cand: dict) -> dict:
         return self._vision("anatomy")
 
+    def body_proportions(self, cand: dict) -> dict:
+        # D-W4-LAURA-FLUX3: bust and body proportions against the canonical torso and
+        # full-length references. A vision judgement; UNKNOWN (blocking) until one is run.
+        return self._vision("bust/body proportions against the canonical torso and "
+                            "full-length references")
+
+    def outfit_consistency(self, cand: dict, outfit: dict | None) -> dict:
+        return self._vision(f"outfit consistency with the listing's reserved outfit "
+                            f"{(outfit or {}).get('outfit_id')}")
+
     def realism(self, cand: dict) -> dict:
         return self._vision("photographic realism (gallery.REALISM_CHECKS)")
 
@@ -274,6 +287,8 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     checks["product_truth"] = judges.product_truth(cand, bind)
     laura = bool(cand.get("laura_present"))
     checks["identity"] = judges.identity(cand) if laura else _c(NA, "Laura does not appear")
+    checks["body_proportions"] = (_judge(judges, "body_proportions", cand) if laura else
+                                  _c(NA, "Laura does not appear"))
     checks["anatomy"] = (judges.anatomy(cand) if laura or job == el.LIFESTYLE
                          else _c(NA, "no person or hands in a product-only frame"))
     checks["realism"] = judges.realism(cand)
@@ -284,8 +299,14 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
             db, cand.get("outfit_id"), listing=listing,
             product=f"{cand.get('slug')}@{cand.get('version')}", image_sha256=sha,
             record=record_outfit_use and checks["identity"]["status"] != FAIL)
+        reserved = outfits.get(db, cand["outfit_id"]) if cand.get("outfit_id") else None
+        checks["outfit_consistency"] = (
+            _judge(judges, "outfit_consistency", cand, reserved)
+            if checks["outfit"]["status"] == PASS else
+            _c(UNKNOWN, "no reserved outfit to compare the image against"))
     else:
         checks["outfit"] = _c(NA, "Laura does not appear")
+        checks["outfit_consistency"] = _c(NA, "Laura does not appear")
     technical = worst(*(c["status"] for c in checks.values()))
     publication = publication_verdict(cand, checks, job, laura)
     failures = sorted({FAILURE_CATEGORY[k] for k, c in checks.items() if c["status"] == FAIL})
@@ -300,6 +321,14 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     if laura:
         out["laura_gates"] = laura_gate_order(checks, publication)
     return out
+
+
+def _judge(judges, name: str, *args) -> dict:
+    """A judge reading; a judge that cannot make this reading leaves it UNKNOWN."""
+    fn = getattr(judges, name, None)
+    if fn is None:
+        return _c(UNKNOWN, f"no {name} reading: the judge in use cannot make it")
+    return fn(*args)
 
 
 def _gate(gate: str, status: str, why: str) -> el.GateResult:
@@ -323,7 +352,8 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
                 _gate(el.COMMERCIAL_QA, worst(st["role"], st["realism"], st["anatomy"]),
                       checks["role"]["why"]),
                 _gate(el.POLICY_PROVENANCE, worst(st["provenance"], st["identity"],
-                                                  st["disclosure"], st["outfit"]),
+                                                  st["body_proportions"], st["disclosure"],
+                                                  st["outfit"], st["outfit_consistency"]),
                       checks["provenance"]["why"])]
             export = el.may_export(c, results,
                                    truth_verdict=el.FAILED if st["product_truth"] == FAIL
@@ -348,7 +378,10 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
 def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
     from . import canonical
 
-    m = {"canonical_identity": checks["identity"], "photorealism": checks["realism"],
+    m = {"canonical_identity": checks["identity"],
+         "body_proportions": checks["body_proportions"],
+         "outfit_consistency": checks["outfit_consistency"],
+         "photorealism": checks["realism"],
          "anatomy": checks["anatomy"], "product_truth_if_product_shown": checks["product_truth"],
          "outfit_uniqueness": checks["outfit"],
          "composition_brand_qa": _c(UNKNOWN, "brand QA has not reviewed this image"),
@@ -357,3 +390,21 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
          "publication_gate": _c(PASS if publication["publishable"] else FAIL,
                                 "; ".join(publication["blockers"])[:400] or "publishable")}
     return [{"gate": g, **m[g]} for g in canonical.LAURA_LISTING_GATES]
+
+
+def campaign_consistency(rows: list[dict]) -> dict:
+    """One product version, release, CIR (colours, components, construction), listing and,
+    for Laura, one outfit across a gallery's images (D-W4-LAURA-FLUX3 §6). A mix is refused."""
+    if not rows:
+        return _c(UNKNOWN, "no images to compare")
+    problems = []
+    for field in ("listing", "version", "release", "cir_fingerprint"):
+        vals = {r.get(field) for r in rows}
+        if len(vals) > 1:
+            problems.append(f"{field} differs across the gallery: {sorted(map(str, vals))}")
+    looks = {r.get("outfit_id") for r in rows if r.get("laura_present")}
+    if len(looks) > 1:
+        problems.append(f"Laura wears {len(looks)} outfits in one listing: {sorted(map(str, looks))}")
+    if problems:
+        return _c(FAIL, "; ".join(problems))
+    return _c(PASS, f"{len(rows)} image(s): one version, release, CIR and outfit")

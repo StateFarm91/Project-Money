@@ -133,8 +133,13 @@ CUSTOMER_FACING_GATES: tuple[str, ...] = (
 # CUSTOMER_FACING_GATES itself is unchanged on purpose. It is part of Laura's identity record
 # (`laura.core.identity`), whose hash is pinned, and only a recorded owner amendment may
 # change that record.
+# D-W4-LAURA-FLUX3 adds two more checks. The first is bust and body proportions against the
+# canonical torso and full-length references, placed right after identity. The second is
+# outfit consistency with the listing's reserved outfit, placed after uniqueness. Both need
+# a vision judgement and block as UNKNOWN until one is run.
 LAURA_LISTING_GATES: tuple[str, ...] = (
-    CUSTOMER_FACING_GATES[:4] + ("outfit_uniqueness",) + CUSTOMER_FACING_GATES[4:])
+    CUSTOMER_FACING_GATES[:1] + ("body_proportions",) + CUSTOMER_FACING_GATES[1:4]
+    + ("outfit_uniqueness", "outfit_consistency") + CUSTOMER_FACING_GATES[4:])
 
 # Asset publication status. `canonical_reference` defines her; it is not a licence to show
 # her to customers. Only `publication_approved` is, and nothing is.

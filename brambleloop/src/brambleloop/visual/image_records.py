@@ -39,7 +39,16 @@ class LauraOutfit(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     outfit_id: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
+    # D-W4-LAURA-FLUX3 §4: the complete outfit. Keys: top_or_dress, lower, shoes,
+    # outerwear, accessories ("" / "none" where not worn).
+    garments: Mapped[dict] = mapped_column(JSON, default=dict)
+    signature: Mapped[str] = mapped_column(String(64), default="", index=True)
     colours: Mapped[list] = mapped_column(JSON, default=list)
+    # The approved outfit reference image (sha256), once one exists.
+    approved_reference: Mapped[str] = mapped_column(String(64), default="")
+    # The photoshoot concept chosen with it (visual.styling), so settings are not repeated.
+    setting: Mapped[str] = mapped_column(String(200), default="")
+    concept: Mapped[dict] = mapped_column(JSON, default=dict)
     reference_hashes: Mapped[list] = mapped_column(JSON, default=list)
     # proposed | approved | retired
     approval_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)

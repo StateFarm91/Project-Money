@@ -399,6 +399,7 @@ def make_router(db) -> APIRouter:
         pid = auth.current_public_id(request)
         try:
             out = outfits.register(db, outfit_id=str(body.get("outfit_id") or ""),
+                                   garments=dict(body.get("garments") or {}),
                                    description=str(body.get("description") or ""),
                                    colours=[str(c) for c in body.get("colours") or []],
                                    reference_hashes=body.get("reference_hashes") or [],
