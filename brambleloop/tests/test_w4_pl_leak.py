@@ -102,7 +102,9 @@ def test_reply_text_never_reaches_business_tables_logs_paid_calls_or_cache():
         res = continuity.export(DB, Path(td) / "export.jsonl")
         exp = res.path.read_text(encoding="utf-8") + Path(
             str(res.path) + ".manifest.json").read_text(encoding="utf-8")
-    assert "laura_private" not in exp and not _leaks(exp)
+    # Private TABLES are all `laura_private_*`; the billing agent `laura_private` (W4-PLACT,
+    # D-W4-PL-3) is a business row by design and carries no content.
+    assert "laura_private_" not in exp and not _leaks(exp)
     # Positive control: the owner does see the reply in the private view.
     v = H.post(c, csrf, "/api/cc/private/view", {})
     assert REPLIES[0] in v.text and v.headers["cache-control"] == "no-store"

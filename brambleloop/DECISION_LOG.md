@@ -1916,3 +1916,25 @@ only. Body and label lines on today's infographics land at 7 to 11.6 px at 340 p
 the size label at 60 pt is 10.2 px). That is recorded per frame (`smallest_px`). Holding every
 line to 11 px would block every current infographic until the frames are redesigned with larger
 type.
+
+## D-W4-PL-3 (owner decisions 2026-10-13; recorded 2026-10-19 by W4-PLACT) — Private Laura: separate budget, no consent prerequisite, activation status
+
+**Status: owner decisions, binding. Nothing is enabled or deployed by this entry; the reply path stays OFF by
+default.** Supersedes only the named parts of D-W4-PL-1 items 3-4 and PRIVATE_LAURA_TRACE OA-PL-3/OA-PL-4; D-W4-PL-1's
+acknowledgement (OA-PL-2) and D-W4-PL-2 (UNRESOLVED; register wording unchanged) are untouched.
+1. **Separate budget.** Private replies are billed to a distinct agent, `laura_private`
+   (`agents.registry.DEFAULT_AGENTS`), with its own CA$0.50/day ceiling, independent of Business Laura's
+   CA$0.50/day (`laura`, D-W4-LAURA1-BUDGET). Both stay inside the existing CA$100 monthly ceiling; no other limit
+   changes. Each private reply is checked and reserved in ONE atomic step under `budget_lock`
+   (`gateway.anthropic.check_budget_cad(..., agent_daily_cap_cad=...)`), closing security-review finding L1 (the
+   per-purpose figure was read outside the lock and reserved separately). `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD`
+   stays the owner switch for spend, capped at the agent ceiling (it can only tighten).
+2. **Identity / consent.** The owner's clarification, quoted: "Private Laura is Brambleloop's established AI
+   persona, not an impersonation of a real person." OA-PL-3 (an attestation of human consent) is therefore
+   **removed as a prerequisite everywhere** (docs, roadmap/status copy, UI copy). Truthful AI representation is
+   KEPT: she never claims to be human and never asserts consent, signatures or physical acts on anyone's behalf
+   (the pinned `laura.private_reply@1` prompt is unchanged). The register wording is not changed; D-W4-PL-2 stays
+   unresolved.
+3. **Status.** The owner-only `/api/cc/private/status` reports each activation prerequisite as met or unmet, with
+   no secret values: private key configured; register switch; daily CAD set; `laura_private` agent present;
+   current release deployed.

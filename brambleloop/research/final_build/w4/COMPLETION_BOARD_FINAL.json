@@ -1450,10 +1450,10 @@
    },
    "owner_actions": [
     {
-     "id": "OA-PL-1..4",
-     "action": "PRIVATE_LAURA_TRACE \u00a75 owner actions: OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge D-W4-PL-1; OA-PL-3 attest human Laura's consent; OA-PL-4 authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD and set BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1",
+     "id": "OA-PL-1/2/4",
+     "action": "PRIVATE_LAURA_TRACE \u00a75 owner actions (OA-PL-3 removed by D-W4-PL-3): OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge D-W4-PL-1; OA-PL-4 authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (at most the laura_private CA$0.50/day) and set BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1",
      "max_cost_cad": null,
-     "minutes": 11
+     "minutes": 9
     }
    ],
    "ids": [
@@ -23523,18 +23523,18 @@
     ],
     "code_exists": true,
     "deployed": false,
-    "remaining": "code + tests built (W4-PRIVLAURA); enablement is owner-only: BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, human Laura's consent attestation, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD; then an approved deploy and the class-B soak (one turn, a reply, pe",
+    "remaining": "code + tests built (W4-PRIVLAURA); enablement is owner-only: BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (agent laura_private); no consent prerequisite (D-W4-PL-3); then an approved deploy and the class-B soa",
     "cls": "blocked_owner",
     "root": "private_laura_owner_gates",
-    "blocked_by": "owner: OA-PL-1..4 (private key, D-W4-PL-1 acknowledgement, human Laura's consent, spend authorisation), then the class-B production soak",
+    "blocked_by": "owner: OA-PL-1/2/4 (private key, D-W4-PL-1 acknowledgement, spend authorisation + register switch; no consent prerequisite, D-W4-PL-3), then the class-B production soak",
     "responsible": "owner",
     "owner_action": {
-     "id": "OA-PL-1..4",
-     "action": "PRIVATE_LAURA_TRACE \u00a75 owner actions: OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge D-W4-PL-1; OA-PL-3 attest human Laura's consent; OA-PL-4 authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD and set BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1",
+     "id": "OA-PL-1/2/4",
+     "action": "PRIVATE_LAURA_TRACE \u00a75 owner actions (OA-PL-3 removed by D-W4-PL-3): OA-PL-1 set BRAMBLELOOP_PRIVATE_MEMORY_KEY; OA-PL-2 acknowledge D-W4-PL-1; OA-PL-4 authorise BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (at most the laura_private CA$0.50/day) and set BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1",
      "max_cost_cad": null,
-     "minutes": 11
+     "minutes": 9
     },
-    "missing_evidence": "code + tests built (W4-PRIVLAURA); enablement is owner-only: BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, human Laura's consent attestation, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD; then an",
+    "missing_evidence": "code + tests built (W4-PRIVLAURA); enablement is owner-only: BRAMBLELOOP_PRIVATE_MEMORY_KEY, D-W4-PL-1 acknowledgement, BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1 and BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD (agent laura_private); no consent prerequis",
     "criterion": "PL-11 (DECISION_LOG.md D-FB-15; D-FB-16 item 11): \"Private Laura layer: remains a required Final Master component; completion of business memory/Talk-to-Laura does not close it; the private conversation register stays GATED until implementable within execution constraints.\" / \"11. PRIVATE LAURA remains required (PRIV infrastructure accepted); unsupported private behaviour stays OPEN/GATED.\"",
     "verifiability": [
      "A",

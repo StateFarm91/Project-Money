@@ -1,6 +1,8 @@
-"""W4-PRIVLAURA (PL-5, G-9): a private reply is a new paid purpose under agent `laura`, and it is
-refused BEFORE the call unless the owner has authorised it -- and Laura's existing CA$0.50/day
-permission and the monthly ceiling still bind. Every refusal is audited without content.
+"""W4-PRIVLAURA (PL-5, G-9): a private reply is a paid purpose billed to its own agent
+`laura_private` (W4-PLACT, D-W4-PL-3: CA$0.50/day, separate from Business Laura's), and it is
+refused BEFORE the call unless the owner has authorised it -- and the agent's CA$0.50/day and the
+monthly ceiling still bind, atomically with the reservation. Every refusal is audited without
+content.
 
 Direct calls into `gateway.laura_register.reply` (the isolated call) with plain strings, and the
 private-context path for the end-to-end case. Stubbed transport; neutral sentinels only.
@@ -64,6 +66,7 @@ def _clean(db, where: str) -> None:
 def test_private_reply_is_refused_without_authorised_ceiling():
     db = _db()
     assert Registry(db).get("laura").daily_cost_ceiling_cad == 0.50   # unchanged ceiling
+    assert Registry(db).get("laura_private").daily_cost_ceiling_cad == 0.50   # its own
     for value in (None, "", "0", "-1", "nan", "inf", "abc"):
         with PL.enabled(None, **{LR.DAILY_AUTH_ENV: value}):
             assert LR.daily_authorisation_cad() == 0.0, value
@@ -71,7 +74,7 @@ def test_private_reply_is_refused_without_authorised_ceiling():
     refused = _refusals(db)
     assert len(refused) == 7 and all(r.artifact == LR.PURPOSE for r in refused)
     assert {r.detail["which"] for r in refused} == {"purpose_daily_unauthorised"}
-    assert all(r.actor == "laura" and r.detail["estimate"] > 0 for r in refused)
+    assert all(r.actor == "laura_private" and r.detail["estimate"] > 0 for r in refused)
     assert _reservations(db) == [] and _costs(db) == []      # refused before any reservation
     _clean(db, "unauthorised")
 
@@ -83,23 +86,26 @@ def test_over_the_authorisation_or_lauras_day_is_refused_pre_call():
         assert _call(db) == "SPEND_CEILING"
     # 2. Today's private-reply spend already fills the authorisation.
     with db.session() as s:
-        s.add(CostEntry(agent="laura", amount_cad=0.395, kind="llm", purpose=LR.PURPOSE,
+        s.add(CostEntry(agent="laura_private", amount_cad=0.395, kind="llm", purpose=LR.PURPOSE,
                         provider="anthropic", model="claude-sonnet-5"))
     with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "0.40"}):
         assert _call(db) == "SPEND_CEILING"
     whiches = [r.detail["which"] for r in _refusals(db)]
     assert whiches == ["purpose_daily_authorisation"] * 2, whiches
-    # 3. A generous owner figure cannot lift Laura's CA$0.50/day permission: her other
-    #    spend today leaves no room, so check_budget_cad refuses (agent_daily_ceiling).
+    # 3. A generous owner figure cannot lift the laura_private CA$0.50/day ceiling (it is
+    #    capped there): that agent's spend today leaves no room, so check_budget_cad refuses
+    #    (agent_daily_ceiling). W4-PLACT: the agent is laura_private, not Business Laura.
     db2 = _db()
     with db2.session() as s:
-        s.add(CostEntry(agent="laura", amount_cad=0.499, kind="llm",
-                        purpose="laura.ceo_briefing@3", provider="anthropic",
+        s.add(CostEntry(agent="laura_private", amount_cad=0.499, kind="llm",
+                        purpose=LR.PURPOSE, provider="anthropic",
                         model="claude-sonnet-5"))
     with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "5.00"}):
-        assert _call(db2) == "BUDGET"
+        assert LR.daily_authorisation_cad() == 0.50
+        assert _call(db2) == "SPEND_CEILING"
     assert [r.detail["which"] for r in _refusals(db2)] == ["agent_daily_ceiling"]
-    assert _costs(db2) == [] and _reservations(db2) == []
+    assert _reservations(db2) == []
+    assert len(_costs(db2)) == 1          # only the seeded row: nothing new was billed
     # 4. The monthly ceiling binds too (spent month).
     db3 = _db()
     with db3.session() as s:
@@ -121,11 +127,11 @@ def test_a_paid_reply_bills_tokens_and_cost_only_and_releases_its_reservation():
     assert out["text"] == PL.REPLY and out["model_ref"] == "anthropic/claude-sonnet-5"
     assert out["tokens_in"] == 120 and out["tokens_out"] == 30 and out["cost_cad"] > 0
     costs = _costs(db)
-    assert len(costs) == 1 and costs[0].agent == "laura" and costs[0].kind == "llm"
+    assert len(costs) == 1 and costs[0].agent == "laura_private" and costs[0].kind == "llm"
     assert costs[0].estimated_cad > costs[0].amount_cad > 0
     res = _reservations(db)
     assert len(res) == 1 and res[0].released_at is not None and res[0].purpose == LR.PURPOSE
-    assert res[0].agent == "laura"
+    assert res[0].agent == "laura_private"
     _clean(db, "paid reply")
     # A refused system prompt or empty message never reaches the provider.
     with PL.enabled(None):

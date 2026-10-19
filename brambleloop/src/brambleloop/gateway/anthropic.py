@@ -334,7 +334,7 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
                      holder: str | None = None, ttl_seconds: int | None = None,
                      now: datetime | None = None, reserve: bool = True,
                      model: str = "", provider: str = "", product_slug: str = "",
-                     evidence_ref: str = "") -> dict:
+                     evidence_ref: str = "", agent_daily_cap_cad: float | None = None) -> dict:
     """The ceiling check itself, on an estimate already expressed in dollars.
 
     Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
@@ -352,6 +352,13 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     inserted through the locked session, so no two holders can both read room that only one
     of them fits in. **Own reservations count (B5):** the holder's own open reservations are
     added to `uncommitted_cad`.
+
+    **`agent_daily_cap_cad` (W4-PLACT)** can only TIGHTEN step 3: the agent's day is checked
+    against min(its registry ceiling, this cap), inside the same lock as the reservation. It
+    exists for an owner authorisation narrower than an agent's ceiling (Private Laura's
+    `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD` on agent `laura_private`), which was read and then
+    reserved separately (security review L1). A non-finite or negative cap reads as CA$0, and
+    with a cap given an agent that has no registry row is refused rather than unchecked.
 
     **Every refusal leaves a row.** Each raise path writes `spend.refused` to the audit log
     with the ceiling, the estimate and what was committed, because a guard whose refusals
@@ -409,7 +416,8 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
             db, locked_session, me=me, estimate_cad=estimate_cad, agent=agent,
             purpose=purpose, job_id=job_id, uncommitted_cad=uncommitted_cad,
             ttl_seconds=ttl_seconds, now=now, reserve=reserve, model=model,
-            provider=provider, product_slug=product_slug)
+            provider=provider, product_slug=product_slug,
+            agent_daily_cap_cad=agent_daily_cap_cad)
     refusal = decided.pop("_refusal", None)
     if refusal is not None:
         from ..finance import spend_report
@@ -466,7 +474,8 @@ def budget_lock(db):
 
 def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
                         purpose: str, job_id, uncommitted_cad, ttl_seconds, now, reserve: bool,
-                        model: str, provider: str, product_slug: str) -> dict:
+                        model: str, provider: str, product_slug: str,
+                        agent_daily_cap_cad: float | None = None) -> dict:
     """The four checks and the reservation, run while `budget_lock` is held.
 
     Returns the budget dict, or a dict carrying `_refusal` -- (exception type, record) --
@@ -564,12 +573,30 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
     # 3. This agent's daily permission. After the month, because the month is authoritative
     #    and a per-agent ceiling is a permission rather than a slice of it.
     permission = agent_daily_ceiling(db, agent, now=now)
+    agent_which = "agent_daily_ceiling"
+    if agent_daily_cap_cad is not None:
+        # W4-PLACT: an owner authorisation narrower than the agent's ceiling, enforced here,
+        # under the lock, so the check and the reservation are one step (security review L1).
+        try:
+            cap = float(agent_daily_cap_cad)
+        except (TypeError, ValueError):
+            cap = 0.0
+        if not math.isfinite(cap) or cap < 0:
+            cap = 0.0
+        if permission is None:
+            permission = {"agent": agent, "daily_ceiling_cad": 0.0, "spent_today_cad": 0.0,
+                          "unregistered": True}
+        if cap < permission["daily_ceiling_cad"]:
+            permission = {**permission, "daily_ceiling_cad": round(cap, 6),
+                          "agent_ceiling_cad": permission["daily_ceiling_cad"],
+                          "tightened_by": "owner_daily_authorisation"}
+            agent_which = "purpose_daily_authorisation"
     if permission is not None:
         today = permission["spent_today_cad"]
         allowed = permission["daily_ceiling_cad"]
         if today + mine + others_agent_cad + estimate > allowed:
             return _refusal(
-                AgentCeilingExceeded, "agent_daily_ceiling",
+                AgentCeilingExceeded, agent_which,
                 f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
                 f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
                 f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
