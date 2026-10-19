@@ -289,6 +289,7 @@ def test_no_consent_prerequisite_and_truthful_ai_representation_kept():
         .read_text(encoding="utf-8").split("function privatePrereqs")[1].split("export")[0],
         "prerequisites": json.dumps(private_context.prerequisites(_db(), boot={})),
     }
+    assert len(surfaces) == 6 and all(surfaces.values()), surfaces
     for name, text in surfaces.items():
         low = text.lower()
         assert "oa-pl-3" not in low and "human laura's consent" not in low, name
