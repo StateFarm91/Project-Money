@@ -76,9 +76,12 @@ def test_the_dashboard_figure_is_reconciled_against_our_own_ledger():
                         department="creative")
     out = pa.reconcile(db)
     openai = next(p for p in out["provider_accounts"] if p["provider"] == "openai")
-    assert openai["our_ledger"]["usd"] == 10.01  # 14.0 CAD at the assumed rate
+    # 14.0 CAD at the assumed rate (core.fx; INTEG3: Bank of Canada 1.4154 CAD/USD, was 1/0.715)
+    from brambleloop.core import fx
+    assert fx.ASSUMED_CAD_PER_USD == 1.4154
+    assert openai["our_ledger"]["usd"] == 9.8912 == round(14.0 / fx.ASSUMED_CAD_PER_USD, 4)
     assert openai["dashboard_used_usd"] == 10.08
-    assert openai["difference_usd"] == 0.07
+    assert openai["difference_usd"] == 0.1888
     assert openai["organisation_limit_usd"] == 50.0
     assert "assumed list prices" in openai["our_ledger"]["price_basis"]
 
@@ -106,7 +109,9 @@ def test_a_balance_with_auto_reload_off_is_reported_as_a_cliff():
     assert openai["auto_reload_off"] is True
     assert "stops every render at once" in openai["stops_without_warning"]
     # And the runway is arithmetic from the measured price, named as arithmetic.
-    assert openai["renders_left_at_observed_price"] == 338
+    # US$9.92 at the assumed 1.4154 CAD/USD (core.fx, INTEG3; 338 at the old 1/0.715) over
+    # the observed CA$0.0411 a render
+    assert openai["renders_left_at_observed_price"] == 342
     assert "not a forecast" in openai["runway_basis"]
 
 

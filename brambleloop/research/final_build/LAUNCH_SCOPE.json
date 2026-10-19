@@ -55,7 +55,6 @@
   "F-290",
   "F-296",
   "F-330",
-  "F-486",
   "F-675",
   "F-742",
   "F-758",
@@ -4945,10 +4944,8 @@
    "title": "Starvation Prevention",
    "scope": "post-launch",
    "reason": "scheduler fairness",
-   "reclassified": true,
-   "reclassified_against": [
-    "moved out by the launch-critical re-map wave"
-   ],
+   "reclassified": false,
+   "reclassified_against": [],
    "completion": "POST-LAUNCH"
   },
   {
