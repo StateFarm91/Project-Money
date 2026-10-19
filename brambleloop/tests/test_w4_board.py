@@ -87,6 +87,7 @@ def test_recount_puts_every_row_in_one_of_the_nine_categories():
         assert (c["executable_engineering"] + c["post_launch_empirical"]
                 + c["owner_or_external_non_empirical"]) == c["unfinished"], scope
         assert c["production_verified"] == BOARD["headline"][scope]["verified_complete"]
+    assert BOARD["rows"]["build2"] and BOARD["rows"]["final_master"]
     for r in BOARD["rows"]["build2"] + BOARD["rows"]["final_master"]:
         if r["recount"] == "live_customer_C":
             assert r.get("c_quote"), r["id"]          # C only with the criterion's own words
@@ -127,6 +128,8 @@ def test_a_closure_needs_evidence_read_from_the_deployed_commit():
     ok = gen._closures(prod)
     assert ok, "BOARD_CLOSURES.json rows read against the deployed commit"
     assert not gen._closures({"commit": "0" * 40}), "another commit's readings close nothing"
+    assert BOARD["headline"]["closed_on_production_evidence"]
+    assert BOARD["rows"]["build2"] and BOARD["rows"]["final_master"]
     for x in BOARD["rows"]["build2"] + BOARD["rows"]["final_master"]:
         if x.get("closed_on_production_evidence"):
             assert x["cls"] == "verified_complete"

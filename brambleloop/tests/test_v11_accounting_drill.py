@@ -158,6 +158,7 @@ def test_f907_every_named_cost_category_is_attributed():
                               debit_micros=int(round(cad * 1_000_000)), basis="measured"))
     a = attribution.report(db)
     cats = a["by"]["category"]
+    assert len(extra) == 5
     for acct, (cat, cad) in extra.items():
         assert abs(cats.get(cat, 0) - before.get(cat, 0) - cad) < 1e-4, (cat, cats, before)
     for cat in ("marketplace_fees", "ads", "model_api", "image_render", "refunds",

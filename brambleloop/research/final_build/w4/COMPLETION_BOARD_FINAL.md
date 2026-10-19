@@ -1,6 +1,6 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-19T13:12:34Z by `research/final_build/w4/completion_board_final.py` on branch head 43aec01a. Production runs `1b21e81c6d1b` (read 20261019T1308Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-19T13:19:55Z by `research/final_build/w4/completion_board_final.py` on branch head 955b7561. Production runs `1b21e81c6d1b` (read 20261019T1308Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
@@ -65,7 +65,7 @@ Ledger-native counts: Build 2 {'PROVEN': 228, 'OWNER-GATED': 39, 'DATA-GATED': 4
 ## Active worker branches (unmerged, last 24 h)
 
 - `claude/w4-HANDOFF` @ 01212198 (7 ahead, 2026-10-18T16:34:20+00:00): rows named none
-- `claude/w4-PLACT` @ 8f330282 (2 ahead, 2026-10-19T13:07:41+00:00): rows named none
+- `claude/w4-PLACT` @ c41ecbf9 (3 ahead, 2026-10-19T13:19:44+00:00): rows named none
 - `claude/w4-PRODREADY` @ 3a5e6c99 (1 ahead, 2026-10-19T13:07:44+00:00): rows named ['B2#61']
 - `claude/w4-REL2` @ 8f511594 (2 ahead, 2026-10-19T12:59:09+00:00): rows named none
 

@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-19T13:12:34Z",
-  "branch_head": "43aec01a"
+  "generated_at": "2026-10-19T13:19:55Z",
+  "branch_head": "955b7561"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
