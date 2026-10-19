@@ -13,7 +13,7 @@ reuses existing machinery:
 | provenance | `gates.asset_truth` competitor-source markers (#305); the kind is always `ai_generated_*`, never a photograph |
 | quality | Etsy facts on record (`w3/ETSY_REQUIREMENTS.md`): ≥2000 px each side, no transparency, no webp |
 | role | `publish.eligibility` Candidate / `may_serve` and the `ASSET_CONCEPT_AS_HERO` rule |
-| product_truth | `visual.product_authority.structural_floor`; for LIFESTYLE also `visual.compose.lifestyle_evidence` |
+| product_truth | `visual.fidelity` (the generated-image verifier, W-FIDELITY) against the certified CIR; a `visual.product_authority.structural_floor` FAIL stays FAIL; for LIFESTYLE also `visual.compose.lifestyle_evidence` |
 | identity | `visual.identity_gate.assess` (Laura only) |
 | anatomy, realism | the vision judge (`image_vision`); UNKNOWN when unfunded or unread |
 | disclosure | `eligibility.honesty_label` (CONCEPT_LABEL) |
@@ -93,7 +93,9 @@ def binding(db, slug: str, version: str, release: str) -> dict:
     pdfs = _certified_pdf_hashes(db, slug, version, release_hash) or {}
     fp = None
     try:
-        fp = cir.fingerprint()
+        # `CIR.fingerprint` is a property; calling it raised and left every binding with
+        # cir_fingerprint None, which made campaign_consistency's CIR comparison vacuous.
+        fp = cir.fingerprint() if callable(cir.fingerprint) else cir.fingerprint
     except Exception:  # noqa: BLE001
         pass
     if not pdfs:
@@ -194,27 +196,53 @@ def disclosure(job: str | None) -> dict:
 # ---- judges (product truth, identity, anatomy, realism) ----------------------------------
 
 class RealJudges:
-    """The production judges: existing deterministic gates, no invented readings."""
+    """The production judges: existing deterministic gates, no invented readings.
 
-    def __init__(self, db):
+    `vision` is the vision judge the fidelity verifier asks about craft texture and anchor
+    consistency (`visual.fidelity.GatewayVisionJudge`, gated on `image_vision`). Unfunded,
+    it answers nothing, and those checks stay UNKNOWN."""
+
+    def __init__(self, db, *, vision=None):
         self.db = db
+        self.vision = vision
+
+    def _vision_judge(self):
+        if self.vision is None:
+            from .fidelity import GatewayVisionJudge
+
+            self.vision = GatewayVisionJudge(self.db)
+        return self.vision
 
     def product_truth(self, cand: dict, bind: dict) -> dict:
+        """Product Truth for a generated image (W-FIDELITY, OWNERIMG E3).
+
+        `structural_floor` reads UNKNOWN for every generated frame: it has no qualified
+        producer for one. `visual.fidelity` is the independent verifier for generated images,
+        measured against the certified CIR, so its verdict replaces that UNKNOWN. A floor
+        FAIL (wrong stitch scale, a mismatch) stays FAIL whatever the verifier says, and for
+        LIFESTYLE `lifestyle_evidence` still applies on top. Publication is untouched: F-852
+        refuses generated product imagery in `publication_verdict` whatever this reads."""
         from .product_authority import structural_floor
 
         floor = structural_floor({"kind": "generated", "generated": True,
                                   "provider": cand.get("provider") or "generated",
                                   "slug": cand.get("slug"), "version": cand.get("version"),
                                   "image": {"sha256": cand.get("sha256")}})
-        out = {"structural_floor": floor}
-        status = floor.get("status", UNKNOWN)
+        fid = fidelity_reading(self.db, cand, bind, judge=self._vision_judge())
+        out = {"structural_floor": floor, "fidelity": fid}
+        status = FAIL if floor.get("status") == FAIL else fid["status"]
         if JOB_OF_ROLE.get(cand.get("role")) == el.LIFESTYLE:
             le = lifestyle_reading(cand, bind)
             out["lifestyle_evidence"] = le
             status = worst(status, le["status"])
-        why = (floor.get("why") or "") + ("; lifestyle_evidence " + out["lifestyle_evidence"][
-            "status"] if "lifestyle_evidence" in out else "")
-        return _c(status, why[:400], **out)
+        why = (f"fidelity {fid['status']}"
+               + (f" ({', '.join(fid.get('failed') or [])} failed)" if fid.get("failed") else "")
+               + (f" ({', '.join(fid.get('unknown') or [])} unknown)" if fid.get("unknown")
+                  else "")
+               + f"; structural floor {floor.get('status')}: {floor.get('why') or ''}"
+               + ("; lifestyle_evidence " + out["lifestyle_evidence"]["status"]
+                  if "lifestyle_evidence" in out else ""))
+        return _c(status, why[:400], codes=list(fid.get("codes") or []), **out)
 
     def identity(self, cand: dict) -> dict:
         from . import identity_gate
@@ -247,6 +275,75 @@ class RealJudges:
 
     def realism(self, cand: dict) -> dict:
         return self._vision("photographic realism (gallery.REALISM_CHECKS)")
+
+
+def fidelity_reading(db, cand: dict, bind: dict, *, judge=None) -> dict:
+    """`visual.fidelity` on a generated candidate, against its certified CIR.
+
+    The product-only anchor is verified as an unfolded flat lay. Any other role is a
+    lifestyle image: it needs the release's anchor PASS (read from the learning rows), the
+    candidate's declared `product_region` and a vision consistency reading."""
+    from . import fidelity as FID
+    from .image_production import ANCHOR_ROLE
+
+    def unknown(why: str) -> dict:
+        return {"status": UNKNOWN, "checker": FID.CHECKER, "why": why, "checks": [],
+                "failed": [], "unknown": ["fidelity"], "codes": [FID.FC.UNVERIFIABLE_COUNT]}
+
+    data = cand.get("data") or b""
+    if not data:
+        return unknown("no image bytes to verify")
+    try:
+        if bind.get("experiment"):
+            # W4-WRAPTEST: an EXPERIMENT verifies against its own uncertified content (bound
+            # by `experiment.binding`); the verdict is never publication evidence.
+            from . import experiment as XP
+
+            reg = XP.registration(db, cand.get("slug", ""), cand.get("version", ""),
+                                  bind.get("release_hash"))
+            cir, release_hash = (XP.cir_of(reg), reg["release"]) if reg else (None, None)
+        else:
+            from ..publish.release_gates import _release
+
+            cir, release_hash = _release(db, cand.get("slug", ""), cand.get("version", ""))
+    except Exception as exc:  # noqa: BLE001 - unreadable is unknown
+        return unknown(f"certified CIR unreadable ({type(exc).__name__})")
+    if cir is None:
+        return unknown("no certified CIR to verify against")
+    if cand.get("role") == ANCHOR_ROLE:
+        return FID.verify_anchor(data, cir, judge=judge)
+    release = str(bind.get("release_hash") or release_hash or "")
+    anchor, anchor_data = _anchor_of(db, cand, release)
+    return FID.verify_lifestyle(data, cir, release_hash=release, anchor=anchor,
+                                anchor_data=anchor_data,
+                                product_region=cand.get("product_region"), judge=judge)
+
+
+def _anchor_of(db, cand: dict, release: str):
+    """The release's best product-only anchor and its bytes, or (None, None)."""
+    from .image_production import ANCHOR_ROLE, _best, run_key
+
+    if not release:
+        return None, None
+    listing = cand.get("listing") or outfits.listing_of(cand.get("slug", ""))
+    try:
+        best = _best(db, listing=listing, role=ANCHOR_ROLE,
+                     run=run_key(cand.get("slug", ""), cand.get("version", ""), release)) or \
+            _best(db, listing=listing, role=ANCHOR_ROLE)
+    except Exception:  # noqa: BLE001 - no learning table yet: no anchor
+        return None, None
+    if not best or not best.get("sha256") or not str(best.get("release") or "").startswith(
+            release[:12]):
+        return None, None
+    data = None
+    try:
+        from ..core.artifacts import ArtifactStore
+
+        data = ArtifactStore().get(best["sha256"], db=db)
+    except Exception:  # noqa: BLE001 - bytes unavailable: consistency stays unread
+        data = None
+    return ({"status": best.get("technical_status"), "release_hash": best.get("release"),
+             "sha256": best["sha256"]}, data)
 
 
 def lifestyle_reading(cand: dict, bind: dict) -> dict:

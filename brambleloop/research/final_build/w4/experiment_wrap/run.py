@@ -222,18 +222,20 @@ def select_outfit(db, listing: str) -> dict:
     """Automatic outfit and scene: `styling.select`, then refused until distinct."""
     from brambleloop.visual import outfits, styling
 
-    used = {outfits.signature(o.get("garments") or {}) for o in outfits.registry(db)}
+    used = [(f"{o['outfit_id']} ({o.get('listing')})", o.get("garments") or {})
+            for o in outfits.registry(db) if o.get("listing") and o["listing"] != listing]
+    used.append(("owner's earlier wrap outfit (2026-10-19 manual test)", OWNER_PRIOR_WRAP_OUTFIT))
     rejected = []
     for _ in range(80):
         st = styling.select(listing, category="wrap", product_colours=("forest", "cream"),
                             season="winter", target_customer="a reader who loves a calm nook",
                             materials=("worsted wool",), use="worn as a wrap while reading",
-                            used_signatures=used)
+                            used_outfits=used)
         o = st.get("outfit")
         if not o:
             return {"outfit": None, "why": st.get("why"), "rejected": rejected}
         g = dict(o["garments"])
-        used.add(outfits.signature(g))
+        used.append((f"rejected {len(rejected)}", dict(o["garments"])))
         g["outerwear"] = "none"           # the wrap is the outer layer
         problems = outfit_problems(g)
         if problems:
@@ -437,83 +439,55 @@ class StubJudges:
         return self._r()
 
 
-VISION_SYSTEM = ("You are an exacting product-truth inspector for a crochet pattern shop. "
-                 "You compare a generated image against a pattern specification and reference "
-                 "images. You never guess: if a fact cannot be seen, answer null or 'unclear'. "
-                 "Answer with one JSON object and nothing else.")
+VISION_SYSTEM = ("You are an exacting inspector of AI-generated lifestyle photographs for a "
+                 "crochet pattern shop. You compare a generated image with reference images. "
+                 "You never guess: if a fact cannot be seen, answer null or 'unclear'. Answer "
+                 "with one JSON object and nothing else.")
 
 
-def fidelity_checker():
-    """W-FIDELITY's deterministic checker, when that branch is merged; else None."""
-    for mod, fn in (("brambleloop.visual.fidelity", "check"),
-                    ("brambleloop.visual.product_fidelity", "check"),
-                    ("brambleloop.creative.fidelity", "check")):
-        try:
-            import importlib
+class ExperimentVision:
+    """One Claude vision call, reserved against the experiment budget AND the existing
+    gateway ceiling before it is sent, settled after. An unread image is UNKNOWN."""
 
-            m = importlib.import_module(mod)
-            f = getattr(m, fn, None)
-            if callable(f):
-                return f"{mod}.{fn}", f
-        except ImportError:
-            continue
-    return None, None
-
-
-class LiveJudges:
-    """The live judges: the real deterministic gates first (a FAIL there wins), then W-FIDELITY's
-    checker when merged, then one Claude vision reading per image, reserved before the call.
-
-    Vision readings advance an EXPERIMENT only; they are labelled as such and are never
-    publication evidence (deterministic validation wins)."""
-
-    def __init__(self, db, *, budget, release_facts: dict, refs: dict, provider=None,
-                 log: list | None = None):
-        from brambleloop.visual import candidate_gates as CG
-
-        self.db, self.budget, self.facts, self.refs = db, budget, release_facts, refs
-        self.real = CG.RealJudges(db)
-        self.provider = provider
+    def __init__(self, db, *, budget, work: str, provider=None, log: list):
+        self.db, self.budget, self.work, self.provider, self.log = (
+            db, budget, Path(work), provider, log)
         self.cache: dict[str, dict] = {}
-        self.log = log if log is not None else []
 
-    # -- the vision call --
-    def _see(self, kind: str, cand: dict, images: list[str], prompt: str) -> dict:
+    def ask(self, kind: str, key: str, paths: list[str], prompt: str, *,
+            system: str = VISION_SYSTEM, max_tokens: int = 700) -> dict:
         from brambleloop.gateway import anthropic as A
 
-        key = f"{kind}:{cand.get('sha256')}"
-        if key in self.cache:
-            return self.cache[key]
+        ck = f"{kind}:{key}:{sha(prompt.encode())[:12]}"
+        if ck in self.cache:
+            return self.cache[ck]
         prov = self.provider or A.AnthropicProvider()
-        max_out = 900
-        est_in = 1700 * len(images) + 1500
-        est = A.estimate_cad(prov.model, input_tokens=est_in, output_tokens=max_out)
-        entry = {"kind": kind, "candidate_sha256": cand.get("sha256"), "role": cand.get("role"),
-                 "model": prov.model, "estimate_cad": est, "images": len(images),
-                 "at": _now().isoformat()}
+        est = A.estimate_cad(prov.model, input_tokens=1700 * len(paths) + 600 + len(prompt) // 3,
+                             output_tokens=max_tokens)
+        entry = {"kind": kind, "subject": key, "model": prov.model, "estimate_cad": est,
+                 "images": len(paths), "at": _now().isoformat()}
         try:
-            rid = self.budget.reserve(est, what=f"vision {kind} {str(cand.get('sha256'))[:12]}")
-        except Exception as exc:  # noqa: BLE001 - over budget: no reading, UNKNOWN
+            rid = self.budget.reserve(est, what=f"vision {kind} {key[:12]}")
+        except Exception as exc:  # noqa: BLE001 - over budget: nothing sent, UNKNOWN
             entry["refused"] = str(exc)[:300]
             self.log.append(entry)
-            self.cache[key] = {"_unread": f"vision not run: {exc}"}
-            return self.cache[key]
+            self.cache[ck] = {"_unread": f"vision not run: {exc}"}
+            return self.cache[ck]
         gw = None
         try:
             gw = A.check_budget_cad(self.db, estimate_cad=est, agent="creative_director",
                                     purpose=f"experiment.vision.{kind}", model=prov.model,
                                     provider="anthropic", product_slug=SLUG)
             t = time.time()
-            resp = prov.see(VISION_SYSTEM, prompt, images, max_tokens=max_out)
-            actual = A.estimate_cad(prov.model, input_tokens=resp.input_tokens,
-                                    output_tokens=resp.output_tokens) / A.ESTIMATE_PADDING
+            resp = prov.see(system, prompt, paths, max_tokens=max_tokens)
+            actual = round(resp.input_tokens * prov.cost_per_1k_input_cad / 1000
+                           + resp.output_tokens * prov.cost_per_1k_output_cad / 1000, 8)
             self.budget.settle(rid, actual)
-            entry.update(cost_cad=round(actual, 6), input_tokens=resp.input_tokens,
+            entry.update(cost_cad=actual, input_tokens=resp.input_tokens,
                          output_tokens=resp.output_tokens, latency_s=round(time.time() - t, 2))
             text = resp.text.strip()
             body = text[text.find("{"): text.rfind("}") + 1] if "{" in text else ""
-            reading = json.loads(body) if body else {}
-            reading["_raw_sha256"] = sha(resp.text.encode())
+            reading = json.loads(body) if body else {"_unread": "no JSON in the answer"}
         except Exception as exc:  # noqa: BLE001 - an unread image is UNKNOWN, never PASS
             self.budget.settle(rid, None)
             entry["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
@@ -525,161 +499,139 @@ class LiveJudges:
                                           actual_cad=entry.get("cost_cad"))
                 except Exception:  # noqa: BLE001
                     pass
-        entry["reading"] = {k: v for k, v in reading.items() if k != "_raw_sha256"}
+        entry["reading"] = reading
         self.log.append(entry)
-        self.cache[key] = reading
+        self.cache[ck] = reading
         return reading
 
-    def _path(self, cand: dict) -> str:
-        from brambleloop.core.artifacts import ArtifactStore
-
-        p = Path(self.refs["work"]) / f"cand-{cand['sha256'][:16]}.png"
+    def path_of(self, data: bytes) -> str:
+        p = self.work / f"img-{sha(data)[:16]}.png"
         if not p.exists():
-            p.write_bytes(cand.get("data") or ArtifactStore().get(cand["sha256"], db=self.db))
+            p.write_bytes(data)
         return str(p)
 
-    def _flat_lay(self, cand: dict) -> dict:
-        f = self.facts
-        cab = f.get("cables") or {}
-        prompt = (
-            "Image 1 is a generated product photograph that must show ONE crochet wrap laid "
-            "flat. Image 2 is the pattern's layout reference; image 3 is its stitch-texture "
-            "reference. Pattern facts: crochet (never knitting); a single rectangle; "
-            f"{cab.get('columns')} lengthwise cable columns, each a 2-over-2 crochet crossing of "
-            f"dc, separated by {cab.get('separated_by')} dc; plain cream single-crochet end "
-            "bands of 4 rows at each short end; forest green body; NO edging, border, fringe or "
-            "ribbing on any edge; colour changes only at the two end bands.\n"
-            "Return JSON: {\"whole_piece_visible\": bool, \"flat_unfolded\": bool, "
-            "\"craft\": \"crochet\"|\"knit\"|\"unclear\", \"cable_columns_counted\": int|null, "
-            "\"end_bands\": \"plain_cream\"|\"ribbed\"|\"striped\"|\"other\"|\"absent\"|"
-            "\"unclear\", \"side_edging_present\": bool|null, \"extra_pieces_or_props_on_"
-            "product\": bool, \"colours_match\": bool|null, \"notes\": str}")
-        return self._see("flat_lay", cand, [self._path(cand), self.refs["layout"],
-                                             self.refs["texture"]], prompt)
+
+class FidelityVisionJudge:
+    """W-FIDELITY's vision-judge interface (`read(prompt, images, system, max_tokens)`), on
+    the experiment's budgeted vision call. The verifier asks it blind questions only."""
+
+    name = "experiment_vision(claude)"
+
+    def __init__(self, vision: ExperimentVision):
+        self.v = vision
+
+    def read(self, prompt, images, *, system=None, max_tokens=300) -> dict:
+        paths = [self.v.path_of(b) for b in images]
+        r = self.v.ask("fidelity", sha(b"".join(images)), paths, prompt,
+                       system=system or VISION_SYSTEM, max_tokens=max_tokens)
+        if "_unread" in r:
+            return {"answered": False, "why": r["_unread"]}
+        return {"answered": True, "reading": r, "model": "claude (experiment)"}
+
+
+class LiveJudges:
+    """The live judges. Product Truth is the real `candidate_gates.RealJudges.product_truth`,
+    i.e. W-FIDELITY's deterministic verifier (`visual.fidelity`) against the experiment's CIR,
+    with its blind craft/consistency questions answered by the experiment-budgeted vision
+    judge. Identity, anatomy, realism, body proportions and outfit consistency come from one
+    Claude reading per Laura image (EXPERIMENT ONLY; never publication evidence)."""
+
+    def __init__(self, db, *, budget, refs: dict, provider=None, log: list | None = None):
+        from brambleloop.visual import candidate_gates as CG
+
+        self.db, self.refs = db, refs
+        self.vision = ExperimentVision(db, budget=budget, work=refs["work"], provider=provider,
+                                       log=log if log is not None else [])
+        self.real = CG.RealJudges(db, vision=FidelityVisionJudge(self.vision))
+
+    def _data(self, cand: dict) -> bytes:
+        from brambleloop.core.artifacts import ArtifactStore
+
+        return cand.get("data") or ArtifactStore().get(cand["sha256"], db=self.db)
 
     def _laura(self, cand: dict) -> dict:
+        from brambleloop.visual import outfits
+
+        outfit = (outfits.get(self.db, cand["outfit_id"]) or {}) if cand.get("outfit_id") \
+            else {}
         prompt = (
             "Image 1 is a generated lifestyle photograph. Image 2 is the canonical reference "
-            "portrait of the model, Laura. Image 3 is the approved product-only flat lay of "
-            "the crochet wrap she should be wearing. "
-            f"Her outfit should be: {cand.get('_outfit_description') or 'as reserved'}.\n"
+            "portrait of the model, Laura. Image 3, when present, is the approved product-only "
+            "flat lay of the crochet wrap she should be wearing. "
+            f"Her outfit should be: {outfit.get('description') or 'as reserved'}.\n"
             "Return JSON: {\"same_person_as_reference\": \"yes\"|\"no\"|\"unclear\", "
             "\"anatomy_ok\": bool|null, \"hands_ok\": bool|null, \"photorealistic\": bool|null, "
             "\"body_proportions_consistent\": \"yes\"|\"no\"|\"unclear\", "
-            "\"wrap_visible\": bool, \"wrap_matches_flat_lay\": \"yes\"|\"no\"|\"unclear\", "
-            "\"craft\": \"crochet\"|\"knit\"|\"unclear\", \"end_bands\": \"plain_cream\"|"
-            "\"ribbed\"|\"striped\"|\"other\"|\"hidden\"|\"unclear\", "
-            "\"edging_present\": bool|null, \"outfit_matches_description\": \"yes\"|\"no\"|"
-            "\"unclear\", \"clothing_copied_from_reference\": bool|null, \"notes\": str}")
-        imgs = [self._path(cand), self.refs["portrait"]]
-        if self.refs.get("anchor"):
-            imgs.append(self.refs["anchor"]())
-        return self._see("laura", cand, [i for i in imgs if i], prompt)
+            "\"wrap_visible\": bool, \"wrap_box\": [x0, y0, x1, y1] as fractions 0..1 of "
+            "image 1's width and height, tightly around the wrap, or null, "
+            "\"outfit_matches_description\": \"yes\"|\"no\"|\"unclear\", "
+            "\"clothing_copied_from_reference\": bool|null, \"notes\": str}")
+        data = self._data(cand)
+        paths = [self.vision.path_of(data), self.refs["portrait"]]
+        anchor = self.refs["anchor"]() if self.refs.get("anchor") else None
+        if anchor:
+            paths.append(anchor)
+        return self.vision.ask("laura", cand.get("sha256") or sha(data), paths, prompt)
+
+    def product_truth(self, cand: dict, bind: dict) -> dict:
+        c = dict(cand)
+        if cand.get("role") != "product_anchor" and cand.get("laura_present"):
+            r = self._laura(cand)
+            box = r.get("wrap_box") if isinstance(r, dict) else None
+            if isinstance(box, list) and len(box) == 4:
+                try:
+                    w, h = Image_size(self._data(cand))
+                    x0, y0, x1, y1 = (float(v) for v in box)
+                    if 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1:
+                        c["product_region"] = (int(x0 * w), int(y0 * h), int(x1 * w),
+                                               int(y1 * h))
+                except (TypeError, ValueError):
+                    pass
+        got = self.real.product_truth(c, bind)
+        return {**got, "basis": "EXPERIMENT ONLY: W-FIDELITY visual.fidelity (deterministic) "
+                                "against the uncertified CIR; vision answers its blind "
+                                "questions; never publication evidence",
+                "product_region_source": "vision wrap_box" if "product_region" in c else None}
 
     @staticmethod
-    def _st(ok, why: str, **kw) -> dict:
-        status = "UNKNOWN" if ok is None else ("PASS" if ok else "FAIL")
-        return {"status": status, "why": why[:400], **kw}
+    def _st(ok, why: str) -> dict:
+        return {"status": "UNKNOWN" if ok is None else ("PASS" if ok else "FAIL"),
+                "why": why[:400]}
 
-    # -- the judge interface --
-    def product_truth(self, cand: dict, bind: dict) -> dict:
-        from brambleloop.creative import failure_codes as FC
-
-        real = self.real.product_truth(cand, bind)
-        if real.get("status") == "FAIL":
-            return {**real, "basis": "deterministic gate (wins)"}
-        basis = "EXPERIMENT ONLY: vision reading (Claude); deterministic floor " + str(
-            real.get("status")) + "; never publication evidence"
-        if cand.get("role") == "product_anchor":
-            name, check = fidelity_checker()
-            if check is not None:
-                try:
-                    got = check(self.db, cand, bind)
-                    return {**got, "basis": f"W-FIDELITY {name}", "deterministic": real}
-                except Exception as exc:  # noqa: BLE001
-                    return {"status": "UNKNOWN", "why": f"W-FIDELITY checker failed: {exc}",
-                            "basis": name}
-            r = self._flat_lay(cand)
-            if "_unread" in r:
-                return {"status": "UNKNOWN", "why": r["_unread"], "basis": basis}
-            codes, fails = [], []
-            if r.get("craft") == "knit":
-                codes.append(FC.WRONG_CRAFT_TEXTURE)
-            if r.get("end_bands") in ("ribbed", "striped", "other"):
-                codes.append(FC.INVENTED_END_BAND_TREATMENT)
-            if r.get("side_edging_present") is True:
-                codes.append(FC.INVENTED_EDGING)
-            want = (self.facts.get("cables") or {}).get("columns")
-            got = r.get("cable_columns_counted")
-            if got is None or r.get("craft") == "unclear" or r.get("end_bands") in (
-                    "unclear", "absent") or not r.get("whole_piece_visible") or not r.get(
-                    "flat_unfolded"):
-                codes.append(FC.UNVERIFIABLE_COUNT)
-            elif want is not None and int(got) != int(want):
-                fails.append(f"{got} cable columns counted, the pattern has {want}")
-            if r.get("extra_pieces_or_props_on_product") is True:
-                fails.append("extra pieces or props on the product")
-            if r.get("colours_match") is False:
-                fails.append("colours do not match the pattern")
-            hard = [c for c in codes if c != FC.UNVERIFIABLE_COUNT]
-            status = "FAIL" if (hard or fails) else ("UNKNOWN" if codes else "PASS")
-            return {"status": status, "codes": sorted(set(codes)),
-                    "why": (f"{basis}: " + "; ".join(fails + codes) if status != "PASS"
-                            else f"{basis}: whole, flat, crochet, {got} cable columns, plain "
-                                 f"cream end bands, no edging")[:400],
-                    "basis": basis, "reading": r, "deterministic": real}
-        r = self._laura(cand)
-        if "_unread" in r:
-            return {"status": "UNKNOWN", "why": r["_unread"], "basis": basis}
-        codes = []
-        if r.get("craft") == "knit":
-            codes.append(FC.WRONG_CRAFT_TEXTURE)
-        if r.get("end_bands") in ("ribbed", "striped", "other"):
-            codes.append(FC.INVENTED_END_BAND_TREATMENT)
-        if r.get("edging_present") is True:
-            codes.append(FC.INVENTED_EDGING)
-        if not r.get("wrap_visible") or r.get("wrap_matches_flat_lay") == "no":
-            return {"status": "FAIL", "codes": codes, "basis": basis, "reading": r,
-                    "why": f"{basis}: the wrap is missing or not the flat-lay product"}
-        if codes:
-            return {"status": "FAIL", "codes": codes, "basis": basis, "reading": r,
-                    "why": f"{basis}: {codes}"}
-        ok = r.get("wrap_matches_flat_lay") == "yes"
-        return self._st(ok if r.get("wrap_matches_flat_lay") != "unclear" else None,
-                        f"{basis}: wrap matches flat lay = {r.get('wrap_matches_flat_lay')}",
-                        basis=basis, reading=r, codes=[FC.UNVERIFIABLE_COUNT])
-
-    def _laura_field(self, cand, field, yes="yes"):
+    def _field(self, cand, field, yes="yes"):
         r = self._laura(cand)
         if "_unread" in r:
             return {"status": "UNKNOWN", "why": r["_unread"]}
         v = r.get(field)
         ok = None if v in (None, "unclear") else (v is True or v == yes)
-        return self._st(ok, f"EXPERIMENT ONLY vision: {field}={v}", reading_field=field)
+        return self._st(ok, f"EXPERIMENT ONLY vision: {field}={v}")
 
     def identity(self, cand):
-        return self._laura_field(cand, "same_person_as_reference")
+        return self._field(cand, "same_person_as_reference")
 
     def anatomy(self, cand):
-        a = self._laura_field(cand, "anatomy_ok")
-        h = self._laura_field(cand, "hands_ok")
-        worst = "FAIL" if "FAIL" in (a["status"], h["status"]) else (
-            "UNKNOWN" if "UNKNOWN" in (a["status"], h["status"]) else "PASS")
-        return {"status": worst, "why": f"{a['why']}; {h['why']}"}
+        a, h = self._field(cand, "anatomy_ok"), self._field(cand, "hands_ok")
+        s = {a["status"], h["status"]}
+        return {"status": "FAIL" if "FAIL" in s else "UNKNOWN" if "UNKNOWN" in s else "PASS",
+                "why": f"{a['why']}; {h['why']}"}
 
     def realism(self, cand):
-        return self._laura_field(cand, "photorealistic")
+        return self._field(cand, "photorealistic")
 
     def body_proportions(self, cand):
-        return self._laura_field(cand, "body_proportions_consistent")
+        return self._field(cand, "body_proportions_consistent")
 
     def outfit_consistency(self, cand, outfit):
-        got = self._laura_field(cand, "outfit_matches_description")
-        copied = self._laura(cand).get("clothing_copied_from_reference")
-        if copied is True:
+        if self._laura(cand).get("clothing_copied_from_reference") is True:
             return {"status": "FAIL", "why": "REFERENCE_CLOTHING_CARRYOVER: the clothing is "
                                              "copied from the identity references"}
-        return got
+        return self._field(cand, "outfit_matches_description")
+
+
+def Image_size(data: bytes) -> tuple[int, int]:
+    from PIL import Image
+
+    return Image.open(io.BytesIO(data)).size
 
 
 # ---- deterministic gallery frames ---------------------------------------------------------
@@ -1124,7 +1076,6 @@ def _run(*, live: bool, out: Path, provider=None) -> dict:
     inner = S.flux3_renderer() if live else stub_renderer_class()()
     renderer = BudgetedRenderer(inner, budget, live=live, per_role=XP.MAX_ATTEMPTS_PER_ROLE,
                                 log=flux_log)
-    facts = P.fabric_facts(cir)
     refs_dir = out / "refs"
     rel = S.release_from_cir(cir, release_hash=reg["release"], version=cir.version,
                              out_dir=refs_dir)
@@ -1148,8 +1099,8 @@ def _run(*, live: bool, out: Path, provider=None) -> dict:
 
     ref_paths["anchor"] = anchor_path
     if live:
-        judges = lambda db_: LiveJudges(db_, budget=budget, release_facts=facts,  # noqa: E731
-                                        refs=ref_paths, provider=provider, log=vision_log)
+        judges = lambda db_: LiveJudges(db_, budget=budget, refs=ref_paths,  # noqa: E731
+                                        provider=provider, log=vision_log)
     else:
         judges = StubJudges
     XP.install(db, reg, judges_factory=judges,

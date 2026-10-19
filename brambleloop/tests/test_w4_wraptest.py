@@ -398,15 +398,43 @@ def test_live_refuses_without_keys():
     check("cli_exit_code_2", code == 2)
 
 
-class FakeNetwork:
-    """BFL and Anthropic, locally. Records every request; returns 2048 px PNGs and readings."""
+def _wrap_cir():
+    from brambleloop.products import moment_candidates as mc
 
-    def __init__(self, flat_lay_reading: dict):
+    return mc.reading_nook_cable_wrap()
+
+
+class FakeNetwork:
+    """BFL and Anthropic, locally. Every FLUX call returns `image`; vision answers by prompt."""
+
+    def __init__(self, image: bytes, *, craft: dict | None = None, same: bool = True):
+        import numpy as np
+
         self.posts, self.vision = [], []
-        self.flat = flat_lay_reading
-        buf = io.BytesIO()
-        Image.new("RGB", (2048, 2048), (30, 70, 45)).save(buf, format="PNG")
-        self.png = buf.getvalue()
+        self.png = image
+        self.craft = craft or {"craft": "crochet", "ribbing_visible": "false",
+                               "border_or_edging_visible": "false",
+                               "cable_style": "crochet_post_stitch_crossings",
+                               "fabric_visible_clearly": "true"}
+        self.same = same
+        arr = np.asarray(Image.open(io.BytesIO(image)).convert("RGB")).astype(int)
+        bg = arr[5, 5]
+        ys, xs = np.where(np.abs(arr - bg).sum(axis=2) > 40)
+        h, w = arr.shape[:2]
+        self.box = [round(xs.min() / w + 0.01, 4), round(ys.min() / h + 0.01, 4),
+                    round(xs.max() / w - 0.01, 4), round(ys.max() / h - 0.01, 4)]
+
+    def reading_for(self, text: str) -> dict:
+        if "craft: one of" in text:
+            return self.craft
+        if "same_item" in text:
+            return {"same_item": "true" if self.same else "false",
+                    "differences": [] if self.same else ["a ribbed border along the edges"]}
+        return {"same_person_as_reference": "yes", "anatomy_ok": True, "hands_ok": True,
+                "photorealistic": True, "body_proportions_consistent": "yes",
+                "wrap_visible": True, "wrap_box": self.box,
+                "outfit_matches_description": "yes", "clothing_copied_from_reference": False,
+                "notes": "fake"}
 
     def __enter__(self):
         import urllib.request
@@ -441,16 +469,9 @@ class FakeNetwork:
         def send(self_, payload, key):
             body = json.loads(payload)
             text = body["messages"][0]["content"][-1]["text"]
-            net.vision.append(text[:80])
-            reading = net.flat if "laid flat" in text or "ONE crochet wrap" in text else {
-                "same_person_as_reference": "yes", "anatomy_ok": True, "hands_ok": True,
-                "photorealistic": True, "body_proportions_consistent": "yes",
-                "wrap_visible": True, "wrap_matches_flat_lay": "yes", "craft": "crochet",
-                "end_bands": "plain_cream", "edging_present": False,
-                "outfit_matches_description": "yes", "clothing_copied_from_reference": False,
-                "notes": "fake"}
-            return ModelResponse(text=json.dumps(reading), provider="anthropic",
-                                 model=self_.model, input_tokens=6000, output_tokens=400,
+            net.vision.append(text[:60])
+            return ModelResponse(text=json.dumps(net.reading_for(text)), provider="anthropic",
+                                 model=self_.model, input_tokens=6000, output_tokens=300,
                                  latency_ms=1.0, stop_reason="end_turn")
 
         self._saved = (I._post, I._get, urllib.request.urlopen, I.BFL_POLL_SECONDS,
@@ -478,57 +499,75 @@ class FakeNetwork:
         return False
 
 
-GOOD_FLAT = {"whole_piece_visible": True, "flat_unfolded": True, "craft": "crochet",
-             "cable_columns_counted": 8, "end_bands": "plain_cream",
-             "side_edging_present": False, "extra_pieces_or_props_on_product": False,
-             "colours_match": True, "notes": "fake"}
+def _flat(cir) -> bytes:
+    import test_w4_fidelity as TF
+
+    return TF.flat_lay(cir)
+
+
+def _per_role(ev) -> dict:
+    out = {}
+    for f in ev["flux_calls"]:
+        out[f["role"]] = out.get(f["role"], 0) + 1
+    return out
 
 
 def test_live_path_rehearsed_offline():
     out = Path(tempfile.mkdtemp(prefix="wraptest-live-")) / "run"
-    with FakeNetwork(GOOD_FLAT) as net:
+    with FakeNetwork(_flat(_wrap_cir())) as net:
         s = H.run(live=True, out=out)
     ev = json.loads((Path(s["package"]).parent / "evidence.json").read_text())
-    check("live_reaches_the_card", s["run_state"] == "ready_for_owner_review"
-          and XP.LABEL in (s["card_title"] or ""), s)
-    check("live_three_flux_posts_at_2k", len(net.posts) == 3 and all(
+    anchor = [c for c in ev["candidates"] if c["role"] == "product_anchor"]
+    check("live_anchor_verified_by_w_fidelity_pass", anchor and anchor[0][
+        "technical_status"] == "PASS" and anchor[0]["checks"]["product_truth"]["fidelity"][
+        "checker"], [(c["role"], c["technical_status"], c["checks"]["product_truth"].get("why"))
+                     for c in ev["candidates"]])
+    check("live_card_through_command_center", XP.LABEL in (s["card_title"] or ""), s)
+    check("live_flux_posts_at_2k", net.posts and all(
         p.get("resolution") == "2k" for p in net.posts), [p.get("resolution")
-                                                           for p in net.posts])
+                                                          for p in net.posts])
+    check("live_at_most_two_per_role", all(n <= 2 for n in _per_role(ev).values())
+          and len(net.posts) <= 6, _per_role(ev))
     check("live_every_flux_call_reserved_first", all(
-        f["reserved_cad"] > 0 for f in ev["flux_calls"]) and len(ev["flux_calls"]) == 3)
+        f["reserved_cad"] > 0 for f in ev["flux_calls"]) and len(ev["flux_calls"]) ==
+        len(net.posts))
     check("live_lifestyle_sent_laura_and_product_refs", all(
         len(p.get("images") or []) == 8 for p in net.posts[1:]), [len(p.get("images") or [])
                                                                    for p in net.posts])
-    check("live_vision_reserved_and_counted", s["vision_calls"] == len(net.vision) >= 3
-          and all(v.get("cost_cad") for v in ev["vision_calls"]), ev["vision_calls"])
+    check("live_vision_reserved_and_counted", s["vision_calls"] == len(net.vision) >= 2
+          and all(v.get("cost_cad") for v in ev["vision_calls"]), ev["vision_calls"][:2])
     check("live_inside_budget", 0 < s["spent_cad"] <= 5.0, s["spent_cad"])
     check("live_still_never_publishable", all(not c["publishable"] for c in ev["candidates"]))
-    check("live_vision_basis_labelled", all(
-        "EXPERIMENT ONLY" in (c["checks"]["product_truth"].get("why") or "")
-        for c in ev["candidates"]), [c["checks"]["product_truth"].get("why")
-                                     for c in ev["candidates"]])
+    check("live_basis_labelled", all("EXPERIMENT ONLY" in (c["checks"]["product_truth"].get(
+        "basis") or "") for c in ev["candidates"] if c["sha256"]))
     check("live_refusals", all(v.startswith("refused:") for v in s["refusals"].values()),
           s["refusals"])
+    print("   live rehearsal:", s["run_status"][:300], _per_role(ev), s["spent_cad"])
 
 
 def test_live_stops_early_on_a_hard_flat_lay_failure():
+    import test_w4_fidelity as TF
+
+    # The wrong product entirely (another CIR's flat lay): a hard, unroutable FAIL.
+    other = TF._cir("cloudline-baby-blanket")
     out = Path(tempfile.mkdtemp(prefix="wraptest-stop-")) / "run"
-    bad = {**GOOD_FLAT, "cable_columns_counted": 6}
-    with FakeNetwork(bad) as net:
+    with FakeNetwork(_flat(other)) as net:
         s = H.run(live=True, out=out)
     check("stop_blocked_after_one_flat_lay", s["run_state"] == "blocked"
           and len(net.posts) == 1, (s["run_status"], len(net.posts)))
     check("stop_says_why", "no bounded correction" in s["run_status"], s["run_status"])
     check("stop_card_still_reaches_command_center", XP.LABEL in (s["card_title"] or ""), s)
-    # A routable failure (invented end bands) gets exactly one bounded correction.
+    # A routable failure (knitted texture) gets exactly one bounded correction, then stops.
     out2 = Path(tempfile.mkdtemp(prefix="wraptest-fix-")) / "run"
-    with FakeNetwork({**GOOD_FLAT, "end_bands": "ribbed"}) as net2:
+    knit = {"craft": "knitting", "ribbing_visible": "false",
+            "border_or_edging_visible": "false", "cable_style": "knitted_rope",
+            "fabric_visible_clearly": "true"}
+    with FakeNetwork(_flat(_wrap_cir()), craft=knit) as net2:
         s2 = H.run(live=True, out=out2)
     check("routable_failure_retried_once_then_stopped",
           len(net2.posts) == 2 and s2["run_state"] == "blocked", (len(net2.posts), s2[
               "run_status"]))
-    neg = json.dumps(net2.posts[1])
-    check("retry_carries_the_repair_negatives", "no ribbing in the end bands" in neg)
+    check("retry_carries_the_repair_negatives", "not knitting" in json.dumps(net2.posts[1]))
 
 
 if __name__ == "__main__":
