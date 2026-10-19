@@ -421,7 +421,7 @@ fingerprints, plus the required set:**
     Fixed, now 12/12. test_w4_seo_packages 6, test_v11_seo_truth 9 and test_w3_seo_constraints
     8 also pass.
   - **test_product_run**: hit the runner's 1800 s timeout after 7 OK, with no failures. It was
-    re-run alone with a longer timeout (result in the final report).
+    re-run alone with a 5400 s timeout: **36/36 OK, rc=0**. It is slow on a shared, rationed host, not failing.
 - test_release_versions passes, with the two bumped rows.
 - These all pass: test_launch, test_launch0*, test_w4_l0_product_readiness,
   test_w4_cap1_placemat_price, test_w4_placemat_reprice, test_w4_catalog_reconciliation,
