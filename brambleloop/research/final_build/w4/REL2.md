@@ -7,7 +7,7 @@
   - Spend: the October model-spend review (729 `creative.concept_field` calls, CA$19). Its
     file:line references are on `origin/claude/final-candidate-a25a377`, whose `src` is
     identical to this branch's base.
-- Regression tests: `tests/test_w4_rel2.py`, 23 tests. Each test is named after the finding
+- Regression tests: `tests/test_w4_rel2.py`, 20 tests. Each test is named after the finding
   it closes.
 - Constraints honoured:
   - No limit was raised.
@@ -194,6 +194,19 @@ available in this worker's evidence, so it is not stated here.
 | B3 | 0 direct | fewer repeat (sameness) fields; compounds with B1 |
 | B4 | 4-7.5 per refused listing; worst case 23-45 | 30 days × padded or routed reading cost |
 | B5 | 0.034 × F (×up to FAILED_ATTEMPTS) | measured cost per image |
+
+## Test results (2026-10-19, through `testslot.sh`)
+
+- `test_w4_rel2`: 20 of 20 pass.
+- 44 suite files were run: the required regression set plus a suite for every touched module.
+  - 42 files pass with no failures.
+  - 2 files fail, and both fail identically on the unmodified base `9c3812bd`:
+    - `test_launch`: 16 failures, all `ModuleNotFoundError: scipy`. scipy is missing from the
+      shared venv and is not in `requirements.txt`.
+    - `test_search_hero_publish`: 3 failures, "never ran: COMMERCIAL_QA". The same 3 fail on
+      the base.
+
+  Neither is caused by this branch.
 
 ## Unresolved, and what this branch does not claim
 
