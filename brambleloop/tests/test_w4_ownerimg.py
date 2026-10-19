@@ -113,6 +113,7 @@ class StubGenerator:
     def generate(self, **kw):
         self.calls += 1
         self.seen.append((kw["role"], [r["kind"] for r in kw["references"]], kw["outfit"]))
+        self.repairs = getattr(self, "repairs", []) + [kw.get("repair")]
         return {"data": png(), "provider": "stub", "model": "stub-1",
                 "prompt": kw["brief"], "cost_cad": 0.0, "latency_s": 0.01}
 
@@ -445,7 +446,7 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     dec = IP.approve(db, run["run_key"], decided_by="owner:test")
     assert dec["approved"] is False and any("F-852" in b for b in dec["blockers"])
     assert IP.get_run(db, run["run_key"])["state"] == "ready_for_owner_review"
-    learn = IP.learning_summary(db)
+    learn = IP.learning_summary(db, slug="cloudline-baby-blanket")
     assert learn["accepted"] >= 1 and learn["cost_per_accepted_cad"] == 0.0
 
 
@@ -475,16 +476,17 @@ def test_real_judges_block_at_unverifiable_fidelity():
     assert IP.notification_candidates(db) == []
 
 
-def test_repair_is_bounded_then_blocked_and_notified():
+def test_repair_is_bounded_targeted_then_blocked_and_notified():
     from brambleloop.visual import image_production as IP
 
     class LifestyleFails(StubJudges):
         def product_truth(self, c, bind):
-            return {"status": "FAIL" if c.get("role") == "lifestyle" else "PASS",
-                    "why": "invented_stitches in the border"}
+            if c.get("role") == "lifestyle":
+                return {"status": "FAIL", "why": "border invented",
+                        "codes": ["INVENTED_EDGING", "WRONG_CRAFT_TEXTURE"]}
+            return {"status": "PASS", "why": "stub"}
 
     db = make_db()
-    approved_outfit(db)
     gen = StubGenerator()
     follow, _ = drain(db, generator=gen, judges=LifestyleFails())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
@@ -492,13 +494,71 @@ def test_repair_is_bounded_then_blocked_and_notified():
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and run["attempts_exhausted"]
     assert gen.calls == 1 + IP.MAX_ATTEMPTS_PER_ROLE + 2 <= IP.MAX_GENERATION_CALLS
+    repairs = [r for r in gen.repairs if r]
+    assert len(repairs) == IP.MAX_ATTEMPTS_PER_ROLE - 1
+    kinds = {d["kind"] for d in repairs[0]["directives"]}
+    assert kinds == {"prompt_negative", "reference_change"}
+    assert "no edging" in " ".join(n for d in repairs[0]["directives"]
+                                   for n in d.get("negatives", []))
     note = IP.notification_candidates(db)
     assert len(note) == 1 and note[0]["severity"] == "high"
     assert "recommended fix" in note[0]["consequence"]
-    learn = IP.learning_summary(db)
+    learn = IP.learning_summary(db, slug="cloudline-baby-blanket")
+    assert learn["failure_categories"].get("INVENTED_EDGING") == IP.MAX_ATTEMPTS_PER_ROLE
     assert learn["failure_categories"].get("product_fidelity") == IP.MAX_ATTEMPTS_PER_ROLE
-    assert learn["failure_categories"].get("invented_stitches") == IP.MAX_ATTEMPTS_PER_ROLE
-    assert learn["cost_per_accepted_cad"] is None or learn["accepted"] >= 1
+
+
+def test_unrouted_code_is_not_repaired_and_unverifiable_count_never_passes():
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import repair_routes as RR
+
+    class Unrouted(StubJudges):
+        def product_truth(self, c, bind):
+            if c.get("role") == "lifestyle":
+                return {"status": "FAIL", "why": "x", "codes": ["SOMETHING_NEW"]}
+            return {"status": "PASS", "why": "stub"}
+
+    db = make_db()
+    gen = StubGenerator()
+    follow, _ = drain(db, generator=gen, judges=Unrouted())
+    IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
+    drain(db, generator=gen, judges=Unrouted())
+    assert gen.calls == 4 and not any(gen.repairs)               # no blind regeneration
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    assert run["state"] == "blocked"
+
+    class CountHidden(StubJudges):
+        def product_truth(self, c, bind):
+            return {"status": "PASS", "why": "looks right", "codes": [RR.UNVERIFIABLE_COUNT]}
+
+    v = CG.evaluate(db, cand(role="detail"), judges=CountHidden())
+    assert v["checks"]["product_truth"]["status"] == "UNKNOWN"
+    assert v["technical_status"] == "UNKNOWN" and not v["publishable"]
+    assert RR.route([RR.UNVERIFIABLE_COUNT])["stays_unknown"] == [RR.UNVERIFIABLE_COUNT]
+
+
+def test_wrap_experiment_is_the_seeded_learning_example():
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import repair_routes as RR
+
+    shared = RR.shared_codes()
+    assert set(shared["codes"]) == {"INVENTED_END_BAND_TREATMENT", "INVENTED_EDGING",
+                                    "WRONG_CRAFT_TEXTURE", "UNVERIFIABLE_COUNT"}, shared
+    assert set(shared["codes"]) <= set(RR.ROUTES)                  # every shared code routed
+    db = make_db()
+    first, again = RR.seed_experiment(db), RR.seed_experiment(db)
+    assert first["seeded"] and not again["seeded"]
+    learn = IP.learning_summary(db, slug="reading-nook-cable-wrap")
+    assert learn["candidates"] == 1 and learn["accepted"] == 0
+    assert learn["cost_per_accepted_cad"] is None
+    assert learn["failure_categories"]["WRONG_CRAFT_TEXTURE"] == 1
+    from brambleloop.visual.image_records import ImageCandidate
+
+    with db.session() as s:
+        row = s.get(ImageCandidate, first["candidate_id"])
+        assert row.method == "owner_manual" and row.owner_visual_approval is True
+        assert row.checks["identity"]["status"] == "UNKNOWN" and not row.publishable
 
 
 def test_paid_generator_needs_the_image_generation_gate():

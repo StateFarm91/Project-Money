@@ -115,7 +115,7 @@ class Generator(Protocol):
         """[{"kind": one of candidate_gates.REFERENCE_KINDS, "data": bytes}]"""
 
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
-                 outfit: dict | None, attempt: int) -> dict:
+                 outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
         """{"data": bytes, "provider", "model", "prompt", "cost_cad", "latency_s",
         "identity_evidence" (optional; the conditioning receipt / judge readings)}"""
 
@@ -389,7 +389,8 @@ def _spend_plan() -> dict:
 
 
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
-              laura: bool, judges, plan_attempt: int, evaluate: bool = True) -> dict:
+              laura: bool, judges, plan_attempt: int, evaluate: bool = True,
+              repair: dict | None = None) -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
@@ -409,8 +410,9 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
     try:
+        kw = {"repair": repair} if repair else {}
         out = gen.generate(stage=stage, role=role, brief=brief, references=refs,
-                           outfit=outfit, attempt=plan_attempt)
+                           outfit=outfit, attempt=plan_attempt, **kw)
     except Exception as exc:  # noqa: BLE001 - a provider error is a recorded outcome
         from .image_records import ImageCandidate
 
@@ -436,7 +438,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "references": [{"sha256": r["sha256"], "kind": r["kind"]} for r in refs],
             "identity_evidence": out.get("identity_evidence"), "cost_cad": cost,
             "cost_basis": out.get("cost_basis") or "generator receipt",
-            "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous"}
+            "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous",
+            "repair": repair}
     if role == ANCHOR_ROLE:
         bind = CG.binding(db, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -490,6 +493,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
 
     st = STAGE_STATE[stage]
     if stage == "retrieve_release":
+        try:  # the first learning example (owner manual wrap experiment); idempotent
+            from .repair_routes import seed_experiment
+
+            seed_experiment(db)
+        except Exception:  # noqa: BLE001 - learning seed never blocks production
+            pass
         bind = CG.binding(db, slug, version, release)
         if bind["status"] == CG.FAIL and "no certified release" in bind["why"]:
             return {"run_key": key, **_update(db, key, stage=stage,
@@ -636,7 +645,7 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                     f"refused")
             return out
 
-        def gen_roles(roles, rnd_stage):
+        def gen_roles(roles, rnd_stage, repairs=None):
             outs = []
             outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
             for r in roles:
@@ -649,7 +658,8 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                       laura=r["laura"], judges=judges, brief=r["brief"] or
                                       f"{r['job']}: the finished piece", refs=refs_,
                                       outfit=outfit if r["laura"] else None,
-                                      plan_attempt=attempt))
+                                      plan_attempt=attempt,
+                                      repair=(repairs or {}).get(r["role"])))
             return outs
 
         if stage == "lifestyle_generation":
@@ -673,7 +683,8 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             per = {r["role"]: _best(db, listing=run["listing"], role=r["role"], run=key)
                    for r in roles}
             failing = [r for r in roles if (per[r["role"]] or {}).get("technical_status")
-                       == "FAIL" and _attempts(db, key, r["role"]) < MAX_ATTEMPTS_PER_ROLE]
+                       == "FAIL" and _attempts(db, key, r["role"]) < MAX_ATTEMPTS_PER_ROLE
+                       and _repair_for(per[r["role"]]) is not None]
             _update(db, key, stage=stage, status=st, record={"evidence": per})
             if failing and round_ < MAX_REPAIR_ROUNDS:
                 return {"run_key": key, "next": go("repair", rnd=round_ + 1)}
@@ -681,12 +692,15 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
 
         if stage == "repair":
             roles = SP.generated_roles(plan)
-            failing = [r for r in roles if (_best(db, listing=run["listing"], role=r["role"],
-                                                   run=key) or {}).get("technical_status")
-                       == "FAIL"]
-            outs = gen_roles(failing, stage)
+            repairs = {}
+            for r in roles:
+                b = _best(db, listing=run["listing"], role=r["role"], run=key) or {}
+                if b.get("technical_status") == "FAIL" and _repair_for(b) is not None:
+                    repairs[r["role"]] = _repair_for(b)
+            failing = [r for r in roles if r["role"] in repairs]
+            outs = gen_roles(failing, stage, repairs)
             _update(db, key, stage=stage, status=st, record={
-                "outputs": outs, "round": round_,
+                "outputs": outs, "round": round_, "repairs": repairs,
                 "cost_cad": sum(o.get("cost_cad") or 0 for o in outs)})
             return {"run_key": key, "next": go("verification", rnd=round_)}
     except BudgetStop as exc:
@@ -729,6 +743,24 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                            status="ready_for_owner_review", card=card,
                                            record={"outputs": card})}
     raise ValueError(f"stage {stage!r} fell through")
+
+
+def _repair_for(best: dict | None) -> dict | None:
+    """Targeted repair for a failed candidate, or None when it cannot be repaired by
+    regeneration (an unrouted code). Codes from the shared Product Truth set route to prompt
+    negatives or a reference change. Other failures (identity, outfit, body proportions,
+    quality) are regenerated with the same canonical references, and nothing is waived."""
+    from . import repair_routes
+
+    cats = list((best or {}).get("failure_categories") or [])
+    shared = set(repair_routes.shared_codes()["codes"]) | set(repair_routes.ROUTES)
+    codes = [c for c in cats if c in shared or c.isupper()]
+    routed = repair_routes.route(codes)
+    if routed["unrouted"]:
+        return None
+    return {"codes": codes, "directives": routed["directives"],
+            "stays_unknown": routed["stays_unknown"],
+            "regenerate_for": sorted(set(cats) - set(codes))}
 
 
 def _recommend(not_ready: list, view: dict) -> list[str]:

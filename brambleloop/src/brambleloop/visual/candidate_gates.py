@@ -284,7 +284,13 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     checks["provenance"] = provenance(cand)
     checks["quality"] = quality(data)
     checks["role"] = role(cand.get("role", ""))
-    checks["product_truth"] = judges.product_truth(cand, bind)
+    pt = judges.product_truth(cand, bind)
+    from .repair_routes import UNVERIFIABLE_COUNT
+
+    if UNVERIFIABLE_COUNT in (pt.get("codes") or []) and pt.get("status") == PASS:
+        # A count the image cannot show is never passed (owner wrap experiment, 2026-10-19).
+        pt = {**pt, "status": UNKNOWN, "why": f"{UNVERIFIABLE_COUNT}: " + str(pt.get("why"))}
+    checks["product_truth"] = pt
     laura = bool(cand.get("laura_present"))
     checks["identity"] = judges.identity(cand) if laura else _c(NA, "Laura does not appear")
     checks["body_proportions"] = (_judge(judges, "body_proportions", cand) if laura else
@@ -310,9 +316,9 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     technical = worst(*(c["status"] for c in checks.values()))
     publication = publication_verdict(cand, checks, job, laura)
     failures = sorted({FAILURE_CATEGORY[k] for k, c in checks.items() if c["status"] == FAIL})
-    for code in ("invented_stitches", "missing_pieces"):
-        if code in str(checks["product_truth"]).lower():
-            failures.append(code)
+    # The shared Product Truth failure codes (W-FLUXAPI's constant; repair_routes) are kept
+    # as reported so learning and the repair router read the same words.
+    failures += [str(c) for c in checks["product_truth"].get("codes") or []]
     out = {"gates_version": GATES_VERSION, "sha256": sha, "listing": listing, "job": job,
            "checks": checks, "technical_status": technical,
            "publication": publication, "publishable": publication["publishable"],
