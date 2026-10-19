@@ -363,7 +363,18 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
             "listing": r.listing, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
-            "laura_present": r.laura_present, "outfit_id": r.outfit_id or None}
+            "laura_present": r.laura_present, "outfit_id": r.outfit_id or None,
+            "fidelity": _fidelity_summary(r.checks)}
+
+
+def _fidelity_summary(checks: dict | None) -> dict:
+    """What the fidelity verifier left unknown or failed on a stored candidate."""
+    fid = ((checks or {}).get("product_truth") or {}).get("fidelity") or {}
+    needs = sorted({f"{c['check']} needs a {c['needs']}" for c in fid.get("checks") or []
+                    if c.get("needs") and c.get("status") == "UNKNOWN"})
+    return {"status": fid.get("status"), "unknown": fid.get("unknown") or [],
+            "failed": fid.get("failed") or [], "codes": fid.get("codes") or [],
+            "needs": needs}
 
 
 def _attempts(db, run: str, role: str) -> int:
@@ -463,7 +474,10 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                    "technical_status": CG.worst(bind["status"], pt["status"], q["status"]),
                    "failure_categories": sorted(
                        {CG.FAILURE_CATEGORY[k] for k, c in (("binding", bind),
-                        ("product_truth", pt), ("quality", q)) if c["status"] == CG.FAIL})}
+                        ("product_truth", pt), ("quality", q)) if c["status"] == CG.FAIL})
+                   # the fidelity verifier's codes (W-FIDELITY), so learning and the
+                   # repair router read the same words as for every other role
+                   + [str(c) for c in pt.get("codes") or []]}
     else:
         verdict = CG.evaluate(db, cand, judges=judges)
     rec = record_candidate(db, cand, verdict, method="autonomous", run=key, stage=stage,
@@ -563,11 +577,17 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
 
         if stage == "product_generation":
             attempt = _attempts(db, key, ANCHOR_ROLE) + 1
+            # A regeneration after a fidelity FAIL carries the targeted repair for its codes
+            # when every code has a route; otherwise it is a plain retry within the cap.
+            prior = (_best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
+                     if attempt > 1 else None)
+            repair = (_repair_for(prior) if prior and prior.get("technical_status") == "FAIL"
+                      else None)
             got = _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
-                            plan_attempt=attempt)
+                            plan_attempt=attempt, repair=repair)
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
             return {"run_key": key, "next": go(_next(stage), rnd=attempt - 1)}
@@ -586,9 +606,11 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             if status == "FAIL":
                 return block(f"product fidelity FAIL after {MAX_ATTEMPTS_PER_ROLE} attempts: "
                              f"{(best or {}).get('failed')}", exhausted=True, record=record)
-            return block("product fidelity cannot be verified: no qualified verifier for "
-                         "generated product images (product_authority: UNKNOWN). "
-                         f"Unknown: {(best or {}).get('unknown')}", record=record)
+            fid = (best or {}).get("fidelity") or {}
+            return block("product fidelity cannot be verified: the fidelity verifier "
+                         f"(visual.fidelity) reads UNKNOWN on {fid.get('unknown') or '?'}"
+                         + (f" ({'; '.join(fid['needs'])})" if fid.get("needs") else "")
+                         + f". Unknown: {(best or {}).get('unknown')}", record=record)
 
         laura_roles = [r for r in SP.generated_roles(plan) if r["laura"]]
         if stage == "load_laura_references":
