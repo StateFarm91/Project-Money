@@ -34,8 +34,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/2.0.0"
-ROLES: tuple[str, ...] = ("layout", "detail", "rules")
+VERSION = "pattern-refs/3.0.0"
+# Texture before the symbolic chart: it has priority (owner directive after the reading-nook
+# test); the chart is kept for stitch placement.
+ROLES: tuple[str, ...] = ("layout", "texture", "detail", "rules")
 MIN_SIDE_PX = 256                      # FLUX 3: smaller than 256 x 256 is HTTP 422
 MAX_PIXELS = 16 * 1_048_576            # FLUX 3: larger than 16 MP is HTTP 400
 CANVAS_PX = 1800
@@ -121,6 +123,127 @@ def _grid_dims(twin) -> tuple[int, int]:
     return max((len(r) for r in g), default=0), len(g)
 
 
+def _rows_of(twin) -> list[list]:
+    by: dict[int, list] = {}
+    for c in twin.cells:
+        by.setdefault(c.row, []).append(c)
+    return [sorted(by[r], key=lambda c: c.fabric_position) for r in sorted(by)]
+
+
+def _sig(row) -> tuple:
+    return (frozenset(c.stitch for c in row), frozenset(c.color for c in row),
+            frozenset(getattr(c, "loop", "both") for c in row))
+
+
+def _runs(seq) -> list[tuple[object, int]]:
+    out: list[tuple[object, int]] = []
+    for x in seq:
+        if out and out[-1][0] == x:
+            out[-1] = (x, out[-1][1] + 1)
+        else:
+            out.append((x, 1))
+    return out
+
+
+def fabric_facts(cir, parts=None) -> dict:
+    """What the fabric is, read from the twin's cells, and what a render therefore must not add.
+
+    Derived, never declared by hand: end bands, edging, ribbing, cable/motif count and spacing,
+    and the rows where colour changes. Each fact yields an explicit negative for the prompt
+    (D-W4-LAURA-FLUX3 owner directive after the reading-nook-cable-wrap test)."""
+    from ..cir import stitches as taxonomy
+
+    parts = parts if parts is not None else _components(cir)
+    comp, twin, is_round = max(parts, key=lambda p: _grid_dims(p[1])[0] * _grid_dims(p[1])[1])
+    rows = _rows_of(twin)
+    unit = "round" if is_round else "row"
+    colours = dict(cir.colors)
+    loops = {getattr(c, "loop", "both") for c in twin.cells}
+    used = {c.stitch for c in twin.cells}
+    ribbing = bool(loops - {"both"}) or {"fpdc", "bpdc"} <= used
+    named = " ".join([c.name for c in cir.components]
+                     + [str(a) for a in (cir.to_dict().get("assembly") or [])]).lower()
+    edging = any(w in named for w in ("edging", "border", "trim", "fringe"))
+
+    def band(seq, from_top: bool):
+        if len(seq) < 3 or is_round:
+            return None
+        first = _sig(seq[0])
+        n = next((i for i, r in enumerate(seq) if _sig(r) != first), len(seq))
+        stitches_, colours_, _ = first
+        if n >= len(seq) or len(stitches_) != 1 or len(colours_) != 1:
+            return None
+        total = len(seq)
+        lo, hi = (total - n + 1, total) if from_top else (1, n)
+        st, col = next(iter(stitches_)), next(iter(colours_))
+        return {"rows": [lo, hi], "stitch": st, "colour": col, "hex": colours.get(col),
+                "plain": True}
+
+    bands = [b for b in (band(rows, False), band(list(reversed(rows)), True)) if b]
+    cables = None
+    cable_rows = [i + 1 for i, r in enumerate(rows)
+                  if any(c.stitch.startswith(taxonomy.CABLE_PREFIX) for c in r)]
+    if cable_rows:
+        row = rows[cable_rows[0] - 1]
+        runs = _runs([c.stitch for c in row])
+        code = next(c.stitch for c in row if c.stitch.startswith(taxonomy.CABLE_PREFIX))
+        st = taxonomy.get(code)
+        groups = sum(n // max(1, st.consumes) for x, n in runs if x == code)
+        between = sorted({n for i, (x, n) in enumerate(runs)
+                          if x != code and 0 < i < len(runs) - 1})
+        sep_stitch = sorted({x for x, _ in runs if x != code})
+        gaps = sorted({b - a for a, b in zip(cable_rows, cable_rows[1:])})
+        cables = {"stitch": code, "columns": groups, "crossing_over": st.consumes // 2,
+                  "crossing_side": st.crossing, "separated_by": between,
+                  "separator_stitch": sep_stitch,
+                  "edge_stitches": [runs[0][1] if runs[0][0] != code else 0,
+                                    runs[-1][1] if runs[-1][0] != code else 0],
+                  "every_n_rows": gaps, "first_row": cable_rows[0],
+                  "last_row": cable_rows[-1], "rows_with_crossings": len(cable_rows)}
+    changes = [i + 1 for i in range(1, len(rows))
+               if {c.color for c in rows[i]} != {c.color for c in rows[i - 1]}]
+    return {"component": comp.name, "unit": unit, "rows": len(rows), "craft": "crochet",
+            "stitches": sorted(used), "ribbing_declared": ribbing,
+            "edging_declared": edging, "end_bands": bands, "cables": cables,
+            "colour_change_rows": changes}
+
+
+def negatives(facts: dict) -> list[str]:
+    """The explicit prohibitions a render of this fabric needs, from its facts."""
+    out = ["knitting of any kind: this is crochet (no knit V-columns, no stockinette, no "
+           "purl ridges, no knitted rope cables)"]
+    if not facts["ribbing_declared"]:
+        out.append("ribbing anywhere (the pattern has none)")
+    if not facts["edging_declared"]:
+        out.append("an edging, border, rib, fringe or trim along any edge; "
+                   + ("the outer edge is the last round exactly as charted"
+                      if facts["unit"] == "round" else
+                      "the edges are the plain ends of the rows"))
+    for b in facts["end_bands"]:
+        out.append(f"any end-band treatment other than exactly {facts['unit']}s "
+                   f"{b['rows'][0]}-{b['rows'][1]}: plain {b['colour']}"
+                   f"{(' ' + b['hex']) if b['hex'] else ''} {b['stitch']}, solid, no stripe, "
+                   f"no ribbing, no contrast {facts['unit']}")
+    c = facts.get("cables")
+    if c:
+        sep = "/".join(str(n) for n in c["separated_by"]) or "0"
+        every = "/".join(str(n) for n in c["every_n_rows"]) or "1"
+        out.append(f"any cable count or spacing other than exactly {c['columns']} cable "
+                   f"columns, each a {c['crossing_over']}-over-{c['crossing_over']} crochet "
+                   f"crossing of {', '.join(c['separator_stitch']) or 'post'} stitches, "
+                   f"separated by {sep} {', '.join(c['separator_stitch'])}, with "
+                   f"{c['edge_stitches'][0]} and {c['edge_stitches'][1]} stitches at the "
+                   f"edges, crossing every {every} {facts['unit']}s")
+    ch = facts["colour_change_rows"]
+    if ch:
+        gaps = {b - a for a, b in zip(ch, ch[1:])}
+        where = (f"every {gaps.pop()} {facts['unit']}s from {facts['unit']} {ch[0]} to "
+                 f"{ch[-1]}" if len(ch) > 3 and len(gaps) == 1 else
+                 f"{facts['unit']}s " + ", ".join(str(r) for r in ch))
+        out.append(f"colour changes anywhere except {where}")
+    return out
+
+
 def technical_rules(cir, parts=None, *, release_hash: str) -> dict:
     """The certified facts, structured. They go on the rules sheet and into the prompt."""
     from ..publish import charts
@@ -185,6 +308,7 @@ def technical_rules(cir, parts=None, *, release_hash: str) -> dict:
         "repeat": {"component": main[0].name, "stitches": col_p, "rows": row_p},
         "finished_size_note": cir.finished_size_note, "garment": garment,
         "assembly": assembly, "prohibited_additions": list(PROHIBITED_ADDITIONS),
+        "fabric": (facts := fabric_facts(cir, parts)), "negatives": negatives(facts),
     }
 
 
@@ -328,6 +452,10 @@ def _render_rules(rules: dict):
     text("NEVER ADD", head_f)
     for p in rules["prohibited_additions"]:
         text("- " + p)
+    text("")
+    text("THIS FABRIC: NEVER", head_f)
+    for n in rules.get("negatives") or []:
+        text("- " + n)
     height = 80 + 38 * len(lines)
     img = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(img)
@@ -361,19 +489,30 @@ def build(cir, *, release_hash: str, out_dir: str | Path, version: str | None = 
     parts = _components(cir)
     rules = technical_rules(cir, parts, release_hash=release_hash)
     layout, basis = _render_layout(cir, parts)
+    from . import stitch_texture
+
+    main = max(parts, key=lambda p: _grid_dims(p[1])[0] * _grid_dims(p[1])[1])
+    texture, region = stitch_texture.render(cir, main[1])
     detail = _render_detail(cir, parts)
     sheet = _render_rules(rules)
 
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)
     refs: list[PatternRef] = []
-    for role, image in (("layout", layout), ("detail", detail), ("rules", sheet)):
+    for role, image in (("layout", layout), ("texture", texture), ("detail", detail),
+                        ("rules", sheet)):
         image = _within_bounds(image)
         raw = _png_bytes(image)
         path = root / f"{cir.slug}-{release_hash[:12]}-{role}.png"
         path.write_bytes(raw)
         refs.append(PatternRef(role, str(path), hashlib.sha256(raw).hexdigest(),
                                image.size[0], image.size[1]))
+    texture_info = {"component": region.component,
+                    "rows": [region.first_row, region.last_row],
+                    "columns": [region.first_col, region.last_col],
+                    "stitches_drawn": list(region.stitches),
+                    "crossing_side": region.crossing_side or None,
+                    "basis": "drawn from cir.stitches definitions and the twin's cells"}
     main = rules["components"][0] if len(rules["components"]) == 1 else None
     category = ("garment" if rules.get("garment") else
                 "multi_piece" if len(rules["components"]) > 1 or rules["piece_count"] > 1
@@ -385,7 +524,7 @@ def build(cir, *, release_hash: str, out_dir: str | Path, version: str | None = 
         "grid": ({"stitches_across": main["stitches_across"], "rows": main["rows"],
                   "repeat": [rules["repeat"]["stitches"], rules["repeat"]["rows"]]}
                  if main else None),
-        "technical_rules": rules,
+        "technical_rules": rules, "texture": texture_info,
         "references": [r.to_dict() for r in refs],
         "cost_cad": 0.0, "basis": "deterministic render of the compiled CIR; no model",
     }

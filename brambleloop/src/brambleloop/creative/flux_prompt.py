@@ -20,7 +20,7 @@ from typing import Mapping, Sequence
 
 from ..gateway import prompts
 
-BUILDER_VERSION = "flux3-prompt-builder/1.0.0"
+BUILDER_VERSION = "flux3-prompt-builder/2.0.0"
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -43,12 +43,21 @@ IDENTITY = prompts.register(prompts.Prompt(
         "legs. Do not change her identity, body shape or proportions.")))
 
 PRODUCT = prompts.register(prompts.Prompt(
-    name="image.flux3.product", version="1", **_IMG, template=(
+    name="image.flux3.product", version="2", **_IMG, template=(
         "PRODUCT: {title}, Brambleloop {slug} version {version} (release {release}), shown "
         "exactly as in {layout} (complete product: shape, colour placement, proportions and "
-        "pieces), {detail} (stitch and construction detail) and {rules} (technical rules). "
+        "pieces). The fabric looks exactly like {texture}: real crochet, its stitch posts, "
+        "top loops and crossings at true scale. Stitch placement is charted in {detail}; the "
+        "technical rules are in {rules}. "
         "Construction: {construction}. Pieces: {pieces}. Size: {size}. Colours, exact and "
         "only these: {colours}. Stitches: {stitches}. {assembly}Never add: {prohibited}.")))
+
+# Category-aware prohibitions derived from the CIR (`pattern_refs.negatives`): always "crochet,
+# not knitting"; no ribbing or edging unless declared; end bands exactly as declared; exact
+# cable/motif count and spacing; colour changes only where the pattern changes colour.
+NEGATIVES = prompts.register(prompts.Prompt(
+    name="image.flux3.negatives", version="1", **_IMG, template=(
+        "THIS FABRIC MUST NOT SHOW: {negatives}.")))
 
 SCENE = prompts.register(prompts.Prompt(
     name="image.flux3.scene", version="1", **_IMG, template=(
@@ -67,7 +76,7 @@ DISCLOSURE = prompts.register(prompts.Prompt(
     name="image.flux3.disclosure", version="1", **_IMG, template=(
         "STATUS: {disclosure} {restrictions}")))
 
-SECTIONS = (REFERENCES, IDENTITY, PRODUCT, SCENE, REALISM, DISCLOSURE)
+SECTIONS = (REFERENCES, IDENTITY, PRODUCT, NEGATIVES, SCENE, REALISM, DISCLOSURE)
 
 DEFAULT_DISCLOSURE = ("This is an AI-generated image of a certified Brambleloop product and "
                       "will be disclosed as AI-generated wherever it is shown.")
@@ -100,6 +109,9 @@ class BuiltPrompt:
                 "sections": list(self.sections), "prompt_text_sha256": self.text_sha256,
                 "inputs_sha256": hashlib.sha256(repr(sorted(self.inputs.items()))
                                                 .encode()).hexdigest()}
+
+
+PRODUCT_ROLES = ("product_layout", "product_texture", "product_detail", "product_rules")
 
 
 def _img(position: int) -> str:
@@ -139,10 +151,10 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     roles = list(roles)
     pos = {r: i + 1 for i, r in enumerate(roles)}
     if "product_combined" in pos:
-        # A provider below six inputs gets 4/5/6 merged into one sheet: one position for all.
-        for k in ("product_layout", "product_detail", "product_rules"):
+        # A provider below the campaign set gets 4-7 merged into one sheet: one position.
+        for k in PRODUCT_ROLES:
             pos.setdefault(k, pos["product_combined"])
-    for need in ("product_layout", "product_detail", "product_rules"):
+    for need in PRODUCT_ROLES:
         if need not in pos:
             raise PromptBuildRefused(f"{need} is not among the references; the product is "
                                      f"described from its certified images, never from text "
@@ -158,10 +170,10 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     labels = {
         "laura_face": "canonical Laura face (neutral portrait)",
         "laura_torso": "canonical Laura torso and bust", "laura_body": "canonical Laura full "
-        "body", "product_layout": "certified product layout", "product_detail": "certified "
-        "stitch and construction detail", "product_rules": "certified technical rules",
-        "product_combined": "certified product sheet (layout, detail and rules, top to "
-        "bottom)", "product_candidate": "approved product photograph of this exact product",
+        "body", "product_layout": "certified product layout", "product_texture": "certified "
+        "crochet stitch texture close-up", "product_detail": "certified stitch chart", "product_rules": "certified technical rules",
+        "product_combined": "certified product sheet (layout, texture, chart and rules, top "
+        "to bottom)", "product_candidate": "approved product photograph of this exact product",
         "base": "the image to edit", "outfit": "the outfit", "supplementary": "supplementary "
         "context"}
     ref_map = "; ".join(f"{_img(i + 1)} = {labels.get(r.split(':')[0], r)}"
@@ -182,7 +194,8 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     texts.append(PRODUCT.render(
         title=rules["title"], slug=rules["slug"], version=rules["version"],
         release=str(rules["release_hash"])[:16], layout=_img(pos["product_layout"]),
-        detail=_img(pos["product_detail"]), rules=_img(pos["product_rules"]),
+        texture=_img(pos["product_texture"]), detail=_img(pos["product_detail"]),
+        rules=_img(pos["product_rules"]),
         construction=f"{rules['construction']}, gauge {rules['gauge']['stitches_per_10cm']} "
                      f"sts x {rules['gauge']['rows_per_10cm']} rows per 10 cm in "
                      f"{rules['gauge']['stitch']}",
@@ -190,6 +203,12 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         stitches=", ".join(rules.get("stitches") or []) or "as charted",
         assembly=assembly, prohibited="; ".join(rules["prohibited_additions"])))
     used.append(PRODUCT)
+    negs = list(rules.get("negatives") or [])
+    if not negs or not negs[0].startswith("knitting"):
+        raise PromptBuildRefused("certified rules carry no fabric negatives; the prompt "
+                                 "would not forbid knitting, invented edging or end bands")
+    texts.append(NEGATIVES.render(negatives="; ".join(negs)))
+    used.append(NEGATIVES)
     if features_laura:
         subject = "Laura with the product."
         if outfit.get("description") or "outfit" in pos:

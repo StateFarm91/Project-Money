@@ -80,6 +80,15 @@ def _product(stub=None):
                           work_dir=str(_WORK / "po"))
 
 
+def _pass(prod):
+    return S.fidelity_verdict(prod, status="PASS", checker="test: flat-lay fidelity")
+
+
+def _life(rel, prod, laura, outfit, **kw):
+    kw.setdefault("fidelity", _pass(prod))
+    return S.lifestyle(rel, prod, laura, outfit, **kw)
+
+
 def _refused(fn, exc=S.StageRefused):
     try:
         fn()
@@ -109,7 +118,7 @@ def test_cloudline_refs_are_99x100_release_bound_fingerprinted_and_deterministic
     m2 = P.build(CIR, release_hash=RELEASE_HASH, out_dir=_WORK / "a2")
     assert m["grid"]["stitches_across"] == 99 and m["grid"]["rows"] == 100
     assert m["grid"]["repeat"][0] == 9 and m["cost_cad"] == 0.0 and m["category"] == "flat"
-    assert [r["role"] for r in m["references"]] == ["layout", "detail", "rules"]
+    assert [r["role"] for r in m["references"]] == ["layout", "texture", "detail", "rules"]
     assert [r["sha256"] for r in m["references"]] == [r["sha256"] for r in m2["references"]]
     for r in m["references"]:
         raw = Path(r["path"]).read_bytes()
@@ -135,7 +144,7 @@ def test_product_refs_come_only_from_the_exact_certified_version():
                                                out_dir=_WORK / "x", version="1.1.0"),
                     P.PatternRefsRefused)
     m = P.build(CIR, release_hash=RELEASE_HASH, out_dir=_WORK / "t")
-    Path(m["references"][1]["path"]).write_bytes(b"\x89PNG tampered")
+    Path(m["references"][2]["path"]).write_bytes(b"\x89PNG tampered")
     assert P.verify(m)["problems"] == ["detail: bytes changed"]
 
 
@@ -173,7 +182,7 @@ def test_every_laura_generation_supplies_all_three_canonical_references_first():
     rel = _release()
     stub = S.StubRenderer()
     prod = _product(stub)
-    life = S.lifestyle(rel, prod, None, OUTFIT, scene=SCENE, renderer=stub,
+    life = _life(rel, prod, None, OUTFIT, scene=SCENE, renderer=stub,
                        work_dir=str(_WORK / "ls"))
     var = S.variant(rel, life, "second_angle", outfit=OUTFIT, renderer=stub,
                     work_dir=str(_WORK / "ls"))
@@ -181,8 +190,9 @@ def test_every_laura_generation_supplies_all_three_canonical_references_first():
         sent = [hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in call["refs"]]
         assert tuple(sent[:3]) == S.canonical_laura_hashes()
         assert cand.receipt["input_sha256s"] == sent and cand.features_laura
-        assert [r["role"] for r in cand.receipt["references"]][:6] == list(S.CAMPAIGN_MINIMUM)
-    assert [r["role"] for r in var.receipt["references"]][6] == "base"
+        n = len(S.CAMPAIGN_MINIMUM)
+        assert [r["role"] for r in cand.receipt["references"]][:n] == list(S.CAMPAIGN_MINIMUM)
+    assert [r["role"] for r in var.receipt["references"]][len(S.CAMPAIGN_MINIMUM)] == "base"
 
 
 def test_an_invalid_missing_or_substituted_laura_reference_is_refused_before_any_call():
@@ -203,12 +213,12 @@ def test_an_invalid_missing_or_substituted_laura_reference_is_refused_before_any
                                                               str(_WORK / "nope.png")]}
     before = len(stub.calls)
     for name, refs in bad_sets.items():
-        assert _refused(lambda: S.lifestyle(rel, prod, refs, OUTFIT, renderer=stub,
+        assert _refused(lambda: _life(rel, prod, refs, OUTFIT, renderer=stub,
                                             work_dir=str(_WORK / "bad"))), name
     saved = canonical.reference_file
     canonical.reference_file = lambda frame: ""                      # not on this disk
     try:
-        assert _refused(lambda: S.lifestyle(rel, prod, None, OUTFIT, renderer=stub,
+        assert _refused(lambda: _life(rel, prod, None, OUTFIT, renderer=stub,
                                             work_dir=str(_WORK / "bad")))
     finally:
         canonical.reference_file = saved
@@ -221,7 +231,7 @@ def test_supplementary_images_are_added_after_the_originals_never_instead():
     prod = _product(stub)
     extra = _png("approved_lifestyle2.png", (1, 2, 3))
     outfit = {**OUTFIT, "image": _png("outfit.png", (10, 200, 10))}
-    c = S.lifestyle(rel, prod, _canon_paths(), outfit, supplementary=[extra], renderer=stub,
+    c = _life(rel, prod, _canon_paths(), outfit, supplementary=[extra], renderer=stub,
                     work_dir=str(_WORK / "sup"))
     roles = [r["role"] for r in c.receipt["references"]]
     assert roles == list(S.CAMPAIGN_MINIMUM) + ["product_candidate", "outfit", "supplementary"]
@@ -245,12 +255,12 @@ def test_a_laura_image_requires_the_listings_outfit_and_a_matching_release():
     rel = _release()
     stub = S.StubRenderer()
     prod = _product(stub)
-    assert _refused(lambda: S.lifestyle(rel, prod, None, {}, renderer=stub,
+    assert _refused(lambda: _life(rel, prod, None, {}, renderer=stub,
                                         work_dir=str(_WORK / "o")))
     other = S.Candidate("product_only", "x", prod.path, prod.sha256, "f" * 64)
     assert _refused(lambda: S.lifestyle(rel, other, None, OUTFIT, renderer=stub,
                                         work_dir=str(_WORK / "o")))
-    life = S.lifestyle(rel, prod, None, OUTFIT, renderer=stub, work_dir=str(_WORK / "o"))
+    life = _life(rel, prod, None, OUTFIT, renderer=stub, work_dir=str(_WORK / "o"))
     assert _refused(lambda: S.variant(rel, life, "second_angle", renderer=stub,
                                       work_dir=str(_WORK / "o")))       # no outfit
     assert _refused(lambda: S.variant(rel, life, "make_it_pop", outfit=OUTFIT,
@@ -258,12 +268,12 @@ def test_a_laura_image_requires_the_listings_outfit_and_a_matching_release():
 
 
 # -- six-reference campaign set and the lower-limit fallback ---------------------------------
-def test_all_six_campaign_references_reach_the_provider_payload():
+def test_all_campaign_references_reach_the_provider_payload():
     rel = _release()
     prod = _product()
     t = Transport()
     with t:
-        c = S.lifestyle(rel, prod, None, OUTFIT, scene=SCENE,
+        c = _life(rel, prod, None, OUTFIT, scene=SCENE,
                         renderer=S.flux3_renderer(ENV), work_dir=str(_WORK / "pay"), db=_db())
     body = t.posts[0]["body"]
     expect = _canon_paths() + list(rel.pattern_refs) + [prod.path]
@@ -271,18 +281,19 @@ def test_all_six_campaign_references_reach_the_provider_payload():
                               for p in expect]
     assert body["aspect_ratio"] == "4:5" and body["resolution"] == "1k"
     r = c.receipt
-    assert r["input_sha256s"][:6] == list(S.canonical_laura_hashes()) + list(
+    assert len(body["images"]) == 8 and len(S.CAMPAIGN_MINIMUM) == 7
+    assert r["input_sha256s"][:7] == list(S.canonical_laura_hashes()) + list(
         rel.pattern_ref_sha256s)
     assert r["limitation"] is None and r["reference_limit"] == 10
     assert r["request"]["conditioning_proven"] is True and r["output_sha256"] == c.sha256
     assert r["task_id"] == "task-123" and r["provider_cost_credits"] == 4.8
 
 
-def test_a_lower_provider_limit_merges_4_5_6_losslessly_and_reports_it():
+def test_a_lower_provider_limit_merges_4_to_7_losslessly_and_reports_it():
     rel = _release()
     prod = _product()
     stub = S.StubRenderer(reference_limit=6)
-    c = S.lifestyle(rel, prod, None, OUTFIT, renderer=stub, work_dir=str(_WORK / "lim"))
+    c = _life(rel, prod, None, OUTFIT, renderer=stub, work_dir=str(_WORK / "lim"))
     roles = [r["role"] for r in c.receipt["references"]]
     assert roles == ["laura_face", "laura_torso", "laura_body", "product_combined",
                      "product_candidate"]
@@ -297,7 +308,7 @@ def test_a_lower_provider_limit_merges_4_5_6_losslessly_and_reports_it():
     assert "image 4 = certified product sheet" in stub.calls[-1]["prompt"]
     # Below what even the merged set needs: refused, nothing dropped.
     tiny = S.StubRenderer(reference_limit=4)
-    assert _refused(lambda: S.lifestyle(rel, prod, None, OUTFIT, renderer=tiny,
+    assert _refused(lambda: _life(rel, prod, None, OUTFIT, renderer=tiny,
                                         work_dir=str(_WORK / "lim")))
     assert tiny.calls == []
 
@@ -307,7 +318,7 @@ def test_the_full_prompt_is_built_from_certified_data_and_pinned():
     rel = _release()
     stub = S.StubRenderer()
     prod = _product(stub)
-    c = S.lifestyle(rel, prod, None, OUTFIT, scene=SCENE, role="lifestyle_hero",
+    c = _life(rel, prod, None, OUTFIT, scene=SCENE, role="lifestyle_hero",
                     renderer=stub, work_dir=str(_WORK / "pr"))
     text = stub.calls[-1]["prompt"]
     for must in ("image 1 = canonical Laura face", "bust", "waist-to-hip", "freckles",

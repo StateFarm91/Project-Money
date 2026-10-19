@@ -2,7 +2,7 @@
 
 The owner's staged workflow, made callable and bound to the 2026-10-19 production standard:
 
-    certified pattern -> product references 4/5/6 (deterministic, free) ->
+    certified pattern -> product references 4-7 (deterministic, free) ->
     validated canonical Laura references 1/2/3 -> product_only -> lifestyle -> variants
 
     release_from_cir(cir, release_hash=, out_dir=)                      -> Release
@@ -17,14 +17,18 @@ Rules enforced here, each with a test (`tests/test_w4_fluxstages.py`):
    bytes are validated against the canonical fingerprints before anything is sent. A missing,
    altered, forbidden or substituted reference is refused, never degraded. Supplementary images
    may be added after them and never replace them. Product-only generations carry no Laura.
-2. **Product references 4/5/6** come from the exact certified release (`creative.pattern_refs`),
+2. **Product references 4-7** come from the exact certified release (`creative.pattern_refs`),
    bound to its release hash.
-3. **The six-reference campaign set** (face, torso, body, layout, detail, rules) is sent as six
-   image inputs where the provider's documented limit allows (FLUX 3 Image: 10). Where it is
+3. **The campaign set** (face, torso, body; layout, stitch texture, chart, rules -- the
+   ruling's six plus the stitch-texture close-up added after the reading-nook test) is sent as
+   seven image inputs where the provider's documented limit allows (FLUX 3 Image: 10). Where it is
    lower, nothing is dropped: the three product references are merged, losslessly, into one
    combined sheet (`combined_reference_sheet`), and the limitation is recorded in the receipt.
    If even that does not fit, the stage is refused. The Laura originals are never merged or
    altered: identity conditions on the originals themselves.
+3a. **Stage order:** the product-only image is an unfolded, countable flat lay, and a lifestyle
+   image is refused unless that exact flat lay holds a PASS fidelity verdict
+   (`fidelity_verdict`). FAIL and UNKNOWN both refuse (`failure_codes.UNVERIFIABLE_COUNT`).
 4. **The prompt is built**, not written (`creative.flux_prompt`), from certified data, brand
    rules and W-OWNERIMG's scene, and every section is pinned and hashed.
 5. **Spend:** the default renderer is `gateway.images.generate` on `flux-3-image`, which
@@ -55,7 +59,7 @@ PRODUCT_SIZE = "1024x1024"           # 1:1 at FLUX 3's 1k tier (US$0.048)
 LIFESTYLE_SIZE = "912x1140"          # 4:5 at the 1k tier (US$0.048)
 MAX_EDIT_CHARS = 400
 LAURA_ROLES: tuple[str, ...] = ("laura_face", "laura_torso", "laura_body")
-PRODUCT_ROLES: tuple[str, ...] = ("product_layout", "product_detail", "product_rules")
+PRODUCT_ROLES: tuple[str, ...] = flux_prompt.PRODUCT_ROLES   # layout, texture, chart, rules
 CAMPAIGN_MINIMUM = LAURA_ROLES + PRODUCT_ROLES
 
 VARIANT_ROLES: tuple[str, ...] = ("detail_closeup", "flat_lay", "scale_in_hand",
@@ -83,7 +87,7 @@ class Release:
     release_hash: str
     title: str
     rules: Mapping                         # pattern_refs.technical_rules
-    pattern_refs: tuple[str, ...]          # layout, detail, rules (references 4, 5, 6)
+    pattern_refs: tuple[str, ...]          # layout, texture, detail, rules (references 4-7)
     pattern_ref_sha256s: tuple[str, ...] = ()
     work_root: str = ""
 
@@ -170,7 +174,7 @@ class StubRenderer:
 # -- references ------------------------------------------------------------------------------
 def release_from_cir(cir, *, release_hash: str, out_dir: str | Path,
                      version: str | None = None) -> Release:
-    """A `Release` for a certified CIR, with references 4/5/6 rendered from that exact version."""
+    """A `Release` for a certified CIR, with references 4-7 rendered from that exact version."""
     from . import pattern_refs
 
     manifest = pattern_refs.build(cir, release_hash=release_hash, out_dir=out_dir,
@@ -285,15 +289,15 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
     if features_laura:
         items += list(zip(LAURA_ROLES, laura_references(laura_refs)))
     items += list(zip(PRODUCT_ROLES, release.pattern_refs))
-    if len(release.pattern_refs) != 3 or [_sha(p) for p in release.pattern_refs] != list(
-            release.pattern_ref_sha256s):
+    if len(release.pattern_refs) != len(PRODUCT_ROLES) or [
+            _sha(p) for p in release.pattern_refs] != list(release.pattern_ref_sha256s):
         raise StageRefused("the product references are not the release's fingerprinted "
-                           "layout, detail and rules")
+                           "layout, texture, chart and rules")
     items += list(leading) + list(supplementary)
     combined = None
     limitation = None
     if len(items) > reference_limit:
-        # Lossless fallback: references 4/5/6 become one sheet. Laura originals stay separate.
+        # Lossless fallback: references 4-7 become one sheet. Laura originals stay separate.
         sheet = combined_reference_sheet(
             release.pattern_refs, Path(work_dir) / f"{release.slug}-{release.release_hash[:12]}"
                                                    f"-product-sheet.png")
@@ -301,9 +305,9 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
         at = 3 if features_laura else 0
         items = merged[:at] + [("product_combined", sheet["path"])] + merged[at:]
         combined = sheet
-        limitation = (f"provider limit {reference_limit} is below the {len(merged) + 3} "
-                      f"references; product layout, detail and rules were merged losslessly "
-                      f"into one sheet")
+        limitation = (f"provider limit {reference_limit} is below the "
+                      f"{len(merged) + len(PRODUCT_ROLES)} references; product layout, "
+                      f"texture, chart and rules were merged losslessly into one sheet")
         if len(items) > reference_limit:
             raise StageRefused(f"{len(items)} references even after merging the product "
                                f"sheet; the provider takes {reference_limit}. Refused rather "
@@ -383,11 +387,58 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
 
 
 # -- the three stages ------------------------------------------------------------------------
+FLAT_LAY_SCENE = {
+    "environment": "a plain, matte, neutral surface with soft, even daylight",
+    "pose": ("the product laid completely flat and unfolded, seen from directly above; no "
+             "folds, no drape, no rolled or tucked edges"),
+    "framing": ("the whole piece in frame with a margin on every side, square to the camera, "
+                "so every piece, edge, band, cable column and motif can be counted"),
+}
+
+
+def fidelity_verdict(candidate: Candidate, *, status: str, checker: str,
+                     failures: Sequence[str] = (), notes: str = "") -> dict:
+    """The record a fidelity check writes about one product-only flat lay.
+
+    `status` is PASS, FAIL or UNKNOWN; `failures` are `failure_codes` codes. The check itself
+    (Product Truth on the flat lay) belongs to the gates; this only makes its answer bindable
+    to the exact candidate bytes, so a verdict cannot be reused for another image."""
+    from . import failure_codes
+
+    if status not in ("PASS", "FAIL", "UNKNOWN"):
+        raise StageRefused(f"fidelity status {status!r} is not PASS, FAIL or UNKNOWN")
+    unknown = sorted(set(failures) - failure_codes.ALL_CODES)
+    if unknown:
+        raise StageRefused(f"unknown failure codes {unknown}; use failure_codes")
+    if status == "PASS" and failures:
+        raise StageRefused("a PASS verdict cannot carry failure codes")
+    if not checker:
+        raise StageRefused("a fidelity verdict names its checker")
+    return {"status": status, "candidate_sha256": candidate.sha256,
+            "release_hash": candidate.release_hash, "stage": candidate.stage,
+            "role": candidate.role, "checker": checker, "failures": sorted(set(failures)),
+            "notes": notes}
+
+
+def _require_flat_lay_pass(release: Release, product_candidate: Candidate, fidelity) -> None:
+    v = dict(fidelity or {})
+    if product_candidate.stage != "product_only" or product_candidate.role != "product_flat_lay":
+        raise StageRefused("lifestyle comes after the product-only flat lay; this product "
+                           "image is not one")
+    if v.get("candidate_sha256") != product_candidate.sha256 or v.get(
+            "release_hash") != release.release_hash:
+        raise StageRefused("the fidelity verdict is not about this flat lay of this release")
+    if v.get("status") != "PASS":
+        raise StageRefused(f"the flat lay's fidelity is {v.get('status') or 'UNKNOWN'} "
+                           f"{v.get('failures') or ''}; lifestyle generation is gated on PASS")
+
+
 def product_only(release: Release, refs: Sequence[str] | None = None, *,
                  scene: Mapping | None = None, renderer=None, work_dir: str, db=None,
                  job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS
                  ) -> Candidate:
-    """The product alone, conditioned on references 4/5/6. No Laura, no outfit.
+    """The product alone as an unfolded, countable flat lay, conditioned on references 4-7.
+    No Laura, no outfit. Its fidelity verdict gates every lifestyle image.
 
     `refs`, when given, must be the release's own pattern references (they cannot be swapped)."""
     if refs is not None and [str(r) for r in refs] != list(release.pattern_refs):
@@ -396,14 +447,16 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
     plan = campaign_references(release, features_laura=False,
                                reference_limit=_limit(render), work_dir=work_dir)
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
-                              role="product only", scene=scene)
-    return _run("product_only", "product_full_view", release, plan, built, PRODUCT_SIZE,
+                              role="product-only flat lay",
+                              scene={**FLAT_LAY_SCENE, **dict(scene or {})})
+    return _run("product_only", "product_flat_lay", release, plan, built, PRODUCT_SIZE,
                 features_laura=False, renderer=render, work_dir=work_dir, db=db,
                 job_id=job_id, max_attempts=max_attempts, purpose="image.product_only")
 
 
 def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequence[str] | None,
-              outfit: Mapping, *, scene: Mapping | None = None, role: str = "lifestyle_hero",
+              outfit: Mapping, *, fidelity: Mapping | None = None,
+              scene: Mapping | None = None, role: str = "lifestyle_hero",
               supplementary: Sequence[str] = (), renderer=None, work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """Laura with the product: the six-reference campaign set, then the product photograph,
@@ -414,6 +467,7 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
     required. `scene` carries W-OWNERIMG's {environment, pose, framing}."""
     if product_candidate.release_hash != release.release_hash:
         raise StageRefused("the product candidate belongs to a different release")
+    _require_flat_lay_pass(release, product_candidate, fidelity)
     outfit = dict(outfit or {})
     if not (outfit.get("id") and (outfit.get("description") or outfit.get("image"))):
         raise StageRefused("a Laura image needs the listing's reserved outfit (id and "
@@ -440,7 +494,7 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
     """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
 
     A variant of a Laura image is itself a Laura image: it carries the six-reference set again
-    and the listing's outfit. A product-only variant carries references 4/5/6 and the base."""
+    and the listing's outfit. A product-only variant carries references 4-7 and the base."""
     if base_candidate.release_hash != release.release_hash:
         raise StageRefused("the base candidate belongs to a different release")
     if role not in VARIANT_ROLES:
