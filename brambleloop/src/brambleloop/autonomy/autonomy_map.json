@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T06:00:46.067065+00:00",
+ "generated_at": "2026-10-20T11:08:45.519406+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 114,
-  "handlers": 134,
+  "cadences": 115,
+  "handlers": 135,
   "agents": 30,
   "follow_on_edges": 62
  },
@@ -2187,6 +2187,12 @@
       "period_seconds": 21600
      },
      {
+      "name": "provider_credentials",
+      "agent": "orchestrator",
+      "job_type": "ops.provider_credentials",
+      "period_seconds": 86400
+     },
+     {
       "name": "continuity_proof",
       "agent": "orchestrator",
       "job_type": "ops.continuity",
@@ -2288,6 +2294,7 @@
      "ops.maturity_disagreements",
      "ops.offsite_archive",
      "ops.policy_watch",
+     "ops.provider_credentials",
      "ops.queue_check",
      "ops.retention",
      "ops.slo",

@@ -257,6 +257,14 @@ def candidates(db) -> tuple[list[dict], int]:
         out.extend(image_production.notification_candidates(db))
     except Exception:  # noqa: BLE001 - an unreadable run table is visible on the Images tab
         pass
+    # W4-CREDHEALTH: provider credential cards (owner-actionable states at once, a recovery
+    # card, transient failures only after consecutive repeats). No key value ever.
+    try:
+        from ...gateway import credentials
+
+        out.extend(credentials.notification_candidates(db))
+    except Exception:  # noqa: BLE001 - the credentials view shows the reading itself
+        pass
     routine_suppressed = max(0, int(routine))
     return out, routine_suppressed
 

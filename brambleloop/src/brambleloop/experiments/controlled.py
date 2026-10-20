@@ -419,7 +419,17 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
         run = s.get(ControlledRun, run_id)
         if run is None:
             return {"ran": False, "why": "no such run"}
-        if run.status != "queued":
+        resume = None
+        if run.status == "running":
+            # W4-CREDHEALTH: the same job reclaimed after its worker was lost. It resumes or
+            # settles; it never pays twice. Any other job finding it running is refused.
+            if job_id is None or run.job_id != job_id:
+                return {"ran": False, "why": f"run is running under job {run.job_id}",
+                        "run_id": run_id}
+            resume = {"image_sha256": run.image_sha256 or "",
+                      "attempts": int(run.attempts or 0),
+                      "log": list(run.attempt_log or [])}
+        elif run.status != "queued":
             return {"ran": False, "why": f"run is {run.status}", "run_id": run_id}
         auth_id, def_id = run.auth_id, run.definition_id
 
@@ -444,15 +454,45 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
     model, size = defn["model"], defn["size"]
     price = _price_cad(model, size, refs)
     max_attempts = 1 + int(defn.get("max_retries") or 0)
+    if resume and resume["image_sha256"]:
+        # The image was paid for and stored durably before the worker was lost: no new
+        # generation, the stored bytes are judged (vision calls are paid-call guarded too).
+        try:
+            data = ArtifactStore().get(resume["image_sha256"], db=db)
+        except Exception as exc:  # noqa: BLE001 - lost bytes are reported, never re-bought
+            _update(db, run_id, status="failed",
+                    why=f"resumed: the stored image is unreadable ({type(exc).__name__}); "
+                        f"not generated again")
+            return {"ran": True, "image": False, "run_id": run_id, "resumed": True}
+        return _finish(db, run_id, data, defn, auth, vision=vision, cir_loader=cir_loader,
+                       secrets=secrets, resumed=True)
+    if resume and resume["attempts"] and paid_calls_scope() != job_id:
+        # A paid call may have been in flight and there is no job scope to replay it from:
+        # billing is unknown, so it is not resent. The reservation stays counted (UNKNOWN is
+        # never zero).
+        _update(db, run_id, status="failed", attempt_log=resume["log"] + [{
+            "attempt": resume["attempts"], "sent": None, "billing": "unknown",
+            "why": "worker lost during generation; not resent (F-339)"}],
+            why="worker lost during generation; billing unknown, counted at the "
+                "reservation, not resent")
+        return {"ran": True, "image": False, "run_id": run_id, "resumed": True,
+                "settled": "billing_unknown"}
     _update(db, run_id, status="running", job_id=job_id,
             references=[{k: r[k] for k in ("position", "role", "sha256")}
                         for r in v["references"]])
-    log: list[dict] = []
+    log: list[dict] = list(resume["log"]) if resume else []
     result = None
+    # On resume the interrupted attempt's reservation is still counted: the first resumed
+    # attempt reuses it rather than reserving again (no double count).
+    held = bool(resume and resume["attempts"])
+    first = (resume["attempts"] if held else 1)
     e = env if env is not None else os.environ
     with workspace.work_dir(None, prefix="experiment-") as work:
-        for attempt in range(1, max_attempts + 1):
+        for attempt in range(first, max_attempts + 1):
             gen_spent, _ = _spent(db, auth_id)
+            if held:
+                held = False
+                gen_spent -= price          # this attempt's reservation is already in it
             if gen_spent + price > float(auth["generation_cap_cad"]) + 1e-9:
                 log.append({"attempt": attempt, "sent": False,
                             "why": f"generation cap CA${auth['generation_cap_cad']:.2f} would "
@@ -460,16 +500,23 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
                 break
             # Reserved against the cap before the call; a failed call stays billed at its
             # reservation (never zero) unless the provider reports otherwise.
-            _update(db, run_id, generation_spent_cad=_run_spent(db, run_id) + price,
-                    attempts=attempt)
+            if not (resume and attempt == resume["attempts"]):
+                _update(db, run_id, generation_spent_cad=_run_spent(db, run_id) + price,
+                        attempts=attempt)
             try:
                 result = images.generate(v["prompt"], reference_urls=refs, env=e, size=size,
                                          provider_key=model, work_dir=str(work), db=db,
                                          agent=AGENT, purpose=f"experiment.{def_id}",
                                          job_id=job_id)
-                actual = float(result.get("cad") if result.get("cad") is not None else price)
+                if result.get("replayed"):
+                    # the paid-call guard served the render this job already paid for
+                    actual = float(result.get("replayed_cad") or price)
+                else:
+                    actual = float(result.get("cad") if result.get("cad") is not None
+                                   else price)
                 _update(db, run_id, generation_spent_cad=_run_spent(db, run_id) - price + actual)
-                log.append({"attempt": attempt, "sent": True, "cost_cad": actual})
+                log.append({"attempt": attempt, "sent": not result.get("replayed"),
+                            "cost_cad": actual, "replayed": bool(result.get("replayed"))})
                 break
             except TransientError as exc:
                 log.append({"attempt": attempt, "sent": True, "transient": True,
@@ -497,12 +544,26 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
     receipt = _scrub({k: v_ for k, v_ in result.items() if k not in ("path", "image_ref")},
                      secrets)
     _update(db, run_id, image_sha256=stored.sha256, receipt=receipt, attempt_log=log)
+    return _finish(db, run_id, data, defn, auth, vision=vision, cir_loader=cir_loader,
+                   secrets=secrets, resumed=bool(resume))
+
+
+def paid_calls_scope() -> int | None:
+    from ..gateway import paid_calls
+
+    return paid_calls.current_job_id()
+
+
+def _finish(db, run_id: int, data: bytes, defn: dict, auth: dict, *, vision, cir_loader,
+            secrets, resumed: bool) -> dict:
     verification = _verify_image(db, data, defn, auth, run_id, vision=vision,
                                  cir_loader=cir_loader)
     _update(db, run_id, status="completed", verification=_scrub(verification, secrets),
             vision_spent_cad=float(verification.get("vision_spent_cad") or 0.0))
-    return {"ran": True, "image": True, "run_id": run_id, "image_sha256": stored.sha256,
-            "status": "completed", "verification": verification.get("summary")}
+    sha = hashlib.sha256(data).hexdigest()
+    return {"ran": True, "image": True, "run_id": run_id, "image_sha256": sha,
+            "status": "completed", "verification": verification.get("summary"),
+            "resumed": resumed}
 
 
 def _run_spent(db, run_id: int) -> float:
@@ -602,8 +663,33 @@ def get_run(db, run_id: int) -> dict | None:
         return _run_view(r) if r else None
 
 
+def settle_dead(db) -> int:
+    """W4-CREDHEALTH: a run whose job dead-lettered while running is settled as failed with
+    billing unknown (its reservation stays counted; nothing is resent). Returns the count."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    ensure_tables(db)
+    n = 0
+    with db.session() as s:
+        for r in s.scalars(select(ControlledRun).where(ControlledRun.status == "running")):
+            job = s.get(Job, r.job_id) if r.job_id else None
+            if job is not None and job.status == JobStatus.DEAD:
+                r.status = "failed"
+                r.why = ("the job dead-lettered while running; billing unknown, counted at "
+                         "the reservation, not resent")
+                r.updated_at = _now()
+                n += 1
+    return n
+
+
 def board(db) -> list[dict]:
     """Every definition, its live authorization, its runs and whether its inputs verify."""
+    try:
+        settle_dead(db)
+    except Exception:  # noqa: BLE001 - the board still reads; settling retries next view
+        pass
     out = []
     for did in definition_ids():
         loaded = load(did)

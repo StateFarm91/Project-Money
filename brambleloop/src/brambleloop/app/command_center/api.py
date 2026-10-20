@@ -597,8 +597,10 @@ def make_router(db) -> APIRouter:
 
         def enqueue(inputs, key):
             try:
+                # W4-CREDHEALTH: a reclaimed job re-runs once so the run resumes or settles
+                # (run_job never pays twice: paid-call replay, billing-unknown never resent).
                 return q.enqueue(controlled.AGENT, controlled.JOB_TYPE, inputs,
-                                 idempotency_key=key, max_attempts=1)
+                                 idempotency_key=key, max_attempts=2)
             except DuplicateJob as exc:
                 return exc.existing_id
         try:
@@ -775,6 +777,19 @@ def make_router(db) -> APIRouter:
     # Session + CSRF + nonce + timestamp are enforced by the gate before these run. A check
     # that calls a third party (model, Etsy, bucket) also needs a fresh step-up. Each run only
     # enqueues the existing scheduled job type; the worker re-authorises and budget-checks it.
+
+    # ---- W4-CREDHEALTH: provider credential health (owner view) ------------------------
+    # The latest reading per provider plus the live key fingerprint (last 4 + sha256 prefix),
+    # which only this owner-authenticated view returns. "Check now" is
+    # POST /api/cc/checks/credentials/run (the existing on-demand path).
+
+    @router.get("/credentials")
+    def credentials_status(request: Request):
+        from ...gateway import credentials
+
+        return ok({"providers": credentials.state(db, owner=True),
+                   "run_now": "/api/cc/checks/credentials/run",
+                   "rotation_doc": "research/final_build/w4/KEY_ROTATION.md"})
 
     @router.get("/checks")
     def checks_status(request: Request):
