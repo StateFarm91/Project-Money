@@ -967,6 +967,40 @@ FM_EDITS.update({
 })
 
 
+# ---- CLOSE6 batch 3: F-144 Production Readback Gate (dev-proven) ----------------------------
+RB6 = "tests/test_w4_close6_readback.py::"
+FM_EDITS.update({
+    ("s2", "F-144"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/ops/smoke.py::smoke_matrix (GET /api/verify/smoke); "
+                    "ops/readback.py::run (per-feature MANIFEST: endpoint, field, predicate, rows)",
+        "consumer": "ops/deploy.sh (exit 5 when a feature does not read back; writes the "
+                    "readback evidence); research/final_build/w4/completion_board_final.py::"
+                    "apply_readback (a row a feature names is not verified_complete unless the "
+                    "deployed commit's readback passed)",
+        "durable_state": "research/final_build/w4/evidence_BOARD/prod_readback_<sha12>_<ts>.json",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy the next release with ops/deploy.sh; the row is held until that "
+                       "commit's readback passes (b931d17 reads FAIL: dead letters, "
+                       "/api/departments 500 -- both fixed on the branch)",
+        "evidence+": [f"{TAG6}: W4-SMOKE built the gate (ops/readback.py, ops/deploy.sh exit 5, "
+                      "ops/smoke.py at /api/verify/smoke); W4-CLOSE6 added the features "
+                      "production failed without any readback noticing (GET /api/departments "
+                      "500 on b931d17; swarm runtime, funding packet, off-site archive, "
+                      "continuity proof, Etsy credential), persisted every deploy's readback as "
+                      "evidence, and made the completion board refuse 'done' to a row whose "
+                      "feature does not read back on the deployed commit (missing readback = "
+                      "UNKNOWN, held). Read-only readback of b931d17 on file: FAIL on 'no "
+                      "unexpected dead letters' and 'department health served'. Dev-proven."],
+        "tests+": [RB6 + "test_the_manifest_reads_back_the_features_that_failed_unseen",
+                   RB6 + "test_a_row_is_not_complete_unless_its_deployed_readback_passed",
+                   RB6 + "test_deploy_writes_the_readback_where_the_board_reads_it",
+                   RB6 + "test_the_committed_board_applies_the_deployed_readback",
+                   "tests/test_w4_smoke.py::test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do"],
+    },
+})
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {

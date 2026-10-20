@@ -1,12 +1,12 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-20T11:54:16Z by `research/final_build/w4/completion_board_final.py` on branch head 01b1c8cf. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-20T12:20:28Z by `research/final_build/w4/completion_board_final.py` on branch head c8fcf17c. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
 | Build 2 | 320 | 194 | 35 | 0 | 3 | 36 | 49 | 3 |
-| Final Master launch-critical | 490 | 359 | 18 | 5 | 37 | 42 | 29 | 0 |
-| Final Master total | 917 | 409 | 30 | 5 | 249 | 127 | 90 | 7 |
+| Final Master launch-critical | 490 | 359 | 19 | 5 | 36 | 42 | 29 | 0 |
+| Final Master total | 917 | 409 | 31 | 5 | 248 | 127 | 90 | 7 |
 | Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 
 ## Recount (nine categories, after the spot audit)
@@ -14,19 +14,19 @@ Generated 2026-10-20T11:54:16Z by `research/final_build/w4/completion_board_fina
 | scope | production_verified | dev_proven_not_deployed | implemented_unverified | in_progress | engineering_blocked | owner_blocked | external_blocked | live_customer_C | not_applicable | executable engineering | post-launch empirical | owner/external (non-empirical) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Build 2 | 194 | 32 | 0 | 0 | 2 | 29 | 39 | 21 | 3 | 34 | 52 | 37 |
-| Final Master launch-critical | 359 | 17 | 1 | 5 | 37 | 40 | 28 | 3 | 0 | 60 | 6 | 65 |
-| Final Master total | 409 | 29 | 1 | 5 | 245 | 121 | 81 | 19 | 7 | 280 | 65 | 156 |
+| Final Master launch-critical | 359 | 18 | 1 | 5 | 36 | 40 | 28 | 3 | 0 | 60 | 6 | 65 |
+| Final Master total | 409 | 30 | 1 | 5 | 244 | 121 | 81 | 19 | 7 | 280 | 65 | 156 |
 
 Rule: production_verified = verified_complete after the spot audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven on the branch only; live_customer_C = the criterion's own words demand live customers / post-launch history (prelaunch_scope C_PATTERNS, quoted); post_launch_empirical = live_customer_C plus rows parked on real customers / data accrual; executable_engineering = the rest of the unfinished rows the company itself can move.
 
 Spot audit: 61 rows, verdicts {'PASS_PRODUCTION': 8, 'PASS': 44, 'DOWNGRADE': 9}; downgraded ['F-754']; re-closed with new tests ['B2#184', 'B2#219', 'F-057', 'F-073', 'F-251', 'F-907']. Closed on production evidence of the deployed commit: ['F-019', 'F-046', 'F-056', 'F-152', 'F-191', 'F-240', 'F-283', 'F-299', 'F-378', 'F-399', 'F-403', 'F-409', 'F-424', 'F-427', 'F-428', 'F-433', 'F-473', 'F-491', 'F-498', 'F-504', 'F-535', 'F-542', 'F-558', 'F-570', 'F-574', 'F-586', 'F-591', 'F-605', 'F-657', 'F-660', 'F-682', 'F-685', 'F-706', 'F-718', 'F-793', 'F-871', 'F-878'].
 
-Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 2}; Final Master launch-critical {'COMPLETE': 377, 'GATED': 108, 'OPEN': 5}.
+Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 2}; Final Master launch-critical {'COMPLETE': 378, 'GATED': 108, 'OPEN': 4}.
 
 ## Critical path
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 15 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
-2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 64 rows (17 FM launch-critical, 35 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
+2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 65 rows (18 FM launch-critical, 35 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
 3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 27 rows (21 FM launch-critical, 0 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
 4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
 5. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
@@ -36,7 +36,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
-| Proven only on the integration branch (release + production evidence needed) | 64 | 35 | 17 | 12 | {'implemented_unverified': 64} |  |
+| Proven only on the integration branch (release + production evidence needed) | 65 | 35 | 18 | 12 | {'implemented_unverified': 65} |  |
 | No real customers / market outcomes yet | 93 | 38 | 4 | 51 | {'blocked_external': 93} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Gate now OPEN in production: unparked, re-verify | 27 | 0 | 21 | 6 | {'blocked_engineering': 27} |  |
@@ -47,8 +47,8 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | Owned channels (site / Pinterest) | 18 | 7 | 1 | 10 | {'blocked_owner': 18} | The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static  |
 | Testers and physical samples | 16 | 4 | 4 | 8 | {'blocked_owner': 16} | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREA |
 | Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings) | 7 | 0 | 7 | 0 | {'blocked_owner': 7} | rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act |
-| Open engineering work | 210 | 2 | 4 | 204 | {'blocked_engineering': 210} |  |
 | Owner rulings | 7 | 4 | 2 | 1 | {'blocked_owner': 7} | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no |
+| Open engineering work | 209 | 2 | 3 | 204 | {'blocked_engineering': 209} |  |
 | Benchmark purchases | 14 | 5 | 0 | 9 | {'blocked_owner': 14} | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARAN |
 | Etsy Shop Manager settings | 10 | 0 | 4 | 6 | {'blocked_owner': 10} | subscribing is consequential spend |
 | Paid-media authority | 23 | 2 | 1 | 20 | {'blocked_owner': 23} | Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the re |
@@ -71,15 +71,16 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 - `claude/w4-FLUXAPI` @ d3679fe0 (11 ahead, 2026-10-19T19:32:01+00:00): rows named none
 - `claude/w4-FLUXLIVE` @ 7886f58d (49 ahead, 2026-10-20T05:36:26+00:00): rows named ['F-852']
 - `claude/w4-HANDOFF` @ 179ece97 (8 ahead, 2026-10-20T10:54:09+00:00): rows named none
-- `claude/w4-INTEG4` @ e28059db (71 ahead, 2026-10-20T11:24:09+00:00): rows named ['F-852', 'F-853']
+- `claude/w4-INTEG4` @ ea23282b (77 ahead, 2026-10-20T12:17:46+00:00): rows named ['F-152', 'F-852', 'F-853']
 - `claude/w4-OWNERIMG` @ c387c279 (9 ahead, 2026-10-19T19:04:06+00:00): rows named none
+- `claude/w4-SECREVIEW-17bc373` @ 5be3fbc1 (77 ahead, 2026-10-20T12:13:03+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-SECREVIEW-324927f` @ 615a1fb7 (1 ahead, 2026-10-20T00:24:43+00:00): rows named none
 - `claude/w4-SECREVIEW-5f18d11` @ 457e02e8 (1 ahead, 2026-10-19T16:26:19+00:00): rows named none
 - `claude/w4-SECREVIEW-7f6dbe8` @ 15cf7254 (70 ahead, 2026-10-20T11:01:43+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-VISAUTO` @ d767208c (24 ahead, 2026-10-19T22:11:43+00:00): rows named none
 - `claude/w4-VISGATE` @ 3915ca2f (2 ahead, 2026-10-19T15:07:51+00:00): rows named ['F-030', 'F-221', 'F-232', 'F-253', 'F-254', 'F-278']
 - `claude/w4-VISNEXT` @ 0beb522d (54 ahead, 2026-10-20T06:09:28+00:00): rows named ['F-852', 'F-853']
-- `claude/w4-VISNEXT2` @ e37a3738 (56 ahead, 2026-10-20T11:00:38+00:00): rows named ['F-852', 'F-853']
+- `claude/w4-VISNEXT2` @ ef4f687e (75 ahead, 2026-10-20T12:15:21+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-WRAPTEST` @ 31e53474 (39 ahead, 2026-10-19T23:50:01+00:00): rows named ['F-852']
 
 ## Unfinished launch-critical / Build 2 rows
@@ -229,7 +230,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | F-106 | blocked_owner | owner: provider admin keys | True | True | owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only) |
 | F-118 | blocked_owner | owner: testers / sample | True | True | owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester |
 | F-135 | blocked_owner | owner: authorise a live drill | True | True | owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completio |
-| F-144 | blocked_engineering | engineering | True | False | company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production  |
+| F-144 | implemented_unverified | engineering: release + deploy | True | True |  |
 | F-160 | blocked_owner | owner: credential_rotation | True | True | owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an |
 | F-171 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-172 | implemented_unverified | engineering: release + deploy | True | False |  |

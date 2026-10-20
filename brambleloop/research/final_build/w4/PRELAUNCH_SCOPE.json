@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T11:54:16Z",
-  "branch_head": "01b1c8cf"
+  "generated_at": "2026-10-20T12:20:28Z",
+  "branch_head": "c8fcf17c"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -542,7 +542,7 @@
    "A F-866 [blocked_engineering] Independent Model Review",
    "A F-873 [blocked_owner] Browser/Vision Ruling",
    "A F-876 [blocked_owner] Physical Evidence Specificity",
-   "B F-144 [blocked_engineering] Production Readback Gate",
+   "B F-144 [implemented_unverified] Production Readback Gate",
    "B F-171 [implemented_unverified] Production Smoke Matrix",
    "B F-182 [implemented_unverified] Stale-Action Deployment Check",
    "B F-371 [blocked_engineering] 24/7 Cloud Operation",
@@ -3573,9 +3573,9 @@
    "id": "F-144",
    "scope": "launch_critical",
    "title": "Production Readback Gate",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
    "domain": "ops_runtime_governance",
    "verifiability": "B",
    "criterion_quote": "Production Readback Gate - Major operational features require deployed readback/verification after local tests.",

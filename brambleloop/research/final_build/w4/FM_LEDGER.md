@@ -10,11 +10,11 @@ Reachability: HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b6
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 219 | 124 | 438 |
-| launch-critical | 29 | 26 | 0 | 5 | 53 | 377 |
+| all rows | 94 | 35 | 7 | 218 | 124 | 439 |
+| launch-critical | 29 | 26 | 0 | 4 | 53 | 378 |
 | post-launch (not blocking) | 65 | 9 | 0 | 214 | 71 | 61 |
 
-Launch-critical OPEN-DEFECT: **5**
+Launch-critical OPEN-DEFECT: **4**
 
 ## Open clusters (launch-critical)
 
@@ -23,7 +23,6 @@ Launch-critical OPEN-DEFECT: **5**
 | K13 | FM | 1 | Closure/certification tooling in code |
 | PROCESS | integrator | 2 | PROCESS |
 | REGATE | FM | 1 | Wave-3 audit found an owner/data/external gate the canonical mapping does not re |
-| UNCLUSTERED | FM | 1 | Launch-critical OPEN rows not in any wave-3 cluster |
 
 ## Launch-critical rows not PROVEN
 
@@ -48,7 +47,6 @@ Launch-critical OPEN-DEFECT: **5**
 | F-106 Provider Billing Reconciliation | OWNER-GATED | INTEGRATED | owner:provider_usage_api |
 | F-118 Risk-Based Physical Escalation | OWNER-GATED | INTEGRATED | owner:tester_roster |
 | F-135 Lease-Recovery Drill | OWNER-GATED | DEPLOYED | owner:live_restart_drill |
-| F-144 Production Readback Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the depl |
 | F-160 Credential Rotation Register | OWNER-GATED | TESTED | owner:credential_rotation |
 | F-221 Photographic Realism Hard Floor | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-222 Natural, Not Over-Polished | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |

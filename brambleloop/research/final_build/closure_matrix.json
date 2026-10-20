@@ -54,16 +54,16 @@
   "unmapped": [],
   "problems": [],
   "maturity": {
-   "DEPLOYED": 183,
-   "INTEGRATED": 522,
+   "DEPLOYED": 182,
+   "INTEGRATED": 523,
    "MISSING": 100,
    "IMPLEMENTED": 50,
    "EXERCISED": 16,
    "TESTED": 46
   },
   "maturity_claimed": {
-   "EXERCISED": 115,
-   "INTEGRATED": 487,
+   "EXERCISED": 114,
+   "INTEGRATED": 488,
    "DEPLOYED": 132,
    "MISSING": 100,
    "IMPLEMENTED": 42,
@@ -75,8 +75,8 @@
    "NA": 7
   },
   "launch_critical_maturity": {
-   "DEPLOYED": 113,
-   "INTEGRATED": 329,
+   "DEPLOYED": 112,
+   "INTEGRATED": 330,
    "IMPLEMENTED": 1,
    "EXERCISED": 16,
    "TESTED": 27,
@@ -95,10 +95,10 @@
    "data": 29
   },
   "coverage": {
-   "FULL": 476,
-   "PARTIAL": 441
+   "FULL": 477,
+   "PARTIAL": 440
   },
-  "downgraded": 144,
+  "downgraded": 143,
   "defects": 20,
   "wave_reported": {
    "PARTIAL": 50,
@@ -106,20 +106,20 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 377,
+   "COMPLETE": 378,
    "GATED": 108,
    "POST-LAUNCH": 420,
-   "OPEN": 5,
-   "NOT-APPLICABLE": 7
+   "NOT-APPLICABLE": 7,
+   "OPEN": 4
   },
   "launch_critical_completion": {
-   "COMPLETE": 377,
+   "COMPLETE": 378,
    "GATED": 108,
-   "OPEN": 5
+   "OPEN": 4
   },
-  "launch_critical_open": 5,
+  "launch_critical_open": 4,
   "launch_critical_open_reasons": {
-   "coverage PARTIAL": 4,
+   "coverage PARTIAL": 3,
    "maturity TESTED": 3
   },
   "protected_action_applicability": {
@@ -6828,38 +6828,42 @@
    "uid": "F-144",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "local tests are not production truth",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
-   "producer": "src/brambleloop/app/main.py::api_verify",
-   "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
-   "consumer": null,
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/ops/smoke.py::smoke_matrix (GET /api/verify/smoke); ops/readback.py::run (per-feature MANIFEST: endpoint, field, predicate, rows)",
+   "durable_state": "research/final_build/w4/evidence_BOARD/prod_readback_<sha12>_<ts>.json",
+   "consumer": "ops/deploy.sh (exit 5 when a feature does not read back; writes the readback evidence); research/final_build/w4/completion_board_final.py::apply_readback (a row a feature names is not verified_complete unless the deployed commit's readback passed)",
    "protected_effect": "production behaviour checked after deploy",
    "tests": [
     "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
-    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+    "tests/test_w4_close6_readback.py::test_the_manifest_reads_back_the_features_that_failed_unseen",
+    "tests/test_w4_close6_readback.py::test_a_row_is_not_complete_unless_its_deployed_readback_passed",
+    "tests/test_w4_close6_readback.py::test_deploy_writes_the_readback_where_the_board_reads_it",
+    "tests/test_w4_close6_readback.py::test_the_committed_board_applies_the_deployed_readback",
+    "tests/test_w4_smoke.py::test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do"
    ],
    "evidence": [
     "four prod_api_verify evidence files 2026-09-27..28",
-    "w4-FMGATE on 0417f35: the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)"
+    "w4-FMGATE on 0417f35: the production_deploy gate is cleared (Final Build 0417f35 deployed); /api/verify on it reads ok:false (every_agent_has_a_cost_ceiling: learn/coo/laura at 0.0; no_unexpected_dead_letters_in_24h)",
+    "w4-CLOSE6 on deployed b931d17: W4-SMOKE built the gate (ops/readback.py, ops/deploy.sh exit 5, ops/smoke.py at /api/verify/smoke); W4-CLOSE6 added the features production failed without any readback noticing (GET /api/departments 500 on b931d17; swarm runtime, funding packet, off-site archive, continuity proof, Etsy credential), persisted every deploy's readback as evidence, and made the completion board refuse 'done' to a row whose feature does not read back on the deployed commit (missing readback = UNKNOWN, held). Read-only readback of b931d17 on file: FAIL on 'no unexpected dead letters' and 'department health served'. Dev-proven."
    ],
    "build2_rows": [
     "#181 COMPLETE+PROVEN"
    ],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no external/owner/data gate on the remaining step"
+    "key": null,
+    "detail": "software only"
    },
    "defect": null,
-   "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
+   "next_action": "deploy the next release with ops/deploy.sh; the row is held until that commit's readback passes (b931d17 reads FAIL: dead letters, /api/departments 500 -- both fixed on the branch)",
    "confidence": "MEDIUM",
-   "searched": " | w4-FMGATE 0417f35",
+   "searched": "w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17",
    "slice": "s2",
-   "maturity_claimed": "EXERCISED",
-   "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
-   ],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [],
    "id": "F-144",
    "title": "Production Readback Gate",
    "version": "v0.4",
@@ -6867,10 +6871,8 @@
    "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two "
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-145",

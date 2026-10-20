@@ -98,3 +98,34 @@ Every entry has `accepted_by: null`.
   `commerce.orders_ingest`. With `transactions_r` open, the rows have nothing left to exercise
   until customers exist, which matches the production gate `customers=false`. That is a gate
   remap for the integrator.
+
+## 4. F-144 Production Readback Gate (dev-proven, awaiting deploy)
+
+**Criterion:** "Major operational features require deployed readback/verification after local tests."
+
+**Already built (W4-SMOKE):**
+- `ops/readback.py`: a per-feature manifest of endpoint, field, predicate and rows.
+- `ops/deploy.sh`: exits 5 when a feature does not read back.
+- `ops/smoke.py`, served at GET /api/verify/smoke.
+
+**What W4-CLOSE6 adds:**
+1. **Six features the manifest missed.** On b931d17, GET /api/departments answered 500 while
+   every listed feature read PASS. Now also read back: department health, swarm runtime, the
+   funding packet, the off-site archive, the continuity proof and the Etsy credential.
+2. **The readback is evidence.** `deploy.sh` writes every readback to
+   `evidence_BOARD/prod_readback_<sha12>_<ts>.json`.
+3. **The board refuses "done" on a failed readback.** `completion_board_final.apply_readback`
+   keeps a Final Master row out of verified_complete unless the readback of the deployed commit
+   passed for every feature that names that row. No readback on file counts as UNKNOWN, and the
+   row stays out. The rule only ever downgrades.
+
+**Production reading (read-only):** the readback of b931d17
+(`evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json`) is FAIL on two features. Both
+are fixed on the branch:
+- "no unexpected dead letters": the gallery timeouts, fixed by ee244a1.
+- "department health served": the /api/departments 500, fixed by CLOSE5.
+
+Applying the rule to the current board downgrades no row that was verified.
+
+**Tests:** `test_w4_close6_readback.py` (4) and `test_w4_smoke.py` (10, with its fixture
+extended to the new endpoints).

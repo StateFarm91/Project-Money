@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-20T11:54:16Z",
- "branch_head": "01b1c8cf",
+ "generated_at": "2026-10-20T12:20:28Z",
+ "branch_head": "c8fcf17c",
  "production": {
   "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
   "known": true,
@@ -108,9 +108,9 @@
   "final_master_launch_critical": {
    "total": 490,
    "verified_complete": 359,
-   "implemented_unverified": 18,
+   "implemented_unverified": 19,
    "in_progress": 5,
-   "blocked_engineering": 37,
+   "blocked_engineering": 36,
    "blocked_owner": 42,
    "blocked_external": 29,
    "not_applicable": 0
@@ -118,9 +118,9 @@
   "final_master_total": {
    "total": 917,
    "verified_complete": 409,
-   "implemented_unverified": 30,
+   "implemented_unverified": 31,
    "in_progress": 5,
-   "blocked_engineering": 249,
+   "blocked_engineering": 248,
    "blocked_owner": 127,
    "blocked_external": 90,
    "not_applicable": 7
@@ -154,10 +154,10 @@
    },
    "final_master_total": {
     "production_verified": 409,
-    "dev_proven_not_deployed": 29,
+    "dev_proven_not_deployed": 30,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 245,
+    "engineering_blocked": 244,
     "owner_blocked": 121,
     "external_blocked": 81,
     "live_customer_C": 19,
@@ -170,10 +170,10 @@
    },
    "final_master_launch_critical": {
     "production_verified": 359,
-    "dev_proven_not_deployed": 17,
+    "dev_proven_not_deployed": 18,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 37,
+    "engineering_blocked": 36,
     "owner_blocked": 40,
     "external_blocked": 28,
     "live_customer_C": 3,
@@ -214,6 +214,14 @@
     "F-073",
     "F-251",
     "F-907"
+   ]
+  },
+  "deployed_readback": {
+   "status": "FAIL",
+   "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+   "not_done": [
+    "no unexpected dead letters",
+    "department health served"
    ]
   },
   "closed_on_production_evidence": [
@@ -265,9 +273,9 @@
     "OPEN-DEFECT": 2
    },
    "final_master_launch_critical": {
-    "COMPLETE": 377,
+    "COMPLETE": 378,
     "GATED": 108,
-    "OPEN": 5
+    "OPEN": 4
    }
   }
  },
@@ -275,13 +283,13 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 64,
+   "rows": 65,
    "build2": 35,
-   "fm_launch_critical": 17,
+   "fm_launch_critical": 18,
    "fm_post_launch": 12,
    "tracked": 0,
    "classes": {
-    "implemented_unverified": 64
+    "implemented_unverified": 65
    },
    "owner_actions": [],
    "ids": [
@@ -321,6 +329,7 @@
     "B2#309",
     "B2#318",
     "F-102",
+    "F-144",
     "F-171",
     "F-172",
     "F-182",
@@ -903,15 +912,55 @@
    "estimate": null
   },
   {
+   "root": "owner_rulings",
+   "title": "Owner rulings",
+   "rows": 7,
+   "build2": 4,
+   "fm_launch_critical": 2,
+   "fm_post_launch": 1,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 7
+   },
+   "owner_actions": [
+    {
+     "id": "acceptance_ruling",
+     "batch": "rulings",
+     "action": "Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no).",
+     "max_cost_cad": 0.0,
+     "minutes": 2
+    },
+    {
+     "id": "live_restart_drill",
+     "action": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate",
+     "max_cost_cad": null,
+     "minutes": null
+    }
+   ],
+   "ids": [
+    "B2#189",
+    "B2#221",
+    "B2#222",
+    "B2#320",
+    "F-135",
+    "F-850",
+    "F-873"
+   ],
+   "estimate": {
+    "figure": "owner ~2 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 210,
+   "rows": 209,
    "build2": 2,
-   "fm_launch_critical": 4,
+   "fm_launch_critical": 3,
    "fm_post_launch": 204,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 210
+    "blocked_engineering": 209
    },
    "owner_actions": [],
    "ids": [
@@ -942,7 +991,6 @@
     "F-134",
     "F-139",
     "F-140",
-    "F-144",
     "F-145",
     "F-146",
     "F-147",
@@ -1127,46 +1175,6 @@
     "F-869"
    ],
    "estimate": null
-  },
-  {
-   "root": "owner_rulings",
-   "title": "Owner rulings",
-   "rows": 7,
-   "build2": 4,
-   "fm_launch_critical": 2,
-   "fm_post_launch": 1,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 7
-   },
-   "owner_actions": [
-    {
-     "id": "acceptance_ruling",
-     "batch": "rulings",
-     "action": "Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no).",
-     "max_cost_cad": 0.0,
-     "minutes": 2
-    },
-    {
-     "id": "live_restart_drill",
-     "action": "owner authorises restarting the live service during queued/in-flight work (publish / orders.ingest) on the deployed candidate",
-     "max_cost_cad": null,
-     "minutes": null
-    }
-   ],
-   "ids": [
-    "B2#189",
-    "B2#221",
-    "B2#222",
-    "B2#320",
-    "F-135",
-    "F-850",
-    "F-873"
-   ],
-   "estimate": {
-    "figure": "owner ~2 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
   },
   {
    "root": "benchmark_purchases",
@@ -1579,8 +1587,8 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 64,
-   "unblocks_fm_launch_critical": 17,
+   "unblocks_rows": 65,
+   "unblocks_fm_launch_critical": 18,
    "unblocks_build2": 35,
    "who": "engineering",
    "estimate": {
@@ -1701,10 +1709,11 @@
    "b2": []
   },
   "claude/w4-INTEG4": {
-   "head": "e28059db",
-   "last_commit": "2026-10-20T11:24:09+00:00",
-   "commits_ahead": 71,
+   "head": "ea23282b",
+   "last_commit": "2026-10-20T12:17:46+00:00",
+   "commits_ahead": 77,
    "fm": [
+    "F-152",
     "F-852",
     "F-853"
    ],
@@ -1715,6 +1724,16 @@
    "last_commit": "2026-10-19T19:04:06+00:00",
    "commits_ahead": 9,
    "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-17bc373": {
+   "head": "5be3fbc1",
+   "last_commit": "2026-10-20T12:13:03+00:00",
+   "commits_ahead": 77,
+   "fm": [
+    "F-852",
+    "F-853"
+   ],
    "b2": []
   },
   "claude/w4-SECREVIEW-324927f": {
@@ -1773,9 +1792,9 @@
    "b2": []
   },
   "claude/w4-VISNEXT2": {
-   "head": "e37a3738",
-   "last_commit": "2026-10-20T11:00:38+00:00",
-   "commits_ahead": 56,
+   "head": "ef4f687e",
+   "last_commit": "2026-10-20T12:15:21+00:00",
+   "commits_ahead": 75,
    "fm": [
     "F-852",
     "F-853"
@@ -11596,20 +11615,29 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Production Readback Gate",
-    "ledger_state": "OPEN",
+    "ledger_state": "COMPLETE",
     "modules": [
-     "app/main.py"
+     "ops/smoke.py"
     ],
     "code_exists": true,
-    "deployed": false,
-    "remaining": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (app)",
-    "missing_evidence": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
+    "deployed": true,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "readback": {
+     "features": [
+      "release identity",
+      "no unexpected dead letters"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": [
+      "no unexpected dead letters"
+     ]
+    },
     "verifiability": "B",
-    "recount": "engineering_blocked",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -11779,6 +11807,13 @@
      ],
      "worker": "W4-CLOSE5 2026-10-20"
     },
+    "readback": {
+     "features": [
+      "off-site archive configured"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -11889,6 +11924,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "readback": {
+     "features": [
+      "boot guard proves the release record"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -12086,6 +12128,14 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "readback": {
+     "features": [
+      "release identity",
+      "boot guard proves the release record"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -12120,6 +12170,17 @@
     "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
     "blocked_by": "engineering: release + deploy",
     "responsible": "integrator (release)",
+    "readback": {
+     "features": [
+      "no unexpected dead letters",
+      "every agent has a cost ceiling",
+      "smoke matrix (probes, continuity, cadences, queue, search)"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": [
+      "no unexpected dead letters"
+     ]
+    },
     "verifiability": "B",
     "recount": "dev_proven_not_deployed",
     "empirical": false
@@ -12140,6 +12201,16 @@
     "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
     "blocked_by": "engineering: release + deploy",
     "responsible": "integrator (release)",
+    "readback": {
+     "features": [
+      "shadow phase holds",
+      "nothing published in shadow",
+      "publication refusals recorded",
+      "catalogue says nothing is published"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "verifiability": "A",
     "recount": "dev_proven_not_deployed",
     "empirical": false
@@ -16142,6 +16213,13 @@
     "blocked_by": "engineering: deploy successor + 24h unattended window",
     "responsible": "integrator (release)",
     "missing_evidence": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: Build 2 not deployed; off-device",
+    "readback": {
+     "features": [
+      "embedded worker alive"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "verifiability": "B",
     "recount": "engineering_blocked",
     "empirical": false
@@ -17542,6 +17620,13 @@
     "blocked_by": "engineering: gate etsy_api is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
     "responsible": "next engineering lane",
     "missing_evidence": "live capability verification exists but has never run authenticated against Etsy",
+    "readback": {
+     "features": [
+      "Etsy credential usable"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "verifiability": "A",
     "recount": "engineering_blocked",
     "empirical": false
@@ -18549,6 +18634,16 @@
     "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
     "blocked_by": "engineering: release + deploy",
     "responsible": "integrator (release)",
+    "readback": {
+     "features": [
+      "department health served",
+      "swarm runtime served"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": [
+      "department health served"
+     ]
+    },
     "verifiability": "A",
     "recount": "dev_proven_not_deployed",
     "empirical": false
@@ -21939,6 +22034,13 @@
     "blocked_by": "engineering: gate offsite_storage is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
     "responsible": "next engineering lane",
     "missing_evidence": "Survival of provider loss (off-site archive) and a full unattended production window proof are not yet shown.",
+    "readback": {
+     "features": [
+      "continuity proof passing"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "verifiability": "B",
     "recount": "engineering_blocked",
     "empirical": false
@@ -25855,6 +25957,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "readback": {
+     "features": [
+      "Final Master launch gate served"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -26463,6 +26572,13 @@
      ],
      "worker": "W4-CLOSE5 2026-10-20"
     },
+    "readback": {
+     "features": [
+      "model-credit funding packet served"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -26628,6 +26744,13 @@
      ],
      "worker": "W4-CLOSE5 2026-10-20"
     },
+    "readback": {
+     "features": [
+      "launch packet route deployed and operator-gated"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -26672,6 +26795,13 @@
     "blocked_by": "engineering: deploy successor + 24h unattended window",
     "responsible": "integrator (release)",
     "missing_evidence": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: hosted 24/7 operation of the v1.",
+    "readback": {
+     "features": [
+      "embedded worker alive"
+     ],
+     "file": "research/final_build/w4/evidence_BOARD/prod_readback_b931d17a738d_20261020T1215Z.json",
+     "not_passing": []
+    },
     "verifiability": "B",
     "recount": "engineering_blocked",
     "empirical": false

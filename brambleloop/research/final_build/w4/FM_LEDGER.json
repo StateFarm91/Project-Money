@@ -8,19 +8,19 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 438,
+   "PROVEN": 439,
    "OWNER-GATED": 124,
-   "OPEN-DEFECT": 219,
+   "OPEN-DEFECT": 218,
    "DATA-GATED": 94,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 377,
+   "PROVEN": 378,
    "OWNER-GATED": 53,
    "EXTERNAL-GATED": 26,
    "DATA-GATED": 29,
-   "OPEN-DEFECT": 5
+   "OPEN-DEFECT": 4
   },
   "status_post_launch": {
    "OPEN-DEFECT": 214,
@@ -29,7 +29,7 @@
    "DATA-GATED": 65,
    "EXTERNAL-GATED": 9
   },
-  "launch_critical_open": 5,
+  "launch_critical_open": 4,
   "reachability_basis": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
   "unreached_modules": [
    "app/command_center/snapshots/__main__.py",
@@ -4048,21 +4048,24 @@
    "title": "Production Readback Gate",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/app/main.py::api_verify",
-   "consumer": null,
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/ops/smoke.py::smoke_matrix (GET /api/verify/smoke); ops/readback.py::run (per-feature MANIFEST: endpoint, field, predicate, rows)",
+   "consumer": "ops/deploy.sh (exit 5 when a feature does not read back; writes the readback evidence); research/final_build/w4/completion_board_final.py::apply_readback (a row a feature names is not verified_complete unless the deployed commit's readback passed)",
    "tests": [
     "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
-    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+    "tests/test_w4_close6_readback.py::test_the_manifest_reads_back_the_features_that_failed_unseen",
+    "tests/test_w4_close6_readback.py::test_a_row_is_not_complete_unless_its_deployed_readback_passed",
+    "tests/test_w4_close6_readback.py::test_deploy_writes_the_readback_where_the_board_reads_it",
+    "tests/test_w4_close6_readback.py::test_the_committed_board_applies_the_deployed_readback",
+    "tests/test_w4_smoke.py::test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two "
-   ],
-   "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
+   "reasons": [],
+   "next_action": "deploy the next release with ops/deploy.sh; the row is held until that commit's readback passes (b931d17 reads FAIL: dead letters, /api/departments 500 -- both fixed on the branch)",
    "mapped_on": "0417f35",
    "w3_triage": null,
    "w3_cluster": null,

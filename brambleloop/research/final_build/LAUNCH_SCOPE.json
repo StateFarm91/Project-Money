@@ -1506,7 +1506,7 @@
    "reason": "local tests are not production truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-145",

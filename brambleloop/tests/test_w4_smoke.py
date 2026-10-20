@@ -122,6 +122,13 @@ def _prod_bodies(sha=SHA, **over):
         "/api/build": (200, {"final_master": {"launch_ready": False, "status": "DEGRADED"}}),
         "/api/catalogue": (200, {"published": False}),
         "/api/launch/packet": (401, {"error": "operator credential required"}),
+        # W4-CLOSE6 manifest additions (F-144)
+        "/api/departments": (200, {"agents": []}),
+        "/api/swarm/runtime": (200, {"agent_quality": {}}),
+        "/api/funding/packets": (200, {"packets": [{"packet": "model_credit"}]}),
+        "/api/offsite": (200, {"configured": True}),
+        "/api/continuity": (200, {"last_proof_ok": True}),
+        "/api/etsy": (200, {"usable": True}),
     }
     bodies.update(over)
     return bodies
