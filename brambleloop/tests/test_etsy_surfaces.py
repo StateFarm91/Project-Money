@@ -532,11 +532,20 @@ def test_no_owner_action_pretends_software_could_have_done_it():
 
 
 def test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task():
-    action = es.SURFACES["orders"].owner_action
-    assert action is not None and action.key == "reauthorise_transactions_r"
-    assert "transactions_r" in action.action
-    assert "browser" in action.why_software_cannot
-    assert not action.blocks_first_sale, (
+    # W4-FIRSTSALE2: transactions_r is granted and receipts are read every cadence
+    # (production commerce.orders_ingested ran=true, gate_missing []), so the orders surface
+    # carries no standing owner action. The re-authorisation is still an owner action, never
+    # a build task: it is raised from the live gate, only while transactions_r is missing,
+    # and the gate says only the owner can add it in a browser.
+    from brambleloop.commerce import orders_ingest
+
+    assert es.SURFACES["orders"].owner_action is None
+    assert es.SURFACES["orders"].collector == "orders_ingest"
+    assert orders_ingest.OWNER_ACTION_KEY == "reauthorise_transactions_r"
+    src = __import__("inspect").getsource(orders_ingest.gate)
+    assert "Only the owner" in src and "browser" in src and "OWNER_ACTION_KEY" in src
+    assert "reauthorise_transactions_r" not in {a.key for a in es.owner_queue(
+        first_sale_only=True)}, (
         "a sale can complete without this; what it blocks is everything after the sale, and "
         "overstating it would put a non-blocker at the top of the owner's list")
 
