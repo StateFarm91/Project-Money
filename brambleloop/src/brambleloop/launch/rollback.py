@@ -69,16 +69,22 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
                           "the listing is already withdrawn")})
     pdf_shas = sorted({v for v in (built or {}).get("pdf_sha256_by_terminology", {}).values()}
                       | ({built["pdf_sha256"]} if built else set()))
-    missing = [sha for sha in pdf_shas + frame_shas if not store.exists(sha)]
+    # W4-FIRSTSALE (B5): on disk, or held in Postgres under its hash (durable_artifacts,
+    # re-hashed on read) -- either way a restore re-serves the same bytes.
+    from ..commerce import deliverables
+
+    missing = [sha for sha in pdf_shas + frame_shas
+               if not deliverables.restorable(db, sha, store)]
     steps.append({"step": "deliverables_restorable",
                   "ok": bool(pdf_shas) and bool(frame_shas) and not missing,
                   "pdf_hashes": len(pdf_shas), "frame_hashes": len(frame_shas),
                   "missing_on_disk": [m[:12] for m in missing][:8],
-                  "why": ("every PDF and frame a restore would re-serve is on disk under its "
-                          "recorded hash" if pdf_shas and frame_shas and not missing else
+                  "why": ("every PDF and frame a restore would re-serve is on disk or held in "
+                          "Postgres under its recorded hash" if pdf_shas and frame_shas and not missing else
                           "no built PDF is recorded for this release" if not pdf_shas else
                           "no stored frames are recorded for this release" if not frame_shas
-                          else f"{len(missing)} recorded artefact(s) are not on disk")})
+                          else f"{len(missing)} recorded artefact(s) are neither on disk "
+                          "nor held in Postgres")})
     # the round trip, on a copy: where the state goes and how it comes back
     round_trip = ([state, WITHDRAWN, state] if listing is not None and state != WITHDRAWN
                   else None)

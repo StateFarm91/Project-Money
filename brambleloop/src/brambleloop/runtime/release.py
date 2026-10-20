@@ -336,8 +336,13 @@ def handle_assets_build(ctx: JobContext) -> dict:
     lineage = _lineage(ctx)
     certificate_ref = f"certificate:{provenance.release_key(slug, version)}"
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+    # W4-FIRSTSALE (B5): the customer's documents are kept in Postgres as well as on the
+    # ephemeral disk, so a paid download outlives a redeploy (`commerce.deliverables`).
+    from ..commerce import deliverables as deliverables_mod
+
     pdfs = {t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
-                         "application/pdf", artefact_class="pdf", lineage=lineage)
+                         "application/pdf", artefact_class="pdf", lineage=lineage,
+                         db=ctx.db, keep=deliverables_mod.keep_why(slug, version, f"pdf:{t}"))
             for t, d in docs.items()}
     pdf = pdfs["US"]
 
@@ -469,7 +474,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
     frame_paths: dict[int, str] = {}
     for frame in frames:
         art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
-                        "image/png", artefact_class="visual_truth", lineage=lineage)
+                        "image/png", artefact_class="visual_truth", lineage=lineage,
+                        db=ctx.db, keep=deliverables_mod.keep_why(slug, version, "frame"))
         stored_frames.append({"position": frame.position, "role": frame.role,
                               "asset_class": frame.asset_class.value,
                               "sha256": art.sha256})
@@ -1432,7 +1438,8 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
                                        "new_snapshot", "nodes", "pattern_subtree",
                                        "properties_read", "truncated", "why",
                                        "credential_refused", "status",
-                                       "name_evidence")}
+                                       "name_evidence", "property_candidates",
+                                       "category_choices")}
     # W4-ETSYCOMM: a refused credential is a reported stand-aside, never a dead letter.
     summary["credential_refused"] = bool(got.get("credential_refused"))
     if got.get("etsy_error"):
@@ -3955,6 +3962,17 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     with ctx.db.session() as s:
         releases = sorted({(l.product_slug, l.version) for l in s.scalars(
             select(Listing).where(Listing.state != "withdrawn"))})
+    # W4-FIRSTSALE (B5): before the dry rehearsal, bring every listed release's certified
+    # deliverables into Postgres -- kept from disk, or re-rendered only when byte-identical
+    # to the certified sha256 (anything else is refused and reported, never substituted).
+    from ..commerce import deliverables as deliverables_mod
+
+    for slug, v in releases:
+        try:
+            deliverables_mod.secure_release(ctx.db, slug, v, store=store)
+        except Exception as exc:  # noqa: BLE001 - a failed secure is reported by the drill
+            ctx.audit("deliverables.secure_failed", artifact=f"{slug}@{v}",
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
     rehearsed = {f"{slug}@{v}": rollback_mod.rehearse(ctx.db, slug=slug, version=v,
                                                       store=store, job_id=ctx.job.id)["ok"]
                  for slug, v in releases}
