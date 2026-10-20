@@ -1,0 +1,86 @@
+{
+ "id": "exp-2026-10-20-wrap-7ref",
+ "definition_version": 1,
+ "purpose": "Reproduce the owner's manual FLUX 3 method on the Reading Nook Cable Wrap: the three canonical Laura references, the owner's three product references and one crochet-texture reference, with the frozen auto-built prompt; then judge it independently. Experiment only: the product is uncertified (UNCALIBRATED_PRIMITIVE cable2x2) and nothing can publish.",
+ "product": {
+  "slug": "reading-nook-cable-wrap",
+  "version": "0.1.0",
+  "cir_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+  "certified": false
+ },
+ "references": [
+  {
+   "position": 1,
+   "role": "laura_face",
+   "canonical_frame": "neutral_portrait",
+   "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+  },
+  {
+   "position": 2,
+   "role": "laura_torso",
+   "canonical_frame": "torso_fit_reference",
+   "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db"
+  },
+  {
+   "position": 3,
+   "role": "laura_body",
+   "canonical_frame": "full_length_standing",
+   "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
+  },
+  {
+   "position": 4,
+   "role": "product_layout",
+   "file": "refs/ref4_complete_wrap_layout.png",
+   "sha256": "3f737a0835691df44da268af41356005015c7e95ce9991d1ab821cfdbb9d5747"
+  },
+  {
+   "position": 5,
+   "role": "product_detail",
+   "file": "refs/ref5_cable_stitch_structure.png",
+   "sha256": "10d013b8a53de2f1f15e76287425f8b86e04dfb0cc88e2b233d8fa8c7c97fd36"
+  },
+  {
+   "position": 6,
+   "role": "product_rules",
+   "file": "refs/ref6_construction_rules.png",
+   "sha256": "3638b3a57a71c074695ec7a9c70bfd07cad9bf22c944e55996cca4351960f14b"
+  },
+  {
+   "position": 7,
+   "role": "product_texture",
+   "file": "refs/reading-nook-cable-wrap-335c61ce5658-texture.png",
+   "sha256": "bc88ed047e86959cff881b7ec9c313037b87a504965396bdd598901fd9296ddc"
+  }
+ ],
+ "prompt": {
+  "file": "prompt.txt",
+  "sha256": "99f0f1a8772a47a0c298bf52b9c7b54a83235d2ced6b588bde14cec3101d22f0",
+  "builder": "flux3-prompt-builder/2.0.0"
+ },
+ "outfit": {
+  "id": "exp-wrap-2026-10-20",
+  "description": "black fitted long-sleeve crew-neck top; mid-wash denim midi skirt; brown leather ankle boots; small silver ring",
+  "garments": {
+   "top_or_dress": "black fitted long-sleeve crew-neck top",
+   "lower": "mid-wash denim midi skirt",
+   "shoes": "brown leather ankle boots",
+   "outerwear": "none",
+   "accessories": "small silver ring"
+  }
+ },
+ "model": "flux-3-image",
+ "size": "2048x2048",
+ "max_retries": 1,
+ "retry_on": "provider or transient error only; never to re-roll quality",
+ "generation_cap_cad": 5.0,
+ "vision_cap_cad": 1.0,
+ "owner_authorization": {
+  "required": true,
+  "basis": [
+   "WRAPTEST owner approval 2026-10-19 (CA$5.00 wrap experiment)",
+   "D-W4-F852-PROPOSED vision authorisation (CA$1.00, separate)"
+  ],
+  "how": "Command Center > Images > Experiments > Authorize (owner session + step-up), binding this id, its sha256 and the caps"
+ },
+ "source": "research/final_build/w4/flux_live_test_2026-10-20 (frozen plan 7886f58)"
+}

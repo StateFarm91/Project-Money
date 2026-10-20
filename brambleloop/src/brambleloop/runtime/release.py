@@ -3023,6 +3023,24 @@ def handle_image_production(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("visual.controlled_experiment")
+def handle_controlled_experiment(ctx: JobContext) -> dict:
+    """One owner-authorised controlled visual experiment run (`experiments.controlled`).
+
+    Submitted only from the Command Center behind the owner session and step-up. It verifies
+    every reference and the prompt by sha256 before any spend, generates within the
+    authorization's caps and every existing ceiling, keeps the bytes durably and judges them
+    independently. Its output is labelled EXPERIMENT and never publishes. No key is read
+    into the job: `gateway.images` reads it from the environment at call time."""
+    from ..experiments import controlled
+
+    out = controlled.run_job(ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id)
+    ctx.audit(controlled.ACTION_RUN, artifact=str(ctx.job.inputs.get("definition_id")),
+              detail={k: out.get(k) for k in ("run_id", "ran", "image", "status", "refused",
+                                               "why", "image_sha256")})
+    return out
+
+
 @handlers.register("creative.reference_reading")
 def handle_reference_reading(ctx: JobContext) -> dict:
     """#116 / #278: construction readings recorded and department decompositions stored.

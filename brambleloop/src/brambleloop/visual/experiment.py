@@ -38,6 +38,11 @@ from ..core.resilience import PermanentError
 LABEL = "EXPERIMENT — UNCERTIFIED — NOT FOR PUBLICATION"
 ACTION_OPENED = "experiment.opened"
 ACTION_REFUSED = "experiment.publication_refused"
+# W-VISNEXT: a production-safe marker. A controlled experiment (`experiments.controlled`) on an
+# uncertified product records this against the product, so every publication path below
+# refuses that product exactly as it refuses a scratch experiment. Production never opens a
+# scratch experiment; this is the only experiment record production holds.
+ACTION_CONTROLLED = "experiment.controlled_opened"
 ACTOR = "experiment"
 MAX_ATTEMPTS_PER_ROLE = 2            # owner rule for the experiment: at most 2 per FLUX role
 OWNER_APPROVAL = ("owner-approved experiment 2026-10-19: Reading Nook Cable Wrap v0.1.0, "
@@ -163,16 +168,18 @@ def refuse_if_experiment(db, slug: str | None, version: str | None, *, action: s
     if not slug:
         return
     rows = _opened(db, slug, version or "") if version else []
-    if not rows and not version:
+    if not rows:
         from sqlalchemy import select
 
         from ..core.models import AuditLog
 
+        actions = (ACTION_CONTROLLED,) if version else (ACTION_OPENED, ACTION_CONTROLLED)
+        art = AuditLog.artifact == _artifact(slug, version) if version else \
+            AuditLog.artifact.like(f"{slug}@%")
         try:
             with db.session() as s:
                 rows = [dict(r.detail or {}) for r in s.scalars(select(AuditLog).where(
-                    AuditLog.action == ACTION_OPENED,
-                    AuditLog.artifact.like(f"{slug}@%")))]
+                    AuditLog.action.in_(actions), art))]
         except Exception:  # noqa: BLE001
             rows = []
     if not rows:
@@ -436,3 +443,41 @@ def stamp_record(record: dict) -> dict:
 
 def fingerprint(obj) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()
+
+
+# ---- controlled experiments: image-level guard (W-VISNEXT) ----------------------------------
+
+def is_experiment_image(db, sha256: str | None) -> bool:
+    """Whether these bytes were produced by a controlled experiment run."""
+    if not sha256:
+        return False
+    try:
+        from sqlalchemy import select
+
+        from ..experiments.controlled import ControlledRun, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            return s.scalar(select(ControlledRun.id).where(
+                ControlledRun.image_sha256 == str(sha256).lower())) is not None
+    except Exception:  # noqa: BLE001 - an unreadable table: no controlled image known
+        return False
+
+
+def refuse_if_experiment_image(db, sha256s, *, action: str) -> None:
+    """Publication paths that handle image bytes call this: an experiment image never
+    reaches a listing, whatever product it shows."""
+    hits = [s for s in (sha256s or []) if is_experiment_image(db, s)]
+    if not hits:
+        return
+    why = (f"{LABEL}: image {str(hits[0])[:12]} is a controlled-experiment output; {action} "
+           f"is refused")
+    try:
+        from ..core.models import AuditLog
+
+        with db.session() as s:
+            s.add(AuditLog(actor=ACTOR, action=ACTION_REFUSED, artifact=str(hits[0])[:64],
+                           detail={"label": LABEL, "action": action, "why": why}))
+    except Exception:  # noqa: BLE001
+        pass
+    raise ExperimentRefused(why)

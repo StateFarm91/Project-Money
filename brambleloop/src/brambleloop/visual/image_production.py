@@ -1342,6 +1342,9 @@ def approve(db, key: str, *, decided_by: str) -> dict:
         raise XP.ExperimentRefused(f"{XP.LABEL}: an experiment run is never approved for "
                                    f"publication")
     XP.refuse_if_experiment(db, run["slug"], run["version"], action="listing approval")
+    XP.refuse_if_experiment_image(db, [((r.get("candidate") or {}).get("sha256"))
+                                       for r in (run.get("card") or {}).get("roles") or []],
+                                  action="listing approval")
     if run["state"] != "ready_for_owner_review":
         return {"approved": False, "why": f"run is {run['status']}, not ready_for_owner_review"}
     blockers = list(run["card"].get("publication_blockers") or [])

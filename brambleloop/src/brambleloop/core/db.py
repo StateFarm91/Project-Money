@@ -160,6 +160,7 @@ class Database:
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
         from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
+        from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
         # REL2 tables, created at boot rather than only lazily on first use (W4-INTEG3):
         # etsy_webhook_refusals rides in etsy_webhooks above; the brief cursors live here.
         from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors

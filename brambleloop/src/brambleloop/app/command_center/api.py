@@ -541,6 +541,96 @@ def make_router(db) -> APIRouter:
                             "listing": listing})
         return ok(out)
 
+    # ---- controlled visual experiments (W-VISNEXT) -----------------------------------------
+    # Owner session for everything (auth.gate), step-up for authorize and run. No query-string
+    # secrets and no ops-token route: the provider key is read by the job from the process
+    # environment and never crosses this API.
+
+    @router.get("/experiments")
+    def experiments_board(request: Request):
+        from ...experiments import controlled
+
+        return ok({"experiments": controlled.board(db)})
+
+    @router.post("/experiments/{definition_id}/authorize")
+    async def experiments_authorize(definition_id: str, request: Request):
+        from ...experiments import controlled
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "experiments.authorize")
+        pid = auth.current_public_id(request)
+
+        def cap(name):
+            v = body.get(name)
+            return None if v in (None, "") else float(v)
+        try:
+            out = await run_in_threadpool(lambda: controlled.authorize(
+                db, str(definition_id)[:80], by=actor(request), stepped_up=True,
+                generation_cap_cad=cap("generation_cap_cad"),
+                vision_cap_cad=cap("vision_cap_cad")))
+        except (controlled.ControlledRefused, ValueError) as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "experiments.authorize", **out})
+        return ok(out)
+
+    @router.post("/experiments/{definition_id}/run")
+    async def experiments_run(definition_id: str, request: Request):
+        from ...experiments import controlled
+        from ...queue.durable import DuplicateJob, JobQueue
+
+        await body_of(request)
+        auth.require_stepup(db, request, "experiments.run")
+        pid = auth.current_public_id(request)
+        q = JobQueue(db)
+
+        def enqueue(inputs, key):
+            try:
+                return q.enqueue(controlled.AGENT, controlled.JOB_TYPE, inputs,
+                                 idempotency_key=key, max_attempts=1)
+            except DuplicateJob as exc:
+                return exc.existing_id
+        try:
+            out = await run_in_threadpool(lambda: controlled.submit(
+                db, str(definition_id)[:80], by=actor(request), enqueue=enqueue,
+                stepped_up=True))
+        except controlled.ControlledRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "experiments.run", **out})
+        return ok(out)
+
+    @router.get("/experiments/runs/{run_id}/card")
+    def experiments_card(run_id: int, request: Request):
+        from ...experiments import controlled
+
+        out = controlled.card(db, int(run_id))
+        if out is None:
+            return ok({"error": "no such experiment run", "code": "NOT_FOUND"}, 404)
+        return ok(out)
+
+    @router.get("/experiments/runs/{run_id}/image")
+    def experiments_image(run_id: int, request: Request):
+        from fastapi.responses import Response
+
+        from ...core.artifacts import ArtifactStore
+        from ...experiments import controlled
+
+        r = controlled.get_run(db, int(run_id))
+        data = None
+        if r and r.get("image_sha256"):
+            try:
+                data = ArtifactStore().get(r["image_sha256"], db=db)
+            except Exception:  # noqa: BLE001 - missing bytes are a 404
+                data = None
+        if not data:
+            return ok({"error": "no stored image for this run", "code": "NOT_FOUND"}, 404)
+        return Response(data, media_type="image/png", headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Image-Status": "EXPERIMENT; AI-generated; never a photograph; never published"})
+
     @router.get("/account")
     def account(request: Request):
         return ok(tabs.account(db, auth.current_public_id(request)))

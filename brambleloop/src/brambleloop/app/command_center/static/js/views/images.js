@@ -230,8 +230,53 @@ export function wardrobeEditor(w, listings, reload) {
     newOutfitForm(w, reload));
 }
 
+// ---- controlled experiments (W-VISNEXT) ----------------------------------------------------
+// Owner-only. Authorize and Run both need step-up. The output is an EXPERIMENT: shown in the
+// same gallery card, never publishable.
+
+function experimentDetails(c) {
+  const costs = c.costs || {};
+  const ver = c.verification || {};
+  return card({ title: c.banner || "EXPERIMENT", subtitle: `Authorization ${(c.authorization || {}).auth_id || "—"} · definition ${String(c.definition_sha256 || "").slice(0, 12)}…` },
+    h("p", { class: "row-detail" }, `Generation CA$${costs.generation_spent_cad ?? "—"} of CA$${costs.generation_cap_cad ?? "—"} · vision CA$${costs.vision_spent_cad ?? "—"} of CA$${costs.vision_cap_cad ?? "—"}`),
+    h("h3", { class: "section-title" }, "References sent, in order"),
+    h("ol", null, (c.references_in_order || []).map((r) => h("li", null, `${r.role}: ${String(r.sha256 || "").slice(0, 16)}…`))),
+    h("h3", { class: "section-title" }, `Verification: ${ver.summary || "UNKNOWN"}`),
+    h("ul", { class: "rows" }, Object.entries(ver.checks || {}).map(([k, v]) => h("li", { class: "row" },
+      h("p", { class: "row-title" }, statusPill(v.status === "PASS" ? "OK" : v.status === "FAIL" ? "BAD" : "UNKNOWN", v.status || "UNKNOWN"), ` ${k}`),
+      h("p", { class: "row-detail" }, String(v.why || ""))))),
+    (ver.unknown || []).length ? h("p", { class: "muted small" }, `Unknown (never treated as pass): ${ver.unknown.join(", ")}`) : null,
+    h("h3", { class: "section-title" }, "Provider receipt"),
+    h("p", { class: "row-detail" }, `model ${(c.receipt || {}).model || "—"} · cost CA$${(c.receipt || {}).cad ?? "—"} · task ${((c.receipt || {}).provider_receipt || {}).id || "—"}`));
+}
+
+function experimentsCard(list, slot, reload) {
+  return card({ title: "Controlled experiments", subtitle: "Frozen, owner-authorized experiments. Authorize and Run need step-up. Outputs are EXPERIMENT images and never publish." },
+    h("ul", { class: "rows" }, (list || []).map((e) => h("li", { class: "row" },
+      h("p", { class: "row-title" }, statusPill(e.inputs_verified ? "OK" : "BAD", e.inputs_verified ? "inputs verified" : "inputs drifted"), ` ${e.id}`),
+      h("p", { class: "row-detail" }, `${e.model} ${e.size} · caps: generation CA$${e.generation_cap_cad}, vision CA$${e.vision_cap_cad} · retries ${e.max_retries}`),
+      h("p", { class: "row-detail" }, e.authorization ? `Authorized ${e.authorization.auth_id} by ${e.authorization.authorized_by}` : "Not authorized"),
+      h("div", { class: "row" },
+        h("button", { class: "btn", type: "button", onclick: async () => {
+          try { const r = await api.authorizeExperiment(e.id, {}); toast(`Authorized ${r.auth_id}`, "ok"); reload(); }
+          catch (err) { toast(err.message, "bad"); }
+        } }, "Authorize"),
+        e.authorization ? h("button", { class: "btn btn-primary", type: "button", onclick: async () => {
+          try { const r = await api.runExperiment(e.id); toast(r.duplicate ? `Already queued (run ${r.run_id})` : `Queued run ${r.run_id}`, "ok"); reload(); }
+          catch (err) { toast(err.message, "bad"); }
+        } }, "Run") : null),
+      h("ul", null, (e.runs || []).map((r) => h("li", null, `run ${r.run_id} · ${r.status} `,
+        h("button", { class: "btn", type: "button", onclick: async () => {
+          try {
+            const c = await api.experimentCard(r.run_id);
+            clear(slot); slot.append(galleryCard(c, reload), experimentDetails(c));
+          } catch (err) { toast(err.message, "bad"); }
+        } }, "Open"))))))));
+}
+
 export async function render({ rerender } = {}) {
-  const [board, wardrobe] = await Promise.all([api.images(), api.wardrobe().catch(() => null)]);
+  const [board, wardrobe, exps] = await Promise.all([api.images(), api.wardrobe().catch(() => null),
+    api.experiments().catch(() => null)]);
   const products = Array.isArray(board.products) ? board.products : [];
   const out = h("div", { aria: { live: "polite" } });
   const gallery = h("div", { aria: { live: "polite" } });
@@ -241,6 +286,7 @@ export async function render({ rerender } = {}) {
     card({ title: "Gallery production", subtitle: "Autonomous image production per product. You are notified only when a gallery is ready for review or blocked after its permitted attempts." },
       h("ul", { class: "rows" }, products.map((p) => runRow(p, rerender || (() => {}), gallery)))),
     gallery,
+    exps ? experimentsCard(exps.experiments, gallery, rerender || (() => {})) : null,
     card({ title: "Learning", subtitle: "Per candidate outcomes. Cost per accepted image is Unknown until an image is accepted." },
       h("p", null, `Candidates: ${learn.candidates ?? "Unknown"} · accepted: ${learn.accepted ?? "Unknown"} · cost per accepted: ${learn.cost_per_accepted_cad == null ? "Unknown" : `CA$${learn.cost_per_accepted_cad}`}`),
       h("p", { class: "row-detail" }, Object.entries(learn.failure_categories || {}).map(([k, v]) => `${k}: ${v}`).join(" · ") || "No failures recorded.")),

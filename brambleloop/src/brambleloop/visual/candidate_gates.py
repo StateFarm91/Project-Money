@@ -450,7 +450,7 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
         checks["outfit_consistency"] = _c(NA, "Laura does not appear")
         checks["outfit_distinctness"] = _c(NA, "Laura does not appear")
     technical = worst(*(c["status"] for c in checks.values()))
-    publication = publication_verdict(cand, checks, job, laura)
+    publication = publication_verdict({**cand, "_db": db}, checks, job, laura)
     if bind.get("experiment"):
         from .experiment import publication_blockers
 
@@ -580,6 +580,11 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
     if ETSY_POLICY_STATUS != PASS:
         blockers.append(ETSY_POLICY_UNKNOWN)
     blockers += other
+    if cand.get("_db") is not None:
+        from .experiment import LABEL, is_experiment_image
+
+        if is_experiment_image(cand["_db"], cand.get("sha256")):
+            blockers.insert(0, f"{LABEL}: a controlled-experiment image is never published")
     return {"publishable": not blockers, "blockers": blockers,
             "may_export": bool(export and export["may_export"])}
 

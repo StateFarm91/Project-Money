@@ -205,7 +205,10 @@ DEFAULT_AGENTS: list[dict] = [
                             "visual.rnd.cycle",
                             # W-OWNERIMG: autonomous listing-image production, one stage
                             # per job, inside this agent's ceiling and a per-gallery plan.
-                            "visual.image_production"],
+                            "visual.image_production",
+                            # W-VISNEXT: an owner-authorised controlled experiment (frozen
+                            # definition, owner step-up, its own caps inside this ceiling).
+                            "visual.controlled_experiment"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

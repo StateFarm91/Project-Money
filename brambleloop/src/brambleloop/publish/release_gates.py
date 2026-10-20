@@ -78,6 +78,12 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
     job = ROLE_JOBS.get(f.role)
     base = {"asset_id": _asset_id(slug, f.position), "position": f.position, "role": f.role,
             "sha256": f.sha256, "generated": True}
+    from ..visual.experiment import LABEL, is_experiment_image
+
+    if is_experiment_image(db, f.sha256):
+        why = f"{LABEL}: a controlled-experiment image is never exported"
+        return {**base, "may_export": False, "blockers": [why], "why": why,
+                "job": (job or ("",))[0], "gates": {}}
     if job is None:
         why = f"role {f.role!r} has no commercial job; a frame with no job is filler (#65)"
         return {**base, "may_export": False, "blockers": [why], "why": why, "job": "",

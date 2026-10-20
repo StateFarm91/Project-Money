@@ -709,6 +709,8 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # W4-IMGFIX: the disclosed hero review and the 230 px grid identification write the bytes
     # a vision judge is shown into a directory scoped to the call (`core.workspace`).
     "hero-review-", "grid-identify-",
+    # W-VISNEXT: a controlled experiment's render directory, scoped to the job.
+    "experiment-",
     # DISCLOSEDQA: the exported-frame review scoped directory.
     "exported-review-",
     # HEROTOURNEY: the grid tournament candidates scoped directory.

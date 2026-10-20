@@ -1023,7 +1023,7 @@ class GatewayVisionJudge:
                 I._bill(self.db, provider, billed, "fidelity:" + hashlib.sha256(
                     images[0]).hexdigest()[:16])
                 return {"answered": True, "reading": I._json(resp.text),
-                        "model": provider.model}
+                        "model": provider.model, "cost_cad": cost}
         except Exception as exc:  # noqa: BLE001 - an unmade reading is UNKNOWN, never PASS
             return {"answered": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
 

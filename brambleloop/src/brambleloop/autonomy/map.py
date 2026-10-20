@@ -122,6 +122,8 @@ OWNER_ONE_SHOTS: dict[str, str] = {
     "creative.photoreal_calibration": "owner-authorised one vision call (2026-09-22)",
     "visual.portrait_repair": "owner-authorised CA$1.00 repair attempt (2026-09-23)",
     "visual.provider_trial": "owner-authorised CA$4.00 provider trial (2026-09-23)",
+    "visual.controlled_experiment": "owner-authorised controlled visual experiment (frozen "
+                                    "definition, Command Center step-up, W-VISNEXT)",
 }
 
 

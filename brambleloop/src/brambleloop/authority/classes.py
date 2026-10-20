@@ -87,7 +87,8 @@ JOB_CLASS: dict[str, ActionClass] = {
     "intel.serp_capture": _R, "learn.scan": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,
     "radar.competitor_snapshot": _R, "radar.scan": _R, "radar.score": _R,
-    "scale.trajectory": _R, "visual.provider_trial": _R, "visual.rnd.cycle": _R,
+    "scale.trajectory": _R, "visual.provider_trial": _R,
+    "visual.controlled_experiment": _R, "visual.rnd.cycle": _R,
     # build: internal artefacts, code/config/process changes, work generation
     "assets.build": _B, "assets.model_photography": _B, "assets.owned_photography": _B,
     "assets.physical_upgrade": _B, "assets.render": _B, "autonomy.orchestrate": _B,

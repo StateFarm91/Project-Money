@@ -106,6 +106,11 @@ def write_frames(db, slug: str, version: str, frames: list[dict], *, run_key: st
     from ..core.models import AuditLog, ListingAsset
     from ..ops import artefacts as provenance
 
+    from .experiment import refuse_if_experiment_image
+
+    # A controlled-experiment image never becomes a listing asset (W-VISNEXT).
+    refuse_if_experiment_image(db, [f.get("sha256") for f in frames],
+                               action="listing asset write")
     written, refused, kept = [], [], []
     with db.session() as s:
         for f in frames:
