@@ -134,10 +134,12 @@ def _seo(ev: dict) -> dict:
     reasons = " ".join(str(r) for r in sec.get("reasons") or [])
     if "taxonomy" in reasons.lower() or "category UNKNOWN" in reasons:
         return _row(sec.get("state", UNKNOWN), sec.get("why", ""),
-                    remaining=("a stored Etsy seller-taxonomy snapshot: the owner supplies the "
-                               "Etsy app keystring (read-only GET /seller-taxonomy), then "
-                               "listing.taxonomy_refresh is company work"),
-                    owner=OWNER, reasons=list(sec.get("reasons") or [])[:4])
+                    # W4-PRODREADY §8 / W4-FIRSTSALE: production reads Etsy's tree daily with
+                    # the keystring already configured; the open work is the company's matcher.
+                    remaining=("the category matcher: production reads Etsy's seller taxonomy "
+                               "daily; the next refresh with W4-FIRSTSALE confirms crochet by "
+                               "Etsy's own names or property values, then listing.seo re-runs"),
+                    owner=COMPANY, reasons=list(sec.get("reasons") or [])[:4])
     return _row(sec.get("state", UNKNOWN), sec.get("why", "search certificate unread"),
                 remaining="listing.seo for this release", owner=COMPANY,
                 reasons=list(sec.get("reasons") or [])[:4])
