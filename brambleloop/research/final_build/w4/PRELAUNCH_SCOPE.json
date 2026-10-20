@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-19T16:14:25Z",
-  "branch_head": "5b16704d"
+  "generated_at": "2026-10-20T00:11:50Z",
+  "branch_head": "79ddbc85"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,15 +40,15 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 754,
+  "total_not_verified": 755,
   "by_class": {
-   "A": 676,
+   "A": 677,
    "B": 35,
    "C": 43
   },
   "by_source": {
    "build2": {
-    "A": 170,
+    "A": 171,
     "B": 7,
     "C": 23
    },
@@ -63,7 +63,7 @@
   },
   "by_domain": {
    "autonomy_learning": {
-    "A": 126,
+    "A": 127,
     "B": 7,
     "C": 5
    },
@@ -92,7 +92,7 @@
   },
   "by_scope": {
    "build2": {
-    "A": 170,
+    "A": 171,
     "B": 7,
     "C": 23
    },
@@ -785,6 +785,7 @@
    "A B2#86 [implemented_unverified] Creativity Benchmark Memory",
    "A B2#92 [implemented_unverified] Learn -> Hypothesize -> Sandbox -> Test -> Promote Loop",
    "A B2#95 [implemented_unverified] Agent Performance League",
+   "A B2#96 [implemented_unverified] Prompt / Model / Tool Evolution Registry",
    "A B2#98 [blocked_external] External Learning Radar",
    "A F-061 [blocked_owner] Benchmark Purchase Selector",
    "A F-062 [blocked_owner] Benchmark Coverage Matrix",
@@ -1003,8 +1004,8 @@
    "scope": "build2",
    "title": "First 100 Customers Program",
    "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
+   "blocked_by": "engineering",
+   "root": "engineering_open",
    "domain": "store_product",
    "verifiability": "C",
    "criterion_quote": "Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell.",
@@ -1018,8 +1019,8 @@
    "scope": "build2",
    "title": "Customer LTV and Cohorts",
    "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
+   "blocked_by": "engineering",
+   "root": "engineering_open",
    "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
@@ -1671,6 +1672,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Score agents and prompt/model configurations on domain-specific outcomes, cost and reliability. Run challenger configurations against incumbents on controlled tasks. Promote challengers only when they beat the incumbent without violating truth/policy gates. Retire persistently weak configurations."
+  },
+  {
+   "source": "build2",
+   "id": 96,
+   "scope": "build2",
+   "title": "Prompt / Model / Tool Evolution Registry",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Version every material prompt, model, tool and decision policy. Record why it changed, tests, cost, measured outcome and affected departments. Improvement agents may recommend switching providers/tools when evidence supports it, subject to existing owner spend/credential gates."
   },
   {
    "source": "build2",

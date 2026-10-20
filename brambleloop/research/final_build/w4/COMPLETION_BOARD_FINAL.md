@@ -1,10 +1,10 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-19T16:14:25Z by `research/final_build/w4/completion_board_final.py` on branch head 5b16704d. Production runs `1b21e81c6d1b` (read 20261019T1308Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-20T00:11:50Z by `research/final_build/w4/completion_board_final.py` on branch head 79ddbc85. Production runs `1b21e81c6d1b` (read 20261019T1308Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
-| Build 2 | 320 | 117 | 112 | 0 | 3 | 36 | 49 | 3 |
+| Build 2 | 320 | 116 | 113 | 0 | 3 | 36 | 49 | 3 |
 | Final Master launch-critical | 490 | 333 | 32 | 5 | 49 | 42 | 29 | 0 |
 | Final Master total | 917 | 357 | 32 | 5 | 299 | 127 | 90 | 7 |
 | Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
@@ -13,7 +13,7 @@ Generated 2026-10-19T16:14:25Z by `research/final_build/w4/completion_board_fina
 
 | scope | production_verified | dev_proven_not_deployed | implemented_unverified | in_progress | engineering_blocked | owner_blocked | external_blocked | live_customer_C | not_applicable | executable engineering | post-launch empirical | owner/external (non-empirical) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Build 2 | 117 | 107 | 0 | 0 | 2 | 29 | 39 | 23 | 3 | 109 | 54 | 37 |
+| Build 2 | 116 | 108 | 0 | 0 | 2 | 29 | 39 | 23 | 3 | 110 | 54 | 37 |
 | Final Master launch-critical | 333 | 30 | 1 | 5 | 49 | 40 | 28 | 4 | 0 | 85 | 7 | 65 |
 | Final Master total | 357 | 30 | 1 | 5 | 295 | 121 | 81 | 20 | 7 | 331 | 66 | 156 |
 
@@ -26,8 +26,8 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 ## Critical path
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 15 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
-2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 143 rows (31 FM launch-critical, 112 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
-3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 43 rows (31 FM launch-critical, 2 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
+2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 144 rows (31 FM launch-critical, 113 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
+3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 41 rows (31 FM launch-critical, 0 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
 4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
 5. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
 6. **No real customers / market outcomes yet** (external): unblocks 93 rows (4 FM launch-critical, 38 Build 2). Estimate: unbounded (market) -- no buyer exists; cannot be scheduled
@@ -36,18 +36,18 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
-| Proven only on the integration branch (release + production evidence needed) | 143 | 112 | 31 | 0 | {'implemented_unverified': 143} |  |
+| Proven only on the integration branch (release + production evidence needed) | 144 | 113 | 31 | 0 | {'implemented_unverified': 144} |  |
 | No real customers / market outcomes yet | 93 | 38 | 4 | 51 | {'blocked_external': 93} |  |
-| Gate now OPEN in production: unparked, re-verify | 43 | 2 | 31 | 10 | {'blocked_engineering': 43} |  |
+| Gate now OPEN in production: unparked, re-verify | 41 | 0 | 31 | 10 | {'blocked_engineering': 41} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Image/vision provider capability | 24 | 6 | 15 | 3 | {'blocked_external': 23, 'in_progress': 1} |  |
 | Etsy surface has no API or is 403 to automation | 19 | 2 | 11 | 6 | {'blocked_external': 19} |  |
 | Release not deployed (successor + 24h window) | 15 | 1 | 12 | 2 | {'blocked_engineering': 15} |  |
 | Marketplace Insights / Stats paste | 21 | 5 | 4 | 12 | {'blocked_owner': 21} | Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists). |
+| Open engineering work | 246 | 2 | 6 | 238 | {'blocked_engineering': 246} |  |
 | Owned channels (site / Pinterest) | 18 | 7 | 1 | 10 | {'blocked_owner': 18} | The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static  |
 | Testers and physical samples | 16 | 4 | 4 | 8 | {'blocked_owner': 16} | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREA |
 | Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings) | 7 | 0 | 7 | 0 | {'blocked_owner': 7} | rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act |
-| Open engineering work | 244 | 0 | 6 | 238 | {'blocked_engineering': 244} |  |
 | Owner rulings | 7 | 4 | 2 | 1 | {'blocked_owner': 7} | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no |
 | Benchmark purchases | 14 | 5 | 0 | 9 | {'blocked_owner': 14} | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARAN |
 | Etsy Shop Manager settings | 10 | 0 | 4 | 6 | {'blocked_owner': 10} | subscribing is consequential spend |
@@ -64,8 +64,13 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 
 ## Active worker branches (unmerged, last 24 h)
 
-- `claude/w4-HANDOFF` @ 01212198 (7 ahead, 2026-10-18T16:34:20+00:00): rows named none
+- `claude/w4-FIDELITY` @ 298e3156 (26 ahead, 2026-10-19T22:28:26+00:00): rows named ['F-852']
+- `claude/w4-FLUXAPI` @ d3679fe0 (11 ahead, 2026-10-19T19:32:01+00:00): rows named none
+- `claude/w4-OWNERIMG` @ c387c279 (9 ahead, 2026-10-19T19:04:06+00:00): rows named none
+- `claude/w4-SECREVIEW-5f18d11` @ 457e02e8 (1 ahead, 2026-10-19T16:26:19+00:00): rows named none
+- `claude/w4-VISAUTO` @ d767208c (24 ahead, 2026-10-19T22:11:43+00:00): rows named none
 - `claude/w4-VISGATE` @ 3915ca2f (2 ahead, 2026-10-19T15:07:51+00:00): rows named ['F-030', 'F-221', 'F-232', 'F-253', 'F-254', 'F-278']
+- `claude/w4-WRAPTEST` @ 31e53474 (39 ahead, 2026-10-19T23:50:01+00:00): rows named ['F-852']
 
 ## Unfinished launch-critical / Build 2 rows
 
@@ -79,8 +84,8 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | B2#8 | blocked_external | external: real buyers | True | True | parked on customers: needs real customers |
 | B2#9 | blocked_owner | owner: testers / sample | True | True | parked on owner gate tester_roster |
 | B2#10 | blocked_owner | owner: open owned channels | True | True | parked on owner gate owned_surfaces |
-| B2#11 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done | True | True | gate transactions_r has opened; the remaining work is no longer parked |
-| B2#12 | blocked_engineering | engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done | True | True | gate transactions_r has opened; the remaining work is no longer parked |
+| B2#11 | blocked_engineering | engineering | True | True | gate transactions_r has opened; the remaining work is no longer parked |
+| B2#12 | blocked_engineering | engineering | True | True | gate transactions_r has opened; the remaining work is no longer parked |
 | B2#14 | blocked_owner | owner: go-live / publication grant | True | True | parked on owner gate live_listings |
 | B2#15 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#16 | blocked_owner | owner: go-live / publication grant | True | True | parked on owner gate live_listings |
@@ -124,6 +129,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | B2#92 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#94 | blocked_external | external: market outcomes | True | True | machinery exists (creative/blinded.py); parked on data gate market_outcomes: live listing traffic and at least one sale |
 | B2#95 | implemented_unverified | engineering: release + deploy | True | False |  |
+| B2#96 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#98 | blocked_external | external: data accrues with operating time | True | False | machinery exists (intel/learning.py); parked on data gate learning_sources: a craft-technique source and buyers' complai |
 | B2#100 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#101 | implemented_unverified | engineering: release + deploy | True | False |  |

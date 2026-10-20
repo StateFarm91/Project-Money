@@ -1,15 +1,15 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-19T16:14:25Z",
- "branch_head": "5b16704d",
+ "generated_at": "2026-10-20T00:11:50Z",
+ "branch_head": "79ddbc85",
  "production_commit": "1b21e81c6d1b",
  "production_read_at": "20261019T1308Z",
  "headline": {
   "build2": {
    "total": 320,
-   "verified_complete": 117,
-   "implemented_unverified": 112,
+   "verified_complete": 116,
+   "implemented_unverified": 113,
    "in_progress": 0,
    "blocked_engineering": 3,
    "blocked_owner": 36,
@@ -48,8 +48,8 @@
   },
   "recount": {
    "build2": {
-    "production_verified": 117,
-    "dev_proven_not_deployed": 107,
+    "production_verified": 116,
+    "dev_proven_not_deployed": 108,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 2,
@@ -58,9 +58,9 @@
     "live_customer_C": 23,
     "not_applicable": 3,
     "total": 320,
-    "unfinished": 200,
+    "unfinished": 201,
     "post_launch_empirical": 54,
-    "executable_engineering": 109,
+    "executable_engineering": 110,
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
@@ -149,12 +149,12 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 143,
-   "build2": 112,
+   "rows": 144,
+   "build2": 113,
    "fm_launch_critical": 31,
    "fm_post_launch": 0,
    "classes": {
-    "implemented_unverified": 143
+    "implemented_unverified": 144
    },
    "owner_action": null
   },
@@ -173,12 +173,12 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 43,
-   "build2": 2,
+   "rows": 41,
+   "build2": 0,
    "fm_launch_critical": 31,
    "fm_post_launch": 10,
    "classes": {
-    "blocked_engineering": 43
+    "blocked_engineering": 41
    },
    "owner_action": null
   },
@@ -244,6 +244,18 @@
    "owner_action": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists)."
   },
   {
+   "root": "engineering_open",
+   "title": "Open engineering work",
+   "rows": 246,
+   "build2": 2,
+   "fm_launch_critical": 6,
+   "fm_post_launch": 238,
+   "classes": {
+    "blocked_engineering": 246
+   },
+   "owner_action": null
+  },
+  {
    "root": "owned_surfaces",
    "title": "Owned channels (site / Pinterest)",
    "rows": 18,
@@ -254,30 +266,6 @@
     "blocked_owner": 18
    },
    "owner_action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.ga"
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, ma"
-  },
-  {
-   "root": "engineering_open",
-   "title": "Open engineering work",
-   "rows": 244,
-   "build2": 0,
-   "fm_launch_critical": 6,
-   "fm_post_launch": 238,
-   "classes": {
-    "blocked_engineering": 244
-   },
-   "owner_action": null
   }
  ],
  "critical_path": [
@@ -298,9 +286,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 143,
+   "unblocks_rows": 144,
    "unblocks_fm_launch_critical": 31,
-   "unblocks_build2": 112,
+   "unblocks_build2": 113,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -311,9 +299,9 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 43,
+   "unblocks_rows": 41,
    "unblocks_fm_launch_critical": 31,
-   "unblocks_build2": 2,
+   "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
     "figure": "one engineering pass over the unparked rows",

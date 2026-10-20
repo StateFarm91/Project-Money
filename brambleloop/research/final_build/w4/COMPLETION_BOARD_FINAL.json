@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-19T16:14:25Z",
- "branch_head": "5b16704d",
+ "generated_at": "2026-10-20T00:11:50Z",
+ "branch_head": "79ddbc85",
  "production": {
   "commit": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
   "known": true,
@@ -112,8 +112,8 @@
  "headline": {
   "build2": {
    "total": 320,
-   "verified_complete": 117,
-   "implemented_unverified": 112,
+   "verified_complete": 116,
+   "implemented_unverified": 113,
    "in_progress": 0,
    "blocked_engineering": 3,
    "blocked_owner": 36,
@@ -152,8 +152,8 @@
   },
   "recount": {
    "build2": {
-    "production_verified": 117,
-    "dev_proven_not_deployed": 107,
+    "production_verified": 116,
+    "dev_proven_not_deployed": 108,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 2,
@@ -162,9 +162,9 @@
     "live_customer_C": 23,
     "not_applicable": 3,
     "total": 320,
-    "unfinished": 200,
+    "unfinished": 201,
     "post_launch_empirical": 54,
-    "executable_engineering": 109,
+    "executable_engineering": 110,
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
@@ -253,13 +253,13 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 143,
-   "build2": 112,
+   "rows": 144,
+   "build2": 113,
    "fm_launch_critical": 31,
    "fm_post_launch": 0,
    "tracked": 0,
    "classes": {
-    "implemented_unverified": 143
+    "implemented_unverified": 144
    },
    "owner_actions": [],
    "ids": [
@@ -284,6 +284,7 @@
     "B2#88",
     "B2#92",
     "B2#95",
+    "B2#96",
     "B2#100",
     "B2#101",
     "B2#104",
@@ -527,18 +528,16 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 43,
-   "build2": 2,
+   "rows": 41,
+   "build2": 0,
    "fm_launch_critical": 31,
    "fm_post_launch": 10,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 43
+    "blocked_engineering": 41
    },
    "owner_actions": [],
    "ids": [
-    "B2#11",
-    "B2#12",
     "F-005",
     "F-007",
     "F-009",
@@ -822,172 +821,20 @@
    }
   },
   {
-   "root": "owned_surfaces",
-   "title": "Owned channels (site / Pinterest)",
-   "rows": 18,
-   "build2": 7,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 10,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 18
-   },
-   "owner_actions": [
-    {
-     "id": "owned_surfaces",
-     "batch": "channels",
-     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
-     "max_cost_cad": 25.0,
-     "minutes": 65
-    }
-   ],
-   "ids": [
-    "B2#4",
-    "B2#10",
-    "B2#246",
-    "B2#247",
-    "B2#248",
-    "B2#251",
-    "B2#255",
-    "F-572",
-    "F-613",
-    "F-767",
-    "F-771",
-    "F-772",
-    "F-773",
-    "F-808",
-    "F-810",
-    "F-811",
-    "F-812",
-    "F-819"
-   ],
-   "estimate": {
-    "figure": "owner ~65 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_actions": [
-    {
-     "id": "tester_outreach",
-     "batch": "go_live",
-     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
-     "max_cost_cad": 185.0,
-     "minutes": 25
-    }
-   ],
-   "ids": [
-    "B2#9",
-    "B2#43",
-    "B2#64",
-    "B2#250",
-    "F-075",
-    "F-076",
-    "F-077",
-    "F-081",
-    "F-082",
-    "F-083",
-    "F-085",
-    "F-118",
-    "F-360",
-    "F-363",
-    "F-385",
-    "F-876"
-   ],
-   "estimate": {
-    "figure": "owner ~25 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "owner_other",
-   "title": "Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings)",
-   "rows": 7,
-   "build2": 0,
-   "fm_launch_critical": 7,
-   "fm_post_launch": 0,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 7
-   },
-   "owner_actions": [
-    {
-     "id": "credential_rotation",
-     "action": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "deploy_trigger_config",
-     "action": "guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "plane_violations",
-     "action": "w3 claim: (code); token scope GATED",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "legal_and_tax",
-     "action": "owner completes identity verification and decides GST/HST position",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "dashboard_truth.evidence",
-     "action": "w3 claim: in code; production defect GATED",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "spend_policy numbers",
-     "action": "provider/department ceilings need owner figures; mechanism exists",
-     "max_cost_cad": null,
-     "minutes": null
-    },
-    {
-     "id": "casl_notification_authority",
-     "action": "external email/SMS/push needs a CASL review and the owner's authority",
-     "max_cost_cad": null,
-     "minutes": null
-    }
-   ],
-   "ids": [
-    "F-160",
-    "F-461",
-    "F-497",
-    "F-578",
-    "F-665",
-    "F-695",
-    "F-897"
-   ],
-   "estimate": null
-  },
-  {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 244,
-   "build2": 0,
+   "rows": 246,
+   "build2": 2,
    "fm_launch_critical": 6,
    "fm_post_launch": 238,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 244
+    "blocked_engineering": 246
    },
    "owner_actions": [],
    "ids": [
+    "B2#11",
+    "B2#12",
     "F-016",
     "F-017",
     "F-018",
@@ -1232,6 +1079,160 @@
     "F-868",
     "F-869",
     "F-878"
+   ],
+   "estimate": null
+  },
+  {
+   "root": "owned_surfaces",
+   "title": "Owned channels (site / Pinterest)",
+   "rows": 18,
+   "build2": 7,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 10,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 18
+   },
+   "owner_actions": [
+    {
+     "id": "owned_surfaces",
+     "batch": "channels",
+     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+     "max_cost_cad": 25.0,
+     "minutes": 65
+    }
+   ],
+   "ids": [
+    "B2#4",
+    "B2#10",
+    "B2#246",
+    "B2#247",
+    "B2#248",
+    "B2#251",
+    "B2#255",
+    "F-572",
+    "F-613",
+    "F-767",
+    "F-771",
+    "F-772",
+    "F-773",
+    "F-808",
+    "F-810",
+    "F-811",
+    "F-812",
+    "F-819"
+   ],
+   "estimate": {
+    "figure": "owner ~65 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "testers_physical_proof",
+   "title": "Testers and physical samples",
+   "rows": 16,
+   "build2": 4,
+   "fm_launch_critical": 4,
+   "fm_post_launch": 8,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 16
+   },
+   "owner_actions": [
+    {
+     "id": "tester_outreach",
+     "batch": "go_live",
+     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+     "max_cost_cad": 185.0,
+     "minutes": 25
+    }
+   ],
+   "ids": [
+    "B2#9",
+    "B2#43",
+    "B2#64",
+    "B2#250",
+    "F-075",
+    "F-076",
+    "F-077",
+    "F-081",
+    "F-082",
+    "F-083",
+    "F-085",
+    "F-118",
+    "F-360",
+    "F-363",
+    "F-385",
+    "F-876"
+   ],
+   "estimate": {
+    "figure": "owner ~25 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "owner_other",
+   "title": "Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings)",
+   "rows": 7,
+   "build2": 0,
+   "fm_launch_critical": 7,
+   "fm_post_launch": 0,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 7
+   },
+   "owner_actions": [
+    {
+     "id": "credential_rotation",
+     "action": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "deploy_trigger_config",
+     "action": "guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "plane_violations",
+     "action": "w3 claim: (code); token scope GATED",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "legal_and_tax",
+     "action": "owner completes identity verification and decides GST/HST position",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "dashboard_truth.evidence",
+     "action": "w3 claim: in code; production defect GATED",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "spend_policy numbers",
+     "action": "provider/department ceilings need owner figures; mechanism exists",
+     "max_cost_cad": null,
+     "minutes": null
+    },
+    {
+     "id": "casl_notification_authority",
+     "action": "external email/SMS/push needs a CASL review and the owner's authority",
+     "max_cost_cad": null,
+     "minutes": null
+    }
+   ],
+   "ids": [
+    "F-160",
+    "F-461",
+    "F-497",
+    "F-578",
+    "F-665",
+    "F-695",
+    "F-897"
    ],
    "estimate": null
   },
@@ -1686,9 +1687,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 143,
+   "unblocks_rows": 144,
    "unblocks_fm_launch_critical": 31,
-   "unblocks_build2": 112,
+   "unblocks_build2": 113,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -1699,9 +1700,9 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 43,
+   "unblocks_rows": 41,
    "unblocks_fm_launch_critical": 31,
-   "unblocks_build2": 2,
+   "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
     "figure": "one engineering pass over the unparked rows",
@@ -1749,10 +1750,40 @@
   }
  ],
  "active_worker_branches": {
-  "claude/w4-HANDOFF": {
-   "head": "01212198",
-   "last_commit": "2026-10-18T16:34:20+00:00",
-   "commits_ahead": 7,
+  "claude/w4-FIDELITY": {
+   "head": "298e3156",
+   "last_commit": "2026-10-19T22:28:26+00:00",
+   "commits_ahead": 26,
+   "fm": [
+    "F-852"
+   ],
+   "b2": []
+  },
+  "claude/w4-FLUXAPI": {
+   "head": "d3679fe0",
+   "last_commit": "2026-10-19T19:32:01+00:00",
+   "commits_ahead": 11,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-OWNERIMG": {
+   "head": "c387c279",
+   "last_commit": "2026-10-19T19:04:06+00:00",
+   "commits_ahead": 9,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-5f18d11": {
+   "head": "457e02e8",
+   "last_commit": "2026-10-19T16:26:19+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-VISAUTO": {
+   "head": "d767208c",
+   "last_commit": "2026-10-19T22:11:43+00:00",
+   "commits_ahead": 24,
    "fm": [],
    "b2": []
   },
@@ -1767,6 +1798,15 @@
     "F-253",
     "F-254",
     "F-278"
+   ],
+   "b2": []
+  },
+  "claude/w4-WRAPTEST": {
+   "head": "31e53474",
+   "last_commit": "2026-10-19T23:50:01+00:00",
+   "commits_ahead": 39,
+   "fm": [
+    "F-852"
    ],
    "b2": []
   }
@@ -2045,10 +2085,10 @@
     "deployed": true,
     "remaining": "gate transactions_r has opened; the remaining work is no longer parked",
     "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "ork calls; open -> EtsyClient.get_shop_receipts pages receipts into cohorts.record_customer/record_order (Etsy user id only, no PII) and sale LedgerEntry rows, then enqueues commerce.order_readings. cohort_block computes cohorts.metrics per",
+    "root": "engineering_open",
+    "blocked_by": "engineering",
+    "responsible": "next engineering lane (commerce)",
+    "missing_evidence": "gate transactions_r has opened; the remaining work is no longer parked",
     "verifiability": "C",
     "c_quote": "Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell.",
     "recount": "live_customer_C",
@@ -2068,10 +2108,10 @@
     "deployed": true,
     "remaining": "gate transactions_r has opened; the remaining work is no longer parked",
     "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261019T1308Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "s #11: nothing writes Order/Customer rows\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on transactions_r): Customer and Order rows are written by the ingest on cadence (idempotent on etsy:<receipt>:<transaction>; 44 orders",
+    "root": "engineering_open",
+    "blocked_by": "engineering",
+    "responsible": "next engineering lane (commerce)",
+    "missing_evidence": "gate transactions_r has opened; the remaining work is no longer parked",
     "verifiability": "A",
     "recount": "engineering_blocked",
     "empirical": false
@@ -3864,11 +3904,14 @@
      "improve/league.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed 1b21e81 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit 1b21e81 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
