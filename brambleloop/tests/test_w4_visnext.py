@@ -108,6 +108,7 @@ def test_prompts_are_blind_to_the_expected_answer():
     texts = [VJ.person_prompt("refs_first"), VJ.person_prompt("photo_first"),
              VJ.outfit_prompt(), VJ.anatomy_prompt(), VJ.realism_prompt(), VJ.item_prompt(),
              VJ.region_prompt()]
+    assert len(texts) == 7
     for t in texts:
         low = t.lower()
         import re
