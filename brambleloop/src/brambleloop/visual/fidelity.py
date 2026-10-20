@@ -1118,12 +1118,15 @@ def verify_anchor(data: bytes, cir, *, judge=None) -> dict:
 
 def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None,
                      anchor_data: bytes | None = None, product_region=None,
-                     judge=None) -> dict:
+                     judge=None, consistency=None) -> dict:
     """A lifestyle image: anchor PASS for this release, region palette, vision consistency.
 
     `anchor`: {"status", "release_hash"} of the release's product-only anchor (its stored
-    technical verdict). `product_region`: (x0, y0, x1, y1) in pixels of these bytes, from a
-    detector or a judge; without one the palette is not checked (UNKNOWN)."""
+    technical verdict). `product_region`: (x0, y0, x1, y1) in pixels of these bytes, or a
+    list of such boxes (interior fabric patches from `vision_judges.locate_product`); without
+    one the palette is not checked (UNKNOWN). `consistency(judge, anchor_data, data, exp)`
+    replaces the anchor-consistency question (W-VISNEXT: the blind, per-image description
+    compared in code, `vision_judges.blind_consistency`)."""
     try:
         exp = expectation(cir)
     except Exception as exc:  # noqa: BLE001
@@ -1159,9 +1162,14 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
 
         im = Image.open(io.BytesIO(data))
         sx, sy = rgb.shape[1] / im.size[0], rgb.shape[0] / im.size[1]
-        x0, y0, x1, y1 = (int(product_region[0] * sx), int(product_region[1] * sy),
-                          int(product_region[2] * sx), int(product_region[3] * sy))
-        region = rgb[max(0, y0):y1, max(0, x0):x1].reshape(-1, 3)
+        boxes = (list(product_region) if product_region and isinstance(
+            product_region[0], (list, tuple)) else [product_region])
+        parts = []
+        for box in boxes:
+            x0, y0, x1, y1 = (int(box[0] * sx), int(box[1] * sy), int(box[2] * sx),
+                              int(box[3] * sy))
+            parts.append(rgb[max(0, y0):y1, max(0, x0):x1].reshape(-1, 3))
+        region = np.concatenate(parts) if parts else np.zeros((0, 3), dtype=rgb.dtype)
         if len(region) < 100:
             checks.append(_check("region_palette", UNKNOWN, "the product region is too small"))
         else:
@@ -1193,6 +1201,8 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
         checks.append(_check("anchor_consistency", UNKNOWN,
                              "no vision reading compares this image with the anchor",
                              needs="vision judge"))
+    elif consistency is not None:
+        checks.append(consistency(judge, anchor_data, data, exp))
     else:
         got = judge.read(consistency_prompt(), [anchor_data, data],
                          system=CRAFT_SYSTEM, max_tokens=300)

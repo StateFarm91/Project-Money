@@ -202,9 +202,14 @@ class RealJudges:
     consistency (`visual.fidelity.GatewayVisionJudge`, gated on `image_vision`). Unfunded,
     it answers nothing, and those checks stay UNKNOWN."""
 
-    def __init__(self, db, *, vision=None):
+    def __init__(self, db, *, vision=None, second_vision=None, references=None):
         self.db = db
         self.vision = vision
+        # W-VISNEXT: a second, independent judge transport (another model). Identity and body
+        # proportions need two distinct readings to pass; with one, they can only refuse.
+        self.second_vision = second_vision
+        self.references = references
+        self._adapters = None
 
     def _vision_judge(self):
         if self.vision is None:
@@ -212,6 +217,15 @@ class RealJudges:
 
             self.vision = GatewayVisionJudge(self.db)
         return self.vision
+
+    def adapters(self):
+        """The blind vision-judge adapters (`visual.vision_judges`) on this judge transport."""
+        if self._adapters is None:
+            from .vision_judges import Adapters
+
+            self._adapters = Adapters(self.db, self._vision_judge(), second=self.second_vision,
+                                      references=self.references)
+        return self._adapters
 
     def product_truth(self, cand: dict, bind: dict) -> dict:
         """Product Truth for a generated image (W-FIDELITY, OWNERIMG E3).
@@ -228,7 +242,11 @@ class RealJudges:
                                   "provider": cand.get("provider") or "generated",
                                   "slug": cand.get("slug"), "version": cand.get("version"),
                                   "image": {"sha256": cand.get("sha256")}})
-        fid = fidelity_reading(self.db, cand, bind, judge=self._vision_judge())
+        from .vision_judges import blind_consistency
+
+        fid = fidelity_reading(self.db, cand, bind, judge=self._vision_judge(),
+                               consistency=blind_consistency,
+                               locate=self.adapters().product_region)
         out = {"structural_floor": floor, "fidelity": fid}
         status = FAIL if floor.get("status") == FAIL else fid["status"]
         if JOB_OF_ROLE.get(cand.get("role")) == el.LIFESTYLE:
@@ -244,40 +262,35 @@ class RealJudges:
                   if "lifestyle_evidence" in out else ""))
         return _c(status, why[:400], codes=list(fid.get("codes") or []), **out)
 
+    # W-VISNEXT (OWNERIMG E2): every vision check is a blind, structured question through
+    # the same `image_vision`-gated, budget-reserved transport, compared in code
+    # (`visual.vision_judges`). Gate closed or unfunded: nothing is called, UNKNOWN.
+
     def identity(self, cand: dict) -> dict:
-        from . import identity_gate
-
-        g = identity_gate.assess(cand.get("identity_evidence") or {
-            "conditioning": {"references": [
-                {"sha256": r.get("sha256"), "bytes": 0} for r in cand.get("references") or []
-                if r.get("kind") == "laura_canonical"], "proven": False}})
-        return _c(g["status"], g["why"][:400], band=g.get("band"))
-
-    def _vision(self, what: str) -> dict:
-        from .gallery import gates_now
-
-        open_ = bool(gates_now(self.db, keys=("image_vision",)).get("image_vision"))
-        return _c(UNKNOWN, (f"no {what} reading is bound to these bytes" if open_ else
-                            f"{what} not judged: the vision judge (image_vision) is unfunded"))
+        return _plain(self.adapters().identity(cand))
 
     def anatomy(self, cand: dict) -> dict:
-        return self._vision("anatomy")
+        return _plain(self.adapters().anatomy(cand))
 
     def body_proportions(self, cand: dict) -> dict:
         # D-W4-LAURA-FLUX3: bust and body proportions against the canonical torso and
-        # full-length references. A vision judgement; UNKNOWN (blocking) until one is run.
-        return self._vision("bust/body proportions against the canonical torso and "
-                            "full-length references")
+        # full-length references.
+        return _plain(self.adapters().body_proportions(cand))
 
     def outfit_consistency(self, cand: dict, outfit: dict | None) -> dict:
-        return self._vision(f"outfit consistency with the listing's reserved outfit "
-                            f"{(outfit or {}).get('outfit_id')}")
+        return _plain(self.adapters().outfit_consistency(cand, outfit))
 
     def realism(self, cand: dict) -> dict:
-        return self._vision("photographic realism (gallery.REALISM_CHECKS)")
+        return _plain(self.adapters().realism(cand))
 
 
-def fidelity_reading(db, cand: dict, bind: dict, *, judge=None) -> dict:
+def _plain(check: dict) -> dict:
+    """An adapter check as a gate reading (status, why, plus what it measured)."""
+    return {k: v for k, v in check.items() if k != "check"}
+
+
+def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None,
+                     locate=None) -> dict:
     """`visual.fidelity` on a generated candidate, against its certified CIR.
 
     The product-only anchor is verified as an unfolded flat lay. Any other role is a
@@ -314,9 +327,22 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None) -> dict:
         return FID.verify_anchor(data, cir, judge=judge)
     release = str(bind.get("release_hash") or release_hash or "")
     anchor, anchor_data = _anchor_of(db, cand, release)
-    return FID.verify_lifestyle(data, cir, release_hash=release, anchor=anchor,
-                                anchor_data=anchor_data,
-                                product_region=cand.get("product_region"), judge=judge)
+    region, located = cand.get("product_region"), None
+    if not region and locate is not None and (anchor or {}).get("status") == PASS:
+        # Only asked once the release's anchor has passed: without it the image cannot pass
+        # whatever its colours, so the call would be spend without a decision.
+        # W-VISNEXT: the lifestyle product-region detector (interior fabric patches located
+        # blind by the vision judge; the palette inside them is measured in code).
+        located = locate(cand)
+        region = located.get("patches") or None
+    out = FID.verify_lifestyle(data, cir, release_hash=release, anchor=anchor,
+                               anchor_data=anchor_data, product_region=region, judge=judge,
+                               consistency=consistency)
+    if located is not None:
+        out = {**out, "product_region": {"source": "vision_judges.locate_product",
+                                         "patches": located.get("patches") or [],
+                                         "why": located.get("why") or ""}}
+    return out
 
 
 def _anchor_of(db, cand: dict, release: str):

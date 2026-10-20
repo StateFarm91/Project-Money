@@ -441,6 +441,14 @@ class FakeNetwork:
     def reading_for(self, text: str) -> dict:
         if "craft: one of" in text:
             return self.craft
+        if "Task: item_description" in text:
+            # W-VISNEXT: the blind anchor-consistency question describes each image on its
+            # own; a recorded answer consistent with `same`.
+            item = {"item_visible": "yes", "craft": "crochet",
+                    "border_or_edging_visible": "no", "plain_end_bands_visible": "yes",
+                    "raised_cables_visible": "yes", "distinct_yarn_colours": 2}
+            return {"image_1": item, "image_2": item if self.same else
+                    {**item, "border_or_edging_visible": "yes"}}
         if "same_item" in text:
             return {"same_item": "true" if self.same else "false",
                     "differences": [] if self.same else ["a ribbed border along the edges"]}

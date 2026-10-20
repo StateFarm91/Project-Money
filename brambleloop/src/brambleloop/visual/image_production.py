@@ -102,6 +102,8 @@ MAX_REPAIR_ROUNDS = 2
 MAX_GENERATION_CALLS = 12          # per gallery, every role and repair included
 MAX_SPEND_CAD_PER_GALLERY = 2.00   # = the publishing agent's daily ceiling; never raised here
 ANCHOR_ROLE = "product_anchor"     # the product-only candidate: a fidelity anchor, not a frame
+MAX_RESTARTS = 3                   # per run; a restart never resets attempts, calls or spend
+RESTART_KEY = "_restart"           # the run's restart record inside `stages`
 
 
 class Generator(Protocol):
@@ -151,8 +153,12 @@ def run_key(slug: str, version: str, release: str) -> str:
     return f"imgprod:{slug}@{version}@{release}"
 
 
-def stage_key(slug: str, version: str, release: str, stage: str, round_: int = 0) -> str:
-    return run_key(slug, version, release) + f":{stage}" + (f":{round_}" if round_ else "")
+def stage_key(slug: str, version: str, release: str, stage: str, round_: int = 0,
+              epoch: int = 0) -> str:
+    """A stage job's idempotency key. `epoch` > 0 only after a restart (W-VISNEXT), so a
+    restarted run's jobs never collide with the ones its first pass already ran."""
+    return (run_key(slug, version, release) + f":{stage}" + (f":{round_}" if round_ else "")
+            + (f":e{epoch}" if epoch else ""))
 
 
 def prompt_version(db) -> str:
@@ -236,7 +242,8 @@ def _run_view(r) -> dict:
             "generation_calls": r.generation_calls, "spent_cad": round(r.spent_cad or 0.0, 4),
             "outfit_id": r.outfit_id or None, "card": dict(r.card or {}),
             "owner_decision": dict(r.owner_decision or {}),
-            "stages": sorted((r.stages or {}).keys(),
+            "restarts": int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0),
+            "stages": sorted((k for k in (r.stages or {}) if not k.startswith("_")),
                              key=lambda k: [s for s, _ in STAGES].index(k)
                              if k in STAGE_STATE else 99),
             "updated_at": r.updated_at.isoformat() if r.updated_at else None}
@@ -293,7 +300,10 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             cost_cad=cand.get("cost_cad"), cost_basis=str(cand.get("cost_basis") or "")[:200],
             latency_s=cand.get("latency_s"), width=q.get("width"), height=q.get("height"),
             binding={k: v for k, v in verdict["checks"]["binding"].items()},
-            checks={**verdict["checks"], "_publication": verdict.get("publication") or {}},
+            checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
+                    # the generator's conditioning receipt (references sent, proven), kept
+                    # so a re-verification reads the same evidence (W-VISNEXT)
+                    "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
             technical_status=tech,
             publishable=bool(verdict["publishable"]), outcome=outcome,
             failure_categories=list(verdict.get("failure_categories") or []),
@@ -301,6 +311,16 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
         s.add(row)
         s.flush()
         return {"candidate_id": row.id, "sha256": row.sha256, "outcome": outcome}
+
+
+def _receipt_summary(ev) -> dict:
+    ev = ev if isinstance(ev, dict) else {}
+    out = {k: ev[k] for k in ("conditioning", "references", "request", "non_identity_references")
+           if k in ev}
+    if isinstance(out.get("request"), dict):
+        out["request"] = {k: out["request"].get(k) for k in ("conditioning_proven",
+                                                              "request_sha256")}
+    return out
 
 
 def learning_summary(db, *, slug: str | None = None) -> dict:
@@ -538,6 +558,11 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         exp = XP.context_for(db, slug, version, release)
     key = _ensure_run(db, slug, version, release)
     run = get_run(db, key)
+    epoch = int(inputs.get("epoch") or 0)
+    if epoch != run.get("restarts", 0):
+        # a job from before (or beyond) the run's current restart epoch: superseded
+        return {"run_key": key, "skipped": True,
+                "why": f"job epoch {epoch} is not the run's epoch {run.get('restarts', 0)}"}
     if run["state"] in ("blocked", "approved_for_publication") and stage != "repair":
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
     judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
@@ -560,7 +585,9 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                "round": rnd}
         if exp is not None:
             nxt["experiment"] = True
-        follow(nxt, stage_key(slug, version, release, next_stage, rnd))
+        if epoch:
+            nxt["epoch"] = epoch
+        follow(nxt, stage_key(slug, version, release, next_stage, rnd, epoch))
         return next_stage
 
     def block(why: str, *, exhausted: bool = False, record: dict | None = None):
@@ -644,6 +671,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             return {"run_key": key, "next": go(_next(stage), rnd=attempt - 1)}
 
         if stage == "fidelity_gate":
+            if inputs.get("reverify"):
+                # W-VISNEXT restart: the stored anchor bytes are judged again with today's
+                # judges; nothing is regenerated and no attempt is added.
+                b = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
+                if b:
+                    reverify(db, b["candidate_id"], judges=judges, exp=exp)
             best = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
             status = (best or {}).get("technical_status", "UNKNOWN")
             record = {"evidence": best}
@@ -761,6 +794,17 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 if attempt > max_att:
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
+                if (r["laura"] and outfit and outfit.get("approved_reference")
+                        and getattr(gen, "accepts_outfit_reference", False)):
+                    # OWNERIMG E6: the outfit's approved reference image, as a clothing
+                    # reference only (kind prior_candidate; never an identity reference).
+                    # Sent only to a generator that declares it can carry one.
+                    from ..core.artifacts import ArtifactStore
+
+                    ref = ArtifactStore().get(outfit["approved_reference"], db=db)
+                    if ref:
+                        refs_ = refs_ + [{"kind": "prior_candidate", "label": "outfit_reference",
+                                          "sha256": outfit["approved_reference"], "data": ref}]
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
                                       release=release, role=r["role"], stage=rnd_stage,
                                       laura=r["laura"], judges=judges, brief=r["brief"] or
@@ -788,6 +832,11 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
 
         if stage == "verification":
             roles = SP.generated_roles(plan)
+            if inputs.get("reverify"):
+                for r in roles:
+                    b = _best(db, listing=run["listing"], role=r["role"], run=key)
+                    if b:
+                        reverify(db, b["candidate_id"], judges=judges, exp=exp)
             per = {r["role"]: _best(db, listing=run["listing"], role=r["role"], run=key)
                    for r in roles}
             failing = [r for r in roles if (per[r["role"]] or {}).get("technical_status")
@@ -898,6 +947,175 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                            status="ready_for_owner_review", card=card,
                                            record={"outputs": card})}
     raise ValueError(f"stage {stage!r} fell through")
+
+
+# ---- re-verification and restart (W-VISNEXT; OWNERIMG E4) -----------------------------------
+
+def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
+    """Judge one stored candidate's bytes again with `judges`, in place.
+
+    The same image, a new reading: nothing is generated, no attempt is added (attempts are
+    counted from candidate rows), and the previous verdict is kept in
+    `checks["_reverified"]`. Used when a restart follows a capability change (for example the
+    vision judge being funded). UNKNOWN stays UNKNOWN unless the new reading resolves it."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.artifacts import ArtifactStore
+    from .image_records import ImageCandidate
+
+    with db.session() as s:
+        row = s.get(ImageCandidate, candidate_id)
+        if row is None or not row.sha256:
+            return {"reverified": False, "why": "no stored candidate"}
+        cand = {"slug": row.slug, "version": row.version, "release": row.release,
+                "role": row.role, "provider": row.provider, "model": row.model,
+                "prompt": row.prompt, "references": list(row.references or []),
+                "laura_present": row.laura_present, "outfit_id": row.outfit_id or None,
+                "listing": row.listing, "provenance_kind": row.provenance_kind,
+                "identity_evidence": (row.checks or {}).get("_identity_evidence") or {}}
+        prev = {"technical_status": row.technical_status,
+                "failure_categories": list(row.failure_categories or []),
+                "unknown": sorted(k for k, c in (row.checks or {}).items()
+                                  if isinstance(c, dict) and c.get("status") == "UNKNOWN"),
+                "history": list(((row.checks or {}).get("_reverified") or {}).get(
+                    "history") or [])}
+        sha = row.sha256
+    try:
+        data = ArtifactStore().get(sha, db=db)
+    except Exception as exc:  # noqa: BLE001 - bytes gone: nothing can be re-read
+        return {"reverified": False, "why": f"bytes unavailable ({type(exc).__name__})"}
+    cand = {**cand, "data": data, "sha256": sha}
+    if exp is not None:
+        cand["experiment"] = True
+    if cand["role"] == ANCHOR_ROLE:
+        bind = _binding(db, exp, cand["slug"], cand["version"], cand["release"])
+        pt = judges.product_truth({**cand}, bind)
+        q = CG.quality(data)
+        verdict = {"checks": {"binding": bind, "product_truth": pt, "quality": q},
+                   "technical_status": CG.worst(bind["status"], pt["status"], q["status"]),
+                   "publishable": False, "publication": {},
+                   "failure_categories": sorted(
+                       {CG.FAILURE_CATEGORY[k] for k, c in (("binding", bind),
+                        ("product_truth", pt), ("quality", q)) if c["status"] == CG.FAIL})
+                   + [str(c) for c in pt.get("codes") or []]}
+    else:
+        verdict = CG.evaluate(db, cand, judges=judges, record_outfit_use=False)
+    tech = verdict["technical_status"]
+    with db.session() as s:
+        row = s.get(ImageCandidate, candidate_id)
+        row.checks = {**verdict["checks"], "_publication": verdict.get("publication") or {},
+                      "_identity_evidence": cand["identity_evidence"],
+                      "_reverified": {"history": prev["history"] + [{
+                          "at": _now().isoformat(), "previous_status": prev["technical_status"],
+                          "previous_failure_categories": prev["failure_categories"],
+                          "previous_unknown": prev["unknown"]}]}}
+        row.technical_status = tech
+        row.publishable = bool(verdict["publishable"])
+        row.outcome = {"PASS": "accepted", "FAIL": "rejected"}.get(tech, "unverified")
+        row.failure_categories = list(verdict.get("failure_categories") or [])
+        flag_modified(row, "checks")
+        flag_modified(row, "failure_categories")
+    return {"reverified": True, "candidate_id": candidate_id, "previous": prev["technical_status"],
+            "technical_status": tech}
+
+
+def _run_candidates_failed(db, key: str, listing: str) -> list[str]:
+    """Roles whose best candidate in this run is a technical FAIL."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate
+
+    with db.session() as s:
+        roles = sorted({r for (r,) in s.execute(select(ImageCandidate.role).where(
+            ImageCandidate.run_key == key))})
+    return [r for r in roles if (_best(db, listing=listing, role=r, run=key) or {}).get(
+        "technical_status") == "FAIL"]
+
+
+def restartable(db, key: str) -> dict:
+    """Whether a blocked run may be restarted, and from which stage.
+
+    Allowed: a run blocked by a missing capability (gate closed, no generator, a check the
+    verifier or the vision judge could not read), including an owner-card block whose only
+    reason is UNKNOWN. Refused: experiments; budget stops; a run whose best candidate for some
+    role FAILed (its attempts are spent; a new release or a repair decides that); more than
+    `MAX_RESTARTS`. A restart never resets attempts, generation calls or spend."""
+    run = get_run(db, key)
+    if run is None:
+        return {"restartable": False, "why": "no such run"}
+    from . import experiment as XP
+
+    if (run.get("card") or {}).get("experiment") or XP.is_experiment(db, run["slug"],
+                                                                       run["version"]):
+        return {"restartable": False, "why": f"{XP.LABEL}: an experiment run is one-shot"}
+    if run["state"] != "blocked":
+        return {"restartable": False, "why": f"run is {run['status']}, not blocked"}
+    if run.get("restarts", 0) >= MAX_RESTARTS:
+        return {"restartable": False, "why": f"already restarted {run['restarts']} times "
+                                             f"(cap {MAX_RESTARTS})"}
+    reason = str(run.get("blocked_reason") or "")
+    if reason.startswith("budget stop"):
+        return {"restartable": False, "why": "a budget stop is final for this run: " + reason}
+    failed = _run_candidates_failed(db, key, run["listing"])
+    if failed:
+        return {"restartable": False, "why": f"FAIL on {failed}: attempts were spent on a "
+                                             f"failure, not a missing capability"}
+    names = [st for st, _ in STAGES]
+    blocked_at = run["stage"] if run["stage"] in names else names[0]
+    has_anchor = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key) is not None
+    if names.index(blocked_at) >= names.index("verification"):
+        resume, reverify_ = "verification", True
+    elif blocked_at in ("product_generation", "fidelity_gate") and has_anchor:
+        resume, reverify_ = "fidelity_gate", True
+    else:
+        resume, reverify_ = blocked_at, False
+    return {"restartable": True, "resume_at": resume, "reverify": reverify_,
+            "blocked_at": blocked_at, "blocked_reason": reason,
+            "epoch": run.get("restarts", 0) + 1}
+
+
+def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
+    """Restart a blocked run under a new epoch (W-VISNEXT; OWNERIMG E4).
+
+    The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
+    with the first pass; jobs from an older epoch are skipped. Attempts, generation calls and
+    spend carry over (the per-role cap and the gallery spend plan still bind), and stored
+    candidates are re-verified rather than regenerated where they exist."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    if not str(by or "").strip():
+        raise ValueError("a restart names who asked for it")
+    can = restartable(db, key)
+    if not can["restartable"]:
+        return {"restarted": False, **can}
+    run = get_run(db, key)
+    epoch = can["epoch"]
+    with db.session() as s:
+        r = _run(s, key)
+        st = dict(r.stages or {})
+        rec = dict(st.get(RESTART_KEY) or {})
+        rec["epoch"] = epoch
+        rec["history"] = list(rec.get("history") or []) + [{
+            "epoch": epoch, "at": _now().isoformat(), "by": str(by)[:120],
+            "reason": str(reason)[:500], "blocked_at": can["blocked_at"],
+            "blocked_reason": can["blocked_reason"][:1000], "resume_at": can["resume_at"],
+            "reverify": can["reverify"], "generation_calls": r.generation_calls,
+            "spent_cad": round(r.spent_cad or 0.0, 4)}]
+        st[RESTART_KEY] = rec
+        r.stages = st
+        flag_modified(r, "stages")
+        r.status, r.blocked_reason, r.attempts_exhausted = (STAGE_STATE[can["resume_at"]], "",
+                                                            False)
+        r.stage = can["resume_at"]
+        r.updated_at = _now()
+    inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
+              "stage": can["resume_at"], "round": 0, "epoch": epoch}
+    if can["reverify"]:
+        inputs["reverify"] = True
+    job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
+                                   can["resume_at"], 0, epoch))
+    return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
+            "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
 
 
 def _repick_outfit(db, listing: str, current: str) -> dict:
@@ -1087,8 +1305,10 @@ def notification_candidates(db) -> list[dict]:
                 "evidence": [f"image_production_runs:{r.id}"],
                 "deep_link": f"/cc/#/images/{r.listing}", "count": 1})
             continue
+        ep = int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0)
         out.append({
-            "dedupe_key": f"image_gallery:{r.run_key}:{r.status}",
+            # a restarted run that reaches the same state again is news again
+            "dedupe_key": f"image_gallery:{r.run_key}:{r.status}" + (f":e{ep}" if ep else ""),
             "severity": "normal" if ready else "high",
             "category": "decision" if ready else "anomaly",
             "title": (f"Gallery ready for your review: {r.listing}" if ready else
@@ -1135,7 +1355,8 @@ def approve(db, key: str, *, decided_by: str) -> dict:
     decision = {"by": decided_by, "at": _now().isoformat(), "blockers": sorted(set(blockers))}
     with db.session() as s:
         r = _run(s, key)
-        r.owner_decision = {**decision, "approved_look": True}
+        r.owner_decision = {**dict(r.owner_decision or {}), **decision, "approved_look": True,
+                            "publication_requested": True}
         flag_modified(r, "owner_decision")
         if not blockers:
             r.status = "approved_for_publication"
@@ -1143,4 +1364,112 @@ def approve(db, key: str, *, decided_by: str) -> dict:
         return {"approved": False, "owner_look_recorded": True,
                 "why": "publication gates still block; approval is recorded but cannot "
                        "override them", "blockers": decision["blockers"]}
-    return {"approved": True, "state": "approved_for_publication"}
+    # W-VISNEXT (OWNERIMG E5): the approved frames go to ListingAsset only after a fresh
+    # re-verification, and the set is re-certified by release_gates.listing_set.
+    from .gallery_persist import persist_approved
+
+    return {"approved": True, "state": "approved_for_publication",
+            "listing_assets": persist_approved(db, key)}
+
+
+def record_visual_approval(db, key: str, *, decided_by: str, approved: bool,
+                           note: str = "") -> dict:
+    """The owner's look at the images, recorded on its own (W-VISNEXT gallery card).
+
+    It is not technical certification and not publication authorization: no gate reads it,
+    the run's state does not change, and `approve` (the publication decision, step-up) still
+    re-checks every gate."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    if not str(decided_by or "").strip():
+        raise ValueError("a visual approval names who decided")
+    run = get_run(db, key)
+    if run is None:
+        return {"recorded": False, "why": "no such run"}
+    if run["state"] not in ("ready_for_owner_review", "blocked", "approved_for_publication"):
+        return {"recorded": False, "why": f"run is {run['status']}: no gallery to look at yet"}
+    entry = {"approved_look": bool(approved), "by": str(decided_by)[:120],
+             "at": _now().isoformat(), "note": str(note or "")[:1000],
+             "is_technical_certification": False, "is_publication_authorization": False}
+    with db.session() as s:
+        r = _run(s, key)
+        od = dict(r.owner_decision or {})
+        od["visual"] = entry
+        od["visual_history"] = list(od.get("visual_history") or []) + [entry]
+        r.owner_decision = od
+        flag_modified(r, "owner_decision")
+    return {"recorded": True, "visual_approval": entry, "state": run["state"]}
+
+
+def gallery_card(db, key: str) -> dict | None:
+    """The Command Center gallery approval card: every frame with its image, and three
+    decisions kept apart (W-VISNEXT).
+
+    * visual approval: the owner's look (`record_visual_approval`); never a gate input;
+    * technical certification: every generated frame's technical verdict, the set check and
+      campaign consistency, from the stored candidates;
+    * publication authorization: available only when no publication blocker remains, and
+      then only through `approve` (step-up), which re-checks every gate."""
+    run = get_run(db, key)
+    if run is None:
+        return None
+    card = dict(run.get("card") or {})
+    roles = card.get("roles")
+    if roles is None:   # no card yet (blocked earlier): show what candidates exist
+        try:
+            roles = readiness(db, run["listing"], run_key_=key)["roles"]
+        except Exception:  # noqa: BLE001 - no plan: no roles to show
+            roles = []
+    frames, tech = [], []
+    for r in roles or []:
+        c = r.get("candidate") or {}
+        img = (f"/api/cc/images/candidates/{c['candidate_id']}/image"
+               if c.get("candidate_id") and c.get("sha256") else None)
+        frames.append({"position": r.get("position"), "role": r.get("role"),
+                       "job": r.get("job"), "source": r.get("source"),
+                       "status": r.get("status"), "laura": r.get("laura"),
+                       "image_url": img, "sha256": c.get("sha256"),
+                       "technical_status": c.get("technical_status"),
+                       "failed": c.get("failed") or {}, "unknown": c.get("unknown") or [],
+                       "fidelity": c.get("fidelity") or {},
+                       "label": "AI-generated concept image, never a photograph"
+                       if img else None})
+        if r.get("source") == "generated" and c:
+            tech.append(c.get("technical_status") or "UNKNOWN")
+    blockers = sorted(set(card.get("publication_blockers") or []))
+    tech_status = CG.worst(*tech) if tech else CG.UNKNOWN
+    set_ok = (card.get("set_check") or {}).get("ok")
+    od = dict(run.get("owner_decision") or {})
+    visual = od.get("visual")
+    experiment = bool(card.get("experiment"))
+    pub_available = (run["state"] == "ready_for_owner_review" and not blockers and not
+                     experiment and tech_status == CG.PASS and bool(set_ok))
+    return {
+        "run_key": key, "listing": run["listing"], "slug": run["slug"],
+        "version": run["version"], "release": run["release"], "state": run["state"],
+        "status": run["status"], "experiment": experiment, "label": card.get("label"),
+        "frames": frames, "spent_cad": run["spent_cad"],
+        "generation_calls": run["generation_calls"], "restarts": run.get("restarts", 0),
+        "restartable": restartable(db, key) if run["state"] == "blocked" else
+        {"restartable": False, "why": f"run is {run['status']}"},
+        "outfit_id": run.get("outfit_id"),
+        "decisions": {
+            "visual_approval": {
+                "state": ("approved" if visual and visual.get("approved_look") else
+                          "rejected" if visual else "not_recorded"),
+                "record": visual, "affects_gates": False,
+                "what": "your look at these images only"},
+            "technical_certification": {
+                "state": tech_status, "set_check": card.get("set_check"),
+                "campaign_consistency": card.get("campaign_consistency"),
+                "certification": card.get("certification"),
+                "what": "automated verification of every generated frame; UNKNOWN is never "
+                        "PASS and your approval cannot change it"},
+            "publication_authorization": {
+                "state": ("approved" if run["state"] == "approved_for_publication" else
+                          "available" if pub_available else "not_available"),
+                "blockers": blockers,
+                "requires": "step-up; every gate is re-checked at the moment you approve",
+                "what": "whether these frames may go to the listing"}},
+        "recommended_fix": card.get("recommended_fix") or []}
+

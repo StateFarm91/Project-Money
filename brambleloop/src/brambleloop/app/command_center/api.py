@@ -425,6 +425,122 @@ def make_router(db) -> APIRouter:
                             "approved": out.get("approved")})
         return ok(out)
 
+    # ---- gallery approval card, restart, wardrobe editor (W-VISNEXT) ----------------------
+    # Three decisions kept apart on the card: the owner's look (recorded, no gate reads it),
+    # technical certification (the stored verdicts; the owner cannot change them) and
+    # publication authorization (`images/runs/approve`, step-up, every gate re-checked).
+
+    @router.get("/images/runs/card")
+    def images_card(request: Request, run_key: str = ""):
+        from ...visual import image_production
+
+        card = image_production.gallery_card(db, str(run_key)[:300])
+        if card is None:
+            return ok({"error": "no such run", "code": "NOT_FOUND"}, 404)
+        return ok(card)
+
+    @router.get("/images/candidates/{candidate_id}/image")
+    def images_candidate_image(candidate_id: int, request: Request):
+        """The stored bytes of one generated candidate, unchanged (sha256-addressed)."""
+        from fastapi.responses import Response
+
+        from ...core.artifacts import ArtifactStore
+        from ...visual.image_records import ImageCandidate, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            row = s.get(ImageCandidate, int(candidate_id))
+            sha = row.sha256 if row is not None else ""
+        data = None
+        if sha:
+            try:
+                data = ArtifactStore().get(sha, db=db)
+            except Exception:  # noqa: BLE001 - missing bytes are a 404, never a substitute
+                data = None
+        if not data:
+            return ok({"error": "no stored image for this candidate", "code": "NOT_FOUND"}, 404)
+        mime = "image/jpeg" if data[:3] == b"\xff\xd8\xff" else "image/png"
+        return Response(data, media_type=mime, headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Image-Status": "AI-generated candidate; never a photograph; not published"})
+
+    @router.post("/images/runs/visual-approval")
+    async def images_visual_approval(request: Request):
+        from ...visual import image_production
+
+        body = await body_of(request)
+        out = await run_in_threadpool(lambda: image_production.record_visual_approval(
+            db, str(body.get("run_key") or ""), decided_by=actor(request),
+            approved=bool(body.get("approved")), note=str(body.get("note") or "")[:1000]))
+        auth.record(db, kind="action", outcome="ok" if out.get("recorded") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.visual_approval", "run_key": body.get("run_key"),
+                            "approved": bool(body.get("approved"))})
+        return ok(out)
+
+    @router.post("/images/runs/restart")
+    async def images_restart(request: Request):
+        from ...queue.durable import DuplicateJob, JobQueue
+        from ...visual import image_production
+
+        body = await body_of(request)
+        q = JobQueue(db)
+
+        def follow(inputs, key):
+            try:
+                return q.enqueue(image_production.AGENT, image_production.JOB_TYPE, inputs,
+                                 idempotency_key=key)
+            except DuplicateJob:
+                return None
+
+        out = await run_in_threadpool(lambda: image_production.restart(
+            db, str(body.get("run_key") or ""), follow=follow, by=actor(request),
+            reason=str(body.get("reason") or "")[:500]))
+        auth.record(db, kind="action", outcome="ok" if out.get("restarted") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.restart", "run_key": body.get("run_key"),
+                            "epoch": out.get("epoch")})
+        return ok(out)
+
+    @router.get("/wardrobe")
+    def images_wardrobe(request: Request):
+        from ...visual import outfits
+
+        return ok(outfits.wardrobe_editor(db))
+
+    @router.post("/images/outfits/action")
+    async def images_outfit_action(request: Request):
+        """Wardrobe editor actions: approve, reserve, release, replace, set_reference."""
+        from ...visual import outfits
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        act = str(body.get("action") or "")
+        oid = str(body.get("outfit_id") or "")
+        listing = str(body.get("listing") or "")
+        try:
+            if act == "approve":
+                out = outfits.approve(db, oid, approved_by=actor(request))
+            elif act == "reserve":
+                out = outfits.reserve(db, oid, listing)
+            elif act == "release":
+                out = outfits.release(db, oid, listing,
+                                      why=str(body.get("why") or "owner, wardrobe editor"))
+            elif act == "replace":
+                out = outfits.replace(db, oid, str(body.get("new_outfit_id") or ""), listing)
+            elif act == "set_reference":
+                out = outfits.set_approved_reference(db, oid, str(body.get("image_sha256") or ""),
+                                                     by=actor(request))
+            else:
+                return ok({"error": f"unknown action {act!r}", "code": "BAD_REQUEST"}, 400)
+        except outfits.OutfitRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": f"images.outfit.{act}", "outfit_id": oid,
+                            "listing": listing})
+        return ok(out)
+
     @router.get("/account")
     def account(request: Request):
         return ok(tabs.account(db, auth.current_public_id(request)))

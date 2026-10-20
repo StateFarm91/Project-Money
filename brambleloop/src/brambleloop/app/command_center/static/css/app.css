@@ -439,3 +439,8 @@ details.card[open] > summary { margin-bottom: 8px; }
 .chart-data > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--text-2); font-size: 13px; font-weight: 600; }
 .chart-data table { width: 100%; font-size: 13px; border-collapse: collapse; }
 .chart-data td { padding: 2px 4px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+
+/* W-VISNEXT gallery approval card: the actual images, one per frame. */
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.gallery-frame { margin: 0; }
+.gallery-frame img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px; }

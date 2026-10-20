@@ -81,32 +81,170 @@ function uploadForm(products, out) {
   return form;
 }
 
-function runRow(p, rerender) {
-  const st = String(p.state || "awaiting_certified_pattern");
-  const approve = st === "ready_for_owner_review" ? h("button", { class: "btn", type: "button", onclick: async () => {
+// ---- gallery approval card (W-VISNEXT) ---------------------------------------------------
+// The images themselves, and three decisions that stay apart: your look (recorded, read by no
+// gate), technical certification (automated; your look cannot change it) and publication
+// authorization (step-up; every gate is re-checked when you press it).
+
+const DECISION_PILL = { approved: "OK", available: "OK", PASS: "OK", rejected: "BAD", FAIL: "BAD", not_available: "BAD" };
+
+function frameFigure(f) {
+  const alt = `${f.role} (position ${f.position}): ${f.label || "no generated image"}`;
+  return h("figure", { class: "gallery-frame" },
+    f.image_url ? h("img", { src: f.image_url, alt, loading: "lazy", width: 240, height: 240 })
+      : h("div", { class: "muted small" }, f.source === "disclosed_render" ? "Disclosed rendering (certified set)" : "No generated image"),
+    h("figcaption", null,
+      h("p", { class: "row-title" }, statusPill(f.technical_status === "PASS" ? "OK" : f.technical_status ? (f.technical_status === "FAIL" ? "BAD" : "UNKNOWN") : "UNKNOWN", f.technical_status || "—"), ` ${f.position}. ${f.role}`),
+      h("p", { class: "row-detail" }, String(f.status || "")),
+      Object.keys(f.failed || {}).length ? h("p", { class: "row-detail" }, `Failed: ${Object.keys(f.failed).join(", ")}`) : null,
+      (f.unknown || []).length ? h("p", { class: "row-detail" }, `Unknown: ${f.unknown.join(", ")}`) : null));
+}
+
+function decisionBlock(title, d, ...extra) {
+  return h("div", { class: "stack" },
+    h("h3", { class: "section-title" }, title),
+    h("p", null, statusPill(DECISION_PILL[d.state] || "UNKNOWN", String(d.state || "UNKNOWN"))),
+    h("p", { class: "muted small" }, String(d.what || "")), ...extra);
+}
+
+export function galleryCard(c, reload) {
+  const d = c.decisions || {};
+  const vis = d.visual_approval || {}, tech = d.technical_certification || {}, pub = d.publication_authorization || {};
+  const note = h("input", { id: `va-note-${c.run_key}`, placeholder: "note (optional)" });
+  const look = async (approved) => {
     try {
-      const r = await api.approveImages(p.run_key);
-      toast(r.approved ? "Approved for publication" : `Not approved: ${(r.blockers || []).join("; ") || r.why}`, r.approved ? "ok" : "bad");
-      rerender();
+      const r = await api.visualApproval(c.run_key, approved, note.value);
+      toast(r.recorded ? "Your look is recorded (not a technical or publication decision)" : r.why, r.recorded ? "ok" : "bad");
+      reload();
     } catch (err) { toast(err.message, "bad"); }
-  } }, "Approve gallery") : null;
+  };
+  const authorize = pub.state === "available" ? h("button", { class: "btn btn-primary", type: "button", onclick: async () => {
+    try {
+      const r = await api.approveImages(c.run_key);
+      toast(r.approved ? "Publication authorized" : `Not authorized: ${(r.blockers || []).join("; ") || r.why}`, r.approved ? "ok" : "bad");
+      reload();
+    } catch (err) { toast(err.message, "bad"); }
+  } }, "Authorize publication") : null;
+  const rs = c.restartable || {};
+  const restart = rs.restartable ? h("button", { class: "btn", type: "button", onclick: async () => {
+    try {
+      const r = await api.restartImages(c.run_key, "owner restart from the gallery card");
+      toast(r.restarted ? `Restarted (epoch ${r.epoch}) at ${r.resume_at}` : r.why, r.restarted ? "ok" : "bad");
+      reload();
+    } catch (err) { toast(err.message, "bad"); }
+  } }, `Restart at ${rs.resume_at}`) : null;
+  return card({ title: `${c.experiment ? (c.label || "EXPERIMENT") + ": " : ""}Gallery: ${c.listing}`,
+    subtitle: `${c.status} · spent CA$${c.spent_cad} · ${c.generation_calls} generation call(s) · restarts ${c.restarts}` },
+    h("div", { class: "gallery-grid" }, (c.frames || []).map(frameFigure)),
+    decisionBlock("1. Visual approval (your look only)", vis,
+      vis.record ? h("p", { class: "row-detail" }, `${vis.record.approved_look ? "Liked" : "Not liked"} by ${vis.record.by} at ${vis.record.at}`) : null,
+      note,
+      h("div", { class: "row" },
+        h("button", { class: "btn", type: "button", onclick: () => look(true) }, "I like the look"),
+        h("button", { class: "btn", type: "button", onclick: () => look(false) }, "Not this look"))),
+    decisionBlock("2. Technical certification (automated)", tech,
+      tech.certification ? h("p", { class: "row-detail" }, `Pattern certification: ${(tech.certification || {}).granted ? "granted" : "REFUSED"}`) : null,
+      h("p", { class: "row-detail" }, `Set check: ${(tech.set_check || {}).ok ? "ok" : "not ok"} · campaign consistency: ${(tech.campaign_consistency || {}).status || "—"}`)),
+    decisionBlock("3. Publication authorization", pub,
+      (pub.blockers || []).length ? h("ul", null, pub.blockers.map((b) => h("li", null, b))) : null,
+      h("p", { class: "muted small" }, String(pub.requires || "")), authorize),
+    (c.recommended_fix || []).length ? h("div", null, h("h3", { class: "section-title" }, "Recommended fix"),
+      h("ul", null, c.recommended_fix.map((x) => h("li", null, x)))) : null,
+    rs.restartable === false && c.state === "blocked" ? h("p", { class: "muted small" }, `Restart: ${rs.why}`) : restart);
+}
+
+function runRow(p, rerender, slot) {
+  const st = String(p.state || "awaiting_certified_pattern");
+  const open = p.run_key ? h("button", { class: "btn", type: "button", onclick: async () => {
+    const load = async () => {
+      try {
+        const c = await api.imagesCard(p.run_key);
+        clear(slot); slot.append(galleryCard(c, load));
+        slot.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) { toast(err.message, "bad"); }
+    };
+    load();
+  } }, "Open gallery") : null;
   return h("li", { class: "row" },
     h("p", { class: "row-title" }, statusPill(STATE_PILL[st] || "UNKNOWN", st), ` ${p.listing}`),
     p.blocked_reason ? h("p", { class: "row-detail" }, p.blocked_reason) : null,
     p.why ? h("p", { class: "row-detail" }, p.why) : null,
-    approve);
+    open);
+}
+
+// ---- wardrobe editor (W-VISNEXT) -----------------------------------------------------------
+
+function outfitRow(o, listings, reload) {
+  const act = async (payload, ok) => {
+    try { await api.outfitAction({ outfit_id: o.outfit_id, ...payload }); toast(ok, "ok"); reload(); }
+    catch (err) { toast(err.message, "bad"); }
+  };
+  const listingSel = h("select", { id: `wr-l-${o.outfit_id}` }, listings.map((l) => h("option", { value: l }, l)));
+  const refInput = h("input", { id: `wr-r-${o.outfit_id}`, placeholder: "sha256 of an image of this outfit" });
+  const g = o.garments || {};
+  return h("li", { class: "row" },
+    h("p", { class: "row-title" }, statusPill(o.approval_state === "approved" ? "OK" : o.approval_state === "retired" ? "BAD" : "UNKNOWN", o.approval_state), ` ${o.outfit_id}`,
+      o.listing ? ` · ${o.listing}` : " · unreserved"),
+    h("p", { class: "row-detail" }, ["top_or_dress", "lower", "shoes", "outerwear", "accessories"].map((k) => `${k}: ${g[k] || "—"}`).join(" · ")),
+    h("p", { class: "row-detail" }, `Distinct: ${(o.distinctness || {}).status || "UNKNOWN"} ${(o.distinctness || {}).why || ""}`),
+    h("p", { class: "row-detail" }, `Outfit reference: ${o.approved_reference ? o.approved_reference.slice(0, 16) + "…" : "none"}`),
+    h("div", { class: "row" },
+      o.approval_state === "proposed" ? h("button", { class: "btn", type: "button", onclick: () => act({ action: "approve" }, "Approved") }, "Approve") : null,
+      !o.listing && o.approval_state === "approved" ? h("span", null, listingSel,
+        h("button", { class: "btn", type: "button", onclick: () => act({ action: "reserve", listing: listingSel.value }, "Reserved") }, "Reserve for listing")) : null,
+      o.listing && !(o.uses || []).length ? h("button", { class: "btn", type: "button", onclick: () => act({ action: "release", listing: o.listing }, "Released") }, "Release") : null,
+      o.approval_state === "approved" ? h("span", null, refInput,
+        h("button", { class: "btn", type: "button", onclick: () => act({ action: "set_reference", image_sha256: refInput.value.trim() }, "Outfit reference set") }, "Set outfit reference")) : null));
+}
+
+function newOutfitForm(w, reload) {
+  const slots = w.slots || [];
+  const id = h("input", { id: "wr-new-id", placeholder: "outfit id, e.g. rust-turtleneck-07", required: true });
+  const inputs = Object.fromEntries(slots.map((s) => {
+    const dl = h("datalist", { id: `wr-dl-${s}` }, ((w.catalogue || {})[s] || []).map((g) => h("option", { value: g })));
+    const inp = h("input", { id: `wr-new-${s}`, placeholder: s });
+    inp.setAttribute("list", `wr-dl-${s}`);
+    return [s, [inp, dl]];
+  }));
+  const approve = h("input", { id: "wr-new-approve", type: "checkbox" });
+  const btn = h("button", { class: "btn btn-primary", type: "submit" }, "Add outfit");
+  const form = h("form", { class: "stack" }, field("Outfit id", id),
+    ...slots.map((s) => h("div", null, field(s, inputs[s][0]), inputs[s][1])),
+    field("Approve now", approve), btn);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true;
+    try {
+      const garments = Object.fromEntries(slots.map((s) => [s, inputs[s][0].value.trim()]));
+      await api.registerOutfit({ outfit_id: id.value.trim(), garments, approve: approve.checked });
+      toast("Outfit added", "ok"); reload();
+    } catch (err) { toast(err.message, "bad"); } finally { btn.disabled = false; }
+  });
+  return form;
+}
+
+export function wardrobeEditor(w, listings, reload) {
+  return card({ title: "Wardrobe", subtitle: `One complete outfit per listing, never reused. Outfits are distinct below ${w.max_similarity} similarity. The canonical references' clothing (${Object.values(w.reference_clothing || {}).filter((v) => v && v !== "none").join(", ")}) is never an outfit.` },
+    h("ul", { class: "rows" }, (w.outfits || []).map((o) => outfitRow(o, listings, reload))),
+    h("h3", { class: "section-title" }, "Add an outfit"),
+    newOutfitForm(w, reload));
 }
 
 export async function render({ rerender } = {}) {
-  const board = await api.images();
+  const [board, wardrobe] = await Promise.all([api.images(), api.wardrobe().catch(() => null)]);
   const products = Array.isArray(board.products) ? board.products : [];
   const out = h("div", { aria: { live: "polite" } });
+  const gallery = h("div", { aria: { live: "polite" } });
   const learn = board.learning || {};
+  const listings = products.map((p) => p.listing);
   return h("div", { class: "stack" },
     card({ title: "Gallery production", subtitle: "Autonomous image production per product. You are notified only when a gallery is ready for review or blocked after its permitted attempts." },
-      h("ul", { class: "rows" }, products.map((p) => runRow(p, rerender || (() => {}))))),
+      h("ul", { class: "rows" }, products.map((p) => runRow(p, rerender || (() => {}), gallery)))),
+    gallery,
     card({ title: "Learning", subtitle: "Per candidate outcomes. Cost per accepted image is Unknown until an image is accepted." },
-      h("p", null, `Candidates: ${learn.candidates ?? "Unknown"} · accepted: ${learn.accepted ?? "Unknown"} · cost per accepted: ${learn.cost_per_accepted_cad == null ? "Unknown" : `CA$${learn.cost_per_accepted_cad}`}`)),
+      h("p", null, `Candidates: ${learn.candidates ?? "Unknown"} · accepted: ${learn.accepted ?? "Unknown"} · cost per accepted: ${learn.cost_per_accepted_cad == null ? "Unknown" : `CA$${learn.cost_per_accepted_cad}`}`),
+      h("p", { class: "row-detail" }, Object.entries(learn.failure_categories || {}).map(([k, v]) => `${k}: ${v}`).join(" · ") || "No failures recorded.")),
+    wardrobe ? wardrobeEditor(wardrobe, listings, rerender || (() => {})) : null,
     card({ title: "Submit an owner-made image (fallback)", subtitle: "Stored unchanged by sha256, labelled AI-generated (never a photograph), and checked by the same gates as autonomous images. Missing evidence stays Unknown." },
       uploadForm(products, out)),
     out);

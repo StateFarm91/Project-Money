@@ -383,3 +383,68 @@ def distinctness(db, outfit_id: str | None, listing: str) -> dict:
                        similarity=near)
     return _result(PASS, "distinct from every other listing's outfit and from the reference "
                          "clothing")
+
+
+# ---- outfit reference and the wardrobe editor (W-VISNEXT; OWNERIMG E6/E7) ----------------
+
+def set_approved_reference(db, outfit_id: str, image_sha256: str, *, by: str) -> dict:
+    """Make one generated Laura image this outfit's approved reference (OWNERIMG E6).
+
+    Only an image of this outfit that the vision judge read as wearing it qualifies: a stored
+    candidate with the same outfit id whose `outfit_consistency` PASSed and whose identity and
+    body proportions did not FAIL. The reference fixes the clothes for later frames; it is
+    never an identity reference (the canonical three stay the only ones)."""
+    from .image_records import ImageCandidate, ensure_tables
+    from sqlalchemy import select
+
+    sha = str(image_sha256 or "").strip().lower()
+    if not _SHA.match(sha):
+        raise OutfitRefused("an outfit reference is a sha256 of a stored candidate image")
+    if not str(by or "").strip():
+        raise OutfitRefused("an outfit reference names who set it")
+    from . import canonical
+
+    if sha in set(canonical.CURRENT_REFERENCE_HASHES.values()):
+        raise OutfitRefused("Laura's canonical identity references are not outfit references")
+    ensure_tables(db)
+    with db.session() as s:
+        row = _row(s, str(outfit_id or "").strip().lower())
+        if row is None:
+            raise OutfitRefused(f"no outfit {outfit_id!r}")
+        if row.approval_state != "approved":
+            raise OutfitRefused(f"{row.outfit_id} is {row.approval_state}, not approved")
+        cands = list(s.scalars(select(ImageCandidate).where(ImageCandidate.sha256 == sha)))
+        ok = [c for c in cands if c.outfit_id == row.outfit_id and c.laura_present
+              and ((c.checks or {}).get("outfit_consistency") or {}).get("status") == PASS
+              and ((c.checks or {}).get("identity") or {}).get("status") != FAIL
+              and ((c.checks or {}).get("body_proportions") or {}).get("status") != FAIL]
+        if not ok:
+            raise OutfitRefused(
+                "no stored image of this outfit was read by the vision judge as wearing it "
+                "(outfit_consistency PASS, identity and body proportions not FAIL)")
+        row.approved_reference = sha
+        row.reference_hashes = sorted(set(list(row.reference_hashes or []) + [sha]))
+        return {**_view(row), "set_by": str(by)[:120]}
+
+
+def wardrobe_editor(db) -> dict:
+    """What the Command Center wardrobe editor shows: every outfit with its listing, state,
+    distinctness and reference; the catalogue the selector draws from; the reference clothing
+    no listing may wear; and the similarity rule."""
+    from . import wardrobe as W
+
+    rows = registry(db)
+    out = []
+    for o in rows:
+        d = distinctness(db, o["outfit_id"], o.get("listing") or "") if o.get("garments") \
+            else {"status": UNKNOWN}
+        out.append({**o, "distinctness": {"status": d.get("status"), "why": d.get("why")}})
+    return {"outfits": out, "slots": list(W.SLOTS),
+            "catalogue": {s: [g for g, _, _ in W.CATALOGUE[s]] for s in W.SLOTS},
+            "reference_clothing": dict(W.REFERENCE_OUTFIT),
+            "max_similarity": W.MAX_SIMILARITY, "weights": dict(W.WEIGHTS),
+            "rules": ["one complete outfit per listing; never reused across listings",
+                      "the canonical references' clothing is never an outfit",
+                      f"two outfits are distinct when their weighted similarity is below "
+                      f"{W.MAX_SIMILARITY}",
+                      "an outfit is styling, never identity"]}
