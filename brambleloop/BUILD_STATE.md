@@ -10096,3 +10096,20 @@ is a human policy snapshot). Both are listed, not fixed. 15 gated rows got proof
 unchanged). 17 parked rows' gates are not reported by production, so their state is UNKNOWN. Production
 etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Report:
 `research/final_build/w4/BUILD2_VERIFY_2026-10-10.md`.
+
+## 2026-10-20 — W4-LAURACEO: Business Laura model-backed conversation and executive loop (branch `claude/w4-LAURACEO`, not deployed)
+
+**Root cause.** Greetings in the live Command Center get Ask-Company UNKNOWN or the overnight template. `talk.classify` falls through to `ask.ask`, whose classifier returns `unknown`. "today" matches the overnight keyword. No conversation model call exists.
+
+**Built (offline-proven, stub transport):**
+- `laura/agency/ceo_chat.py`: the model writes the reply over the deterministic evidence tools, with cited records, session history and scoped business memory. Deterministic validation withholds unverified figures and human claims. When the model is unavailable it says so honestly.
+- `gateway/laura_converse.py`: governed calls on the `laura` budget, with tasks `laura.converse` (Haiku 4.5), `laura.executive` (Sonnet 5) and `laura.exec_rank`.
+- Executive tick:
+  - the model orders authorised priorities, at most twice a day;
+  - corrections carry feedback and stay bounded;
+  - an owner report with costs goes to the timeline and memory each 6 h window.
+- Per-unit cost attribution (`laura_cost_events`, `GET /api/cc/laura/costs`).
+- `POST /api/cc/laura/converse`; the CC Laura view uses it.
+- Tests: `tests/test_w4_laura_ceo.py` 12/12.
+
+**Not done.** ADD-LCEO-07 needs the production run in `research/final_build/w4/LAURACEO.md` §5, after deploy and owner approval. Until then it is open, not PASS.

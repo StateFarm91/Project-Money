@@ -2208,3 +2208,14 @@ publication stays blocked.
   - It supersedes the earlier "keep Anthropic" provider choice for Private Laura only. Business Laura keeps the business routing.
   - Everything else is unchanged: the separate CA$0.50/day budget, the privacy firewall, encryption, owner-only access, truthful-AI representation, D-W4-PL-2, and no activation without separate approval.
 - **Requirements:** recorded as addendum rows ADD-LCEO-01..07 and ADD-PLV-01..08 in `spec/13_Laura_CEO_Autonomy_and_Private_Laura_Venice_2026-10-20.md`. They are mandatory and are added to the completion board as an addendum section, without renumbering Build 2 or the Final Master.
+
+## D-W4-LAURACEO-ROUTE — Business Laura conversation routing and cost stops (2026-10-20, routine technical decision under D-W4-LAURA-CEO)
+
+- **Routing.** Business Laura's Command Center conversation is model-written, on Anthropic only. Templates are evidence tools.
+  - `laura.converse` (cheap tier, claude-haiku-4-5) handles conversation.
+  - `laura.executive` (standard tier, claude-sonnet-5) handles executive reasoning.
+  - `laura.exec_rank` (standard tier) orders the tick's code-authorised priorities, at most twice per UTC day.
+  - None escalates. When the model is unavailable, the owner is told so; no canned reply is given.
+- **Money.** Billed to the existing `laura` agent: CA$0.50/day, inside CA$100/month, both unchanged. New purpose allocation stops: converse 8%, executive 5%, exec_rank 2% (CA$15 together). This matches ADD-LCEO-06's CA$10–15/month target. Estimated routine month: about CA$12.
+- **Grounding.** Deterministic validation wins over the model. A reply that cites unoffered records, states figures not found in the evidence or conversation, or claims to be human is withheld with the reason.
+- **Not decided here.** Moving chat to claude-haiku-5-5 needs a price row and F-313 evidence. OpenAI or Venice for business needs owner approval. The repo's overstated Sonnet 5 / Opus 5 prices are referred to finance.
