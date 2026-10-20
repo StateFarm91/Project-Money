@@ -62,7 +62,8 @@ def _gate_row(name: str, g: dict) -> dict:
     return {"gate": name, "state": g.get("state", "UNKNOWN"),
             "status": _STATUS.get(g.get("state"), "UNKNOWN"), "why": g.get("why", ""),
             "evidence": g.get("evidence", ""), "who_acts": g.get("who_acts"),
-            "action": g.get("action", ""), "blocker": g.get("blocker")}
+            "action": g.get("action", ""), "blocker": g.get("blocker"),
+            "cause": g.get("cause")}
 
 
 def view(db, *, wait: float | None = None) -> dict:

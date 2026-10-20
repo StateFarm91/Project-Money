@@ -33,7 +33,7 @@ FIRST_SALE_GATES: tuple[str, ...] = (
     "certification", "product_truth", "image_truth", "listing_readiness", "price_plan",
     "disclosure", "etsy_category", "seo", "vision_review", "image_upload_payload",
     "durable_delivery", "physical_sample", "etsy_upload_confirmed", "publication_grant")
-BLOCKER = {"etsy_category": "B2", "seo": "B2", "vision_review": "B3",
+BLOCKER = {"etsy_category": "B2", "vision_review": "B3",
            "image_upload_payload": "B4", "etsy_upload_confirmed": "B4/B5",
            "physical_sample": "B4", "durable_delivery": "B5/B6"}
 
@@ -151,6 +151,57 @@ def _grant(db, slug: str, version: str, release: str) -> dict:
               action="owner reviews the packet and records a sealed draft grant")
 
 
+# Search-certificate checks that cannot pass while the category is UNKNOWN: the category
+# itself, and the attributes (no category, no property schema to be complete against).
+CATEGORY_DEPENDENT = ("category", "attributes")
+
+
+def seo_cause(row: dict) -> dict:
+    """Why the search certificate refuses: category-only, or an independent failure.
+
+    Read from the certificate's own per-check verdicts and reasons. `category_only` is True
+    only when the category is not CHOSEN, every failing check is category-dependent, every
+    independent check (copy, tags, description, hero) reads True, and no other reason (a
+    stale fingerprint, a missing profile or listing) is given. Anything unread is not proof.
+    """
+    checks = dict(row.get("checks") or {})
+    reasons = [str(r) for r in row.get("reasons") or []]
+    unknown_cat = row.get("category_status") not in (None, "CHOSEN")
+    failing = sorted(k for k, ok in checks.items() if ok is not True)
+    independent_failing = [k for k in failing
+                           if not (unknown_cat and k in CATEGORY_DEPENDENT)]
+    other_reasons = [r for r in reasons if not (
+        "category UNKNOWN" in r or any(f"(F-004) {k}:" in r for k in CATEGORY_DEPENDENT))]
+    independent = {k: checks.get(k) for k in ("copy", "tags", "description", "hero")}
+    category_only = bool(unknown_cat and checks and not independent_failing
+                         and not other_reasons
+                         and all(v is True for v in independent.values()))
+    return {"category_only": category_only, "category_status": row.get("category_status"),
+            "independent_checks": independent, "independent_failing": independent_failing,
+            "other_reasons": other_reasons[:4]}
+
+
+def _seo_gate(row: dict) -> dict:
+    g = _from_readiness(row)
+    if g["state"] == PASS:
+        return g
+    cause = seo_cause(row)
+    g["cause"] = cause
+    if cause["category_only"]:
+        g["why"] = ("cause: category UNKNOWN (B2) only -- copy, tags, description and hero "
+                    "all pass; the category and its attributes are the only refusals")
+        g["blocker"] = "B2"
+        g["who_acts"] = COMPANY
+        g["action"] = ("none beyond B2: once the matcher chooses a node, listing.seo "
+                       "re-runs and sets the attributes")
+    elif cause["independent_failing"] or cause["other_reasons"]:
+        g["why"] = ("independent of the category: "
+                    + "; ".join(cause["independent_failing"] + cause["other_reasons"]))[:400]
+        g["who_acts"] = COMPANY
+        g["action"] = "re-run listing.seo for this release after fixing the failing check"
+    return g
+
+
 def _from_readiness(row: dict) -> dict:
     owner = row.get("owner") or COMPANY
     return _g(row.get("state", UNKNOWN), row.get("why", ""), owner=owner,
@@ -175,7 +226,9 @@ def build(db, *, readiness: dict | None = None, store_root=None) -> dict:
             g = {k: _from_readiness(pr["gates"][k]) if k in pr["gates"] else
                  _g(UNKNOWN, "not read", action="read it")
                  for k in ("certification", "product_truth", "image_truth",
-                           "listing_readiness", "price_plan", "disclosure", "seo")}
+                           "listing_readiness", "price_plan", "disclosure")}
+            g["seo"] = (_seo_gate(pr["gates"]["seo"]) if "seo" in pr["gates"] else
+                        _g(UNKNOWN, "not read", action="read it"))
             g["etsy_category"] = _safe(lambda: _category(db, cir.slug, cir.version))
             g["vision_review"] = _safe(lambda: _vision(db, cir.slug, cir.version), owner=OWNER)
             g["image_upload_payload"] = _safe(

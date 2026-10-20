@@ -287,6 +287,10 @@ def _search(db, slug, version, set_verdict):
     return {"state": state, "verdict": out.get("verdict"),
             "category_status": out.get("category_status"),
             "taxonomy_id": out.get("taxonomy_id"), "reasons": reasons[:12],
+            # W4-FIRSTSALE: each check's own verdict, so a reader can tell a refusal caused
+            # only by the category from one with an independent failure.
+            "checks": {k: (v.get("ok") if isinstance(v, dict) else None)
+                       for k, v in sorted((out.get("checks") or {}).items())},
             "why": "search certificate current" if state == PASS else
                    "no search certificate recorded" if state == UNKNOWN else
                    "search certificate refuses"}

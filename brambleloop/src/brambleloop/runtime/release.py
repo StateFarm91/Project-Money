@@ -3973,6 +3973,13 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         except Exception as exc:  # noqa: BLE001 - a failed secure is reported by the drill
             ctx.audit("deliverables.secure_failed", artifact=f"{slug}@{v}",
                       detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    # Retention: only rows kept as certified deliverables, never one a listed, sold or
+    # recent release names (`deliverables.retention_plan`); unreadable state prunes nothing.
+    try:
+        deliverables_mod.prune(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - retention never fails the readiness run
+        ctx.audit("deliverables.retention_failed",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
     rehearsed = {f"{slug}@{v}": rollback_mod.rehearse(ctx.db, slug=slug, version=v,
                                                       store=store, job_id=ctx.job.id)["ok"]
                  for slug, v in releases}

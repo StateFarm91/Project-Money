@@ -302,3 +302,131 @@ def rehearse_purchase(db, receipt: dict, listings: dict, *, store=None, render=N
     return {"receipt_id": receipt.get("receipt_id"), "links": len(links),
             "state": (PASS if files and all(f["state"] == PASS for f in files) else FAIL),
             "files": files, "etsy_called": False}
+
+
+# ---- retention (W4-FIRSTSALE follow-up) -----------------------------------------------------
+
+RETENTION_ACTION = "deliverables.retention"
+KEEP_PREFIX = "certified customer deliverable "
+# Releases kept per product beyond every listed / sold one, newest first.
+KEEP_PREVIOUS = 2
+# Audit actions whose detail names the files a buyer received or will receive.
+DELIVERY_ACTIONS = ("store.published", "store.pdf_hash_verified", "store.publish_refused")
+
+
+def _release_hashes(db, slug: str, version: str) -> set[str]:
+    """Every hash any record certifies for one release: all assets.built PDFs (every build),
+    the stored frames, the listing-set certificates' frames and the disclosed renders."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, ListingAsset, ListingSetCertificateRecord
+
+    out: set[str] = set()
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == "assets.built",
+                                                    AuditLog.artifact == f"{slug}@{version}")):
+            d = row.detail or {}
+            out |= {v for v in (d.get("pdf_sha256_by_terminology") or {}).values() if v}
+            out |= {(v or {}).get("sha256") for v in (d.get("pdfs") or {}).values()
+                    if (v or {}).get("sha256")}
+            if (d.get("pdf") or {}).get("sha256"):
+                out.add(d["pdf"]["sha256"])
+        out |= {r.sha256 for r in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)) if r.sha256}
+        for rec in s.scalars(select(ListingSetCertificateRecord).where(
+                ListingSetCertificateRecord.product_slug == slug,
+                ListingSetCertificateRecord.version == version)):
+            out |= {f.get("sha256") for f in (rec.certificate or {}).get("frames") or []
+                    if f.get("sha256")}
+    out |= set(certified(db, slug, version)["pdfs"].values())
+    return out
+
+
+def _hex64(obj) -> set[str]:
+    import json
+    import re
+
+    return set(re.findall(r"\b[0-9a-f]{64}\b", json.dumps(obj, default=str)))
+
+
+def retention_plan(db, *, keep_previous: int = KEEP_PREVIOUS) -> dict:
+    """Which kept deliverable rows may go, and why everything else stays.
+
+    Protected, never pruned:
+    * every release with a listing that is not withdrawn (draft, listed, on sale);
+    * every release that sold (an Order names it; an Order with no version protects every
+      release of that product);
+    * the newest `keep_previous` releases of every product beyond those;
+    * any hash named by a delivery record (store.published / pdf_hash_verified);
+    * every row that was not kept as a certified customer deliverable (the canonical model's
+      reference pack, concept boards, disclosed renders kept for their own reasons).
+    Only a row kept by this module, whose hash no protected release or record names, is a
+    candidate. Unreadable state protects everything (fail closed).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import (AuditLog, DurableArtifact, Listing, Order, PatternVersion,
+                               Product)
+
+    keep_previous = max(0, int(keep_previous))
+    with db.session() as s:
+        listed = {(l.product_slug, l.version) for l in s.scalars(select(Listing))
+                  if (l.state or "") != "withdrawn"}
+        sold = {(o.product_slug, o.version or "") for o in s.scalars(select(Order))}
+        releases: dict[str, list[tuple]] = {}
+        for p in s.scalars(select(Product)):
+            vs = sorted(((pv.created_at, pv.id, pv.version) for pv in s.scalars(
+                select(PatternVersion).where(PatternVersion.product_id == p.id))),
+                key=lambda t: (t[0] is not None, t[0], t[1]), reverse=True)
+            releases[p.slug] = [v for _, _, v in vs]
+        delivered = set()
+        for row in s.scalars(select(AuditLog).where(AuditLog.action.in_(DELIVERY_ACTIONS))):
+            delivered |= _hex64(row.detail or {})
+        kept = [(r.sha256, r.why_kept or "", r.bytes_len or 0)
+                for r in s.scalars(select(DurableArtifact))]
+    protected_releases = set(listed)
+    for slug, version in sold:
+        if version:
+            protected_releases.add((slug, version))
+        else:
+            protected_releases |= {(slug, v) for v in releases.get(slug, [])}
+    for slug, versions in releases.items():
+        extra = [v for v in versions if (slug, v) not in protected_releases][:keep_previous]
+        protected_releases |= {(slug, v) for v in extra}
+    protected = set(delivered)
+    for slug, version in sorted(protected_releases):
+        protected |= _release_hashes(db, slug, version)
+    prune = [{"sha256": sha, "bytes": n, "why_kept": why[:120]} for sha, why, n in kept
+             if why.startswith(KEEP_PREFIX) and sha not in protected]
+    return {"protected_releases": sorted(f"{a}@{b}" for a, b in protected_releases),
+            "protected_hashes": len(protected), "kept_rows": len(kept),
+            "prune": prune, "prune_bytes": sum(p["bytes"] for p in prune),
+            "keep_previous": keep_previous}
+
+
+def prune(db, *, keep_previous: int = KEEP_PREVIOUS, dry_run: bool = False) -> dict:
+    """Apply `retention_plan`, re-checking each hash at delete time; audited."""
+    from ..core.models import AuditLog, DurableArtifact
+
+    try:
+        plan = retention_plan(db, keep_previous=keep_previous)
+    except Exception as exc:  # noqa: BLE001 - unreadable state prunes nothing
+        out = {"pruned": 0, "dry_run": dry_run,
+               "why": f"retention plan unreadable, nothing pruned: {type(exc).__name__}"}
+    else:
+        gone = 0
+        if not dry_run:
+            with db.session() as s:
+                for p in plan["prune"]:
+                    row = s.get(DurableArtifact, p["sha256"])
+                    if row is not None and (row.why_kept or "").startswith(KEEP_PREFIX):
+                        s.delete(row)
+                        gone += 1
+        out = {"pruned": gone, "dry_run": dry_run, "candidates": len(plan["prune"]),
+               "bytes": plan["prune_bytes"], "kept_rows": plan["kept_rows"],
+               "protected_releases": len(plan["protected_releases"]),
+               "keep_previous": plan["keep_previous"],
+               "sample": [p["sha256"][:12] for p in plan["prune"]][:8]}
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=RETENTION_ACTION, detail=out))
+    return out

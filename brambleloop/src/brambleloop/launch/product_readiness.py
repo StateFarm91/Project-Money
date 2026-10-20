@@ -139,10 +139,14 @@ def _seo(ev: dict) -> dict:
                     remaining=("the category matcher: production reads Etsy's seller taxonomy "
                                "daily; the next refresh with W4-FIRSTSALE confirms crochet by "
                                "Etsy's own names or property values, then listing.seo re-runs"),
-                    owner=COMPANY, reasons=list(sec.get("reasons") or [])[:4])
+                    owner=COMPANY, reasons=list(sec.get("reasons") or [])[:4],
+                    checks=dict(sec.get("checks") or {}),
+                    category_status=sec.get("category_status"))
     return _row(sec.get("state", UNKNOWN), sec.get("why", "search certificate unread"),
                 remaining="listing.seo for this release", owner=COMPANY,
-                reasons=list(sec.get("reasons") or [])[:4])
+                reasons=list(sec.get("reasons") or [])[:4],
+                checks=dict(sec.get("checks") or {}),
+                category_status=sec.get("category_status"))
 
 
 def _disclosure(ev: dict) -> dict:

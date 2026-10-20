@@ -36,6 +36,11 @@ from ..gates.platform_policy import DISCLOSURES as _DISCLOSURES  # noqa: E402
 COPY_DISCLOSURE = _DISCLOSURES["disclosed_render"]
 
 ALT_TEXT_MAX = 500          # Etsy uploadListingImage: "Max length 500 characters"
+# Etsy Help Center 4406604492823: "Keep the description concise: up to 250 characters."
+# (`integrations.etsy_constraints` alt_text_advice_chars). W4-FIRSTSALE: five Launch-0 alt
+# texts read 253-256 characters; the redundant scale-bar clause (the bar is in the pixels and
+# the scale frame) is dropped first, so the disclosure and every fact stay.
+ALT_TEXT_ADVICE = 250
 
 THUMB_LEGIBILITY_PX = 340   # the width a phone search grid and a 2-up mobile gallery serve
 
@@ -100,6 +105,8 @@ def alt_text(manifest: dict, cir) -> str:
         size = (f" About {dims['width']:g} x {dims['height']:g} cm{each} at the stated gauge, "
                 f"with a centimetre scale bar.")
     text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}")
+    if len(text) > ALT_TEXT_ADVICE and size:
+        text = text.replace(", with a centimetre scale bar.", ".")
     return text[:ALT_TEXT_MAX]
 
 
