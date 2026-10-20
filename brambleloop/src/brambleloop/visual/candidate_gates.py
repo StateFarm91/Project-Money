@@ -487,8 +487,67 @@ def _gate(gate: str, status: str, why: str) -> el.GateResult:
     return el.GateResult(gate, outcome, why or status)
 
 
+ETSY_POLICY_STATUS = UNKNOWN   # VISGATE V1: the binding page has not been read
+
+
+def _scope_of(cand: dict, job: str | None) -> str:
+    if cand.get("scope"):
+        return str(cand["scope"])
+    if job == el.DETAIL:
+        return "detail"
+    if cand.get("laura_present") or job == el.LIFESTYLE or cand.get("role") in (
+            "lifestyle", "angle"):
+        return "lifestyle"
+    return "product_only"
+
+
+def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *,
+                       other_publication_blockers: list[str]) -> dict:
+    """The D-W4-F852-AMEND evidence for `eligibility.may_export`, read only from the checks
+    this module ran and the candidate's recorded provenance. Never the owner's approval."""
+    st = {k: (v or {}).get("status", UNKNOWN) for k, v in checks.items()}
+    fid = ((checks.get("product_truth") or {}).get("fidelity") or {})
+    bind = checks.get("binding") or {}
+    ev = cand.get("identity_evidence") or {}
+    receipt = (ev.get("request") or {}).get("request_sha256") or ev.get("task_id") or \
+        cand.get("receipt")
+    label = (checks.get("disclosure") or {}).get("label")
+    return {
+        "label": label, "scope": _scope_of(cand, job), "laura_present": laura,
+        "presented_as": ("ai_generated" if str(cand.get("provenance_kind") or "ai_generated")
+                         .startswith("ai_generated") else str(cand.get("provenance_kind"))),
+        "fidelity_release": bind.get("release_hash") if fid else None,
+        "checks": {
+            "structural_fidelity": fid.get("status") or UNKNOWN,
+            "photographic": st.get("realism", UNKNOWN),
+            "product_truth": st.get("product_truth", UNKNOWN),
+            "quality": st.get("quality", UNKNOWN),
+            "identity": st.get("identity", UNKNOWN),
+            "body_proportions": st.get("body_proportions", UNKNOWN),
+            "outfit": worst(st.get("outfit", UNKNOWN), st.get("outfit_distinctness", UNKNOWN),
+                            st.get("outfit_consistency", UNKNOWN)),
+            "etsy_policy": ETSY_POLICY_STATUS,
+            "publication_gates": FAIL if other_publication_blockers else PASS},
+        "provenance": {"model": cand.get("model"),
+                       "references": [{"sha256": r.get("sha256"), "kind": r.get("kind")}
+                                      for r in cand.get("references") or []],
+                       "release": bind.get("release_hash"),
+                       "prompt_version": cand.get("prompt_version"),
+                       "receipt": receipt, "disclosure": label},
+        # recorded so a reader can see it was not used
+        "owner_visual_approval_is_not_an_input": True}
+
+
 def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) -> dict:
     blockers: list[str] = []
+    other: list[str] = []
+    if laura:
+        from . import canonical
+
+        status = canonical.asset_status(cand.get("sha256", ""))
+        if status != canonical.PUBLICATION_APPROVED_STATUS:
+            other.append(f"Laura publication gate: these bytes are '{status}', not "
+                         f"publication_approved")
     export = None
     if job is not None:
         try:
@@ -509,20 +568,18 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
                       checks["provenance"]["why"])]
             export = el.may_export(c, results,
                                    truth_verdict=el.FAILED if st["product_truth"] == FAIL
-                                   else None)
+                                   else None,
+                                   generated_evidence=exception_evidence(
+                                       cand, checks, job, laura,
+                                       other_publication_blockers=other))
             blockers += export["blockers"]
         except el.EligibilityRefused as exc:
             blockers.append(str(exc)[:300])
     else:
         blockers.append("no gallery job")
-    blockers.append(ETSY_POLICY_UNKNOWN)
-    if laura:
-        from . import canonical
-
-        status = canonical.asset_status(cand.get("sha256", ""))
-        if status != canonical.PUBLICATION_APPROVED_STATUS:
-            blockers.append(f"Laura publication gate: these bytes are '{status}', not "
-                            f"publication_approved")
+    if ETSY_POLICY_STATUS != PASS:
+        blockers.append(ETSY_POLICY_UNKNOWN)
+    blockers += other
     return {"publishable": not blockers, "blockers": blockers,
             "may_export": bool(export and export["may_export"])}
 

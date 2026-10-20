@@ -185,7 +185,12 @@ def test_all_four_gates_passing_exports():
 
 def test_generated_product_imagery_is_refused_in_every_listing_role():
     """F-852 / PT-14: an AI concept passing all four gates still never exports, in any role
-    its medium can be classified into, hero or not."""
+    its medium can be classified into, hero or not.
+
+    D-W4-F852-AMEND (2026-10-20): the blanket rule is now "refused unless the verified-exception
+    evidence reads PASS on every condition". No evidence is supplied here, so the assertion is
+    unchanged and still holds; the exception route itself is tested in
+    tests/test_w4_f852_amend.py."""
     for job, position in ((E.DESIRE, 1), (E.DESIRE, 2), (E.DETAIL, 3), (E.SCALE, 4),
                           (E.CROSS_SELL, 5)):
         concept = _cand(asset_id=f"ai-{job}", medium=AssetClass.AI_LIFESTYLE_CONCEPT,

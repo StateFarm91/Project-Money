@@ -90,6 +90,7 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
         return {**base, "may_export": False, "blockers": [why], "why": why, "job": job[0],
                 "gates": {}}
     checks: dict = {}
+    cand: dict = {}
     cid = (f.claims or {}).get("candidate_id")
     if cid:
         from ..visual.image_records import ImageCandidate, ensure_tables
@@ -100,6 +101,12 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
             if row is not None and row.sha256 == f.sha256:
                 checks = dict(row.checks or {})
                 checks["_technical"] = {"status": row.technical_status}
+                cand = {"sha256": row.sha256, "role": row.role, "model": row.model,
+                        "references": list(row.references or []),
+                        "prompt_version": row.prompt_version,
+                        "provenance_kind": row.provenance_kind,
+                        "laura_present": bool(row.laura_present),
+                        "identity_evidence": checks.get("_identity_evidence") or {}}
 
     def outcome(*names):
         st = [str((checks.get(n) or {}).get("status") or "UNKNOWN") for n in names]
@@ -125,7 +132,24 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
     else:
         gates.append(el.GateResult(el.POLICY_PROVENANCE, el.PASSED,
                                    "provenance row (#36 ai_generated) matches the file"))
-    verdict = el.may_export(c, gates, truth_verdict=gates[0].outcome)
+    evidence = None
+    if cand:
+        # D-W4-F852-AMEND: the verified-exception evidence, from the frame's own record only.
+        from ..visual import candidate_gates as CG
+
+        other = []
+        if cand["laura_present"]:
+            from ..visual import canonical
+
+            status = canonical.asset_status(f.sha256 or "")
+            if status != canonical.PUBLICATION_APPROVED_STATUS:
+                other.append(f"Laura publication gate: '{status}'")
+        evidence = CG.exception_evidence(cand, {k: v for k, v in checks.items()
+                                                if isinstance(v, dict)}, job[0],
+                                         cand["laura_present"],
+                                         other_publication_blockers=other)
+    verdict = el.may_export(c, gates, truth_verdict=gates[0].outcome,
+                            generated_evidence=evidence)
     return {**verdict, **base}
 
 
