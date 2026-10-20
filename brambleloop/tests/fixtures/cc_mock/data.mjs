@@ -393,6 +393,13 @@ export const DATA = {
         evidence: { api: {}, observations: {}, owner_actions: [{ key: "store:OA-F", done: false, action: "Policy Settings" }] } },
     ],
   }),
+  // W4-CREDHEALTH (GET /api/cc/credentials): status and fingerprint only, never a key value.
+  credentials: () => ({ run_now: "/api/cc/checks/credentials/run", rotation_doc: "research/final_build/w4/KEY_ROTATION.md",
+    providers: [
+      { provider: "bfl", label: "Black Forest Labs (FLUX 3 Image)", var: "BRAMBLELOOP_IMAGE_KEY_BFL", status: "OK",
+        fingerprint: { last4: "wxyz", sha256_prefix: "0f1e2d3c4b5a" }, latest: { at: ago(30) }, owner_action: "" },
+      { provider: "anthropic", label: "Anthropic (Claude vision)", var: "ANTHROPIC_API_KEY", status: "UNKNOWN",
+        fingerprint: null, latest: null, owner_action: "Set ANTHROPIC_API_KEY in Railway → Variables." }] }),
   firstSale: () => tab("FIRST_SALE", { first_sale: { status: "BLOCKED", as_of: new Date().toISOString(), basis: "measured",
     reason: "no product is first-sale ready", owner_actions: ["publication_grant: owner records a sealed draft grant"],
     shop: [{ gate: "operating_phase", state: "FAIL", status: "BLOCKED", why: "operating phase shadow", evidence: "core.phase.resolve", who_acts: "owner", action: "owner go-live" }],

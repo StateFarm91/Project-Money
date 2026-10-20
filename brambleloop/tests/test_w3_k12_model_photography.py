@@ -173,11 +173,18 @@ def test_f212_receipt_proves_reference_bytes_are_in_the_request_body():
     r = I.conditioning_receipt(google, [face, body], payload)
     assert r["proven"] and r["transmitted"] == 2 and r["requested"] == 2, r
     assert r["references"][0]["sha256"] == hashlib.sha256(Path(face).read_bytes()).hexdigest()
-    # BFL carries only the first reference: the second is not in the body, so not proven.
+    # W4-FLUXAPI (2026-10-19): BFL carries every reference (`input_image`, `input_image_2`,
+    # ...), so both are proven in the body (see also test_w4_condpack).
     bfl = I.BY_KEY["flux-2-pro"]
     _, _, payload = I._request_for(bfl, "k", "p", [face, body], "1024x1024",
                                    benchmark_hashes=frozenset())
     r = I.conditioning_receipt(bfl, [face, body], payload)
+    assert r["proven"] and r["transmitted"] == 2, r
+    # A body that does not carry the second reference is never proven: the receipt measures
+    # the bytes in the request, not what the caller asked for.
+    _, _, only_face = I._request_for(bfl, "k", "p", [face], "1024x1024",
+                                     benchmark_hashes=frozenset())
+    r = I.conditioning_receipt(bfl, [face, body], only_face)
     assert not r["proven"] and r["transmitted"] == 1, r
     assert [x["transmitted"] for x in r["references"]] == [True, False]
     # OpenAI-shaped multipart carries the raw upload.
@@ -203,18 +210,28 @@ def test_f212_generate_attaches_receipt_and_refuses_unprovable_conditioning():
         out = I.generate("p", env=env, reference_urls=[face], work_dir=work, db=db)
     assert out["conditioning"]["proven"], out["conditioning"]
     assert out["conditioning"]["request_sha256"] == hashlib.sha256(post.bodies[0]).hexdigest()
-    # BFL asked to condition on two references would send one: refused before any request
-    # is sent or any budget reserved.
+    # A request that would carry fewer references than asked for is refused before any
+    # request is sent or any budget reserved. No dialect drops one since W4-FLUXAPI (BFL now
+    # carries the whole pack), so the transport regression is simulated: a request builder
+    # that silently omits the second reference.
     second = _ref("body2.png", b"\x89PNG body " + os.urandom(32))
-    env = {"BRAMBLELOOP_IMAGE_PROVIDER": "flux-2-pro", "BRAMBLELOOP_IMAGE_KEY": "stand-in"}
-    with RecordingPost() as post, tempfile.TemporaryDirectory() as work:
-        try:
-            I.generate("p", env=env, reference_urls=[face, second], work_dir=work, db=db)
-        except I.ImagesRefused as exc:
-            assert "F-212" in str(exc), exc
-        else:
-            raise AssertionError("unprovable conditioning was not refused")
-        assert post.bodies == [], "a request was sent"
+    real_request_for = I._request_for
+
+    def drops_second(provider, key, prompt, refs, *a, **k):
+        return real_request_for(provider, key, prompt, list(refs or [])[:1], *a, **k)
+
+    I._request_for = drops_second
+    try:
+        with RecordingPost() as post, tempfile.TemporaryDirectory() as work:
+            try:
+                I.generate("p", env=env, reference_urls=[face, second], work_dir=work, db=db)
+            except I.ImagesRefused as exc:
+                assert "F-212" in str(exc), exc
+            else:
+                raise AssertionError("unprovable conditioning was not refused")
+            assert post.bodies == [], "a request was sent"
+    finally:
+        I._request_for = real_request_for
     from sqlalchemy import select
 
     from brambleloop.core.models import SpendReservation

@@ -63,7 +63,9 @@ PROVIDERS: dict[str, dict] = {
             "doc": "docs.bfl.ml/api-reference/get-the-users-credits (free; 1 credit = US$0.01)",
             "console": "dashboard.bfl.ai > API Keys / Credits"},
     "anthropic": {"label": "Anthropic (Claude vision)", "var": "ANTHROPIC_API_KEY",
-                  "model": "claude-haiku-4-5-20251001",
+                  # INTEG4: no model string here (tests/test_visual_inspection): the check
+                  # asks about the model routing gives the vision judge (`model_for`).
+                  "model_task": "asset_inspection",
                   "check": "POST /v1/messages/count_tokens with an image block (free)",
                   "doc": "docs.anthropic.com > Token counting (free to use)",
                   "console": "console.anthropic.com > API Keys / Billing"},
@@ -72,6 +74,18 @@ PROVIDERS: dict[str, dict] = {
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def model_for(provider: str) -> str:
+    """The model a provider's credential check asks about: a fixed image model for BFL, and
+    for Anthropic the model `routing.TASKS` gives the task the vision judge runs, so the check
+    proves the key works for the model production actually calls."""
+    meta = PROVIDERS[provider]
+    if meta.get("model"):
+        return str(meta["model"])
+    from . import routing
+
+    return routing.route(meta["model_task"])[1].model
 
 
 def fingerprint(key: str) -> dict | None:
@@ -192,7 +206,7 @@ def check_anthropic(env, http=None, *, db=None) -> dict:
     key = _key("anthropic", env)
     if not key:
         return {"status": MISSING, "why": f"{PROVIDERS['anthropic']['var']} is not set"}
-    body = json.dumps({"model": PROVIDERS["anthropic"]["model"], "messages": [{
+    body = json.dumps({"model": model_for("anthropic"), "messages": [{
         "role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": "image/png",
                                          "data": _PIXEL_PNG_B64}},
@@ -325,7 +339,7 @@ def owner_action(provider: str, status: str | None) -> str:
         return f"Add credit at {console}. Nothing in Railway changes; tap 'Check now' after."
     if status == PERMISSION:
         return (f"The key authenticates but the model or feature is not enabled for it "
-                f"({meta['model']}). Enable it at {console}, or use a key from an account "
+                f"({model_for(provider)}). Enable it at {console}, or use a key from an account "
                 f"that has it, set in Railway → Variables → {var}.")
     if status in TRANSIENT_STATUSES:
         return "Nothing to do yet: the provider is unavailable; the check repeats."

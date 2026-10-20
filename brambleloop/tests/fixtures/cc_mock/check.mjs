@@ -121,6 +121,13 @@ try {
     if (SHOT.has(t)) await shot(t);
   }
 
+  // ---- W4-CREDHEALTH: the provider-keys card shows status and fingerprint, never a key ------
+  await page.goto(`${BASE}/cc/#/home`);
+  await settle();
+  const keysText = await page.$$eval("details.page-index", (els) => els.map((e) => e.textContent).join(" | "));
+  check(/Provider keys/.test(keysText) && /…wxyz · 0f1e2d3c4b5a/.test(keysText) && !/bfl-sk-|sk-ant-/.test(await page.content()),
+    "credentials: provider keys card shows status and fingerprint, never a key value", keysText.slice(0, 200));
+
   // ---- W4-CC company: department states, UNKNOWN never 0 ----------------------------------
   await page.goto(`${BASE}/cc/#/company`);
   await settle();
@@ -136,7 +143,8 @@ try {
   check(await page.isVisible("#main a[href='#/laura']"), "company: Talk to Laura link present");
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
-  const laneRows = await page.$$eval("section:not([aria-labelledby='completion-launch-packet']) li.row", (els) => els.map((e) => e.textContent));
+  // INTEG4: the first-sale card (W4-FIRSTSALE) has its own rows; the lanes are the other sections.
+  const laneRows = await page.$$eval("section:not([aria-labelledby='completion-launch-packet']):not([aria-labelledby='completion-first-sale']) li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
   // ---- RB-1 (CC_VERIFY_7421ef6): the Store tab renders the live-shop observation form ------
@@ -442,7 +450,8 @@ try {
   // navigation: More menu hints + badges; breadcrumb on More sections (phone only)
   const menu = await page.$$eval(".menu a", (els) => els.map((e) => ({ id: e.dataset.more, hint: e.querySelector(".menu-hint")?.textContent || "",
     badge: e.querySelector(".badge") })));
-  check(menu.length === 10 && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
+  // INTEG4: 11 since W-OWNERIMG/W-VISNEXT added "images" (Gallery production, owner image upload).
+  check(menu.length === 11 && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));
   const barBadge = await page.$eval("#tabbar [data-badge=more]", (b) => ({ hidden: b.hidden, t: b.textContent }));
   check(!nb.hidden && nb.t === barBadge.t && !barBadge.hidden, "ccux more: menu shows the same notifications badge as the bar", JSON.stringify([nb, barBadge]));

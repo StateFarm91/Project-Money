@@ -771,6 +771,9 @@ JOB_BANDS: dict[str, str] = {
     "assets.owned_photography": "proven_winner",
     "assets.model_photography": "proven_winner",
     "visual.image_production": "proven_winner",
+    # INTEG4: an owner-authorised controlled visual experiment is learning with no committed
+    # value (its output is labelled EXPERIMENT and never publishes): exploration.
+    "visual.controlled_experiment": "exploration",
     "listing.draft": "proven_winner",
     "listing.seo": "proven_winner",
     "pricing.position": "proven_winner",

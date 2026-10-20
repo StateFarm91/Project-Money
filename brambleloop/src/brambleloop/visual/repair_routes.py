@@ -70,8 +70,11 @@ ROUTES: dict[str, dict] = {
                 "UNKNOWN and is verified only on the unfolded product-only image")},
 }
 
-EXPERIMENTS_DIR = (Path(__file__).resolve().parents[3] / "research" / "final_build" / "w4"
-                   / "flux_experiments")
+# INTEG4 (tests/test_w3_hq_independence): the production image does not contain research/, so
+# the owner-manual experiment records the runtime seeds from ship under src/. They are
+# byte-identical copies of research/final_build/w4/flux_experiments/*/RECORD.json
+# (tests/test_w4_integ4_shipped_records.py keeps them in sync).
+EXPERIMENTS_DIR = Path(__file__).resolve().parent / "assets" / "owner_experiments"
 EXPERIMENT_RECORD = EXPERIMENTS_DIR / "2026-10-19_reading_nook_cable_wrap" / "RECORD.json"
 
 
