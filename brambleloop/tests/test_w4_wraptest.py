@@ -488,7 +488,7 @@ class FakeNetwork:
                     return False
             return _R(net.png)
 
-        def send(self_, payload, key):
+        def send(self_, payload, key, **_kw):  # CLOSE5: `_send` takes timeout=
             body = json.loads(payload)
             text = body["messages"][0]["content"][-1]["text"]
             net.vision.append(text[:60])
