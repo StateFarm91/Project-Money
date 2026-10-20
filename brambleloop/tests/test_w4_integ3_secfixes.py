@@ -36,10 +36,16 @@ def test_m1_the_webhook_route_runs_its_database_work_in_the_threadpool():
     route = next(n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef)
                  and n.name == "api_etsy_webhook")
     awaited = [n.value for n in ast.walk(route) if isinstance(n, ast.Await)]
+    # CLOSE5/R1 strengthened this: the worker thread must come from the webhook's own gate
+    # (`gate.run`, a private CapacityLimiter), not the shared default threadpool limiter.
     pooled = {a.args[0].attr for a in awaited if isinstance(a, ast.Call)
-              and getattr(a.func, "id", "") == "run_in_threadpool"
+              and isinstance(a.func, ast.Attribute) and a.func.attr == "run"
+              and getattr(a.func.value, "id", "") == "gate"
               and isinstance(a.args[0], ast.Attribute)}
     assert pooled == {"refuse", "receive"}, pooled
+    shared = [a for a in awaited if isinstance(a, ast.Call)
+              and getattr(a.func, "id", "") == "run_in_threadpool"]
+    assert not shared, "webhook DB work on the shared threadpool limiter"
     # No direct (event-loop) call of either remains in the route.
     direct = [n for n in ast.walk(route) if isinstance(n, ast.Call)
               and isinstance(n.func, ast.Attribute) and n.func.attr in ("refuse", "receive")]

@@ -2964,22 +2964,28 @@ async def api_etsy_webhook(request: Request):
     operator credential); every delivery is verified against its own HMAC signature before a
     byte of the body is parsed, and a verified one only wakes the authenticated receipt read.
     2xx = stored or already stored; 4xx = refused (not retried usefully); 5xx = Etsy retries."""
-    from starlette.concurrency import run_in_threadpool
-
     from ..integrations import etsy_webhooks
 
     # REL2/L1: refuse on a declared Content-Length above the cap, and read the body as a
     # stream with a running cap, so an oversized body is never buffered whole.
-    # Security review of 5f18d11 (M1): the database work runs in the threadpool, never on the
+    # Security review of 5f18d11 (M1): the database work runs in a worker thread, never on the
     # event loop, so a refusal flood cannot stall every other request in this worker.
+    # Security review of 324927f (R1): that thread runs on the webhook's OWN small limiter
+    # (etsy_webhooks.GATE), never the shared default threadpool limiter, and a saturated gate
+    # answers 503 + Retry-After at once with no database work, so a flood cannot exhaust the
+    # threads or DB connections the owner's routes need.
+    gate = etsy_webhooks.GATE
     try:
         body = await etsy_webhooks.read_body(request.stream(),
                                              request.headers.get("content-length"))
     except etsy_webhooks.WebhookRefused as exc:
-        status, payload = await run_in_threadpool(etsy_webhooks.refuse, db, exc)
-        return JSONResponse(payload, status_code=status)
-    status, payload = await run_in_threadpool(etsy_webhooks.receive, db,
-                                              dict(request.headers), body)
+        out = await gate.run(etsy_webhooks.refuse, db, exc)
+    else:
+        out = await gate.run(etsy_webhooks.receive, db, dict(request.headers), body)
+    if out is None:
+        status, payload, headers = etsy_webhooks.busy()
+        return JSONResponse(payload, status_code=status, headers=headers)
+    status, payload = out
     return JSONResponse(payload, status_code=status)
 
 
