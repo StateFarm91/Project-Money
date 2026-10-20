@@ -1,13 +1,24 @@
 {
  "_meta": {
   "lane": "w4-FMGATE",
-  "status": "PROPOSED: not applied. overrides.json is changed only on integrator acceptance (accepted_by); a worker cannot certify itself (F-867)",
+  "status": "F-846 ACCEPTED by the coordinator 2026-10-20 (D-W4-CLOSE6-F846); to be applied to overrides.json at INTEG5, not before",
   "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMGATE.json --dry-run"
  },
  "overrides": {
   "F-846": {
    "completion_target": "TESTED",
-   "reason": "The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847."
+   "reason": "The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.",
+   "evidence_paths": {
+    "INDEPENDENT_REAUDIT_7421ef6.md": {
+     "path": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (repository root)",
+     "source": "byte-identical copy of commit d33c43cc0d3ba5849e032839f51c72733e8b7124 on origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d), brought into the tree by W4-CLOSE6 2026-10-20"
+    },
+    "INDEPENDENT_SECREVIEW_2c6d775.md": {
+     "path": "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (repository root)"
+    }
+   },
+   "accepted_by": "coordinator (operator session) 2026-10-20",
+   "acceptance_rationale": "the audit-repair loop ran end to end (freeze 7421ef6 -> independent re-audit -> repairs with regression tests -> full suite 7877/0 on 5dfd1ac -> independent re-review 2c6d775 -> deploy 0417f35 -> next loop opened); producer is operator tooling, so TESTED is its ceiling; accepted on the condition, now met, that both audit reports are in the tree at the cited paths"
   }
  }
 }

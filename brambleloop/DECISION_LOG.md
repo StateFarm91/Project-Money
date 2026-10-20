@@ -2131,3 +2131,27 @@ take. The owner requires that unfinished engineering is never labelled customer-
 - What remains is a real settlement only. The record is
   `research/final_build/w4/FM_REGATE_PROPOSED_CLOSE6.json`. It was applied in CLOSE6 batch 5 and
   is recorded here retroactively under the new policy.
+
+## D-W4-CLOSE6-F846: F-846 (Audit-Repair Loop) accepted at TESTED (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session. Applied
+to `overrides.json` at INTEG5, not before.**
+
+`research/final_build/w4/OVERRIDES_PROPOSED_FMGATE.json` (w4-FMGATE) proposes `completion_target:
+TESTED` for F-846. Its producer, `scripts/freeze_candidate.py`, is operator tooling, so INTEGRATED is
+unreachable; this is the same basis as F-843, F-845 and F-847. The loop ran end to end:
+1. Freeze 7421ef6.
+2. Independent re-audit.
+3. Repairs with regression tests.
+4. Full suite on 5dfd1ac: 7877 passing, 0 failing.
+5. Independent security re-review on 2c6d775.
+6. Deploy of 0417f35, then the next loop opened on it.
+
+The dry run reports no problems.
+
+**Accepted on two conditions, both now met on `claude/w4-CLOSE6`:**
+1. `research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md` (repository root) is in the tree as a
+   byte-identical copy of commit d33c43cc0d3ba5849e032839f51c72733e8b7124 from
+   origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d).
+2. The proposal now cites both audit reports at their real repository-root paths
+   (`research/final_build/w4/`, not `brambleloop/research/`).
