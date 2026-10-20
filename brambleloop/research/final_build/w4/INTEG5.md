@@ -10,9 +10,8 @@ is the smallest one that does that: b997efd plus Unified Laura (`claude/w4-LAURA
 contains LAURACEO and VENICE-adult-wip). **Not included:** CLOSE6, VISNEXT2, FIRSTSALE2 or any other
 branch.
 
-Status: **PHASE A (checkpoint)**. The merge is done on LAURAONE a112da1. The final input is
-`claude/w4-LAURAONE-freeze`, which is under security fixing and does not exist yet. It will be
-re-merged, and the candidate frozen, in Phase B.
+Status: **PHASE B**. LAURAONE a112da1 was merged in Phase A. The freeze
+`claude/w4-LAURAONE-freeze` @ c13e20d was merged in Phase B, as row 2 of the table in §1.
 
 ## 0. Environment note: the b997efd suite was lost
 
@@ -28,6 +27,9 @@ gone, so a fresh cluster was created (§4).
 | # | Branch @ head | Merge commit | Conflicts and resolution |
 |---|---|---|---|
 | 1 | w4-LAURAONE @ a112da1 (Unified Laura; contains LAURACEO a3eec7b and VENICE-adult-wip 3cf3c8b). Merge base with b997efd: 6531769 (the INTEG4 checkpoint). | 79285c4 | One conflict, in `tests/test_cert_spend_hosts.py` `DECLARED` (§2). `DECISION_LOG.md` and `BUILD_STATE.md` merged cleanly and append-only: 0 lines removed relative to either parent (+178 and +29 lines relative to b997efd). |
+
+| 2 | w4-LAURAONE-freeze @ c13e20d: the security-review fixes (B-1, H-1, M-1, M-2, L-1..L-6, I-2, I-4) and the INTEG5 finding (@3 only on Venice, `REGISTER_NEEDS_VENICE`) | ffe88d9 | none. `credentials.py` auto-merged again; `model_for`/`model_task` are intact. No change to DECISION_LOG.md. The decision index is unaffected. |
+| - | INTEG5 harness fix (§3a) | e24f6f6 | — |
 
 `gateway/credentials.py` auto-merged both sides and was checked by hand:
 - **b997efd (INTEG4):** Anthropic's check model comes from routing (`model_for`, `model_task`).
@@ -80,6 +82,37 @@ Anthropic. Two things bound this:
   plain private reply does not.
 
 It is the security-fix session's call whether `@3` should be Venice-only.
+
+### 3a. The freeze's new test edits (a112da1..c13e20d) and one fix
+
+The freeze moved the Private Laura suites from the stubbed Anthropic transport to a **stubbed Venice
+transport**, because `@3` now runs only on Venice.
+
+| File | Edit | Verdict |
+|---|---|---|
+| `test_w4_pl_budget.py` | the ceiling figures are derived from Venice's own estimate (`est/2`, `0.40 - est/2`, `0.50 - est/2`) instead of fixed Anthropic-sized ones; the model ref is `venice/<model>` | equivalent: the same three refusals (`SPEND_CEILING` on the owner figure, Laura's day and the agent day), now at the boundary of the real estimate |
+| `test_w4_pl_continuity.py` | model names follow `PL.MODEL` | equivalent |
+| `test_w4_pl_reply.py` | the model is `PL.MODEL`; `NO_PROVIDER` is now keyed on `VENICE_API_KEY`; a **new** case: provider=anthropic gives `REGISTER_NEEDS_VENICE` | stricter |
+| `test_w4_plact.py` | `_estimate()` is Venice's estimate (the one `_reply` reserves); the race stub takes `*args` | equivalent |
+| `w4_pl_harness.py` | the Stub stands in for `VeniceProvider._post` and records the same request shape; `AnthropicProvider._send` is **always** refused | stricter for Anthropic, but **weaker for no-stub tests**, fixed below |
+
+**Weakening found and fixed (e24f6f6).**
+- **Before the freeze:** `PL.enabled(None)` replaced the only transport the private suites used with a
+  refusal. Several tests rely on that: `pl_auth`, `pl_continuity` ("any model request fails this
+  test"), `pl_budget`, `pl_leak` and `plact`.
+- **At the freeze:** with no stub, Venice's real `_post` was left live. The comment says "the harness
+  refuses sockets", but `w4_pl_harness.py` installs no socket guard (`tests/network_guard.py` is not
+  used by these suites). A regression that reached the model under `enabled(None)` would have made a
+  real outbound request to api.venice.ai with the dummy key, instead of failing deterministically.
+- **Fix:** with no stub, and when the caller has not installed its own Venice mock, Venice `_post` is
+  refused just like Anthropic `_send`. The mocks that `test_w4_venice` and `test_w4_laura_unified`
+  install are detected by identity against the transport captured at import, and are left in place.
+- **Probe** (scratch): under `enabled(None)`, a reply that gets through the budget gates reaches the
+  refusal, so the result is `PROVIDER_ERROR` with no socket opened, and `_post` is restored on exit.
+  That is the same observable result the Anthropic refusal gave before the freeze.
+
+The Phase-A observation about `@3` reaching Anthropic is closed by the freeze. `_reply` refuses
+`REGISTER_NEEDS_VENICE`, and `test_w4_pl_reply` asserts it.
 
 ## 4. Migration proof (fresh local PostgreSQL 16.15, never production)
 
@@ -179,7 +212,13 @@ these runs used nice 19 through `testslot.sh`.
   - integ4_deliverable_routes 4/4.
 - **App and records:** pwa_static 82/82, cc_company 23/23, decision_index 3 OK.
 
-Logs: scratch only (`focusA/*.log` in the integrator's scratchpad). The full suite in Phase B is the
+**Rerun after the freeze merge and the harness fix (e24f6f6), 21:2xZ: 39/39 suite files exit 0.** No
+FAIL, SKIP or traceback. Changed counts:
+- `w4_laura_unified`: 40/40 (the freeze added 14 tests).
+- Unchanged: venice 19/19, laura_ceo 13/13, plact 8/8, pl_reply 3/3, pl_leak 2/2, pl_auth 2/2,
+  pl_budget 5 OK, pl_boundary 4 OK, pl_continuity 3 OK, vacuity 8 OK.
+
+Logs: scratch only (`focusA/` and `focusB/` in the integrator's scratchpad). The full suite in Phase B is the
 certifying run.
 
 ## 6. Phase B
