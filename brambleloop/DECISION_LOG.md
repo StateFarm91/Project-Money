@@ -2084,3 +2084,95 @@ incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before c
 `tests/test_w3_visual_commercial_slowloop.py` failed. The challenger's framing, not the margin, is changed:
 gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
 every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.
+
+## D-W4-F852-PROPOSED — owner's proposed resolution of F-852 and vision authorisation (2026-10-20, PENDING owner choice on a conflict)
+
+**The owner's ruling, as given:** "I approve the use of accurately disclosed AI-generated lifestyle and product
+visualizations in Brambleloop's listing galleries, provided they comply with Etsy's applicable requirements and pass all existing
+Product Truth, image-quality and publication gates." The owner also ruled that an AI-generated image must never be
+represented as a photograph of a physically made sample, and that honest provenance must be preserved: model, references,
+product version, prompt, receipt and disclosure.
+
+**Authoritative wording** (`research/final_build/master_registry.json`, Final Master section 88, "Visual V2 — Product Truth
+owns the product"):
+
+- **F-852 No Product Redraw by Default:** "Do not ask generative AI to recreate structure Brambleloop already knows when that
+  can change stitch count, gauge, cable pitch, silhouette or features."
+- **F-853 Authoritative Product Region:** "Certified product geometry/pixels remain authoritative through presentation
+  wherever technically feasible."
+- **F-855 Bounded Material Enhancement:** "AI may enhance fibre/fuzz/micro-material only when macro geometry/stitch
+  boundaries remain protected and revalidated."
+- **F-856:** structural Product Truth and photographic realism are independent hard gates, and both must pass.
+- **F-858:** on-model images come only after the product is locked, and must preserve both the exact product and the exact
+  canonical model.
+
+**How the code implements it today:** `publish/eligibility.may_export` refuses generated product imagery in every listing
+role. That is stricter than F-852's "by default" wording.
+
+**Conflict.** FLUX 3 lifestyle generation redraws the product, so stitch count, cable pitch and features can change. That is
+exactly what F-852 restricts, and exactly what the owner's Reading Nook wrap test showed. It also departs from F-853's
+"certified pixels remain authoritative wherever technically feasible" and from F-855's protected macro geometry.
+
+The owner's ruling does not override these rows silently. They are the owner's own agreed Final Master acceptance criteria,
+so amending them is an explicit scope decision the owner has to make. **Status: PROPOSED, awaiting the owner's specific
+decision.**
+
+**Not changed by this record:** no code, no gate and no publication path.
+
+**Vision authorisation (granted).** Up to CA$1.00 of new paid independent vision-review usage, for the controlled visual test
+only. It is separate from the CA$5.00 wearable-listing experiment: neither ceiling is raised, and overlapping charges are not
+counted twice. Every existing daily, monthly and provider limit still applies. The independent-reviewer requirements are
+unchanged: if two independent reviewers or a qualified face-matching model are unavailable, the check is UNKNOWN and the
+image goes to owner review. The owner approving how an image looks never turns UNKNOWN into PASS.
+
+## D-W4-F852-AMEND — owner amendment to F-852 / F-853 / F-855: verified-exception route (owner decision, 2026-10-20)
+
+The owner chose "Amend: verified exception" for the conflict recorded in D-W4-F852-PROPOSED. This is the binding amendment.
+The original text of F-852, F-853 and F-855 is kept, and this record adds an explicit exception route alongside it.
+
+A generated image that depicts a Brambleloop product may be used in a listing gallery only if ALL of the following hold:
+
+1. **Disclosed.** It is labelled as AI-generated, never as a photograph, and never implies a physically made or measured
+   sample.
+2. **Structural fidelity checked independently.** It passes the independent structural fidelity check against the certified
+   CIR of the exact release: stitch and motif repeats, cable count and pitch, colour palette and layout, end bands, edges and
+   piece count.
+3. **Photographic gate passed.** F-856 still applies: structure and realism are independent hard gates, and both must pass.
+4. **Every other gate passed.** That means Product Truth, image quality, the Laura identity, body-proportion and outfit gates
+   where Laura appears, the Etsy listing-image policy, and every publication gate.
+5. **UNKNOWN blocks.** Any check that cannot be completed reads UNKNOWN and blocks. The owner approving how an image looks
+   never converts UNKNOWN into PASS.
+6. **Certified pixels where feasible.** F-853 still applies wherever protected compositing of certified pixels is
+   technically feasible for a role. In that case it is used, and the exception does not apply to that role.
+7. **Provenance.** Model, references with their fingerprints and order, product version, prompt version, the receipt and the
+   disclosure are recorded for every image.
+
+Unchanged: F-856, F-858, ASSET_CONCEPT_AS_HERO pending separate review, the Etsy policy reading (still UNKNOWN until the
+binding page has been read), and SHADOW mode. Implementation is a code change to `publish/eligibility.may_export` and its
+callers, with tests. It ships only through a normally certified release.
+
+### D-W4-F852-AMEND — owner confirmation and traceability (2026-10-20)
+
+**Owner's words:** "I choose Option 1: Amend — verified exception. Approve the formal owner amendment to F-852, F-853 and F-855 as
+described. Accurately disclosed AI-generated product-only, lifestyle and detail images may be considered for publication if they
+independently satisfy the original product-accuracy, photographic-realism, Product Truth, identity and publication acceptance
+standards. Unknown or failed verification must continue to block publication. Preserve certified product pixels wherever
+technically feasible. Where generation necessarily redraws the product, require independent evidence of structural fidelity
+rather than assuming prompt compliance. Do not mark existing FLUX images as certified merely because I approve their appearance.
+Before publishing, verify that the specific image use complies with Etsy's applicable listing-image policy."
+
+**Superseded wording** (master_registry, section 88), kept verbatim:
+
+- **F-852:** "Do not ask generative AI to recreate structure Brambleloop already knows when that can change stitch count,
+  gauge, cable pitch, silhouette or features."
+  - Amended: generation that redraws the product is allowed ONLY through the verified-exception route in D-W4-F852-AMEND.
+- **F-853:** "Certified product geometry/pixels remain authoritative through presentation wherever technically feasible."
+  - Unchanged. Where compositing certified pixels is technically feasible for a role, it is mandatory.
+- **F-855:** "AI may enhance fibre/fuzz/micro-material only when macro geometry/stitch boundaries remain protected and
+  revalidated."
+  - Amended: beyond fibre-level enhancement, a full redraw requires independent structural-fidelity evidence (D-W4-F852-AMEND
+    item 2).
+
+**Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
+this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
+publication stays blocked.
