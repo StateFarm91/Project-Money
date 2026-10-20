@@ -174,7 +174,8 @@ def _outfit_text(outfit: Mapping) -> str:
 
 def build(*, rules: Mapping, roles: Sequence[str], role: str,
           scene: Mapping | None = None, edit: str = "", disclosure: str = DEFAULT_DISCLOSURE,
-          restrictions: str = DEFAULT_RESTRICTIONS) -> BuiltPrompt:
+          restrictions: str = DEFAULT_RESTRICTIONS,
+          alias: Mapping[str, str] | None = None) -> BuiltPrompt:
     """Assemble the prompt for one generation.
 
     `roles` is the reference manifest, position by position (1-based in the prompt), e.g.
@@ -188,6 +189,12 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         # A provider below the campaign set gets 4-7 merged into one sheet: one position.
         for k in PRODUCT_ROLES:
             pos.setdefault(k, pos["product_combined"])
+    # W-VISNEXT six-reference baseline: a product role covered by another reference (the
+    # owner's "stitch structure" image is both the texture and the stitch detail) points at
+    # that reference's position. Only a role that is itself present can be an alias target.
+    for k, v in (alias or {}).items():
+        if k in PRODUCT_ROLES and v in pos:
+            pos.setdefault(k, pos[v])
     for need in PRODUCT_ROLES:
         if need not in pos:
             raise PromptBuildRefused(f"{need} is not among the references; the product is "

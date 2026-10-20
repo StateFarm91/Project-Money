@@ -54,6 +54,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]                       # brambleloop/
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(HERE))                # baseline_six (the six-reference baseline)
 
 SLUG, VERSION, RELEASED_ON = "reading-nook-cable-wrap", "0.1.0", "2026-10-19"
 BUDGET_CAD = 5.00
@@ -1028,7 +1029,8 @@ def check_keys(live: bool) -> None:
                       f"environment; keys are read from the environment only")
 
 
-def run(*, live: bool, out: Path, provider=None) -> dict:
+def run(*, live: bool, out: Path, provider=None, baseline: tuple | None = None,
+        baseline_verifier=None) -> dict:
     """The whole experiment. Returns a summary; raises Refused before any spend if unsafe."""
     check_keys(live)
     from brambleloop.creative import image_stages as S
@@ -1045,9 +1047,77 @@ def run(*, live: bool, out: Path, provider=None) -> dict:
     saved = artifacts.DEFAULT_DIR
     artifacts.DEFAULT_DIR = str(out / "artifacts")
     try:
+        if baseline:
+            return _run_baseline(live=live, out=out, provider=provider, sources=baseline,
+                                 verifier=baseline_verifier)
         return _run(live=live, out=out, provider=provider)
     finally:
         artifacts.DEFAULT_DIR = saved
+
+
+def _run_baseline(*, live: bool, out: Path, provider=None, sources=("owner", "auto"),
+                  verifier=None) -> dict:
+    """`--baseline-six-ref`: the owner's six-reference single shot, then verify and correct.
+
+    The same experiment envelope as the full run: certification is attempted and recorded as
+    REFUSED, the experiment is opened in a scratch SHADOW database with the CA$5 hard budget,
+    every FLUX and vision call is reserved first, and nothing can publish."""
+    import baseline_six as B
+    from brambleloop.creative import image_stages as S
+    from brambleloop.visual import experiment as XP
+
+    tl = Timeline()
+    db = scratch_db(out)
+    cir, cert = certify(db, tl)
+    if cert["granted"]:
+        raise Refused("certification was GRANTED: this release goes through the normal "
+                      "orchestrator, not EXPERIMENT mode")
+    pdfs = render_pdfs(db, cir, tl)
+    budget = XP.ExperimentBudget(cap_cad=BUDGET_CAD)
+    reg = XP.open_experiment(db, cir=cir, certification=cert,
+                             pdf_sha256={k: sha(v) for k, v in pdfs.items()},
+                             released_on=RELEASED_ON, budget_cad=BUDGET_CAD, live=live)
+    flux_log: list[dict] = []
+    vision_log: list[dict] = []
+    work = out / "work"
+    work.mkdir()
+    inner = S.flux3_renderer() if live else stub_renderer_class()()
+    # The baseline bounds its own attempts (one per source plus at most B.MAX_RETRIES).
+    renderer = BudgetedRenderer(inner, budget, live=live, per_role=1 + B.MAX_RETRIES,
+                                log=flux_log)
+    rel = S.release_from_cir(cir, release_hash=reg["release"], version=cir.version,
+                             out_dir=out / "refs")
+    styled = select_outfit(db, reg["slug"])
+    outfit = styled.get("outfit")
+    if not outfit:
+        raise Refused(f"no distinct outfit: {styled.get('why')}")
+    outfit = {**outfit, "setting": styled["concept"].get("setting")}
+    if verifier is None:
+        judge = None
+        if live:
+            vision = ExperimentVision(db, budget=budget, work=str(work), provider=provider,
+                                      log=vision_log)
+            judge = FidelityVisionJudge(vision)
+        from brambleloop.visual import vision_judges as VJ
+
+        verifier = B.default_verifier(db=db, cir=cir, release_hash=reg["release"],
+                                      judge=judge, refs=VJ.canonical_reference_bytes())
+    report = B.run_baseline(db=db, cir=cir, reg=reg, rel=rel, renderer=renderer,
+                            budget=budget, outfit=outfit, out=out / "baseline",
+                            sources=tuple(sources), verifier=verifier, label=XP.LABEL,
+                            flux_log=flux_log)
+    return {"label": XP.LABEL, "mode": ("live" if live else "dry-run") + " baseline-six-ref",
+            "certification": cert["reasons"], "content_hash": reg["release"],
+            "sources": list(sources), "outfit": outfit.get("description"),
+            "images": [{k: im.get(k) for k in ("n", "source", "attempt", "sha256", "cost_cad",
+                                               "error")}
+                       | {"transmitted_references": [x["sha256"] for x in
+                                                     im.get("transmitted_references") or []],
+                          "verification": (im.get("result") or {}).get("status")}
+                       for im in report["images"]],
+            "retries_used": report["retries_used"], "spent_cad": round(budget.spent_cad, 4),
+            "flux_calls": len(flux_log), "vision_calls": len(vision_log),
+            "report": str(out / "baseline" / "baseline_report.html")}
 
 
 def _run(*, live: bool, out: Path, provider=None) -> dict:
@@ -1294,11 +1364,18 @@ def main(argv=None) -> int:
     g.add_argument("--dry-run", action="store_true", help="stub provider (default)")
     g.add_argument("--live", action="store_true", help="real FLUX 3 + vision, CA$5 cap")
     ap.add_argument("--out", default=None, help="output directory")
+    ap.add_argument("--baseline-six-ref", nargs="?", const="owner,auto", default=None,
+                    help="the owner's six-reference single shot: 'owner', 'auto' or "
+                         "'owner,auto' (default: the owner's files first, then the "
+                         "auto-generated equivalents)")
     a = ap.parse_args(argv)
     live = bool(a.live)
-    out = Path(a.out) if a.out else HERE / "out" / ("live" if live else "dry_run")
+    base = tuple(x.strip() for x in a.baseline_six_ref.split(",")) if a.baseline_six_ref \
+        else None
+    out = Path(a.out) if a.out else HERE / "out" / (("live" if live else "dry_run")
+                                                    + ("_baseline" if base else ""))
     try:
-        summary = run(live=live, out=out)
+        summary = run(live=live, out=out, baseline=base)
     except Refused as exc:
         print(str(exc.code if hasattr(exc, "code") else exc))
         return 2

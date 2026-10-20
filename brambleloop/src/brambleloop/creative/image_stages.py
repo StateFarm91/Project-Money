@@ -633,6 +633,57 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
                 job_id=job_id, max_attempts=max_attempts, purpose="image.lifestyle")
 
 
+SIX_REF_PRODUCT_ROLES: tuple[str, ...] = ("product_layout", "product_texture", "product_rules")
+
+
+def six_reference_lifestyle(release: Release, product_refs: Sequence[str],
+                            laura_refs: Sequence[str] | None, outfit: Mapping, *,
+                            scene: Mapping | None = None, role: str = "lifestyle_six_ref",
+                            size: str = LIFESTYLE_SIZE, renderer=None, work_dir: str, db=None,
+                            job_id: int | None = None, max_attempts: int = 1,
+                            extra_negatives: Sequence[str] = ()) -> Candidate:
+    """The owner's proven manual method, reproduced exactly (W-VISNEXT baseline).
+
+    Six references in one request: Laura's three canonical originals (validated by bytes,
+    always first and in order), then three product references in this order: complete
+    layout, stitch structure, construction rules. `product_refs` is exactly those three
+    files, either the owner's committed files or the auto-generated `pattern_refs`
+    equivalents. The stitch-structure image also stands for the stitch detail in the prompt.
+
+    No flat lay is required first: this is the single-shot baseline the owner ran. The
+    candidate is a claim to be verified, never evidence. Whether it may be saved for an
+    uncertified product is the caller's EXPERIMENT decision, not this stage's."""
+    outfit = dict(outfit or {})
+    if not (outfit.get("id") and (outfit.get("description") or outfit.get("garments"))):
+        raise StageRefused("a Laura image needs the listing's reserved outfit (id and "
+                           "description)")
+    paths = [str(p) for p in product_refs]
+    if len(paths) != 3:
+        raise StageRefused(f"{len(paths)} product reference(s); the six-reference method takes "
+                           f"exactly three (layout, stitch structure, construction rules)")
+    render = renderer or flux3_renderer()
+    items = list(zip(LAURA_ROLES, laura_references(laura_refs))) + list(
+        zip(SIX_REF_PRODUCT_ROLES, paths))
+    if len(items) > _limit(render):
+        raise StageRefused(f"six references; the provider takes {_limit(render)}. Refused "
+                           f"rather than dropping or merging the owner's method")
+    plan = {"roles": [r for r, _ in items], "paths": [p for _, p in items],
+            "sha256s": [_sha(p) for _, p in items], "combined_sheet": None,
+            "limitation": None, "reference_limit": _limit(render)}
+    if tuple(plan["sha256s"][:3]) != canonical_laura_hashes():
+        raise StageRefused("the three canonical Laura references must lead, in order")
+    rules = dict(release.rules)
+    if extra_negatives:
+        rules["negatives"] = list(rules.get("negatives") or []) + [
+            n for n in extra_negatives if n not in (rules.get("negatives") or [])]
+    built = flux_prompt.build(rules=rules, roles=plan["roles"], role=role,
+                              scene={**dict(scene or {}), "outfit": outfit},
+                              alias={"product_detail": "product_texture"})
+    return _run("lifestyle_six_ref", f"{role}:{outfit['id']}", release, plan, built, size,
+                features_laura=True, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts, purpose="image.lifestyle.six_ref")
+
+
 def variant(release: Release, base_candidate: Candidate, role: str, edit_instruction: str = "",
             *, outfit: Mapping | None = None, scene: Mapping | None = None,
             laura_refs: Sequence[str] | None = None, size: str | None = None, renderer=None,
