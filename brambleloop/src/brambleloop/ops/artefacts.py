@@ -100,6 +100,12 @@ UNPROVEN = "unproven"          # no provenance row at all, which is not the same
 # state stays `unproven` (it is still never fresh) and the verdict carries `retired` = why; it
 # leaves the instrumentation backlog and the coverage denominator, and is listed apart.
 INVALIDATED = "invalidated"
+# W4-LISTREADY (R1): a recorded artefact of a release the product has since moved past (a newer
+# certified PatternVersion exists). It is compared with the release it was built from, never
+# with the newest one, so it is not "stale" -- its own release did not move -- and it is not
+# fresh either: it describes a superseded release, which publication refuses
+# (`publish.release_gates.superseded_release`). It raises no halting incident.
+SUPERSEDED = "superseded"
 
 
 def retired(v) -> bool:
@@ -510,6 +516,43 @@ def _write_inputs(db, *, artefact_class: str, artefact_key: str, product_slug: s
             "product_slug": product_slug, "inputs": dict(inputs)}
 
 
+class Fingerprints(dict):
+    """`current_from_db`'s answer: the newest fingerprint per upstream reference (the dict
+    itself, as before), plus every certified release's own fingerprints (`by_version`,
+    {slug: {version: {ref: fp}}}) and the newest version per slug (`latest_version`).
+
+    A plain dict passed as `current` keeps the old meaning exactly (no version knowledge)."""
+
+    def __init__(self, *a, by_version=None, latest_version=None, **kw):
+        super().__init__(*a, **kw)
+        self.by_version: dict[str, dict[str, dict[str, str]]] = dict(by_version or {})
+        self.latest_version: dict[str, str] = dict(latest_version or {})
+
+
+def built_from_version(row_key: str, slug: str, inputs: dict, current) -> str | None:
+    """W4-LISTREADY (R1): the certified release an artefact was built from, or None.
+
+    A versioned key (`slug@version...`) names it. An unversioned key (a marketing asset) is
+    matched by its recorded design fingerprint: exactly one certified version of the slug must
+    hold that `cir:` fingerprint (and the same `release:` hash when one is recorded), or the
+    answer is None and the artefact is judged against the newest release, as before.
+    """
+    by_version = getattr(current, "by_version", None) or {}
+    versions = by_version.get(slug) or {}
+    if not versions:
+        return None
+    m = _VERSIONED_KEY.match(row_key or "")
+    if m is not None and m.group("slug") == slug:
+        return m.group("version") if m.group("version") in versions else None
+    cir_ref, rel_ref = f"cir:{slug}", f"release:{slug}"
+    if cir_ref not in (inputs or {}):
+        return None
+    hits = [v for v, fps in versions.items()
+            if fps.get(cir_ref) == inputs[cir_ref]
+            and (rel_ref not in inputs or fps.get(rel_ref) == inputs[rel_ref])]
+    return hits[0] if len(hits) == 1 else None
+
+
 def check(db, *, current: dict[str, str],
           expected: list[tuple[str, str, str]] | None = None) -> list[Verdict]:
     """Every artefact's standing: fresh, stale, or never proved fresh at all.
@@ -528,15 +571,33 @@ def check(db, *, current: dict[str, str],
 
     verdicts: list[Verdict] = []
     seen: set[tuple[str, str]] = set()
+    latest_version = getattr(current, "latest_version", None) or {}
+    by_version = getattr(current, "by_version", None) or {}
     for row in db.scalars(select(ArtefactProvenance)):
         seen.add((row.artefact_class, row.artefact_key))
+        # R1: judged against the release it was built from. For the newest release that is
+        # the same comparison as before; for an older one it is that release's own record.
+        built = built_from_version(row.artefact_key, row.product_slug, row.inputs or {},
+                                   current)
+        own = (by_version.get(row.product_slug) or {}).get(built) or {} if built else {}
+        newest = latest_version.get(row.product_slug)
         moved, unknown = [], []
         for ref, recorded in (row.inputs or {}).items():
-            now = current.get(ref)
+            now = own.get(ref, current.get(ref))
             if now is None:
                 unknown.append(ref)
             elif now != recorded:
                 moved.append(ref)
+        if built and newest and built != newest:
+            verdicts.append(Verdict(
+                row.artefact_class, row.artefact_key, row.product_slug, SUPERSEDED,
+                tuple(moved), tuple(unknown),
+                (f"built from {row.product_slug}@{built}, superseded by "
+                 f"{row.product_slug}@{newest}; "
+                 + ("its own release has moved since: " + str(moved or unknown)
+                    if (moved or unknown) else "it matches its own release")
+                 + ". Never current; publication refuses a superseded release")))
+            continue
         if moved or unknown:
             why = []
             if moved:
@@ -614,7 +675,7 @@ def coverage(verdicts: list[Verdict]) -> dict:
     out: dict[str, dict] = {}
     for cls in ARTEFACT_CLASSES:
         vs = [v for v in verdicts if v.artefact_class == cls]
-        rowed = sum(1 for v in vs if v.state in (FRESH, STALE))
+        rowed = sum(1 for v in vs if v.state in (FRESH, STALE, SUPERSEDED))
         denom = rowed + sum(1 for v in vs if v.state == UNPROVEN and not retired(v))
         out[cls] = {"numerator": rowed, "denominator": denom,
                     "ratio": round(rowed / denom, 4) if denom else "UNMEASURED",
@@ -759,6 +820,10 @@ def sweep(db, *, current: dict[str, str],
     # stops the company permanently the first time anything is rebuilt.
     fresh_signatures = {f"{SENTINEL_SIGNATURE}:{v.artefact_class}:{v.artefact_key}"
                         for v in verdicts if v.state == FRESH}
+    # R1: an incident raised (under the newest-version comparison) against an artefact of a
+    # release the product has since moved past is closed as superseded, with the reason.
+    superseded_why = {f"{SENTINEL_SIGNATURE}:{v.artefact_class}:{v.artefact_key}": v.why
+                      for v in verdicts if v.state == SUPERSEDED}
     cleared = []
     for row in db.scalars(select(Incident)
                           .where(Incident.signature.like(f"{SENTINEL_SIGNATURE}:%"))
@@ -770,6 +835,14 @@ def sweep(db, *, current: dict[str, str],
             detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
             row.detail = detail
             cleared.append(row.signature)
+        elif row.signature in superseded_why:
+            row.resolved = True
+            detail = dict(row.detail or {})
+            detail["resolution"] = ("superseded, not stale: "
+                                    + superseded_why[row.signature])[:400]
+            detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
+            row.detail = detail
+            cleared.append(row.signature)
     db.flush()
 
     return {
@@ -777,6 +850,7 @@ def sweep(db, *, current: dict[str, str],
         "fresh": sum(1 for v in verdicts if v.state == FRESH),
         "stale": sum(1 for v in verdicts if v.state == STALE),
         "unproven": sum(1 for v in verdicts if v.state == UNPROVEN),
+        "superseded": sum(1 for v in verdicts if v.state == SUPERSEDED),
         "incidents_raised": raised,
         "incidents_cleared": cleared,
         "publication_blocked": sorted(blocked),
@@ -840,18 +914,25 @@ def current_from_db(db) -> dict[str, str]:
     from ..core.models import PatternVersion, Product
     from ..runtime.release import CHAIN_VERSION
 
-    current: dict[str, str] = {"chain:release": fingerprint(CHAIN_VERSION)}
+    current = Fingerprints({"chain:release": fingerprint(CHAIN_VERSION)})
     for product in db.scalars(select(Product)):
         latest = None
         for version in db.scalars(select(PatternVersion)
                                   .where(PatternVersion.product_id == product.id)):
             if latest is None or version.id > latest.id:
                 latest = version
+            # R1: every release's own fingerprints, so an artefact is judged against the
+            # release it was built from (the same values `design_inputs` records).
+            own = {f"cir:{product.slug}": fingerprint(version.cir_json)}
+            if version.release_hash:
+                own[f"release:{product.slug}"] = version.release_hash[:16]
+            current.by_version.setdefault(product.slug, {})[version.version] = own
         if latest is None:
             continue
         current[f"cir:{product.slug}"] = fingerprint(latest.cir_json)
         if latest.release_hash:
             current[f"release:{product.slug}"] = latest.release_hash[:16]
+        current.latest_version[product.slug] = latest.version
     return current
 
 
@@ -1061,7 +1142,7 @@ def state() -> dict:
         "upstream_kinds": dict(UPSTREAM_KINDS),
         "states": [FRESH, STALE, UNPROVEN],
         # F-115 (K7): legacy output of a superseded design, retired rather than backlogged.
-        "retired_states": [INVALIDATED],
+        "retired_states": [INVALIDATED, SUPERSEDED],
         "sources": list(SOURCES),
         "required_lineage": list(REQUIRED_LINEAGE),
         "file_classes": sorted(FILE_CLASSES),

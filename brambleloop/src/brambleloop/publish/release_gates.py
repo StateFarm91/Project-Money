@@ -1337,6 +1337,38 @@ def launch_price_check(slug: str, listing_price_cad) -> dict:
     return {"state": "MATCH", "plan_cad": plan["price_cad"], "why": "listing carries the plan"}
 
 
+def superseded_release(db, *, slug: str, version: str) -> dict:
+    """W4-LISTREADY (R1): whether a newer certified release of this product exists.
+
+    The stale-artefact sentinel judges an artefact against the release it was built from, so
+    an older release's artefacts are `superseded` rather than stale and raise no halt. This is
+    the guard that keeps a superseded release from being published on the strength of that:
+    only the product's newest certified release may publish. Unreadable state refuses.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    try:
+        with db.session() as s:
+            rows = list(s.execute(
+                select(PatternVersion.id, PatternVersion.version)
+                .join(Product, PatternVersion.product_id == Product.id)
+                .where(Product.slug == slug, PatternVersion.certified == True)))  # noqa: E712
+    except Exception as exc:  # noqa: BLE001 - unreadable is a refusal, never a pass
+        return {"superseded": True, "newest": None,
+                "why": f"superseded release (R1): certified releases unreadable "
+                       f"({type(exc).__name__})"}
+    if not rows:
+        return {"superseded": False, "newest": None, "why": ""}
+    newest = max(rows, key=lambda r: r[0])[1]
+    if newest == version:
+        return {"superseded": False, "newest": newest, "why": ""}
+    return {"superseded": True, "newest": newest,
+            "why": (f"superseded release (R1): {slug}@{version} is not the product's newest "
+                    f"certified release ({slug}@{newest}); only the newest may publish")}
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None,
                 read_only: bool = False) -> dict:
@@ -1351,6 +1383,9 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
                               issue=not stale["blocks"] and window["may_launch_seasonally"],
                               persist_supplements=not read_only)
     reasons = list(stale["reasons"])
+    superseded = superseded_release(db, slug=slug, version=version)
+    if superseded["superseded"]:
+        reasons.append(superseded["why"])
     originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
@@ -1399,7 +1434,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
         reasons.append(f"LISTING_PRICE_NOT_PLAN: {price_check['why']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict, "search": search, "standards": standards,
+            "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
             "withholding": held, "publication_scope": scope, "originality": originality}
 
 

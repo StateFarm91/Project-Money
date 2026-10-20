@@ -4430,6 +4430,21 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         if job is not None:
             collections_started.append(seed.slug)
 
+    # W4-LISTREADY (R3, R5): a certification halted by an incident is retried once its halt
+    # has cleared (once per halt episode), and a Launch-0 release the chain never drafted is
+    # drafted -- both through the normal draft/compile/certify gates. Whole-catalogue runs
+    # only: a request scoped to named products (`slugs`) does exactly what it names.
+    recovery: dict = {}
+    if scope is None:
+        from . import release_recovery
+
+        for name, step in (("halted_certifications", release_recovery.retry_halted),
+                           ("launch0_seed", release_recovery.seed_launch0)):
+            try:
+                recovery[name] = step(ctx)
+            except Exception as exc:  # noqa: BLE001 - recorded, never fails the rebuild
+                recovery[name] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
                                        "doc_version": DOC_VERSION,
                                        "certified": len(certified),
@@ -4440,11 +4455,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "collections_restarted": collections_started,
                                        "withheld": withheld_releases,
                                        "repriced": repriced,
-                                       "listings": reasons})
+                                       "listings": reasons,
+                                       "recovery": recovery})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
             "redrafted": redrafted, "collections_restarted": collections_started,
-            "withheld": withheld_releases, "repriced": repriced}
+            "withheld": withheld_releases, "repriced": repriced, "recovery": recovery}
 
 
 def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str | None:
