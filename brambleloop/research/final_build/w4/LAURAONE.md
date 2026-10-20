@@ -54,7 +54,7 @@ owner -- CC Laura view (ONE thread) -- POST /api/cc/laura/unified/{view,turn,cro
 | Data | Venice (private provider) | Claude (Business Laura) | Business tables / logs / cost / timeline / export | Encrypted store |
 |---|---|---|---|---|
 | Private, everyday or adult turn, and Laura's Venice reply | yes (context ≤12 turns) | **never** (guard; refused, not sent) | **never** | yes |
-| Owner's business turn (brief) | router and reply context only if OA-LCONT-2; otherwise a placeholder | yes, verbatim | `laura_cc_turns` (brief + result) | yes |
+| Owner's business turn (brief) | the new message goes to Laura's router (she reads it to decide; it is the owner's words, not company evidence). In later context it appears only if OA-LCONT-2; otherwise as a placeholder | yes, verbatim | `laura_cc_turns` (brief + result) | yes |
 | Canonical tool request | — | yes | `laura_cc_turns` | — |
 | Venice-drafted brief | (Venice wrote it) | only after owner approval of the exact text | `laura_boundary_crossings` + `laura_cc_turns` after approval | sealed request |
 | Mixed turn's business sentences | yes (part of the turn) | only after approval | as above | sealed request |
@@ -87,6 +87,7 @@ It runs twice: on the brief, and on the exact outbound user message (`ceo_chat.c
 
 **Residual risk (honest):**
 - **Paraphrase.** A paraphrase with different words and low token overlap would pass the guard. It can only originate from a Venice draft or from the owner's own business-classified words. Venice drafts are always shown to the owner first, so the residual channel is the owner retyping private content in a message that the classifier labels business-only, without private signal words.
+- **Very long threads.** The guard reads the newest 500 turns (the store's read cap). Older private turns are not compared. They do not reach business briefs by any path either, because briefs are built only from the current turn, canonical requests or owner-approved text.
 - **Short private texts.** Texts under 12 characters and 3 words are not matched. The classifier, not the guard, covers them.
 - **Marking private afterwards.** Marking a business turn private later does not erase the business record already made. The guard then blocks any further use of that text.
 
