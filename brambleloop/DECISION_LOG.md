@@ -2293,3 +2293,16 @@ Private content never influences products, accounting, marketing, security or ex
    (`research/final_build/w4/VENICE_SUPPORT_INQUIRY.md`).
 3. **Security review and ADD-PLV-07.** A security review of the WIP branch, and the production acceptance test
    (VENICE.md §5), which stays OPEN.
+
+### D-W4-PL-VENICE-ADULT addendum (2026-10-20): Venice support response, owner-reported, evidence pending
+
+The owner reports that Venice Support confirmed consensual sexually explicit adult conversation and
+fictional adult roleplay are permitted. **This is recorded as owner-reported, not yet evidenced.**
+The written response is requested, and its slot is `research/final_build/w4/evidence_VENICE/`.
+ADD-PLV-07 step L1 stays FAILING until the response is filed there and its scope is checked:
+- API use;
+- `venice-uncensored-1-2` or all Private-class models;
+- Terms §10.9(c).
+
+The amendment itself stays PROPOSED, pending the permission review of the four copy edits, the tests
+and an independent security review. No safeguard changes.
