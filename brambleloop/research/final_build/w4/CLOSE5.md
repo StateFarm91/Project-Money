@@ -314,3 +314,51 @@ owner's diversification decision, F-100.
 
 `close5.py` is now idempotent on re-run: the `searched` tag is no longer appended again on each
 regeneration, and the repeats from earlier runs are collapsed.
+
+## 5. Priority fix: `intel.gallery_analysis` read timeouts on b931d17 (#195 blocker)
+
+**Symptom.** `/api/verify` `no_unexpected_dead_letters_in_24h` fails. There are three
+`intel.gallery_analysis` dead letters with the error "TimeoutError: The read operation timed out".
+
+**Production reading (read-only GETs).** Evidence is in `evidence_CLOSE5/gallery_timeout_b931d17.json`.
+- b931d17 started at 2026-10-20T03:48Z.
+- Every gallery call after that timed out: 9 of 9 attempts in three jobs, between 04:02Z and 08:06Z.
+- The last runs on the previous build (0417f35) judged 4 of 4 images each.
+
+**Root cause.** REL2 B5 (da658123) first shipped in b931d17. It added structured output to exactly
+this call, with a schema of 24 properties, every one optional.
+- An object whose properties are all optional is the most expensive grammar for structured output
+  to compile and decode: any subset of the properties may appear, in order.
+- The API also fetches the image by URL and reasons before it answers.
+- The call still used the 60-second socket read timeout sized for text calls.
+- Inference: a call that keeps being cut off client-side may never complete the one-time schema
+  compilation that would otherwise be cached. That would explain why every attempt failed, not
+  just the first. This cannot be confirmed without a paid call, so I made none.
+
+**Fix.**
+- `gateway/anthropic.py`: `VISION_TIMEOUT_SECONDS = 180`, used for vision calls only.
+  - It is documented and bounded: tighter than the SDKs' 10-minute default, and a longer
+    configured timeout on the provider still wins.
+  - Text calls keep 60 s.
+- `intel/vision.py`, `observation_schema`: every field is now required, and a field that cannot
+  be judged is the empty string.
+  - The parser already drops empty strings, so stored observations are unchanged.
+  - The prompt now says the same thing.
+  - The method version changes, so the F-309 breaker sees a new method.
+- `intel/vision.py`, `analyse`: a run never starts a call that could end past
+  `ANALYSIS_RUN_SECONDS = 2400`. That is below `MAX_HANDLER_SECONDS = 3600`, the worker's
+  lease-renewal cap. Images left by the time bound stay pending for the next run.
+
+**Unchanged by decision.**
+- The paid-call guard: a read timeout is still UNCERTAIN and is never resent.
+- `/api/verify`: nothing is reclassified. The three existing dead letters age out on their own,
+  and the #195 window restarts after the fixed build is deployed.
+
+**Regression test.** `tests/test_w4_close5_vision_timeout.py`, 4 tests.
+- On the fix: all 4 pass.
+- On the deployed b931d17 tree: 3 fail (the timeout, the schema and the run bound). The fourth,
+  which checks the guard is unchanged, passes on both.
+
+`test_w4_rel2` B5 now asserts the required-field schema. That test's intent, "omit what is
+unjudgeable", is kept through the empty-string rule. Two test transport stubs now accept the
+`timeout` keyword.

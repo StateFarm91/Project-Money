@@ -103,6 +103,18 @@ IMAGE_TOKENS_ESTIMATE = 6000
 # of one listing's gallery is worth judging in a single question.
 MAX_IMAGES_PER_CALL = 8
 
+# W4-CLOSE5 (2026-10-20): the socket read timeout for one vision call. Text calls keep the
+# 60-second default; a vision call was given the same 60 seconds and, once REL2 (da658123)
+# asked for structured output, every `intel.gallery_analysis` attempt on b931d17 ran past it
+# ("TimeoutError: The read operation timed out", 9 of 9 attempts 2026-10-20 04:02-08:06Z, three
+# dead letters; the same cadence judged 4 images per run on 0417f35 without the schema). The API
+# fetches the image by URL, compiles the output schema's grammar on first use, and reasons
+# before it answers: a vision call's wait is legitimately longer than a text call's. The
+# official SDKs default to a 10-minute timeout; this is bounded tighter, and a run of calls is
+# bounded again by `intel.vision.ANALYSIS_RUN_SECONDS` so a batch stays inside the worker's
+# lease-renewal cap (`runtime.worker.MAX_HANDLER_SECONDS`).
+VISION_TIMEOUT_SECONDS = 180.0
+
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
@@ -682,7 +694,7 @@ class AnthropicProvider:
 
     name: str = "anthropic"
     model: str = DEFAULT_MODEL
-    timeout_seconds: float = 60.0
+    timeout_seconds: float = 60.0      # text calls; a vision call uses VISION_TIMEOUT_SECONDS
     cost_per_1k_input_cad: float = field(default=0.0)
     cost_per_1k_output_cad: float = field(default=0.0)
 
@@ -758,9 +770,11 @@ class AnthropicProvider:
                if json_schema else {}),
             "messages": [{"role": "user", "content": content}],
         }).encode()
-        return self._guarded(payload, key, "anthropic.vision")
+        return self._guarded(payload, key, "anthropic.vision",
+                             timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS))
 
-    def _guarded(self, payload: bytes, key: str, effect: str) -> ModelResponse:
+    def _guarded(self, payload: bytes, key: str, effect: str, *,
+                 timeout: float | None = None) -> ModelResponse:
         """The one place a paid model request leaves the process (F-307/F-339).
 
         Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
@@ -770,12 +784,15 @@ class AnthropicProvider:
 
         return paid_calls.guarded(
             effect, paid_calls.fingerprint(effect, payload.decode("utf-8", "replace")),
-            lambda: self._send(payload, key),
+            ((lambda: self._send(payload, key)) if timeout is None
+             else (lambda: self._send(payload, key, timeout=timeout))),
             encode=_encode_response, decode=_decode_response, classify=_classify_failure,
             cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
 
-    def _send(self, payload: bytes, key: str) -> ModelResponse:
-        """The HTTP request itself. Tests replace this; no test reaches the network."""
+    def _send(self, payload: bytes, key: str, *, timeout: float | None = None) -> ModelResponse:
+        """The HTTP request itself. Tests replace this; no test reaches the network.
+
+        `timeout` is the socket read timeout for this call (default `timeout_seconds`)."""
         import urllib.error
         import urllib.request
 
@@ -786,7 +803,8 @@ class AnthropicProvider:
 
         started = time.time()
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+            with urllib.request.urlopen(
+                    request, timeout=timeout or self.timeout_seconds) as response:
                 body = json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
             detail = exc.read().decode(errors="replace")[:400]

@@ -1,15 +1,15 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-20T06:47:14Z",
- "branch_head": "d1ed36c2",
+ "generated_at": "2026-10-20T11:15:42Z",
+ "branch_head": "27fb1d40",
  "production_commit": "b931d17a738d",
  "production_read_at": "20261020T0540Z",
  "headline": {
   "build2": {
    "total": 320,
-   "verified_complete": 198,
-   "implemented_unverified": 31,
+   "verified_complete": 194,
+   "implemented_unverified": 35,
    "in_progress": 0,
    "blocked_engineering": 3,
    "blocked_owner": 36,
@@ -18,8 +18,8 @@
   },
   "final_master_launch_critical": {
    "total": 490,
-   "verified_complete": 369,
-   "implemented_unverified": 8,
+   "verified_complete": 364,
+   "implemented_unverified": 13,
    "in_progress": 5,
    "blocked_engineering": 37,
    "blocked_owner": 42,
@@ -28,8 +28,8 @@
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 421,
-   "implemented_unverified": 13,
+   "verified_complete": 415,
+   "implemented_unverified": 19,
    "in_progress": 5,
    "blocked_engineering": 254,
    "blocked_owner": 127,
@@ -48,8 +48,8 @@
   },
   "recount": {
    "build2": {
-    "production_verified": 198,
-    "dev_proven_not_deployed": 28,
+    "production_verified": 194,
+    "dev_proven_not_deployed": 32,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 2,
@@ -58,14 +58,14 @@
     "live_customer_C": 21,
     "not_applicable": 3,
     "total": 320,
-    "unfinished": 119,
+    "unfinished": 123,
     "post_launch_empirical": 52,
-    "executable_engineering": 30,
+    "executable_engineering": 34,
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 421,
-    "dev_proven_not_deployed": 12,
+    "production_verified": 415,
+    "dev_proven_not_deployed": 18,
     "implemented_unverified": 1,
     "in_progress": 5,
     "engineering_blocked": 250,
@@ -74,14 +74,14 @@
     "live_customer_C": 19,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 489,
+    "unfinished": 495,
     "post_launch_empirical": 65,
-    "executable_engineering": 268,
+    "executable_engineering": 274,
     "owner_or_external_non_empirical": 156
    },
    "final_master_launch_critical": {
-    "production_verified": 369,
-    "dev_proven_not_deployed": 7,
+    "production_verified": 364,
+    "dev_proven_not_deployed": 12,
     "implemented_unverified": 1,
     "in_progress": 5,
     "engineering_blocked": 37,
@@ -90,9 +90,9 @@
     "live_customer_C": 3,
     "not_applicable": 0,
     "total": 490,
-    "unfinished": 121,
+    "unfinished": 126,
     "post_launch_empirical": 6,
-    "executable_engineering": 50,
+    "executable_engineering": 55,
     "owner_or_external_non_empirical": 65
    },
    "categories": [
@@ -134,7 +134,6 @@
    "F-056",
    "F-152",
    "F-191",
-   "F-193",
    "F-240",
    "F-283",
    "F-299",
@@ -187,6 +186,18 @@
  },
  "top_root_causes": [
   {
+   "root": "release_undeployed_code",
+   "title": "Proven only on the integration branch (release + production evidence needed)",
+   "rows": 53,
+   "build2": 35,
+   "fm_launch_critical": 12,
+   "fm_post_launch": 6,
+   "classes": {
+    "implemented_unverified": 53
+   },
+   "owner_action": null
+  },
+  {
    "root": "real_customers",
    "title": "No real customers / market outcomes yet",
    "rows": 93,
@@ -195,18 +206,6 @@
    "fm_post_launch": 51,
    "classes": {
     "blocked_external": 93
-   },
-   "owner_action": null
-  },
-  {
-   "root": "release_undeployed_code",
-   "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 43,
-   "build2": 31,
-   "fm_launch_critical": 7,
-   "fm_post_launch": 5,
-   "classes": {
-    "implemented_unverified": 43
    },
    "owner_action": null
   },
@@ -338,9 +337,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 43,
-   "unblocks_fm_launch_critical": 7,
-   "unblocks_build2": 31,
+   "unblocks_rows": 53,
+   "unblocks_fm_launch_critical": 12,
+   "unblocks_build2": 35,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",

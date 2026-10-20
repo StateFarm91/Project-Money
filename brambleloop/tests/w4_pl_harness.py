@@ -61,9 +61,9 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
             "met": bool(release_proven), "detail": "test harness stand-in for the boot guard",
             "commit_short": "test"}
     if stub is not None:
-        gw.AnthropicProvider._send = lambda self, payload, key: stub(self, payload, key)
+        gw.AnthropicProvider._send = lambda self, payload, key, **kw: stub(self, payload, key)
     else:
-        def _refuse(self, payload, key):
+        def _refuse(self, payload, key, **kw):
             raise AssertionError("a model request was made where none may be")
         gw.AnthropicProvider._send = _refuse
     try:
