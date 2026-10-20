@@ -1,7 +1,7 @@
 {
  "_meta": {
   "status": "PROPOSED -- not applied. W4-CLOSE6, for integrator acceptance.",
-  "rows": "F-145, F-146, F-147, F-148 (test-scratch hygiene; producers are operator tooling)",
+  "rows": "F-145, F-146, F-147, F-148 (test-scratch hygiene) and F-834 (consumer receipts; producer is a script + the offline adjudicator)",
   "how_to_accept": "Review each entry; copy accepted entries into research/final_build/overrides.json (same {uid: entry} shape, drop _meta), set accepted_by, re-run aggregate.py and the board regeneration, run tests/test_final_closure_matrix.py + test_w3_final_master_gate.py + test_w4_board.py.",
   "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_CLOSE6.json --dry-run",
   "rule": "completion_target may only lower the target to TESTED and only on a structural-producer row; evidence keys are adjudicated by cap().",
@@ -80,6 +80,11 @@
    ],
    "next_action": "none -- at its TESTED ceiling once accepted",
    "reason": "Its producer is operator tooling (tests/_tmp.py); no runtime root (app/runner/scheduler/handlers) can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The requirement governs how test runs behave, not a runtime capability; the named tests run the real harness/sandbox in subprocesses and are its strongest possible proof.",
+   "accepted_by": null
+  },
+  "F-834": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain and the offline adjudicator build2/final_proof.py (aggregate.OFFLINE_ADJUDICATORS); no runtime root can import them, so INTEGRATED is unreachable by construction (aggregate.structural_producer), as for F-846. The mechanism is complete: a recorded run carries a receipt per chain stage bound to the row's own consumer, and final_proof refuses any row without them; on research/final_build/w4/evidence_CLOSE6/final_proof_8e4efd3.json the chain errors are gone for F-048 and F-477 and every row stays BLOCKED on independent review, which is per-row certification, not this requirement.",
    "accepted_by": null
   }
  }

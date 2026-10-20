@@ -993,7 +993,11 @@ def timeline(db, limit: int = 50) -> dict:
     for e in readers.audit_events(db, limit=limit):
         events.append({**e, "origin": "audit_log"})
     events.sort(key=lambda e: str(e.get("at") or ""), reverse=True)
-    return _tab("TIMELINE", {}, events=events[:limit], sources=sources,
+    # W4-CLOSE6 (F-662): the same activity as causal stories across departments.
+    from . import causal
+
+    stories = guard("causal_stories", lambda: causal.stories(db), sources=["jobs", "job_links"])
+    return _tab("TIMELINE", {}, events=events[:limit], sources=sources, stories=stories,
                 autonomy_timeline={"status": a_status,
                                    "reason": why if (a_events is None or
                                                      a_status != "OK") else None})

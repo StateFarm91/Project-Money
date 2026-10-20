@@ -1001,6 +1001,67 @@ FM_EDITS.update({
 })
 
 
+# ---- CLOSE6 batch 4: F-834 consumer receipts, F-662 causal timeline (dev-proven) -------------
+PR6 = "tests/test_w4_close6_proof.py::"
+TL6 = "tests/test_w4_close6_timeline.py::"
+FM_EDITS.update({
+    ("s9", "F-834"): {
+        "maturity": "TESTED", "coverage": "FULL", "missing_part": None,
+        "producer": "scripts/shadow_rehearsal.py::record_edges -> "
+                    "scripts/emit_runtime_packets.py::consumer_chain; "
+                    "src/brambleloop/build2/final_proof.py::validate",
+        "consumer": "src/brambleloop/build2/final_proof.py::validate (refuses a row without "
+                    "bound durable_state/consumer/decision/effect/result receipts naming the "
+                    "row's own consumer) -> the integrator's release proof",
+        "durable_state": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json "
+                         "(chain_edges), runtime_packets_8e4efd3.json, final_proof_8e4efd3.json",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "the independent review on each packet is the reviewer's, never the "
+                           "emitter's (final_proof refuses self-review)"},
+        "next_action": "integrator: accept the structural TESTED target proposed in "
+                       "w4/OVERRIDES_PROPOSED_CLOSE6.json (producer is a script + the offline "
+                       "adjudicator final_proof.py, so INTEGRATED is unreachable by "
+                       "construction, as for F-846); per row, an independent reviewer and "
+                       "production-producer / failure-test receipts",
+        "evidence+": [f"{TAG6}: the consumer is now proven at runtime, not asserted: the shadow "
+                      "rehearsal records, from the rows the run wrote, the durable row each "
+                      "producer job wrote and that the store.publish job read it (its release "
+                      "gates name the same version; its key the same certified release), what "
+                      "it decided (refused in SHADOW), the effect row (store.publish_refused) "
+                      "and the result (no store.published; no Etsy id); the emitter turns that "
+                      "edge into chain receipts only for rows whose producer AND named consumer "
+                      "are the edge's handlers. final_proof on the recorded run: the chain "
+                      "errors are gone for those rows; they stay BLOCKED on independent review "
+                      "(and production-producer / failure-test receipts). Dev-proven."],
+        "tests+": [PR6 + "test_a_recorded_edge_gives_every_chain_stage_a_bound_receipt",
+                   PR6 + "test_an_unbound_read_claims_nothing_past_the_producer",
+                   PR6 + "test_the_recorded_rehearsal_binds_the_edge_on_this_head",
+                   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+                   "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof"],
+    },
+    ("s8", "F-662"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); "
+                    "src/brambleloop/app/command_center/causal.py::stories",
+        "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the "
+                    "Timeline view (static/js/views/timeline.js 'What the company did')",
+        "durable_state": "job_links (parent_id, child_id) + jobs",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the timeline listed audit rows and company events with no cause "
+                      "and effect. Every follow-on job now records the job that caused it "
+                      "(best effort, never blocking the enqueue); the timeline tells each chain "
+                      "as one story across departments in words (who did what, the outcome, "
+                      "what caused the first step: scheduled / caused by / 'cause not recorded', "
+                      "never guessed) and counts routine checks that caused nothing instead of "
+                      "listing them. Dev-proven."],
+        "tests+": [TL6 + "test_a_pipeline_run_is_one_causal_story_across_departments",
+                   TL6 + "test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+                   TL6 + "test_the_timeline_serves_the_stories"],
+    },
+})
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {

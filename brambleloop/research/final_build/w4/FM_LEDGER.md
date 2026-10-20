@@ -124,7 +124,7 @@ Launch-critical OPEN-DEFECT: **4**
 | F-741 Product Before Pose | EXTERNAL-GATED | INTEGRATED | external:model_bearing_render |
 | F-746 Listing Set Consistency | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |
 | F-808 Contextual Help Inside Patterns | OWNER-GATED | INTEGRATED | owner:owned_surfaces |
-| F-834 Consumption Required | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof needs, per launch-critical row, chain receipts durable_state -> consu |
+| F-834 Consumption Required | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-846 Audit-Repair Loop | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-848 Shadow Rehearsal | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: approval -> simulated publish is not exercised. Two blockers carry real gates: th |
 | F-849 Claude/Chat Independence | DATA-GATED | INTEGRATED | data:production_window |

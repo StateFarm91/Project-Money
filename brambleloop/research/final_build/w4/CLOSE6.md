@@ -129,3 +129,72 @@ Applying the rule to the current board downgrades no row that was verified.
 
 **Tests:** `test_w4_close6_readback.py` (4) and `test_w4_smoke.py` (10, with its fixture
 extended to the new endpoints).
+
+## 5. F-834 Consumption Required: consumer receipts (built; closes only if the integrator accepts the TESTED override)
+
+**Criterion:** "Producing a reading is insufficient when the requirement exists to influence a
+downstream decision/action; prove the consumer."
+
+**Before.** `final_proof` already refused a row without receipts for durable_state, consumer,
+decision, effect and result. But the only recorded run, the shadow rehearsal, recorded job
+outcomes only, so every packet stopped at the producer.
+
+**Built.**
+- `scripts/shadow_rehearsal.py::record_edges` records, from the rows the run wrote:
+  - the durable row each producer job wrote, and which job wrote it;
+  - that the `store.publish` job read that state: its gates name the same version, and its
+    idempotency key names the same certified release;
+  - what it decided (refused in SHADOW), the effect row (`store.publish_refused`), and the
+    result (no `store.published` row, no Etsy id).
+- `scripts/emit_runtime_packets.py::consumer_chain` turns that edge into chain receipts. It
+  does so only for rows whose producer AND named consumer are the handlers on that edge.
+
+**Evidence: a production-mode run on clean head 8e4efd3.**
+- `evidence_CLOSE6/shadow_rehearsal_8e4efd3.json`, `runtime_packets_8e4efd3.json`, and
+  `final_proof_8e4efd3.json` (all 917 rows BLOCKED; nothing certifies itself).
+- F-048 and F-477 now carry all six chain stages, and final_proof reports no chain error for
+  them.
+- They stay BLOCKED on the independent review, the production-producer receipt, the
+  failure-test receipt, and the execution-gate and suite receipts.
+
+**Why it needs an override.** The producer is a script plus the offline adjudicator, so the
+row's ceiling is TESTED. The entry is added to `w4/OVERRIDES_PROPOSED_CLOSE6.json` (F-867;
+dry run: no problems, F-834 adjudicates COMPLETE at TESTED). Until the integrator accepts it,
+the row stays open.
+
+**Tests:** `test_w4_close6_proof.py` (3).
+
+**Side finding.** In one production-mode rehearsal (a9e5395), listing.seo read FAILED: the
+newest listing.seo job was a later re-run still pending when the chain was read. The 8e4efd3
+run read PASS. The recorder now binds each edge to the job that wrote the row, not to the
+newest job of that type.
+
+## 6. F-662 Live Company Timeline: causal stories (dev-proven)
+
+**Criterion:** "human-readable causal activity stream across departments instead of raw
+tool-call noise."
+
+**Built.**
+- `runtime/lineage.py`: `JobContext.enqueue` records which job caused each follow-on job in
+  `job_links`. It is best effort and never blocks an enqueue. A child enqueued inside the
+  caller's own transaction is not linked.
+- `command_center/causal.py::stories` tells each chain as one story across departments:
+  - who did what, in words, and the outcome;
+  - the cause of the first step: "scheduled", "caused by", or "cause not recorded", never
+    guessed;
+  - routine checks that caused nothing are counted, not listed.
+- The stories are served on `/api/cc/timeline` and shown in the Timeline view.
+
+**Tests:** `test_w4_close6_timeline.py` (3). A pipeline run is one story; an unrecorded cause
+is shown as such.
+
+## 7. Build 2 #11 and #12: re-gate to `customers` (PROPOSED, not applied)
+
+- The proposal is in `w4/B2_REGATE_PROPOSED_CLOSE6.json`, with `accepted_by: null`.
+- Production evidence (`evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json`):
+  - `transactions_r` is OPEN;
+  - `commerce.orders_ingest` and `commerce.order_readings` complete on cadence;
+  - there are zero `orders.ingested` rows, because there are no receipts;
+  - `customers` is closed.
+- What is left of both rows needs real buyers. That is a data gate, as with the #242 re-park
+  (W4-GATESB).

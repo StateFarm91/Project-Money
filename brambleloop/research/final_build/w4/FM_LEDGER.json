@@ -18162,20 +18162,22 @@
    "launch_class": "MATURE",
    "launch_blocking": false,
    "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
+   "maturity": "TESTED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); src/brambleloop/app/command_center/causal.py::stories",
+   "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the Timeline view (static/js/views/timeline.js 'What the company did')",
    "tests": [
-    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain"
+    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain",
+    "tests/test_w4_close6_timeline.py::test_a_pipeline_run_is_one_causal_story_across_departments",
+    "tests/test_w4_close6_timeline.py::test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+    "tests/test_w4_close6_timeline.py::test_the_timeline_serves_the_stories"
    ],
    "gate": null,
    "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: Only a raw audit-log table (last 15 AuditLog rows: time, actor, action, artifact) -- the tool-call-level stream the requirement says to replace; no causal, huma"
+    "maturity TESTED below target INTEGRATED"
    ],
-   "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
+   "next_action": "deploy W4-CLOSE6",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -22857,20 +22859,22 @@
    "status": "OPEN-DEFECT",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/build2/final_proof.py::validate",
-   "consumer": null,
+   "coverage": "FULL",
+   "producer": "scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain; src/brambleloop/build2/final_proof.py::validate",
+   "consumer": "src/brambleloop/build2/final_proof.py::validate (refuses a row without bound durable_state/consumer/decision/effect/result receipts naming the row's own consumer) -> the integrator's release proof",
    "tests": [
     "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
     "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
-    "tests/test_final_proof.py::test_required_receipt_mutations"
+    "tests/test_final_proof.py::test_required_receipt_mutations",
+    "tests/test_w4_close6_proof.py::test_a_recorded_edge_gives_every_chain_stage_a_bound_receipt",
+    "tests/test_w4_close6_proof.py::test_an_unbound_read_claims_nothing_past_the_producer",
+    "tests/test_w4_close6_proof.py::test_the_recorded_rehearsal_binds_the_edge_on_this_head"
    ],
    "gate": null,
    "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a p"
+    "maturity TESTED below target INTEGRATED"
    ],
-   "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
+   "next_action": "integrator: accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_CLOSE6.json (producer is a script + the offline adjudicator final_proof.py, so INTEGRATED is unreachable by construction, as for F-846); per row, an independent reviewer and production-producer / failure-test receipts",
    "mapped_on": "0417f35",
    "w3_triage": "O",
    "w3_cluster": "K13",

@@ -407,29 +407,33 @@
   "uid": "F-662",
   "launch_class": "MATURE",
   "launch_class_reason": "F-698: timeline is Studio visibility",
-  "maturity": "MISSING",
-  "coverage": "PARTIAL",
-  "missing_part": "Only a raw audit-log table (last 15 AuditLog rows: time, actor, action, artifact) -- the tool-call-level stream the requirement says to replace; no causal, human-readable cross-department narrative.",
-  "producer": null,
-  "durable_state": "audit_log (raw)",
-  "consumer": null,
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); src/brambleloop/app/command_center/causal.py::stories",
+  "durable_state": "job_links (parent_id, child_id) + jobs",
+  "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the Timeline view (static/js/views/timeline.js 'What the company did')",
   "protected_effect": null,
   "tests": [
-   "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain"
+   "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain",
+   "tests/test_w4_close6_timeline.py::test_a_pipeline_run_is_one_causal_story_across_departments",
+   "tests/test_w4_close6_timeline.py::test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+   "tests/test_w4_close6_timeline.py::test_the_timeline_serves_the_stories"
   ],
   "evidence": [
-   "src/brambleloop/app/main.py dashboard 'Audit trail' block"
+   "src/brambleloop/app/main.py dashboard 'Audit trail' block",
+   "w4-CLOSE6 on deployed b931d17: the timeline listed audit rows and company events with no cause and effect. Every follow-on job now records the job that caused it (best effort, never blocking the enqueue); the timeline tells each chain as one story across departments in words (who did what, the outcome, what caused the first step: scheduled / caused by / 'cause not recorded', never guessed) and counts routine checks that caused nothing instead of listing them. Dev-proven."
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "none",
-   "detail": "no gate on the remaining software work"
+   "key": null,
+   "detail": "software only"
   },
   "defect": null,
-  "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
+  "next_action": "deploy W4-CLOSE6",
   "confidence": "HIGH",
-  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated)"
+  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-663",

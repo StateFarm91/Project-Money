@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T12:20:28Z",
-  "branch_head": "c8fcf17c"
+  "generated_at": "2026-10-20T12:58:25Z",
+  "branch_head": "8e4efd39"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,20 +40,20 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 625,
+  "total_not_verified": 641,
   "by_class": {
-   "A": 550,
-   "C": 40,
-   "B": 35
+   "A": 565,
+   "B": 36,
+   "C": 40
   },
   "by_source": {
    "build2": {
-    "A": 97,
-    "C": 21,
-    "B": 5
+    "A": 111,
+    "B": 6,
+    "C": 21
    },
    "final_master": {
-    "A": 453,
+    "A": 454,
     "C": 19,
     "B": 29
    },
@@ -63,16 +63,16 @@
   },
   "by_domain": {
    "autonomy_learning": {
-    "A": 82,
+    "A": 93,
     "B": 6,
     "C": 5
    },
    "build2_creative": {
-    "A": 28,
+    "A": 30,
     "C": 5
    },
    "command_center_ui": {
-    "A": 7,
+    "A": 8,
     "B": 3
    },
    "image_visual": {
@@ -81,23 +81,23 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 187,
+    "A": 188,
     "B": 23
    },
    "store_product": {
+    "B": 4,
     "C": 14,
-    "A": 191,
-    "B": 3
+    "A": 191
    }
   },
   "by_scope": {
    "build2": {
-    "A": 97,
-    "C": 21,
-    "B": 5
+    "A": 111,
+    "B": 6,
+    "C": 21
    },
    "launch_critical": {
-    "A": 107,
+    "A": 108,
     "C": 3,
     "B": 21
    },
@@ -302,6 +302,7 @@
    "A F-827 [blocked_engineering] Studio Learn Dashboard",
    "A F-869 [blocked_engineering] Approval Friction Is Cost",
    "B F-461 [blocked_owner] Deploy Serialization",
+   "B B2#5 [implemented_unverified] Fast Lane and Flagship Lane",
    "B F-450 [blocked_engineering] Research as Core Autonomy",
    "B F-460 [blocked_engineering] Integration Agent",
    "C B2#11 [blocked_engineering] First 100 Customers Program",
@@ -325,7 +326,9 @@
    "A F-515@v0.16 [blocked_engineering] Shop Completeness Gate",
    "A F-780 [implemented_unverified] Benchmark Competitors by System, Not Clone",
    "A B2#104 [implemented_unverified] Creative Growth North Star",
+   "A B2#118 [implemented_unverified] White-Space Discovery Agent",
    "A B2#120 [blocked_external] Holiday-to-Holiday Learning Transfer",
+   "A B2#121 [implemented_unverified] Four-Season Engine",
    "A B2#126 [implemented_unverified] Search-Grid Blind Tournament",
    "A B2#218 [implemented_unverified] MJs Challenge Gate",
    "A B2#246 [blocked_owner] Pinterest Search Factory",
@@ -356,6 +359,7 @@
   ],
   "ops_runtime_governance": [
    "A F-081 [blocked_owner] High-Risk Full-Make Gate",
+   "A F-098 [implemented_unverified] Outage Degradation Plan",
    "A F-102 [implemented_unverified] Pre-Call Reservation",
    "A F-103 [blocked_owner] Post-Call Reconciliation",
    "A F-106 [blocked_owner] Provider Billing Reconciliation",
@@ -416,6 +420,7 @@
    "A B2#270 [blocked_external] Revenue Concentration Stress Test",
    "A B2#272 [blocked_external] Scale Readiness Gate",
    "A B2#28 [blocked_external] Conditional Scale Rules",
+   "A B2#286 [implemented_unverified] Rolling 365-Day Opportunity Calendar",
    "A B2#295 [blocked_owner] Aggressive Winner Scaling",
    "A B2#296 [blocked_external] Seasonal Revenue War Room",
    "A B2#300 [blocked_external] Seasonal System Acceptance Test",
@@ -507,7 +512,6 @@
    "A F-652 [blocked_engineering] Desktop Headquarters",
    "A F-653 [blocked_engineering] Galaxy Access",
    "A F-661 [blocked_engineering] Executive Command Center",
-   "A F-662 [blocked_engineering] Live Company Timeline",
    "A F-668 [blocked_engineering] Agents Workspace",
    "A F-670 [blocked_engineering] Premium Responsive Design",
    "A F-672 [blocked_engineering] Product Lifecycle Board",
@@ -647,8 +651,14 @@
    "A F-588 [blocked_owner] Partners You Work With",
    "A F-808 [blocked_owner] Contextual Help Inside Patterns",
    "A B2#1 [blocked_owner] Etsy Marketplace Insights as First-Party Demand Oracle",
+   "A B2#100 [implemented_unverified] Weekly Autonomous Business Retrospective",
    "A B2#165 [blocked_owner] Benchmark Refresh Cadence",
+   "A B2#175 [implemented_unverified] Elastic Agent Swarms",
+   "A B2#180 [implemented_unverified] Agent Challenger League",
+   "A B2#187 [implemented_unverified] Priority Scheduler",
+   "A B2#188 [implemented_unverified] Global Spend / Compute Governor",
    "A B2#189 [blocked_owner] Cloud Browser/Vision Worker Pool",
+   "A B2#206 [implemented_unverified] Mandatory MJsOffTheHookDesigns Source",
    "A B2#208 [implemented_unverified] Listing-by-Listing Deep Audit",
    "A B2#209 [implemented_unverified] Vision-Level Gallery Analysis",
    "A B2#221 [blocked_owner] Mandatory Cloud Browser + Vision Capability",
@@ -658,12 +668,17 @@
    "A B2#236 [blocked_owner] Marketplace Insights Portfolio Allocator",
    "A B2#247 [blocked_owner] Google / SEO Topic Cluster Engine",
    "A B2#304 [implemented_unverified] MJs Listing Photos Must Be Visually Studied",
+   "A B2#311 [implemented_unverified] MJs Seasonal Deadline Sentinel",
+   "A B2#313 [implemented_unverified] MJs Change Detection Is High Priority",
    "A B2#317 [blocked_owner] Ten-Pattern Benchmark Laboratory",
    "A B2#318 [implemented_unverified] MJs Mission Dashboard",
    "A B2#320 [blocked_owner] MJs Mission End-to-End Acceptance Test",
    "A B2#33 [blocked_external] Replace the narrow Christmas Strike Team with a permanent 36",
+   "A B2#34 [implemented_unverified] Stagnation / Thrash Detection",
    "A B2#37 [blocked_owner] Marketplace Insights Query Budgeter",
    "A B2#86 [implemented_unverified] Creativity Benchmark Memory",
+   "A B2#92 [implemented_unverified] Learn -> Hypothesize -> Sandbox -> Test -> Promote Loop",
+   "A B2#95 [implemented_unverified] Agent Performance League",
    "A B2#98 [blocked_external] External Learning Radar",
    "A F-061 [blocked_owner] Benchmark Purchase Selector",
    "A F-062 [blocked_owner] Benchmark Coverage Matrix",
@@ -741,6 +756,7 @@
    "A F-929 [implemented_unverified] No Autonomous Hallucinated Action",
    "A F-619 [implemented_unverified] Brambleloop Command Center",
    "A F-651 [implemented_unverified] Unified Studio",
+   "A F-662 [implemented_unverified] Live Company Timeline",
    "A F-664 [implemented_unverified] Ask Brambleloop",
    "B F-884 [implemented_unverified] Owner Home Brief",
    "B F-928 [implemented_unverified] Owner Search / Ask Company",
@@ -777,6 +793,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Where platform rules permit, test truthful concepts/aesthetics on Pinterest, social and owned channels before expensive engineering. Clearly identify concepts and do not imply an unavailable item is a finished purchasable product. Never use fake Etsy listings, fake purchases or fabricated engagement."
+  },
+  {
+   "source": "build2",
+   "id": 5,
+   "scope": "build2",
+   "title": "Fast Lane and Flagship Lane",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "store_product",
+   "verifiability": "B",
+   "criterion_quote": "Operate two production queues after core QA stabilizes.",
+   "matched": "production queues",
+   "basis": "criterion text requires production deployment / soak",
+   "criterion": "Operate two production queues after core QA stabilizes. FAST LANE: lower-complexity Class A/B products such as ornaments, coasters, mug rugs, selected hats, simple decor and suitable simple amigurumi for rapid learning/search coverage. FLAGSHIP LANE: premium blankets, major collections, selected garments and sophisticated seasonal products for authority, content depth and AOV. Both retain all applicable quality gates."
   },
   {
    "source": "build2",
@@ -1020,6 +1051,21 @@
   },
   {
    "source": "build2",
+   "id": 34,
+   "scope": "build2",
+   "title": "Stagnation / Thrash Detection",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Any agent that observes three materially identical states without progress must stop polling and re-plan. Repeated identical tool call + identical result triggers a circuit breaker. Polling backs off exponentially. Deployment retries require a changed hypothesis/root-cause fix. Track progress-per-dollar and progress-per-iteration; suspend loops consuming budget without state change."
+  },
+  {
+   "source": "build2",
    "id": 35,
    "scope": "build2",
    "title": "Etsy Creativity / AI Disclosure Gate",
@@ -1260,6 +1306,21 @@
   },
   {
    "source": "build2",
+   "id": 92,
+   "scope": "build2",
+   "title": "Learn -> Hypothesize -> Sandbox -> Test -> Promote Loop",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Self-improvement follows a controlled loop: observe evidence -> identify constraint -> form explicit hypothesis -> implement in sandbox/branch -> run regression/adversarial tests -> compare against baseline -> promote if better -> monitor -> rollback if worse -> record lesson. Production code/prompts/rules may not self-modify blindly."
+  },
+  {
+   "source": "build2",
    "id": 94,
    "scope": "build2",
    "title": "Creativity Capability Scorecard",
@@ -1272,6 +1333,21 @@
    "matched": "CTR",
    "basis": "criterion text demands live operations",
    "criterion": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas."
+  },
+  {
+   "source": "build2",
+   "id": 95,
+   "scope": "build2",
+   "title": "Agent Performance League",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Score agents and prompt/model configurations on domain-specific outcomes, cost and reliability. Run challenger configurations against incumbents on controlled tasks. Promote challengers only when they beat the incumbent without violating truth/policy gates. Retire persistently weak configurations."
   },
   {
    "source": "build2",
@@ -1290,6 +1366,21 @@
   },
   {
    "source": "build2",
+   "id": 100,
+   "scope": "build2",
+   "title": "Weekly Autonomous Business Retrospective",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "On a scheduled cadence, the Improvement Director produces an internal machine-readable retrospective: what improved, what regressed, what was learned, current bottleneck, experiments completed, experiments killed, department health, top next upgrades and STOP-doing list. It should execute approved low-risk improvements rather than merely write reports."
+  },
+  {
+   "source": "build2",
    "id": 104,
    "scope": "build2",
    "title": "Creative Growth North Star",
@@ -1305,6 +1396,21 @@
   },
   {
    "source": "build2",
+   "id": 118,
+   "scope": "build2",
+   "title": "White-Space Discovery Agent",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "build2_creative",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Create an agent dedicated to asking what buyers plausibly want that current search results do not satisfy. It mines review complaints, missing variants, awkward construction, poor styling, weak personalization, excessive sewing, bad sizing, low giftability and absent combinations. White-space hypotheses feed the Concept Tournament."
+  },
+  {
+   "source": "build2",
    "id": 120,
    "scope": "build2",
    "title": "Holiday-to-Holiday Learning Transfer",
@@ -1317,6 +1423,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Seasonal learning must transfer abstractly. If modular character pockets convert at Halloween, Christmas/Easter agents may explore the mechanism with original themes. If quick low-sew minis outperform late in a season, future seasonal allocation learns that timing rule. Transfer mechanisms, not designs."
+  },
+  {
+   "source": "build2",
+   "id": 121,
+   "scope": "build2",
+   "title": "Four-Season Engine",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "build2_creative",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Maintain Spring, Summer, Fall and Winter creative programs independent of named holidays. Examples include garden/floral, cottage/beach, harvest/woodland, cozy/winter-neutral, home refresh, outdoor entertaining and seasonal wardrobe opportunities. Revenue should not collapse between major holidays."
   },
   {
    "source": "build2",
@@ -1665,6 +1786,36 @@
   },
   {
    "source": "build2",
+   "id": 175,
+   "scope": "build2",
+   "title": "Elastic Agent Swarms",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Use an orchestrator to create or activate specialist workers based on queue depth, category, season, opportunity value and bottleneck. A large catalogue scan may fan out across many workers; quiet periods scale down. Prefer elastic logical agents over 500 permanently running paid processes when identical coverage can be achieved more reliably and cheaply."
+  },
+  {
+   "source": "build2",
+   "id": 180,
+   "scope": "build2",
+   "title": "Agent Challenger League",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "For important functions, maintain incumbent and challenger configurations. Replay representative historical tasks plus fresh holdouts, compare quality/cost/latency/reliability, and promote only statistically/operationally meaningful improvements. Preserve rollback and prevent test-set overfitting."
+  },
+  {
+   "source": "build2",
    "id": 181,
    "scope": "build2",
    "title": "24/7 Cloud Runtime Is Mandatory",
@@ -1707,6 +1858,36 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "A public website is not required merely to keep agents alive. The runtime needs a secure owner operations console/dashboard accessible from phone/desktop showing health, queues, products, agent activity, spend, incidents, approvals, experiments, deployment version and learning changes. This may live in the existing cloud app; do not build a public marketing site unless it has a separate business case."
+  },
+  {
+   "source": "build2",
+   "id": 187,
+   "scope": "build2",
+   "title": "Priority Scheduler",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Allocate autonomous capacity by expected business value and deadlines: customer incidents and truth defects first; imminent seasonal windows next; proven high-value product opportunities; listing/creative bottlenecks; experiments; background research. Prevent 500 low-value agents from starving one critical release."
+  },
+  {
+   "source": "build2",
+   "id": 188,
+   "scope": "build2",
+   "title": "Global Spend / Compute Governor",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Large swarms require centralized budget control. Track cost per agent, task, product, department and experiment; enforce daily/monthly ceilings, anomaly detection and marginal-value thresholds. Scale parallelism up when it materially improves throughput/quality and down when it only duplicates work."
   },
   {
    "source": "build2",
@@ -1782,6 +1963,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "For model-appropriate products, generate a coherent shot plan: primary product-first hero, full/three-quarter fit, front/back/side as relevant, texture/detail, sleeve/neckline/closure/construction detail, scale/context and optional lifestyle shot. The model must increase trust, aspiration and brand recognition while preserving truthful product representation."
+  },
+  {
+   "source": "build2",
+   "id": 206,
+   "scope": "build2",
+   "title": "Mandatory MJsOffTheHookDesigns Source",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Canonical benchmark URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns . Store this literal reference in configuration and documentation. Validate URL health and resolution; if Etsy changes routing, resolve the shop's current canonical location without silently substituting a different seller."
   },
   {
    "source": "build2",
@@ -2400,6 +2596,21 @@
   },
   {
    "source": "build2",
+   "id": 286,
+   "scope": "build2",
+   "title": "Rolling 365-Day Opportunity Calendar",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Maintain a continuously rolling calendar rather than separate one-off 'Christmas strike teams.' Every day, look 30/60/90/120/180/365 days ahead for holidays, seasons, gifting moments and cultural/market events relevant to crochet. Each event has research, concept, engineering, test, asset, launch, optimization and late-season quick-make phases."
+  },
+  {
+   "source": "build2",
    "id": 292,
    "scope": "build2",
    "title": "Evergreen-to-Seasonal Multiplier",
@@ -2532,6 +2743,36 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "MJs listing/new-change event -> specialist pod -> visual/text market decomposition -> demand/season fit -> seasonal colour/theme tournament -> customer make-time estimate -> preferred/latest launch date -> original CIR/pattern engineering -> truth/certification -> Brambleloop-owned premium assets -> benchmark challenge -> SEO/ads/content -> launch -> performance measurement -> winner scaling -> lessons back to MJs specialist memory."
+  },
+  {
+   "source": "build2",
+   "id": 311,
+   "scope": "build2",
+   "title": "MJs Seasonal Deadline Sentinel",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Continuously calculate days remaining to preferred and latest viable launch for every MJs-derived seasonal opportunity. Escalate at-risk opportunities, reallocate agents, simplify only when product truth permits, or defer to next season when the customer can no longer reasonably finish the project in time."
+  },
+  {
+   "source": "build2",
+   "id": 313,
+   "scope": "build2",
+   "title": "MJs Change Detection Is High Priority",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "After full baseline, perform frequent lightweight checks for catalogue/listing changes and immediately deep-audit new or materially changed listings. Adapt cadence to MJs observed release behavior and seasonal urgency. The goal is fast awareness without repeatedly paying to reprocess identical content."
   },
   {
    "source": "build2",
@@ -3357,6 +3598,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Shadow Failover Drill - Once a fallback exists, periodically route safe sampled work through it and compare quality/cost/latency."
+  },
+  {
+   "source": "final_master",
+   "id": "F-098",
+   "scope": "launch_critical",
+   "title": "Outage Degradation Plan",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Outage Degradation Plan - Deterministic work continues during outage; AI-dependent tasks park explicitly and no weaker substitute silently passes a high-quality gate."
   },
   {
    "source": "final_master",
@@ -8043,10 +8299,10 @@
    "id": "F-662",
    "scope": "post_launch",
    "title": "Live Company Timeline",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy, then production evidence",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,

@@ -56,16 +56,16 @@
   "maturity": {
    "DEPLOYED": 182,
    "INTEGRATED": 523,
-   "MISSING": 100,
+   "MISSING": 99,
    "IMPLEMENTED": 50,
    "EXERCISED": 16,
-   "TESTED": 46
+   "TESTED": 47
   },
   "maturity_claimed": {
    "EXERCISED": 114,
-   "INTEGRATED": 488,
+   "INTEGRATED": 489,
    "DEPLOYED": 132,
-   "MISSING": 100,
+   "MISSING": 99,
    "IMPLEMENTED": 42,
    "TESTED": 41
   },
@@ -95,10 +95,10 @@
    "data": 29
   },
   "coverage": {
-   "FULL": 477,
-   "PARTIAL": 440
+   "FULL": 479,
+   "PARTIAL": 438
   },
-  "downgraded": 143,
+  "downgraded": 144,
   "defects": 20,
   "wave_reported": {
    "PARTIAL": 50,
@@ -119,7 +119,7 @@
   },
   "launch_critical_open": 4,
   "launch_critical_open_reasons": {
-   "coverage PARTIAL": 3,
+   "coverage PARTIAL": 2,
    "maturity TESTED": 3
   },
   "protected_action_applicability": {
@@ -29985,32 +29985,38 @@
    "uid": "F-662",
    "launch_class": "MATURE",
    "launch_class_reason": "F-698: timeline is Studio visibility",
-   "maturity": "MISSING",
-   "coverage": "PARTIAL",
-   "missing_part": "Only a raw audit-log table (last 15 AuditLog rows: time, actor, action, artifact) -- the tool-call-level stream the requirement says to replace; no causal, human-readable cross-department narrative.",
-   "producer": null,
-   "durable_state": "audit_log (raw)",
-   "consumer": null,
+   "maturity": "TESTED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); src/brambleloop/app/command_center/causal.py::stories",
+   "durable_state": "job_links (parent_id, child_id) + jobs",
+   "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the Timeline view (static/js/views/timeline.js 'What the company did')",
    "protected_effect": null,
    "tests": [
-    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain"
+    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain",
+    "tests/test_w4_close6_timeline.py::test_a_pipeline_run_is_one_causal_story_across_departments",
+    "tests/test_w4_close6_timeline.py::test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+    "tests/test_w4_close6_timeline.py::test_the_timeline_serves_the_stories"
    ],
    "evidence": [
-    "src/brambleloop/app/main.py dashboard 'Audit trail' block"
+    "src/brambleloop/app/main.py dashboard 'Audit trail' block",
+    "w4-CLOSE6 on deployed b931d17: the timeline listed audit rows and company events with no cause and effect. Every follow-on job now records the job that caused it (best effort, never blocking the enqueue); the timeline tells each chain as one story across departments in words (who did what, the outcome, what caused the first step: scheduled / caused by / 'cause not recorded', never guessed) and counts routine checks that caused nothing instead of listing them. Dev-proven."
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no gate on the remaining software work"
+    "key": null,
+    "detail": "software only"
    },
    "defect": null,
-   "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
+   "next_action": "deploy W4-CLOSE6",
    "confidence": "HIGH",
-   "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated)",
+   "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated) | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
-   "maturity_claimed": "MISSING",
-   "adjudication": [],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [
+    "producer module 'runtime/lineage.py' not reached from a live root -> capped at TESTED"
+   ],
    "id": "F-662",
    "title": "Live Company Timeline",
    "version": "v0.19",
@@ -37834,16 +37840,19 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "F-831..F-850 certification contract",
    "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a production_producer and failure_test receipt, a suite receipt whose head/run match the packet (the release record names 5dfd1ac, the packet 0417f35), an execution_gate receipt on protected rows, and an independent_review by a reviewer other than the emitter. The rehearsal records job outcomes only, so the emitter can supply producer + live_root receipts and nothing else",
-   "producer": "src/brambleloop/build2/final_proof.py::validate",
-   "durable_state": null,
-   "consumer": null,
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain; src/brambleloop/build2/final_proof.py::validate",
+   "durable_state": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json (chain_edges), runtime_packets_8e4efd3.json, final_proof_8e4efd3.json",
+   "consumer": "src/brambleloop/build2/final_proof.py::validate (refuses a row without bound durable_state/consumer/decision/effect/result receipts naming the row's own consumer) -> the integrator's release proof",
    "protected_effect": null,
    "tests": [
     "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
     "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
-    "tests/test_final_proof.py::test_required_receipt_mutations"
+    "tests/test_final_proof.py::test_required_receipt_mutations",
+    "tests/test_w4_close6_proof.py::test_a_recorded_edge_gives_every_chain_stage_a_bound_receipt",
+    "tests/test_w4_close6_proof.py::test_an_unbound_read_claims_nothing_past_the_producer",
+    "tests/test_w4_close6_proof.py::test_the_recorded_rehearsal_binds_the_edge_on_this_head"
    ],
    "evidence": [
     "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
@@ -37851,18 +37860,19 @@
     "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
     "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
     "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/final_proof_7421ef6.json: final_proof.py --matrix closure_matrix.json --reachability module_reachability.json run on 7421ef6 with zero runtime packets (none have been emitted anywhere): 917 BLOCKED, 0 REVIEWABLE (every row: missing run identity, missing chain receipts, no independent review). Packet emission and the independent review are still missing; requirement not proven",
-    "w4-FMGATE on 0417f35: runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE"
+    "w4-FMGATE on 0417f35: runtime packets re-emitted on the deployed 0417f35 from its own shadow rehearsal (research/final_build/w4/evidence_FMGATE_0417f35/runtime_packets_0417f35.json, 10 rows) and final_proof.py run with 0417f35 reachability (research/final_build/w4/evidence_FMGATE_0417f35/final_proof_0417f35.json): 917 BLOCKED, 0 REVIEWABLE",
+    "w4-CLOSE6 on deployed b931d17: the consumer is now proven at runtime, not asserted: the shadow rehearsal records, from the rows the run wrote, the durable row each producer job wrote and that the store.publish job read it (its release gates name the same version; its key the same certified release), what it decided (refused in SHADOW), the effect row (store.publish_refused) and the result (no store.published; no Etsy id); the emitter turns that edge into chain receipts only for rows whose producer AND named consumer are the edge's handlers. final_proof on the recorded run: the chain errors are gone for those rows; they stay BLOCKED on independent review (and production-producer / failure-test receipts). Dev-proven."
    ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no external/owner/data gate on the remaining step"
+    "key": null,
+    "detail": "the independent review on each packet is the reviewer's, never the emitter's (final_proof refuses self-review)"
    },
    "defect": null,
-   "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
+   "next_action": "integrator: accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_CLOSE6.json (producer is a script + the offline adjudicator final_proof.py, so INTEGRATED is unreachable by construction, as for F-846); per row, an independent reviewer and production-producer / failure-test receipts",
    "confidence": "HIGH",
-   "searched": " | w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35",
+   "searched": "w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -37875,8 +37885,7 @@
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "OPEN",
    "completion_reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a p"
+    "maturity TESTED below target INTEGRATED"
    ]
   },
   {

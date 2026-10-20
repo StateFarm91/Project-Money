@@ -11,8 +11,7 @@
    "files": "build2/closure.py, build2/maturity.py, build2/reachability.py, build2/final_proof.py, build2/executor.py, launch/readiness.py (LAUNCH_SCOPE)",
    "owner_lane": "FM",
    "reasons": {
-    "maturity TESTED": 1,
-    "coverage PARTIAL": 1
+    "maturity TESTED": 1
    }
   },
   "PROCESS": {
