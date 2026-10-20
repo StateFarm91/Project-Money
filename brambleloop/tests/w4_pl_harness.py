@@ -16,19 +16,28 @@ from brambleloop.gateway import anthropic as gw
 from brambleloop.gateway import laura_register
 from brambleloop.gateway.model_gateway import ModelResponse
 
+from brambleloop.gateway import venice as _venice
+
 REPLY = "PRIV-SENTINEL-REPLY-0001"
 DUMMY_KEY = "test-dummy-not-a-key"
-# W4-VENICE: the private provider switch is OFF by default; these suites exercise the reply
-# path over the stubbed Anthropic transport, so they select it explicitly (an owner choice).
-# test_w4_venice drives the same path over a stubbed Venice transport.
+#: The model the private reply path uses in these suites (the pinned Venice default).
+MODEL = _venice.MODEL
+PROVIDER = _venice.NAME
+# INTEG5 finding (2026-10-20, W4-LAURAONE freeze): the adult register `laura.private_reply@3`
+# runs ONLY on Venice; any other private transport is refused (REGISTER_NEEDS_VENICE). These
+# suites therefore exercise the one reply path over a STUBBED VENICE transport (they used the
+# Anthropic transport before). `Stub.calls` keeps the request in the same shape the suites
+# assert on ({model, max_tokens, system, messages}), translated from Venice's wire format, and
+# the Anthropic transport now fails the test if anything reaches it.
 ENABLE = {laura_register.REGISTER_SWITCH_ENV: "1", laura_register.DAILY_AUTH_ENV: "0.40",
-          "ANTHROPIC_API_KEY": DUMMY_KEY, "BRAMBLELOOP_PRIVATE_PROVIDER": "anthropic"}
+          "VENICE_API_KEY": DUMMY_KEY, "BRAMBLELOOP_PRIVATE_PROVIDER": "venice",
+          "ANTHROPIC_API_KEY": None, _venice.MODEL_ENV: None}
 
 
 class Stub:
     """Stands in for the HTTP request. `answers` is consumed in order (then `REPLY`)."""
 
-    def __init__(self, answers=None, *, model: str = "claude-sonnet-5", fail=None,
+    def __init__(self, answers=None, *, model: str = MODEL, fail=None,
                  tokens=(120, 30)):
         self.calls: list[dict] = []
         self.answers = list(answers or [])
@@ -36,15 +45,24 @@ class Stub:
         self.fail = fail
         self.tokens = tokens
 
-    def __call__(self, provider, payload: bytes, key: str) -> ModelResponse:
-        body = json.loads(payload.decode("utf-8"))
-        self.calls.append(body)
+    def __call__(self, provider, url, body: bytes, headers, timeout):
+        """Stands in for `VeniceProvider._post`: records the request (Anthropic-shaped view),
+        answers with Venice's documented chat-completion JSON."""
+        wire = json.loads(body.decode("utf-8"))
+        msgs = wire["messages"]
+        self.calls.append({"model": wire["model"], "max_tokens": wire["max_completion_tokens"],
+                           "system": msgs[0]["content"],
+                           "messages": [{"role": "user", "content": msgs[1]["content"]}]})
+        self.headers = dict(headers)
         if self.fail is not None:
             raise self.fail
         text = self.answers.pop(0) if self.answers else json.dumps({"text": REPLY})
-        return ModelResponse(text=text, provider="anthropic", model=self.model,
-                             input_tokens=self.tokens[0], output_tokens=self.tokens[1],
-                             latency_ms=1.0)
+        return 200, json.dumps({
+            "id": "x", "object": "chat.completion", "model": self.model,
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": text}}],
+            "usage": {"prompt_tokens": self.tokens[0], "completion_tokens": self.tokens[1],
+                      "total_tokens": sum(self.tokens)}})
 
 
 @contextlib.contextmanager
@@ -58,17 +76,20 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
     env = {**ENABLE, **overrides}
     saved = {k: os.environ.get(k) for k in env}
     orig = gw.AnthropicProvider._send
+    orig_post = _venice.VeniceProvider._post
     orig_release = laura_register.release_proven
     if release_proven is not None:
         laura_register.release_proven = lambda env=None, boot=None: {
             "met": bool(release_proven), "detail": "test harness stand-in for the boot guard",
             "commit_short": "test"}
+    def _refuse(self, *a, **kw):
+        raise AssertionError("a model request was made where none may be")
+    gw.AnthropicProvider._send = _refuse              # the private register never goes here
     if stub is not None:
-        gw.AnthropicProvider._send = lambda self, payload, key, **kw: stub(self, payload, key)
-    else:
-        def _refuse(self, payload, key, **kw):
-            raise AssertionError("a model request was made where none may be")
-        gw.AnthropicProvider._send = _refuse
+        _venice.VeniceProvider._post = lambda self, url, body, headers, timeout: stub(
+            self, url, body, headers, timeout)
+    # With no stub, the Venice transport is left as the caller set it (test_w4_venice and
+    # test_w4_laura_unified install their own Venice mocks); the harness refuses sockets.
     try:
         for k, v in env.items():
             if v is None:
@@ -78,6 +99,7 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
         yield stub
     finally:
         gw.AnthropicProvider._send = orig
+        _venice.VeniceProvider._post = orig_post
         laura_register.release_proven = orig_release
         for k, v in saved.items():
             if v is None:

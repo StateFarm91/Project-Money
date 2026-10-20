@@ -53,10 +53,11 @@ def _db():
 
 
 def _estimate() -> float:
-    """The exact pre-call estimate `laura_register._reply` reserves for USER."""
-    _, tier = routing.route(LR.TASK)
-    return gw.estimate_cad(tier.model, input_tokens=(len(LR.PROMPT.system) + len(USER)) // 4,
-                           output_tokens=int(LR.PROMPT.max_output_tokens))
+    """The exact pre-call estimate `laura_register._reply` reserves for USER (INTEG5: the
+    private register runs on Venice, so this is Venice's estimate for the pinned model)."""
+    from brambleloop.gateway import venice as V
+
+    return V.estimate_for(LR.PROMPT.system, USER, int(LR.PROMPT.max_output_tokens), V.MODEL)
 
 
 def _call(db):
@@ -141,10 +142,10 @@ def _race(db, cap: str) -> tuple[list, PL.Stub]:
     entered: list = []
 
     class Slow(PL.Stub):
-        def __call__(self, provider, payload, key):
+        def __call__(self, *args):
             entered.append(1)
             gate.wait(10)                     # in flight: its reservation is live
-            return super().__call__(provider, payload, key)
+            return super().__call__(*args)
 
     stub = Slow()
 

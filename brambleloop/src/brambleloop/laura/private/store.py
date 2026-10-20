@@ -458,7 +458,11 @@ def annotate_crossing(db, principal, crossing_id: str, **refs) -> bool:
 
 @_guarded("xing")
 def resolve_crossing(db, principal, crossing_id: str, *, approve: bool):
-    """Approve or decline a PENDING request; returns its PrivateRecord (None if absent)."""
+    """Approve or decline a PENDING request; returns its PrivateRecord (None if absent).
+
+    Atomic (security review L-2): the new sealed payload replaces the row only if the row still
+    holds the exact ciphertext that was read as `pending` (compare-and-set in one UPDATE). A
+    concurrent resolution makes this one refuse, so a request is resolved exactly once."""
     keys, _ = require(db, principal, "xing")
     entry, payload = _load(db, keys, str(crossing_id or ""), "xing")
     if entry is None:
@@ -466,7 +470,16 @@ def resolve_crossing(db, principal, crossing_id: str, *, approve: bool):
     if payload.get("status") != "pending":
         raise PrivateProvenanceRefused("a crossing request is resolved once")
     payload["status"] = "approved" if approve else "declined"
-    _reseal(db, keys, entry, payload)
+    old_ct, old_nonce = entry.ciphertext, entry.nonce
+    _seal(keys, entry, payload)
+    with db.session() as s:
+        n = s.execute(update(PrivateEntry).where(
+            PrivateEntry.record_id == entry.record_id, PrivateEntry.ciphertext == old_ct,
+            PrivateEntry.nonce == old_nonce).values(
+            nonce=entry.nonce, ciphertext=entry.ciphertext, key_id=entry.key_id,
+            scheme=entry.scheme)).rowcount
+    if n != 1:
+        raise PrivateProvenanceRefused("a crossing request is resolved once")
     record_access(db, "xing", "ok", payload["status"], principal)
     return _record(entry, payload)
 

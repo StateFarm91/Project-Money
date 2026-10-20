@@ -57,7 +57,7 @@ def test_owner_turn_gets_a_laura_reply_recorded_with_provenance():
     assert len(stub.calls) == 1
     req = stub.calls[0]
     assert set(req) == {"model", "max_tokens", "system", "messages"}, set(req)   # no tools
-    assert req["model"] == "claude-sonnet-5" and req["max_tokens"] <= 400
+    assert req["model"] == PL.MODEL and req["max_tokens"] <= 400
     # Provenance: one laura turn answering exactly this owner turn, naming its model.
     p = private_context._principal(DB, sid)
     conv = store.conversation(DB, p, limit=10)
@@ -65,7 +65,7 @@ def test_owner_turn_gets_a_laura_reply_recorded_with_provenance():
     laura = [t for t in conv if t.role == "laura" and t.reply_to == owner.record_id]
     assert owner.role == "owner" and owner.value.reveal() == S[0]
     assert len(laura) == 1 and laura[0].value.reveal() == PL.REPLY
-    assert laura[0].model_ref == "anthropic/claude-sonnet-5", laura[0].model_ref
+    assert laura[0].model_ref == f"venice/{PL.MODEL}", laura[0].model_ref
     assert laura[0].record_id == out["reply"]["id"]
     try:
         store.record_turn(DB, p, "laura", "PRIV-SENTINEL-SECOND", reply_to=owner.record_id,
@@ -125,7 +125,10 @@ def test_reply_only_when_enabled_and_never_a_canned_fallback():
         ({laura_register.REGISTER_SWITCH_ENV: "yes"}, None, "REGISTER_OFF"),
         ({laura_register.DAILY_AUTH_ENV: None}, None, "SPEND_UNAUTHORISED"),
         ({laura_register.DAILY_AUTH_ENV: "0"}, None, "SPEND_UNAUTHORISED"),
-        ({"ANTHROPIC_API_KEY": None}, None, "NO_PROVIDER"),
+        ({"VENICE_API_KEY": None}, None, "NO_PROVIDER"),
+        # INTEG5: the adult register is never sent to another transport.
+        ({"BRAMBLELOOP_PRIVATE_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "test-dummy"},
+         None, "REGISTER_NEEDS_VENICE"),
         ({}, PL.Stub(fail=TransientError("anthropic 529: PRIV-SENTINEL-PROVIDER")),
          "PROVIDER_ERROR"),
         ({}, PL.Stub(answers=["not json PRIV-SENTINEL-BAD"]), "MALFORMED"),

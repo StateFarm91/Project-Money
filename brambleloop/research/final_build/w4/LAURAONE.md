@@ -178,21 +178,58 @@ Run this only after the owner approves the deploy and activation. Evidence is st
 | OA-LCONT-3 | `BRAMBLELOOP_PRIVATE_MEMORY_KEY`, `BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1`, `BRAMBLELOOP_PRIVATE_PROVIDER=venice`, `VENICE_API_KEY`, `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD=0.50`, Venice API credit | Venice is Laura's voice | CA$0.50/day; Venice credit minimum UNKNOWN | 10–15 | No conversational voice; business is routed by code only |
 | OA-LCONT-4 | Approve deploy of a release with this branch, after integration and the independent security review (a4a6841 under review; a delta review covers this revision) | No deploy without approval | CA$0 | 5 | Nothing reaches production |
 
+## 10a. Response to the independent security review of a4a6841 (`INDEPENDENT_SECREVIEW_LAURAONE.md`) and the INTEG5 finding
+
+Every test named below is in `tests/test_w4_laura_unified.py` unless another file is named. Each one asserts a behaviour that a4a6841 did not have: the review's PoCs reproduced it there. The fix lands in `89860a1` and later commits on this branch. The scope is frozen: these are fixes only, with no new functionality.
+
+| Finding | Fix | Regression test | Status |
+|---|---|---|---|
+| **B-1(a)** code fallback sent the owner's words | When code rather than Laura routes the turn (router unreachable, out of budget, malformed, not selected, register off), **nothing is sent automatically**. Her words are only offered, with step-up. `routed_by` is shown in the UI | `test_review_b1_router_unavailable_sends_nothing_to_the_business_side` (5 causes) | FIXED |
+| **B-1(b)** raw words in `laura_cc_turns` | Automatic sends are code-rendered structured requests only (a112da1). Raw words cross only on her approval of the exact text | `test_review_b1_personal_content_with_laura_routing_crosses_only_a_code_request`, `test_structured_requests_…` | FIXED |
+| **B-1(c)** guard never inspected the current turn | Negative screen of the current turn (`laura_unified.sensitive_screen`), covering personal, health, legal, identity, personal finance, relationship, contact and credential content. A hit means no parameters are taken from the turn and any offer needs step-up | same test, plus `test_review_b1_no_sensitive_category_crosses_without_an_owner_tap` (7 categories) | FIXED |
+| **B-1(d)** the classifier decided by itself | The classifier no longer decides that anything crosses. Automatic sending requires Laura's router choice, and the request is code-rendered. Her text needs her tap; step-up is required unless the words are business-classified, pass the screen and do not overlap private content | as above | FIXED |
+| B-1 (review rec. c) `remember` notes | Thread calls write no business memory (`allow_memory=False`, a112da1) | `test_delegation_…` table sweep | FIXED |
+| **H-1** split route leaked business and excluded turns after switch-off | `_laura_reply` now uses the unified context builder: excluded turns never, business exchanges as a placeholder, no feed | `test_review_h1_switching_off_never_forwards_business_or_excluded_turns_to_venice` | FIXED |
+| **M-1** truncated body; silent pinned-row fallback | `_http` returns the full body up to 2 MB (larger is refused). An unreadable model list is recorded as unreadable. The newest successfully parsed reading decides, so a contradiction stays sticky. If checks ran but none parsed, the model is not eligible (fail closed). If no check has ever run, the pinned row decides, as designed | `test_review_m1_live_model_check_parses_long_lists_and_fails_closed` | FIXED |
+| **M-2** bearer key forwarded on redirect | `venice.no_redirect_opener()` refuses every 3xx before contacting the new location, in both `VeniceProvider._post` and `credentials._http` (which also covers the Anthropic and BFL credential checks) | `test_review_m2_the_bearer_key_is_never_forwarded_on_a_redirect` (cross-host over loopback; https→http and cross-host on the handler) | FIXED |
+| **L-1** login or opening step-up approved crossings | Approval counts only a step-up performed **after** the offer was made, and never the login window. The route passes the step-up's issue time | `test_review_l1_approval_needs_a_step_up_performed_after_the_offer` (function + HTTP) | FIXED |
+| **L-2** TOCTOU double crossing | `store.resolve_crossing` compare-and-sets on the sealed row (ciphertext and nonce) in one UPDATE; `rowcount != 1` refuses | `test_review_l2_a_crossing_resolves_exactly_once_under_a_race` | FIXED |
+| **L-3** over-long crossing left half-approved | Offers over 2,000 characters are never created (`held: too_long`). Approval checks the length **before** resolving | `test_review_l3_an_over_long_crossing_is_never_left_half_approved` | FIXED |
+| **L-4** mark-private blocked business | Mark-private redacts the derived `laura_cc_turns` row (a112da1), so the history no longer carries it | `test_review_l4_marking_a_business_turn_private_does_not_block_later_business` | FIXED |
+| **L-5** deletion narrower than documented | Delete now also removes the approval turn and Business Laura's reply to it, and redacts the crossed text and derived business rows. Copies at database level (free pages, WAL, backups) are outside the application; documented, not fixable here | `test_review_l5_delete_cascades_to_derived_records` | FIXED (database level documented) |
+| **L-6** Venice reply labelled business | Venice-authored replies are always labelled `private` (or `everyday`) | `test_review_l6_venice_replies_are_never_labelled_business` | FIXED |
+| I-1 owner's words always reach Venice | Spec ADD-LCONT-10 wording aligned: her newest message is conversation and reaches Laura's router and reply | doc | FIXED (doc) |
+| I-2 global allow-list | The allow-list is scoped to approved texts the request actually carries (the brief and the history window) | `test_review_i2_the_allow_list_is_scoped_to_what_the_request_carries` | FIXED |
+| I-3 credential error bodies (≤300 chars) in audit | Unchanged; this is the existing pattern and holds no conversation content | — | OPEN (documented; out of scope) |
+| I-4 stale label | `credentials.PROVIDERS["venice"]["model"]` set to `venice-uncensored-1-2` | — | FIXED |
+| I-5 reported model not compared | Would add a model-substitution policy, which is new behaviour. Deferred under the scope freeze | — | OPEN (deferred) |
+| I-6 guard residuals | Superseded: structured-first design, whole-store guard, short exact matching, current-turn screen | above | ADDRESSED |
+| **INTEG5** @3 sent on a non-Venice transport | Option (a): with any provider other than Venice, `laura_register.reply` refuses `laura.private_reply@3` with `REGISTER_NEEDS_VENICE` before any reservation or request. There is no silent fallback to @2, because that would be a different Laura than the owner chose. The `pl_*` and `plact` suites now drive the same reply path over a stubbed **Venice** transport; their assertions are unchanged apart from the provider and model names and Venice's estimate | `test_integ5_the_adult_register_is_never_sent_to_a_non_venice_transport`; a new case in `test_w4_pl_reply` | FIXED |
+
+**Residual risks after this round (honest):**
+- **The owner taps her own text.** Text she taps to share crosses as she approved it. A business-classified, screen-clean, non-overlapping text crosses with one tap. Anything else needs step-up.
+- **The screen is a category screen, not a proof.** Personal content that uses none of the screened categories and does not overlap earlier private turns can be labelled business. Even then, the only thing that crosses automatically is a code-rendered request built from allowlisted parameters, never her words.
+- **Paraphrase in her own tapped text.** This is unchanged: the owner sees the exact text before it crosses.
+- **Mark-private relabels Business Laura's answer too.** A later answer that closely repeats it (6-word shingles) is refused. This fails closed.
+- **Database-level copies.** Deleted rows can survive in free pages, WAL and backups.
+- **Pinned row before the first check.** If no credential check has ever run, the pinned row decides eligibility, as designed.
+- **I-3 and I-5** are OPEN, as listed in the table.
+
 ## 11. Not done / notes
 
 - The four register strings were never edited here. They come from the owner's commit fcb2bcd, merged unchanged.
 - ADD-LCONT-11 (production acceptance) is **OPEN**.
 - Security review: a4a6841 is being reviewed independently. Everything from 3b7e6d0 onward needs the delta review.
 
-## 12. Regression results (2026-10-20, revision 3dc3ced; focused suites via testslot; no full suite)
+## 12. Regression results (freeze; focused suites via testslot at low priority; no full suite)
 
-All 40 suites exited 0. Where no count is shown, the suite printed no summary line but exited 0.
+All suites exit 0. Where no count is shown, the suite printed no summary line but exited 0.
 
 | Group | Suites |
 |---|---|
-| New | `test_w4_laura_unified` 26/26 |
-| Laura, Venice and Private Laura | `test_w4_venice` 19/19, `test_w4_laura_ceo` 13/13, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13; `pl_auth` 2/2, `pl_leak` 2/2, `pl_reply` 3/3, `pl_boundary`, `pl_budget`, `pl_continuity` |
-| Private store and firewall | `test_cert_spend_hosts`; `test_w3_priv_access`, `priv_continuity`, `priv_firewall`, `priv_leak`, `priv_provenance`, `priv_store` |
-| Command Center Laura | `w3_laura_cc_private` 7/7, `cc_access` 5/5, `cc_followon` 4/4, `cc_talk` 9/9, `cc_wiring` 5/5, `cc_integration` 5/5; `laura_memory_isolation`, `laura_core_continuity`, `laura_voice_spec` 7/7 |
-| Security fixes and front end | `test_w4_integ3_secfixes`, `test_v11_pwa_static` 82/82, `test_cert_mjs`, `test_w4_mjs_findings`, `test_w4_mjscount` 5/5, `test_w4_cc_company` 23/23 |
-| Required set | `test_vacuity`, `test_launch`, `test_cost_governance_wave2`, `test_search_hero_publish` 4/4, `test_cert_listing_frames`, `test_v11_autonomy_timeline`, `test_w3_decision_index` |
+| New | `test_w4_laura_unified` 40/40 |
+| Laura, Venice and Private Laura | `test_w4_venice` 19/19, `test_w4_laura_ceo` 13/13, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13; `pl_auth` 2/2, `pl_reply` 3/3, `pl_leak` 2/2, `pl_boundary`, `pl_budget`, `pl_continuity` |
+| Private store and firewall | `test_cert_spend_hosts`; `priv_access`, `priv_continuity`, `priv_firewall`, `priv_leak`, `priv_provenance`, `priv_store` |
+| Command Center Laura | `laura_cc_access` 5/5, `cc_delegation` 5/5, `cc_followon` 4/4, `cc_integration` 5/5, `cc_private` 7/7, `cc_providers` 7/7, `cc_talk` 9/9, `cc_wiring` 5/5; `laura_voice_spec` 7/7 |
+| Security fixes and front end | `test_w4_integ3_secfixes`, `test_v11_pwa_static` 82/82, `test_w4_cc_company` 23/23 |
+| Required set | `test_w3_decision_index`, `test_vacuity`, `test_launch`, `test_cost_governance_wave2`, `test_search_hero_publish` 4/4, `test_cert_listing_frames`, `test_v11_autonomy_timeline` |

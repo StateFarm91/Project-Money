@@ -299,11 +299,10 @@ def _laura_reply(db, principal, owner_turn_id: str, text: str) -> dict:
                 "why": REPLY_GATED}
     # With the switch on, every other gate (spend authorisation, provider, budget, health)
     # is decided -- and each money refusal audited without content -- by the isolated call.
-    facts = [(r.key.reveal() if r.key is not None else "", r.value.reveal())
-             for r in store.facts(db, principal)[:CONTEXT_FACTS]]
-    turns = [(r.role, r.value.reveal())
-             for r in store.conversation(db, principal, limit=CONTEXT_TURNS + 1)
-             if r.record_id != owner_turn_id][-CONTEXT_TURNS:]
+    # Security review H-1: the SAME context rules as the unified thread (one builder): excluded
+    # turns never, business exchanges only as a content-free placeholder, and no company
+    # context on this split path at all (the feed belongs to the unified thread's switch).
+    facts, turns, _ = _venice_context(db, principal, owner_turn_id, with_feed=False)
     user = laura_register.render_user(facts=facts, turns=turns, message=text)
     try:
         out = laura_register.reply(db, system=laura_register.PROMPT.system, user=user)
@@ -533,8 +532,11 @@ def _unified_venice(db, principal, owner_turn_id: str, text: str, label: str) ->
     except laura_register.ReplyUnavailable as exc:
         return {"reply": None, "reply_status": "UNAVAILABLE", "reason": exc.code,
                 "why": exc.reason}
+    # Security review L-6: a Venice-authored reply is conversation, whatever the owner turn's
+    # label -- it was written with private context in view -- so it is never "business".
     rid = store.record_turn(db, principal, "laura", out["text"], reply_to=owner_turn_id,
-                            model_ref=out["model_ref"], label=label)
+                            model_ref=out["model_ref"],
+                            label="everyday" if label == "everyday" else "private")
     return {"reply": {"id": rid, "role": "laura", "text": out["text"],
                       "model_ref": out["model_ref"], "side": "conversation",
                       "feed": ({"sha256": pack["sha256"], "fields": pack["fields"]}
@@ -562,6 +564,17 @@ def _request_crossing(db, principal, source_turn_id: str, offer: dict,
             "question": laura_unified.crossing_question(offer["text"])}
 
 
+def _allowed_for(db, brief: str) -> list[str]:
+    """Security review I-2: the guard's allow-list is scoped to approved texts this request
+    actually carries -- the brief itself and the thread's business history window -- not every
+    approval ever made."""
+    from ...laura.agency import boundary, ceo_chat
+
+    carried = brief + "\n" + "\n".join(
+        f"{h['q']}\n{h['a']}" for h in ceo_chat.history(db, UNIFIED_BUSINESS_SESSION))
+    return [t for t in boundary.approved_texts(db, limit=1000) if t and t in carried]
+
+
 def _unified_business(db, principal, owner_turn_id: str, brief: str,
                       *, provider_factory=None) -> dict:
     """Business Laura answers `brief` -- a code-rendered structured request, or text the owner
@@ -572,7 +585,7 @@ def _unified_business(db, principal, owner_turn_id: str, brief: str,
     from ...laura.private import store
 
     private_texts = _private_texts(db, principal)
-    allowed = boundary.approved_texts(db)
+    allowed = _allowed_for(db, brief)
     if laura_unified.leak_check(brief, private_texts, allowed=allowed):
         return {"reply": None, "reply_status": "REFUSED", "reason": "LEAK_GUARD",
                 "why": laura_unified.GUARD_REFUSED}
@@ -627,10 +640,12 @@ def unified_turn(db, session_public_id: str, text: str, *, force_private: bool =
         else:
             intent, routed = _laura_intent(db, p, tid, text_, cls)
         plan = laura_unified.plan_brief(intent, cls, text_,
-                                        product_slugs=boundary.product_slugs(db))
+                                        product_slugs=boundary.product_slugs(db),
+                                        routed_by_laura=routed == "laura")
         out: dict = {"id": tid, "label": label, "sensitive": cls["sensitive"],
                      "intent": {"tool": intent.get("tool", "none"), "routed_by": routed,
-                                "params": plan["params"]}}
+                                "params": plan["params"], "screen": plan["screen"],
+                                "held": plan["held"]}}
         if plan["send"]:
             out.update(_unified_business(db, p, tid, plan["send"],
                                          provider_factory=provider_factory))
@@ -643,12 +658,43 @@ def unified_turn(db, session_public_id: str, text: str, *, force_private: bool =
     return _call(run)
 
 
+def _aware_dt(v):
+    if v is None:
+        return None
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def _stepup_counts(db, session_public_id: str, created_at, stepup_issued_at) -> bool:
+    """Security review L-1: a step-up counts for an approval only if it was performed AFTER
+    the crossing was offered, and it is not the window every login opens (a login sets
+    `stepup_until = created_at + window`, so its issue time equals the session's creation)."""
+    from ...laura.private import access
+
+    issued = _aware_dt(stepup_issued_at)
+    if issued is None:
+        return False
+    offered = _aware_dt(created_at)
+    if offered is None or issued <= offered:
+        return False
+    try:
+        row = access._owner_session(db, session_public_id)
+    except Exception:  # noqa: BLE001 - unverifiable is "not stepped up"
+        return False
+    login = _aware_dt(getattr(row, "created_at", None))
+    return login is not None and issued > login
+
+
 def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: bool,
-                     stepped_up: bool = False, provider_factory=None) -> dict:
+                     stepup_issued_at=None, provider_factory=None) -> dict:
     """The owner's answer to "Can I share this with the business side?". Approving needs a
-    fresh step-up unless the text is the owner's own business-classified words (one explicit
-    tap). Approval records exactly that text (`laura_boundary_crossings`), then Business Laura
-    answers it -- still through the leak guard, with it allowed."""
+    fresh step-up performed after the offer (not the login window) unless the text is the
+    owner's own business-classified words that passed the screen (one explicit tap). The
+    request is resolved atomically (compare-and-set) and only if its text fits the crossing
+    record, so a double click cannot cross twice and nothing is left half-approved. Approval
+    records exactly that text (`laura_boundary_crossings`), then Business Laura answers it --
+    still through the leak guard, with it allowed."""
     from ...laura.agency import boundary
     from ...laura.private import store
 
@@ -660,8 +706,11 @@ def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: b
         cur = next((x for x in store.crossings(db, p) if x.record_id == xid), None)
         if cur is None:
             raise PrivateUnavailable(404, "CROSSING_NOT_FOUND", "CrossingNotFound")
-        if approve and cur.stepup and not stepped_up:
+        if approve and cur.stepup and not _stepup_counts(db, session_public_id,
+                                                         cur.created_at, stepup_issued_at):
             raise PrivateUnavailable(403, "STEP_UP_REQUIRED", "StepUpRequired")
+        if approve and len(cur.value.reveal().strip()) > boundary.MAX_TEXT:
+            raise PrivateUnavailable(400, "PRIVATE_INPUT_REFUSED", "CrossingTooLong")
         rec = store.resolve_crossing(db, p, xid, approve=bool(approve))
         if not approve:
             return {"id": rec.record_id, "status": "declined", "crossed": False}
@@ -718,8 +767,17 @@ def unified_control(db, session_public_id: str, action: str, ids) -> dict:
     def run():
         p = _principal(db, session_public_id)
         if action == "forget":
-            return {"action": action,
-                    "affected": sum(store.forget(db, p, i) for i in ids)}
+            # Security review L-5: deleting a turn also removes what was derived from it --
+            # the approval turn and Business Laura's reply to an approved crossing (in the
+            # store), and the crossed text and business request/answer (redacted on the
+            # business side, ids kept). Free pages / WAL / backups are database-level (doc).
+            biz, xs = _derived_business_records(db, p, ids)
+            approvals = [(x.refs or {}).get("approval_turn") for x in store.crossings(db, p)
+                         if (x.sources or (None,))[0] in ids]
+            redacted = boundary.redact(db, turn_ids=biz, crossing_ids=xs)
+            n = sum(store.forget(db, p, i) for i in ids)
+            n += sum(store.forget(db, p, a) for a in approvals if a)
+            return {"action": action, "affected": n, "redacted": redacted}
         replies = {r.reply_to: r.record_id
                    for r in store.conversation(db, p, limit=None) if r.reply_to}
         targets = list(dict.fromkeys([*ids, *[replies[i] for i in ids if i in replies]]))

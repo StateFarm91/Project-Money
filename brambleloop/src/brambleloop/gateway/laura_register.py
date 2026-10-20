@@ -117,6 +117,9 @@ REASONS: dict[str, str] = {
     "PROVIDER_POLICY": "The provider declined this request under its content policy. No reply "
                        "was generated.",
     # W4-LAURAONE: the one thread runs on Venice only; it never forwards the thread elsewhere.
+    "REGISTER_NEEDS_VENICE": "Laura's private register runs only on Venice with an eligible "
+                             "Private-class model (owner decision; BRAMBLELOOP_PRIVATE_PROVIDER"
+                             "=venice). Nothing was sent to any other provider.",
     "UNIFIED_NEEDS_VENICE": "The one Laura thread runs only on Venice (owner switch "
                             "BRAMBLELOOP_PRIVATE_PROVIDER=venice). Nothing was sent to any "
                             "other provider.",
@@ -477,6 +480,13 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
     max_out = int(PROMPT_.max_output_tokens)
     if PROMPT_ is not PROMPT and not is_venice:
         raise ReplyUnavailable("UNIFIED_NEEDS_VENICE")      # never forwarded to another provider
+    if PROMPT_ is PROMPT and selected and not is_venice:
+        # INTEG5 finding (2026-10-20): the adult register `laura.private_reply@3` is the owner's
+        # decision for Venice under Venice's Terms. It is NEVER sent to any other transport
+        # (Anthropic's usage policy forbids it): refused before any reservation or request,
+        # with an honest code. No fallback to @2 either -- a silent register switch would be a
+        # different Laura than the owner chose (option (a), the safer default).
+        raise ReplyUnavailable("REGISTER_NEEDS_VENICE")
     if is_venice:
         # W4-VENICE: the pinned Venice model, priced from the Venice table (read 2026-10-20).
         model = venice.model(env)               # the approved default unless the owner chose
