@@ -10,8 +10,8 @@ Reachability: HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b6
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 218 | 124 | 439 |
-| launch-critical | 29 | 26 | 0 | 4 | 53 | 378 |
+| all rows | 96 | 35 | 7 | 218 | 120 | 441 |
+| launch-critical | 31 | 26 | 0 | 4 | 49 | 380 |
 | post-launch (not blocking) | 65 | 9 | 0 | 214 | 71 | 61 |
 
 Launch-critical OPEN-DEFECT: **4**
@@ -36,7 +36,6 @@ Launch-critical OPEN-DEFECT: **4**
 | F-030 Gallery Information Architecture | OWNER-GATED | INTEGRATED | owner:visual_paid_generation |
 | F-031 Thumbnail Simulator | OWNER-GATED | DEPLOYED | owner:image_vision |
 | F-039 Search Policy Snapshot | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
-| F-040 Shop Quality Gate | OWNER-GATED | INTEGRATED | owner:etsy_shop |
 | F-041 Listing Quality Gate | OWNER-GATED | DEPLOYED | owner:image_vision |
 | F-042 Customer-Service Search Monitor | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
 | F-059 SEO Self-Flattery Refusal | OWNER-GATED | INTEGRATED | owner:insights_access |
@@ -64,7 +63,7 @@ Launch-critical OPEN-DEFECT: **4**
 | F-258 Conversion Evidence Loop | DATA-GATED | INTEGRATED | data:live_listings |
 | F-260 Listing Experiment Discipline | DATA-GATED | INTEGRATED | data:live_listings |
 | F-261 Underperformer Remediation | DATA-GATED | INTEGRATED | data:live_listings |
-| F-273 Offsite Ads Accounting | OWNER-GATED | INTEGRATED | owner:transactions_r |
+| F-273 Offsite Ads Accounting | DATA-GATED | INTEGRATED | data:customers |
 | F-278 Hero Thumbnail Tournament | OWNER-GATED | INTEGRATED | owner:image_vision |
 | F-280 Launch Search Visibility Watch | DATA-GATED | MISSING | data:live_listings |
 | F-282 No Zero-Sales Panic | DATA-GATED | INTEGRATED | data:live_listings |
@@ -95,7 +94,7 @@ Launch-critical OPEN-DEFECT: **4**
 | F-524 First-Image Program | DATA-GATED | DEPLOYED | data:live_listings |
 | F-532 Customer-Service Standards Watch | EXTERNAL-GATED | INTEGRATED | external:customer_service_stats |
 | F-536 Policy-Violation Watch | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
-| F-538 Finance Reconciliation | OWNER-GATED | DEPLOYED | owner:transactions_r |
+| F-538 Finance Reconciliation | DATA-GATED | INTEGRATED | data:customers |
 | F-540 OAuth Credential Health | OWNER-GATED | DEPLOYED | owner:etsy_api |
 | F-543 Draft-to-Live Activation Gate | OWNER-GATED | INTEGRATED | owner:publication_authority |
 | F-556 Message SLA Engine | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
@@ -130,7 +129,6 @@ Launch-critical OPEN-DEFECT: **4**
 | F-849 Claude/Chat Independence | DATA-GATED | INTEGRATED | data:production_window |
 | F-850 Restart Recovery | OWNER-GATED | INTEGRATED | owner:live_restart_drill |
 | F-851 B+C Default | EXTERNAL-GATED | INTEGRATED | external:visual_v1_provider_capability |
-| F-872 Etsy Scope Reauthorization | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-880 Cloud-Resident Always-On Runtime | DATA-GATED | INTEGRATED | data:production_window |
 | F-881 No Development-Chat Dependency | DATA-GATED | INTEGRATED | data:production_window |
 | F-895 Overnight Autonomy | DATA-GATED | INTEGRATED | data:production_window |

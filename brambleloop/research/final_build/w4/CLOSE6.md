@@ -198,3 +198,76 @@ is shown as such.
   - `customers` is closed.
 - What is left of both rows needs real buyers. That is a data gate, as with the #242 re-park
   (W4-GATESB).
+
+## 8. Coordinator decisions recorded (D-W4-CLOSE6-OVERRIDES)
+
+The coordinator accepted two proposals on 2026-10-20. `accepted_by` is set in both files, and
+DECISION_LOG has the entry. Both are applied at INTEG5, not on this branch.
+- `OVERRIDES_PROPOSED_CLOSE6.json`: F-145, F-146, F-147, F-148 and F-834 at TESTED.
+- `B2_REGATE_PROPOSED_CLOSE6.json`: Build 2 #11 and #12 re-parked on `customers`.
+
+## 9. Batch 5: F-872 closed on production; F-273 and F-538 corrected and re-gated
+
+**F-872** Etsy Scope Reauthorization: closed on b931d17.
+- Criterion: "Required OAuth scopes such as transactions_r are explicitly reauthorized and
+  proven by readback before trusted use."
+- Production `commerce.orders_ingested`
+  (`evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json`):
+  - until 2026-10-13, every run read UNMEASURED with zero network calls, because the gate was
+    closed;
+  - since 2026-10-13T03:28Z, every run reads `measured` after an authenticated getShopReceipts
+    read (2 calls, 0 receipts).
+- `test_w4_close6_scope.py` (3) pins the rule:
+  - no receipt is read unless the scope is granted AND a working credential has been
+    demonstrated;
+  - a read refused for scope is never trusted;
+  - the read that worked closes the re-authorisation request.
+- The code tests pass on the deployed tree. The production-evidence test reads this branch's
+  evidence file, so it is run on the branch.
+
+**F-273** Offsite Ads Accounting and **F-538** Finance Reconciliation.
+- The mapping was stale. `finance/reconcile.py` already does this work on every receipt read:
+  - reads Etsy's payment-account ledger;
+  - replaces modelled fees with charged ones;
+  - sets `offsite_ad_attributed` from `offsite_ads_fee` entries;
+  - reports unknown ledger types and never counts them.
+- What is left is a real settlement: an attributed sale, the owner-recorded mapping
+  verification, and classifying any tax, credit or subscription types that appear.
+- Both rows moved from the now-open `transactions_r` owner gate to the `customers` data gate,
+  as F-683 and F-323 already are. Neither is claimed complete.
+
+## 10. Batch 6: F-040 Shop Quality Gate (proven on the branch only, awaiting deploy)
+
+**Criterion:** "Icon, About/brand presentation and core trust elements must be complete before
+launch."
+
+**What was already true.** The mapping said readiness checked only draft text; that was stale.
+- W4-ETSYSURF made `etsy_first_sale_surfaces` read the daily live `etsy.shop_snapshot`.
+- In production it holds launch on the banner, shipping and additional policies, and a missing
+  digital listing (`evidence_CLOSE6/prod_api_launch_shop_20261020T1329Z.json`).
+
+**The gap.** Nothing could see the About story: getShop has no About field.
+
+**The fix.**
+- `commerce/shop_observations.py` accepts an `about` page: the owner's dated reading, through
+  the existing POST /api/etsy/shop-observation.
+- `launch/readiness.py` holds launch when the About reading is unobserved, stale, incomplete,
+  or says the About is not published.
+
+**Tests:** `test_w4_close6_shop.py` (4).
+
+## 11. Finding for the integrator: first-sale readiness can never pass as built
+
+Production `etsy_first_sale_surfaces` lists five required surfaces with `collector=None`:
+messages, orders, legal_and_tax, digital_files, taxonomy_and_attributes. A surface with no
+collector is NO_COLLECTOR forever, and the item is ready only when every surface is FRESH. So
+launch readiness cannot become ready even after every owner action is done.
+
+The `orders` surface also still names `reauthorise_transactions_r` as its owner action,
+although transactions_r is open and receipts are read on every cadence.
+
+The fix touches the first-sale readiness view and the digital-file and taxonomy collectors,
+which are W-FIRSTSALE's scope. I left it alone. It needs either:
+- a collector per surface (for example, `orders` from the `commerce.orders_ingested`
+  readings); or
+- an owner-observation evidence path, as `about` now has.

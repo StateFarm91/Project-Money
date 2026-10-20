@@ -43,6 +43,16 @@ def _record_shop(db, shop: dict, now: float):
     snap = {"observed_at": now, "shop": shop}
     status = es.assess_shop(snap, now=now)
     etsy_ops.store_reading(db, etsy_ops.SHOP_READING, {**snap, "status": status.to_dict()})
+    # W4-CLOSE6 (F-040): getShop has no About field; the owner's dated reading of the shop
+    # page evidences it, and readiness holds without it (tests/test_w4_close6_shop.py).
+    from datetime import datetime, timezone
+
+    from brambleloop.commerce import shop_observations
+
+    shop_observations.record(db, page="about", complete=True,
+                             observed_at=datetime.fromtimestamp(now, timezone.utc).isoformat(),
+                             values={"about_present": True, "matches_storefront": True},
+                             statement="Shop page read: the About section shows")
 
 
 def test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner():

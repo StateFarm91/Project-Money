@@ -1544,6 +1544,21 @@ def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
     shop = readings.get("shop_snapshot") or {}
     failing = [c.get("key") for c in ((shop.get("status") or {}).get("checks") or [])
                if c.get("result") != es.PASS]
+    # F-040 (W4-CLOSE6): getShop has no About field, so the snapshot cannot see the About
+    # story; the owner's dated reading of the shop page is its evidence. Missing, stale,
+    # incomplete or "not published" keeps the shop's trust presentation not done.
+    try:
+        from ..commerce import shop_observations
+
+        about = shop_observations.latest(db, "about")
+    except Exception:  # noqa: BLE001 - an unreadable observation is no evidence
+        about = {"state": "UNREADABLE", "observation": None}
+    about_ok = (about.get("state") == "FRESH" and
+                ((about.get("observation") or {}).get("values") or {}).get("about_present")
+                is True)
+    if not about_ok:
+        failing.append(f"about_story:{about.get('state', 'UNOBSERVED').lower()}"
+                       if about.get("state") != "FRESH" else "about_story:not_published")
     rows = []
     for s in es.first_sale_blockers():
         record = readings.get(s.collector) if s.collector else None
@@ -1567,6 +1582,9 @@ def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
                   "not_fresh": [r["surface"] for r in rows
                                 if r["evidence_state"] != es.FRESH],
                   "shop_checks_failing": failing,
+                  "about_story": {"state": about.get("state"),
+                                  "source": "commerce.shop_observations page 'about' "
+                                            "(POST /api/etsy/shop-observation)"},
                   "owner_actions_open": owner_open,
                   "source": "intel.etsy_surfaces.first_sale_blockers + etsy_ops readings"})
 

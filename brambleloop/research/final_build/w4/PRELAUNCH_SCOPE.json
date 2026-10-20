@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T12:58:25Z",
-  "branch_head": "8e4efd39"
+  "generated_at": "2026-10-20T13:32:44Z",
+  "branch_head": "0784fe1e"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,20 +40,20 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 641,
+  "total_not_verified": 647,
   "by_class": {
-   "A": 565,
+   "A": 571,
    "B": 36,
    "C": 40
   },
   "by_source": {
    "build2": {
-    "A": 111,
+    "A": 112,
     "B": 6,
     "C": 21
    },
    "final_master": {
-    "A": 454,
+    "A": 459,
     "C": 19,
     "B": 29
    },
@@ -63,7 +63,7 @@
   },
   "by_domain": {
    "autonomy_learning": {
-    "A": 93,
+    "A": 94,
     "B": 6,
     "C": 5
    },
@@ -81,28 +81,28 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 188,
+    "A": 192,
     "B": 23
    },
    "store_product": {
     "B": 4,
     "C": 14,
-    "A": 191
+    "A": 192
    }
   },
   "by_scope": {
    "build2": {
-    "A": 111,
+    "A": 112,
     "B": 6,
     "C": 21
    },
    "launch_critical": {
-    "A": 108,
+    "A": 112,
     "C": 3,
     "B": 21
    },
    "post_launch": {
-    "A": 346,
+    "A": 347,
     "C": 16,
     "B": 8
    }
@@ -118,6 +118,7 @@
    "A F-030 [in_progress] Gallery Information Architecture",
    "A F-031 [blocked_engineering] Thumbnail Simulator",
    "A F-039 [blocked_external] Search Policy Snapshot",
+   "A F-040 [implemented_unverified] Shop Quality Gate",
    "A F-041 [blocked_engineering] Listing Quality Gate",
    "A F-042 [blocked_external] Customer-Service Search Monitor",
    "A F-118 [blocked_owner] Risk-Based Physical Escalation",
@@ -130,7 +131,7 @@
    "A F-254 [in_progress] Gallery Information Architecture",
    "A F-260 [blocked_owner] Listing Experiment Discipline",
    "A F-261 [blocked_owner] Underperformer Remediation",
-   "A F-273 [blocked_engineering] Offsite Ads Accounting",
+   "A F-273 [blocked_external] Offsite Ads Accounting",
    "A F-280 [blocked_owner] Launch Search Visibility Watch",
    "A F-282 [blocked_owner] No Zero-Sales Panic",
    "A F-284 [blocked_external] Review / Service Flywheel",
@@ -143,6 +144,7 @@
    "A F-524 [blocked_owner] First-Image Program",
    "A F-532 [blocked_external] Customer-Service Standards Watch",
    "A F-536 [blocked_external] Policy-Violation Watch",
+   "A F-538 [blocked_external] Finance Reconciliation",
    "A F-556 [blocked_external] Message SLA Engine",
    "A F-557 [blocked_external] Message Triage & Escalation",
    "A F-578 [blocked_owner] Tax Information Registry",
@@ -153,7 +155,6 @@
    "A F-734 [blocked_external] Dual Truth Contract",
    "A F-741 [blocked_external] Product Before Pose",
    "A F-754 [implemented_unverified] Multi-Gauge Regions",
-   "A F-872 [blocked_engineering] Etsy Scope Reauthorization",
    "A B2#12 [blocked_engineering] Customer LTV and Cohorts",
    "A B2#140 [blocked_external] Cultural Demand Lead-Lag Model",
    "A B2#16 [blocked_owner] Listing Experiment Discipline",
@@ -320,52 +321,19 @@
    "C F-521 [blocked_owner] Stats Truth Layer",
    "C F-595 [blocked_engineering] First-10-Sales Learning Protocol"
   ],
-  "build2_creative": [
-   "A F-040 [blocked_engineering] Shop Quality Gate",
-   "A F-278 [in_progress] Hero Thumbnail Tournament",
-   "A F-515@v0.16 [blocked_engineering] Shop Completeness Gate",
-   "A F-780 [implemented_unverified] Benchmark Competitors by System, Not Clone",
-   "A B2#104 [implemented_unverified] Creative Growth North Star",
-   "A B2#118 [implemented_unverified] White-Space Discovery Agent",
-   "A B2#120 [blocked_external] Holiday-to-Holiday Learning Transfer",
-   "A B2#121 [implemented_unverified] Four-Season Engine",
-   "A B2#126 [implemented_unverified] Search-Grid Blind Tournament",
-   "A B2#218 [implemented_unverified] MJs Challenge Gate",
-   "A B2#246 [blocked_owner] Pinterest Search Factory",
-   "A B2#277 [implemented_unverified] NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
-   "A B2#281 [implemented_unverified] MJs-to-Brambleloop Seasonal Response Pipeline",
-   "A B2#308 [blocked_external] Owner Example - Christmas Cardigan Response",
-   "A B2#309 [implemented_unverified] MJs Trend-to-Season Mission Pipeline",
-   "A B2#4 [blocked_owner] Pre-Production Demand Validation",
-   "A B2#67 [implemented_unverified] Competitive Creative Benchmark",
-   "A B2#88 [implemented_unverified] Idea-to-Thumbnail Test",
-   "A F-113 [blocked_engineering] Commercial Salvage Test",
-   "A F-114 [blocked_engineering] Re-Engineer Worthy Legacy Products",
-   "A F-200 [blocked_engineering] Dashboard Mobile Priority Order",
-   "A F-356 [blocked_external] Gift Intent",
-   "A F-358 [blocked_engineering] Gender-Neutral & Style Segments",
-   "A F-359 [blocked_engineering] Sibling / Family Variants",
-   "A F-365 [blocked_engineering] Store Architecture",
-   "A F-370 [blocked_external] Autonomous Rebalancing",
-   "A F-509 [blocked_owner] Image Performance Loop",
-   "A F-526 [blocked_owner] Shop Home Merchandising",
-   "A F-527 [blocked_engineering] Brand Asset Health",
-   "A F-584 [blocked_owner] Shop Appearance Optimizer",
-   "C B2#132 [implemented_unverified] Creative Department North-Star Metrics",
-   "C B2#82 [blocked_external] Creative Performance Learning",
-   "C B2#89 [blocked_external] Creativity Outcome Learning",
-   "C B2#94 [blocked_external] Creativity Capability Scorecard",
-   "C F-386 [blocked_external] Visual-System Learning"
-  ],
   "ops_runtime_governance": [
+   "A F-071 [implemented_unverified] Owner Is Not the Tester",
    "A F-081 [blocked_owner] High-Risk Full-Make Gate",
+   "A F-086 [implemented_unverified] Launch Gate Reconciliation",
    "A F-098 [implemented_unverified] Outage Degradation Plan",
    "A F-102 [implemented_unverified] Pre-Call Reservation",
    "A F-103 [blocked_owner] Post-Call Reconciliation",
    "A F-106 [blocked_owner] Provider Billing Reconciliation",
+   "A F-119 [implemented_unverified] Legacy Launch Count Zero Until Cleared",
    "A F-135 [blocked_owner] Lease-Recovery Drill",
    "A F-160 [blocked_owner] Credential Rotation Register",
    "A F-172 [implemented_unverified] Shadow-Mode Publication Proof",
+   "A F-175 [implemented_unverified] Final Unknowns Register",
    "A F-185 [implemented_unverified] Expected Dead-Letter Presentation",
    "A F-202 [implemented_unverified] Last-Deployed SHA and Verification",
    "A F-243 [blocked_engineering] Query-Matching Completeness",
@@ -380,11 +348,11 @@
    "A F-325 [blocked_owner] Steady-State Sustainability Forecast",
    "A F-327 [implemented_unverified] Hard Spend Reservations",
    "A F-328 [implemented_unverified] No Spend To Look Busy",
-   "A F-538 [blocked_engineering] Finance Reconciliation",
    "A F-543 [blocked_owner] Draft-to-Live Activation Gate",
    "A F-577 [blocked_owner] Payment Settings Guard",
    "A F-594 [blocked_engineering] First-Sale Readiness Gate",
    "A F-608 [blocked_owner] Independent Accountant",
+   "A F-663 [implemented_unverified] Owner Inbox",
    "A F-665 [blocked_owner] Evidence WHY",
    "A F-695 [blocked_owner] Spend Governance",
    "A F-834 [blocked_engineering] Consumption Required",
@@ -703,6 +671,7 @@
    "A F-470 [blocked_engineering] Resource-Aware Concurrency",
    "A F-487 [implemented_unverified] Department Health",
    "A F-489 [blocked_engineering] Parallelism Efficiency",
+   "A F-498 [implemented_unverified] Finite Parallel Launch",
    "A F-505 [blocked_engineering] Failure Memory",
    "A F-514@v0.15 [blocked_external] Outcome-Based Improvement",
    "A F-516@v0.15 [blocked_external] 3/6/12-Month Learning",
@@ -748,6 +717,43 @@
    "C F-511 [blocked_external] Post-Launch Department Continuity",
    "C F-630 [blocked_engineering] Greatness Without Finish-Line Drift",
    "C F-699 [blocked_engineering] Continuous Greatness"
+  ],
+  "build2_creative": [
+   "A F-278 [in_progress] Hero Thumbnail Tournament",
+   "A F-515@v0.16 [blocked_engineering] Shop Completeness Gate",
+   "A F-780 [implemented_unverified] Benchmark Competitors by System, Not Clone",
+   "A B2#104 [implemented_unverified] Creative Growth North Star",
+   "A B2#118 [implemented_unverified] White-Space Discovery Agent",
+   "A B2#120 [blocked_external] Holiday-to-Holiday Learning Transfer",
+   "A B2#121 [implemented_unverified] Four-Season Engine",
+   "A B2#126 [implemented_unverified] Search-Grid Blind Tournament",
+   "A B2#218 [implemented_unverified] MJs Challenge Gate",
+   "A B2#246 [blocked_owner] Pinterest Search Factory",
+   "A B2#277 [implemented_unverified] NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
+   "A B2#281 [implemented_unverified] MJs-to-Brambleloop Seasonal Response Pipeline",
+   "A B2#308 [blocked_external] Owner Example - Christmas Cardigan Response",
+   "A B2#309 [implemented_unverified] MJs Trend-to-Season Mission Pipeline",
+   "A B2#4 [blocked_owner] Pre-Production Demand Validation",
+   "A B2#44 [implemented_unverified] Brand Moat Beyond the Model",
+   "A B2#67 [implemented_unverified] Competitive Creative Benchmark",
+   "A B2#88 [implemented_unverified] Idea-to-Thumbnail Test",
+   "A F-113 [blocked_engineering] Commercial Salvage Test",
+   "A F-114 [blocked_engineering] Re-Engineer Worthy Legacy Products",
+   "A F-200 [blocked_engineering] Dashboard Mobile Priority Order",
+   "A F-356 [blocked_external] Gift Intent",
+   "A F-358 [blocked_engineering] Gender-Neutral & Style Segments",
+   "A F-359 [blocked_engineering] Sibling / Family Variants",
+   "A F-365 [blocked_engineering] Store Architecture",
+   "A F-370 [blocked_external] Autonomous Rebalancing",
+   "A F-509 [blocked_owner] Image Performance Loop",
+   "A F-526 [blocked_owner] Shop Home Merchandising",
+   "A F-527 [blocked_engineering] Brand Asset Health",
+   "A F-584 [blocked_owner] Shop Appearance Optimizer",
+   "C B2#132 [implemented_unverified] Creative Department North-Star Metrics",
+   "C B2#82 [blocked_external] Creative Performance Learning",
+   "C B2#89 [blocked_external] Creativity Outcome Learning",
+   "C B2#94 [blocked_external] Creativity Capability Scorecard",
+   "C F-386 [blocked_external] Visual-System Learning"
   ],
   "command_center_ui": [
    "A F-888 [implemented_unverified] Account & Security Tab",
@@ -1138,6 +1144,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Treat physical testing as a schedulable constrained resource. Forecast upcoming Class B/C testing demand, maintain tester reliability/specialty scores, avoid one tester becoming a bottleneck, and schedule seasonal products early enough that physical QA does not miss the making window."
+  },
+  {
+   "source": "build2",
+   "id": 44,
+   "scope": "build2",
+   "title": "Brand Moat Beyond the Model",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "build2_creative",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "The recurring fictional model is one brand asset, not the brand itself. Build recognizable Brambleloop signatures: editorial layout, naming architecture, photography language, chart style, tutorial voice, collection families, customer-support experience and distinctive original design grammar. The shop must remain recognizable even on product-first listings without the model."
   },
   {
    "source": "build2",
@@ -3109,10 +3130,10 @@
    "id": "F-040",
    "scope": "launch_critical",
    "title": "Shop Quality Gate",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate etsy_shop is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "build2_creative",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,
@@ -3361,6 +3382,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-071",
+   "scope": "launch_critical",
+   "title": "Owner Is Not the Tester",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Owner Is Not the Tester - No launch requirement may require the owner personally to crochet a product. Physical validation, when required, may be delegated to an independent tester/contract crocheter."
+  },
+  {
+   "source": "final_master",
    "id": "F-075",
    "scope": "post_launch",
    "title": "Yardage Calibration Without Owner Labor",
@@ -3463,6 +3499,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Tester Marketplace Workflow - Build an owner-light workflow to recruit/assign compensated independent crochet testers, deliver files, collect structured results, track deadlines and close validation gates. Owner approval governs spend, not manual testing labor."
+  },
+  {
+   "source": "final_master",
+   "id": "F-086",
+   "scope": "launch_critical",
+   "title": "Launch Gate Reconciliation",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Launch Gate Reconciliation - Replace any Build-2 launch condition phrased as 'owner must crochet/sample' with the risk-based evidence requirement above. Do not delete the underlying truth objective."
   },
   {
    "source": "final_master",
@@ -3751,6 +3802,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-119",
+   "scope": "launch_critical",
+   "title": "Legacy Launch Count Zero Until Cleared",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Legacy Launch Count Zero Until Cleared - Old certification does not count as current launch readiness; affected legacy products count zero until cleared."
+  },
+  {
+   "source": "final_master",
    "id": "F-126",
    "scope": "post_launch",
    "title": "Superseded Evidence Retention",
@@ -4033,6 +4099,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Shadow-Mode Publication Proof - Prove consequential actions blocked before phase change while expected refusals remain non-defects."
+  },
+  {
+   "source": "final_master",
+   "id": "F-175",
+   "scope": "launch_critical",
+   "title": "Final Unknowns Register",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Final Unknowns Register - Launch report explicitly names assumptions/unknowns; zero unknowns is not a goal without evidence."
   },
   {
    "source": "final_master",
@@ -4639,9 +4720,9 @@
    "id": "F-273",
    "scope": "launch_critical",
    "title": "Offsite Ads Accounting",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
+   "board_class": "blocked_external",
+   "blocked_by": "external: real buyers",
+   "root": "real_customers",
    "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
@@ -6571,6 +6652,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-498",
+   "scope": "post_launch",
+   "title": "Finite Parallel Launch",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Finite Parallel Launch - Parallelism is used to shorten the finite launch path, not to create infinite simultaneous pre-launch optimization. Launch blockers remain explicitly bounded."
+  },
+  {
+   "source": "final_master",
    "id": "F-499",
    "scope": "post_launch",
    "title": "Post-Launch Department Autonomy",
@@ -7129,10 +7225,10 @@
    "id": "F-538",
    "scope": "launch_critical",
    "title": "Finance Reconciliation",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
+   "board_class": "blocked_external",
+   "blocked_by": "external: real buyers",
+   "root": "real_customers",
+   "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,
@@ -8308,6 +8404,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Live Company Timeline - human-readable causal activity stream across departments instead of raw tool-call noise."
+  },
+  {
+   "source": "final_master",
+   "id": "F-663",
+   "scope": "launch_critical",
+   "title": "Owner Inbox",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Owner Inbox - one prioritized queue containing only genuine human decisions, with evidence, exact steps, minutes, cost, risk and consequence of deferral."
   },
   {
    "source": "final_master",
@@ -10108,21 +10219,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Approval Friction Is Cost - Measure excessive development approval prompts as throughput loss; prefer bounded autonomous sandboxes while keeping production/spend/credential gates."
-  },
-  {
-   "source": "final_master",
-   "id": "F-872",
-   "scope": "launch_critical",
-   "title": "Etsy Scope Reauthorization",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Etsy Scope Reauthorization - Required OAuth scopes such as transactions_r are explicitly reauthorized and proven by readback before trusted use."
   },
   {
    "source": "final_master",

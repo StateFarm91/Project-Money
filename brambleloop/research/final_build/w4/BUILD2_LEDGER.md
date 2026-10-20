@@ -1,6 +1,6 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-20T12:58:05+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Generated 2026-10-20T13:32:25+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
 Gate readings: production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-07.
 
 ## Reconciliation of the owner dashboard figure

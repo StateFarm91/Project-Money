@@ -1341,33 +1341,35 @@
   "launch_class_reason": "order/economics truth: Offsite Ads fees apply to real orders from the first sale without any ad authority",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust, but Order.offsite_ad_attributed is never set by order ingest, so attributed fees are never accounted from real orders.",
-  "producer": "src/brambleloop/commerce/paid_media.py::offsite_ads_forecast (ads_plan)",
+  "missing_part": "Offsite Ads fees are read from Etsy's payment-account ledger, deducted and set offsite_ad_attributed (finance/reconcile.py), but no sale has happened, so no real offsite_ads_fee entry has been read and the ledger type/unit mapping is unverified against a real settlement",
+  "producer": "src/brambleloop/finance/reconcile.py::apply (offsite_ads_fee -> offsite_ad_attributed); commerce/paid_media.py::offsite_ads_forecast",
   "durable_state": "OperatingReading ads.plan (offsite_ads)",
-  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "consumer": "commerce/orders_ingest.py::_reconcile_fees (every receipt read); runtime/growth_ops.py::handle_ads_adjust",
   "protected_effect": "Offsite Ads share and fee impact are reported separately and UNMEASURED without orders",
   "tests": [
    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
    "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
-   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
+   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold",
+   "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
   ],
   "evidence": [
    "src/brambleloop/commerce/orders_ingest.py: offsite_ad_attributed never written",
    "gates/policy_knowledge.py advertising_rules reading",
-   "w4-FM close on 8b67414 (REGATE): finance/reconcile.py:484 and finance/sources.py:100 set offsite_ad_attributed from ledger evidence; contribution deducts it"
+   "w4-FM close on 8b67414 (REGATE): finance/reconcile.py:484 and finance/sources.py:100 set offsite_ad_attributed from ledger evidence; contribution deducts it",
+   "w4-CLOSE6 on deployed b931d17: the mapping's 'offsite_ad_attributed is never set by order ingest' is stale -- finance/reconcile.apply sets it from the ledger's offsite_ads_fee entries on the ingest path; transactions_r is open in production (research/final_build/w4/evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json); nothing is left but a real attributed sale"
   ],
   "build2_rows": [
    "#244 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "offsite-ads fee set from ledger evidence; real rows need transactions_r"
+   "kind": "data",
+   "key": "customers",
+   "detail": "an attributed offsite sale can only come from a real buyer; transactions_r is open and the ledger is read on every ingest"
   },
   "defect": null,
-  "next_action": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
+  "next_action": "data: the first real offsite-attributed sale; the owner then records the ledger mapping verification (owner.etsy_ledger_mapping.verified)",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-274",

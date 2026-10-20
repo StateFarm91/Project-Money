@@ -8,18 +8,18 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 439,
-   "OWNER-GATED": 124,
+   "PROVEN": 441,
+   "OWNER-GATED": 120,
    "OPEN-DEFECT": 218,
-   "DATA-GATED": 94,
+   "DATA-GATED": 96,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 378,
-   "OWNER-GATED": 53,
+   "PROVEN": 380,
+   "OWNER-GATED": 49,
    "EXTERNAL-GATED": 26,
-   "DATA-GATED": 29,
+   "DATA-GATED": 31,
    "OPEN-DEFECT": 4
   },
   "status_post_launch": {
@@ -1148,26 +1148,25 @@
    "title": "Shop Quality Gate",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "PROVEN",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/brand/storefront.py::check_storefront + commerce/trust.py::accelerator",
-   "consumer": "src/brambleloop/launch/readiness.py::assess",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop on a daily getShop); src/brambleloop/commerce/shop_observations.py::record (page 'about')",
+   "consumer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces (shop_checks_failing + about_story hold launch)",
    "tests": [
     "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
     "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
-    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+    "tests/test_w4_close6_shop.py::test_a_complete_live_shop_with_its_about_observed_has_no_shop_failure",
+    "tests/test_w4_close6_shop.py::test_the_about_story_must_be_evidenced_published_and_fresh",
+    "tests/test_w4_close6_shop.py::test_a_missing_icon_or_no_shop_reading_holds_launch",
+    "tests/test_w4_close6_shop.py::test_production_holds_launch_on_the_live_shop_as_it_is",
+    "tests/test_etsy_surfaces.py::test_a_correct_and_current_shop_is_the_only_thing_that_reads_green"
    ],
-   "gate": {
-    "kind": "owner",
-    "key": "etsy_shop"
-   },
-   "reasons": [
-    "owner gate 'etsy_shop'",
-    "coverage PARTIAL: Checks draft storefront text (about, policies, sections, icon/banner briefs) not the actual Etsy shop icon/About state"
-   ],
-   "next_action": "Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only drafts",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6; the owner completes the shop and records the About reading (POST /api/etsy/shop-observation, page 'about')",
    "mapped_on": "6f9a2f7",
    "w3_triage": null,
    "w3_cluster": null,
@@ -7638,26 +7637,27 @@
    "title": "Offsite Ads Accounting",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "DATA-GATED",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "PARTIAL",
-   "producer": "src/brambleloop/commerce/paid_media.py::offsite_ads_forecast (ads_plan)",
-   "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+   "producer": "src/brambleloop/finance/reconcile.py::apply (offsite_ads_fee -> offsite_ad_attributed); commerce/paid_media.py::offsite_ads_forecast",
+   "consumer": "commerce/orders_ingest.py::_reconcile_fees (every receipt read); runtime/growth_ops.py::handle_ads_adjust",
    "tests": [
     "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
     "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
-    "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
+    "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold",
+    "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
+    "kind": "data",
+    "key": "customers"
    },
    "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust,"
+    "data gate 'customers'",
+    "coverage PARTIAL: Offsite Ads fees are read from Etsy's payment-account ledger, deducted and set offsite_ad_attributed (finance/reconcile.py), but no sale has happened, so no rea"
    ],
-   "next_action": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
+   "next_action": "data: the first real offsite-attributed sale; the owner then records the ledger mapping verification (owner.etsy_ledger_mapping.verified)",
    "mapped_on": "8b67414",
    "w3_triage": "G",
    "w3_cluster": null,
@@ -15184,24 +15184,28 @@
    "title": "Finance Reconciliation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "DEPLOYED",
+   "status": "DATA-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "PARTIAL",
-   "producer": "src/brambleloop/finance/books.py::Books",
-   "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+   "producer": "src/brambleloop/finance/reconcile.py::apply; commerce/orders_ingest.py::_reconcile_fees",
+   "consumer": "commerce/orders_ingest.py::ingest (fees_basis on every order); finance/books.py::Books; runtime/pipeline.py::handle_finance_reconcile",
    "tests": [
-    "tests/test_finance.py"
+    "tests/test_finance.py",
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+    "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
+    "kind": "data",
+    "key": "customers"
    },
    "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: books compute P&L from observed ledger entries daily and ingested sales carry modelled fees; no reader for Etsy payment-account ledger/payouts, taxes or ad/subs"
+    "data gate 'customers'",
+    "coverage PARTIAL: orders, transaction/processing/offsite/regulatory/conversion/listing fees and refunds are reconciled against Etsy's payment-account ledger (finance/reconcile.py"
    ],
-   "next_action": "Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/payouts with ledger entries per receipt, keeping unknown fee behaviour explicit",
+   "next_action": "data: first real settlement; owner records the mapping verification; classify any tax/credit/subscription ledger types then seen",
    "mapped_on": "6f9a2f7",
    "w3_triage": null,
    "w3_cluster": null,
@@ -23862,26 +23866,24 @@
    "title": "Etsy Scope Reauthorization",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "PROVEN",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "PARTIAL",
+   "coverage": "FULL",
    "producer": "src/brambleloop/build2/executor.py Gate('transactions_r')::_transactions_readable; commerce/orders_ingest.py",
    "consumer": "src/brambleloop/runtime/orders.py::handle_orders_ingest",
    "tests": [
     "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
-    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+    "tests/test_w4_close6_scope.py::test_no_receipt_is_read_until_scope_and_a_working_credential_are_both_proven",
+    "tests/test_w4_close6_scope.py::test_a_scope_refusal_is_never_trusted_and_a_working_read_clears_the_request",
+    "tests/test_w4_close6_scope.py::test_production_switched_from_unproven_to_read_back_after_reauthorisation",
+    "tests/test_money_truth.py::test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident"
    ],
-   "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
-   },
-   "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: the gate checks stored grant scope AND a recorded etsy.probe; readback of a real receipt after reauthorisation not yet possible"
-   ],
-   "next_action": "Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence",
-   "mapped_on": "6f9a2f7",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- re-authorised and read back in production",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
