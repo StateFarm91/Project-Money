@@ -284,9 +284,16 @@ function privateCard(status) {
 }
 
 export async function render() {
-  const [ovRes, histRes, presRes, privRes] = await Promise.all([api.laura(), api.lauraConversation(20),
-    api.lauraPresence().catch(() => ({ data: null })), api.privateStatus().catch(() => ({ data: null }))]);
+  const [ovRes, histRes, presRes, privRes, uniRes] = await Promise.all([api.laura(), api.lauraConversation(20),
+    api.lauraPresence().catch(() => ({ data: null })), api.privateStatus().catch(() => ({ data: null })),
+    api.lauraUnifiedStatus().catch(() => ({ data: null }))]);
   const ov = ovRes.data || {};
+  // W4-LAURAONE: with the owner's unified switch on, the view is ONE thread (no split cards).
+  if (uniRes.data && uniRes.data.unified === "venice") {
+    const { unifiedCard } = await import("./laura_unified.js");
+    return h("div", { class: "stack laura" }, headerCard(ov), presRes.data ? presenceCard(presRes.data) : null,
+      unifiedCard(uniRes.data));
+  }
   const turns = ((histRes.data && histRes.data.turns) || []).slice().reverse(); // oldest first
   const thread = h("div", { class: "laura-thread", aria: { live: "polite" } });
   const redraw = () => { clear(thread); for (const t of turns) thread.append(turnCard(t)); };

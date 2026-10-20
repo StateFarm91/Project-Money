@@ -1,3 +1,13 @@
+> **2026-10-20 — W4-LAURAONE: one Laura, one thread (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner requirement "LAURA CONVERSATIONAL CONTINUITY" plus its clarification (D-W4-LAURA-UNIFIED; spec/13 ADD-LCONT-01..11).
+> - **What exists.** Behind `BRAMBLELOOP_LAURA_UNIFIED=venice`, the CC Laura view is one thread. Every turn, on any topic, is kept in the encrypted private store with a sealed label.
+> - **How it routes.** Laura (Venice, router `laura.unified_intent@1`, billed to `laura_private`) decides when a business tool is needed. Code decides what crosses. Business Laura (Claude, budget `laura`) receives only the owner's business words or a fixed canonical request, through a deterministic leak guard (substring, normalised, shingle and token overlap) applied to the brief and to the exact outbound request.
+> - **Crossings.** Mixed content and any Venice-drafted brief cross only after the owner approves the exact text with a step-up (`laura_boundary_crossings`, which stores the approved text only).
+> - **Owner controls.** Mark private, exclude, include again, and real deletion. Key rotation keeps all of it. There is no fallback that sends thread history to Claude or GPT.
+> - **Tests.** `tests/test_w4_laura_unified.py` 21/21.
+> - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings pending the owner's own commit are untouched.
+> - **Owner actions.** OA-LCONT-1..4 in `research/final_build/w4/LAURAONE.md` §8.
+
 > **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3
 > (D-W4-CONTRACT3) letters every word Launch-0 uploads at 58 px / titles 66 px on 2000 (>= 11.2 px at display size);
 > the verifier re-letters the new lines exactly, nothing relaxed; re-chained, all 8 Launch-0 products' uploaded images

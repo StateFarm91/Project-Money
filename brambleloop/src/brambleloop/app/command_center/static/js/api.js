@@ -129,6 +129,12 @@ export const ENDPOINTS = {
   privateRemember: () => `${API_BASE}/private/remember`,
   privateTurn: () => `${API_BASE}/private/turn`,
   privateForget: () => `${API_BASE}/private/forget`,
+  // W4-LAURAONE: the one Laura thread (owner switch BRAMBLELOOP_LAURA_UNIFIED=venice).
+  lauraUnifiedStatus: () => `${API_BASE}/laura/unified/status`,
+  lauraUnifiedView: () => `${API_BASE}/laura/unified/view`,
+  lauraUnifiedTurn: () => `${API_BASE}/laura/unified/turn`,
+  lauraUnifiedCrossing: () => `${API_BASE}/laura/unified/crossing`,
+  lauraUnifiedControl: () => `${API_BASE}/laura/unified/control`,
 };
 
 export class ApiError extends Error {
@@ -361,5 +367,11 @@ export const api = {
   privateRemember: (key, text) => post(ENDPOINTS.privateRemember(), { key, text }),
   privateTurn: (text) => post(ENDPOINTS.privateTurn(), { text }),
   privateForget: (id) => post(ENDPOINTS.privateForget(), { id }),
+  // W4-LAURAONE: one thread. Status is non-content (GET); every content call is a POST.
+  lauraUnifiedStatus: () => get(ENDPOINTS.lauraUnifiedStatus()),
+  lauraUnifiedView: () => post(ENDPOINTS.lauraUnifiedView(), {}),
+  lauraUnifiedTurn: (text, keepPrivate) => post(ENDPOINTS.lauraUnifiedTurn(), { text, private: !!keepPrivate }),
+  lauraUnifiedCrossing: (id, approve) => post(ENDPOINTS.lauraUnifiedCrossing(), { id, approve: !!approve }),
+  lauraUnifiedControl: (action, ids) => post(ENDPOINTS.lauraUnifiedControl(), { action, ids }),
   lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),
 };

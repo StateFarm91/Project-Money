@@ -2342,3 +2342,24 @@ The amendment's implementation status is unchanged by this entry. It stays PROPO
 - an independent security review passes.
 
 The old narrower register is not reinstated.
+
+## D-W4-LAURA-UNIFIED — One Laura, one thread: unified conversation with a privacy boundary (2026-10-20, W4-LAURAONE; owner requirement "LAURA CONVERSATIONAL CONTINUITY" and its clarification)
+
+- **Status.** Built on `claude/w4-LAURAONE`. Not deployed and not activated; every switch is OFF by default. Rows: ADD-LCONT-01..11 (`spec/13` §E). Evidence: `research/final_build/w4/LAURAONE.md`.
+- **One Laura.** One thread, one encrypted memory and one persona. Venice is her conversational voice, and Laura (Venice) decides when a business tool is needed. Claude, through Business Laura, is a business reasoning tool, not a second personality. Her executive loop, delegation, reviews and owner-approval gates are unchanged, and she remains the autonomous CEO.
+- **Routine technical decisions taken here:**
+  - **Intent router.** A separate pinned Venice prompt, `laura.unified_intent@1`, with no register wording. Its output is a fixed tool enum. Code builds every brief from the owner's business-classified words or a fixed canonical request. Any Venice-drafted brief, and any private or mixed content, is shown to the owner and crosses only on an approval with step-up.
+  - **No rewrite of business answers.** Venice does not rewrite business answers; deterministic validation wins.
+  - **Leak guard.** Deterministic, with substring, normalised, shingle and token-overlap matching, run on the brief and on the exact outbound request. A hit means refused and not sent. Residual paraphrase risk is documented.
+  - **Venice only.** The thread runs only on Venice. It never falls back to Claude or GPT for conversation.
+  - **Business history follows the thread.** It is keyed to the thread (`laura-unified-thread`), not the login session.
+- **Unchanged:**
+  - ceilings: `laura_private` CA$0.50/day and `laura` CA$0.50/day, inside CA$100/month;
+  - encryption, `ALLOWED_IMPORTERS`, owner authentication with step-up, Shadow mode and the Etsy gates;
+  - the pinned `laura.private_reply@3`.
+- **Owner decisions still needed:**
+  - OA-LCONT-1: enable the switch;
+  - OA-LCONT-2: business facts to Venice, a new data flow;
+  - OA-LCONT-3: the Private Laura prerequisites;
+  - OA-LCONT-4: deploy.
+- **BLOCKED.** The four register strings pending the owner's own commit are untouched.
