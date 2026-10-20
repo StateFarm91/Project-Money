@@ -43,6 +43,11 @@ ANCHOR_ROLE = "product_anchor"
 # W-VISNEXT: the orchestrator sends an outfit's approved reference image only to a generator
 # that declares it can carry one (as the stage's `outfit` supplementary reference).
 ACCEPTS_OUTFIT_REFERENCE = True
+# W-VISNEXT2: stage A (identity anchor) and stage D (edit the accepted lifestyle frame).
+IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"
+ACCEPTS_STAGED_METHOD = True
+VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
+                   "angle": "second_angle", "detail": "detail_closeup"}
 _KIND_PRODUCT = "pattern_derived"
 _KIND_LAURA = "laura_canonical"
 
@@ -93,6 +98,7 @@ class Flux3Generator:
     name = "flux3-image-stages"
     paid = True
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
+    accepts_staged_method = ACCEPTS_STAGED_METHOD
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
@@ -193,6 +199,20 @@ class Flux3Generator:
         kw = dict(renderer=self.renderer, work_dir=work, db=self.db)
         if role == ANCHOR_ROLE:
             cand = S.product_only(rel, size=self.size, **kw)
+        elif role == IDENTITY_ANCHOR_ROLE:
+            # Stage A (W-VISNEXT2): Laura alone in the listing's outfit; an intermediate
+            # reference at the 1k tier, with at most one proportion-correction pass.
+            if laura is None:
+                raise GeneratorRefused("the identity anchor needs the canonical Laura references")
+            o = dict(outfit or {})
+            spec = {"id": o.get("outfit_id") or o.get("id"), "description": o.get("description"),
+                    "garments": o.get("garments")}
+            img = self._outfit_reference(references, o)
+            if img:
+                spec["image"] = img
+            cand = S.identity_anchor(rel, laura, spec,
+                                     correction=tuple((repair or {}).get("correction") or ()),
+                                     size=S.IDENTITY_ANCHOR_SIZE, **kw)
         else:
             anchor = self._anchor(rel, slug, version, release)
             if laura is not None:
@@ -202,11 +222,26 @@ class Flux3Generator:
                 img = self._outfit_reference(references, o)
                 if img:
                     spec["image"] = img
-                cand = S.lifestyle(
-                    rel, anchor["candidate"], laura, spec,
-                    fidelity=anchor["verdict"], role=role, size=self.size,
-                    scene={"environment": o.get("setting") or "",
-                           "pose": brief or "", "framing": ""}, **kw)
+                ident = self._prior(references, "identity_anchor")
+                base = self._prior(references, "edit_base")
+                scene = {"environment": o.get("setting") or "", "pose": brief or "",
+                         "framing": ""}
+                if base is not None:
+                    # Stage D (W-VISNEXT2): edit the listing's accepted lifestyle frame, so the
+                    # outfit stays identical; the canonical three still lead the request.
+                    base_cand = S.Candidate(stage="lifestyle", role="lifestyle", path=base,
+                                            sha256=hashlib.sha256(Path(base).read_bytes())
+                                            .hexdigest(), release_hash=release,
+                                            receipt={"features_laura": True})
+                    cand = S.variant(rel, base_cand, VARIANT_OF_ROLE.get(role, "styled_scene"),
+                                     (brief or "")[:S.MAX_EDIT_CHARS], outfit=spec,
+                                     scene=scene, laura_refs=laura, size=self.size,
+                                     identity_anchor=ident, **kw)
+                else:
+                    cand = S.lifestyle(
+                        rel, anchor["candidate"], laura, spec,
+                        fidelity=anchor["verdict"], role=role, size=self.size,
+                        scene=scene, identity_anchor=ident, **kw)
             else:
                 cand = S.variant(rel, anchor["candidate"], "styled_scene",
                                  (brief or "")[:S.MAX_EDIT_CHARS], size=self.size, **kw)
@@ -216,6 +251,25 @@ class Flux3Generator:
                 "cost_cad": r.get("cost_cad"), "latency_s": round(time.time() - started, 3),
                 "cost_basis": (r.get("price") or {}).get("basis") or "generator receipt",
                 "identity_evidence": r}
+
+    def _prior(self, references: list[dict], label: str) -> str | None:
+        """A stored prior candidate the orchestrator handed in under `label`, written for the
+        stage. Its bytes must hash to the sha256 it was handed with."""
+        refs = [r for r in references if r.get("kind") == "prior_candidate"
+                and r.get("label") == label]
+        if not refs:
+            return None
+        if len(refs) > 1:
+            raise GeneratorRefused(f"more than one {label} was handed in")
+        data = refs[0]["data"]
+        sha = hashlib.sha256(data).hexdigest()
+        if refs[0].get("sha256") and refs[0]["sha256"] != sha:
+            raise GeneratorRefused(f"the {label} bytes are not the ones named; refused")
+        root = self._root / label
+        root.mkdir(parents=True, exist_ok=True)
+        p = root / f"{sha}.png"
+        p.write_bytes(data)
+        return str(p)
 
     def _outfit_reference(self, references: list[dict], outfit: dict) -> str | None:
         """The listing outfit's approved reference image, written for the stage (W-VISNEXT).

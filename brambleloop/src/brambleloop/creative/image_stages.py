@@ -407,10 +407,12 @@ def _limit(renderer) -> int:
 
 def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, *,
          features_laura: bool, renderer, work_dir: str, db, job_id, max_attempts: int,
-         purpose: str) -> Candidate:
+         purpose: str, intermediate: bool = False) -> Candidate:
     if not work_dir:
         raise StageRefused("work_dir is required: the candidate's bytes must outlive the call")
-    if not meets_listing_floor(size):
+    # An intermediate reference (the stage-A identity anchor) is never a listing frame, so
+    # the listing floor does not apply to it; every listing frame keeps it.
+    if not intermediate and not meets_listing_floor(size):
         w, h = expected_px(size)
         raise StageRefused(f"{size} is expected to render about {w}x{h}, under the "
                            f"{LISTING_MIN_PX} px listing floor on each side; ask for a tier "
@@ -603,6 +605,7 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
               outfit: Mapping, *, fidelity: Mapping | None = None,
               scene: Mapping | None = None, role: str = "lifestyle_hero",
               size: str = LIFESTYLE_SIZE, supplementary: Sequence[str] = (), renderer=None,
+              identity_anchor: str | None = None,
               work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """Laura with the product: the six-reference campaign set, then the product photograph,
@@ -622,6 +625,10 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
     supp = [("product_candidate", product_candidate.path)]
     if outfit.get("image"):
         supp.append(("outfit", str(outfit["image"])))
+    if identity_anchor:
+        # Stage A's anchor (W-VISNEXT2): identity context after the canonical three, never
+        # instead of them; the canonical images still decide who she is.
+        supp.append(("identity_anchor", str(identity_anchor)))
     supp += [("supplementary", str(p)) for p in supplementary]
     plan = campaign_references(release, features_laura=True, laura_refs=laura_refs,
                                supplementary=supp, reference_limit=_limit(render),
@@ -634,6 +641,40 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
 
 
 SIX_REF_PRODUCT_ROLES: tuple[str, ...] = ("product_layout", "product_texture", "product_rules")
+
+# W-VISNEXT2 stage A. The identity anchor is an intermediate reference only (never a gallery
+# frame), judged by the vision adapters, so the cheaper 1k tier is allowed for it. Listing
+# frames and the fidelity flat lay stay at 2k (the verifier is not qualified at 1k:
+# tests/test_w4_visnext2.py::test_fidelity_verifier_is_not_qualified_at_1k).
+IDENTITY_ANCHOR_SIZE = "1024x1024"
+
+
+def identity_anchor(release: Release, laura_refs: Sequence[str] | None, outfit: Mapping, *,
+                    correction: Sequence[str] = (), size: str = IDENTITY_ANCHOR_SIZE,
+                    renderer=None, work_dir: str, db=None, job_id: int | None = None,
+                    max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
+    """Stage A: Laura alone in the listing's outfit, from the three canonical references and
+    the identity prompt (clothing is not identity). No product. The outfit's approved
+    reference image, when it has one, follows the canonical three. `correction` is the one
+    bounded proportion-correction pass after a judged drift."""
+    outfit = dict(outfit or {})
+    if not (outfit.get("id") and (outfit.get("description") or outfit.get("garments"))):
+        raise StageRefused("the identity anchor needs the listing's reserved outfit")
+    render = renderer or flux3_renderer()
+    items = list(zip(LAURA_ROLES, laura_references(laura_refs)))
+    if outfit.get("image"):
+        items.append(("outfit", str(outfit["image"])))
+    plan = {"roles": [r for r, _ in items], "paths": [p for _, p in items],
+            "sha256s": [_sha(p) for _, p in items], "combined_sheet": None,
+            "limitation": None, "reference_limit": _limit(render)}
+    if len(items) > plan["reference_limit"]:
+        raise StageRefused("too many references for the identity anchor")
+    built = flux_prompt.build_identity_anchor(roles=plan["roles"], outfit=outfit,
+                                              correction=tuple(correction))
+    return _run("identity_anchor", f"laura_identity_anchor:{outfit['id']}", release, plan,
+                built, size, features_laura=True, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts, purpose="image.identity_anchor",
+                intermediate=True)
 
 
 def six_reference_lifestyle(release: Release, product_refs: Sequence[str],
@@ -687,7 +728,7 @@ def six_reference_lifestyle(release: Release, product_refs: Sequence[str],
 def variant(release: Release, base_candidate: Candidate, role: str, edit_instruction: str = "",
             *, outfit: Mapping | None = None, scene: Mapping | None = None,
             laura_refs: Sequence[str] | None = None, size: str | None = None, renderer=None,
-            work_dir: str, db=None,
+            work_dir: str, db=None, identity_anchor: str | None = None,
             job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
 
@@ -709,6 +750,8 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
             raise StageRefused("a variant of a Laura image needs the listing's outfit")
         if outfit.get("image"):
             supp.append(("outfit", str(outfit["image"])))
+        if identity_anchor:
+            supp.append(("identity_anchor", str(identity_anchor)))
     plan = campaign_references(release, features_laura=laura, laura_refs=laura_refs,
                                leading=[("base", base_candidate.path)], supplementary=supp,
                                reference_limit=_limit(render), work_dir=work_dir)

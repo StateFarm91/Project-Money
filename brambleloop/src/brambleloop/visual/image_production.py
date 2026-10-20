@@ -84,6 +84,9 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("fidelity_gate", "product_generation"),
     ("load_laura_references", "lifestyle_generation"),
     ("reserve_outfit", "lifestyle_generation"),
+    # W-VISNEXT2, stage A of the owner's manual method: Laura alone in the listing's outfit,
+    # judged, then reused as identity context for every Laura frame of the listing.
+    ("identity_anchor", "lifestyle_generation"),
     ("lifestyle_generation", "lifestyle_generation"),
     ("remaining_roles", "lifestyle_generation"),
     ("verification", "automated_verification"),
@@ -102,6 +105,8 @@ MAX_REPAIR_ROUNDS = 2
 MAX_GENERATION_CALLS = 12          # per gallery, every role and repair included
 MAX_SPEND_CAD_PER_GALLERY = 2.00   # = the publishing agent's daily ceiling; never raised here
 ANCHOR_ROLE = "product_anchor"     # the product-only candidate: a fidelity anchor, not a frame
+IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"   # stage A: an intermediate reference, not a frame
+MAX_IDENTITY_ANCHOR_ATTEMPTS = 2   # one generation + one bounded proportion-correction pass
 MAX_RESTARTS = 3                   # per run; a restart never resets attempts, calls or spend
 RESTART_KEY = "_restart"           # the run's restart record inside `stages`
 
@@ -149,15 +154,17 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def run_key(slug: str, version: str, release: str) -> str:
-    return f"imgprod:{slug}@{version}@{release}"
+def run_key(slug: str, version: str, release: str, ns: str = "") -> str:
+    """The run's identity. `ns` (W-VISNEXT2) separates a controlled-experiment run of a
+    certified release from the release's ordinary production run, which it never touches."""
+    return f"imgprod:{slug}@{version}@{release}" + (f"#{ns}" if ns else "")
 
 
 def stage_key(slug: str, version: str, release: str, stage: str, round_: int = 0,
-              epoch: int = 0) -> str:
+              epoch: int = 0, ns: str = "") -> str:
     """A stage job's idempotency key. `epoch` > 0 only after a restart (W-VISNEXT), so a
     restarted run's jobs never collide with the ones its first pass already ran."""
-    return (run_key(slug, version, release) + f":{stage}" + (f":{round_}" if round_ else "")
+    return (run_key(slug, version, release, ns) + f":{stage}" + (f":{round_}" if round_ else "")
             + (f":e{epoch}" if epoch else ""))
 
 
@@ -176,15 +183,23 @@ def prompt_version(db) -> str:
 
 # ---- trigger -----------------------------------------------------------------------------
 
-def trigger(enqueue, *, slug: str, version: str, release: str) -> dict:
+def trigger(enqueue, *, slug: str, version: str, release: str, ns: str = "",
+            controlled_run_id: int | None = None) -> dict:
     """Enqueue the workflow once per slug@version@release. `enqueue(inputs, key)` returns
-    None on a duplicate key (JobContext.enqueue semantics)."""
+    None on a duplicate key (JobContext.enqueue semantics). `ns` and `controlled_run_id`
+    (W-VISNEXT2) start an owner-authorised controlled-experiment run of a certified release:
+    its own run row, the authorization's caps in place of the image_generation gate, and an
+    EXPERIMENT label on everything it makes."""
     if not (slug and version and release):
         return {"enqueued": False, "why": "slug, version and release are all required"}
-    job = enqueue({"slug": slug, "version": version, "release": release,
-                   "stage": STAGES[0][0], "round": 0},
-                  stage_key(slug, version, release, STAGES[0][0]))
-    return {"enqueued": job is not None, "run_key": run_key(slug, version, release)}
+    if bool(ns) != bool(controlled_run_id):
+        return {"enqueued": False, "why": "a namespaced run is a controlled run, and back"}
+    inputs = {"slug": slug, "version": version, "release": release,
+              "stage": STAGES[0][0], "round": 0}
+    if ns:
+        inputs.update(ns=ns, controlled_run_id=int(controlled_run_id))
+    job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], ns=ns))
+    return {"enqueued": job is not None, "run_key": run_key(slug, version, release, ns)}
 
 
 # ---- run row -----------------------------------------------------------------------------
@@ -197,11 +212,11 @@ def _run(s, key: str):
     return s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
 
 
-def _ensure_run(db, slug, version, release):
+def _ensure_run(db, slug, version, release, ns: str = ""):
     from .image_records import ImageProductionRun, ensure_tables
 
     ensure_tables(db)
-    key = run_key(slug, version, release)
+    key = run_key(slug, version, release, ns)
     with db.session() as s:
         if _run(s, key) is None:
             s.add(ImageProductionRun(run_key=key, slug=slug, version=version, release=release,
@@ -455,6 +470,13 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                 exp.guard_paid(next_cost)
             except ExperimentBudgetStop as exc:
                 raise BudgetStop(str(exc)) from None
+    elif _controlled_of(db, key) and getattr(gen, "paid", True):
+        # W-VISNEXT2: an owner-authorised controlled run of a certified release. The owner's
+        # step-up authorization, inside its (shared) cap, stands in for the image_generation
+        # gate for this run only; every ceiling below still applies on top.
+        from ..experiments import controlled as CX
+
+        CX.guard_generation(db, _controlled_of(db, key), next_cost)
     elif getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
@@ -492,9 +514,17 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     cost = out.get("cost_cad")
     _update(db, key, stage=stage, spent_cad=spent + float(cost or 0.0))
     data = out["data"]
+    ctl = _controlled_of(db, key)
     sha = store_bytes(db, data, key=f"{key}/{role}/{plan_attempt}",
                       why="generated listing-image candidate (AI; never a photograph)" + (
-                          f"; {exp.label}" if exp is not None else ""))
+                          f"; {exp.label}" if exp is not None else "") + (
+                          "; EXPERIMENT (controlled run)" if ctl else ""))
+    if ctl:
+        # marked as an experiment image before anything evaluates it
+        from ..experiments import controlled as CX
+
+        CX.record_generation(db, ctl, reserved_cad=next_cost if getattr(gen, "paid", True)
+                             else 0.0, actual_cad=cost, sha256=sha)
     cand = {**base, "data": data, "sha256": sha, "provider": out.get("provider"),
             "model": out.get("model"), "prompt": out.get("prompt") or brief,
             "references": [{"sha256": r["sha256"], "kind": r["kind"]} for r in refs],
@@ -515,12 +545,52 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                    # the fidelity verifier's codes (W-FIDELITY), so learning and the
                    # repair router read the same words as for every other role
                    + [str(c) for c in pt.get("codes") or []]}
+    elif role == IDENTITY_ANCHOR_ROLE:
+        verdict = identity_anchor_verdict(db, cand, judges,
+                                          _binding(db, exp, slug, version, release))
     else:
         verdict = CG.evaluate(db, cand, judges=judges)
     rec = record_candidate(db, cand, verdict, method="autonomous", run=key, stage=stage,
                            attempt=plan_attempt)
     return {**rec, "technical_status": verdict["technical_status"],
             "publishable": verdict["publishable"], "cost_cad": cost}
+
+
+def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
+    """The stage-A anchor's verdict: identity, body proportions, outfit (registry and
+    consistency), anatomy and realism, plus the release binding. It is an intermediate
+    reference, never a gallery frame, so the listing image-quality floor (2000 px) and the
+    gallery role check do not apply to it, and it is never publishable."""
+    reserved = outfits.get(db, cand["outfit_id"]) if cand.get("outfit_id") else None
+    checks = {"binding": bind,
+              "identity": CG._judge(judges, "identity", cand),
+              "body_proportions": CG._judge(judges, "body_proportions", cand),
+              "outfit_distinctness": outfits.distinctness(db, cand.get("outfit_id"),
+                                                          cand.get("listing", "")),
+              "outfit_consistency": (CG._judge(judges, "outfit_consistency", cand, reserved)
+                                     if reserved else CG._c(CG.UNKNOWN, "no reserved outfit")),
+              "anatomy": CG._judge(judges, "anatomy", cand),
+              "realism": CG._judge(judges, "realism", cand)}
+    tech = CG.worst(*(c["status"] for c in checks.values()))
+    cats = sorted({CG.FAILURE_CATEGORY[k] for k, c in checks.items()
+                   if c["status"] == CG.FAIL and k in CG.FAILURE_CATEGORY})
+    for c in checks.values():
+        if c.get("status") in (CG.FAIL, CG.UNKNOWN):
+            cats += [str(x) for x in c.get("codes") or [] if str(x) not in cats]
+    return {"sha256": cand["sha256"], "listing": cand.get("listing", ""), "checks": checks,
+            "technical_status": tech, "publishable": False,
+            "publication": {"publishable": False, "blockers": [
+                "the identity anchor is an intermediate reference, never a gallery frame"]},
+            "failure_categories": cats,
+            "unknown": sorted(k for k, c in checks.items() if c["status"] == CG.UNKNOWN)}
+
+
+def _controlled_of(db, key: str) -> int | None:
+    """The controlled run a namespaced orchestrator run belongs to (W-VISNEXT2)."""
+    if "#" not in key:
+        return None
+    rec = _stage_data(db, key).get("_controlled") or {}
+    return int(rec.get("run_id") or 0) or None
 
 
 def _binding(db, exp, slug, version, release) -> dict:
@@ -544,6 +614,17 @@ def _next(stage: str) -> str | None:
 
 
 def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
+    """Run one stage and enqueue the next (see `_run_stage`). A controlled run (W-VISNEXT2)
+    mirrors its end state onto its controlled-experiment record."""
+    out = _run_stage(db, inputs, follow=follow, generator=generator, judges=judges)
+    if inputs.get("controlled_run_id") and out.get("run_key"):
+        from ..experiments import controlled as CX
+
+        CX.sync_pipeline(db, int(inputs["controlled_run_id"]), out["run_key"])
+    return out
+
+
+def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     """Run one stage and enqueue the next. `follow(inputs, idempotency_key)` enqueues."""
     slug, version, release = inputs["slug"], inputs["version"], str(inputs.get("release") or "")
     stage, round_ = inputs.get("stage") or STAGES[0][0], int(inputs.get("round") or 0)
@@ -556,7 +637,24 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         from . import experiment as XP
 
         exp = XP.context_for(db, slug, version, release)
-    key = _ensure_run(db, slug, version, release)
+    ns = str(inputs.get("ns") or "")
+    controlled = int(inputs.get("controlled_run_id") or 0) or None
+    if ns or controlled:
+        from ..experiments import controlled as CX
+
+        CX.require_pipeline_run(db, controlled, ns=ns, slug=slug, version=version,
+                                release=release)
+    key = _ensure_run(db, slug, version, release, ns)
+    if controlled:
+        from sqlalchemy.orm.attributes import flag_modified
+
+        with db.session() as s:
+            r_ = _run(s, key)
+            st_ = dict(r_.stages or {})
+            if not st_.get("_controlled"):
+                st_["_controlled"] = {"run_id": controlled, "ns": ns}
+                r_.stages = st_
+                flag_modified(r_, "stages")
     run = get_run(db, key)
     epoch = int(inputs.get("epoch") or 0)
     if epoch != run.get("restarts", 0):
@@ -587,7 +685,9 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
             nxt["experiment"] = True
         if epoch:
             nxt["epoch"] = epoch
-        follow(nxt, stage_key(slug, version, release, next_stage, rnd, epoch))
+        if ns:
+            nxt.update(ns=ns, controlled_run_id=controlled)
+        follow(nxt, stage_key(slug, version, release, next_stage, rnd, epoch, ns))
         return next_stage
 
     def block(why: str, *, exhausted: bool = False, record: dict | None = None):
@@ -805,6 +905,18 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                     if ref:
                         refs_ = refs_ + [{"kind": "prior_candidate", "label": "outfit_reference",
                                           "sha256": outfit["approved_reference"], "data": ref}]
+                if r["laura"] and getattr(gen, "accepts_staged_method", False):
+                    # W-VISNEXT2 stage A: the listing's accepted identity anchor, as identity
+                    # context after the canonical three (never instead of them).
+                    ia = _accepted_identity_anchor(db, key)
+                    if ia:
+                        refs_ = refs_ + [ia]
+                    # Stage D: a non-LIFESTYLE Laura role edits the accepted lifestyle frame,
+                    # so the outfit stays identical across the listing.
+                    if r["job"] != "LIFESTYLE":
+                        base_ = _accepted_lifestyle(db, key, run["listing"], plan)
+                        if base_:
+                            refs_ = refs_ + [base_]
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
                                       release=release, role=r["role"], stage=rnd_stage,
                                       laura=r["laura"], judges=judges, brief=r["brief"] or
@@ -813,6 +925,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                                       plan_attempt=attempt,
                                       repair=(repairs or {}).get(r["role"]), exp=exp))
             return outs
+
+        if stage == "identity_anchor":
+            return _stage_identity_anchor(db, key, run, inputs, gen=gen, judges=judges, exp=exp,
+                                          laura_roles=laura_roles, st=st, go=go, block=block,
+                                          refs=_refs_with_bytes, laura_refs=laura_refs,
+                                          slug=slug, version=version, release=release)
 
         if stage == "lifestyle_generation":
             roles = [r for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
@@ -909,6 +1027,18 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
                 "recommended_fix": _recommend(not_ready, view),
                 "owner_approval_is_not_technical_verification": True}
         card["campaign_consistency"] = view.get("campaign_consistency")
+        if exp is None and _controlled_of(db, key):
+            from . import experiment as XP
+
+            card.update(experiment=True, label=XP.LABEL, controlled_run_id=_controlled_of(
+                db, key), certification={"granted": True, "reasons": [
+                    "certified release; this gallery is a controlled experiment's output"]},
+                publication_blockers=sorted(set(card["publication_blockers"]) | {
+                    f"{XP.LABEL}: controlled experiment output, never published"}),
+                approvals_are_separate={
+                    "visual_approval": "the owner's look at these images only",
+                    "technical_certification": "the stored verdicts",
+                    "publication_authorization": "NOT AVAILABLE: experiments never publish"})
         if exp is not None:
             from . import experiment as XP
 
@@ -998,6 +1128,9 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                        {CG.FAILURE_CATEGORY[k] for k, c in (("binding", bind),
                         ("product_truth", pt), ("quality", q)) if c["status"] == CG.FAIL})
                    + [str(c) for c in pt.get("codes") or []]}
+    elif cand["role"] == IDENTITY_ANCHOR_ROLE:
+        verdict = identity_anchor_verdict(db, cand, judges, _binding(
+            db, exp, cand["slug"], cand["version"], cand["release"]))
     else:
         verdict = CG.evaluate(db, cand, judges=judges, record_outfit_use=False)
     tech = verdict["technical_status"]
@@ -1048,6 +1181,9 @@ def restartable(db, key: str) -> dict:
     if (run.get("card") or {}).get("experiment") or XP.is_experiment(db, run["slug"],
                                                                        run["version"]):
         return {"restartable": False, "why": f"{XP.LABEL}: an experiment run is one-shot"}
+    if "#" in key:
+        return {"restartable": False, "why": "a controlled experiment run is one-shot; "
+                                             "submit a new run from the Command Center"}
     if run["state"] != "blocked":
         return {"restartable": False, "why": f"run is {run['status']}, not blocked"}
     if run.get("restarts", 0) >= MAX_RESTARTS:
@@ -1067,6 +1203,9 @@ def restartable(db, key: str) -> dict:
         resume, reverify_ = "verification", True
     elif blocked_at in ("product_generation", "fidelity_gate") and has_anchor:
         resume, reverify_ = "fidelity_gate", True
+    elif blocked_at == "identity_anchor" and _best(
+            db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key) is not None:
+        resume, reverify_ = "identity_anchor", True
     else:
         resume, reverify_ = blocked_at, False
     return {"restartable": True, "resume_at": resume, "reverify": reverify_,
@@ -1116,6 +1255,165 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
                                    can["resume_at"], 0, epoch))
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
             "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
+
+
+# ---- stage A and stage D (W-VISNEXT2) --------------------------------------------------------
+
+def _prior_ref(db, sha: str, label: str) -> dict | None:
+    from ..core.artifacts import ArtifactStore
+
+    try:
+        data = ArtifactStore().get(sha, db=db)
+    except Exception:  # noqa: BLE001 - bytes gone: not handed in
+        return None
+    return {"kind": "prior_candidate", "label": label, "sha256": sha, "data": data} \
+        if data else None
+
+
+def _accepted_identity_anchor(db, key: str) -> dict | None:
+    """The identity anchor this run accepted at stage A (PASS, or owner-confirmed review)."""
+    rec = (_stage_data(db, key).get("identity_anchor") or {}).get("outputs") or {}
+    sha = rec.get("accepted_sha256")
+    return _prior_ref(db, sha, "identity_anchor") if sha else None
+
+
+def _accepted_lifestyle(db, key: str, listing: str, plan: dict) -> dict | None:
+    """The edit base for stage D: the run's best LIFESTYLE frame that no check FAILed and the
+    owner did not reject. It is a generation input, not a verdict: the variant made from it is
+    judged on its own."""
+    roles = [r["role"] for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
+    for role in roles:
+        b = _best(db, listing=listing, role=role, run=key)
+        if b and b.get("sha256") and b.get("technical_status") != "FAIL" and \
+                b.get("owner_visual_approval") is not False:
+            return _prior_ref(db, b["sha256"], "edit_base")
+    return None
+
+
+def _drifted_dimensions(best: dict | None, db) -> list[str]:
+    from .image_records import ImageCandidate
+
+    if not best:
+        return []
+    with db.session() as s:
+        row = s.get(ImageCandidate, best["candidate_id"])
+        body = ((row.checks or {}).get("body_proportions") or {}) if row else {}
+    if body.get("status") != "FAIL":
+        return []
+    return list(body.get("drifted") or ["bust and body proportions"])
+
+
+def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_roles, st, go,
+                           block, refs, laura_refs, slug, version, release) -> dict:
+    """Stage A. PASS: accepted and reused. A judged body-proportion drift gets exactly one
+    correction pass. FAIL after that: blocked (attempts spent). UNKNOWN: an identity review is
+    opened for the owner and the run stops at this gate with every image kept; it resumes only
+    after the owner's review (then `restart`), and the review never turns the verdict into a
+    PASS: the anchor becomes a reference, nothing more."""
+    from . import identity_gate
+
+    stage = "identity_anchor"
+    if not laura_roles or exp is not None or not getattr(gen, "accepts_staged_method", False):
+        why = ("no Laura in this listing's shot plan" if not laura_roles else
+               "EXPERIMENT: the owner-approved plan has no stage A" if exp is not None else
+               "the generator does not carry the staged method")
+        _update(db, key, stage=stage, status=st, record={"outputs": {"skipped": why}})
+        return {"run_key": key, "next": go(_next(stage))}
+    outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
+    if not outfit:
+        return block("stage A needs the listing's reserved outfit")
+    best = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+    if best and inputs.get("reverify"):
+        reverify(db, best["candidate_id"], judges=judges, exp=exp)
+        best = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+
+    def generate(repair=None):
+        n = _attempts(db, key, IDENTITY_ANCHOR_ROLE) + 1
+        return _generate(db, key, gen, slug=slug, version=version, release=release,
+                         role=IDENTITY_ANCHOR_ROLE, stage=stage, laura=True, judges=judges,
+                         brief="Laura alone in the listing's outfit", outfit=outfit,
+                         refs=refs() + laura_refs(), plan_attempt=n, repair=repair, exp=exp)
+
+    if best is None:
+        got = generate()
+        if got.get("provider_error"):
+            return block(f"identity anchor: provider error {got['provider_error']}")
+        best = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+    drift = _drifted_dimensions(best, db)
+    if drift and _attempts(db, key, IDENTITY_ANCHOR_ROLE) < MAX_IDENTITY_ANCHOR_ATTEMPTS:
+        generate(repair={"correction": drift, "codes": ["body_proportion_drift"],
+                         "directives": []})
+        best = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+    status = (best or {}).get("technical_status", "UNKNOWN")
+    record = {"evidence": best}
+    if status == "PASS":
+        _update(db, key, stage=stage, status=st, record={
+            **record, "outputs": {"accepted_sha256": best["sha256"], "basis": "PASS"}})
+        return {"run_key": key, "next": go(_next(stage))}
+    if status == "FAIL":
+        return block(f"identity anchor FAIL after {_attempts(db, key, IDENTITY_ANCHOR_ROLE)} "
+                     f"attempt(s) (one proportion correction at most): {best.get('failed')}",
+                     exhausted=True, record=record)
+    # UNKNOWN: the owner reviews the anchor (identity review band), never auto-passed.
+    review = _anchor_review(db, best["sha256"])
+    if review and review.get("decision") == "confirmed_same_person":
+        _update(db, key, stage=stage, status=st, record={
+            **record, "outputs": {"accepted_sha256": best["sha256"],
+                                  "basis": "owner review confirmed_same_person; the anchor is "
+                                           "identity context only, its verdict stays UNKNOWN",
+                                  "review_id": review["id"]}})
+        return {"run_key": key, "next": go(_next(stage))}
+    if review and review.get("decision") in ("not_laura",):
+        return block("identity anchor: the owner's review says not Laura", exhausted=True,
+                     record=record)
+    gate = {"review_required": True, "band": identity_gate.BAND_REVIEW,
+            "why": f"identity anchor UNKNOWN on {best.get('unknown')}",
+            "validity": None, "biometric": None, "judges": []}
+    rid = identity_gate.open_review(db, product_class="laura_identity_anchor",
+                                    subject=f"{key}:identity_anchor", gate=gate,
+                                    image_sha256=best["sha256"])
+    return block(f"identity anchor UNKNOWN ({best.get('unknown')}): held for owner review "
+                 f"(identity review {rid}); every image so far is kept", record={
+                     **record, "outputs": {"review_id": rid}})
+
+
+def _anchor_review(db, sha: str) -> dict | None:
+    """The latest identity review of this anchor's bytes, open or resolved."""
+    from sqlalchemy import desc, select
+
+    from .rnd import models as M
+
+    if not M.tables_exist(db):
+        return None
+    with M.session(db) as s:
+        r = s.scalar(select(M.VisualIdentityReview).where(
+            M.VisualIdentityReview.image_sha256 == sha[:64])
+            .order_by(desc(M.VisualIdentityReview.id)))
+        return ({"id": r.id, "state": r.state, "decision": r.decision or None}
+                if r is not None else None)
+
+
+def resolve_identity_anchor_review(db, key: str, *, decision: str, by: str, note: str = "",
+                                   follow=None) -> dict:
+    """The owner's review of a held identity anchor, then (if confirmed) a restart.
+
+    `confirmed_same_person` lets the anchor be used as identity context; it does not make
+    any verdict PASS. `not_laura` ends the run's stage A. `inconclusive` keeps it held."""
+    from . import identity_gate
+
+    run = get_run(db, key)
+    if run is None:
+        return {"resolved": False, "why": "no such run"}
+    best = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+    review = _anchor_review(db, best["sha256"]) if best else None
+    if not review or review["state"] != "open":
+        return {"resolved": False, "why": "no open identity review for this run's anchor"}
+    out = identity_gate.resolve(db, review["id"], decision=decision, reviewer=by, note=note)
+    restarted = None
+    if decision in ("confirmed_same_person", "not_laura") and follow is not None:
+        restarted = restart(db, key, follow=follow, by=by,
+                            reason=f"identity anchor review: {decision}")
+    return {"resolved": True, **out, "restart": restarted}
 
 
 def _repick_outfit(db, listing: str, current: str) -> dict:
@@ -1277,6 +1575,19 @@ def notification_candidates(db) -> list[dict]:
             ImageProductionRun.status.in_(NOTIFY_STATES))))
     for r in rows:
         if r.status == "blocked" and not r.attempts_exhausted:
+            if "held for owner review" in (r.blocked_reason or ""):
+                # W-VISNEXT2: stage A needs the owner's identity review; that is a decision
+                # only the owner can make, so it is notified (once per epoch).
+                ep = int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0)
+                out.append({
+                    "dedupe_key": f"image_identity_review:{r.run_key}:e{ep}",
+                    "severity": "normal", "category": "decision",
+                    "title": f"Laura identity anchor needs your review: {r.listing}"[:300],
+                    "body": (f"{r.blocked_reason}. Confirming lets the anchor be used as "
+                             f"identity context; it never makes any check PASS.")[:1000],
+                    "consequence": "Laura frames for this listing wait until you review",
+                    "evidence": [f"image_production_runs:{r.id}"],
+                    "deep_link": f"/cc/#/images/{r.listing}", "count": 1})
             continue
         ready = r.status == "ready_for_owner_review"
         card = dict(r.card or {})
@@ -1404,6 +1715,20 @@ def record_visual_approval(db, key: str, *, decided_by: str, approved: bool,
     return {"recorded": True, "visual_approval": entry, "state": run["state"]}
 
 
+def _anchor_card(db, key: str, run: dict) -> dict | None:
+    """Stage A's anchor as the card shows it: the image, its verdict and any owner review."""
+    b = _best(db, listing=run["listing"], role=IDENTITY_ANCHOR_ROLE, run=key)
+    if not b:
+        return None
+    review = _anchor_review(db, b["sha256"]) if b.get("sha256") else None
+    return {"image_url": f"/api/cc/images/candidates/{b['candidate_id']}/image",
+            "sha256": b["sha256"], "technical_status": b["technical_status"],
+            "unknown": b.get("unknown") or [], "failed": b.get("failed") or {},
+            "review": review, "attempts": _attempts(db, key, IDENTITY_ANCHOR_ROLE),
+            "label": "Laura identity anchor (intermediate reference, never a gallery frame)",
+            "review_needed": bool(review and review.get("state") == "open")}
+
+
 def gallery_card(db, key: str) -> dict | None:
     """The Command Center gallery approval card: every frame with its image, and three
     decisions kept apart (W-VISNEXT).
@@ -1456,6 +1781,7 @@ def gallery_card(db, key: str) -> dict | None:
         "restartable": restartable(db, key) if run["state"] == "blocked" else
         {"restartable": False, "why": f"run is {run['status']}"},
         "outfit_id": run.get("outfit_id"),
+        "identity_anchor": _anchor_card(db, key, run),
         "decisions": {
             "visual_approval": {
                 "state": ("approved" if visual and visual.get("approved_look") else

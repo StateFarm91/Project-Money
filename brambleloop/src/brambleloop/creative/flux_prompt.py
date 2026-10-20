@@ -216,7 +216,8 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         "product_combined": "certified product sheet (layout, texture, chart and rules, top "
         "to bottom)", "product_candidate": "approved product photograph of this exact product",
         "base": "the image to edit", "outfit": "the outfit", "supplementary": "supplementary "
-        "context"}
+        "context", "identity_anchor": "Laura in this listing's outfit (identity context only; "
+        "the canonical images decide who she is)"}
     ref_map = "; ".join(f"{_img(i + 1)} = {labels.get(r.split(':')[0], r)}"
                         for i, r in enumerate(roles))
     scene = dict(scene or {})
@@ -289,3 +290,69 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         sections=tuple({"ref": p.ref, "sha256": p.sha256} for p in used),
         inputs={"roles": tuple(roles), "role": role, "release": rules["release_hash"],
                 "scene": repr(sorted(scene.items())), "edit": edit})
+
+
+# W-VISNEXT2, stage A (the owner's manual method): a Laura identity anchor in the listing's
+# outfit, before any product. It is an intermediate reference, never a gallery frame.
+IDENTITY_ANCHOR = prompts.register(prompts.Prompt(
+    name="image.flux3.identity_anchor", version="1", **_IMG, template=(
+        "SCENE (laura_identity_anchor): Laura alone, no product, standing relaxed, full length, "
+        "facing the camera, plain softly lit indoor setting, natural daylight. She wears "
+        "{outfit}. REALISM: a natural, believable photograph, not an illustration or a render; "
+        "anatomically correct hands with five fingers; no text, logos or watermarks.")))
+
+# One bounded correction pass, used only after a judged body-proportion drift.
+PROPORTION_CORRECTION = prompts.register(prompts.Prompt(
+    name="image.flux3.proportion_correction", version="1", **_IMG, template=(
+        "PROPORTION CORRECTION: the previous attempt changed {drifted}. Restore them exactly as "
+        "in {torso} and {body}: bust fullness and projection, shoulders, waist and hips as "
+        "approved; never flatten or reduce the bust; the outfit drapes over these "
+        "proportions.")))
+
+IDENTITY_ANCHOR_ROLES = ("laura_face", "laura_torso", "laura_body")
+
+
+def build_identity_anchor(*, roles: Sequence[str], outfit: Mapping,
+                          correction: Sequence[str] = (),
+                          disclosure: str = DEFAULT_DISCLOSURE,
+                          restrictions: str = DEFAULT_RESTRICTIONS) -> BuiltPrompt:
+    """The stage-A prompt: identity (clothing is not identity), the outfit, no product.
+
+    `roles` must start with the three canonical references; an `outfit` reference may follow.
+    `correction` names the morphology dimensions a judged drift changed (one pass only)."""
+    roles = list(roles)
+    if tuple(roles[:3]) != IDENTITY_ANCHOR_ROLES:
+        raise PromptBuildRefused("the identity anchor starts with the three canonical "
+                                 "references, in order")
+    if any(r not in IDENTITY_ANCHOR_ROLES + ("outfit",) for r in roles):
+        raise PromptBuildRefused("the identity anchor carries no product or other reference")
+    pos = {r: i + 1 for i, r in enumerate(roles)}
+    outfit = dict(outfit or {})
+    text_outfit = _outfit_text(outfit) or (f"the outfit in {_img(pos['outfit'])}"
+                                           if "outfit" in pos else "")
+    if not text_outfit:
+        raise PromptBuildRefused("a Laura image needs the listing's complete outfit")
+    from ..visual.wardrobe import REFERENCE_CLOTHING_NEGATIVES
+
+    labels = {"laura_face": "canonical Laura face (neutral portrait)",
+              "laura_torso": "canonical Laura torso and bust",
+              "laura_body": "canonical Laura full body", "outfit": "the outfit"}
+    texts = [REFERENCES.render(reference_map="; ".join(
+        f"{_img(i + 1)} = {labels[r]}" for i, r in enumerate(roles))),
+        IDENTITY.render(face=_img(pos["laura_face"]), torso=_img(pos["laura_torso"]),
+                        body=_img(pos["laura_body"]), outfit=text_outfit),
+        REFERENCE_CLOTHING.render(negatives="; ".join(REFERENCE_CLOTHING_NEGATIVES))]
+    used = [REFERENCES, IDENTITY, REFERENCE_CLOTHING]
+    if correction:
+        texts.append(PROPORTION_CORRECTION.render(
+            drifted=", ".join(correction), torso=_img(pos["laura_torso"]),
+            body=_img(pos["laura_body"])))
+        used.append(PROPORTION_CORRECTION)
+    texts.append(IDENTITY_ANCHOR.render(outfit=text_outfit))
+    used.append(IDENTITY_ANCHOR)
+    texts.append(DISCLOSURE.render(disclosure=disclosure, restrictions=restrictions))
+    used.append(DISCLOSURE)
+    return BuiltPrompt(text="\n".join(t.strip() for t in texts),
+                       sections=tuple({"ref": p.ref, "sha256": p.sha256} for p in used),
+                       inputs={"roles": tuple(roles), "role": "laura_identity_anchor",
+                               "correction": tuple(correction)})

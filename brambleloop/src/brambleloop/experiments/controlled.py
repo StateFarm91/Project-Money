@@ -174,11 +174,13 @@ def load(definition_id: str) -> dict:
     return {"definition": defn, "sha256": hashlib.sha256(raw).hexdigest(), "dir": d}
 
 
-def verify(loaded: dict) -> dict:
+def verify(loaded: dict, db=None) -> dict:
     """Every reference and the prompt, by sha256, in order. Nothing is spent here."""
     from ..visual import canonical
 
     defn, d = loaded["definition"], loaded["dir"]
+    if defn.get("kind") == "pipeline":
+        return verify_pipeline(loaded, db)
     problems, refs = [], []
     for want in sorted(defn.get("references") or [], key=lambda r: r["position"]):
         if want.get("canonical_frame"):
@@ -204,6 +206,99 @@ def verify(loaded: dict) -> dict:
         if not defn.get(k):
             problems.append(f"definition is missing {k}")
     return {"ok": not problems, "problems": problems, "references": refs, "prompt": text}
+
+
+def verify_pipeline(loaded: dict, db=None) -> dict:
+    """A pipeline definition (W-VISNEXT2): the inputs the orchestrator will generate from are
+    frozen as fingerprints and checked before any spend. The canonical Laura bytes, the prompt
+    builder and every prompt section's sha256 are checked always. With a database, the product
+    must be certified at exactly the frozen content hash, and its pattern references must
+    re-render to exactly the frozen fingerprints."""
+    from ..creative import flux_prompt as FP
+    from ..visual import canonical
+
+    defn = loaded["definition"]
+    pipe = defn.get("pipeline") or {}
+    problems = []
+    for want in pipe.get("canonical_laura") or []:
+        frames = [f for f, h in canonical.CURRENT_REFERENCE_HASHES.items() if h == want]
+        path = canonical.reference_file(frames[0]) if frames else ""
+        got = hashlib.sha256(Path(path).read_bytes()).hexdigest() if path else ""
+        if got != want:
+            problems.append(f"canonical Laura {want[:12]}: not the frozen bytes")
+    if len(pipe.get("canonical_laura") or []) != 3:
+        problems.append("the three canonical Laura fingerprints are not all frozen")
+    if pipe.get("prompt_builder") != FP.BUILDER_VERSION:
+        problems.append(f"prompt builder {FP.BUILDER_VERSION} is not the frozen "
+                        f"{pipe.get('prompt_builder')}")
+    live = {p.ref: p.sha256 for p in (FP.REFERENCES, FP.IDENTITY, FP.REFERENCE_CLOTHING,
+                                       FP.PRODUCT, FP.NEGATIVES, FP.SCENE, FP.REALISM,
+                                       FP.DISCLOSURE, FP.IDENTITY_ANCHOR,
+                                       FP.PROPORTION_CORRECTION)}
+    for ref, sha in (pipe.get("prompt_sections") or {}).items():
+        if live.get(ref) != sha:
+            problems.append(f"prompt section {ref}: drift from the frozen sha256")
+    refs = []
+    if db is not None:
+        from ..creative import pattern_refs as P
+        from ..publish.release_gates import _release
+
+        product = defn.get("product") or {}
+        try:
+            cir, release_hash = _release(db, product.get("slug", ""), product.get("version", ""))
+        except Exception as exc:  # noqa: BLE001 - unreadable is refused
+            cir, release_hash = None, None
+            problems.append(f"certified release unreadable ({type(exc).__name__})")
+        if cir is None:
+            problems.append(f"{product.get('slug')}@{product.get('version')} has no certified "
+                            f"release here")
+        elif release_hash != product.get("cir_hash"):
+            problems.append(f"the certified release {str(release_hash)[:12]} is not the frozen "
+                            f"{str(product.get('cir_hash'))[:12]}")
+        else:
+            import tempfile
+
+            with tempfile.TemporaryDirectory(prefix="experiment-") as tmp:
+                m = P.build(cir, release_hash=release_hash, out_dir=tmp)
+            got = [(r["role"], r["sha256"]) for r in m["references"]]
+            want = [(r["role"], r["sha256"]) for r in pipe.get("pattern_references") or []]
+            if got != want:
+                problems.append("pattern references do not re-render to the frozen "
+                                "fingerprints")
+            refs = [{"position": i + 1, "role": r, "sha256": h} for i, (r, h) in enumerate(got)]
+    for k in ("generation_cap_cad", "vision_cap_cad", "model", "size"):
+        if not defn.get(k):
+            problems.append(f"definition is missing {k}")
+    return {"ok": not problems, "problems": problems, "references": refs, "prompt": "",
+            "pipeline": True, "release_checked": db is not None}
+
+
+def cap_group(definition_id: str) -> set[str]:
+    """The definitions whose spend counts against one shared cap (`shares_cap_with`, either
+    direction). A shared cap is counted once across the group, never once per member."""
+    group = {definition_id}
+    for did in definition_ids():
+        try:
+            other = load(did)["definition"]
+        except ControlledRefused:
+            continue
+        shares = set(other.get("shares_cap_with") or [])
+        if did == definition_id:
+            group |= shares
+        elif definition_id in shares:
+            group.add(did)
+    return group
+
+
+def _group_spent(db, definition_id: str) -> tuple[float, float]:
+    from sqlalchemy import func, select
+
+    ensure_tables(db)
+    with db.session() as s:
+        g, v = s.execute(select(func.coalesce(func.sum(ControlledRun.generation_spent_cad), 0.0),
+                                func.coalesce(func.sum(ControlledRun.vision_spent_cad), 0.0))
+                         .where(ControlledRun.definition_id.in_(cap_group(definition_id)))).one()
+    return float(g or 0.0), float(v or 0.0)
 
 
 # ---- authorization --------------------------------------------------------------------------
@@ -400,7 +495,7 @@ def _update(db, run_id: int, **fields) -> None:
 
 
 def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=None,
-            cir_loader=None) -> dict:
+            cir_loader=None, enqueue=None) -> dict:
     """One controlled run. Verifies, then spends within both caps, then judges."""
     from ..core import workspace
     from ..core.artifacts import ArtifactStore
@@ -431,10 +526,12 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
     auth = authorization(db, def_id, loaded["sha256"])
     if auth is None or auth["auth_id"] != auth_id:
         return refuse("the authorization was revoked or replaced; nothing was spent")
-    v = verify(loaded)
+    v = verify(loaded, db)
     if not v["ok"]:
         return refuse("input drift, refused before any spend: " + "; ".join(v["problems"]))
     defn = loaded["definition"]
+    if defn.get("kind") == "pipeline":
+        return _start_pipeline(db, run_id, defn, v, enqueue=enqueue, job_id=job_id)
     refs = [r["path"] for r in v["references"]]
     model, size = defn["model"], defn["size"]
     price = _price_cad(model, size)
@@ -447,7 +544,7 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
     e = env if env is not None else os.environ
     with workspace.work_dir(None, prefix="experiment-") as work:
         for attempt in range(1, max_attempts + 1):
-            gen_spent, _ = _spent(db, auth_id)
+            gen_spent, _ = _group_spent(db, def_id)
             if gen_spent + price > float(auth["generation_cap_cad"]) + 1e-9:
                 log.append({"attempt": attempt, "sent": False,
                             "why": f"generation cap CA${auth['generation_cap_cad']:.2f} would "
@@ -511,7 +608,7 @@ def _verify_image(db, data: bytes, defn: dict, auth: dict, run_id: int, *, visio
     from ..visual import fidelity as F
     from ..visual import vision_judges as VJ
 
-    _, vis_spent = _spent(db, auth["auth_id"])
+    _, vis_spent = _group_spent(db, auth["definition_id"])
     inner = vision if vision is not None else F.GatewayVisionJudge(db)
     judge = CappedVision(inner, cap_cad=float(auth["vision_cap_cad"]), spent_cad=vis_spent)
     product = defn.get("product") or {}
@@ -562,6 +659,103 @@ def _engineered(slug: str):
     from ..runtime.pipeline import _engineered_cir
 
     return _engineered_cir(slug)
+
+
+# ---- pipeline runs (W-VISNEXT2) ---------------------------------------------------------------
+
+def pipeline_ns(run_id: int) -> str:
+    return f"exp{int(run_id)}"
+
+
+def _start_pipeline(db, run_id: int, defn: dict, v: dict, *, enqueue, job_id) -> dict:
+    """Start the orchestrator on the certified release under this run's namespace. The
+    orchestrator then spends only through `guard_generation`, inside the shared cap."""
+    from ..visual import image_production as IP
+
+    if enqueue is None:
+        _update(db, run_id, status="refused", why="no queue to start the pipeline on")
+        return {"ran": False, "refused": True, "why": "no queue", "run_id": run_id}
+    p = defn["product"]
+    _update(db, run_id, status="running", job_id=job_id, references=v["references"])
+    got = IP.trigger(enqueue, slug=p["slug"], version=p["version"], release=p["cir_hash"],
+                     ns=pipeline_ns(run_id), controlled_run_id=run_id)
+    _update(db, run_id, receipt={"pipeline": True, "ip_run_key": got.get("run_key"),
+                                 "images": []})
+    return {"ran": True, "pipeline": True, "run_id": run_id, "ip_run_key": got.get("run_key"),
+            "status": "running"}
+
+
+def require_pipeline_run(db, run_id, *, ns: str, slug: str, version: str, release: str) -> dict:
+    """The orchestrator refuses a namespaced stage unless it belongs to a live, authorised
+    pipeline run for exactly this product and release."""
+    from ..visual import experiment as XP
+
+    r = get_run(db, run_id) if run_id else None
+    if r is None or ns != pipeline_ns(run_id):
+        raise XP.ExperimentRefused("a controlled stage names no controlled run of its own")
+    loaded = load(r["definition_id"])
+    defn = loaded["definition"]
+    p = defn.get("product") or {}
+    if defn.get("kind") != "pipeline" or (p.get("slug"), p.get("version"), p.get("cir_hash")) \
+            != (slug, version, release):
+        raise XP.ExperimentRefused("the controlled run is not for this product release")
+    if r["status"] not in ("running", "completed"):
+        raise XP.ExperimentRefused(f"the controlled run is {r['status']}")
+    auth = authorization(db, r["definition_id"], loaded["sha256"])
+    if auth is None or auth["auth_id"] != r["auth_id"]:
+        raise XP.ExperimentRefused("the authorization was revoked or replaced")
+    return {"run": r, "auth": auth, "definition": defn}
+
+
+def guard_generation(db, run_id: int, price_cad: float) -> None:
+    """Before a pipeline generation: the shared cap must hold the price; it is reserved."""
+    from ..visual.image_production import BudgetStop, CapabilityBlocked
+
+    r = get_run(db, run_id)
+    if r is None or r["status"] != "running":
+        raise CapabilityBlocked("the controlled run is not running; nothing is sent")
+    loaded = load(r["definition_id"])
+    auth = authorization(db, r["definition_id"], loaded["sha256"])
+    if auth is None or auth["auth_id"] != r["auth_id"]:
+        raise CapabilityBlocked("the owner authorization was revoked or replaced")
+    gen, _ = _group_spent(db, r["definition_id"])
+    if gen + float(price_cad) > float(auth["generation_cap_cad"]) + 1e-9:
+        raise BudgetStop(f"shared generation cap CA${auth['generation_cap_cad']:.2f} would be "
+                         f"exceeded (spent CA${gen:.4f} across {sorted(cap_group(r['definition_id']))}"
+                         f", next CA${float(price_cad):.4f})")
+    _update(db, run_id, generation_spent_cad=float(r["generation_spent_cad"]) + float(price_cad),
+            attempts=int(r["attempts"] or 0) + 1)
+
+
+def record_generation(db, run_id: int, *, reserved_cad: float, actual_cad, sha256: str | None):
+    """After a pipeline generation: bill the actual (the reservation if unknown) and mark the
+    bytes as an experiment image, before anything evaluates them."""
+    r = get_run(db, run_id)
+    actual = float(reserved_cad if actual_cad is None else actual_cad)
+    receipt = dict(r["receipt"] or {})
+    if sha256:
+        receipt["images"] = list(receipt.get("images") or []) + [sha256]
+    _update(db, run_id, generation_spent_cad=max(0.0, float(r["generation_spent_cad"])
+                                                 - float(reserved_cad) + actual),
+            receipt=receipt)
+
+
+def sync_pipeline(db, run_id: int, ip_key: str) -> None:
+    """Mirror the orchestrator's end state onto the controlled run."""
+    from ..visual import image_production as IP
+
+    ip = IP.get_run(db, ip_key)
+    if not ip or ip["state"] not in ("ready_for_owner_review", "blocked"):
+        return
+    r = get_run(db, run_id)
+    receipt = {**dict(r["receipt"] or {}), "ip_state": ip["status"]}
+    card = IP.gallery_card(db, ip_key) or {}
+    tech = ((card.get("decisions") or {}).get("technical_certification") or {}).get("state")
+    _update(db, run_id, status="completed", receipt=receipt,
+            why=str(ip.get("blocked_reason") or "")[:2000],
+            verification={"summary": tech or "UNKNOWN", "ip_run_key": ip_key,
+                          "unknown": sorted({u for f in card.get("frames") or []
+                                             for u in f.get("unknown") or []})})
 
 
 # ---- reading it back ------------------------------------------------------------------------
@@ -638,6 +832,26 @@ def card(db, run_id: int) -> dict | None:
                     "revoked": a.revoked}
     ver = r["verification"] or {}
     blockers = [XP.LABEL, "controlled experiment output: never publishable"]
+    ip_key = (r["receipt"] or {}).get("ip_run_key")
+    if defn.get("kind") == "pipeline" and ip_key:
+        from ..visual import image_production as IP
+
+        base = IP.gallery_card(db, ip_key) or {}
+        dec = dict(base.get("decisions") or {})
+        dec["publication_authorization"] = {"state": "not_available", "blockers": blockers,
+                                            "requires": "not available for experiments",
+                                            "what": "experiments never publish"}
+        return {**base, "experiment": True, "label": XP.LABEL, "banner": XP.LABEL,
+                "run_id": r["run_id"], "definition_id": r["definition_id"],
+                "definition_sha256": r["definition_sha256"], "authorization": auth,
+                "references_in_order": r["references"], "receipt": r["receipt"],
+                "verification": ver, "decisions": dec,
+                "costs": {"generation_spent_cad": r["generation_spent_cad"],
+                          "generation_cap_cad": (auth or {}).get("generation_cap_cad"),
+                          "shared_with": sorted(cap_group(r["definition_id"]) -
+                                                {r["definition_id"]}),
+                          "vision_spent_cad": r["vision_spent_cad"],
+                          "vision_cap_cad": (auth or {}).get("vision_cap_cad")}}
     if not (defn.get("product") or {}).get("certified"):
         blockers.append("the product is uncertified")
     img = (f"/api/cc/experiments/runs/{r['run_id']}/image" if r["image_sha256"] else None)
