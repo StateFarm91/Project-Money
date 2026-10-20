@@ -288,6 +288,46 @@ def name_evidence(nodes: list[dict]) -> dict:
             "pattern_node_children": pattern_children[:NAME_EVIDENCE_MAX]}
 
 
+def property_candidates(nodes: list[dict]) -> list[dict]:
+    """W4-FIRSTSALE: the nodes (and their ancestors up to the pattern root) the chooser
+    lands on for any catalogue category when crochet is not a node. Bounded."""
+    from ..commerce import category as cat
+
+    snap = {"nodes": nodes, "properties": {}}
+    by_id = {n["id"]: n for n in nodes}
+    seen: dict[int, dict] = {}
+    for c in sorted(cat.CATEGORY_NODE_TERMS):
+        node, mode, _ = cat.candidate_node(snap, c)
+        if node is None or mode != cat.MODE_PROPERTY:
+            continue
+        root, _ = cat.pattern_root(snap)
+        ids = node["path_ids"]
+        start = ids.index(root["id"]) if root and root["id"] in ids else len(ids) - 1
+        for nid in ids[start:]:
+            if nid in by_id:
+                seen.setdefault(nid, by_id[nid])
+    return sorted(seen.values(), key=lambda n: (len(n["path_ids"]), n["id"]))[:MAX_PROPERTY_READS]
+
+
+# The categories the Launch-0 products are listed under, reported on every refresh.
+REPORTED_CATEGORIES = ("basket", "blanket", "baby", "coaster", "ornament", "placemat",
+                       "mosaic_blanket", "graphghan")
+
+
+def category_choices(snapshot: dict) -> dict:
+    """What the chooser decides from this read, per reported category -- ids and paths are
+    Etsy's own, from the snapshot; status UNKNOWN carries the reason."""
+    from ..commerce import category as cat
+
+    out = {}
+    for c in REPORTED_CATEGORIES:
+        ch = cat.choose(snapshot, c)
+        out[c] = {"status": ch.status, "taxonomy_id": ch.taxonomy_id,
+                  "path_ids": ch.path_ids, "path_names": ch.path_names,
+                  "crochet_basis": ch.crochet_basis, "why": ch.why[:240]}
+    return out
+
+
 def fingerprint(nodes: list[dict], properties: dict) -> str:
     blob = json.dumps({"nodes": nodes, "properties": properties}, sort_keys=True,
                       default=str).encode("utf-8")
@@ -383,9 +423,14 @@ def refresh(db, *, now: datetime | None = None) -> dict:
     calls += 1
     nodes = flatten(results)
     subtree = pattern_subtree(nodes)
+    # W4-FIRSTSALE (B2): no node's path names crochet, so the technique may be a property.
+    # The nodes the chooser would land on, by names alone, are the ones whose schema is read,
+    # so `commerce.category.choose` can confirm "Crochet" from Etsy's own values.
+    candidates = [] if subtree else property_candidates(nodes)
+    to_read = subtree or candidates
     properties: dict[str, list] = {}
     truncated = False
-    for n in subtree:
+    for n in to_read:
         if calls - 1 >= MAX_PROPERTY_READS:
             truncated = True
             break
@@ -419,13 +464,21 @@ def refresh(db, *, now: datetime | None = None) -> dict:
             s.add(row)
             s.flush()
             sid, written = row.id, True
+    snap = {"id": sid, "nodes": nodes, "properties": properties}
     return {"ran": True, "reading": "measured", "network_calls": calls, "gate": g,
             "snapshot_id": sid, "new_snapshot": written, "nodes": len(nodes),
             "pattern_subtree": len(subtree), "properties_read": len(properties),
             "truncated": truncated,
             "name_evidence": name_evidence(nodes) if not subtree else None,
+            "property_candidates": [{"id": n["id"], "path": " > ".join(n["path_names"])}
+                                    for n in candidates][:NAME_EVIDENCE_MAX],
+            "category_choices": category_choices(snap),
             "why": ("read Etsy's taxonomy and the crochet-pattern subtree's property schemas"
                     if subtree else
+                    ("read Etsy's taxonomy; no node is named both pattern and crochet, so the "
+                     f"schemas of {len(candidates)} pattern node(s) were read to confirm "
+                     "crochet by property; a category without that confirmation stays UNKNOWN")
+                    if candidates else
                     "read Etsy's taxonomy; no node is named both pattern and crochet, so "
                     "every category stays UNKNOWN")}
 

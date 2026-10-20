@@ -128,8 +128,46 @@ export function finishLineCard(env, result) {
     sourcesList(env.sources));
 }
 
+// W4-FIRSTSALE: every gate between a Launch-0 product and its first paid download, per product
+// and shop-wide, with evidence and who acts. Read-only; UNKNOWN is never shown as passing.
+export function firstSaleCard(settled) {
+  const title = "First-sale readiness";
+  if (!settled || settled.status === "rejected") {
+    const msg = settled && settled.reason && settled.reason.message ? settled.reason.message : "not loaded";
+    return card({ title, labelId: "completion-first-sale", actions: statusPill("UNKNOWN") },
+      h("p", { class: "callout callout-warn" }, `Unknown: the first-sale view could not be loaded (${msg}).`));
+  }
+  const r = settled.value;
+  const env = sectionsOf(r.data || {}).first_sale || {};
+  const status = String(env.status || "UNKNOWN").toUpperCase();
+  const items = Array.isArray(env.items) ? env.items : [];
+  const shop = Array.isArray(env.shop) ? env.shop : [];
+  const owner = Array.isArray(env.owner_actions) ? env.owner_actions : [];
+  const gateLi = (g) => h("li", { class: "row" },
+    h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${txt(g.gate)}${g.blocker ? ` (${g.blocker})` : ""}`),
+      statusPill(g.status || "UNKNOWN", txt(g.state))),
+    h("p", { class: "row-detail" }, txt(g.why)),
+    h("dl", { class: "facts" }, fact("Evidence", txt(g.evidence)),
+      fact("Who acts", g.state === "PASS" ? "nobody" : txt(g.who_acts)),
+      g.action ? fact("Next", g.action) : null));
+  return card({ title, labelId: "completion-first-sale", subtitle: "Every gate to a first paid download, read from state", actions: statusPill(status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, { stale: r.stale, fetchedAt: r.fetchedAt }), ...basisNote(env.basis, status)),
+    env.reason ? h("p", { class: ["callout", status === "OK" ? "callout-info" : "callout-warn"] }, env.reason) : null,
+    h("h3", { class: "section-title" }, "Shop-wide"),
+    shop.length ? h("ul", { class: "rows" }, shop.map(gateLi)) : h("p", { class: "muted" }, "Unknown: no shop-wide gate was read."),
+    h("h3", { class: "section-title" }, "Per product"),
+    items.length ? h("ul", { class: "rows" }, items.map((it) => h("li", { class: "row" },
+      h("details", null, h("summary", null, `${txt(it.title)} `, statusPill(it.status || "UNKNOWN"),
+        ` who acts: ${(it.who_acts || []).join(", ") || "nobody"}`),
+        h("ul", { class: "rows" }, (it.gates || []).map(gateLi))))))
+      : h("p", { class: "muted" }, "Unknown: no product was listed."),
+    h("h3", { class: "section-title" }, "Owner actions"),
+    owner.length ? h("ul", null, owner.map((a) => h("li", null, a))) : h("p", { class: "muted" }, "None read."),
+    sourcesList(env.sources));
+}
+
 export async function render() {
-  const [res, pk] = await Promise.allSettled([api.completion(), api.launchPacket()]);
+  const [res, pk, fs] = await Promise.allSettled([api.completion(), api.launchPacket(), api.firstSale()]);
   if (res.status === "rejected") throw res.reason;
   const result = res.value;
   const data = result.data || {};
@@ -156,6 +194,7 @@ export async function render() {
     finishLineCard(sectionsOf(data).finish_line, result),
     liveWorkCard(sectionsOf(data).live_work, result),
     packetCard(pk),
+    firstSaleCard(fs),
     card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),
       sourcesList(env.sources)));

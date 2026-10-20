@@ -626,7 +626,8 @@ def check_etsy_remote_state() -> Check:
                  "publish.listing_schema.gaps, empty")
 
 
-def check_fulfilment_and_download(store=None) -> Check:
+def check_fulfilment_and_download(store=None, *, db=None, slug: str | None = None,
+                                  version: str | None = None) -> Check:
     """Whether the file the customer paid for survives long enough to reach them.
 
     The artifact store announces its own ephemerality -- `ArtifactStore.durable` is False in a
@@ -637,6 +638,21 @@ def check_fulfilment_and_download(store=None) -> Check:
     from ..core.artifacts import ArtifactStore
 
     store = store or ArtifactStore()
+    if getattr(store, "durable", False):
+        return Check("fulfilment_and_download", PASS,
+                     "the artifact store is durable, so a paid download outlives a redeploy",
+                     "core.artifacts.ArtifactStore.durable")
+    # W4-FIRSTSALE (B5): the store's disk is ephemeral, but a release whose certified PDFs are
+    # held in Postgres (durable_artifacts, read back and re-hashed) survives a redeploy, and a
+    # missing one is re-rendered only if byte-identical (`commerce.deliverables`).
+    if db is not None and slug:
+        from ..commerce import deliverables
+
+        st = deliverables.durable_state(db, slug, version or "")
+        state = {deliverables.PASS: PASS, deliverables.FAIL: FAIL}.get(st["state"],
+                                                                         UNVERIFIABLE)
+        return Check("fulfilment_and_download", state, st["why"],
+                     "commerce.deliverables.durable_state (durable_artifacts, re-hashed)")
     if not getattr(store, "durable", False):
         return Check("fulfilment_and_download", FAIL,
                      "the artifact store is not durable: the rendered PDF lives on a container "
@@ -751,7 +767,8 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         checks.append(check_listing_claims(cir, twin, listing, physically_evidenced=evidenced))
         checks.append(check_imagery(cir, twin, frames, disclosed))
         checks.append(check_etsy_remote_state())
-        checks.append(check_fulfilment_and_download(store))
+        checks.append(check_fulfilment_and_download(store, db=db, slug=cir.slug,
+                                                    version=version or cir.version))
         return ProductGate(cir.slug, tuple(checks))
 
     return ProductGate(cir.slug, (
@@ -762,7 +779,8 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         check_listing_claims(cir, twin, listing, physically_evidenced=evidenced),
         check_imagery(cir, twin, frames, disclosed),
         check_etsy_remote_state(),
-        check_fulfilment_and_download(store),
+        check_fulfilment_and_download(store, db=db, slug=cir.slug,
+                                      version=version or cir.version),
         check_licence_and_safety_statements(cir, docs, assignment),
     ))
 

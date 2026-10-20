@@ -1,0 +1,3526 @@
+{
+ "chain_seconds": 595.0,
+ "releases": {
+  "market-basket-small@1.2.0": {
+   "candidate": "nursery-nesting-baskets",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "612a5215d6108050758b4c7ab4947c53e282e496c669bcd3ab7ef0a7752644cc",
+     "US": "713b31901861ef97a330c5e8d0756569b48301378eb2b4e2f9c56c67514a3d79"
+    },
+    "why": "both certified PDFs of market-basket-small@1.2.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770001,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660001,
+      "listing_id": 880001,
+      "release": "market-basket-small@1.2.0",
+      "terminology": "US",
+      "href": "deliverable:market-basket-small@1.2.0/US",
+      "state": "PASS",
+      "certified_sha256": "713b31901861ef97a330c5e8d0756569b48301378eb2b4e2f9c56c67514a3d79",
+      "served_sha256": "713b31901861ef97a330c5e8d0756569b48301378eb2b4e2f9c56c67514a3d79",
+      "bytes": 380817,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660001,
+      "listing_id": 880001,
+      "release": "market-basket-small@1.2.0",
+      "terminology": "UK",
+      "href": "deliverable:market-basket-small@1.2.0/UK",
+      "state": "PASS",
+      "certified_sha256": "612a5215d6108050758b4c7ab4947c53e282e496c669bcd3ab7ef0a7752644cc",
+      "served_sha256": "612a5215d6108050758b4c7ab4947c53e282e496c669bcd3ab7ef0a7752644cc",
+      "bytes": 380825,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "612a5215d6108050758b4c7ab4947c53e282e496c669bcd3ab7ef0a7752644cc",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "713b31901861ef97a330c5e8d0756569b48301378eb2b4e2f9c56c67514a3d79",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "market-basket-small-frame-1.png",
+      "bytes": 85236,
+      "sha256": "6bccea33b5cdd9048635fa0f4c336882aa9bfc1fd07cdc275ae01717ccb6ab43",
+      "alt_text_chars": 234,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "market-basket-small-frame-2.png",
+      "bytes": 32151,
+      "sha256": "ac09460499ab496a340d26233a0ff4a7eb4bf4c2d45c0b55dff375f4763e3607",
+      "alt_text_chars": 229,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "market-basket-small-frame-3.png",
+      "bytes": 95173,
+      "sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+      "alt_text_chars": 250,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "market-basket-small-frame-4.png",
+      "bytes": 101528,
+      "sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+      "alt_text_chars": 156,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "market-basket-small-frame-5.png",
+      "bytes": 25335,
+      "sha256": "cf85fb5082d92811338fa58bfddd38482dda22e74fcc5e2a9b23ddf3b95cca06",
+      "alt_text_chars": 174,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "market-basket-small-frame-6.png",
+      "bytes": 29678,
+      "sha256": "803bac30b009323b1075f6fa1512ec00e3a866aa46eff15739c6a96443919f9f",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 7,
+      "filename": "market-basket-small-frame-7.png",
+      "bytes": 25690,
+      "sha256": "32b4578da899bb0219b6be91cab2066c0815e6f7db87b06dbaf3a447724a2a40",
+      "alt_text_chars": 167,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 8,
+      "filename": "market-basket-small-frame-8.png",
+      "bytes": 27995,
+      "sha256": "31b76a7c61f628bbf4bbb54c31bf2a26dfaa2b93c15024c912876823b36a342c",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 9,
+      "filename": "market-basket-small-frame-9.png",
+      "bytes": 201101,
+      "sha256": "24ec061c6d8cfa71ac0dfaf0cc2ca08d66f5f5d494b46d681849e18d7cee6fed",
+      "alt_text_chars": 134,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "market-basket-medium@1.2.0": {
+   "candidate": "nursery-nesting-baskets",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "04cab43d7a56e371f0e376ed4250a96a4a817b794be3f7a4622bc058853585f9",
+     "US": "77f30d8f545a19a2fb6c02090a026020321a48e9a81c19e6d89f98aee0161068"
+    },
+    "why": "both certified PDFs of market-basket-medium@1.2.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770002,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660002,
+      "listing_id": 880002,
+      "release": "market-basket-medium@1.2.0",
+      "terminology": "US",
+      "href": "deliverable:market-basket-medium@1.2.0/US",
+      "state": "PASS",
+      "certified_sha256": "77f30d8f545a19a2fb6c02090a026020321a48e9a81c19e6d89f98aee0161068",
+      "served_sha256": "77f30d8f545a19a2fb6c02090a026020321a48e9a81c19e6d89f98aee0161068",
+      "bytes": 388610,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660002,
+      "listing_id": 880002,
+      "release": "market-basket-medium@1.2.0",
+      "terminology": "UK",
+      "href": "deliverable:market-basket-medium@1.2.0/UK",
+      "state": "PASS",
+      "certified_sha256": "04cab43d7a56e371f0e376ed4250a96a4a817b794be3f7a4622bc058853585f9",
+      "served_sha256": "04cab43d7a56e371f0e376ed4250a96a4a817b794be3f7a4622bc058853585f9",
+      "bytes": 388624,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "04cab43d7a56e371f0e376ed4250a96a4a817b794be3f7a4622bc058853585f9",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "77f30d8f545a19a2fb6c02090a026020321a48e9a81c19e6d89f98aee0161068",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "market-basket-medium-frame-1.png",
+      "bytes": 93844,
+      "sha256": "a0011d65108949e36e4a78798aa67cda81c8b82034bebd117fe0f0f7bcc480f0",
+      "alt_text_chars": 239,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "market-basket-medium-frame-2.png",
+      "bytes": 38148,
+      "sha256": "62cfddf43acd13c0b017cf9444508b7e3e07982a9ace49697e7f4a3dc6ec0530",
+      "alt_text_chars": 234,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "market-basket-medium-frame-3.png",
+      "bytes": 109053,
+      "sha256": "ce682d56be8797a7cef916e15336217d4f9e8d780a7e5e04fc1d6acbeba2e084",
+      "alt_text_chars": 226,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "market-basket-medium-frame-4.png",
+      "bytes": 108422,
+      "sha256": "60c7f1eb6ab62d753378da443988bd639e940de2a94cefdfddc26299e7eb3a81",
+      "alt_text_chars": 156,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "market-basket-medium-frame-5.png",
+      "bytes": 25788,
+      "sha256": "201f73339302aec51ad1b50add55afc858f1fe495ca2c696f97f95768576a395",
+      "alt_text_chars": 174,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "market-basket-medium-frame-6.png",
+      "bytes": 30116,
+      "sha256": "aac44c63b864e809c8ef5af09e95dcdd4907a19f2191a5c96a543e56cfc0ea5b",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 7,
+      "filename": "market-basket-medium-frame-7.png",
+      "bytes": 27995,
+      "sha256": "31b76a7c61f628bbf4bbb54c31bf2a26dfaa2b93c15024c912876823b36a342c",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 8,
+      "filename": "market-basket-medium-frame-8.png",
+      "bytes": 208172,
+      "sha256": "49d68ceb60333d62003246338b879b03a846e12c2c88218e4ef9c632859f0789",
+      "alt_text_chars": 134,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "market-basket-large@1.2.0": {
+   "candidate": "nursery-nesting-baskets",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "b7cc9c0cb9056f90f2b5de812ee9cf903bb7290aab895722c9c39db981504502",
+     "US": "027d57810d1a7d232ae68cc584ae8c30d3fb289834b5a429f28746b7f9caec3c"
+    },
+    "why": "both certified PDFs of market-basket-large@1.2.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770003,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660003,
+      "listing_id": 880003,
+      "release": "market-basket-large@1.2.0",
+      "terminology": "US",
+      "href": "deliverable:market-basket-large@1.2.0/US",
+      "state": "PASS",
+      "certified_sha256": "027d57810d1a7d232ae68cc584ae8c30d3fb289834b5a429f28746b7f9caec3c",
+      "served_sha256": "027d57810d1a7d232ae68cc584ae8c30d3fb289834b5a429f28746b7f9caec3c",
+      "bytes": 327246,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660003,
+      "listing_id": 880003,
+      "release": "market-basket-large@1.2.0",
+      "terminology": "UK",
+      "href": "deliverable:market-basket-large@1.2.0/UK",
+      "state": "PASS",
+      "certified_sha256": "b7cc9c0cb9056f90f2b5de812ee9cf903bb7290aab895722c9c39db981504502",
+      "served_sha256": "b7cc9c0cb9056f90f2b5de812ee9cf903bb7290aab895722c9c39db981504502",
+      "bytes": 327254,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "b7cc9c0cb9056f90f2b5de812ee9cf903bb7290aab895722c9c39db981504502",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "027d57810d1a7d232ae68cc584ae8c30d3fb289834b5a429f28746b7f9caec3c",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "market-basket-large-frame-1.png",
+      "bytes": 99969,
+      "sha256": "26e190ac5f4e80f744c9a812dbf7c8cae9cde5a3be6850adbb45d55f0b66272c",
+      "alt_text_chars": 238,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "market-basket-large-frame-2.png",
+      "bytes": 43742,
+      "sha256": "c5ec658ea8ed9571883710a6c0edef00ecec0d74a0f2233e0e07335aa35418c2",
+      "alt_text_chars": 233,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "market-basket-large-frame-3.png",
+      "bytes": 121325,
+      "sha256": "22a57252def000229543e01892b6310383cacbc01179926d4f0023a55e34dc46",
+      "alt_text_chars": 225,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "market-basket-large-frame-4.png",
+      "bytes": 114684,
+      "sha256": "e68ebeaeb296be13596b7b1263d4c52ad11cc70b616d1ebada56b0b74b4e9b03",
+      "alt_text_chars": 156,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "market-basket-large-frame-5.png",
+      "bytes": 26090,
+      "sha256": "1716d5c0f82e88acddb26ee8d1e8ba9b4ac16a509b0ad98c129320aced8255de",
+      "alt_text_chars": 174,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "market-basket-large-frame-6.png",
+      "bytes": 29911,
+      "sha256": "eddc7c04d7fae592bdda31fc80afdb786f8b5c7d8502050e9ab2e48e4b1cf073",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 7,
+      "filename": "market-basket-large-frame-7.png",
+      "bytes": 27995,
+      "sha256": "31b76a7c61f628bbf4bbb54c31bf2a26dfaa2b93c15024c912876823b36a342c",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 8,
+      "filename": "market-basket-large-frame-8.png",
+      "bytes": 206907,
+      "sha256": "0ad854c7996fea89473e5c995f07d2331fece204083e180e14f1de3a9b0554dc",
+      "alt_text_chars": 134,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "cloudline-baby-blanket@1.2.0": {
+   "candidate": "cloudline-baby-blanket",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "085ca84c441d97ba2821b95df935fd21b7cb6ee752548e9c5c63bd06b0a88fe0",
+     "US": "cbab35f5762f5a9c0743ef2244bddece37d2946a595ac04da5700a37c11cd9f8"
+    },
+    "why": "both certified PDFs of cloudline-baby-blanket@1.2.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770004,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660004,
+      "listing_id": 880004,
+      "release": "cloudline-baby-blanket@1.2.0",
+      "terminology": "US",
+      "href": "deliverable:cloudline-baby-blanket@1.2.0/US",
+      "state": "PASS",
+      "certified_sha256": "cbab35f5762f5a9c0743ef2244bddece37d2946a595ac04da5700a37c11cd9f8",
+      "served_sha256": "cbab35f5762f5a9c0743ef2244bddece37d2946a595ac04da5700a37c11cd9f8",
+      "bytes": 1081010,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660004,
+      "listing_id": 880004,
+      "release": "cloudline-baby-blanket@1.2.0",
+      "terminology": "UK",
+      "href": "deliverable:cloudline-baby-blanket@1.2.0/UK",
+      "state": "PASS",
+      "certified_sha256": "085ca84c441d97ba2821b95df935fd21b7cb6ee752548e9c5c63bd06b0a88fe0",
+      "served_sha256": "085ca84c441d97ba2821b95df935fd21b7cb6ee752548e9c5c63bd06b0a88fe0",
+      "bytes": 1080978,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "085ca84c441d97ba2821b95df935fd21b7cb6ee752548e9c5c63bd06b0a88fe0",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "cbab35f5762f5a9c0743ef2244bddece37d2946a595ac04da5700a37c11cd9f8",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 7,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "cloudline-baby-blanket-frame-1.png",
+      "bytes": 30174,
+      "sha256": "95f59af9b7e0bdeec315a26b4fe9215fc5be398f31fe8864b3f53b0dfcd22fff",
+      "alt_text_chars": 235,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "cloudline-baby-blanket-frame-2.png",
+      "bytes": 38010,
+      "sha256": "657b60386bb18e204dc7bfcc3cb18e8eddedc6ce0de70dcdb82f6e66870d3ae9",
+      "alt_text_chars": 250,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "cloudline-baby-blanket-frame-3.png",
+      "bytes": 38342,
+      "sha256": "b09404963c4a03ba8a7c0f0fd8a1be2856f1fc9c199b7e4ea9c6d2ef339114d7",
+      "alt_text_chars": 238,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "cloudline-baby-blanket-frame-4.png",
+      "bytes": 29645,
+      "sha256": "360845db348b0c4933fba183e7c21699c2bc1bfacd27f959ed0c8d86cbab6d90",
+      "alt_text_chars": 167,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "cloudline-baby-blanket-frame-5.png",
+      "bytes": 28061,
+      "sha256": "0fb1cfb713216d01604ce7940e4c6ae96b454dec4962f88335ecfa11f81f5ef9",
+      "alt_text_chars": 167,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "cloudline-baby-blanket-frame-6.png",
+      "bytes": 212171,
+      "sha256": "867d6da54186add8f48a377f4dda91fcb14a219864066151bf0b5ec38b52ee79",
+      "alt_text_chars": 128,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "hexagon-coaster-set@1.2.0": {
+   "candidate": "hexagon-coaster-set",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "3a3fb23feeb4fdfce3ed05db158c36bb5f7e30d6c829d67bc1b130434d1bbda5",
+     "US": "58d010d2d95af7f2b45b993ed73f5d0697bf4784a9075050b9d51a0986a2581b"
+    },
+    "why": "both certified PDFs of hexagon-coaster-set@1.2.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770005,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660005,
+      "listing_id": 880005,
+      "release": "hexagon-coaster-set@1.2.0",
+      "terminology": "US",
+      "href": "deliverable:hexagon-coaster-set@1.2.0/US",
+      "state": "PASS",
+      "certified_sha256": "58d010d2d95af7f2b45b993ed73f5d0697bf4784a9075050b9d51a0986a2581b",
+      "served_sha256": "58d010d2d95af7f2b45b993ed73f5d0697bf4784a9075050b9d51a0986a2581b",
+      "bytes": 60876,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660005,
+      "listing_id": 880005,
+      "release": "hexagon-coaster-set@1.2.0",
+      "terminology": "UK",
+      "href": "deliverable:hexagon-coaster-set@1.2.0/UK",
+      "state": "PASS",
+      "certified_sha256": "3a3fb23feeb4fdfce3ed05db158c36bb5f7e30d6c829d67bc1b130434d1bbda5",
+      "served_sha256": "3a3fb23feeb4fdfce3ed05db158c36bb5f7e30d6c829d67bc1b130434d1bbda5",
+      "bytes": 60885,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "3a3fb23feeb4fdfce3ed05db158c36bb5f7e30d6c829d67bc1b130434d1bbda5",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "58d010d2d95af7f2b45b993ed73f5d0697bf4784a9075050b9d51a0986a2581b",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "hexagon-coaster-set-frame-1.png",
+      "bytes": 110562,
+      "sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+      "alt_text_chars": 208,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "hexagon-coaster-set-frame-2.png",
+      "bytes": 82442,
+      "sha256": "2a0224e50bd5f112a0bb0ef243c67ca09ea9630c9e4f3cda577c8a5d27dd1870",
+      "alt_text_chars": 219,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "hexagon-coaster-set-frame-3.png",
+      "bytes": 81526,
+      "sha256": "ecba036533fa699d161ffe85f4f1683feb0a03db6850a3d6c238b24d92e76eb5",
+      "alt_text_chars": 225,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "hexagon-coaster-set-frame-4.png",
+      "bytes": 29755,
+      "sha256": "7e79cd42583b391fb22d3f685d40aca4989fe617386956d029d9649ed7214158",
+      "alt_text_chars": 168,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "hexagon-coaster-set-frame-5.png",
+      "bytes": 27440,
+      "sha256": "a6618e00b1dac707b5a252ccd58348162e76a5bf069c738a0ca9d154816b080e",
+      "alt_text_chars": 168,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "hexagon-coaster-set-frame-6.png",
+      "bytes": 169570,
+      "sha256": "38031472a928967e86aad41cd9e3585ca63804cb891734c8b8c40069a5513efe",
+      "alt_text_chars": 129,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "nordic-star-ornaments@1.5.0": {
+   "candidate": "nordic-star-ornaments",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "7d3e879deaff1dd4445426f09b5289b4e22b7074c7edb91d7068b5ad4b1d5f11",
+     "US": "3a1ef30b131832a03527052be6d500f2dd8b16ab731e6414fe1a9bfe962f19f4"
+    },
+    "why": "both certified PDFs of nordic-star-ornaments@1.5.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770006,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660006,
+      "listing_id": 880006,
+      "release": "nordic-star-ornaments@1.5.0",
+      "terminology": "US",
+      "href": "deliverable:nordic-star-ornaments@1.5.0/US",
+      "state": "PASS",
+      "certified_sha256": "3a1ef30b131832a03527052be6d500f2dd8b16ab731e6414fe1a9bfe962f19f4",
+      "served_sha256": "3a1ef30b131832a03527052be6d500f2dd8b16ab731e6414fe1a9bfe962f19f4",
+      "bytes": 47000,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660006,
+      "listing_id": 880006,
+      "release": "nordic-star-ornaments@1.5.0",
+      "terminology": "UK",
+      "href": "deliverable:nordic-star-ornaments@1.5.0/UK",
+      "state": "PASS",
+      "certified_sha256": "7d3e879deaff1dd4445426f09b5289b4e22b7074c7edb91d7068b5ad4b1d5f11",
+      "served_sha256": "7d3e879deaff1dd4445426f09b5289b4e22b7074c7edb91d7068b5ad4b1d5f11",
+      "bytes": 46997,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "7d3e879deaff1dd4445426f09b5289b4e22b7074c7edb91d7068b5ad4b1d5f11",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "3a1ef30b131832a03527052be6d500f2dd8b16ab731e6414fe1a9bfe962f19f4",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 7,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "nordic-star-ornaments-frame-1.png",
+      "bytes": 33201,
+      "sha256": "506a6273d7ac22e63c57b5c4fb7f95e4a0e47b542377553058fede117900c3a2",
+      "alt_text_chars": 240,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "nordic-star-ornaments-frame-2.png",
+      "bytes": 30357,
+      "sha256": "9bc354a9139405bba85fd00bbd7384092d2742f77958896e6a13be8ff2f0e5c3",
+      "alt_text_chars": 224,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "nordic-star-ornaments-frame-3.png",
+      "bytes": 30730,
+      "sha256": "add39bf7b426ebd02ed82225ce677e7fc3692f484e43a834ac51404341c5a19c",
+      "alt_text_chars": 241,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "nordic-star-ornaments-frame-4.png",
+      "bytes": 29225,
+      "sha256": "d324b149a648aa33d06f64061d3555b7731811d4bf5268efa994411014f19e08",
+      "alt_text_chars": 177,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "nordic-star-ornaments-frame-5.png",
+      "bytes": 28261,
+      "sha256": "d1cae743ff3320d9a3dfb41e3493f4ac90a5a867fc9634a0780687ed0497480c",
+      "alt_text_chars": 177,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "nordic-star-ornaments-frame-6.png",
+      "bytes": 187286,
+      "sha256": "24033f38e566ed8ec1d44a9b1c7b96ead60653d366db00a986a64cf930d049bd",
+      "alt_text_chars": 138,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "winter-village-graphghan@1.3.0": {
+   "candidate": "winter-village-graphghan",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "4abb9ede603d3369c2bd0683c8d49fdbb35b0192b494ab29d6b1372b4beaa9c0",
+     "US": "eb30d7fbe01d48f99d048a556c5c3e363f3a3c1b59201a3ab92438c2991375bb"
+    },
+    "why": "both certified PDFs of winter-village-graphghan@1.3.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770007,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660007,
+      "listing_id": 880007,
+      "release": "winter-village-graphghan@1.3.0",
+      "terminology": "US",
+      "href": "deliverable:winter-village-graphghan@1.3.0/US",
+      "state": "PASS",
+      "certified_sha256": "eb30d7fbe01d48f99d048a556c5c3e363f3a3c1b59201a3ab92438c2991375bb",
+      "served_sha256": "eb30d7fbe01d48f99d048a556c5c3e363f3a3c1b59201a3ab92438c2991375bb",
+      "bytes": 45996,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660007,
+      "listing_id": 880007,
+      "release": "winter-village-graphghan@1.3.0",
+      "terminology": "UK",
+      "href": "deliverable:winter-village-graphghan@1.3.0/UK",
+      "state": "PASS",
+      "certified_sha256": "4abb9ede603d3369c2bd0683c8d49fdbb35b0192b494ab29d6b1372b4beaa9c0",
+      "served_sha256": "4abb9ede603d3369c2bd0683c8d49fdbb35b0192b494ab29d6b1372b4beaa9c0",
+      "bytes": 45996,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "4abb9ede603d3369c2bd0683c8d49fdbb35b0192b494ab29d6b1372b4beaa9c0",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "eb30d7fbe01d48f99d048a556c5c3e363f3a3c1b59201a3ab92438c2991375bb",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "winter-village-graphghan-frame-1.png",
+      "bytes": 29818,
+      "sha256": "0d76c06c3339e5a9dce828882ea31fd4b5a353c25c7d9f6c55eb2359061a3184",
+      "alt_text_chars": 235,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "winter-village-graphghan-frame-2.png",
+      "bytes": 35568,
+      "sha256": "99e7a306ff7a68534050d08048980f1d6e0128ad9d55ddb98044cda22967bd66",
+      "alt_text_chars": 250,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "winter-village-graphghan-frame-3.png",
+      "bytes": 39554,
+      "sha256": "72b96cfa491cdf639db2387b64a0f15db4dbab1041968a1cc37140fb053e6c69",
+      "alt_text_chars": 238,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "winter-village-graphghan-frame-4.png",
+      "bytes": 29693,
+      "sha256": "0cb318ed80fb649843387b18de620fae3ef9825b01729add6a3b439c5bade297",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "winter-village-graphghan-frame-5.png",
+      "bytes": 28261,
+      "sha256": "d1cae743ff3320d9a3dfb41e3493f4ac90a5a867fc9634a0780687ed0497480c",
+      "alt_text_chars": 173,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "winter-village-graphghan-frame-6.png",
+      "bytes": 218791,
+      "sha256": "d8aac44293811780a32d60b7794068aa824c23625df39eb3ce0ddc2e9e0247ac",
+      "alt_text_chars": 134,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "nordic-forest-mosaic-throw-baby@1.3.0": {
+   "candidate": "nordic-forest-mosaic-throw-baby",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "b4c802dd2dd0cac754c35e90152ec0474d703c3e42c40b5c49367af5680fb2bf",
+     "US": "49b577353e15488fb287a8f412124d10d74192208d395a97627cb953b1775cd6"
+    },
+    "why": "both certified PDFs of nordic-forest-mosaic-throw-baby@1.3.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770008,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660008,
+      "listing_id": 880008,
+      "release": "nordic-forest-mosaic-throw-baby@1.3.0",
+      "terminology": "US",
+      "href": "deliverable:nordic-forest-mosaic-throw-baby@1.3.0/US",
+      "state": "PASS",
+      "certified_sha256": "49b577353e15488fb287a8f412124d10d74192208d395a97627cb953b1775cd6",
+      "served_sha256": "49b577353e15488fb287a8f412124d10d74192208d395a97627cb953b1775cd6",
+      "bytes": 61070,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660008,
+      "listing_id": 880008,
+      "release": "nordic-forest-mosaic-throw-baby@1.3.0",
+      "terminology": "UK",
+      "href": "deliverable:nordic-forest-mosaic-throw-baby@1.3.0/UK",
+      "state": "PASS",
+      "certified_sha256": "b4c802dd2dd0cac754c35e90152ec0474d703c3e42c40b5c49367af5680fb2bf",
+      "served_sha256": "b4c802dd2dd0cac754c35e90152ec0474d703c3e42c40b5c49367af5680fb2bf",
+      "bytes": 60914,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "b4c802dd2dd0cac754c35e90152ec0474d703c3e42c40b5c49367af5680fb2bf",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "49b577353e15488fb287a8f412124d10d74192208d395a97627cb953b1775cd6",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 7,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-1.png",
+      "bytes": 27433,
+      "sha256": "99e6aa71ba8e16d2a0b176ab9c0392a083079777eb59d7abe8f8d3a0e8101437",
+      "alt_text_chars": 240,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-2.png",
+      "bytes": 32364,
+      "sha256": "49a496b8c28ed6430339f8564330f31486a68a99751a8c575ad89999b3652255",
+      "alt_text_chars": 226,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-3.png",
+      "bytes": 36033,
+      "sha256": "f02cacb1b86d07219c75f7c1dc7d9e61a5087fbe1a4bddf8cb6f6ea8253f035d",
+      "alt_text_chars": 243,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-4.png",
+      "bytes": 29617,
+      "sha256": "668af98783695ecac16cd8b696d9580a025836d4935fc64a20f35d21be366ba2",
+      "alt_text_chars": 178,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-5.png",
+      "bytes": 28261,
+      "sha256": "d1cae743ff3320d9a3dfb41e3493f4ac90a5a867fc9634a0780687ed0497480c",
+      "alt_text_chars": 178,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "nordic-forest-mosaic-throw-baby-frame-6.png",
+      "bytes": 217912,
+      "sha256": "3b42d1ebaaaf7dde98e3498474796e60914e5cf6738f435a785da39c7c859eaf",
+      "alt_text_chars": 139,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "mosaic-placemat-pair@1.4.0": {
+   "candidate": "mosaic-placemat-pair",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "c1c6de816353478c4b8578b92068179de54fe8e8e6c56485341f907369d829fe",
+     "US": "f664415254fe2da3fdf9adcf729328ff26c58eed3dbb8af059443e140d3cf1bc"
+    },
+    "why": "both certified PDFs of mosaic-placemat-pair@1.4.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770009,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660009,
+      "listing_id": 880009,
+      "release": "mosaic-placemat-pair@1.4.0",
+      "terminology": "US",
+      "href": "deliverable:mosaic-placemat-pair@1.4.0/US",
+      "state": "PASS",
+      "certified_sha256": "f664415254fe2da3fdf9adcf729328ff26c58eed3dbb8af059443e140d3cf1bc",
+      "served_sha256": "f664415254fe2da3fdf9adcf729328ff26c58eed3dbb8af059443e140d3cf1bc",
+      "bytes": 49152,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660009,
+      "listing_id": 880009,
+      "release": "mosaic-placemat-pair@1.4.0",
+      "terminology": "UK",
+      "href": "deliverable:mosaic-placemat-pair@1.4.0/UK",
+      "state": "PASS",
+      "certified_sha256": "c1c6de816353478c4b8578b92068179de54fe8e8e6c56485341f907369d829fe",
+      "served_sha256": "c1c6de816353478c4b8578b92068179de54fe8e8e6c56485341f907369d829fe",
+      "bytes": 49155,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "c1c6de816353478c4b8578b92068179de54fe8e8e6c56485341f907369d829fe",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "f664415254fe2da3fdf9adcf729328ff26c58eed3dbb8af059443e140d3cf1bc",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "mosaic-placemat-pair-frame-1.png",
+      "bytes": 44094,
+      "sha256": "87527c5d932113b7951e914c2372e30bad5923e3321f85495666439f9a8e19eb",
+      "alt_text_chars": 242,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "mosaic-placemat-pair-frame-2.png",
+      "bytes": 39232,
+      "sha256": "3db9092bd3a8cb51e80a5301a3350be8fad138648876347a883ad602f29e0547",
+      "alt_text_chars": 227,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "mosaic-placemat-pair-frame-3.png",
+      "bytes": 37148,
+      "sha256": "fa140f6537c0b304f50826abd96c3298919b6ea1026ec3d78b07793f0d94954b",
+      "alt_text_chars": 244,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "mosaic-placemat-pair-frame-4.png",
+      "bytes": 29805,
+      "sha256": "3a1bb46ff9ec87737ef58e55708b5ba71af7f930654f4ba58cdebdd6849cdc7a",
+      "alt_text_chars": 181,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "mosaic-placemat-pair-frame-5.png",
+      "bytes": 28142,
+      "sha256": "063fb7aceadf764c27c951d952f264075cd1f9f6eff2c18e28449b3d2d7e8d6e",
+      "alt_text_chars": 181,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "mosaic-placemat-pair-frame-6.png",
+      "bytes": 201921,
+      "sha256": "6327a49d72edb19b410f9d80f977f205ade5ccdf48b17f4f208980d32b7bfdf0",
+      "alt_text_chars": 142,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  },
+  "housewarming-key-basket@0.1.0": {
+   "candidate": "housewarming-key-basket",
+   "durable_before": {
+    "state": "PASS",
+    "pdfs": {
+     "UK": "f4d179748aa1cba2d50f9590af767ea723772563e1f39526a38f044b650d70d0",
+     "US": "da8f0de4b2dce36052c9c285fbba92ce02e031ce9284e839de81b9f7071433d8"
+    },
+    "why": "both certified PDFs of housewarming-key-basket@0.1.0 are held in Postgres (durable_artifacts) under their sha256"
+   },
+   "purchase": {
+    "receipt_id": 770010,
+    "links": 2,
+    "state": "PASS",
+    "files": [
+     {
+      "transaction_id": 660010,
+      "listing_id": 880010,
+      "release": "housewarming-key-basket@0.1.0",
+      "terminology": "US",
+      "href": "deliverable:housewarming-key-basket@0.1.0/US",
+      "state": "PASS",
+      "certified_sha256": "da8f0de4b2dce36052c9c285fbba92ce02e031ce9284e839de81b9f7071433d8",
+      "served_sha256": "da8f0de4b2dce36052c9c285fbba92ce02e031ce9284e839de81b9f7071433d8",
+      "bytes": 361431,
+      "source": "durable"
+     },
+     {
+      "transaction_id": 660010,
+      "listing_id": 880010,
+      "release": "housewarming-key-basket@0.1.0",
+      "terminology": "UK",
+      "href": "deliverable:housewarming-key-basket@0.1.0/UK",
+      "state": "PASS",
+      "certified_sha256": "f4d179748aa1cba2d50f9590af767ea723772563e1f39526a38f044b650d70d0",
+      "served_sha256": "f4d179748aa1cba2d50f9590af767ea723772563e1f39526a38f044b650d70d0",
+      "bytes": 361433,
+      "source": "durable"
+     }
+    ],
+    "etsy_called": false
+   },
+   "rerender": {
+    "before": "FAIL",
+    "after": "PASS",
+    "pdfs": {
+     "UK": {
+      "sha256": "f4d179748aa1cba2d50f9590af767ea723772563e1f39526a38f044b650d70d0",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     },
+     "US": {
+      "sha256": "da8f0de4b2dce36052c9c285fbba92ce02e031ce9284e839de81b9f7071433d8",
+      "held": true,
+      "source": "re-render (byte-identical to the certified sha256)"
+     }
+    }
+   },
+   "deliverables_restorable": {
+    "step": "deliverables_restorable",
+    "ok": true,
+    "pdf_hashes": 2,
+    "frame_hashes": 6,
+    "missing_on_disk": [],
+    "why": "every PDF and frame a restore would re-serve is on disk or held in Postgres under its recorded hash"
+   },
+   "image_upload": {
+    "state": "PASS",
+    "failures": [],
+    "warnings": [],
+    "images": [
+     {
+      "rank": 1,
+      "filename": "housewarming-key-basket-frame-1.png",
+      "bytes": 85920,
+      "sha256": "014d05ccf84b19d848ac69d0285052d4f31d1756b80e9722e1a362c10a245d35",
+      "alt_text_chars": 230,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 2,
+      "filename": "housewarming-key-basket-frame-2.png",
+      "bytes": 32281,
+      "sha256": "dbb43a368133ddb344c96b6306ca78f963477166d717f3c15bce1eb36acb458a",
+      "alt_text_chars": 225,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 3,
+      "filename": "housewarming-key-basket-frame-3.png",
+      "bytes": 104777,
+      "sha256": "ffd390189a96f81e67cc87435fa74d9ed410b3231a3498edd8be81535d800b46",
+      "alt_text_chars": 246,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 4,
+      "filename": "housewarming-key-basket-frame-4.png",
+      "bytes": 127570,
+      "sha256": "c7d8f557639fd019f94747644132f5f9869c807d3284b338591f124b231a5842",
+      "alt_text_chars": 151,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 5,
+      "filename": "housewarming-key-basket-frame-5.png",
+      "bytes": 25457,
+      "sha256": "643c207b3d1eb12f50adcd3450198a5940fa82c675b0cd7227238fd9ee94d8a4",
+      "alt_text_chars": 169,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 6,
+      "filename": "housewarming-key-basket-frame-6.png",
+      "bytes": 29894,
+      "sha256": "be96121004bea5ce0f17414ba52df4fa2c594a8848fed62a81ee827052b3f715",
+      "alt_text_chars": 168,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 7,
+      "filename": "housewarming-key-basket-frame-7.png",
+      "bytes": 27970,
+      "sha256": "92ddea44712dfed1e669b4274a015af96df21cc5ca99ec184f328ab92ebc64d2",
+      "alt_text_chars": 168,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     },
+     {
+      "rank": 8,
+      "filename": "housewarming-key-basket-frame-8.png",
+      "bytes": 205212,
+      "sha256": "c38f4755c187a78e06a48cab280f9cbd0a0faddfa4edf4b87ab6f3e8b208b029",
+      "alt_text_chars": 129,
+      "method": "POST",
+      "operation": "uploadListingImage",
+      "path": "/shops/{shop_id}/listings/{listing_id}/images",
+      "content_type": "image/png",
+      "format": "png",
+      "width": 2000,
+      "height": 2000,
+      "transparent": false,
+      "animated": false,
+      "state": "PASS",
+      "problems": []
+     }
+    ],
+    "why": null
+   }
+  }
+ },
+ "first_sale": {
+  "generated_at": "2026-10-20T06:07:07+00:00",
+  "gates": [
+   "certification",
+   "product_truth",
+   "image_truth",
+   "listing_readiness",
+   "price_plan",
+   "disclosure",
+   "etsy_category",
+   "seo",
+   "vision_review",
+   "image_upload_payload",
+   "durable_delivery",
+   "physical_sample",
+   "etsy_upload_confirmed",
+   "publication_grant"
+  ],
+  "products": [
+   {
+    "candidate": "nursery-nesting-baskets",
+    "title": "Nesting Baskets, three sizes",
+    "releases": [
+     {
+      "cir_slug": "market-basket-small",
+      "version": "1.2.0",
+      "release": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "9 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of market-basket-small@1.2.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     },
+     {
+      "cir_slug": "market-basket-medium",
+      "version": "1.2.0",
+      "release": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "8 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of market-basket-medium@1.2.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     },
+     {
+      "cir_slug": "market-basket-large",
+      "version": "1.2.0",
+      "release": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "8 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of market-basket-large@1.2.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "cloudline-baby-blanket",
+    "title": "Cloudline Baby Blanket",
+    "releases": [
+     {
+      "cir_slug": "cloudline-baby-blanket",
+      "version": "1.2.0",
+      "release": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of cloudline-baby-blanket@1.2.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "hexagon-coaster-set",
+    "title": "Hexagon Coaster Set (4)",
+    "releases": [
+     {
+      "cir_slug": "hexagon-coaster-set",
+      "version": "1.2.0",
+      "release": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of hexagon-coaster-set@1.2.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "nordic-star-ornaments",
+    "title": "Textured Stripe Ornament Set (6)",
+    "releases": [
+     {
+      "cir_slug": "nordic-star-ornaments",
+      "version": "1.5.0",
+      "release": "3c97c95970d3ee237b2767af8fcdbf9d7bbc7b205d875c7fa4633daacc29a711",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of nordic-star-ornaments@1.5.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "winter-village-graphghan",
+    "title": "Winter Snowfall Relief Throw",
+    "releases": [
+     {
+      "cir_slug": "winter-village-graphghan",
+      "version": "1.3.0",
+      "release": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of winter-village-graphghan@1.3.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "nordic-forest-mosaic-throw-baby",
+    "title": "Nordic Forest Relief Baby Blanket",
+    "releases": [
+     {
+      "cir_slug": "nordic-forest-mosaic-throw-baby",
+      "version": "1.3.0",
+      "release": "01679f95e4ddd1b73aff7247265063308f2cbf945be7a16b411aff738766996c",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of nordic-forest-mosaic-throw-baby@1.3.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "mosaic-placemat-pair",
+    "title": "Raised Diamond Lattice Placemat Pair",
+    "releases": [
+     {
+      "cir_slug": "mosaic-placemat-pair",
+      "version": "1.4.0",
+      "release": "5f1c939a89f909d82ebf42bac6479f4c7b0be2bb34725f61834c9e526957e2cc",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of mosaic-placemat-pair@1.4.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   },
+   {
+    "candidate": "housewarming-key-basket",
+    "title": "Housewarming Key Basket",
+    "releases": [
+     {
+      "cir_slug": "housewarming-key-basket",
+      "version": "0.1.0",
+      "release": "142b52f0f9c62e9f3b22a96fd13bf0ae387108fc8b2293d78cad1980b75d7760",
+      "gates": {
+       "certification": {
+        "state": "PASS",
+        "why": "certificate granted for this release, nothing withheld",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "product_truth": {
+        "state": "PASS",
+        "why": "compiles clean; title, assembly, fabric and size-label promises backed",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "image_truth": {
+        "state": "PASS",
+        "why": "listing set certified",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "listing_readiness": {
+        "state": "PASS",
+        "why": "draft listing bound to the release; launch-cleared",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "price_plan": {
+        "state": "PASS",
+        "why": "listing carries the plan",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "disclosure": {
+        "state": "PASS",
+        "why": "every owed disclosure is in the stored copy",
+        "evidence": "launch.product_readiness",
+        "who_acts": null,
+        "action": ""
+       },
+       "etsy_category": {
+        "state": "UNKNOWN",
+        "why": "Etsy's taxonomy has never been read here, so no category can be matched",
+        "evidence": "listing_search_profiles.category_status + etsy_taxonomy_snapshots",
+        "who_acts": "company",
+        "action": "listing.taxonomy_refresh (daily; needs the etsy_api gate)",
+        "blocker": "B2"
+       },
+       "seo": {
+        "state": "FAIL",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
+        "evidence": "launch.product_readiness",
+        "who_acts": "company",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
+        "blocker": "B2"
+       },
+       "vision_review": {
+        "state": "FAIL",
+        "why": "frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed'}",
+        "evidence": "#61 review",
+        "who_acts": "owner",
+        "action": "approve a funded image_vision run (consequential spend), then assets.build reviews every frame",
+        "blocker": "B3"
+       },
+       "image_upload_payload": {
+        "state": "PASS",
+        "why": "8 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
+        "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
+        "who_acts": null,
+        "action": "",
+        "warnings": [],
+        "blocker": "B4"
+       },
+       "durable_delivery": {
+        "state": "PASS",
+        "why": "both certified PDFs of housewarming-key-basket@0.1.0 are held in Postgres (durable_artifacts) under their sha256",
+        "evidence": "commerce.deliverables.durable_state",
+        "who_acts": null,
+        "action": "",
+        "blocker": "B5/B6"
+       },
+       "physical_sample": {
+        "state": "FAIL",
+        "why": "no full physical make is bound to this exact content: gauge and size claims are unresolved",
+        "evidence": "PhysicalTest rows",
+        "who_acts": "owner",
+        "action": "a tester crochets the sample and records it (tester roster)",
+        "blocker": "B4"
+       },
+       "etsy_upload_confirmed": {
+        "state": "UNKNOWN",
+        "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+        "evidence": "publish.listing_schema.gaps",
+        "who_acts": "owner",
+        "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy",
+        "blocker": "B4/B5"
+       },
+       "publication_grant": {
+        "state": "FAIL",
+        "why": "global publication kill-switch is off (BRAMBLELOOP_PUBLISH_AUTHORISED is not '1'); no grant can override it",
+        "evidence": "ops.publication_authority",
+        "who_acts": "owner",
+        "action": "owner reviews the packet and records a sealed draft grant"
+       }
+      }
+     }
+    ],
+    "gates": {
+     "certification": "PASS",
+     "product_truth": "PASS",
+     "image_truth": "PASS",
+     "listing_readiness": "PASS",
+     "price_plan": "PASS",
+     "disclosure": "PASS",
+     "etsy_category": "UNKNOWN",
+     "seo": "FAIL",
+     "vision_review": "FAIL",
+     "image_upload_payload": "PASS",
+     "durable_delivery": "PASS",
+     "physical_sample": "FAIL",
+     "etsy_upload_confirmed": "UNKNOWN",
+     "publication_grant": "FAIL"
+    },
+    "first_sale_ready": false,
+    "who_acts": [
+     "company",
+     "owner"
+    ]
+   }
+  ],
+  "shop": {
+   "operating_phase": {
+    "state": "FAIL",
+    "why": "operating phase shadow",
+    "evidence": "core.phase.resolve",
+    "who_acts": "owner",
+    "action": "owner go-live decision after the acceptance gates pass"
+   },
+   "etsy_taxonomy_read": {
+    "state": "UNKNOWN",
+    "why": "Etsy's taxonomy has never been read",
+    "evidence": "snapshot",
+    "who_acts": "company",
+    "action": "listing.taxonomy_refresh"
+   },
+   "category_matched": {
+    "state": "UNKNOWN",
+    "why": "category: nursery-nesting-baskets UNKNOWN, cloudline-baby-blanket UNKNOWN, hexagon-coaster-set UNKNOWN, nordic-star-ornaments UNKNOWN, winter-village-graphghan UNKNOWN, nordic-forest-mosaic-throw-baby UNKNOWN, mosaic-placemat-pair UNKNOWN, housewarming-key-basket UNKNOWN",
+    "evidence": "per-product etsy_category",
+    "who_acts": "company",
+    "action": "see each product's etsy_category"
+   },
+   "durable_delivery": {
+    "state": "PASS",
+    "why": "certified PDFs held: nursery-nesting-baskets PASS, cloudline-baby-blanket PASS, hexagon-coaster-set PASS, nordic-star-ornaments PASS, winter-village-graphghan PASS, nordic-forest-mosaic-throw-baby PASS, mosaic-placemat-pair PASS, housewarming-key-basket PASS",
+    "evidence": "per-product durable_delivery",
+    "who_acts": null,
+    "action": ""
+   },
+   "etsy_upload_confirmed": {
+    "state": "UNKNOWN",
+    "why": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verification checks that Etsy holds it. Exercised end to end against a local server built from Etsy's docum",
+    "evidence": "publish.listing_schema.gaps",
+    "who_acts": "owner",
+    "action": "grant the first draft publication (sealed owner grant); the first upload is read back from Etsy"
+   }
+  },
+  "first_sale_possible": false,
+  "publishes_anything": false,
+  "rule": "read at generation time; UNKNOWN is never PASS; no gate here grants publication"
+ },
+ "seconds": 739.6,
+ "etsy_called": false
+}
