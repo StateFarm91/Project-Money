@@ -29,6 +29,8 @@ PROVIDER = _venice.NAME
 # Anthropic transport before). `Stub.calls` keeps the request in the same shape the suites
 # assert on ({model, max_tokens, system, messages}), translated from Venice's wire format, and
 # the Anthropic transport now fails the test if anything reaches it.
+#: The real Venice transport, captured at import, so `enabled(None)` can refuse it.
+_REAL_VENICE_POST = _venice.VeniceProvider._post
 ENABLE = {laura_register.REGISTER_SWITCH_ENV: "1", laura_register.DAILY_AUTH_ENV: "0.40",
           "VENICE_API_KEY": DUMMY_KEY, "BRAMBLELOOP_PRIVATE_PROVIDER": "venice",
           "ANTHROPIC_API_KEY": None, _venice.MODEL_ENV: None}
@@ -88,8 +90,11 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
     if stub is not None:
         _venice.VeniceProvider._post = lambda self, url, body, headers, timeout: stub(
             self, url, body, headers, timeout)
-    # With no stub, the Venice transport is left as the caller set it (test_w4_venice and
-    # test_w4_laura_unified install their own Venice mocks); the harness refuses sockets.
+    elif _venice.VeniceProvider._post is _REAL_VENICE_POST:
+        # INTEG5: with no stub and no caller mock, a Venice request fails the test, exactly as
+        # an Anthropic one did before the freeze ("any model request fails this test"). A
+        # caller's own Venice mock (test_w4_venice, test_w4_laura_unified) is left in place.
+        _venice.VeniceProvider._post = _refuse
     try:
         for k, v in env.items():
             if v is None:
