@@ -69,6 +69,179 @@
     "tests/test_w4_smoke.py::test_the_smoke_route_is_public_read_only_and_never_200_unless_pass"
    ],
    "worker": "W4-BOARD 2026-10-19"
+  },
+  {
+   "source": "final_master",
+   "id": "F-152",
+   "criterion": "Scratch Non-Authority - Recovery/audit evidence cannot exist only in ephemeral scratch.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_offsite_20261020T0416Z.json",
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); scratch-site rule + scratch-deletion tests pass on the deployed tree",
+   "tests": [
+    "tests/test_w4_close5_rows.py::test_f152_every_scratch_site_is_classified",
+    "tests/test_w4_close5_rows.py::test_f152_each_classified_home_really_writes_or_hands_over_the_evidence",
+    "tests/test_w4_close5_rows.py::test_f152_continuity_evidence_outlives_its_scratch_directory",
+    "tests/test_w4_close5_rows.py::test_f152_offsite_evidence_outlives_its_scratch_directory"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-299",
+   "criterion": "Controlled Phase Change - Shadow -> staging -> live publication/ads is explicit owner-approved transition with rollback.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_verify_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "verify phase_is_shadow: env shadow == recorded shadow, agree; 186 publication refusals; ad spend 0.0; phase transition tests pass on the deployed tree",
+   "tests": [
+    "tests/test_fb4_launch.py::test_env_alone_saying_limited_production_runs_as_shadow_with_an_incident",
+    "tests/test_fb4_launch.py::test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are_audited",
+    "tests/test_fb4_launch.py::test_a_forged_or_edited_transition_row_is_not_authority",
+    "tests/test_fb4_launch.py::test_store_publish_refuses_when_env_says_production_but_nothing_is_recorded",
+    "tests/test_rc1_auth.py::test_A1_owner_rollback_recorded_after_boot_stops_store_activate",
+    "tests/test_w3_k4_launch_verdict.py::test_F300_rollback_to_shadow_never_requires_readiness",
+    "tests/test_w4_close5_rows.py::test_f299_ad_spend_follows_the_recorded_owner_transition_not_the_environment",
+    "tests/test_w4_close5_rows.py::test_f299_the_staging_step_cannot_be_skipped_and_needs_the_owner"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-718",
+   "criterion": "No Chat as Source of Truth - Institutional knowledge must live in durable project/company objects: repository, database, evidence records, experiment ledger, decisions, Product Truth, tasks and artifacts. No critical state may exist only in a Claude, GPT or Fable conversation.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_model_identity_20261020T0416Z.json",
+    "research/final_build/w4/evidence_BOARD/prod_api_audit_model_frozen_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "model-identity approval_record MATCH (audit 5693) on b931d17; runtime reads no dev-lane state (test on the deployed tree)",
+   "tests": [
+    "tests/test_w4_provenance.py::test_a_matching_database_row_is_match",
+    "tests/test_w4_provenance.py::test_the_model_identity_route_serves_the_comparison",
+    "tests/test_w4_close5_rows.py::test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+    "tests/test_w4_close5_rows.py::test_f718_the_runtime_reads_no_dev_lane_or_session_state"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-283",
+   "criterion": "First-Sale Attribution - Record first-sale source honestly (organic Etsy, Etsy Ads, Offsite Ads, owned/direct, unknown). One sale proves possibility, not scale.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "attribution route + channel table + first-sale caveat tests pass on the deployed tree; transactions_r gate OPEN on b931d17",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows",
+    "tests/test_money_truth.py::test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket",
+    "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+    "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-682",
+   "criterion": "Accountant Activity - show last reconciliation, discrepancies, close status, tax/threshold alerts and evidence; never silently force mismatches to zero.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "accountant activity tests pass on the deployed tree; module reached on b931d17; transactions_r OPEN",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+    "tests/test_w4_fmclose_etsy.py::test_f682_threshold_alert_approaches_and_crosses"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-558",
+   "criterion": "Order Operations Ledger - For every order, reconcile payment, item/version, digital delivery state, buyer issue, refund/cancellation/case state and downstream accounting evidence.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "order ledger tests (six parts, item/version, cancellation) pass on the deployed tree; module reached on b931d17; transactions_r OPEN",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f558_every_order_reconciles_six_parts_and_names_what_does_not",
+    "tests/test_w4_close5_rows2.py::test_f558_item_version_is_named_with_its_basis_and_a_cancellation_reaches_the_row",
+    "tests/test_w4_close5_rows2.py::test_f558_an_unknown_version_is_a_problem_never_a_pass"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-570",
+   "criterion": "Offsite Ads Economics - Track Offsite Ads attribution, fee rate, 30-day attribution behavior and the shop's 365-day revenue threshold/participation status. Recompute contribution margin on attributed orders.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "offsite-ads attribution/fee/margin tests pass on the deployed tree; transactions_r OPEN",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f570_unread_attribution_is_unmeasured_never_a_zero_share",
+    "tests/test_w4_fmclose_etsy.py::test_f570_ledger_read_measures_attribution_fee_and_recomputed_margin",
+    "tests/test_w4_fmclose_etsy.py::test_f570_ads_plan_reports_unknown_attribution_and_the_threshold_status"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-574",
+   "criterion": "Marketing Channel Attribution - Compare organic Etsy search, Etsy Ads, Offsite Ads, social and Share & Save at listing/product-family level. One order cannot be double-credited to multiple channels internally.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "channel comparison tests pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f574_channels_compared_per_listing_and_family_one_credit_per_order",
+    "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-657",
+   "criterion": "Event Wakeups - orders, messages, reviews, refunds, Etsy events, policy changes, incidents, spend anomalies, research signals, schedules and owner decisions wake the appropriate team.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "event wake tests pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_fmclose_etsy.py::test_f657_each_business_event_wakes_its_team_once",
+    "tests/test_w4_fmclose_etsy.py::test_f657_the_orchestrate_tick_runs_the_event_scan"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
   }
  ]
 }

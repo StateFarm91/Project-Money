@@ -33,14 +33,13 @@
   "REGATE": {
    "title": "Wave-3 audit found an owner/data/external gate the canonical mapping does not record (gate key missing)",
    "rows": [
-    "F-718",
     "F-733"
    ],
-   "size": 2,
+   "size": 1,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
    "owner_lane": "FM",
    "reasons": {
-    "coverage PARTIAL": 2
+    "coverage PARTIAL": 1
    }
   },
   "UNCLUSTERED": {

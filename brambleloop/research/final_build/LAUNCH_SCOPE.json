@@ -7,7 +7,7 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 144
+     "rows": 140
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
@@ -15,7 +15,7 @@
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 38
+     "rows": 37
     },
     "2f36fe0": {
      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
@@ -23,17 +23,21 @@
     },
     "0417f35": {
      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
-     "rows": 35
+     "rows": 34
     },
     "1b21e81": {
      "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
      "rows": 3
+    },
+    "b931d17": {
+     "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+     "rows": 9
     }
    },
-   "rows_on_base": 517,
+   "rows_on_base": 514,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD 0417f35 (deployed production 0417f3516f30bb7c52926187fc475a0f46536e86 per /health build.commit 2026-10-11T14:39Z; clean detached worktree, W4-FMGATE) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 added",
+  "reachability": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json + master_registry_v1_1.json"
  },
@@ -1582,7 +1586,7 @@
    "reason": "recovery evidence must survive container replacement",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-153",
@@ -2910,7 +2914,7 @@
    "reason": "P0 addendum: order/customer truth (first-sale attribution)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-284",
@@ -3074,7 +3078,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); safe publication / controlled phase change",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-300",
@@ -5096,7 +5100,7 @@
    "reason": "order/customer truth after the first sale depends on orders reaching the ledger",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-502",
@@ -5736,7 +5740,7 @@
    "reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-559",
@@ -6778,7 +6782,7 @@
    "reason": "pricing/economics integrity: mismatches must never be silently zeroed",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-683",
@@ -7138,7 +7142,7 @@
    "reason": "runtime durability/provenance: critical state must not live in a conversation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-719",

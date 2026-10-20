@@ -1569,35 +1569,38 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "order/customer truth after the first sale depends on orders reaching the ledger",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "event layer is a 6-hourly receipts poll, idempotent on etsy:<receipt>:<transaction>; Etsy's push events (order.paid/canceled/shipped/delivered webhooks) are not received; the poll has never run against Etsy because transactions_r is not granted",
-  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/integrations/etsy_webhooks.py::receive; src/brambleloop/commerce/orders_ingest.py::ingest",
   "durable_state": "customers, orders, order_versions, ledger (sale entries)",
   "consumer": "src/brambleloop/runtime/orders.py::handle_order_readings",
   "protected_effect": "orders feed cohorts, version map, pricing, reinvestment and the customers gate",
   "tests": [
    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
    "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
-   "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader"
+   "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader",
+   "tests/test_w4_fmclose_etsy.py::test_f501_verified_events_feed_the_idempotent_order_layer"
   ],
   "evidence": [
    "commerce.orders_ingest cadence 6h (runtime/worker.py:358); commerce/orders_ingest.py not in fcb982d",
    "BUILD_STATE.md 2026-09-25: granted scopes listings_r listings_w listings_d shops_r shops_w — no transactions_r",
-   "intel/etsy_surfaces.py webhooks surface (OWNER_ONLY, webhook_order_paid owner action)"
+   "intel/etsy_surfaces.py webhooks surface (OWNER_ONLY, webhook_order_paid owner action)",
+   "w4-CLOSE5: a verified Etsy event is stored once and enqueues one authenticated receipt read keyed etsy.webhook:<id>; two events about one receipt make one order (etsy:<receipt>:<transaction> unique); transactions_r OPEN on b931d17 (research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json)",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#11 OWNER-GATED",
    "#12 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "owner must re-authorise the Etsy app with transactions_r (owner action reauthorise_transactions_r)"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver in F-512 for lower latency",
+  "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-502",
@@ -1932,28 +1935,36 @@
   "uid": "F-512",
   "launch_class": "MATURE",
   "launch_class_reason": "order discovery by poll is acceptable at launch volume (intel/etsy_surfaces.py webhooks: 'not a blocker'); webhook reliability matters once webhooks exist",
-  "maturity": "MISSING",
-  "coverage": "PARTIAL",
-  "missing_part": "no webhook receiving route, signature verification, delivery table or dedupe exists; job-level idempotency/retries/dead letters exist only for the internal queue",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/integrations/etsy_webhooks.py::receive",
+  "durable_state": "etsy_webhook_deliveries; etsy_webhook_refusals",
+  "consumer": "src/brambleloop/app/main.py::api_etsy_webhook (POST /api/etsy/webhook); GET /api/etsy webhooks summary",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_w4_fmclose_etsy.py::test_f512_validation_refuses_every_unprovable_delivery_before_writing",
+   "tests/test_w4_fmclose_etsy.py::test_f512_idempotent_storage_duplicate_protection_and_observability",
+   "tests/test_w4_fmclose_etsy.py::test_f512_a_storage_failure_answers_5xx_so_etsy_retries",
+   "tests/test_w4_fmclose_etsy.py::test_f512_route_is_public_signed_and_reported_on_api_etsy",
+   "tests/test_w4_close5_r1.py::test_r1_the_route_answers_503_with_no_db_work_when_saturated_then_recovers"
+  ],
   "evidence": [
    "intel/etsy_surfaces.py webhooks surface documents HMAC-SHA256 signing and 300 s timestamp tolerance",
-   "queue/durable.py (idempotency, retries, dead letters for jobs)"
+   "queue/durable.py (idempotency, retries, dead letters for jobs)",
+   "w4-CLOSE5: validation (HMAC, skew, headers, event, shop), idempotent storage, duplicate guard, 5xx so Etsy retries, observability (summary, refusal counters, R1 admission-gate counters); R1 adds a private admission gate (tests/test_w4_close5_r1.py) -- dev-proven, awaiting deploy",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "subscription is created only in Etsy's developer portal (owner action webhook_order_paid) and reading the order needs transactions_r"
+   "kind": "none",
+   "key": null,
+   "detail": "the receiver is built; registering the endpoint in Etsy's portal and setting ETSY_WEBHOOK_SECRET is the owner's step for live deliveries, not part of this criterion"
   },
   "defect": null,
-  "next_action": "Build POST /api/etsy/webhook in app/main.py: verify HMAC-SHA256 over id.timestamp.body with whsec_ secret from env, reject >300 s skew, persist a WebhookDelivery row unique on webhook-id, enqueue commerce.orders_ingest idempotently, expose counts on /api/etsy; add tests with signed/unsigned/replayed deliveries",
+  "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py"
+  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-513",

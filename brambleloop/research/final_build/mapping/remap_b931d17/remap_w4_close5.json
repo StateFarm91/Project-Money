@@ -1,0 +1,349 @@
+[
+ {
+  "uid": "F-152",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery evidence must survive container replacement",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/continuity.py::retain",
+  "durable_state": "continuity export rows in Postgres; audit_log ops.continuity",
+  "consumer": "src/brambleloop/runtime/release.py::handle_continuity",
+  "protected_effect": "restore evidence survives container loss (same database only until offsite exists)",
+  "tests": [
+   "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
+   "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping",
+   "tests/test_w4_close5_rows.py::test_f152_every_scratch_site_is_classified",
+   "tests/test_w4_close5_rows.py::test_f152_each_classified_home_really_writes_or_hands_over_the_evidence",
+   "tests/test_w4_close5_rows.py::test_f152_continuity_evidence_outlives_its_scratch_directory",
+   "tests/test_w4_close5_rows.py::test_f152_offsite_evidence_outlives_its_scratch_directory"
+  ],
+  "evidence": [
+   "BUILD_STATE.md ~l.4831 continuity proved in production",
+   "research/b2_resume/evidence/*.log committed",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_offsite_20261020T0416Z.json -- last_archive ok, encrypted, uploaded off-provider, read back, decrypted and restored; the restore proof is an audit_log row and the archive bytes are continuity_exports rows, neither in scratch",
+   "w4-CLOSE5 on deployed b931d17: rule test -- every function in src/ that creates a scratch directory (core.workspace.work_dir, TemporaryDirectory, mkdtemp; 31 sites) is classified with where its evidence becomes durable (audit row / DB row / caller that audits / copy of DB state / CLI output path outside scratch / recomputed reading), and each durable home is checked to contain the write",
+   "w4-CLOSE5 on deployed b931d17: behavioural -- the continuity proof and the offsite archive are read and restored from the database / remote store after their scratch directory is deleted; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#51 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "offsite_storage OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); the off-provider copy exists"
+  },
+  "defect": null,
+  "next_action": "none -- every scratch site is classified with its durable home (tests/test_w4_close5_rows.py SCRATCH); a new site fails the test until classified",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-299",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); safe publication / controlled phase change",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/phase.py::record_transition; src/brambleloop/core/phase.py::effective",
+  "durable_state": "audit_log owner.phase.transition (sealed, hash-chained)",
+  "consumer": "src/brambleloop/runtime/worker.py::protected_phase (re-resolved at every publish / activate / ad-spend effect boundary: runtime/pipeline.py _revalidate_publish_effect, runtime/growth_ops.py handle_ads_campaign)",
+  "protected_effect": "nothing is published unless the phase allows it",
+  "tests": [
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_cert_commerce.py::test_store_publish_refuses_in_shadow_before_touching_etsy_storage_or_hashes",
+   "tests/test_fb4_launch.py::test_env_alone_saying_limited_production_runs_as_shadow_with_an_incident",
+   "tests/test_fb4_launch.py::test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are_audited",
+   "tests/test_fb4_launch.py::test_a_forged_or_edited_transition_row_is_not_authority",
+   "tests/test_fb4_launch.py::test_store_publish_refuses_when_env_says_production_but_nothing_is_recorded",
+   "tests/test_rc1_auth.py::test_A1_owner_rollback_recorded_after_boot_stops_store_activate",
+   "tests/test_w3_k4_launch_verdict.py::test_F300_rollback_to_shadow_never_requires_readiness",
+   "tests/test_w4_close5_rows.py::test_f299_ad_spend_follows_the_recorded_owner_transition_not_the_environment",
+   "tests/test_w4_close5_rows.py::test_f299_the_staging_step_cannot_be_skipped_and_needs_the_owner"
+  ],
+  "evidence": [
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_verify_20261020T0416Z.json phase_is_shadow ok -- effective_phase shadow, BRAMBLELOOP_PHASE shadow, recorded_phase shadow, agree true; publication_was_actually_attempted_and_refused (186 refusals); no_paid_advertising (ad_spend_cad 0.0)",
+   "w4-CLOSE5 on deployed b931d17: the mapping's 'add a PhaseTransition record' is stale -- core/phase.py record_transition/resolve/effective and app/phase_api.py are in the deployed tree; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "the mechanism is complete; moving up is the owner's own sealed transition (POST /api/owner/phase/transition), an action, not a gate on this row"
+  },
+  "defect": null,
+  "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-718",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability/provenance: critical state must not live in a conversation",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/db.py; src/brambleloop/visual/approval_record.py::compare",
+  "durable_state": "Postgres; repository files",
+  "consumer": "src/brambleloop/app/main.py::api_model_identity (approval_record state); src/brambleloop/runtime/worker.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
+   "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
+   "tests/test_model_identity.py::test_the_pack_survives_a_restart",
+   "tests/test_w4_provenance.py::test_a_matching_database_row_is_match",
+   "tests/test_w4_provenance.py::test_the_model_identity_route_serves_the_comparison",
+   "tests/test_w4_close5_rows.py::test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+   "tests/test_w4_close5_rows.py::test_f718_the_runtime_reads_no_dev_lane_or_session_state"
+  ],
+  "evidence": [
+   "build2 #198 note: owner aesthetic direction recorded in visual/brief.py as code rather than chat",
+   "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row",
+   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_model_identity_20261020T0416Z.json approval_record.state MATCH, database_audit_id 5693, mismatched_fields [] -- the repository record visual/approval_record.json and production's model.frozen row agree on every pinned field (research/final_build/w4/evidence_BOARD/prod_api_audit_model_frozen_20261020T0416Z.json)",
+   "w4-CLOSE5 on deployed b931d17: the 'dev-lane state depends on ops/registry records' gap -- ops/registry.py (ops/JOBS.json) is operator tooling for build sessions, outside the deployed tree; no runtime module imports it, opens its file or reads its variable (test), and each lane's outcome is committed (branch + research/final_build/w4/<NAME>.md, WORKER_RULES). Judgment call recorded in w4/CLOSE5.md for the owner"
+  ],
+  "build2_rows": [
+   "#101 COMPLETE+PROVEN",
+   "#198 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
+  "confidence": "MEDIUM",
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-283",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0 addendum: order/customer truth (first-sale attribution)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest -> finance/sources.py::record_first_sale, attribute",
+  "durable_state": "orders.acquisition_source, orders.detail.attribution, operating_readings commerce.first_sale",
+  "consumer": "finance/sources.py::table; growth/loops/order_readings via SOURCE_TO_LOOP (unknown has no loop); POST /api/orders/attribution (operator) -> sources.attribute + record_first_sale",
+  "protected_effect": "ingest writes acquisition_source 'unknown'; a known source needs evidence; the first sale is recorded once with source, evidence and 'possibility, not scale'",
+  "tests": [
+   "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+   "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+   "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused",
+   "tests/test_w4_fmclose_etsy.py::test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows",
+   "tests/test_money_truth.py::test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket"
+  ],
+  "evidence": [
+   "research/final_build/waves/fb1_D.json F-283 DONE",
+   "codex_reconciliation CB2-O06: unknown-as-organic half fixed; loop downward correction remains",
+   "commerce.orders_ingest cadence; orders_ingest.py not in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: POST /api/orders/attribution (app/main.py, deployed) requires the operator credential and evidence, and refreshes the first-sale record; the table always shows etsy_organic, etsy_ads, offsite_ads, owned_direct and unattributed, and the first-sale record carries 'One sale proves possibility, not scale'; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#237 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17; the criterion is the honest recording rule, which needs no sale to verify"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
+  "confidence": "HIGH",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-682",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "pricing/economics integrity: mismatches must never be silently zeroed",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/accounting/activity.py::activity",
+  "durable_state": "cost_entries (estimate beside actual), spend_reservations",
+  "consumer": "src/brambleloop/finance/accounting/dashboard.py::summary (owner Money view, activity block)",
+  "protected_effect": "an attribution table that does not sum to the bill is refused",
+  "tests": [
+   "tests/test_governor.py::test_every_dollar_is_attributed_or_named_unattributed",
+   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles",
+   "tests/test_w4_fmclose_etsy.py::test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+   "tests/test_w4_fmclose_etsy.py::test_f682_threshold_alert_approaches_and_crosses"
+  ],
+  "evidence": [
+   "src/brambleloop/runtime/pipeline.py:1493 finance.reconcile (P&L only)",
+   "w4-CLOSE5 on deployed b931d17: activity() shows last reconciliation (NEVER_RUN before the first), the open fee mismatch with booked vs statement evidence, close status (locked periods) and tax/threshold alerts (UNKNOWN is never 0); a second controller cycle leaves the discrepancy open, never zeroed; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-558",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/order_ledger.py::ledger; src/brambleloop/commerce/orders_ingest.py::ingest",
+  "durable_state": "orders, customers, order_versions, ledger",
+  "consumer": "src/brambleloop/app/main.py::api_orders_ledger (GET /api/orders/ledger, operator credential)",
+  "protected_effect": "no order invented; UNMEASURED with reason while gated; idempotent per receipt:transaction",
+  "tests": [
+   "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+   "tests/test_w4_fmclose_etsy.py::test_f558_every_order_reconciles_six_parts_and_names_what_does_not",
+   "tests/test_w4_close5_rows2.py::test_f558_item_version_is_named_with_its_basis_and_a_cancellation_reaches_the_row",
+   "tests/test_w4_close5_rows2.py::test_f558_an_unknown_version_is_a_problem_never_a_pass"
+  ],
+  "evidence": [
+   "src/brambleloop/runtime/orders.py::handle_orders_ingest (6-hourly cadence orders_ingest)",
+   "commerce/orders_ingest.py not in production fcb982d",
+   "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)",
+   "w4-FM close on 8b67414 (REMAP): commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read",
+   "w4-CLOSE5 on deployed b931d17: per order -- payment state, item (listing id, product, version and how the version was known), digital delivery state (UNKNOWN when the line does not say), buyer cases, refund/cancellation state with reasons, and the sale ledger row; any disagreement is a named problem; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#12 OWNER-GATED",
+   "#42 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
+  "confidence": "HIGH",
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-570",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Offsite Ads economics are post-first-sale; the pricing floor already carries the worst-case offsite fee.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/paid_media.py::offsite_share; commerce/paid_media.py::offsite_ads_forecast",
+  "durable_state": "orders.offsite_ad_attributed",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan (ads.adjust)",
+  "protected_effect": "UNMEASURED with no orders; terms read from the policy reading",
+  "tests": [
+   "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
+   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold",
+   "tests/test_w4_fmclose_etsy.py::test_f570_unread_attribution_is_unmeasured_never_a_zero_share",
+   "tests/test_w4_fmclose_etsy.py::test_f570_ledger_read_measures_attribution_fee_and_recomputed_margin",
+   "tests/test_w4_fmclose_etsy.py::test_f570_ads_plan_reports_unknown_attribution_and_the_threshold_status"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 11 offsite_ads UNSUPPORTED; owner action 10",
+   "src/brambleloop/commerce/pricing.py::worst_case_fees",
+   "w4-CLOSE5 on deployed b931d17: attribution is tri-state (unread is UNMEASURED, never a 0% share); an offsite_ads_fee ledger line sets attribution and the fee, and contribution is recomputed with it; the 15% rate, 30-day window and 365-day participation threshold are reported; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect ('_record_line never sets offsite_ad_attributed, so the share would read as a measured 0%') is fixed: the column default is no longer read as a measurement -- paid_media.offsite_attribution reads the ledger fee line, and an unread order is UNMEASURED (test_f570_unread_attribution_is_unmeasured_never_a_zero_share asserts both the default and the UNMEASURED share)"
+  ],
+  "build2_rows": [
+   "#244 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
+  "confidence": "HIGH",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-574",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Channel attribution is growth analytics.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/channel_comparison.py::compare",
+  "durable_state": "orders (acquisition_source, search_term, offsite_ad_attributed)",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
+  "protected_effect": "CAC split new vs blended",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac",
+   "tests/test_w4_fmclose_etsy.py::test_f574_channels_compared_per_listing_and_family_one_credit_per_order",
+   "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/orders_ingest.py::_record_line acquisition_source='etsy'",
+   "w4-CLOSE5 on deployed b931d17: organic search, Etsy Ads, Offsite Ads, social and Share & Save compared per listing and per product family; one credit per order, a flag/source disagreement is a named conflict, unknown stays unattributed; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect (channel fields defaulting to organic-looking values) is fixed: orders_ingest writes acquisition_source='unknown' (orders_ingest.py:956,963) and finance.sources maps the legacy 'etsy' to unattributed; the test asserts an unknown order stays unattributed"
+  ],
+  "build2_rows": [
+   "#266 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-657",
+  "launch_class": "MATURE",
+  "launch_class_reason": "event-driven latency; polling cadences cover first-sale order/support handling",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/autonomy/event_wakes.py::scan",
+  "durable_state": "jobs table",
+  "consumer": "src/brambleloop/autonomy/handlers.py::handle_orchestrate (autonomy.orchestrate tick runs the scan; each wake enqueues its team's job once)",
+  "protected_effect": "work follows completions; a material policy change opens a blocking incident",
+  "tests": [
+   "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
+   "tests/test_cert_intel_wave2.py::test_a_material_policy_change_opens_a_blocking_incident_until_reviewed",
+   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion",
+   "tests/test_w4_fmclose_etsy.py::test_f657_each_business_event_wakes_its_team_once",
+   "tests/test_w4_fmclose_etsy.py::test_f657_the_orchestrate_tick_runs_the_event_scan"
+  ],
+  "evidence": [
+   "src/brambleloop/runtime/worker.py CADENCES (orders_ingest 6h, support_triage 1h, finance_governor 1h, policy_watch 24h)",
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w4-CLOSE5 on deployed b931d17: orders, refunds, reviews, messages, policy changes, incidents, spend anomalies, research signals and owner decisions each wake their team once (idempotency wake:<kind>:<marker>); Etsy events wake from the webhook receiver; schedules are the Scheduler's cadences; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#184 COMPLETE+PROVEN",
+   "#214 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ }
+]

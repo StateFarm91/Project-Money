@@ -209,34 +209,38 @@
   "launch_class": "MATURE",
   "launch_class_reason": "event-driven latency; polling cadences cover first-sale order/support handling",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Wakeups are fixed-period polling cadences plus follow-on enqueues on completion; no event ingestion (no webhooks, no Etsy event feed, no message/review/refund events). orders_ingest and support_triage cadences are post-fcb982d.",
-  "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/autonomy/event_wakes.py::scan",
   "durable_state": "jobs table",
-  "consumer": "src/brambleloop/runtime/pipeline.py (ctx.enqueue follow-ons, e.g. cir.compile -> gate.certify -> listing.draft)",
+  "consumer": "src/brambleloop/autonomy/handlers.py::handle_orchestrate (autonomy.orchestrate tick runs the scan; each wake enqueues its team's job once)",
   "protected_effect": "work follows completions; a material policy change opens a blocking incident",
   "tests": [
    "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
    "tests/test_cert_intel_wave2.py::test_a_material_policy_change_opens_a_blocking_incident_until_reviewed",
-   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion"
+   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion",
+   "tests/test_w4_fmclose_etsy.py::test_f657_each_business_event_wakes_its_team_once",
+   "tests/test_w4_fmclose_etsy.py::test_f657_the_orchestrate_tick_runs_the_event_scan"
   ],
   "evidence": [
    "src/brambleloop/runtime/worker.py CADENCES (orders_ingest 6h, support_triage 1h, finance_governor 1h, policy_watch 24h)",
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w4-CLOSE5 on deployed b931d17: orders, refunds, reviews, messages, policy changes, incidents, spend anomalies, research signals and owner decisions each wake their team once (idempotency wake:<kind>:<marker>); Etsy events wake from the webhook receiver; schedules are the Scheduler's cadences; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN",
    "#214 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "order/receipt events need the owner's Etsy re-authorisation; a generic event bus can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "Add an event table + dispatcher (e.g. src/brambleloop/queue/events.py) mapping event kinds (order, message, review, refund, policy_change, incident, spend_anomaly, owner_decision) to job enqueues; have orders_ingest/support/governor/owner-decision emit events; test a wake per kind.",
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-658",
@@ -1053,31 +1057,35 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "pricing/economics integrity: mismatches must never be silently zeroed",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Spend-side reconciliation exists (attribution must sum to the bill or is refused; estimate vs actual recorded). Revenue-side reconciliation against Etsy receipts/payments/payouts, discrepancy records, close status and tax/threshold alerts are missing; finance.reconcile only recomputes the P&L.",
-  "producer": "src/brambleloop/finance/governor.py::attribution",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/accounting/activity.py::activity",
   "durable_state": "cost_entries (estimate beside actual), spend_reservations",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+  "consumer": "src/brambleloop/finance/accounting/dashboard.py::summary (owner Money view, activity block)",
   "protected_effect": "an attribution table that does not sum to the bill is refused",
   "tests": [
    "tests/test_governor.py::test_every_dollar_is_attributed_or_named_unattributed",
-   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles"
+   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles",
+   "tests/test_w4_fmclose_etsy.py::test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+   "tests/test_w4_fmclose_etsy.py::test_f682_threshold_alert_approaches_and_crosses"
   ],
   "evidence": [
-   "src/brambleloop/runtime/pipeline.py:1493 finance.reconcile (P&L only)"
+   "src/brambleloop/runtime/pipeline.py:1493 finance.reconcile (P&L only)",
+   "w4-CLOSE5 on deployed b931d17: activity() shows last reconciliation (NEVER_RUN before the first), the open fee mismatch with booked vs statement evidence, close status (locked periods) and tax/threshold alerts (UNKNOWN is never 0); a second controller cycle leaves the discrepancy open, never zeroed; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "revenue reconciliation needs Etsy receipts; the reconciliation engine can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepancy rows (never zeroed) and a close status; expose on /api/finance; test a mismatch stays open.",
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-683",
@@ -2211,21 +2219,27 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "runtime durability/provenance: critical state must not live in a conversation",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved canonical pack fingerprint exists only in a production audit row (not reproducible from the repo), and dev-lane state depends on ops/registry records rather than company objects.",
-  "producer": "src/brambleloop/core/db.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/db.py; src/brambleloop/visual/approval_record.py::compare",
   "durable_state": "Postgres; repository files",
-  "consumer": "src/brambleloop/runtime/worker.py",
+  "consumer": "src/brambleloop/app/main.py::api_model_identity (approval_record state); src/brambleloop/runtime/worker.py",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
    "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
-   "tests/test_model_identity.py::test_the_pack_survives_a_restart"
+   "tests/test_model_identity.py::test_the_pack_survives_a_restart",
+   "tests/test_w4_provenance.py::test_a_matching_database_row_is_match",
+   "tests/test_w4_provenance.py::test_the_model_identity_route_serves_the_comparison",
+   "tests/test_w4_close5_rows.py::test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+   "tests/test_w4_close5_rows.py::test_f718_the_runtime_reads_no_dev_lane_or_session_state"
   ],
   "evidence": [
    "build2 #198 note: owner aesthetic direction recorded in visual/brief.py as code rather than chat",
    "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row",
-   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1"
+   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_model_identity_20261020T0416Z.json approval_record.state MATCH, database_audit_id 5693, mismatched_fields [] -- the repository record visual/approval_record.json and production's model.frozen row agree on every pinned field (research/final_build/w4/evidence_BOARD/prod_api_audit_model_frozen_20261020T0416Z.json)",
+   "w4-CLOSE5 on deployed b931d17: the 'dev-lane state depends on ops/registry records' gap -- ops/registry.py (ops/JOBS.json) is operator tooling for build sessions, outside the deployed tree; no runtime module imports it, opens its file or reads its variable (test), and each lane's outcome is committed (branch + research/final_build/w4/<NAME>.md, WORKER_RULES). Judgment call recorded in w4/CLOSE5.md for the owner"
   ],
   "build2_rows": [
    "#101 COMPLETE+PROVEN",
@@ -2237,9 +2251,9 @@
    "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "company: export the production model.frozen approval record and pack fingerprint into the repository manifest with a test that the manifest matches the DB row (read-only GET suffices)",
+  "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-719",

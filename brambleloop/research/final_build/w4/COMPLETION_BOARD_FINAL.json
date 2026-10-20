@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-20T04:18:56Z",
- "branch_head": "4b24f86e",
+ "generated_at": "2026-10-20T05:21:14Z",
+ "branch_head": "eb8335b2",
  "production": {
   "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
   "known": true,
@@ -107,20 +107,20 @@
   },
   "final_master_launch_critical": {
    "total": 490,
-   "verified_complete": 358,
-   "implemented_unverified": 7,
+   "verified_complete": 364,
+   "implemented_unverified": 8,
    "in_progress": 5,
-   "blocked_engineering": 49,
+   "blocked_engineering": 42,
    "blocked_owner": 42,
    "blocked_external": 29,
    "not_applicable": 0
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 382,
-   "implemented_unverified": 7,
+   "verified_complete": 391,
+   "implemented_unverified": 9,
    "in_progress": 5,
-   "blocked_engineering": 299,
+   "blocked_engineering": 288,
    "blocked_owner": 127,
    "blocked_external": 90,
    "not_applicable": 7
@@ -153,35 +153,35 @@
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 382,
-    "dev_proven_not_deployed": 6,
+    "production_verified": 391,
+    "dev_proven_not_deployed": 8,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 295,
+    "engineering_blocked": 284,
     "owner_blocked": 121,
     "external_blocked": 81,
     "live_customer_C": 19,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 528,
+    "unfinished": 519,
     "post_launch_empirical": 65,
-    "executable_engineering": 307,
+    "executable_engineering": 298,
     "owner_or_external_non_empirical": 156
    },
    "final_master_launch_critical": {
-    "production_verified": 358,
-    "dev_proven_not_deployed": 6,
+    "production_verified": 364,
+    "dev_proven_not_deployed": 7,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 49,
+    "engineering_blocked": 42,
     "owner_blocked": 40,
     "external_blocked": 28,
     "live_customer_C": 3,
     "not_applicable": 0,
     "total": 490,
-    "unfinished": 132,
+    "unfinished": 126,
     "post_launch_empirical": 6,
-    "executable_engineering": 61,
+    "executable_engineering": 55,
     "owner_or_external_non_empirical": 65
    },
    "categories": [
@@ -198,22 +198,36 @@
    "rule": "production_verified = verified_complete after the spot audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven on the branch only; live_customer_C = the criterion's own words demand live customers / post-launch history (prelaunch_scope C_PATTERNS, quoted); post_launch_empirical = live_customer_C plus rows parked on real customers / data accrual; executable_engineering = the rest of the unfinished rows the company itself can move"
   },
   "audit": {
-   "sampled": 41,
+   "sampled": 61,
    "verdicts": {
     "PASS_PRODUCTION": 8,
-    "PASS": 28,
-    "DOWNGRADE": 5
+    "PASS": 44,
+    "DOWNGRADE": 9
    },
    "downgraded": [
     "F-754"
    ],
    "reclosed": [
     "B2#184",
+    "B2#219",
+    "F-057",
+    "F-073",
+    "F-251",
     "F-884",
     "F-907"
    ]
   },
-  "closed_on_production_evidence": [],
+  "closed_on_production_evidence": [
+   "F-152",
+   "F-283",
+   "F-299",
+   "F-558",
+   "F-570",
+   "F-574",
+   "F-657",
+   "F-682",
+   "F-718"
+  ],
   "ledger_native": {
    "build2": {
     "PROVEN": 229,
@@ -224,9 +238,9 @@
     "OPEN-DEFECT": 2
    },
    "final_master_launch_critical": {
-    "COMPLETE": 365,
-    "GATED": 118,
-    "OPEN": 7
+    "COMPLETE": 372,
+    "GATED": 112,
+    "OPEN": 6
    }
   }
  },
@@ -346,13 +360,13 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 37,
+   "rows": 39,
    "build2": 31,
-   "fm_launch_critical": 6,
-   "fm_post_launch": 0,
+   "fm_launch_critical": 7,
+   "fm_post_launch": 1,
    "tracked": 0,
    "classes": {
-    "implemented_unverified": 37
+    "implemented_unverified": 39
    },
    "owner_actions": [],
    "ids": [
@@ -392,6 +406,8 @@
     "F-182",
     "F-185",
     "F-202",
+    "F-501",
+    "F-512",
     "F-780"
    ],
    "estimate": {
@@ -402,13 +418,13 @@
   {
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 41,
+   "rows": 31,
    "build2": 0,
-   "fm_launch_critical": 31,
-   "fm_post_launch": 10,
+   "fm_launch_critical": 25,
+   "fm_post_launch": 6,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 41
+    "blocked_engineering": 31
    },
    "owner_actions": [],
    "ids": [
@@ -421,35 +437,25 @@
     "F-040",
     "F-041",
     "F-100",
-    "F-152",
     "F-226",
     "F-240",
     "F-243",
     "F-247",
     "F-252",
     "F-273",
-    "F-283",
-    "F-299",
     "F-396",
     "F-437",
-    "F-501",
     "F-507",
-    "F-512",
     "F-515@v0.16",
     "F-535",
     "F-538",
     "F-540",
     "F-542",
-    "F-558",
-    "F-570",
-    "F-574",
     "F-575",
     "F-590",
     "F-594",
     "F-595",
     "F-628",
-    "F-657",
-    "F-682",
     "F-747",
     "F-871",
     "F-872"
@@ -695,15 +701,103 @@
    }
   },
   {
+   "root": "owned_surfaces",
+   "title": "Owned channels (site / Pinterest)",
+   "rows": 18,
+   "build2": 7,
+   "fm_launch_critical": 1,
+   "fm_post_launch": 10,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 18
+   },
+   "owner_actions": [
+    {
+     "id": "owned_surfaces",
+     "batch": "channels",
+     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+     "max_cost_cad": 25.0,
+     "minutes": 65
+    }
+   ],
+   "ids": [
+    "B2#4",
+    "B2#10",
+    "B2#246",
+    "B2#247",
+    "B2#248",
+    "B2#251",
+    "B2#255",
+    "F-572",
+    "F-613",
+    "F-767",
+    "F-771",
+    "F-772",
+    "F-773",
+    "F-808",
+    "F-810",
+    "F-811",
+    "F-812",
+    "F-819"
+   ],
+   "estimate": {
+    "figure": "owner ~65 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "testers_physical_proof",
+   "title": "Testers and physical samples",
+   "rows": 16,
+   "build2": 4,
+   "fm_launch_critical": 4,
+   "fm_post_launch": 8,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 16
+   },
+   "owner_actions": [
+    {
+     "id": "tester_outreach",
+     "batch": "go_live",
+     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+     "max_cost_cad": 185.0,
+     "minutes": 25
+    }
+   ],
+   "ids": [
+    "B2#9",
+    "B2#43",
+    "B2#64",
+    "B2#250",
+    "F-075",
+    "F-076",
+    "F-077",
+    "F-081",
+    "F-082",
+    "F-083",
+    "F-085",
+    "F-118",
+    "F-360",
+    "F-363",
+    "F-385",
+    "F-876"
+   ],
+   "estimate": {
+    "figure": "owner ~25 min, then the gate's own reading",
+    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 246,
+   "rows": 245,
    "build2": 2,
-   "fm_launch_critical": 6,
+   "fm_launch_critical": 5,
    "fm_post_launch": 238,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 246
+    "blocked_engineering": 245
    },
    "owner_actions": [],
    "ids": [
@@ -904,7 +998,6 @@
     "F-714",
     "F-715",
     "F-716",
-    "F-718",
     "F-719",
     "F-720",
     "F-722",
@@ -955,94 +1048,6 @@
     "F-878"
    ],
    "estimate": null
-  },
-  {
-   "root": "owned_surfaces",
-   "title": "Owned channels (site / Pinterest)",
-   "rows": 18,
-   "build2": 7,
-   "fm_launch_critical": 1,
-   "fm_post_launch": 10,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 18
-   },
-   "owner_actions": [
-    {
-     "id": "owned_surfaces",
-     "batch": "channels",
-     "action": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
-     "max_cost_cad": 25.0,
-     "minutes": 65
-    }
-   ],
-   "ids": [
-    "B2#4",
-    "B2#10",
-    "B2#246",
-    "B2#247",
-    "B2#248",
-    "B2#251",
-    "B2#255",
-    "F-572",
-    "F-613",
-    "F-767",
-    "F-771",
-    "F-772",
-    "F-773",
-    "F-808",
-    "F-810",
-    "F-811",
-    "F-812",
-    "F-819"
-   ],
-   "estimate": {
-    "figure": "owner ~65 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
-  },
-  {
-   "root": "testers_physical_proof",
-   "title": "Testers and physical samples",
-   "rows": 16,
-   "build2": 4,
-   "fm_launch_critical": 4,
-   "fm_post_launch": 8,
-   "tracked": 0,
-   "classes": {
-    "blocked_owner": 16
-   },
-   "owner_actions": [
-    {
-     "id": "tester_outreach",
-     "batch": "go_live",
-     "action": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
-     "max_cost_cad": 185.0,
-     "minutes": 25
-    }
-   ],
-   "ids": [
-    "B2#9",
-    "B2#43",
-    "B2#64",
-    "B2#250",
-    "F-075",
-    "F-076",
-    "F-077",
-    "F-081",
-    "F-082",
-    "F-083",
-    "F-085",
-    "F-118",
-    "F-360",
-    "F-363",
-    "F-385",
-    "F-876"
-   ],
-   "estimate": {
-    "figure": "owner ~25 min, then the gate's own reading",
-    "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
-   }
   },
   {
    "root": "owner_other",
@@ -1561,8 +1566,8 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 37,
-   "unblocks_fm_launch_critical": 6,
+   "unblocks_rows": 39,
+   "unblocks_fm_launch_critical": 7,
    "unblocks_build2": 31,
    "who": "engineering",
    "estimate": {
@@ -1574,8 +1579,8 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 41,
-   "unblocks_fm_launch_critical": 31,
+   "unblocks_rows": 31,
+   "unblocks_fm_launch_critical": 25,
    "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
@@ -1634,9 +1639,9 @@
    "b2": []
   },
   "claude/w4-FIRSTSALE": {
-   "head": "6b7239a2",
-   "last_commit": "2026-10-20T04:17:17+00:00",
-   "commits_ahead": 2,
+   "head": "72e70544",
+   "last_commit": "2026-10-20T05:06:55+00:00",
+   "commits_ahead": 7,
    "fm": [],
    "b2": []
   },
@@ -1690,9 +1695,9 @@
    "b2": []
   },
   "claude/w4-VISNEXT": {
-   "head": "cd4ca168",
-   "last_commit": "2026-10-20T04:15:53+00:00",
-   "commits_ahead": 40,
+   "head": "a7df75ed",
+   "last_commit": "2026-10-20T05:18:26+00:00",
+   "commits_ahead": 43,
    "fm": [
     "F-852"
    ],
@@ -2943,6 +2948,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "four purpose classes exist and a chart cannot be the hero by rendering",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -3062,6 +3074,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "the six-stage flow runs in order in assets.build; invented content is blocked in every category (motif, dimension, texture, construction, deliverable) and sent back to the brief",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -4573,6 +4592,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "a catchphrase is declared a slogan token and refused in copy; direct use needs a recorded basis; without one the original-language lane is taken",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -5781,6 +5807,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "every named domain is required in a complete cycle; add/merge/retire/revise-metric moves are validated; the roadmap carries completeness forward",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -5895,6 +5928,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "the owner selects once; a second selection is a redesign; the pack is versioned, persisted, pinned by hash, and drift blocks",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -6262,6 +6302,21 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "DOWNGRADE",
+     "basis": "criterion: 'a changing elite panel including other category leaders and purchased Benchmark Library products'",
+     "production_reading": null,
+     "downgrade_reason": "the test adds a second observed seller; nothing asserts that a purchased Benchmark Library product (BenchmarkProduct) puts its seller on the panel, though mission_runtime.panel_members reads them",
+     "reclosed": {
+      "tests": [
+       "tests/test_w4_close5_audit.py::test_b2_219_a_purchased_library_product_puts_its_seller_on_the_panel"
+      ],
+      "at": "2026-10-20",
+      "by": "W4-CLOSE5",
+      "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+     },
+     "reclosed_verified": true
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -6557,6 +6612,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "the ladder's rungs, gaps, tier movement (unmeasurable, not zero), lifetime value and the discount rules are asserted",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -9603,6 +9665,21 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "DOWNGRADE",
+     "basis": "criterion: 'Capture buyer-relevant crochet technique/material differentiators truthfully'",
+     "production_reading": null,
+     "downgrade_reason": "only technique truth is asserted; no test refuses a MATERIAL the pattern does not use (seo.truth refuses it and seo.strategy blocks the family phrase, untested)",
+     "reclosed": {
+      "tests": [
+       "tests/test_w4_close5_audit.py::test_f057_a_material_the_pattern_does_not_use_is_refused_and_the_strategy_blocks_it"
+      ],
+      "at": "2026-10-20",
+      "by": "W4-CLOSE5",
+      "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+     },
+     "reclosed_verified": true
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -9953,6 +10030,22 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "DOWNGRADE",
+     "basis": "criterion names fitted garments, complex grading, closed 3-D forms, novel assemblies, high-yardage claims and new construction primitives",
+     "production_reading": null,
+     "downgrade_reason": "no test asserts the multi_seam_assembly (novel assembly) or uncalibrated_primitive (new primitive) features raise the matrix class; both exist in gates/risk_matrix.features",
+     "reclosed": {
+      "tests": [
+       "tests/test_w4_close5_audit.py::test_f073_a_novel_assembly_raises_the_class_and_a_short_one_does_not",
+       "tests/test_w4_close5_audit.py::test_f073_a_new_construction_primitive_raises_the_class_until_calibrated"
+      ],
+      "at": "2026-10-20",
+      "by": "W4-CLOSE5",
+      "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+     },
+     "reclosed_verified": true
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -9972,6 +10065,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "a new primitive starts uncalibrated and restricts the certificate until a passed sample calibrates it",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -10558,6 +10658,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "every spend path is ceiling-checked (scan); a non-llm kind closes the month and an unknown kind counts inside the ceiling",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -11146,6 +11253,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "a partial with no named gate or check is refused by both the adjudicator and the runtime",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -11511,20 +11625,32 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Scratch Non-Authority",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
      "core/continuity.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Owner: provide off-site storage (offsite_storage gate). Now: add a test that every handler writing recovery/audit evidence writes it to the DB or ArtifactStore, not only to a workspace dir.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate offsite_storage is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "Continuity exports are retained in Postgres (core/continuity.retain) and restore proofs audited, and certification evidence is committed under research/b2_resume/evidence; the off-site copy is gated on owner-supplied storage, and no rule/te",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_offsite_20261020T0416Z.json",
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); scratch-site rule + scratch-deletion tests pass on the deployed tree",
+     "tests": [
+      "tests/test_w4_close5_rows.py::test_f152_every_scratch_site_is_classified",
+      "tests/test_w4_close5_rows.py::test_f152_each_classified_home_really_writes_or_hands_over_the_evidence",
+      "tests/test_w4_close5_rows.py::test_f152_continuity_evidence_outlives_its_scratch_directory",
+      "tests/test_w4_close5_rows.py::test_f152_offsite_evidence_outlives_its_scratch_directory"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -13374,6 +13500,21 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "DOWNGRADE",
+     "basis": "criterion: 'Titles/tags follow shop-language rules; translations are deliberate and not used as impression bait'",
+     "production_reading": null,
+     "downgrade_reason": "both cited tests put the foreign words in a TAG; no test asserts a foreign-language TITLE is refused (seo.check_search_copy does scan the title, untested)",
+     "reclosed": {
+      "tests": [
+       "tests/test_w4_close5_audit.py::test_f251_a_foreign_language_title_is_refused_unless_a_deliberate_translation"
+      ],
+      "at": "2026-10-20",
+      "by": "W4-CLOSE5",
+      "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+     },
+     "reclosed_verified": true
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -13968,6 +14109,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "concentration on one query is measured and listing.seo moves slots off shared phrases",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -14094,21 +14242,32 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "First-Sale Attribution",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
      "commerce/orders_ingest.py",
      "finance/sources.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed in main.CUSTOMER_DATA_ROUTES; test that it refuses without evidence and refreshes the first-sale record.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "no owner/Stats-export route to attribute organic, Etsy Ads or owned/direct (sources.attribute is only called by finance/reconcile for offsite_ads fee evidence); first sales will stay 'unknown' unless evidence arrives that way",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "attribution route + channel table + first-sale caveat tests pass on the deployed tree; transactions_r gate OPEN on b931d17",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows",
+      "tests/test_money_truth.py::test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket",
+      "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+      "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -14444,21 +14603,35 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Controlled Phase Change",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
-     "launch/rollback.py",
-     "runtime/pipeline.py"
+     "core/phase.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Add a PhaseTransition record (from/to, owner approval ref, readiness snapshot id, rollback proof id) required by store.publish outside shadow, with staging as a distinct phase; tests.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate etsy_shop is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "Publication refuses in shadow (165 production refusals) and graduation is an owner request; rollback is rehearsed per listing (post-production). The transition itself is an env var (BRAMBLELOOP_PHASE) with no recorded owner-approved transit",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_verify_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "verify phase_is_shadow: env shadow == recorded shadow, agree; 186 publication refusals; ad spend 0.0; phase transition tests pass on the deployed tree",
+     "tests": [
+      "tests/test_fb4_launch.py::test_env_alone_saying_limited_production_runs_as_shadow_with_an_incident",
+      "tests/test_fb4_launch.py::test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are_audited",
+      "tests/test_fb4_launch.py::test_a_forged_or_edited_transition_row_is_not_authority",
+      "tests/test_fb4_launch.py::test_store_publish_refuses_when_env_says_production_but_nothing_is_recorded",
+      "tests/test_rc1_auth.py::test_A1_owner_rollback_recorded_after_boot_stops_store_activate",
+      "tests/test_w3_k4_launch_verdict.py::test_F300_rollback_to_shadow_never_requires_readiness",
+      "tests/test_w4_close5_rows.py::test_f299_ad_spend_follows_the_recorded_owner_transition_not_the_environment",
+      "tests/test_w4_close5_rows.py::test_f299_the_staging_step_cannot_be_skipped_and_needs_the_owner"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -18402,20 +18575,20 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Etsy Event Feedback",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
-     "commerce/orders_ingest.py"
+     "commerce/orders_ingest.py",
+     "integrations/etsy_webhooks.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "remaining": "Owner: re-authorise with transactions_r; software now: deploy Build 2 so the poll runs, and build the webhook receiver in F-512 for lower latency",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "event layer is a 6-hourly receipts poll, idempotent on etsy:<receipt>:<transaction>; Etsy's push events (order.paid/canceled/shipped/delivered webhooks) are not received; the poll has never run against Etsy because transactions_r is not gra",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -18656,17 +18829,18 @@
     "scope": "post_launch",
     "title": "Webhook Reliability",
     "ledger_state": "POST-LAUNCH",
-    "modules": [],
-    "code_exists": null,
-    "deployed": null,
-    "remaining": "Build POST /api/etsy/webhook in app/main.py: verify HMAC-SHA256 over id.timestamp.body with whsec_ secret from env, reject >300 s skew, persist a WebhookDelivery row unique on webhook-id, enqueue commerce.orders_ingest idempotently, expose counts on /api/etsy; add tests with signed/unsigned/replayed",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "no webhook receiving route, signature verification, delivery table or dedupe exists; job-level idempotency/retries/dead letters exist only for the internal queue",
+    "modules": [
+     "integrations/etsy_webhooks.py"
+    ],
+    "code_exists": true,
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -19837,20 +20011,32 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Order Operations Ledger",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
+     "commerce/order_ledger.py",
      "commerce/orders_ingest.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from real rows",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "order ledger tests (six parts, item/version, cancellation) pass on the deployed tree; module reached on b931d17; transactions_r OPEN",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f558_every_order_reconciles_six_parts_and_names_what_does_not",
+      "tests/test_w4_close5_rows2.py::test_f558_item_version_is_named_with_its_basis_and_a_cancellation_reaches_the_row",
+      "tests/test_w4_close5_rows2.py::test_f558_an_unknown_version_is_a_problem_never_a_pass"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -20118,14 +20304,24 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Make Order.offsite_ad_attributed tri-state (None=unknown) in cohorts.record_order and orders_ingest, and set it only from Payment/ledger fee lines or an owner record; offsite_ads_forecast must report UNKNOWN while any order is None.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "No source for Offsite Ads attribution (absent from the API); 365-day threshold tracked from order sums; contribution recompute on attributed orders depends on an attribution flag nothing sets.",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "offsite-ads attribution/fee/margin tests pass on the deployed tree; transactions_r OPEN",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f570_unread_attribution_is_unmeasured_never_a_zero_share",
+      "tests/test_w4_fmclose_etsy.py::test_f570_ledger_read_measures_attribution_fee_and_recomputed_margin",
+      "tests/test_w4_fmclose_etsy.py::test_f570_ads_plan_reports_unknown_attribution_and_the_threshold_status"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -20211,18 +20407,28 @@
     "title": "Marketing Channel Attribution",
     "ledger_state": "POST-LAUNCH",
     "modules": [
-     "scale/evidence.py"
+     "finance/channel_comparison.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Add a channel field with values {organic_search, etsy_ads, offsite_ads, social, share_and_save, unknown} defaulting to unknown, enforce one channel per order, and report per product family in scale/evidence.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "No listing/product-family channel comparison across organic/Ads/Offsite/social/Share&Save and no single-credit rule; ingest hardcodes acquisition_source='etsy' and never sets search_term or offsite flag.",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "channel comparison tests pass on the deployed tree; module reached on b931d17",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f574_channels_compared_per_listing_and_family_one_credit_per_order",
+      "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -21584,18 +21790,28 @@
     "title": "Event Wakeups",
     "ledger_state": "POST-LAUNCH",
     "modules": [
-     "runtime/worker.py"
+     "autonomy/event_wakes.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Add an event table + dispatcher (e.g. src/brambleloop/queue/events.py) mapping event kinds (order, message, review, refund, policy_change, incident, spend_anomaly, owner_decision) to job enqueues; have orders_ingest/support/governor/owner-decision emit events; test a wake per kind.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "Wakeups are fixed-period polling cadences plus follow-on enqueues on completion; no event ingestion (no webhooks, no Etsy event feed, no message/review/refund events). orders_ingest and support_triage cadences are post-fcb982d.",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "event wake tests pass on the deployed tree; module reached on b931d17",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f657_each_business_event_wakes_its_team_once",
+      "tests/test_w4_fmclose_etsy.py::test_f657_the_orchestrate_tick_runs_the_event_scan"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -22082,20 +22298,30 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "Accountant Activity",
-    "ledger_state": "GATED",
+    "ledger_state": "COMPLETE",
     "modules": [
-     "finance/governor.py"
+     "finance/accounting/activity.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepancy rows (never zeroed) and a close status; expose on /api/finance; test a mismatch stays open.",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
-    "missing_evidence": "Spend-side reconciliation exists (attribution must sum to the bill or is refused; estimate vs actual recorded). Revenue-side reconciliation against Etsy receipts/payments/payouts, discrepancy records, close status and tax/threshold alerts a",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "accountant activity tests pass on the deployed tree; module reached on b931d17; transactions_r OPEN",
+     "tests": [
+      "tests/test_w4_fmclose_etsy.py::test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+      "tests/test_w4_fmclose_etsy.py::test_f682_threshold_alert_approaches_and_crosses"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -22467,6 +22693,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "each per-action clause blocks and fails closed; every clause names an importable enforcer",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -22799,20 +23032,33 @@
     "source": "final_master",
     "scope": "launch_critical",
     "title": "No Chat as Source of Truth",
-    "ledger_state": "OPEN",
+    "ledger_state": "COMPLETE",
     "modules": [
-     "core/db.py"
+     "core/db.py",
+     "visual/approval_record.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "company: export the production model.frozen approval record and pack fingerprint into the repository manifest with a test that the manifest matches the DB row (read-only GET suffices)",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (core)",
-    "missing_evidence": "Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved canonical pack fingerprint exists only in a production audit row (not reproducible from the repo), and dev-lane state d",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_BOARD/prod_api_model_identity_20261020T0416Z.json",
+      "research/final_build/w4/evidence_BOARD/prod_api_audit_model_frozen_20261020T0416Z.json",
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "model-identity approval_record MATCH (audit 5693) on b931d17; runtime reads no dev-lane state (test on the deployed tree)",
+     "tests": [
+      "tests/test_w4_provenance.py::test_a_matching_database_row_is_match",
+      "tests/test_w4_provenance.py::test_the_model_identity_route_serves_the_comparison",
+      "tests/test_w4_close5_rows.py::test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+      "tests/test_w4_close5_rows.py::test_f718_the_runtime_reads_no_dev_lane_or_session_state"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -24132,6 +24378,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "all five named dimensions are compared and material overlap escalates: wording (hashes), unusual numeric runs, construction, distinctive features, presentation",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -25141,6 +25394,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "revalidation at the effect boundary on publish (halting incident, moved upstream), withholding through every rebuild path, a revoked grant before draft creation and a revoke/mutation during a reservation",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -25605,6 +25865,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "with the visual gate closed, unrelated READY work is next and claimable",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -26233,6 +26500,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "declared-tier routing never degrades a deep task; every department charter carries an evidence requirement and an escalation rule; idle work is evidence-backed",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },
@@ -26756,6 +27030,13 @@
     "cls": "verified_complete",
     "root": null,
     "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "audit": {
+     "verdict": "PASS",
+     "basis": "every department has up-KPIs with guardrails; a refused job and duplicate/no-op output void or cannot farm the KPI",
+     "production_reading": null,
+     "downgrade_reason": null,
+     "reclosed": null
+    },
     "recount": "production_verified",
     "empirical": false
    },

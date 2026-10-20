@@ -80,12 +80,15 @@ REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
               "0417f35": "0417f3516f30bb7c52926187fc475a0f46536e86",
               # W4-BOARD on the deployed release 1b21e81: rows closed on production readings
               # of that commit (w4/close_board.py; w4/BOARD_RECOUNT.md)
-              "1b21e81": "1b21e81c6d1b228a93f72be44cfdf8193740b61b"}
+              "1b21e81": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+              # W4-CLOSE5 on the deployed release b931d17: rows closed on production readings
+              # of that commit plus a test run on its clean tree (w4/close5.py; w4/CLOSE5.md)
+              "b931d17": "b931d17a738d6a5bcd96580f620069b669ca5f57"}
 # W4-INTEG3: remaps that close rows on production evidence without re-classifying them. A
 # launch-critical re-map wave only draws launch-critical rows, so its non-LC class means the
 # row was moved out; a closure remap (W4-BOARD 1b21e81 also re-mapped the post-launch F-486 to
 # record its production consumer) carries the row's existing class and is not a move.
-CLOSURE_ONLY_REMAPS = {"1b21e81"}
+CLOSURE_ONLY_REMAPS = {"1b21e81", "b931d17"}
 PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}

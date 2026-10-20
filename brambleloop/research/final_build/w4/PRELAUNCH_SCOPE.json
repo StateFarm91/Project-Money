@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T04:18:56Z",
-  "branch_head": "4b24f86e"
+  "generated_at": "2026-10-20T05:21:14Z",
+  "branch_head": "eb8335b2"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,9 +40,9 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 648,
+  "total_not_verified": 639,
   "by_class": {
-   "A": 575,
+   "A": 566,
    "C": 40,
    "B": 33
   },
@@ -53,7 +53,7 @@
     "B": 5
    },
    "final_master": {
-    "A": 482,
+    "A": 473,
     "C": 19,
     "B": 27
    },
@@ -81,12 +81,12 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 194,
+    "A": 187,
     "B": 23
    },
    "store_product": {
     "C": 14,
-    "A": 204,
+    "A": 202,
     "B": 3
    }
   },
@@ -97,12 +97,12 @@
     "B": 5
    },
    "launch_critical": {
-    "A": 110,
+    "A": 104,
     "C": 3,
     "B": 19
    },
    "post_launch": {
-    "A": 372,
+    "A": 369,
     "C": 16,
     "B": 8
    }
@@ -134,14 +134,13 @@
    "A F-273 [blocked_engineering] Offsite Ads Accounting",
    "A F-280 [blocked_owner] Launch Search Visibility Watch",
    "A F-282 [blocked_owner] No Zero-Sales Panic",
-   "A F-283 [blocked_engineering] First-Sale Attribution",
    "A F-284 [blocked_external] Review / Service Flywheel",
    "A F-285 [blocked_owner] Seasonal Keyword Refresh",
    "A F-291 [blocked_external] Search / Ads Policy Watch",
    "A F-360 [blocked_owner] Sizing Is Safety-Critical Product Truth",
    "A F-437 [blocked_engineering] Primary Documentation for Integrations",
    "A F-497 [blocked_owner] Build vs Operate Separation",
-   "A F-501 [blocked_engineering] Etsy Event Feedback",
+   "A F-501 [implemented_unverified] Etsy Event Feedback",
    "A F-524 [blocked_owner] First-Image Program",
    "A F-532 [blocked_external] Customer-Service Standards Watch",
    "A F-535 [blocked_engineering] Refund/Cancellation Root Cause",
@@ -149,7 +148,6 @@
    "A F-542 [blocked_engineering] Remote Write Readback",
    "A F-556 [blocked_external] Message SLA Engine",
    "A F-557 [blocked_external] Message Triage & Escalation",
-   "A F-558 [blocked_engineering] Order Operations Ledger",
    "A F-578 [blocked_owner] Tax Information Registry",
    "A F-587 [blocked_owner] Policy Settings Canonicalization",
    "A F-674 [blocked_external] Visual Pipeline",
@@ -252,6 +250,7 @@
    "A F-507 [blocked_engineering] Sales Feedback Loop",
    "A F-508 [blocked_owner] SEO Learning Loop",
    "A F-510 [blocked_external] Pricing Learning Loop",
+   "A F-512 [implemented_unverified] Webhook Reliability",
    "A F-516@v0.16 [blocked_owner] Search Visibility Ingestion",
    "A F-517@v0.16 [blocked_owner] Search Visibility Closure Proof",
    "A F-522 [blocked_owner] Organic-vs-Paid Separation",
@@ -273,7 +272,6 @@
    "A F-564 [blocked_owner] Listing-Level Stats",
    "A F-566 [blocked_external] Customer Service Daily Watch",
    "A F-567 [blocked_external] Star Seller Separation",
-   "A F-570 [blocked_engineering] Offsite Ads Economics",
    "A F-571 [blocked_external] Sales & Discounts Engine",
    "A F-573 [blocked_owner] Share & Save Optimization",
    "A F-575 [blocked_engineering] Payment Account Reconciliation",
@@ -372,7 +370,6 @@
    "A F-103 [blocked_owner] Post-Call Reconciliation",
    "A F-106 [blocked_owner] Provider Billing Reconciliation",
    "A F-135 [blocked_owner] Lease-Recovery Drill",
-   "A F-152 [blocked_engineering] Scratch Non-Authority",
    "A F-160 [blocked_owner] Credential Rotation Register",
    "A F-172 [implemented_unverified] Shadow-Mode Publication Proof",
    "A F-185 [implemented_unverified] Expected Dead-Letter Presentation",
@@ -382,7 +379,6 @@
    "A F-287 [blocked_owner] Visibility Command Center",
    "A F-295 [blocked_owner] Ads Dry Run",
    "A F-297 [blocked_external] Measurement Before Optimization",
-   "A F-299 [blocked_engineering] Controlled Phase Change",
    "A F-301 [blocked_owner] Provider-Observed Spend Reconciliation",
    "A F-321 [blocked_owner] Per-Listing Maintenance Cost",
    "A F-323 [blocked_external] Cost Per Sale / Contribution",
@@ -393,9 +389,7 @@
    "A F-594 [blocked_engineering] First-Sale Readiness Gate",
    "A F-608 [blocked_owner] Independent Accountant",
    "A F-665 [blocked_owner] Evidence WHY",
-   "A F-682 [blocked_engineering] Accountant Activity",
    "A F-695 [blocked_owner] Spend Governance",
-   "A F-718 [blocked_engineering] No Chat as Source of Truth",
    "A F-834 [blocked_engineering] Consumption Required",
    "A F-846 [blocked_engineering] Audit-Repair Loop",
    "A F-848 [blocked_owner] Shadow Rehearsal",
@@ -502,13 +496,11 @@
    "A F-502 [blocked_owner] Storefront Continuous Optimization",
    "A F-503 [blocked_external] Evidence-Driven Experiments",
    "A F-504 [blocked_engineering] Experiment Attribution",
-   "A F-512 [blocked_engineering] Webhook Reliability",
    "A F-515@v0.15 [blocked_engineering] Launch Non-Delay Rule",
    "A F-523 [blocked_owner] Listing Funnel Model",
    "A F-550 [blocked_engineering] Continuous Etsy Improvement Cadence",
    "A F-569 [blocked_owner] Etsy Ads Campaign Manager",
    "A F-572 [blocked_owner] Social Media Distribution",
-   "A F-574 [blocked_engineering] Marketing Channel Attribution",
    "A F-579 [blocked_engineering] Accounting Integration Decision",
    "A F-606 [blocked_external] Constraint Finder",
    "A F-607 [blocked_engineering] Finance & Accounting Department",
@@ -526,7 +518,6 @@
    "A F-651 [blocked_engineering] Unified Studio",
    "A F-652 [blocked_engineering] Desktop Headquarters",
    "A F-653 [blocked_engineering] Galaxy Access",
-   "A F-657 [blocked_engineering] Event Wakeups",
    "A F-660 [blocked_engineering] Elastic Capacity",
    "A F-661 [blocked_engineering] Executive Command Center",
    "A F-662 [blocked_engineering] Live Company Timeline",
@@ -3668,21 +3659,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-152",
-   "scope": "launch_critical",
-   "title": "Scratch Non-Authority",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate offsite_storage is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Scratch Non-Authority - Recovery/audit evidence cannot exist only in ephemeral scratch."
-  },
-  {
-   "source": "final_master",
    "id": "F-153",
    "scope": "post_launch",
    "title": "Commit Signing Truth Audit",
@@ -4493,21 +4469,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-283",
-   "scope": "launch_critical",
-   "title": "First-Sale Attribution",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "First-Sale Attribution - Record first-sale source honestly (organic Etsy, Etsy Ads, Offsite Ads, owned/direct, unknown). One sale proves possibility, not scale."
-  },
-  {
-   "source": "final_master",
    "id": "F-284",
    "scope": "launch_critical",
    "title": "Review / Service Flywheel",
@@ -4640,21 +4601,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Measurement Before Optimization - Prove accessible organic/paid evidence can be recorded before enabling automated optimization."
-  },
-  {
-   "source": "final_master",
-   "id": "F-299",
-   "scope": "launch_critical",
-   "title": "Controlled Phase Change",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate etsy_shop is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Controlled Phase Change - Shadow -> staging -> live publication/ads is explicit owner-approved transition with rollback."
   },
   {
    "source": "final_master",
@@ -6506,9 +6452,9 @@
    "id": "F-501",
    "scope": "launch_critical",
    "title": "Etsy Event Feedback",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
    "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
@@ -6671,10 +6617,10 @@
    "id": "F-512",
    "scope": "post_launch",
    "title": "Webhook Reliability",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "store_product",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,
@@ -7298,21 +7244,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-558",
-   "scope": "launch_critical",
-   "title": "Order Operations Ledger",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Order Operations Ledger - For every order, reconcile payment, item/version, digital delivery state, buyer issue, refund/cancellation/case state and downstream accounting evidence."
-  },
-  {
-   "source": "final_master",
    "id": "F-560",
    "scope": "post_launch",
    "title": "Search Visibility Three-Area Model",
@@ -7448,21 +7379,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-570",
-   "scope": "post_launch",
-   "title": "Offsite Ads Economics",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Offsite Ads Economics - Track Offsite Ads attribution, fee rate, 30-day attribution behavior and the shop's 365-day revenue threshold/participation status. Recompute contribution margin on attributed orders."
-  },
-  {
-   "source": "final_master",
    "id": "F-571",
    "scope": "post_launch",
    "title": "Sales & Discounts Engine",
@@ -7505,21 +7421,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Share & Save Optimization - Where enrolled/eligible, generate and use Etsy Share & Save trackable links for external traffic, track eligible orders/refunds and compare fee savings against ordinary external links."
-  },
-  {
-   "source": "final_master",
-   "id": "F-574",
-   "scope": "post_launch",
-   "title": "Marketing Channel Attribution",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Marketing Channel Attribution - Compare organic Etsy search, Etsy Ads, Offsite Ads, social and Share & Save at listing/product-family level. One order cannot be double-credited to multiple channels internally."
   },
   {
    "source": "final_master",
@@ -8333,21 +8234,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-657",
-   "scope": "post_launch",
-   "title": "Event Wakeups",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Event Wakeups - orders, messages, reviews, refunds, Etsy events, policy changes, incidents, spend anomalies, research signals, schedules and owner decisions wake the appropriate team."
-  },
-  {
-   "source": "final_master",
    "id": "F-660",
    "scope": "post_launch",
    "title": "Elastic Capacity",
@@ -8630,21 +8516,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Finance Workspace - Finance/Accountant is a major Studio tab, not a separate owner app: sales, refunds, Etsy fees, ads/credits, AI/infrastructure/software expense, profit, margin, tax reserve, cash/payouts, forecasts and unreconciled items."
-  },
-  {
-   "source": "final_master",
-   "id": "F-682",
-   "scope": "launch_critical",
-   "title": "Accountant Activity",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0416Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Accountant Activity - show last reconciliation, discrepancies, close status, tax/threshold alerts and evidence; never silently force mismatches to zero."
   },
   {
    "source": "final_master",
@@ -9005,21 +8876,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Collaboration Workspace - Brambleloop Studio exposes proposer, implementer, reviewer, disagreement, evidence, tests, cost, accepted/rejected approach and final integration result for important multi-agent/model work."
-  },
-  {
-   "source": "final_master",
-   "id": "F-718",
-   "scope": "launch_critical",
-   "title": "No Chat as Source of Truth",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "No Chat as Source of Truth - Institutional knowledge must live in durable project/company objects: repository, database, evidence records, experiment ledger, decisions, Product Truth, tasks and artifacts. No critical state may exist only in a Claude, GPT or Fable conversation."
   },
   {
    "source": "final_master",
