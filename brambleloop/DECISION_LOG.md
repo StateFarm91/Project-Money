@@ -2111,3 +2111,23 @@ F-147, F-148 and F-834.**
 - Evidence: `evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json`.
 
 **Neither is applied here.** `overrides.json` and `build2/requirements.json` are unchanged on this branch.
+
+## D-W4-CLOSE6-FMREGATE: F-273 and F-538 moved to the `customers` gate; Final Master re-gates now need coordinator acceptance (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session.**
+
+**Policy, effective now.** A Final Master row is moved to the `customers` data gate only as a
+PROPOSED entry that the coordinator accepts. This is the same route Build 2 re-gates already
+take. The owner requires that unfinished engineering is never labelled customer-dependent.
+
+**F-273 (Offsite Ads accounting) and F-538 (finance reconciliation) are accepted.**
+- Both move from `transactions_r`, which is now open, to `customers`.
+- The reconcile code is live and reached:
+  - `finance/reconcile.py` applies Etsy's payment ledger on every receipt read;
+  - it sets `offsite_ad_attributed` from `offsite_ads_fee` entries;
+  - it reports unknown ledger types and never counts them.
+- Production readback: the order ingest reads `measured` on every run since 2026-10-13, with 0
+  receipts (`evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json`).
+- What remains is a real settlement only. The record is
+  `research/final_build/w4/FM_REGATE_PROPOSED_CLOSE6.json`. It was applied in CLOSE6 batch 5 and
+  is recorded here retroactively under the new policy.

@@ -271,3 +271,21 @@ which are W-FIRSTSALE's scope. I left it alone. It needs either:
 - a collector per surface (for example, `orders` from the `commerce.orders_ingested`
   readings); or
 - an owner-observation evidence path, as `about` now has.
+
+## 12. Coordinator follow-ups (2026-10-20)
+
+**F-273 and F-538 re-gate.** Recorded as accepted in
+`w4/FM_REGATE_PROPOSED_CLOSE6.json` and in DECISION_LOG `D-W4-CLOSE6-FMREGATE`. The policy now
+in force: a Final Master re-gate to `customers` goes through the coordinator.
+
+**Surface-collector gap.** Handed to W-FIRSTSALE.
+
+**F-515.** There was no mapping mismatch; the error was in my report.
+- In the registry, F-515@v0.16 is "Shop Completeness Gate" and F-515@v0.15 is "Launch
+  Non-Delay Rule", which is what the board shows.
+- My `grep -A6` matched the row's trailing uid line and printed the next row (F-516@v0.16,
+  "Search Visibility Ingestion").
+- `tests/test_w4_close6_titles.py` (3) now asserts that every board row and every matrix row
+  (917 each) carries exactly its registry title, and that the F-515 rows are the requirements
+  their mapping describes.
+- I re-checked every criterion quoted in CLOSE6 by uid; all were correct.
