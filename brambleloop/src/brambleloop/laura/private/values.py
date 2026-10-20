@@ -51,8 +51,11 @@ class PrivateValue:
 class PrivateRecord:
     """Metadata plus a `PrivateValue`. Metadata here is non-content (ids, kinds, times)."""
 
+    # W4-LAURAONE: `label`, `excluded`, `sensitive` (a unified-thread turn) and `status` (a
+    # crossing request) are fixed-vocabulary metadata read from INSIDE the sealed payload.
     __slots__ = ("record_id", "kind", "provenance", "created_at", "role", "model_ref",
-                 "reply_to", "key", "value", "sources")
+                 "reply_to", "key", "value", "sources", "label", "excluded", "sensitive",
+                 "status", "refs", "stepup", "origin")
     __brambleloop_private__ = True
 
     def __init__(self, **kw):

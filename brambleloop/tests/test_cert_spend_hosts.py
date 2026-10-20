@@ -21,7 +21,7 @@ from brambleloop.visual import d_judge  # noqa: E402
 
 PAID_HOSTS = re.compile(
     r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.bfl\.ai"
-    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai")
+    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai|api\.venice\.ai")
 
 # Each file allowed to address a paid provider, and what holds its ceiling. A new file here is
 # a decision about spend, made in review, not a refactor.
@@ -37,8 +37,16 @@ DECLARED = {
     # "Free, budget-neutral, bounded: SAFE"): credential health only -- BFL GET /v1/credits and
     # Anthropic POST /v1/messages/count_tokens, both documented free, no generation, a 60 s
     # on-demand floor and the daily cadence; no billable call.
+    # Extended in W4-VENICE: Venice GET api_keys/rate_limits (and GET models), owner-enabled only
+    # (BRAMBLELOOP_PRIVATE_PROVIDER=venice); no inference. Its billing basis is recorded as
+    # UNKNOWN in credentials.VENICE_CHECK_COST_BASIS, never as free. (INTEG5 merged both entries.)
     "brambleloop/gateway/credentials.py": "credential health: free GET /v1/credits and "
-                                          "count_tokens only; never generates",
+                                          "count_tokens, Venice no-inference auth reads "
+                                          "(owner-enabled only); never generates",
+    # W4-VENICE (D-W4-PL-VENICE): Private Laura's transport. Only `laura_register._reply`
+    # calls it, after check_budget_cad reserved on `laura_private` (atomic, CA$0.50/day).
+    "brambleloop/gateway/venice.py": "Private Laura transport: laura_register reserves via "
+                                     "check_budget_cad first",
 }
 
 

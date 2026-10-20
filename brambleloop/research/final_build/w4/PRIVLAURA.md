@@ -1,5 +1,7 @@
 # W4-PRIVLAURA: Private Laura register (engineering per PRIVATE_LAURA_TRACE §5)
 
+> **Historical (2026-10-20).** The Private Laura register described here (`laura.private_reply@1`, "never sexually explicit", D-W4-PL-2 unresolved) is superseded by D-W4-PL-VENICE-ADULT: the `@3` adult register on Venice, with hard limits. See `VENICE.md` (CURRENT STATUS) and spec/13 ADD-PLV-02. This file is kept as the record of its stage.
+
 Branch `claude/w4-PRIVLAURA`, from `origin/claude/w4-INTEG2` @ 84ee2a0. This file holds no private
 content, no key material and no intimate text. Environment variables are named, never valued.
 
@@ -7,6 +9,8 @@ content, no key material and no intimate text. Environment variables are named, 
 > are billed to their own agent `laura_private` (CA$0.50/day, atomic reservation), and OA-PL-3 (human consent)
 > is **removed** as a prerequisite: Private Laura is Brambleloop's established AI persona, not an impersonation
 > of a real person. The current activation steps are in `PLACT.md`.
+
+> **Superseded in part by D-W4-PL-VENICE (owner ruling 2026-10-20; W4-VENICE, `VENICE.md`):** Private Laura's provider is Venice AI. The transport switch `BRAMBLELOOP_PRIVATE_PROVIDER` is OFF by default and must be `venice`, with `VENICE_API_KEY` in Railway. The status endpoint now lists 6 prerequisites. The current owner activation steps are VENICE.md §6.
 
 **Honest status: the engineering is DONE and tested; Private Laura is NOT complete.** It stays
 OFF until the owner acts (OA-PL-1, 2 and 4; OA-PL-3 removed by D-W4-PL-3), and it is complete only after the class-B production soak

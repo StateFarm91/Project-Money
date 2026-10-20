@@ -230,6 +230,31 @@ TASKS: dict[str, Task] = {
         "laura.private_reply", STANDARD, 400, 2500, False,
         "Laura's reply in the owner-private register over the owner's own private notes; "
         "conversation judgement, never cached, never escalated", stronger_fallback=False),
+    # W4-LAURACEO (ADD-LCEO-01/05, D-W4-LAURA-CEO): Business Laura's real conversation in the
+    # Command Center. Cheap tier for the conversational turn -- greetings, follow-ups and
+    # questions answered from retrieved company records -- because the question is talking
+    # over supplied, cited evidence, and every figure is checked against that evidence in code
+    # (`laura.agency.ceo_chat.validate`). Executive reasoning (priorities, recommendations,
+    # trade-offs, delegation) is routed apart to the standard tier because it is judgement.
+    # Neither escalates on its own: when its model is down or unaffordable the owner is told
+    # so plainly, never handed a template or a silently stronger (dearer) model.
+    "laura.converse": Task(
+        "laura.converse", CHEAP, 450, 3000, False,
+        "Laura's conversational turn over retrieved, cited company records; every figure is "
+        "validated against the evidence in code, so the call is conversation, not judgement",
+        stronger_fallback=False),
+    "laura.executive": Task(
+        "laura.executive", STANDARD, 800, 6000, False,
+        "Laura's executive reasoning to the owner: priorities, recommendations and "
+        "delegation proposals over cited company records (judgement)",
+        stronger_fallback=False),
+    # Laura's executive tick may ask the standard tier to ORDER the priorities code already
+    # derived and authorised (ids only, no text): the model picks which authorised work goes
+    # first; it cannot add work, and code re-checks authority on every delegation.
+    "laura.exec_rank": Task(
+        "laura.exec_rank", STANDARD, 200, 3000, False,
+        "order Laura's deterministic, already-authorised priority candidates (ids only)",
+        stronger_fallback=False),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "

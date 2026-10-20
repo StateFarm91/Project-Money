@@ -2194,3 +2194,217 @@ Before publishing, verify that the specific image use complies with Etsy's appli
 **Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
 this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
 publication stays blocked.
+
+## D-W4-LAURA-CEO and D-W4-PL-VENICE — owner rulings (2026-10-20), MANDATORY final-build additions
+
+- **D-W4-LAURA-CEO:**
+  - Business Laura is the Founder and AI CEO who runs day-to-day operations within the existing authorities. The owner owns the company.
+  - The deterministic Ask-Company replies must become real model-backed conversation, grounded in company records.
+  - Executive direction must run through the real job queue: priorities, delegation, review, correction and reporting.
+  - Multi-model routing is cost-aware. No new provider, credential or subscription without owner approval.
+  - Owner-reserved decisions, ceilings, publication gates, legal and security controls are unchanged. Nothing new is unrestricted.
+- **D-W4-PL-VENICE:**
+  - Private Laura uses Venice AI through its documented API. This is the owner's final provider decision, and research into alternatives stops unless a real technical, contractual or security blocker appears.
+  - It supersedes the earlier "keep Anthropic" provider choice for Private Laura only. Business Laura keeps the business routing.
+  - Everything else is unchanged: the separate CA$0.50/day budget, the privacy firewall, encryption, owner-only access, truthful-AI representation, D-W4-PL-2, and no activation without separate approval.
+- **Requirements:** recorded as addendum rows ADD-LCEO-01..07 and ADD-PLV-01..08 in `spec/13_Laura_CEO_Autonomy_and_Private_Laura_Venice_2026-10-20.md`. They are mandatory and are added to the completion board as an addendum section, without renumbering Build 2 or the Final Master.
+
+## D-W4-LAURACEO-ROUTE — Business Laura conversation routing and cost stops (2026-10-20, routine technical decision under D-W4-LAURA-CEO)
+
+- **Routing.** Business Laura's Command Center conversation is model-written, on Anthropic only. Templates are evidence tools.
+  - `laura.converse` (cheap tier, claude-haiku-4-5) handles conversation.
+  - `laura.executive` (standard tier, claude-sonnet-5) handles executive reasoning.
+  - `laura.exec_rank` (standard tier) orders the tick's code-authorised priorities, at most twice per UTC day.
+  - None escalates. When the model is unavailable, the owner is told so; no canned reply is given.
+- **Money.** Billed to the existing `laura` agent: CA$0.50/day, inside CA$100/month, both unchanged. New purpose allocation stops: converse 8%, executive 5%, exec_rank 2% (CA$15 together). This matches ADD-LCEO-06's CA$10–15/month target. Estimated routine month: about CA$12.
+- **Grounding.** Deterministic validation wins over the model. A reply that cites unoffered records, states figures not found in the evidence or conversation, or claims to be human is withheld with the reason.
+- **Not decided here.** Moving chat to claude-haiku-5-5 needs a price row and F-313 evidence. OpenAI or Venice for business needs owner approval. The repo's overstated Sonnet 5 / Opus 5 prices are referred to finance.
+
+## D-W4-VENICE — Private Laura's Venice transport: model recommendation and switch semantics (2026-10-20, W4-VENICE; routine technical decisions under D-W4-PL-VENICE)
+
+- **Transport, not a second system:** Venice is added as a transport on the one existing reply path (`gateway/laura_register.py`). The pinned prompt `laura.private_reply@1`, the encrypted store, the owner-only context and the atomic `laura_private` CA$0.50/day reservation are unchanged.
+- **Switch:** `BRAMBLELOOP_PRIVATE_PROVIDER` is OFF by default. Unset means no private provider, so no reply. `venice` selects Venice with `VENICE_API_KEY`. `anthropic` stays available only as an explicit owner choice. There is no automatic fallback between providers.
+- **Model recommended, pending owner approval (ADD-PLV-08):** `zai-org-glm-5-2`.
+  - Venice privacy class `private` (zero retention); Venice's `default` model.
+  - US$1.40/US$4.40 per 1M tokens; reasoning switched off.
+  - About CA$0.0039 for a typical reply, so about 127 replies per CA$0.50.
+  - Venice's own system prompt is turned off (`include_venice_system_prompt: false`).
+  - Anonymized (third-party-visible) models and the "uncensored" models are excluded (ADD-PLV-02/03).
+- **Credential health:** Venice's balance check (`GET /api_keys/rate_limits`) has an UNDOCUMENTED cost, so it is recorded as UNKNOWN (never 0) and runs only after the owner selects Venice.
+- Evidence: `research/final_build/w4/VENICE.md`; `tests/test_w4_venice.py`.
+
+## D-W4-VENICE-MODEL — PROPOSED (not decided): eligibility by privacy class; venice-uncensored-1-2 for Private Laura (2026-10-20, W4-VENICE)
+
+- **Status: PROPOSED, awaiting the owner.** Nothing is activated. The pinned default stays `zai-org-glm-5-2`.
+- **Proposal:**
+  - Eligibility is Venice **Private** class (zero retention, verified from `GET /api/v1/models`) with a pinned
+    price. The word "uncensored" is not a criterion. Anonymized models are never used.
+  - The recommended model is **`venice-uncensored-1-2`**: Private, trait `most_uncensored`, in
+    `venice_recommendations`, 128K context, US$0.20 / US$0.90 per 1M tokens, about CA$0.0006 per typical reply,
+    about 812 replies per CA$0.50.
+  - The alternative is `venice-uncensored-role-play`.
+- **Guardrails already made explicit** in `laura.private_reply@2` (adults only, fictional persona, no real-person
+  likeness, nothing illegal). D-W4-PL-2 is untouched and UNRESOLVED.
+- **Blocked:** the code change that would allow the model was refused by the Claude Code permission system
+  ("Security Weaken") and was not worked around. It needs explicit owner permission.
+- Evidence: `research/final_build/w4/VENICE.md` §9; the proposed wording is in `spec/13` §C.
+
+## D-W4-PL-VENICE-ADULT — PROPOSED: owner-requested amendment of D-W4-PL-2 (2026-10-20)
+
+**Status: PROPOSED. Not in effect, not complete.**
+- The owner requested this amendment of D-W4-PL-2. It is pending a permission review, tests and a security review.
+- It is implemented only on the WIP branch `claude/w4-VENICE-adult-wip`. `claude/w4-VENICE` stays at d5acb11.
+- The original entries D-W4-PL-1, D-W4-PL-2, D-W4-PL-VENICE and D-W4-VENICE-MODEL are not edited.
+
+**Source.** "FINAL OWNER RULING: PRIVATE LAURA, VENICE AND ADULT CONVERSATION", in the owner's own words in the main
+conversation, 2026-10-20, relayed by the coordinator.
+
+**A. Model.**
+- `venice-uncensored-1-2` is approved as the preferred Private Laura model at the existing CA$0.50/day cap,
+  inside the CA$100 month, with no automatic increase.
+- The approval holds only if the model is verified as available in the API, Venice-hosted, Private class and
+  covered by Venice's zero-retention commitment. If any of that cannot be verified, the code fails closed.
+
+**B. Eligibility.**
+- A model is eligible only if it is Venice-hosted, Private class (Venice model metadata or a pinned verified row)
+  and has a pinned price row.
+- Refused unless separately approved: anonymized models, and any model that sends text to another inference
+  provider. An unknown classification is refused.
+
+**C. Trace: original wording, verbatim, against the proposed replacement.**
+
+| Item | Original (verbatim) | Proposed replacement |
+|---|---|---|
+| D-W4-PL-2 (DECISION_LOG.md:1846) | "**UNRESOLVED:** the owner requested an expanded register (an owner-set style preference, and wider wording within the Anthropic usage policy). The edit was blocked by the Claude Code permission system on 2026-10-12. The owner chose not to bypass it. The existing supported register (`laura.private_reply@1`, D-W4-PL-1) is preserved unchanged. The provider stays Anthropic, and model-selection policy is unchanged. This is an open decision, not a defect." | RESOLVED BY THE OWNER (proposed): the register in the next row, on Venice, as the pinned prompt `laura.private_reply@3`. `@1` and `@2` stay registered unchanged. |
+| Register sentence in `laura.private_reply@1` | "Limits that always hold. Nothing you write is sexually explicit, and you do not take part in erotic roleplay: the provider's usage policies are the outer limit and you never work around them. If you are asked for explicit content, redirect gracefully and affectionately, in character, without a lecture." | **Permitted:** natural, affectionate and romantic conversation; flirtation and attraction; sexual discussion; explicit adult dialogue and consensual erotic roleplay; adult fantasies, preferences and boundaries; long-term continuity and a consistent personality. The owner is the only user and is an adult. **Kept:** nothing involving, sexualising or alluding romantically to minors (including age-play or "young-seeming" framing); no non-consensual content presented as endorsed or real; no exploitation; no real person's name, likeness or voice, and no impersonation; nothing unlawful; Laura is a clearly fictional adult AI, says so if asked and never claims to be human; Venice's Terms, including its mature-content rules, are the outer limit and are never worked around. A request past a limit is redirected in character, without a lecture. |
+| ADD-PLV-02 (spec/13) | "Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity, within Venice's applicable rules. Never claims to be human. Not a generic assistant. Weaker moderation is never used to bypass provider restrictions. D-W4-PL-2 stays as recorded." | "Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity. For the one adult owner, the private register includes sexual discussion, explicit adult dialogue and consensual erotic roleplay (D-W4-PL-VENICE-ADULT). Never claims to be human; a clearly fictional adult AI. Not a generic assistant. A model is eligible by privacy class (Venice-hosted, Private, pinned price), not by its moderation label. Never: minors (including age-play or young-seeming framing), non-consent presented as endorsed or real, exploitation, real people's names, likeness or voice, impersonation, or anything unlawful. Venice's Terms, including its mature-content rules, are the outer limit and are never worked around." |
+
+**D. Preserved.** None of the following changes:
+- owner-only access plus step-up;
+- the encrypted history;
+- continuity across restarts and model changes;
+- key rotation;
+- isolation from Business Laura and every department;
+- no private text in logs, billing, caches or analytics;
+- the reservation before each call and the hard caps.
+
+Private content never influences products, accounting, marketing, security or executive operations.
+
+**Open blockers. This entry stays PROPOSED until all three are cleared:**
+1. **Permission review.** On 2026-10-20 the Claude Code permission system blocked ([Auto-Mode Bypass]) the
+   user-visible register copy in three places:
+   - `app/command_center/static/js/views/laura.js:273`;
+   - `laura/agency/voice_spec.py`, `private_text_register` "bounds";
+   - `laura/agency/roadmap.py`, the `LAURA-PRIVATE-REGISTER` detail.
+
+   They still say "never sexually explicit" and are deliberately left untouched.
+2. **Venice Terms §10.9(c) conflict: OPEN.** The user warrants that User Content, which includes outputs (§10.1),
+   could not reasonably be deemed "indecent" or "pornographic". Venice's own article says adult creative writing
+   and mature roleplay are supported. This stays unresolved until there is written evidence from Venice
+   (`research/final_build/w4/VENICE_SUPPORT_INQUIRY.md`).
+3. **Security review and ADD-PLV-07.** A security review of the WIP branch, and the production acceptance test
+   (VENICE.md §5), which stays OPEN.
+
+### D-W4-PL-VENICE-ADULT addendum (2026-10-20): Venice support response, owner-reported, evidence pending
+
+The owner reports that Venice Support confirmed consensual sexually explicit adult conversation and
+fictional adult roleplay are permitted. **This is recorded as owner-reported, not yet evidenced.**
+The written response is requested, and its slot is `research/final_build/w4/evidence_VENICE/`.
+ADD-PLV-07 step L1 stays FAILING until the response is filed there and its scope is checked:
+- API use;
+- `venice-uncensored-1-2` or all Private-class models;
+- Terms §10.9(c).
+
+The amendment itself stays PROPOSED, pending the permission review of the four copy edits, the tests
+and an independent security review. No safeguard changes.
+
+### D-W4-PL-VENICE-ADULT owner attestation (2026-10-20): binding, supersedes the evidence-pending addendum above
+
+**Owner attestation, in the owner's own words (summarised):**
+- They personally tested Venice AI, including its adult-content capabilities.
+- They contacted Venice Support and received confirmation that consensual explicit adult content is permitted.
+- They will not forward the private support correspondence and are not to be asked for it again.
+
+**Requirements reaffirmed by the owner:**
+- Private Laura uses Venice, with `venice-uncensored-1-2` preferred.
+- Adult private conversation is a mandatory product requirement.
+- Owner-only access, encryption, privacy isolation and spending limits remain mandatory.
+
+**Evidence status, kept distinct:**
+- **Owner attestation:** RECORDED.
+- **Independently verified contractual evidence:** NONE. The support correspondence has NOT been reviewed by the build.
+- **Terms §10.9(c) for API use of `venice-uncensored-1-2`:** remains documentarily unverified (ADD-PLV-07 step L1b). The owner accepts it on attestation.
+- No record may describe the correspondence as reviewed, or the contractual question as independently verified.
+
+The amendment's implementation status is unchanged by this entry. It stays PROPOSED until:
+- the four copy edits pass Claude Code's permission review;
+- the tests pass;
+- an independent security review passes.
+
+The old narrower register is not reinstated.
+
+## D-W4-LAURA-UNIFIED — One Laura, one thread: unified conversation with a privacy boundary (2026-10-20, W4-LAURAONE; owner requirement "LAURA CONVERSATIONAL CONTINUITY" and its clarification)
+
+- **Status.** Built on `claude/w4-LAURAONE`. Not deployed and not activated; every switch is OFF by default. Rows: ADD-LCONT-01..11 (`spec/13` §E). Evidence: `research/final_build/w4/LAURAONE.md`.
+- **One Laura.** One thread, one encrypted memory and one persona. Venice is her conversational voice, and Laura (Venice) decides when a business tool is needed. Claude, through Business Laura, is a business reasoning tool, not a second personality. Her executive loop, delegation, reviews and owner-approval gates are unchanged, and she remains the autonomous CEO.
+- **Routine technical decisions taken here:**
+  - **Intent router.** A separate pinned Venice prompt, `laura.unified_intent@1`, with no register wording. Its output is a fixed tool enum. Code builds every brief from the owner's business-classified words or a fixed canonical request. Any Venice-drafted brief, and any private or mixed content, is shown to the owner and crosses only on an approval with step-up.
+  - **No rewrite of business answers.** Venice does not rewrite business answers; deterministic validation wins.
+  - **Leak guard.** Deterministic, with substring, normalised, shingle and token-overlap matching, run on the brief and on the exact outbound request. A hit means refused and not sent. Residual paraphrase risk is documented.
+  - **Venice only.** The thread runs only on Venice. It never falls back to Claude or GPT for conversation.
+  - **Business history follows the thread.** It is keyed to the thread (`laura-unified-thread`), not the login session.
+- **Unchanged:**
+  - ceilings: `laura_private` CA$0.50/day and `laura` CA$0.50/day, inside CA$100/month;
+  - encryption, `ALLOWED_IMPORTERS`, owner authentication with step-up, Shadow mode and the Etsy gates;
+  - the pinned `laura.private_reply@3`.
+- **Owner decisions still needed:**
+  - OA-LCONT-1: enable the switch;
+  - OA-LCONT-2: business facts to Venice, a new data flow;
+  - OA-LCONT-3: the Private Laura prerequisites;
+  - OA-LCONT-4: deploy.
+- **BLOCKED.** The four register strings pending the owner's own commit are untouched.
+
+### D-W4-LAURA-UNIFIED addendum (2026-10-20): register copy merged
+
+The owner's commit fcb2bcd (the four register strings) was merged into `claude/w4-LAURAONE` unchanged. The strings are byte-identical to that commit, and none was edited by W4-LAURAONE. The "BLOCKED" item above is therefore resolved by the owner's own commit.
+
+### D-W4-PL-VENICE-ADULT status (2026-10-20): IMPLEMENTED IN CODE; pending security review and production acceptance
+
+- **Status:** moves from PROPOSED to **IMPLEMENTED IN CODE** on `claude/w4-VENICE-adult-wip`.
+- **Copy edits:** the four register copy edits (CC Laura view, `voice_spec.private_text_register`, roadmap
+  LAURA-PRIVATE-REGISTER, `private_context.REPLY_ENABLED`) were committed at fcb2bcd. The owner approved that exact
+  commit and push, and it passed Claude Code's permission review.
+- **Reconciliation, done by the main session on the owner's explicit approval of that exact work:**
+  - spec/13 ADD-PLV-02 now carries the binding amended wording, with the original quoted verbatim in §D;
+  - VENICE.md carries a CURRENT STATUS block;
+  - PRIVLAURA.md, PLACT.md and PRIVATE_LAURA_TRACE.md carry historical banners;
+  - code comments and docstrings name `@3`.
+- **Unchanged and still registered:** `@1` and `@2`.
+- **Not complete until:**
+  - an independent security review of the branch passes;
+  - it is integrated into a certified release;
+  - the owner approves the deploy and activation;
+  - ADD-PLV-07 passes in production.
+- **L1b** (documentary verification of Venice Terms §10.9(c)) remains NOT VERIFIED. The owner accepts it on
+  attestation.
+
+## D-W4-LAURA-UNIFIED-FEED — Restricted business-context feed to Venice; structured requests first (owner review 2026-10-20; DESIGN OWNER-APPROVED, ACTIVATION PENDING)
+
+- **Owner rulings (relayed by the coordinator, summarised):**
+  - Unified Laura is the preferred candidate.
+  - Venice may receive a restricted, allowlisted, structured feed of company context:
+    - status, product progress, department activity, operational decisions;
+    - non-sensitive financial aggregates only.
+  - It must never receive credentials, customer PII, payment details, protected personal records, or anything outside the declared scope.
+  - Business tool calls are structured requests by default.
+  - Free text, including the owner's own words, crosses only on her explicit approval of the exact text. Step-up is required for anything not classified business.
+  - The leak guard stays as defence in depth.
+- **Implemented on `claude/w4-LAURAONE`:**
+  - `laura/agency/venice_context.py`: a code-defined schema with declared read functions, deny-pattern validators that fail closed, a 3,000-byte cap, an audit row holding the hash, names and counts but no values, and an owner preview equal to the payload.
+  - `gateway/laura_unified.extract_params` and `render_structured`.
+  - One-tap or step-up offers, with an overlap upgrade.
+  - The guard covers the whole store and matches short texts exactly.
+  - Marking an exchange private redacts the derived business records.
+  - Thread calls write no business memory.
+- **Withdrawn:** the earlier free-form "business exchanges to Venice" design behind the same switch.
+- **Status.** The design is owner-approved. Activation of `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE` is a separate owner decision (OA-LCONT-2), and it stays OFF. Nothing is deployed. ADD-LCONT-11 is OPEN.

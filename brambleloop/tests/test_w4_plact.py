@@ -296,9 +296,13 @@ def test_no_consent_prerequisite_and_truthful_ai_representation_kept():
         assert "consent attest" not in low, name
     board = (ROOT / "research/final_build/w4/completion_board_final.py").read_text("utf-8")
     assert "OA-PL-3 attest" not in board and "human Laura's \"\n" not in board
-    # Truthful AI representation stays in the pinned prompt (unchanged, laura.private_reply@1).
+    # Truthful AI representation stays in the pinned prompt (W4-VENICE: @2 keeps every @1
+    # sentence verbatim and adds explicit guardrails; @1 stays registered, unchanged).
     p = LR.PROMPT.system
-    assert LR.PURPOSE == "laura.private_reply@1"
+    assert LR.PURPOSE == "laura.private_reply@3"        # W4-VENICE adult WIP (PROPOSED ruling)
+    assert LR.LAURA_PRIVATE_REPLY_V1.ref == "laura.private_reply@1"
+    assert LR.LAURA_PRIVATE_REPLY_V2.system == LR._system_v2()
+    assert LR.LAURA_PRIVATE_REPLY_V1.system == LR._system_v1()
     for clause in ("You are an AI. Never claim or imply that you are human",
                    "never claim a body, a physical action or a place",
                    "Never state or imply consent, a signature, an identity verification or a "
@@ -316,8 +320,9 @@ def test_no_consent_prerequisite_and_truthful_ai_representation_kept():
 
 # ---------------------------------------------------------------- 3. status
 
+# W4-VENICE (D-W4-PL-VENICE) adds `private_provider_venice`: one more prerequisite, never fewer.
 IDS = ["key_configured", "register_switch", "daily_cad_set", "laura_private_agent",
-       "current_release_deployed"]
+       "private_provider_venice", "current_release_deployed"]
 
 
 def _met(prereq) -> dict:
@@ -332,14 +337,17 @@ def test_status_reports_each_prerequisite_met_or_unmet_without_secrets():
     assert [p["id"] for p in st["prerequisites"]] == IDS, st["prerequisites"]
     m = _met(st["prerequisites"])
     assert m == {"key_configured": True, "register_switch": False, "daily_cad_set": False,
-                 "laura_private_agent": True, "current_release_deployed": False}, m
+                 "laura_private_agent": True, "private_provider_venice": False,
+                 "current_release_deployed": False}, m
     assert st["prerequisites_met"] is False
     # Turn each owner prerequisite on and watch it flip; then a proven deployed release.
     commit = "1b21e81c6d1b228a93f72be44cfdf8193740b61b"
     saved_boot = dict(release_record.BOOT)
     try:
         with PL.enabled(None, release_proven=None,   # the real boot-guard check (INTEG3)
-                        **{LR.DAILY_AUTH_ENV: "0.25", "RAILWAY_GIT_COMMIT_SHA": commit}):
+                        **{LR.DAILY_AUTH_ENV: "0.25", "RAILWAY_GIT_COMMIT_SHA": commit,
+                           "BRAMBLELOOP_PRIVATE_PROVIDER": "venice",
+                           "VENICE_API_KEY": PL.DUMMY_KEY}):
             release_record.BOOT.clear()
             release_record.BOOT.update({"ok": True, "platform_markers": ["RAILWAY_GIT_COMMIT_SHA"],
                                         "record": {"file": "RELEASE_x.json", "sha": "x"}})

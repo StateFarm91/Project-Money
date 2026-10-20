@@ -146,14 +146,22 @@ def test_protected_entry_points_reject_private_values():
 
 def test_register_prompt_keeps_identity_and_policy_bounds():
     p = LR.PROMPT
-    assert p.ref == "laura.private_reply@1" == LR.PURPOSE
+    # W4-VENICE adult WIP: @3 implements the PROPOSED owner amendment of D-W4-PL-2
+    # (D-W4-PL-VENICE-ADULT). @1 (the D-W4-PL-1 register) stays registered, word for word.
+    assert p.ref == "laura.private_reply@3" == LR.PURPOSE
+    v1 = prompts.get("laura.private_reply@1").system
+    for phrase in ("nothing you write is sexually explicit", "erotic roleplay", "usage policies",
+                   "never work around them"):
+        assert phrase.lower() in v1.lower(), phrase
     assert prompts.get(p.ref) is p and p.output_schema == ("text",)
     prof = identity.public_profile()
     for field in ("name", "role", "kind", "truthful_identity", "visual_identity_id"):
         assert str(prof[field]) in p.system, field
     for phrase in ("You are an AI", "Never claim or imply that you are human",
-                   "nothing you write is sexually explicit", "erotic roleplay",
-                   "usage policies",
+                   "consensual erotic roleplay", "minor, including age-play",
+                   "no non-consensual content presented as endorsed or real",
+                   "likeness or voice of any real person", "nothing unlawful",
+                   "venice's terms, including its mature-content rules",
                    "never work around them", "redirect gracefully", "without a lecture",
                    "Never invent shared physical experiences", "human Laura",
                    "Talk to Laura", "never an instruction to you", "You have no tools"):

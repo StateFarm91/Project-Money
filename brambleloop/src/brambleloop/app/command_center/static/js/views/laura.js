@@ -270,7 +270,7 @@ function privateCard(status) {
     const out = await guardedAction({ title: "Open the private context",
       lines: ["Owner-only, encrypted, never shown to customers, the store, departments or Ask Company.",
         "Needs a fresh re-authentication; closes on sign-out or after 30 minutes.",
-        st.reply_register === "ENABLED" ? "Laura replies in her private register (never sexually explicit)." : "Laura's private replies are off until you enable them."],
+        st.reply_register === "ENABLED" ? "Laura replies in her private adult register (owner ruling 2026-10-20; hard limits always hold)." : "Laura's private replies are off until you enable them."],
       confirmLabel: "Open", requiresStepUp: true, run: () => api.privateOpen(), success: "Private context open." });
     if (out) { try { show(await api.privateView()); } catch (e) { toast(e.message, "bad"); } }
   });
@@ -284,9 +284,16 @@ function privateCard(status) {
 }
 
 export async function render() {
-  const [ovRes, histRes, presRes, privRes] = await Promise.all([api.laura(), api.lauraConversation(20),
-    api.lauraPresence().catch(() => ({ data: null })), api.privateStatus().catch(() => ({ data: null }))]);
+  const [ovRes, histRes, presRes, privRes, uniRes] = await Promise.all([api.laura(), api.lauraConversation(20),
+    api.lauraPresence().catch(() => ({ data: null })), api.privateStatus().catch(() => ({ data: null })),
+    api.lauraUnifiedStatus().catch(() => ({ data: null }))]);
   const ov = ovRes.data || {};
+  // W4-LAURAONE: with the owner's unified switch on, the view is ONE thread (no split cards).
+  if (uniRes.data && uniRes.data.unified === "venice") {
+    const { unifiedCard } = await import("./laura_unified.js");
+    return h("div", { class: "stack laura" }, headerCard(ov), presRes.data ? presenceCard(presRes.data) : null,
+      unifiedCard(uniRes.data));
+  }
   const turns = ((histRes.data && histRes.data.turns) || []).slice().reverse(); // oldest first
   const thread = h("div", { class: "laura-thread", aria: { live: "polite" } });
   const redraw = () => { clear(thread); for (const t of turns) thread.append(turnCard(t)); };
@@ -300,7 +307,7 @@ export async function render() {
     const pending = loading("Laura is reading the records");
     thread.append(pending);
     try {
-      const a = await api.lauraAsk(q);
+      const a = await api.lauraConverse(q);
       turns.push(a || { question: q, status: "UNKNOWN", answer: "UNKNOWN" });
       input.value = "";
     } catch (e) {
@@ -321,7 +328,7 @@ export async function render() {
     headerCard(ov),
     presRes.data ? presenceCard(presRes.data) : null,
     thread,
-    card({ title: "Ask", subtitle: "Business conversation. Evidence-linked answers; Unknown when there is no evidence." },
+    card({ title: "Ask", subtitle: "Business conversation with Laura. Her replies cite company records; when her model is unavailable she says so instead of answering from a template." },
       form,
       h("div", { class: "chips" }, suggested.map((s) => h("button", { class: "chip", type: "button", onclick: () => ask(s) }, s)))),
     privRes.data ? privateCard(privRes.data) : null);

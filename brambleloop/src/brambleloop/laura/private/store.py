@@ -35,6 +35,13 @@ from .values import PrivateRecord, PrivateValue
 
 PROVENANCE = ("owner_supplied", "interaction")
 ROLES = ("owner", "laura")
+#: W4-LAURAONE (D-W4-LAURA-UNIFIED): a unified-thread turn's topic label, sealed in its payload.
+LABELS = ("business", "private", "everyday", "mixed")
+#: A crossing request's lifecycle (sealed; kind "xing").
+CROSSING_STATUS = ("pending", "approved", "declined")
+CROSSING_ORIGINS = ("owner_quote", "laura_draft")
+#: Non-content references sealed with a turn or a crossing request (ids of business rows).
+REF_KEYS = ("business_ref", "crossed_ref", "approval_turn")
 MAX_TEXT = 16_384
 MAX_KEY = 120
 MAX_SOURCES = 20
@@ -89,7 +96,8 @@ def _guarded(op: str):
 
 def _new_entry(keys, grant, kind: str, provenance: str, index_text: str,
                reply_to: str | None = None) -> PrivateEntry:
-    return PrivateEntry(record_id=("pf_" if kind == "fact" else "pt_") + secrets.token_hex(16),
+    prefix = {"fact": "pf_", "turn": "pt_", "xing": "px_"}[kind]
+    return PrivateEntry(record_id=prefix + secrets.token_hex(16),
                         kind=kind, provenance=provenance,
                         key_index=crypto.blind_index(keys, index_text),
                         grant_ref=crypto.blind_index(keys, "grant:" + grant.grant_id),
@@ -141,11 +149,17 @@ def remember(db, principal, key: str, text: str, *, provenance: str = "owner_sup
 
 @_guarded("turn")
 def record_turn(db, principal, role: str, text: str, *, reply_to: str | None = None,
-                model_ref: str | None = None) -> str:
-    """Record one genuine interaction turn in the open private conversation."""
+                model_ref: str | None = None, label: str | None = None,
+                sensitive: bool = False, business_ref: int | None = None) -> str:
+    """Record one genuine interaction turn in the open private conversation.
+
+    W4-LAURAONE: a unified-thread turn also carries its topic `label` (and a `sensitive` flag)
+    INSIDE the sealed payload; without a label the payload is exactly as before."""
     keys, grant = require(db, principal, "turn")
     if role not in ROLES:
         raise PrivateProvenanceRefused("a turn's role is owner or laura")
+    if label is not None and label not in LABELS:
+        raise PrivateProvenanceRefused("a turn's label is fixed vocabulary")
     text = _text(text, MAX_TEXT, "text")
     if role == "owner":
         if reply_to is not None or model_ref is not None:
@@ -162,7 +176,14 @@ def record_turn(db, principal, role: str, text: str, *, reply_to: str | None = N
                 "a reply belongs to the live conversation it answers (no backfilled history)")
     ensure_tables(db)
     entry = _new_entry(keys, grant, "turn", "interaction", "turn", reply_to=reply_to)
-    _seal(keys, entry, {"role": role, "text": text, "model_ref": model_ref})
+    payload = {"role": role, "text": text, "model_ref": model_ref}
+    if label is not None:
+        payload.update(label=label, sensitive=bool(sensitive), excluded=False)
+    if business_ref is not None:
+        # The business-side record this reply came from (laura_cc_turns id), sealed, so that
+        # marking the exchange private later can redact what was derived from it.
+        payload["business_ref"] = int(business_ref)
+    _seal(keys, entry, payload)
     try:
         with db.session() as s:
             s.add(entry)
@@ -178,7 +199,12 @@ def _record(e: PrivateEntry, p: dict) -> PrivateRecord:
                          model_ref=p.get("model_ref"), reply_to=e.reply_to,
                          key=PrivateValue(p["key"]) if "key" in p else None,
                          value=PrivateValue(p["text"]),
-                         sources=tuple(p.get("sources") or ()))
+                         sources=(tuple(p.get("sources") or ()) if not p.get("source")
+                                  else (p["source"],)),
+                         label=p.get("label"), excluded=bool(p.get("excluded")),
+                         sensitive=bool(p.get("sensitive")), status=p.get("status"),
+                         refs={k: p[k] for k in REF_KEYS if p.get(k) is not None},
+                         stepup=bool(p.get("stepup", True)), origin=p.get("origin"))
 
 
 @_guarded("read")
@@ -202,14 +228,17 @@ def facts(db, principal, key: str | None = None, *, history: bool = False) -> li
 
 
 @_guarded("read")
-def conversation(db, principal, *, limit: int = 50) -> list:
-    """The most recent interaction turns, oldest first, as PrivateRecords."""
+def conversation(db, principal, *, limit: int | None = 50) -> list:
+    """The most recent interaction turns, oldest first, as PrivateRecords. `limit=None`
+    (W4-LAURAONE: the leak guard and the owner's controls) reads the WHOLE retained store."""
     keys, _ = require(db, principal, "read")
     ensure_tables(db)
-    limit = max(1, min(int(limit), 500))
+    stmt = select(PrivateEntry).where(PrivateEntry.kind == "turn").order_by(
+        PrivateEntry.id.desc())
+    if limit is not None:
+        stmt = stmt.limit(max(1, min(int(limit), 500)))
     with db.session() as s:
-        rows = list(s.scalars(select(PrivateEntry).where(PrivateEntry.kind == "turn")
-                              .order_by(PrivateEntry.id.desc()).limit(limit)))
+        rows = list(s.scalars(stmt))
     out = [_record(e, _open(keys, e)) for e in reversed(rows)]
     record_access(db, "read", "ok", "conversation", principal)
     return out
@@ -217,11 +246,19 @@ def conversation(db, principal, *, limit: int = 50) -> list:
 
 @_guarded("forget")
 def forget(db, principal, record_id: str) -> int:
-    """Delete a fact or turn (an owner turn takes its reply with it). Returns rows deleted."""
-    require(db, principal, "forget")
+    """Delete a fact or turn (an owner turn takes its reply, and any crossing request quoting
+    it, with it). Returns rows deleted."""
+    keys, _ = require(db, principal, "forget")
     ensure_tables(db)
     with db.session() as s:
-        n = s.execute(delete(PrivateEntry).where(PrivateEntry.reply_to == record_id)).rowcount
+        xings = list(s.scalars(select(PrivateEntry).where(PrivateEntry.kind == "xing")))
+    quoting = [e.record_id for e in xings if _open(keys, e).get("source") == record_id]
+    with db.session() as s:
+        n = 0
+        if quoting:
+            n += s.execute(delete(PrivateEntry).where(
+                PrivateEntry.record_id.in_(quoting))).rowcount
+        n += s.execute(delete(PrivateEntry).where(PrivateEntry.reply_to == record_id)).rowcount
         n += s.execute(delete(PrivateEntry).where(PrivateEntry.record_id == record_id)).rowcount
     record_access(db, "forget", "ok", "", principal)
     return int(n or 0)
@@ -303,7 +340,8 @@ def rekey(db, principal, new_env) -> dict:
         gid = by_ref.get(e.grant_ref)
         if gid is None:
             raise IntegrityRefused("a private record's grant cannot be re-bound; not rotated")
-        index_text = ("fact:" + payload["key"]) if e.kind == "fact" else "turn"
+        index_text = (("fact:" + payload["key"]) if e.kind == "fact"
+                      else "xing" if e.kind == "xing" else "turn")
         n = PrivateEntry(record_id=e.record_id, kind=e.kind, provenance=e.provenance,
                          key_index=crypto.blind_index(new, index_text),
                          grant_ref=crypto.blind_index(new, "grant:" + gid),
@@ -330,6 +368,107 @@ def rekey(db, principal, new_env) -> dict:
     record_access(db, "rekey", "ok", "", principal)
     return {"rotated": len(rows), "old_key_id": old.key_id, "new_key_id": new.key_id,
             "grants_revoked": True, "bundle": new_bundle}
+
+
+# ---------------------------------------------------------------------------
+# W4-LAURAONE (D-W4-LAURA-UNIFIED): owner privacy controls and boundary-crossing requests.
+
+
+def _reseal(db, keys, entry: PrivateEntry, payload: dict) -> None:
+    """Re-seal one row's payload under the current key; the bound metadata is unchanged."""
+    with db.session() as s:
+        row = s.scalar(select(PrivateEntry).where(PrivateEntry.record_id == entry.record_id))
+        if row is None:
+            raise PrivateProvenanceRefused("the record does not exist")
+        _seal(keys, row, payload)
+
+
+@_guarded("flags")
+def set_turn_flags(db, principal, record_id: str, *, label: str | None = None,
+                   excluded: bool | None = None) -> bool:
+    """The owner's privacy controls on one turn: re-label it (e.g. mark it private) and/or
+    exclude it from (or return it to) model context. Sealed; the text never changes."""
+    keys, _ = require(db, principal, "flags")
+    if label is not None and label not in LABELS:
+        raise PrivateProvenanceRefused("a turn's label is fixed vocabulary")
+    entry, payload = _load(db, keys, str(record_id or ""), "turn")
+    if entry is None:
+        return False
+    if label is not None:
+        payload["label"] = label
+    if excluded is not None:
+        payload["excluded"] = bool(excluded)
+    _reseal(db, keys, entry, payload)
+    record_access(db, "flags", "ok", "", principal)
+    return True
+
+
+@_guarded("xing")
+def request_crossing(db, principal, source_turn_id: str, text: str, *,
+                     sensitive: bool = False, origin: str = "owner_quote",
+                     stepup: bool = True) -> str:
+    """Seal a proposal to share `text` with the business side; nothing crosses until
+    `resolve_crossing(approve=True)`. `origin` "owner_quote": quoted VERBATIM from the owner
+    turn it cites. "laura_draft": a brief Laura drafted while answering that owner turn,
+    shown to the owner word for word before anything is sent (never stored as history)."""
+    keys, grant = require(db, principal, "xing")
+    if origin not in CROSSING_ORIGINS:
+        raise PrivateProvenanceRefused("a crossing request's origin is fixed vocabulary")
+    text = _text(text, MAX_TEXT, "text")
+    entry, payload = _load(db, keys, str(source_turn_id or ""), "turn")
+    if entry is None or payload.get("role") != "owner" or (
+            origin == "owner_quote" and text not in payload["text"]):
+        raise PrivateProvenanceRefused("a crossing request quotes an existing owner turn")
+    ensure_tables(db)
+    x = _new_entry(keys, grant, "xing", "interaction", "xing")
+    _seal(keys, x, {"text": text, "source": entry.record_id, "status": "pending",
+                    "sensitive": bool(sensitive), "origin": origin, "stepup": bool(stepup)})
+    with db.session() as s:
+        s.add(x)
+    record_access(db, "xing", "ok", "requested", principal)
+    return x.record_id
+
+
+@_guarded("read")
+def crossings(db, principal) -> list:
+    """Every crossing request, oldest first, as PrivateRecords (status in `.status`)."""
+    keys, _ = require(db, principal, "read")
+    ensure_tables(db)
+    with db.session() as s:
+        rows = list(s.scalars(select(PrivateEntry).where(PrivateEntry.kind == "xing")
+                              .order_by(PrivateEntry.id)))
+    out = [_record(e, _open(keys, e)) for e in rows]
+    record_access(db, "read", "ok", "crossings", principal)
+    return out
+
+
+@_guarded("xing")
+def annotate_crossing(db, principal, crossing_id: str, **refs) -> bool:
+    """Seal non-content references (business row ids) onto a resolved crossing request."""
+    keys, _ = require(db, principal, "xing")
+    if set(refs) - set(REF_KEYS):
+        raise PrivateProvenanceRefused("unknown crossing reference")
+    entry, payload = _load(db, keys, str(crossing_id or ""), "xing")
+    if entry is None:
+        return False
+    payload.update({k: (v if k == "approval_turn" else int(v)) for k, v in refs.items()})
+    _reseal(db, keys, entry, payload)
+    return True
+
+
+@_guarded("xing")
+def resolve_crossing(db, principal, crossing_id: str, *, approve: bool):
+    """Approve or decline a PENDING request; returns its PrivateRecord (None if absent)."""
+    keys, _ = require(db, principal, "xing")
+    entry, payload = _load(db, keys, str(crossing_id or ""), "xing")
+    if entry is None:
+        return None
+    if payload.get("status") != "pending":
+        raise PrivateProvenanceRefused("a crossing request is resolved once")
+    payload["status"] = "approved" if approve else "declined"
+    _reseal(db, keys, entry, payload)
+    record_access(db, "xing", "ok", payload["status"], principal)
+    return _record(entry, payload)
 
 
 def configured(env=None) -> bool:
