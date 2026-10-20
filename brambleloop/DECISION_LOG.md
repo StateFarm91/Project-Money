@@ -2331,3 +2331,23 @@ The amendment's implementation status is unchanged by this entry. It stays PROPO
 - an independent security review passes.
 
 The old narrower register is not reinstated.
+
+### D-W4-PL-VENICE-ADULT status (2026-10-20): IMPLEMENTED IN CODE; pending security review and production acceptance
+
+- **Status:** moves from PROPOSED to **IMPLEMENTED IN CODE** on `claude/w4-VENICE-adult-wip`.
+- **Copy edits:** the four register copy edits (CC Laura view, `voice_spec.private_text_register`, roadmap
+  LAURA-PRIVATE-REGISTER, `private_context.REPLY_ENABLED`) were committed at fcb2bcd. The owner approved that exact
+  commit and push, and it passed Claude Code's permission review.
+- **Reconciliation, done by the main session on the owner's explicit approval of that exact work:**
+  - spec/13 ADD-PLV-02 now carries the binding amended wording, with the original quoted verbatim in §D;
+  - VENICE.md carries a CURRENT STATUS block;
+  - PRIVLAURA.md, PLACT.md and PRIVATE_LAURA_TRACE.md carry historical banners;
+  - code comments and docstrings name `@3`.
+- **Unchanged and still registered:** `@1` and `@2`.
+- **Not complete until:**
+  - an independent security review of the branch passes;
+  - it is integrated into a certified release;
+  - the owner approves the deploy and activation;
+  - ADD-PLV-07 passes in production.
+- **L1b** (documentary verification of Venice Terms §10.9(c)) remains NOT VERIFIED. The owner accepts it on
+  attestation.

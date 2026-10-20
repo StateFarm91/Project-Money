@@ -21,7 +21,7 @@ unchanged.
 | ID | Requirement |
 |---|---|
 | ADD-PLV-01 | Private Laura uses Venice AI through its officially documented API. Model IDs, pricing, authentication, context limits, data retention and content policy are verified from official sources. The strongest suitable conversational model is chosen. A Pro subscription is not assumed to include API credit. |
-| ADD-PLV-02 | Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity, within Venice's applicable rules. Never claims to be human. Not a generic assistant. Weaker moderation is never used to bypass provider restrictions. D-W4-PL-2 stays as recorded. |
+| ADD-PLV-02 | *(Amended 2026-10-20 by the owner's final ruling, DECISION_LOG D-W4-PL-VENICE-ADULT. The original wording is quoted verbatim in §D below and in that entry's trace.)* Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity. For the one adult owner, the private register includes sexual discussion, explicit adult dialogue and consensual erotic roleplay (D-W4-PL-VENICE-ADULT). Never claims to be human; a clearly fictional adult AI. Not a generic assistant. A model is eligible by privacy class (Venice-hosted, Private, pinned price), not by its moderation label. Never: minors (including age-play or young-seeming framing), non-consent presented as endorsed or real, exploitation, real people's names, likeness or voice, impersonation, or anything unlawful. Venice's Terms, including its mature-content rules, are the outer limit and are never worked around. |
 | ADD-PLV-03 | The existing encrypted private-memory architecture is reused. No private text in business memory, finance, marketing, product, agent records, analytics, ordinary logs or response caches. Only the minimum operational metadata is kept outside the encrypted store. Memory persists across restarts, redeploys and model changes. |
 | ADD-PLV-04 | Owner-only access: existing owner authentication plus the additional private verification. Not reachable by employees, customers, other agents or public endpoints. Key rotation and access controls are kept. |
 | ADD-PLV-05 | Separate CA$0.50/day budget inside the CA$100 month. Token usage and cost are tracked without private text in billing records. A different budget needs owner approval. |
@@ -29,7 +29,10 @@ unchanged.
 | ADD-PLV-07 | Production acceptance test: (1) Venice authenticates via Railway; (2) a genuine model reply; (3) personality and continuity; (4) private-memory retrieval; (5) no leakage into business systems; (6) cost accounting; (7) the daily budget is enforced; (8) persistence across restart or redeploy; (9) owner-only access; (10) graceful failure when Venice is unavailable. Not complete until it passes in production. |
 | ADD-PLV-08 | No activation, paid call or deploy without separate owner approval of the model and budget. The existing reply path, encryption, memory and CC screens are reused; there is no second private-chat system. |
 
-## C. PROPOSED amendment to ADD-PLV-02 (2026-10-20, W4-VENICE; NOT in force until the owner approves)
+## C. PROPOSED amendment to ADD-PLV-02 (2026-10-20, W4-VENICE). Superseded (historical)
+
+> **Superseded (historical).** This proposal's eligibility rule is incorporated in the amended ADD-PLV-02 above
+> (D-W4-PL-VENICE-ADULT). The text below is kept as the record of what was proposed.
 
 The owner has clarified that "uncensored" must not be assumed to mean unsafe, and that legal, consent, privacy and
 provider restrictions are never bypassed. The proposed wording, which replaces the sentence "Weaker moderation is
@@ -43,10 +46,23 @@ never used to bypass provider restrictions." only once approved:
 The evidence and the model comparison are in `research/final_build/w4/VENICE.md` §9. ADD-PLV-02 as written above
 remains binding until then.
 
-## D. PROPOSED (owner-requested, 2026-10-20): ADD-PLV-02 amended by the owner's FINAL RULING on adult conversation (NOT in effect)
+## D. ADD-PLV-02 amended by the owner's FINAL RULING on adult conversation (2026-10-20)
 
-**Status: PROPOSED. Pending a permission review, tests, a security review and written evidence from Venice on
-Terms §10.9(c).** Until then, the ADD-PLV-02 row above remains binding, word for word. The full trace (original
+**Status: IMPLEMENTED IN CODE, pending independent security review and ADD-PLV-07 production acceptance.**
+- The owner's ruling and approvals are recorded in DECISION_LOG D-W4-PL-VENICE-ADULT, including the owner
+  attestation.
+- The four register copy edits passed Claude Code's permission review on the owner's explicit approval (fcb2bcd).
+- Venice Terms §10.9(c): L1a, owner attestation, is RECORDED. L1b, documentary verification, is **NOT VERIFIED;
+  the owner accepts it on attestation**. It is never reported as verified.
+- Not complete until ADD-PLV-07 passes in production.
+
+The original ADD-PLV-02, verbatim and superseded:
+
+> Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious
+> personality, initiative and continuity, within Venice's applicable rules. Never claims to be human. Not a
+> generic assistant. Weaker moderation is never used to bypass provider restrictions. D-W4-PL-2 stays as recorded.
+
+The history below records how the amendment was proposed. The full trace (original
 against replacement) is DECISION_LOG `D-W4-PL-VENICE-ADULT`. The proposed binding wording is:
 
 > ADD-PLV-02 (proposed): Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection,
@@ -58,5 +74,5 @@ against replacement) is DECISION_LOG `D-W4-PL-VENICE-ADULT`. The proposed bindin
 > or voice, impersonation, or anything unlawful. Venice's Terms, including its mature-content rules, are the outer
 > limit and are never worked around.
 
-The model approval (`venice-uncensored-1-2`, subject to verification, failing closed) is also PROPOSED here,
-together with the amendment.
+The model approval for `venice-uncensored-1-2` is owner-approved. It applies only while the model's verification
+passes, and fails closed otherwise. It is implemented in `gateway/venice.py`.

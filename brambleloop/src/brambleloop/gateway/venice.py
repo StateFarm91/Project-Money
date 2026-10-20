@@ -13,7 +13,7 @@ citations are in research/final_build/w4/VENICE.md):
   auth `Authorization: Bearer <key>` (docs.venice.ai/overview/getting-started).
 * `venice_parameters.include_venice_system_prompt` DEFAULTS TO TRUE (Venice adds its own
   system prompt beside ours). It is sent as FALSE so the pinned prompt
-  `laura.private_reply@1` -- the canonical identity laura-r2-a42aeac7 and the truthful-AI
+  `laura.private_reply@3` -- the canonical identity laura-r2-a42aeac7 and the truthful-AI
   clauses -- is the only system prompt the model sees.
 * `enable_web_search` is sent "off" and web scraping/citations false: private text must
   never become a search query to a third party.
