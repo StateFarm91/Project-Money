@@ -781,6 +781,60 @@ FM_EDITS.update({
 BATCH6C = ("F-240",)
 
 
+# ---- batch 7: F-019 (built, deployed; the mapping still said MISSING) and F-046 (no guard
+# existed; the guard is a test over deployed code, which needed no change) -----------------
+R6 = "tests/test_w4_close5_rows6.py::"
+FM_EDITS.update({
+    ("s1", "F-019"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/commerce/search.py::_acceptable_tag; "
+                    "commerce/search.py::intent_key (_stem_word); "
+                    "commerce/search.py::tag_diversity_problems",
+        "consumer": "runtime/release.py::handle_listing_seo (choose_tags; "
+                    "tag_diversity_problems blocks the release); seo/packages.py; "
+                    "seo/proposals.py",
+        "durable_state": "listings.tags (the chosen thirteen) + the release gate's findings",
+        "gate": {"kind": "none", "key": None, "detail": "software only; nothing external"},
+        "next_action": "none -- built and deployed; now asserted",
+        "evidence+": [f"{TAG}: the mapping's 'no singular/plural root detection' is stale: "
+                      "commerce/search.intent_key folds plurals (_stem_word: -s, -ies->y, never "
+                      "-ss), word order and synonyms; _acceptable_tag refuses a phrase whose "
+                      "folded key a chosen tag already carries (in both the must-include and "
+                      "value passes); a surviving pair is a blocking TAG_SEMANTIC_DUPLICATE in "
+                      f"the release gate; reached via listing.seo on b931d17; {DT}", REACH],
+        "tests+": [R6 + "test_f019_plural_and_singular_fold_to_one_root_and_ss_is_not_a_plural",
+                   R6 + "test_f019_tag_selection_never_spends_two_slots_on_one_root",
+                   R6 + "test_f019_a_surviving_plural_pair_blocks_in_the_release_gate"],
+    },
+    ("s1", "F-046"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/commerce/ranking_readiness.py::profile; "
+                    "commerce/search.py::Query.value",
+        "consumer": "runtime/release.py::handle_launch_plan (ranking_readiness.profile); "
+                    "launch/demand.py organic_readiness (kept beside, never merged with, the "
+                    "ads plan)",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None,
+                 "detail": "Etsy Ads stay disabled until owner authority (F-875); this row is "
+                           "the organic model's independence from them, which needs no authority"},
+        "next_action": "none -- the guard is a test over deployed code",
+        "evidence+": [f"{TAG}: AST scan of the organic ranking modules (commerce/search.py, "
+                      "commerce/seo.py, commerce/ranking_readiness.py, seo/*.py) finds no "
+                      "import of paid_media/ads_readiness/insights_budget/channel_comparison, "
+                      "no Etsy Ads/Offsite Ads/Etsy Plus/ROAS name or string, and no use of "
+                      "search_policy's ads thresholds (the scan is self-checked against a "
+                      "planted line); recording CA$353 of ads, offsite-ads and Etsy Plus cost "
+                      "leaves every ranking dimension, the search certificate and the summary "
+                      f"identical; Query.value is demand x (1 - competition) only; {DT}",
+                      REACH],
+        "tests+": [R6 + "test_f046_no_organic_ranking_module_reads_a_paid_media_input",
+                   R6 + "test_f046_ad_and_etsy_plus_spend_leave_every_ranking_dimension_unchanged",
+                   "tests/test_ranking_readiness.py::test_an_empty_shop_is_unmeasured_not_passed_and_never_blended"],
+    },
+})
+BATCH7 = ("F-019", "F-046")
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
@@ -815,6 +869,8 @@ PRODUCTION_CLOSED = {
     "F-871": [f"{EVB}/prod_api_funding_packets_20261020T0612Z.json", DEPLOYED_TESTS],
     **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
        for u in BATCH6C},
+    **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
+       for u in BATCH7},
 }
 READING = {
     "F-152": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); "
@@ -846,6 +902,7 @@ READING = {
     **{u: 'W4 lane tests for the row pass on the deployed tree; producer module reached on b931d17' for u in BATCH6},
     **{u: 'production serves the funding packet on b931d17; packet tests pass on the deployed tree' for u in BATCH6B},
     **{u: 'seller-identity tests pass on the deployed tree; module reached on b931d17 via launch.plan' for u in BATCH6C},
+    **{u: 'deployed b931d17: commerce/search.py and commerce/ranking_readiness.py unchanged since the deploy; the deployed-tree run of test_w4_close5_rows6 passes' for u in BATCH7},
 }
 
 
@@ -1043,7 +1100,10 @@ def main() -> int:
                     r[key] = list(r.get(key) or []) + [x for x in v if x not in (r.get(key) or [])]
                 else:
                     r[k] = v
-            r["searched"] = (str(r.get("searched") or "") + " | " + TAG).strip(" |")
+            # idempotent: a re-run on an already-edited mapping does not repeat the tag
+            parts = [x for x in str(r.get("searched") or "").split(" | ") if x]
+            parts = [x for i, x in enumerate(parts) if x != TAG or TAG not in parts[:i]]
+            r["searched"] = " | ".join(parts + ([] if TAG in parts else [TAG]))
             if uid in PRODUCTION_CLOSED:
                 remap.append(r)
         assert hit, (sl, uid)

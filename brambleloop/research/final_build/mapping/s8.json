@@ -173,7 +173,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-656",
@@ -245,7 +245,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-658",
@@ -1093,7 +1093,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-683",
@@ -1885,7 +1885,7 @@
   "defect": null,
   "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-707",
@@ -2264,7 +2264,7 @@
   "defect": null,
   "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-719",
@@ -2641,7 +2641,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "LOW",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-731",

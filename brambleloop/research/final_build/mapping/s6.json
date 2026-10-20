@@ -738,7 +738,7 @@
   "defect": null,
   "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-474",
@@ -1171,7 +1171,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5, awaiting deploy (fixes the production 500)",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-488",
@@ -1297,7 +1297,7 @@
   "defect": null,
   "next_action": "none -- deployed; isolation now asserted around the failing job",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-492",
@@ -1521,7 +1521,7 @@
   "defect": null,
   "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-499",
@@ -1616,7 +1616,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-502",
@@ -1983,7 +1983,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-513",
@@ -2954,7 +2954,7 @@
   "defect": null,
   "next_action": "none -- deployed; a real refund is data",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-536",
@@ -3195,7 +3195,7 @@
   "defect": null,
   "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-543",

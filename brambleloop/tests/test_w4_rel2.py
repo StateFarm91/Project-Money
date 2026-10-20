@@ -667,13 +667,19 @@ def test_b5_gallery_observation_requests_json_schema_output():
     schema = vision.observation_schema()
     assert schema["additionalProperties"] is False
     assert set(schema["properties"]) == set(vision.OBSERVATION_FIELDS)
-    assert schema["properties"]["shot_type"]["enum"] == list(vision.SHOT_TYPES)
-    assert "required" not in schema, "every field stays optional (omit what is unjudgeable)"
+    # W4-CLOSE5: every field is required and "unjudgeable" is the empty string, which the
+    # parser drops exactly as it dropped an omitted key (24 optional properties timed every
+    # production call out on b931d17; see tests/test_w4_close5_vision_timeout.py).
+    assert schema["properties"]["shot_type"]["enum"] == [*vision.SHOT_TYPES, ""]
+    assert schema["required"] == list(vision.OBSERVATION_FIELDS)
+    assert vision.parse_observation(json.dumps(
+        {**{f: "" for f in vision.OBSERVATION_FIELDS}, "composition": "centred"})) == \
+        {"composition": "centred"}, "an unjudgeable field is still left out of the observation"
 
     sent = {}
     p = gw.AnthropicProvider(model="claude-sonnet-5")
     p.key = staticmethod(lambda: "test-key")          # type: ignore[method-assign]
-    p._guarded = lambda payload, key, effect: sent.update(  # type: ignore[method-assign]
+    p._guarded = lambda payload, key, effect, **kw: sent.update(  # type: ignore[method-assign]
         body=json.loads(payload), effect=effect) or SimpleNamespace(text="{}")
     p.see("sys", "prompt", ["https://fixture.invalid/a.jpg"], max_tokens=100,
           json_schema=schema)

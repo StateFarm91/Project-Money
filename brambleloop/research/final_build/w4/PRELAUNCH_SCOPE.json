@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T06:31:10Z",
-  "branch_head": "1c5aaeb1"
+  "generated_at": "2026-10-20T11:15:42Z",
+  "branch_head": "27fb1d40"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,20 +40,20 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 611,
+  "total_not_verified": 619,
   "by_class": {
-   "A": 538,
+   "A": 546,
    "C": 40,
    "B": 33
   },
   "by_source": {
    "build2": {
-    "A": 93,
+    "A": 97,
     "C": 21,
     "B": 5
    },
    "final_master": {
-    "A": 445,
+    "A": 449,
     "C": 19,
     "B": 27
    },
@@ -63,7 +63,7 @@
   },
   "by_domain": {
    "autonomy_learning": {
-    "A": 76,
+    "A": 82,
     "B": 6,
     "C": 5
    },
@@ -81,28 +81,28 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 181,
+    "A": 185,
     "B": 23
    },
    "store_product": {
     "C": 14,
-    "A": 197,
+    "A": 195,
     "B": 3
    }
   },
   "by_scope": {
    "build2": {
-    "A": 93,
+    "A": 97,
     "C": 21,
     "B": 5
    },
    "launch_critical": {
-    "A": 99,
+    "A": 104,
     "C": 3,
     "B": 19
    },
    "post_launch": {
-    "A": 346,
+    "A": 345,
     "C": 16,
     "B": 8
    }
@@ -180,7 +180,6 @@
    "A F-016 [blocked_engineering] Regional Phrase Intelligence",
    "A F-017 [blocked_engineering] No Typo SEO",
    "A F-018 [blocked_engineering] Language Discipline",
-   "A F-019 [blocked_engineering] Plural/Root Waste Detector",
    "A F-033 [blocked_external] Conversion Experiment Registry",
    "A F-034 [blocked_owner] New-Listing Learning Window",
    "A F-036 [blocked_owner] Query-Specific Performance",
@@ -188,7 +187,6 @@
    "A F-038 [blocked_engineering] First-Party Priority",
    "A F-044 [blocked_external] Review Quality Loop",
    "A F-045 [blocked_external] Case-Rate Incident",
-   "A F-046 [blocked_engineering] No Paid-Rank Myth",
    "A F-047 [blocked_engineering] Star Seller Framing",
    "A F-050 [blocked_engineering] Query Cannibalization Audit",
    "A F-051 [blocked_engineering] Inventory Diversification",
@@ -362,6 +360,7 @@
   ],
   "ops_runtime_governance": [
    "A F-081 [blocked_owner] High-Risk Full-Make Gate",
+   "A F-102 [implemented_unverified] Pre-Call Reservation",
    "A F-103 [blocked_owner] Post-Call Reconciliation",
    "A F-106 [blocked_owner] Provider Billing Reconciliation",
    "A F-135 [blocked_owner] Lease-Recovery Drill",
@@ -375,9 +374,12 @@
    "A F-295 [blocked_owner] Ads Dry Run",
    "A F-297 [blocked_external] Measurement Before Optimization",
    "A F-301 [blocked_owner] Provider-Observed Spend Reconciliation",
+   "A F-309 [implemented_unverified] Systematic-Failure Circuit Breaker",
    "A F-321 [blocked_owner] Per-Listing Maintenance Cost",
    "A F-323 [blocked_external] Cost Per Sale / Contribution",
    "A F-325 [blocked_owner] Steady-State Sustainability Forecast",
+   "A F-327 [implemented_unverified] Hard Spend Reservations",
+   "A F-328 [implemented_unverified] No Spend To Look Busy",
    "A F-538 [blocked_engineering] Finance Reconciliation",
    "A F-543 [blocked_owner] Draft-to-Live Activation Gate",
    "A F-577 [blocked_owner] Payment Settings Guard",
@@ -642,6 +644,7 @@
   ],
   "autonomy_learning": [
    "A F-249 [blocked_owner] Personalized-Ranking Humility",
+   "A F-306 [implemented_unverified] No Duplicate Paid Evidence",
    "A F-363 [blocked_owner] Physical Plausibility",
    "A F-518@v0.15 [blocked_owner] Safe Rollback",
    "A F-588 [blocked_owner] Partners You Work With",
@@ -649,21 +652,26 @@
    "A B2#1 [blocked_owner] Etsy Marketplace Insights as First-Party Demand Oracle",
    "A B2#165 [blocked_owner] Benchmark Refresh Cadence",
    "A B2#189 [blocked_owner] Cloud Browser/Vision Worker Pool",
+   "A B2#208 [implemented_unverified] Listing-by-Listing Deep Audit",
+   "A B2#209 [implemented_unverified] Vision-Level Gallery Analysis",
    "A B2#221 [blocked_owner] Mandatory Cloud Browser + Vision Capability",
    "A B2#222 [blocked_owner] Browser/Vision Acceptance Test",
    "A B2#226 [blocked_external] Specialist Pod Continuous Learning",
    "A B2#228 [implemented_unverified] Owner Quality Veto",
    "A B2#236 [blocked_owner] Marketplace Insights Portfolio Allocator",
    "A B2#247 [blocked_owner] Google / SEO Topic Cluster Engine",
+   "A B2#304 [implemented_unverified] MJs Listing Photos Must Be Visually Studied",
    "A B2#317 [blocked_owner] Ten-Pattern Benchmark Laboratory",
    "A B2#318 [implemented_unverified] MJs Mission Dashboard",
    "A B2#320 [blocked_owner] MJs Mission End-to-End Acceptance Test",
    "A B2#33 [blocked_external] Replace the narrow Christmas Strike Team with a permanent 36",
    "A B2#37 [blocked_owner] Marketplace Insights Query Budgeter",
+   "A B2#86 [implemented_unverified] Creativity Benchmark Memory",
    "A B2#98 [blocked_external] External Learning Radar",
    "A F-061 [blocked_owner] Benchmark Purchase Selector",
    "A F-062 [blocked_owner] Benchmark Coverage Matrix",
    "A F-085 [blocked_owner] Tester Marketplace Workflow",
+   "A F-193 [implemented_unverified] Gallery Cost Forecast",
    "A F-201 [blocked_engineering] Dashboard Compact Drilldown",
    "A F-224 [blocked_engineering] MJs Photographic Benchmark",
    "A F-231 [blocked_owner] Benchmark-Derived Photo Grammar",
@@ -1198,6 +1206,21 @@
    "matched": "After launch",
    "basis": "criterion text demands live operations",
    "criterion": "After launch, measure search-grid CTR, first-frame engagement where available, listing conversion and creative experiment outcomes by asset style. High-performing creative patterns become brand knowledge, but performance never overrides Product Truth, policy or identity continuity. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.5 - Creativity Engine + Autonomous Continuous Improvement Added after comparing early generated concepts with current market creative. This upgrade makes product desirability a pre-engineering gate and establishes a permanent, controlled self-improvement organization so Brambl"
+  },
+  {
+   "source": "build2",
+   "id": 86,
+   "scope": "build2",
+   "title": "Creativity Benchmark Memory",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Continuously study legitimate current market examples across categories to learn abstract commercial attributes: clever transformation, strong silhouette, recognisable motif, cute characterisation, premium minimalism, gift narrative, modularity, low-sew appeal, surprising function and collection logic. Store attributes and outcomes, not copied protected expression."
   },
   {
    "source": "build2",
@@ -1753,6 +1776,36 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "For model-appropriate products, generate a coherent shot plan: primary product-first hero, full/three-quarter fit, front/back/side as relevant, texture/detail, sleeve/neckline/closure/construction detail, scale/context and optional lifestyle shot. The model must increase trust, aspiration and brand recognition while preserving truthful product representation."
+  },
+  {
+   "source": "build2",
+   "id": 208,
+   "scope": "build2",
+   "title": "Listing-by-Listing Deep Audit",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Every discoverable benchmark listing selected for baseline/deep audit is individually opened. Capture and analyze all accessible listing gallery assets, video where accessible, title, visible description, price/sale presentation, options/variants, badges, product claims, digital-delivery positioning, cross-sell cues and other commercially relevant listing structure. Do not claim an audit occurred if only search-result thumbnails were seen."
+  },
+  {
+   "source": "build2",
+   "id": 209,
+   "scope": "build2",
+   "title": "Vision-Level Gallery Analysis",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Browser agents must inspect the actual gallery, not merely scrape text. For every accessible image, derive non-copying commercial observations: shot type, composition, product visibility, model/product relationship, setting, scale communication, detail coverage, infographic use, typography, palette role, thumbnail readability and emotional merchandising. Preserve dated evidence/provenance."
   },
   {
    "source": "build2",
@@ -2431,6 +2484,21 @@
   },
   {
    "source": "build2",
+   "id": 304,
+   "scope": "build2",
+   "title": "MJs Listing Photos Must Be Visually Studied",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "For every accessible MJs listing selected for baseline or change audit, browser/vision workers traverse the accessible gallery and analyze each image as competitive evidence. Extract product form, proportions, generic construction cues visible from the finished item, colour/stripe/blocking logic, styling, model/product presentation, detail coverage, setting, thumbnail strategy and seasonal signals. This is not satisfied by text scraping or search-result thumbnails."
+  },
+  {
+   "source": "build2",
    "id": 308,
    "scope": "build2",
    "title": "Owner Example - Christmas Cardigan Response",
@@ -2623,21 +2691,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Language Discipline - Use shop language canonically; add supported translations only when quality is sufficient."
-  },
-  {
-   "source": "final_master",
-   "id": "F-019",
-   "scope": "post_launch",
-   "title": "Plural/Root Waste Detector",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Plural/Root Waste Detector - Do not burn tag slots on singular/plural variants Etsy already root-matches."
   },
   {
    "source": "final_master",
@@ -2878,21 +2931,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Case-Rate Incident - Any Etsy-counted case triggers root-cause and corrective action."
-  },
-  {
-   "source": "final_master",
-   "id": "F-046",
-   "scope": "post_launch",
-   "title": "No Paid-Rank Myth",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "No Paid-Rank Myth - Never model Etsy Ads or Etsy Plus as organic ranking boosts."
   },
   {
    "source": "final_master",
@@ -3346,6 +3384,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-102",
+   "scope": "launch_critical",
+   "title": "Pre-Call Reservation",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Pre-Call Reservation - Reserve a conservative upper-bound cost before every call; refuse unpriced/unbounded models."
+  },
+  {
+   "source": "final_master",
    "id": "F-103",
    "scope": "launch_critical",
    "title": "Post-Call Reconciliation",
@@ -3778,6 +3831,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Scan Health Semantics - If MJs observation is actively processing sanctioned evidence, 'scan health: unverified' must explain the unverified dimension rather than implying the whole scanner is unhealthy."
+  },
+  {
+   "source": "final_master",
+   "id": "F-193",
+   "scope": "post_launch",
+   "title": "Gallery Cost Forecast",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Gallery Cost Forecast - Show observed cost/image, remaining images, projected drain cost, allocation consumed and expected completion time together; forecasts must update from measured token usage."
   },
   {
    "source": "final_master",
@@ -4531,6 +4599,36 @@
   },
   {
    "source": "final_master",
+   "id": "F-306",
+   "scope": "launch_critical",
+   "title": "No Duplicate Paid Evidence",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "autonomy_learning",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "No Duplicate Paid Evidence - Certified facts and valid observations are durable evidence. Never repay an LLM/vision model to judge identical evidence merely because a cadence runs again. Content/evidence fingerprints must make duplicate paid work idempotent."
+  },
+  {
+   "source": "final_master",
+   "id": "F-309",
+   "scope": "launch_critical",
+   "title": "Systematic-Failure Circuit Breaker",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Systematic-Failure Circuit Breaker - When repeated attempts fail the same hard floor across products/methods/providers strongly enough to indicate a systematic block, stop paid retries, name method_blocked_on, preserve evidence and require a changed method/provider/owner decision before spending again."
+  },
+  {
+   "source": "final_master",
    "id": "F-321",
    "scope": "launch_critical",
    "title": "Per-Listing Maintenance Cost",
@@ -4573,6 +4671,36 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Steady-State Sustainability Forecast - Forecast monthly AI/API cost at realistic catalogue sizes, sales volumes, support loads and observation cadences. Include low/base/high cases and name assumptions. Refuse a precise forecast when operational data is insufficient."
+  },
+  {
+   "source": "final_master",
+   "id": "F-327",
+   "scope": "launch_critical",
+   "title": "Hard Spend Reservations",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Hard Spend Reservations - Consequential paid jobs reserve expected budget before execution and settle actual cost afterward. A job cannot begin when its reservation would exceed the applicable owner-authorized ceiling."
+  },
+  {
+   "source": "final_master",
+   "id": "F-328",
+   "scope": "launch_critical",
+   "title": "No Spend To Look Busy",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "No Spend To Look Busy - Autonomous agents/cadences may not consume paid inference merely because they are scheduled or READY. Every paid call must answer a specific unresolved question, produce new evidence, create a required asset, or perform necessary live work."
   },
   {
    "source": "final_master",

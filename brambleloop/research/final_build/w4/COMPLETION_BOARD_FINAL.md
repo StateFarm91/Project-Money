@@ -1,32 +1,32 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-10-20T06:31:10Z by `research/final_build/w4/completion_board_final.py` on branch head 1c5aaeb1. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-10-20T11:15:42Z by `research/final_build/w4/completion_board_final.py` on branch head 27fb1d40. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
-| Build 2 | 320 | 198 | 31 | 0 | 3 | 36 | 49 | 3 |
-| Final Master launch-critical | 490 | 369 | 8 | 5 | 37 | 42 | 29 | 0 |
-| Final Master total | 917 | 419 | 13 | 5 | 256 | 127 | 90 | 7 |
+| Build 2 | 320 | 194 | 35 | 0 | 3 | 36 | 49 | 3 |
+| Final Master launch-critical | 490 | 364 | 13 | 5 | 37 | 42 | 29 | 0 |
+| Final Master total | 917 | 415 | 19 | 5 | 254 | 127 | 90 | 7 |
 | Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 
 ## Recount (nine categories, after the spot audit)
 
 | scope | production_verified | dev_proven_not_deployed | implemented_unverified | in_progress | engineering_blocked | owner_blocked | external_blocked | live_customer_C | not_applicable | executable engineering | post-launch empirical | owner/external (non-empirical) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Build 2 | 198 | 28 | 0 | 0 | 2 | 29 | 39 | 21 | 3 | 30 | 52 | 37 |
-| Final Master launch-critical | 369 | 7 | 1 | 5 | 37 | 40 | 28 | 3 | 0 | 50 | 6 | 65 |
-| Final Master total | 419 | 12 | 1 | 5 | 252 | 121 | 81 | 19 | 7 | 270 | 65 | 156 |
+| Build 2 | 194 | 32 | 0 | 0 | 2 | 29 | 39 | 21 | 3 | 34 | 52 | 37 |
+| Final Master launch-critical | 364 | 12 | 1 | 5 | 37 | 40 | 28 | 3 | 0 | 55 | 6 | 65 |
+| Final Master total | 415 | 18 | 1 | 5 | 250 | 121 | 81 | 19 | 7 | 274 | 65 | 156 |
 
 Rule: production_verified = verified_complete after the spot audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven on the branch only; live_customer_C = the criterion's own words demand live customers / post-launch history (prelaunch_scope C_PATTERNS, quoted); post_launch_empirical = live_customer_C plus rows parked on real customers / data accrual; executable_engineering = the rest of the unfinished rows the company itself can move.
 
-Spot audit: 61 rows, verdicts {'PASS_PRODUCTION': 8, 'PASS': 44, 'DOWNGRADE': 9}; downgraded ['F-754']; re-closed with new tests ['B2#184', 'B2#219', 'F-057', 'F-073', 'F-251', 'F-884', 'F-907']. Closed on production evidence of the deployed commit: ['F-056', 'F-152', 'F-191', 'F-193', 'F-240', 'F-283', 'F-299', 'F-378', 'F-399', 'F-403', 'F-409', 'F-424', 'F-427', 'F-428', 'F-433', 'F-473', 'F-491', 'F-498', 'F-504', 'F-535', 'F-542', 'F-558', 'F-570', 'F-574', 'F-586', 'F-591', 'F-605', 'F-619', 'F-651', 'F-657', 'F-660', 'F-682', 'F-706', 'F-718', 'F-793', 'F-871', 'F-878'].
+Spot audit: 61 rows, verdicts {'PASS_PRODUCTION': 8, 'PASS': 44, 'DOWNGRADE': 9}; downgraded ['F-754']; re-closed with new tests ['B2#184', 'B2#219', 'F-057', 'F-073', 'F-251', 'F-884', 'F-907']. Closed on production evidence of the deployed commit: ['F-019', 'F-046', 'F-056', 'F-152', 'F-191', 'F-240', 'F-283', 'F-299', 'F-378', 'F-399', 'F-403', 'F-409', 'F-424', 'F-427', 'F-428', 'F-433', 'F-473', 'F-491', 'F-498', 'F-504', 'F-535', 'F-542', 'F-558', 'F-570', 'F-574', 'F-586', 'F-591', 'F-605', 'F-619', 'F-651', 'F-657', 'F-660', 'F-682', 'F-706', 'F-718', 'F-793', 'F-871', 'F-878'].
 
 Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 41, 'EXTERNAL-GATED': 6, 'NOT-APPLICABLE': 3, 'OPEN-DEFECT': 2}; Final Master launch-critical {'COMPLETE': 377, 'GATED': 108, 'OPEN': 5}.
 
 ## Critical path
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 15 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
-2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 43 rows (7 FM launch-critical, 31 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
+2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 53 rows (12 FM launch-critical, 35 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
 3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 27 rows (21 FM launch-critical, 0 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
 4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
 5. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
@@ -36,8 +36,8 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
+| Proven only on the integration branch (release + production evidence needed) | 53 | 35 | 12 | 6 | {'implemented_unverified': 53} |  |
 | No real customers / market outcomes yet | 93 | 38 | 4 | 51 | {'blocked_external': 93} |  |
-| Proven only on the integration branch (release + production evidence needed) | 43 | 31 | 7 | 5 | {'implemented_unverified': 43} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Gate now OPEN in production: unparked, re-verify | 27 | 0 | 21 | 6 | {'blocked_engineering': 27} |  |
 | Image/vision provider capability | 24 | 6 | 15 | 3 | {'blocked_external': 23, 'in_progress': 1} |  |
@@ -47,7 +47,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | Owned channels (site / Pinterest) | 18 | 7 | 1 | 10 | {'blocked_owner': 18} | The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static  |
 | Testers and physical samples | 16 | 4 | 4 | 8 | {'blocked_owner': 16} | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREA |
 | Other owner decisions (credential rotation, tax, CASL, spend numbers, deploy settings) | 7 | 0 | 7 | 0 | {'blocked_owner': 7} | rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act |
-| Open engineering work | 217 | 2 | 4 | 211 | {'blocked_engineering': 217} |  |
+| Open engineering work | 215 | 2 | 4 | 209 | {'blocked_engineering': 215} |  |
 | Owner rulings | 7 | 4 | 2 | 1 | {'blocked_owner': 7} | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no |
 | Benchmark purchases | 14 | 5 | 0 | 9 | {'blocked_owner': 14} | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARAN |
 | Etsy Shop Manager settings | 10 | 0 | 4 | 6 | {'blocked_owner': 10} | subscribing is consequential spend |
@@ -65,16 +65,21 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 ## Active worker branches (unmerged, last 24 h)
 
 - `claude/w4-BRANDRULE` @ 55083dab (3 ahead, 2026-10-20T05:26:46+00:00): rows named ['F-852']
+- `claude/w4-CREDHEALTH` @ cd4caab5 (70 ahead, 2026-10-20T11:10:07+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-FIDELITY` @ 298e3156 (26 ahead, 2026-10-19T22:28:26+00:00): rows named ['F-852']
 - `claude/w4-FIRSTSALE` @ cc0c54ea (10 ahead, 2026-10-20T06:30:00+00:00): rows named none
 - `claude/w4-FLUXAPI` @ d3679fe0 (11 ahead, 2026-10-19T19:32:01+00:00): rows named none
 - `claude/w4-FLUXLIVE` @ 7886f58d (49 ahead, 2026-10-20T05:36:26+00:00): rows named ['F-852']
+- `claude/w4-HANDOFF` @ 179ece97 (8 ahead, 2026-10-20T10:54:09+00:00): rows named none
+- `claude/w4-INTEG4` @ 0815a9b5 (69 ahead, 2026-10-20T10:57:55+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-OWNERIMG` @ c387c279 (9 ahead, 2026-10-19T19:04:06+00:00): rows named none
 - `claude/w4-SECREVIEW-324927f` @ 615a1fb7 (1 ahead, 2026-10-20T00:24:43+00:00): rows named none
 - `claude/w4-SECREVIEW-5f18d11` @ 457e02e8 (1 ahead, 2026-10-19T16:26:19+00:00): rows named none
+- `claude/w4-SECREVIEW-7f6dbe8` @ 15cf7254 (70 ahead, 2026-10-20T11:01:43+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-VISAUTO` @ d767208c (24 ahead, 2026-10-19T22:11:43+00:00): rows named none
 - `claude/w4-VISGATE` @ 3915ca2f (2 ahead, 2026-10-19T15:07:51+00:00): rows named ['F-030', 'F-221', 'F-232', 'F-253', 'F-254', 'F-278']
 - `claude/w4-VISNEXT` @ 0beb522d (54 ahead, 2026-10-20T06:09:28+00:00): rows named ['F-852', 'F-853']
+- `claude/w4-VISNEXT2` @ e37a3738 (56 ahead, 2026-10-20T11:00:38+00:00): rows named ['F-852', 'F-853']
 - `claude/w4-WRAPTEST` @ 31e53474 (39 ahead, 2026-10-19T23:50:01+00:00): rows named ['F-852']
 
 ## Unfinished launch-critical / Build 2 rows
@@ -112,6 +117,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | B2#67 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#72 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
 | B2#82 | blocked_external | external: market outcomes | True | True | machinery exists (creative/style_learning.py); parked on data gate style_outcomes: enough listing impressions for one he |
+| B2#86 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#88 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#89 | blocked_external | external: market outcomes | True | True | machinery exists (creative/outcome_learning.py); parked on data gate concept_outcomes: enough visits and orders to join  |
 | B2#94 | blocked_external | external: market outcomes | True | False | machinery exists (creative/blinded.py); parked on data gate market_outcomes: live listing traffic and at least one sale |
@@ -149,6 +155,8 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | B2#195 | blocked_engineering | engineering: deploy successor + 24h unattended window | True | True | parked on owner gate production_window |
 | B2#202 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
 | B2#203 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
+| B2#208 | implemented_unverified | engineering: release + deploy | True | False |  |
+| B2#209 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#218 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#221 | blocked_owner | owner: ruling | True | True | parked on owner gate acceptance_ruling |
 | B2#222 | blocked_owner | owner: ruling | True | True | parked on owner gate acceptance_ruling |
@@ -194,6 +202,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | B2#296 | blocked_external | external: real buyers | True | False | machinery exists (seasonal/leadtime.py); parked on data gate seasonal_orders: an order attributed to a seasonal event |
 | B2#298 | blocked_external | external: a season has to pass | True | True | machinery exists (seasonal/harvest.py); parked on data gate season_harvest: a passed seasonal event with enough orders t |
 | B2#300 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
+| B2#304 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#308 | blocked_external | external: image provider capability | True | True | no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrume |
 | B2#309 | implemented_unverified | engineering: release + deploy | True | False |  |
 | B2#315 | blocked_owner | owner: buy benchmark set | True | True | parked on owner gate benchmark_purchases |
@@ -215,6 +224,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | F-081 | blocked_owner | owner: testers / sample | True | True | owner gate tester_roster: physical intake fixed (fb4-PUB); Class C needs an independent tester's make |
 | F-088 | blocked_external | external: real buyers | True | True | Scope incidents to slug@version plus rebuild_graph descendants and feed confirmed defects into gates/confidence |
 | F-100 | blocked_engineering | engineering: gate model_provider is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done | True | True | Add a launch/access.py AccessRequest 'second model provider' whose card carries scale/dependency.py's measured provider  |
+| F-102 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-103 | blocked_owner | owner: provider admin keys | True | True | owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only) |
 | F-106 | blocked_owner | owner: provider admin keys | True | True | owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only) |
 | F-118 | blocked_owner | owner: testers / sample | True | True | owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester |
@@ -254,9 +264,13 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | F-295 | blocked_owner | owner: ad budget authority | True | True | Add an ads dry-run acceptance test: granted authority fixture + one uncertified, one stale-certificate and one over-budg |
 | F-297 | blocked_external | external: Etsy Ads data | True | True | Build the listing-level intake (F-258) and a 'measurement proven' readiness requirement (a recorded organic listing read |
 | F-301 | blocked_owner | owner: provider admin keys | True | True | Add ops/provider_accounts.observe(provider) reading provider usage endpoints when an admin key is configured, persist ob |
+| F-306 | implemented_unverified | engineering: release + deploy | True | False |  |
+| F-309 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-321 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing |
 | F-323 | blocked_external | external: real buyers | True | True | Add per-order contribution in commerce/order_readings (gross - fees - refunds - ads - attributed variable AI cost for th |
 | F-325 | blocked_owner | owner: go-live / publication grant | True | True | data gate live_listings: re-read once listings have history |
+| F-327 | implemented_unverified | engineering: release + deploy | True | False |  |
+| F-328 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-360 | blocked_owner | owner: testers / sample | True | True | transcribe the full CYC baby chart (all published rows) into cir/graded as a BABY BodyTable with source/date and allow g |
 | F-363 | blocked_owner | owner: testers / sample | True | True | owner: physical sample via the tester roster |
 | F-364 | blocked_external | external: vision provider capability | True | True | once Visual V1 locks, add a children's shot-list (nursery context, gift framing) to publish/listing_assets frame job map |

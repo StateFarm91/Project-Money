@@ -2,7 +2,7 @@
  "kind": "brambleloop.deployed_tree_tests",
  "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
  "src_tree_clean": true,
- "run_at": "2026-10-20T06:29:00Z",
+ "run_at": "2026-10-20T06:42:32Z",
  "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
  "runs": [
   {
@@ -315,6 +315,25 @@
    ]
   },
   {
+   "file": "tests/test_ranking_readiness.py",
+   "rc": 0,
+   "ok": 7,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_empty_shop_is_unmeasured_not_passed_and_never_blended",
+    "test_dimensions_are_independent",
+    "test_a_stale_certificate_fails_listing_quality_and_shows_stale",
+    "test_a_measured_failure_outranks_an_unmeasured_component",
+    "test_service_quality_is_measured_only_from_sent_responses",
+    "test_launch_plan_calls_the_profile",
+    "test_the_catalogue_shows_the_certificate_verdict_not_the_proxy"
+   ],
+   "tail": [
+    "OK   test_the_catalogue_shows_the_certificate_verdict_not_the_proxy"
+   ]
+  },
+  {
    "file": "tests/test_rc1_auth.py",
    "rc": 0,
    "ok": 11,
@@ -543,6 +562,23 @@
    ],
    "tail": [
     "PASS: 0 failing of 1"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows6.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f019_a_surviving_plural_pair_blocks_in_the_release_gate",
+    "test_f019_plural_and_singular_fold_to_one_root_and_ss_is_not_a_plural",
+    "test_f019_tag_selection_never_spends_two_slots_on_one_root",
+    "test_f046_ad_and_etsy_plus_spend_leave_every_ranking_dimension_unchanged",
+    "test_f046_no_organic_ranking_module_reads_a_paid_media_input"
+   ],
+   "tail": [
+    "PASS: 0 failing of 5"
    ]
   },
   {

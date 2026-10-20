@@ -434,6 +434,14 @@ ANALYSIS_SYSTEM = (
 TASK = "gallery_observation"
 ANALYSIS_MAX_TOKENS = 1200
 
+# W4-CLOSE5: the wall-clock one `analyse` run may spend. Each vision call may wait up to
+# `gateway.anthropic.VISION_TIMEOUT_SECONDS`; a run does not START a call that could end past
+# this, and the images it leaves are still pending for the next run (nothing is lost; the
+# backlog is the checkpoint, as for F-473 pre-emption). Kept well under the worker's lease
+# renewal cap `runtime.worker.MAX_HANDLER_SECONDS`, so the batch size the budget allows can
+# never outlast the lease that fences the job.
+ANALYSIS_RUN_SECONDS = 40 * 60
+
 # Whose permission this spends under. Named once for the same reason `TASK` is: the ceiling
 # check, the ledger row and the cadence that sizes the batch all have to be talking about the
 # same agent, and a name written three times is a name that will disagree with itself.
@@ -469,11 +477,12 @@ def per_image_estimate_cad(model: str | None = None) -> float:
 def analysis_prompt() -> str:
     """The question, built from the closed vocabulary so the two cannot drift apart."""
     return (
-        "Reply with a single JSON object and nothing else. Permitted keys, all optional:\n"
+        "Reply with a single JSON object and nothing else. Every key below is present:\n"
         + "\n".join(f"- {field}" for field in OBSERVATION_FIELDS)
-        + f"\n\n`shot_type`, when present, must be exactly one of: "
+        + f"\n\n`shot_type` must be exactly one of: "
         + ", ".join(SHOT_TYPES)
-        + "\n\nEvery other value is one short phrase. Omit any key you cannot judge. "
+        + " (or the empty string)\n\nEvery other value is one short phrase. For any key you "
+        + "cannot judge, give the empty string rather than guessing. "
         + "`motif_legibility` is whether a motif reads at a glance, never what the motif is; "
         + "`brand_coherence` is whether this frame reads as the same shop as a typical "
         + "listing of its kind; `aesthetic_currency` is whether the styling looks current."
@@ -481,14 +490,22 @@ def analysis_prompt() -> str:
 
 
 def observation_schema() -> dict:
-    """REL2: the closed vocabulary as a JSON schema for structured output. Every field is
-    optional (omit what cannot be judged); `shot_type` is the closed enum; nothing else is
-    allowed. The parser below still checks every answer -- the schema only stops paying for
-    answers that were never JSON."""
+    """REL2: the closed vocabulary as a JSON schema for structured output; `shot_type` is the
+    closed enum; nothing else is allowed. The parser below still checks every answer -- the
+    schema only stops paying for answers that were never JSON.
+
+    W4-CLOSE5: every field is REQUIRED, and a field that cannot be judged is the empty string
+    (which `parse_observation` drops, exactly as it dropped an omitted key). REL2 made all 24
+    fields optional. An object of N optional properties is a grammar over every subset of
+    them in order -- the most expensive shape structured output compiles -- and on b931d17 every
+    gallery call carrying it ran past the read timeout. Required fields make the grammar one
+    fixed sequence; the observation the parser returns is unchanged.
+    """
     props = {f: {"type": "string"} for f in OBSERVATION_FIELDS}
     if "shot_type" in props:
-        props["shot_type"] = {"type": "string", "enum": list(SHOT_TYPES)}
-    return {"type": "object", "properties": props, "additionalProperties": False}
+        props["shot_type"] = {"type": "string", "enum": [*SHOT_TYPES, ""]}
+    return {"type": "object", "properties": props, "required": list(OBSERVATION_FIELDS),
+            "additionalProperties": False}
 
 
 def _accepts_schema(provider) -> bool:
@@ -545,7 +562,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             provider=None, env: dict[str, str] | None = None,
             job_id: int | None = None,
             prefer_pods: frozenset[str] | set[str] | None = None,
-            should_stop=None) -> dict:
+            should_stop=None, clock=None) -> dict:
     """Judge up to `limit` pending gallery images, one call each, and record what was seen.
 
     One image per call rather than a batch. A batch is cheaper per image and makes a single
@@ -581,7 +598,14 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     judged, failures, spent = 0, [], 0.0
     reserved, tokens_in, tokens_out = 0.0, 0, 0
     stopped_by = ""
+    import time as _time
+
+    clock = clock or _time.monotonic
+    started = clock()
     for item in queue:
+        if clock() - started + gw.VISION_TIMEOUT_SECONDS > ANALYSIS_RUN_SECONDS:
+            stopped_by = "run_time_budget"
+            break
         # F-473: between images (never mid-call), a cooperative yield to waiting
         # higher-band work. Every judged image is already recorded, so stopping here loses
         # nothing; the remaining backlog is the checkpoint.

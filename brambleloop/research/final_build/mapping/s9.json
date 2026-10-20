@@ -1454,7 +1454,7 @@
   "defect": null,
   "next_action": "none -- reached at runtime through certification",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-794",
@@ -4055,7 +4055,7 @@
   "defect": null,
   "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
   "confidence": "MEDIUM",
-  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-879",
