@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T06:31:10Z",
-  "branch_head": "1c5aaeb1"
+  "generated_at": "2026-10-20T06:47:14Z",
+  "branch_head": "d1ed36c2"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,9 +40,9 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 611,
+  "total_not_verified": 609,
   "by_class": {
-   "A": 538,
+   "A": 536,
    "C": 40,
    "B": 33
   },
@@ -53,7 +53,7 @@
     "B": 5
    },
    "final_master": {
-    "A": 445,
+    "A": 443,
     "C": 19,
     "B": 27
    },
@@ -86,7 +86,7 @@
    },
    "store_product": {
     "C": 14,
-    "A": 197,
+    "A": 195,
     "B": 3
    }
   },
@@ -102,7 +102,7 @@
     "B": 19
    },
    "post_launch": {
-    "A": 346,
+    "A": 344,
     "C": 16,
     "B": 8
    }
@@ -180,7 +180,6 @@
    "A F-016 [blocked_engineering] Regional Phrase Intelligence",
    "A F-017 [blocked_engineering] No Typo SEO",
    "A F-018 [blocked_engineering] Language Discipline",
-   "A F-019 [blocked_engineering] Plural/Root Waste Detector",
    "A F-033 [blocked_external] Conversion Experiment Registry",
    "A F-034 [blocked_owner] New-Listing Learning Window",
    "A F-036 [blocked_owner] Query-Specific Performance",
@@ -188,7 +187,6 @@
    "A F-038 [blocked_engineering] First-Party Priority",
    "A F-044 [blocked_external] Review Quality Loop",
    "A F-045 [blocked_external] Case-Rate Incident",
-   "A F-046 [blocked_engineering] No Paid-Rank Myth",
    "A F-047 [blocked_engineering] Star Seller Framing",
    "A F-050 [blocked_engineering] Query Cannibalization Audit",
    "A F-051 [blocked_engineering] Inventory Diversification",
@@ -2626,21 +2624,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-019",
-   "scope": "post_launch",
-   "title": "Plural/Root Waste Detector",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Plural/Root Waste Detector - Do not burn tag slots on singular/plural variants Etsy already root-matches."
-  },
-  {
-   "source": "final_master",
    "id": "F-027",
    "scope": "launch_critical",
    "title": "First-Image Search Gate",
@@ -2878,21 +2861,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Case-Rate Incident - Any Etsy-counted case triggers root-cause and corrective action."
-  },
-  {
-   "source": "final_master",
-   "id": "F-046",
-   "scope": "post_launch",
-   "title": "No Paid-Rank Myth",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "No Paid-Rank Myth - Never model Etsy Ads or Etsy Plus as organic ranking boosts."
   },
   {
    "source": "final_master",

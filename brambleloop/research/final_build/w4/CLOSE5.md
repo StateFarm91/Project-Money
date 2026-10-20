@@ -304,3 +304,13 @@ Not closed:
 Production observation from the same readback: `/api/funding/packets` reports model probes
 failing 156 of 223 (0.70) and 86 parked model jobs over 30 days. That is outage evidence for the
 owner's diversification decision, F-100.
+
+### 3.8 Batch 7: F-019 and F-046 (post-launch class-A engineering; no code change needed)
+
+| row | criterion (quoted) | tests | status |
+|---|---|---|---|
+| **F-019** Plural/Root Waste Detector | "Do not burn tag slots on singular/plural variants Etsy already root-matches." | `test_w4_close5_rows6.py` (3) | closed on b931d17. The mapping's "MISSING" was stale. `commerce/search.intent_key` folds plurals (`_stem_word`: -s and -ies to -y, but never -ss), word order and synonyms. `_acceptable_tag` refuses a phrase whose folded key an already-chosen tag carries, in both the must-include pass and the value pass. A surviving pair becomes a blocking `TAG_SEMANTIC_DUPLICATE` in the release gate (`runtime/release.py`, `seo/packages.py`). Until now, no test asserted the singular/plural case |
+| **F-046** No Paid-Rank Myth | "Never model Etsy Ads or Etsy Plus as organic ranking boosts." | `test_w4_close5_rows6.py` (2) + `test_ranking_readiness.py` | closed on b931d17. Before this batch there was no guard; the guard is now a test over deployed code. An AST scan of the organic ranking modules (`commerce/search.py`, `commerce/seo.py`, `commerce/ranking_readiness.py`, `seo/*.py`) finds no paid-media import, no Etsy Ads, Offsite Ads, Etsy Plus or ROAS name or string, and no use of `search_policy`'s ads thresholds. The scan is self-checked against a planted line. Recording CA$353 of ads, offsite-ads and Etsy Plus cost leaves every ranking dimension, the certificate and the summary identical |
+
+`close5.py` is now idempotent on re-run: the `searched` tag is no longer appended again on each
+regeneration, and the repeats from earlier runs are collapsed.

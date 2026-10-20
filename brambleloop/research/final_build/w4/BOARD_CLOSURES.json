@@ -728,6 +728,42 @@
    ],
    "worker": "W4-CLOSE5 2026-10-20",
    "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-019",
+   "criterion": "Plural/Root Waste Detector - Do not burn tag slots on singular/plural variants Etsy already root-matches.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "deployed b931d17: commerce/search.py and commerce/ranking_readiness.py unchanged since the deploy; the deployed-tree run of test_w4_close5_rows6 passes",
+   "tests": [
+    "tests/test_w4_close5_rows6.py::test_f019_plural_and_singular_fold_to_one_root_and_ss_is_not_a_plural",
+    "tests/test_w4_close5_rows6.py::test_f019_tag_selection_never_spends_two_slots_on_one_root",
+    "tests/test_w4_close5_rows6.py::test_f019_a_surviving_plural_pair_blocks_in_the_release_gate"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-046",
+   "criterion": "No Paid-Rank Myth - Never model Etsy Ads or Etsy Plus as organic ranking boosts.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "deployed b931d17: commerce/search.py and commerce/ranking_readiness.py unchanged since the deploy; the deployed-tree run of test_w4_close5_rows6 passes",
+   "tests": [
+    "tests/test_w4_close5_rows6.py::test_f046_no_organic_ranking_module_reads_a_paid_media_input",
+    "tests/test_w4_close5_rows6.py::test_f046_ad_and_etsy_plus_spend_leave_every_ranking_dimension_unchanged",
+    "tests/test_ranking_readiness.py::test_an_empty_shop_is_unmeasured_not_passed_and_never_blended"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
   }
  ]
 }

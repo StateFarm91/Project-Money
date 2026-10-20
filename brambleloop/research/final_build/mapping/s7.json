@@ -252,7 +252,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-559",
@@ -631,7 +631,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-571",
@@ -762,7 +762,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-575",
@@ -1117,7 +1117,7 @@
   "defect": null,
   "next_action": "none -- the registry is reached at runtime on b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-587",
@@ -1274,7 +1274,7 @@
   "defect": null,
   "next_action": "none -- deployed",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-592",
@@ -1727,7 +1727,7 @@
   "defect": null,
   "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-606",

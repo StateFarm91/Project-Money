@@ -426,7 +426,7 @@
   "defect": null,
   "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-192",
@@ -457,7 +457,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (main.py edited by R1), awaiting deploy",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-193",
@@ -489,7 +489,7 @@
   "defect": null,
   "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-194",

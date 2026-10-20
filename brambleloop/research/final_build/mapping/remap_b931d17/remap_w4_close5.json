@@ -36,7 +36,7 @@
   "defect": null,
   "next_action": "none -- every scratch site is classified with its durable home (tests/test_w4_close5_rows.py SCRATCH); a new site fails the test until classified",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-299",
@@ -77,7 +77,7 @@
   "defect": null,
   "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-718",
@@ -118,7 +118,7 @@
   "defect": null,
   "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-283",
@@ -156,7 +156,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-682",
@@ -191,7 +191,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-558",
@@ -234,7 +234,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-570",
@@ -271,7 +271,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-574",
@@ -306,7 +306,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-657",
@@ -344,7 +344,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-378",
@@ -383,7 +383,7 @@
   "defect": null,
   "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-427",
@@ -418,7 +418,7 @@
   "defect": null,
   "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-428",
@@ -448,7 +448,7 @@
   "defect": null,
   "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "LOW",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-706",
@@ -484,7 +484,7 @@
   "defect": null,
   "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-403",
@@ -519,7 +519,7 @@
   "defect": null,
   "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-409",
@@ -555,7 +555,7 @@
   "defect": null,
   "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-424",
@@ -586,7 +586,7 @@
   "defect": null,
   "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-433",
@@ -619,7 +619,7 @@
   "defect": null,
   "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "HIGH",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-399",
@@ -654,7 +654,7 @@
   "defect": null,
   "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-605",
@@ -687,7 +687,7 @@
   "defect": null,
   "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-535",
@@ -723,7 +723,7 @@
   "defect": null,
   "next_action": "none -- deployed; a real refund is data",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-542",
@@ -760,7 +760,7 @@
   "defect": null,
   "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-878",
@@ -801,7 +801,7 @@
   "defect": null,
   "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
   "confidence": "MEDIUM",
-  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-473",
@@ -837,7 +837,7 @@
   "defect": null,
   "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-191",
@@ -872,7 +872,7 @@
   "defect": null,
   "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-193",
@@ -904,7 +904,7 @@
   "defect": null,
   "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-491",
@@ -937,7 +937,7 @@
   "defect": null,
   "next_action": "none -- deployed; isolation now asserted around the failing job",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-586",
@@ -969,7 +969,7 @@
   "defect": null,
   "next_action": "none -- the registry is reached at runtime on b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-591",
@@ -999,7 +999,7 @@
   "defect": null,
   "next_action": "none -- deployed",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-793",
@@ -1030,7 +1030,7 @@
   "defect": null,
   "next_action": "none -- reached at runtime through certification",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-498",
@@ -1065,7 +1065,7 @@
   "defect": null,
   "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-619",
@@ -1311,5 +1311,71 @@
   "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms them at Etsy KYC; readiness blocks until then",
   "confidence": "MEDIUM",
   "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/ | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-019",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; slot-efficiency polish",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::_acceptable_tag; commerce/search.py::intent_key (_stem_word); commerce/search.py::tag_diversity_problems",
+  "durable_state": "listings.tags (the chosen thirteen) + the release gate's findings",
+  "consumer": "runtime/release.py::handle_listing_seo (choose_tags; tag_diversity_problems blocks the release); seo/packages.py; seo/proposals.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_w4_close5_rows6.py::test_f019_plural_and_singular_fold_to_one_root_and_ss_is_not_a_plural",
+   "tests/test_w4_close5_rows6.py::test_f019_tag_selection_never_spends_two_slots_on_one_root",
+   "tests/test_w4_close5_rows6.py::test_f019_a_surviving_plural_pair_blocks_in_the_release_gate"
+  ],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: the mapping's 'no singular/plural root detection' is stale: commerce/search.intent_key folds plurals (_stem_word: -s, -ies->y, never -ss), word order and synonyms; _acceptable_tag refuses a phrase whose folded key a chosen tag already carries (in both the must-include and value passes); a surviving pair is a blocking TAG_SEMANTIC_DUPLICATE in the release gate; reached via listing.seo on b931d17; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software only; nothing external"
+  },
+  "defect": null,
+  "next_action": "none -- built and deployed; now asserted",
+  "confidence": "HIGH",
+  "searched": "grep plural|singular|stem in commerce/: none | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-046",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; Ads disabled until owner authority (F-875)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/ranking_readiness.py::profile; commerce/search.py::Query.value",
+  "durable_state": null,
+  "consumer": "runtime/release.py::handle_launch_plan (ranking_readiness.profile); launch/demand.py organic_readiness (kept beside, never merged with, the ads plan)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_w4_close5_rows6.py::test_f046_no_organic_ranking_module_reads_a_paid_media_input",
+   "tests/test_w4_close5_rows6.py::test_f046_ad_and_etsy_plus_spend_leave_every_ranking_dimension_unchanged",
+   "tests/test_ranking_readiness.py::test_an_empty_shop_is_unmeasured_not_passed_and_never_blended"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/paid_media.py organic_first_gate",
+   "src/brambleloop/intel/insights_budget.py treats Etsy Plus as spend only",
+   "w4-CLOSE5 on deployed b931d17: AST scan of the organic ranking modules (commerce/search.py, commerce/seo.py, commerce/ranking_readiness.py, seo/*.py) finds no import of paid_media/ads_readiness/insights_budget/channel_comparison, no Etsy Ads/Offsite Ads/Etsy Plus/ROAS name or string, and no use of search_policy's ads thresholds (the scan is self-checked against a planted line); recording CA$353 of ads, offsite-ads and Etsy Plus cost leaves every ranking dimension, the search certificate and the summary identical; Query.value is demand x (1 - competition) only; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#242 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "Etsy Ads stay disabled until owner authority (F-875); this row is the organic model's independence from them, which needs no authority"
+  },
+  "defect": null,
+  "next_action": "none -- the guard is a test over deployed code",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
  }
 ]
