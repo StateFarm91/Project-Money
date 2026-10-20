@@ -162,7 +162,14 @@ def secure_release(db, slug: str, version: str, *, store=None, render=None,
             pdfs[t] = {"sha256": sha, "held": held(db, sha), "source": got["source"]}
         except DeliveryRefused as exc:
             pdfs[t] = {"sha256": sha, "held": False, "refused": str(exc)[:300]}
-    for sha in want["frames"]:
+    try:
+        from ..runtime.etsy_ops import certified_frames
+
+        listing_set = [str(f.get("sha256") or "") for f in
+                       certified_frames(db, slug, version)["frames"]]
+    except Exception:  # noqa: BLE001 - no certificate: nothing more to keep
+        listing_set = []
+    for sha in sorted(set(want["frames"]) | {x for x in listing_set if x}):
         if held(db, sha):
             frames[sha] = True
             continue
@@ -182,6 +189,29 @@ def secure_release(db, slug: str, version: str, *, store=None, render=None,
         with db.session() as s:
             s.add(AuditLog(actor="orchestrator", action=SECURED_ACTION,
                            artifact=f"{slug}@{version}", detail=out))
+    return out
+
+
+def keep_frames(db, shas, *, slug: str, version: str, store=None) -> dict:
+    """Keep certified listing-image bytes from disk in Postgres (the uploaded image set).
+
+    Called when a listing-set certificate is issued: the gallery supplements and CONTENTS
+    frame are certified by hash but stored only on the ephemeral disk, so after a redeploy
+    `etsy_ops.certified_images` could not read them and publication would refuse. Never
+    raises; returns {sha: held}."""
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    store = store or ArtifactStore()
+    out = {}
+    for sha in [s for s in shas if s]:
+        try:
+            if held(db, sha):
+                out[sha] = True
+                continue
+            out[sha] = keep(db, store.get(sha), "image/png",
+                            keep_why(slug, version, "certified listing image"))
+        except (ArtifactMissing, Exception):  # noqa: BLE001 - reported, never fatal
+            out[sha] = False
     return out
 
 
