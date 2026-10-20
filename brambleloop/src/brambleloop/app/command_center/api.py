@@ -1319,11 +1319,21 @@ def make_router(db) -> APIRouter:
     async def laura_unified_crossing(request: Request):
         body = await body_of(request)
         approve = body.get("approve") is True
-        if approve:
-            auth.require_stepup(db, request, "laura.unified.crossing")
+        # Step-up is required to approve anything not classified business; the owner's own
+        # business words need one explicit tap. The store's sealed flag decides which; the
+        # route only reports whether this session's step-up is fresh.
+        until = (getattr(request.state, "cc_session", None) or {}).get("stepup_until")
+        stepped_up = until is not None and until > auth._now()
         return await run_in_threadpool(lambda: _private(
             request, lambda pid: private_context.unified_crossing(
-                db, pid, body.get("id"), approve=approve)))
+                db, pid, body.get("id"), approve=approve, stepped_up=stepped_up)))
+
+    @router.post("/laura/unified/feed-preview")
+    def laura_unified_feed_preview(request: Request):
+        """Exactly which allowlisted company-context fields Venice would receive (no-store)."""
+        from ...laura.agency import venice_context
+
+        return ok(venice_context.preview(db))
 
     @router.post("/laura/unified/control")
     async def laura_unified_control(request: Request):

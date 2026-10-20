@@ -55,7 +55,7 @@ class PrivateRecord:
     # crossing request) are fixed-vocabulary metadata read from INSIDE the sealed payload.
     __slots__ = ("record_id", "kind", "provenance", "created_at", "role", "model_ref",
                  "reply_to", "key", "value", "sources", "label", "excluded", "sensitive",
-                 "status")
+                 "status", "refs", "stepup", "origin")
     __brambleloop_private__ = True
 
     def __init__(self, **kw):

@@ -180,12 +180,12 @@ def leak_check(candidate: str, private_texts: list[str], *,
                allowed: list[str] | None = None) -> list[dict]:
     """Every way `candidate` carries private-thread text, as non-content hit descriptors
     `{index, how}` (index into `private_texts`); `how` is substring | normalised | shingle |
-    overlap. Empty list = clean.
+    overlap | short_exact. Empty list = clean.
 
     `allowed` is text the owner has explicitly approved to cross; it is removed from the
     candidate before checking. Private texts shorter than the thresholds (under 12 characters
-    AND under 3 words) carry too little to match without false positives; the classifier, not
-    this guard, is the control for those (a turn with private signals is never `business`)."""
+    AND under 3 words) are matched only as an exact normalised whole phrase, and only when they
+    contain a content token, so that "hi" cannot block every brief."""
     raw, norm = _strip_allowed(str(candidate or ""), list(allowed or []))
     padded = f" {norm} "
     cwords = norm.split()
@@ -211,6 +211,13 @@ def leak_check(candidate: str, private_texts: list[str], *,
                 if len(toks) >= OVERLAP_MIN_TOKENS and \
                         len(toks & ctoks) / len(toks) >= OVERLAP_RATIO:
                     how = "overlap"
+        if not how and np_ and (len(np_.split()) < MIN_NORMALISED_WORDS
+                                and len(np_) < MIN_SUBSTRING_CHARS):
+            # Short private text: an EXACT whole-phrase match (normalised), when it carries
+            # at least one content token (4+ characters, not a stop word) -- "hi" or "ok" do
+            # not, "darling" or "PRIV-0001" do.
+            if _content(np_.split()) and f" {np_} " in padded:
+                how = "short_exact"
         if how:
             hits.append({"index": i, "how": how})
     return hits
@@ -309,24 +316,131 @@ def code_intent(cls: dict) -> dict:
     return {"tool": "none", "brief": ""}
 
 
-def plan_brief(intent: dict, cls: dict, owner_text: str) -> dict:
-    """What would cross, and whether the owner must see it first.
+# ---------------------------------------------------------------------------
+# Structured business requests (owner clarification 2026-10-20, D-W4-LAURA-UNIFIED-FEED):
+# by default a business tool receives a request RENDERED BY CODE from a tool and allowlisted
+# parameters extracted deterministically -- no conversation text at all. Free text (including
+# the owner's own words) crosses only on the owner's explicit approval of the exact text.
 
-    {send: str, needs_owner: bool, origin: owner_words|canonical|owner_quote|laura_draft}.
-    Never sends a Venice-authored draft automatically."""
+METRICS = (("sales", r"sales?|sold|selling"), ("revenue", r"revenue|income|earnings?"),
+           ("profit", r"profits?|margins?"), ("spend", r"spend(?:ing)?|costs?|budget"),
+           ("listings", r"listings?"), ("orders", r"orders?"),
+           ("traffic", r"traffic|views?|visits?|visitors?"),
+           ("favourites", r"favou?rites?"), ("conversion", r"conversion"),
+           ("seo", r"seo|search ranking|search"), ("incidents", r"incidents?|errors?|failures?"),
+           ("launch", r"launch(?:es|ed|ing)?"))
+DATE_RANGES = (("overnight", r"overnight|last night"), ("today", r"today"),
+               ("yesterday", r"yesterday"), ("this_week", r"this week"),
+               ("last_week", r"last week"), ("this_month", r"this month"),
+               ("last_7_days", r"(?:last|past) (?:7|seven) days"),
+               ("last_30_days", r"(?:last|past) (?:30|thirty) days"))
+DEPARTMENT_NAMES = {"product_design": "Design", "visual": "Visual", "store_commerce": "Store",
+                    "growth_marketing": "Marketing", "seo": "SEO", "finance": "Finance",
+                    "pattern_engineering": "Pattern Engineering", "operations": "Operations",
+                    "support": "Support", "quality": "Quality"}
+TASK_OBJECTS = (("banner", r"banners?"), ("mockup", r"mock-?ups?"),
+                ("listing title", r"(?:listing )?titles?"), ("tag set", r"tags?"),
+                ("listing description", r"descriptions?"), ("size chart", r"size charts?"),
+                ("pattern review", r"pattern reviews?|reviews? of the pattern"),
+                ("product photo", r"photos?|pictures?"), ("chart", r"charts?"),
+                ("keyword study", r"keyword (?:study|research)|keywords?"))
+_COUNTS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+           "eight": 8, "nine": 9, "ten": 10}
+
+
+def _first(table, text: str) -> list[str]:
+    return [name for name, rx in table if re.search(rf"\b(?:{rx})\b", text, re.I)]
+
+
+def extract_params(text: str, *, product_slugs: dict[str, str] | None = None) -> dict:
+    """Allowlisted parameters, deterministically. Every value is from a code vocabulary (or a
+    product slug the company already has); none is conversation text."""
+    t = str(text or "")
+    out: dict = {"metrics": _first(METRICS, t)[:4]}
+    rng = _first(DATE_RANGES, t)
+    out["date_range"] = rng[0] if rng else None
+    nt = normalise(t)
+    out["products"] = sorted(slug for slug, title in (product_slugs or {}).items()
+                             if f" {normalise(slug)} " in f" {nt} "
+                             or (normalise(title) and f" {normalise(title)} " in f" {nt} "))[:3]
+    m = re.search(r"\bpriorit(?:y|ies)\s*#?(\d{1,4})\b", t, re.I)
+    out["priority_id"] = int(m.group(1)) if m else None
+    from ..laura.agency import delegation
+
+    d = delegation.parse(t)
+    dept = d.get("department") if d else None
+    out["department"] = dept if dept in DEPARTMENT_NAMES else None
+    objs = _first(TASK_OBJECTS, d["task"]) if d else []
+    out["task_object"] = objs[0] if objs else None
+    cm = re.search(r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b",
+                   d["task"] if d else "", re.I)
+    n = (int(cm.group(1)) if cm and cm.group(1).isdigit()
+         else _COUNTS.get(cm.group(1).lower()) if cm else None)
+    out["count"] = n if n and 1 <= n <= 10 else None
+    return out
+
+
+def render_structured(tool: str, params: dict) -> str | None:
+    """The business request, written by code from the tool and allowlisted params only.
+    None when the tool needs parameters that were not extracted (delegation)."""
+    p = params or {}
+    focus = []
+    if p.get("metrics"):
+        focus.append("metrics: " + ", ".join(p["metrics"]))
+    if p.get("date_range"):
+        focus.append("period: " + p["date_range"].replace("_", " "))
+    if p.get("products"):
+        focus.append("products: " + ", ".join(p["products"]))
+    if p.get("priority_id"):
+        focus.append(f"priority {p['priority_id']}")
+    tail = (" Focus on " + "; ".join(focus) + ".") if focus else ""
+    if tool == "business.delegate":
+        if not (p.get("department") and p.get("task_object")):
+            return None
+        n = p.get("count") or 1
+        obj = p["task_object"] + ("s" if n > 1 else "")
+        return f"Have {DEPARTMENT_NAMES[p['department']]} make {n} more {obj}."
+    if tool == "business.ask":
+        rest = [f for f in focus if not f.startswith("period: ")]
+        rest_s = (" Focus on " + "; ".join(rest) + ".") if rest else ""
+        if p.get("date_range"):
+            return f"What did the company do {p['date_range'].replace('_', ' ')}?" + rest_s
+        return "What is the company's current status?" + rest_s
+    if tool == "business.executive":
+        return "What should the company prioritise now, and why?" + tail
+    if tool == "business.briefing":
+        return CANONICAL_BRIEF["business.briefing"] + "." + tail
+    return None
+
+
+def plan_brief(intent: dict, cls: dict, owner_text: str, *,
+               product_slugs: dict[str, str] | None = None) -> dict:
+    """What Laura sends automatically (a structured, code-rendered request) and what she may
+    only OFFER to send (free text, crossing on the owner's explicit approval).
+
+    {send, params, offer: {text, origin, stepup} | None}.
+    * `send` is never conversation text: tool + allowlisted params rendered by code.
+    * The owner's own words, a mixed turn's business sentences and every Venice draft are only
+      ever offered. Step-up is required for anything not classified business (D-W4-LAURA-
+      UNIFIED-FEED); the owner's own business-classified words need one explicit tap."""
     tool = intent.get("tool")
     draft = (intent.get("brief") or "").strip()
     if tool not in TOOLS or tool == "none":
-        return {"send": "", "needs_owner": False, "origin": ""}
-    if draft and normalise(draft) not in (normalise(owner_text),
-                                         normalise(CANONICAL_BRIEF.get(tool, ""))):
-        return {"send": draft, "needs_owner": True, "origin": "laura_draft"}
-    if cls["label"] == BUSINESS:
-        return {"send": cls["business_text"], "needs_owner": False, "origin": "owner_words"}
-    if cls["label"] == MIXED and cls["business_text"]:
-        return {"send": cls["business_text"], "needs_owner": True, "origin": "owner_quote"}
-    if tool in CANONICAL_BRIEF:
-        return {"send": CANONICAL_BRIEF[tool], "needs_owner": False, "origin": "canonical"}
-    # business.delegate from a private/everyday turn has no business words to send: the
-    # owner's turn itself would have to cross, so the owner decides.
-    return {"send": owner_text.strip(), "needs_owner": True, "origin": "owner_quote"}
+        return {"send": "", "params": {}, "offer": None}
+    label = cls["label"]
+    # Parameters come only from a business-classified turn. A private/everyday turn gives the
+    # tool alone (its fixed request). A MIXED turn sends nothing automatically: Laura answers
+    # it in the conversation, and its business sentences are offered for approval (step-up).
+    params = (extract_params(cls["business_text"], product_slugs=product_slugs)
+              if label == BUSINESS else {})
+    send = "" if label == MIXED else (render_structured(tool, params) or "")
+    offer = None
+    if draft and normalise(draft) not in (normalise(owner_text), normalise(send)):
+        offer = {"text": draft, "origin": "laura_draft", "stepup": True}
+    elif label == BUSINESS and cls["business_text"]:
+        offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": False}
+    elif label == MIXED and cls["business_text"]:
+        offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": True}
+    elif not send:
+        offer = {"text": owner_text.strip(), "origin": "owner_quote", "stepup": True}
+    return {"send": send, "params": params, "offer": offer}

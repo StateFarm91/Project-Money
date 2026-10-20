@@ -283,14 +283,15 @@ def _remember(db, turn_id: int, note: str) -> dict:
 
 
 def converse(db, question: str, *, session_public_id: str = "",
-             provider_factory=None, outbound_check=None) -> dict:
+             provider_factory=None, outbound_check=None, allow_memory: bool = True) -> dict:
     """One owner turn with Business Laura. Persists the turn and its cost; never raises for
     money or provider failure; never returns a template as the reply.
 
     W4-LAURAONE (ADD-LCONT-04): `outbound_check(task, system, user)` -- supplied by the
     unified thread -- sees the EXACT request a model would receive before any reservation or
     call. A truthy return is the refusal reason: nothing is sent, billed or persisted, and
-    the result has status REFUSED. Without it, behaviour is unchanged."""
+    the result has status REFUSED. Without it, behaviour is unchanged. `allow_memory=False`
+    (the unified thread) writes nothing to Laura's business memory from this turn."""
     from ...gateway import laura_converse as lc
     from ..private.firewall import reject_private
     from . import costs, identity_view
@@ -375,7 +376,7 @@ def converse(db, question: str, *, session_public_id: str = "",
                                or billed else "not_called: no model call was made"),
                         model=model, purpose=out.get("prompt") or "",
                         outcome=status.lower(), detail={"task": task})
-    mem_out = _remember(db, turn_id, remember) if remember and status in (
+    mem_out = _remember(db, turn_id, remember) if allow_memory and remember and status in (
         "ANSWERED", "PARTIAL") else {}
     return {"turn_id": turn_id, "at": _iso(at), "register": REGISTER, "question": question,
             "intent": f"ceo:{tool['intent']}", "status": status, "answer": answer,

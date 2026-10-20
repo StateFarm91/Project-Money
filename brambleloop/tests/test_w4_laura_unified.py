@@ -64,6 +64,7 @@ EVERYDAY_TURN = f"Good morning! It rained here, {S_EVERY}."
 MIX_TURN = f"I love you {S_MIX}. What should the shop prioritise this week?"
 MIX_QUOTE = "What should the shop prioritise this week?"
 BUSINESS_TURN = "What should the shop prioritise this week?"
+STRUCT_BIZ = "What did the company do this week?"     # code-rendered from BUSINESS_TURN
 CHEAP_Q = "What did the shop do overnight?"
 BIZ_ANSWER = "Confirming the public shop name comes first; it unblocks the Etsy setup."
 ALL_PRIVATE = (S_PRIV, S_ADULT, S_MIX, S_NOTE, S_EVERY, S_CODE) + R
@@ -97,7 +98,12 @@ def _newest(user: str) -> str:
 def default_route(user: str) -> dict:
     """Stands in for Laura's judgement: a business tool when the newest message is about the
     business (mixed included), none otherwise."""
-    lab = U.classify(_newest(user))["label"]
+    from brambleloop.laura.agency import delegation
+
+    newest = _newest(user)
+    lab = U.classify(newest)["label"]
+    if lab in ("business", "mixed") and delegation.parse(newest):
+        return {"tool": "business.delegate", "brief": ""}
     return {"tool": "business.ask" if lab in ("business", "mixed") else "none", "brief": ""}
 
 
@@ -306,6 +312,10 @@ def test_one_thread_keeps_continuity_across_subject_changes():
     assert [x["label"] for x in (a, b, c_, d)] == ["private", "business", "everyday", "private"]
     assert a["reply"]["text"] == R[0] and a["reply"]["side"] == "conversation"
     assert b["reply"]["text"] == BIZ_ANSWER and b["reply"]["side"] == "business", b
+    # Structured by default: the business tool got a code-rendered request, not her words.
+    assert b["reply"]["brief"] == STRUCT_BIZ and b["intent"]["params"]["date_range"] == "this_week"
+    assert BUSINESS_TURN not in biz.blob()
+    assert b["crossing"]["origin"] == "owner_quote" and b["crossing"]["requires_stepup"] is False
     assert c_["reply"]["text"] == R[1] and d["reply"]["text"] == R[2]
     assert len(mock.calls) == 3 and len(biz.seen) == 1          # one call per turn, one side
     # Venice keeps the conversation: the private turn, its reply and the note are in context;
@@ -326,15 +336,17 @@ def test_one_thread_keeps_continuity_across_subject_changes():
                    ("owner", "private", ADULT_TURN), ("laura", "private", R[2])], got
     assert [t["sensitive"] for t in v["turns"] if t["role"] == "owner"] == [
         False, False, False, True]
-    # The business side holds the brief and the result only.
+    # The business side holds the structured brief and the result only.
     (bt,) = _rows(db, LauraTurn)
-    assert bt.question == BUSINESS_TURN and bt.answer == BIZ_ANSWER
-    # With the owner's separate approval, business exchanges enter Venice's context.
+    assert bt.question == STRUCT_BIZ and bt.answer == BIZ_ANSWER
+    # With the feed switched on, Venice gets the allowlisted pack -- never the business
+    # exchange's free text, which stays a placeholder.
     m2 = Venice(replies=[R[3]])
     with unified(m2, **{U.BUSINESS_TO_VENICE_ENV: "1"}):
         _turn(db, sid, "Are you still there?", biz)
-    assert BUSINESS_TURN in m2.user() and BIZ_ANSWER in m2.user()
-    assert U.BUSINESS_PLACEHOLDER not in m2.user()
+    assert "brambleloop.laura.venice_context.v1" in m2.user()
+    assert BUSINESS_TURN not in m2.user() and BIZ_ANSWER not in m2.user()
+    assert U.BUSINESS_PLACEHOLDER in m2.user()
 
 
 def test_the_thread_survives_a_restart_a_venice_model_swap_and_a_claude_tier_change():
@@ -362,7 +374,8 @@ def test_the_thread_survives_a_restart_a_venice_model_swap_and_a_claude_tier_cha
     assert rb["label"] == "business"
     models = [m for m, _, _ in biz.seen]
     assert len(set(models)) == 2, models                             # Claude tier changed ...
-    assert CHEAP_Q in biz.seen[-1][2] and BIZ_ANSWER in biz.seen[-1][2], biz.seen[-1][2][-1500:]
+    assert "What did the company do overnight?" in biz.seen[-1][2] and \
+        BIZ_ANSWER in biz.seen[-1][2], biz.seen[-1][2][-1500:]          # ... history kept
     v = _view(db2, sid2)
     refs = [t["model_ref"] for t in v["turns"] if t["role"] == "laura"]
     assert refs[0] == f"venice/{V.MODEL}" and refs[2] == "venice/zai-org-glm-5-2", refs
@@ -383,32 +396,68 @@ def test_leak_guard_blocks_private_text_in_a_business_brief():
     with unified(Venice(replies=[R[0]])):
         _turn(db, sid, secret, biz)
         out = _turn(db, sid, leaky, biz)
-    assert out["reply_status"] == "NEEDS_APPROVAL" and out["reply"] is None, out
-    assert biz.seen == []                                            # refused, not sent
-    assert out["crossing"]["text"] == leaky and "Can I share this" in out["crossing"]["question"]
-    assert _rows(db, LauraTurn) == [] and _rows(db, LauraBoundaryCrossing) == []
-    assert [c for c in _rows(db, CostEntry) if c.agent == "laura"] == []
+    # Structured first: the business tool got a code-rendered request without her words.
+    assert out["reply"]["side"] == "business" and len(biz.seen) == 1, out
+    assert S_CODE not in biz.blob() and "lantern" not in biz.blob()
+    # Her exact words are only offered. Because they overlap our private conversation (the
+    # guard, as defence in depth), the one-tap offer is upgraded: it needs a fresh step-up.
+    x = out["crossing"]
+    assert x["text"] == leaky and x["requires_stepup"] is True and x["overlaps_private"] is True
+    with unified(Venice()):
+        try:
+            PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+            raise AssertionError("private-overlapping words crossed with one tap")
+        except PC.PrivateUnavailable as exc:
+            assert exc.code == "STEP_UP_REQUIRED"
+    assert len(biz.seen) == 1 and S_CODE not in biz.blob() and _rows(db, LauraBoundaryCrossing) == []
+    # A clean business turn's words are a one-tap offer (no step-up).
+    with unified(Venice()):
+        clean = _turn(db, sid, "How many listings are live in the shop?", biz)
+    assert clean["crossing"]["requires_stepup"] is False
+    assert clean["crossing"]["overlaps_private"] is False
 
 
 def test_outbound_business_request_is_checked_and_refused_before_any_call():
     db = _db()
     sid = _open(db)
-    first = f"For the shop, the banner tagline will be {S_CODE} soft wool evenings"
     biz = Biz()
-    with unified(Venice()):
-        a = _turn(db, sid, first, biz)
-    assert a["reply"]["side"] == "business" and len(biz.seen) == 1
-    # The owner marks that turn private afterwards: it is now private-thread text, and the
-    # business history (laura_cc_turns) still holds it, so the NEXT outbound request would
-    # carry it. The guard checks the exact request and refuses before any reservation.
-    assert _control(db, sid, "mark_private", [a["id"]])["affected"] == 2
+    with unified(Venice(replies=[R[0]])):
+        _turn(db, sid, f"darling, our word is {S_CODE} under the lantern moon", biz)
+    # Some business record (however it got there) carries private-thread text into the
+    # business history of the thread. The guard checks the EXACT outbound request and refuses
+    # before any reservation; nothing is sent or persisted.
+    with db.session() as s_:
+        s_.add(LauraTurn(session_public_id=PC.UNIFIED_BUSINESS_SESSION,
+                         question=f"note: our word is {S_CODE} under the lantern moon",
+                         answer="ok", status="ANSWERED"))
     before = len([r for r in _rows(db, SpendReservation) if r.agent == "laura"])
     with unified(Venice()):
         b = _turn(db, sid, "What did the shop sell overnight?", biz)
     assert b["reply_status"] == "REFUSED" and b["reason"] == "LEAK_GUARD", b
-    assert len(biz.seen) == 1
+    assert biz.seen == []
     assert len([r for r in _rows(db, SpendReservation) if r.agent == "laura"]) == before
     assert len(_rows(db, LauraTurn)) == 1                            # nothing new persisted
+
+
+def test_marking_private_afterwards_redacts_the_derived_business_records():
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(replies=[R[0]])):
+        a = _turn(db, sid, "What did the shop sell overnight?", biz)
+        m = _turn(db, sid, MIX_TURN, biz)
+        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True, stepped_up=True,
+                                provider_factory=biz.factory)
+    assert x["crossed"] and len(_rows(db, LauraTurn)) == 2
+    out = _control(db, sid, "mark_private", [a["id"], m["id"]])
+    assert out["redacted"] == {"business_turns": 2, "crossings": 1}, out
+    for row in _rows(db, LauraTurn):
+        assert row.question == boundary.REDACTED and row.answer == boundary.REDACTED
+        assert row.facts == [] and row.proposals == []
+    (cr,) = _rows(db, LauraBoundaryCrossing)
+    assert cr.approved_text == boundary.REDACTED and len(cr.text_sha256) == 64
+    assert MIX_QUOTE not in PL.table_dump(db)[0]
+    assert boundary.approved_texts(db) == []                         # no longer allowed
 
 
 # ---------------------------------------------------------------- crossing the boundary
@@ -426,15 +475,23 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
     assert biz.seen == [] and _rows(db, LauraBoundaryCrossing) == []  # nothing crossed yet
     # Declining crosses nothing, ever.
     with unified(Venice()):
-        m2 = _turn(db, sid, f"I adore you {S_MIX}. Which listings sold best?", biz)
+        m2 = _turn(db, sid, f"I love you {S_MIX}. Which listings sold best?", biz)
         d = PC.unified_crossing(db, sid, m2["crossing"]["id"], approve=False,
                                 provider_factory=biz.factory)
     assert d == {"id": m2["crossing"]["id"], "status": "declined", "crossed": False}
     assert biz.seen == [] and _rows(db, LauraBoundaryCrossing) == []
     # Approving releases exactly the shown text: one crossing record holding it alone, and
     # one business call whose request carries it and no private-thread text.
+    # Not business-classified: approval needs a fresh step-up.
     with unified(Venice()):
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+        try:
+            PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+            raise AssertionError("a mixed turn crossed without step-up")
+        except PC.PrivateUnavailable as exc:
+            assert (exc.status, exc.code) == (403, "STEP_UP_REQUIRED")
+        assert biz.seen == [] and _rows(db, LauraBoundaryCrossing) == []
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+                                provider_factory=biz.factory)
     assert a["status"] == "approved" and a["crossed"] is True, a
     assert a["reply"]["text"] == BIZ_ANSWER and len(biz.seen) == 1
     assert MIX_QUOTE in biz.blob() and not _leaks(biz.blob()), _leaks(biz.blob())
@@ -446,7 +503,8 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
     # A request is resolved once; nothing re-crosses.
     with unified(Venice()):
         try:
-            PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+            PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+                                provider_factory=biz.factory)
             raise AssertionError("a crossing was approved twice")
         except PC.PrivateUnavailable as exc:
             assert exc.status == 400
@@ -502,10 +560,12 @@ def test_budgets_right_agent_reservation_first_and_no_call_when_exhausted():
     # BEFORE it was made, on its own agent.
     assert seen_v == [[("laura_private", U.INTENT.ref)], [("laura_private", LR.PURPOSE)],
                       [("laura_private", U.INTENT.ref)]], seen_v
-    assert seen_b == [[("laura", "laura.executive@1")]], seen_b
+    assert len(seen_b) == 1 and len(seen_b[0]) == 1 and seen_b[0][0][0] == "laura", seen_b
+    bpurpose = seen_b[0][0][1]
+    assert bpurpose in ("laura.converse@1", "laura.executive@1"), bpurpose
     costs = {(c.agent, c.purpose) for c in _rows(db, CostEntry)}
     assert costs == {("laura_private", LR.PURPOSE), ("laura_private", U.INTENT.ref),
-                     ("laura", "laura.executive@1")}, costs
+                     ("laura", bpurpose)}, costs
     for c in _rows(db, CostEntry):
         assert not _leaks(json.dumps([c.detail, c.purpose, c.model], default=str))
     # laura_private exhausted: Laura says so; no Venice call, and no fallback to Claude.
@@ -657,15 +717,16 @@ def test_private_adult_and_mixed_turns_never_reach_business_tables_logs_or_paylo
     assert r.status_code == 200 and r.json()["reply"]["text"] == R[-1], r.text
     assert [x["label"] for x in res] == ["private", "private", "mixed", "business",
                                          "everyday"]
-    assert len(biz.seen) == 1 and BUSINESS_TURN in biz.blob()       # positive control
+    assert len(biz.seen) == 1 and STRUCT_BIZ in biz.blob()          # positive control
     assert not _leaks(biz.blob()), _leaks(biz.blob())                # outbound business payload
     params = "\n".join(sql)
-    assert "laura.executive@1" in params and LR.PURPOSE in params   # positive control
+    assert "laura.co" in params or "laura.ex" in params             # positive control
+    assert LR.PURPOSE in params
     assert not _leaks(params), _leaks(params)                        # every SQL parameter
     assert not _leaks(log.getvalue()), "logging"
     assert not _leaks(out.getvalue() + err.getvalue()), "stdio"
     blob, counts = PL.table_dump(H.DB)                               # every business table
-    assert counts.get("laura_cc_turns", 0) >= 1 and BUSINESS_TURN in blob
+    assert counts.get("laura_cc_turns", 0) >= 1 and STRUCT_BIZ in blob
     assert not _leaks(blob), _leaks(blob)
     with tempfile.TemporaryDirectory(prefix="w4one-") as td:
         exp_res = continuity.export(H.DB, Path(td) / "export.jsonl")
@@ -712,8 +773,9 @@ def test_lauras_intent_decides_when_a_business_tool_is_used():
     mock = Venice(route=lambda u: {"tool": "business.briefing", "brief": ""})
     with unified(mock):
         out = _turn(db, sid, f"How is everything going? {S_EVERY}", biz)
-    assert out["intent"] == {"tool": "business.briefing", "routed_by": "laura"}, out
-    assert out["brief_origin"] == "canonical" and len(biz.seen) == 1
+    assert out["intent"]["tool"] == "business.briefing" and out["intent"]["routed_by"] == "laura"
+    assert out["intent"]["params"] == {} and out["brief_origin"] == "structured"
+    assert len(biz.seen) == 1 and "crossing" not in out          # no free text offered
     assert U.CANONICAL_BRIEF["business.briefing"] in biz.seen[0][2]
     assert not _leaks(biz.blob())
     # She judges a business-sounding message needs no tool: no business call; she answers.
@@ -755,7 +817,13 @@ def test_a_brief_venice_drafts_is_shown_to_the_owner_and_never_sent_unapproved()
     assert U.leak_check(draft, [private]), "paraphrase not caught"
     # Only the owner's approval of exactly that text releases it.
     with unified(Venice()):
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+        try:
+            PC.unified_crossing(db, sid, x["id"], approve=True, provider_factory=biz.factory)
+            raise AssertionError("a Venice draft crossed without step-up")
+        except PC.PrivateUnavailable as exc:
+            assert exc.code == "STEP_UP_REQUIRED"
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+                                provider_factory=biz.factory)
     assert a["crossed"] and len(biz.seen) == 1 and draft in biz.seen[0][2]
     assert private not in biz.blob() and "darling" not in biz.blob()
 

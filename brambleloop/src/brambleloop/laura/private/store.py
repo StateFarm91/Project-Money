@@ -40,6 +40,8 @@ LABELS = ("business", "private", "everyday", "mixed")
 #: A crossing request's lifecycle (sealed; kind "xing").
 CROSSING_STATUS = ("pending", "approved", "declined")
 CROSSING_ORIGINS = ("owner_quote", "laura_draft")
+#: Non-content references sealed with a turn or a crossing request (ids of business rows).
+REF_KEYS = ("business_ref", "crossed_ref", "approval_turn")
 MAX_TEXT = 16_384
 MAX_KEY = 120
 MAX_SOURCES = 20
@@ -148,7 +150,7 @@ def remember(db, principal, key: str, text: str, *, provenance: str = "owner_sup
 @_guarded("turn")
 def record_turn(db, principal, role: str, text: str, *, reply_to: str | None = None,
                 model_ref: str | None = None, label: str | None = None,
-                sensitive: bool = False) -> str:
+                sensitive: bool = False, business_ref: int | None = None) -> str:
     """Record one genuine interaction turn in the open private conversation.
 
     W4-LAURAONE: a unified-thread turn also carries its topic `label` (and a `sensitive` flag)
@@ -177,6 +179,10 @@ def record_turn(db, principal, role: str, text: str, *, reply_to: str | None = N
     payload = {"role": role, "text": text, "model_ref": model_ref}
     if label is not None:
         payload.update(label=label, sensitive=bool(sensitive), excluded=False)
+    if business_ref is not None:
+        # The business-side record this reply came from (laura_cc_turns id), sealed, so that
+        # marking the exchange private later can redact what was derived from it.
+        payload["business_ref"] = int(business_ref)
     _seal(keys, entry, payload)
     try:
         with db.session() as s:
@@ -196,7 +202,9 @@ def _record(e: PrivateEntry, p: dict) -> PrivateRecord:
                          sources=(tuple(p.get("sources") or ()) if not p.get("source")
                                   else (p["source"],)),
                          label=p.get("label"), excluded=bool(p.get("excluded")),
-                         sensitive=bool(p.get("sensitive")), status=p.get("status"))
+                         sensitive=bool(p.get("sensitive")), status=p.get("status"),
+                         refs={k: p[k] for k in REF_KEYS if p.get(k) is not None},
+                         stepup=bool(p.get("stepup", True)), origin=p.get("origin"))
 
 
 @_guarded("read")
@@ -220,14 +228,17 @@ def facts(db, principal, key: str | None = None, *, history: bool = False) -> li
 
 
 @_guarded("read")
-def conversation(db, principal, *, limit: int = 50) -> list:
-    """The most recent interaction turns, oldest first, as PrivateRecords."""
+def conversation(db, principal, *, limit: int | None = 50) -> list:
+    """The most recent interaction turns, oldest first, as PrivateRecords. `limit=None`
+    (W4-LAURAONE: the leak guard and the owner's controls) reads the WHOLE retained store."""
     keys, _ = require(db, principal, "read")
     ensure_tables(db)
-    limit = max(1, min(int(limit), 500))
+    stmt = select(PrivateEntry).where(PrivateEntry.kind == "turn").order_by(
+        PrivateEntry.id.desc())
+    if limit is not None:
+        stmt = stmt.limit(max(1, min(int(limit), 500)))
     with db.session() as s:
-        rows = list(s.scalars(select(PrivateEntry).where(PrivateEntry.kind == "turn")
-                              .order_by(PrivateEntry.id.desc()).limit(limit)))
+        rows = list(s.scalars(stmt))
     out = [_record(e, _open(keys, e)) for e in reversed(rows)]
     record_access(db, "read", "ok", "conversation", principal)
     return out
@@ -394,7 +405,8 @@ def set_turn_flags(db, principal, record_id: str, *, label: str | None = None,
 
 @_guarded("xing")
 def request_crossing(db, principal, source_turn_id: str, text: str, *,
-                     sensitive: bool = False, origin: str = "owner_quote") -> str:
+                     sensitive: bool = False, origin: str = "owner_quote",
+                     stepup: bool = True) -> str:
     """Seal a proposal to share `text` with the business side; nothing crosses until
     `resolve_crossing(approve=True)`. `origin` "owner_quote": quoted VERBATIM from the owner
     turn it cites. "laura_draft": a brief Laura drafted while answering that owner turn,
@@ -410,7 +422,7 @@ def request_crossing(db, principal, source_turn_id: str, text: str, *,
     ensure_tables(db)
     x = _new_entry(keys, grant, "xing", "interaction", "xing")
     _seal(keys, x, {"text": text, "source": entry.record_id, "status": "pending",
-                    "sensitive": bool(sensitive), "origin": origin})
+                    "sensitive": bool(sensitive), "origin": origin, "stepup": bool(stepup)})
     with db.session() as s:
         s.add(x)
     record_access(db, "xing", "ok", "requested", principal)
@@ -428,6 +440,20 @@ def crossings(db, principal) -> list:
     out = [_record(e, _open(keys, e)) for e in rows]
     record_access(db, "read", "ok", "crossings", principal)
     return out
+
+
+@_guarded("xing")
+def annotate_crossing(db, principal, crossing_id: str, **refs) -> bool:
+    """Seal non-content references (business row ids) onto a resolved crossing request."""
+    keys, _ = require(db, principal, "xing")
+    if set(refs) - set(REF_KEYS):
+        raise PrivateProvenanceRefused("unknown crossing reference")
+    entry, payload = _load(db, keys, str(crossing_id or ""), "xing")
+    if entry is None:
+        return False
+    payload.update({k: (v if k == "approval_turn" else int(v)) for k, v in refs.items()})
+    _reseal(db, keys, entry, payload)
+    return True
 
 
 @_guarded("xing")
