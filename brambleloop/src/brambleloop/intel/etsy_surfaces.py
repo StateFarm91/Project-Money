@@ -2006,8 +2006,14 @@ def work_plan() -> dict[str, list[str]]:
 # provider (the shop sells a digital file). A provider joining or leaving either set is a
 # change in who might help make what a buyer receives, so it re-opens the review rather than
 # inheriting a verdict reached about a different set.
+# Re-audited 2026-10-20 (W-INTEG4, on the reopen raised when W4-FLUXAPI added `flux-3-image`):
+# FLUX 3 is the same vendor (Black Forest Labs) in the same role as the reviewed `flux-2-pro`
+# -- it renders listing imagery and the owner's controlled experiments, and its output is
+# labelled AI-generated (D-W4-F852-AMEND). What the buyer receives is still the digital PDF
+# rendered by deterministic code from the certified CIR, so no image model helps make it and
+# the NOT_APPLICABLE verdict stands for the enlarged set.
 PARTNERS_REVIEWED_IMAGE_PROVIDERS: frozenset[str] = frozenset(
-    {"flux-2-pro", "gpt-image-2", "nano-banana-2", "seedream-v5-lite"})
+    {"flux-2-pro", "flux-3-image", "gpt-image-2", "nano-banana-2", "seedream-v5-lite"})
 PARTNERS_REVIEWED_FULFILMENT_PROVIDERS: frozenset[str] = frozenset()
 
 

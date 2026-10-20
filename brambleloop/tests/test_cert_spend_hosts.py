@@ -33,6 +33,12 @@ DECLARED = {
     # cost-report endpoints, refused without an owner-supplied admin key; no billable call.
     "brambleloop/ops/provider_accounts.py": "read-only billing settlement: GET cost reports, "
                                             "refuses with no admin key",
+    # Reviewed 2026-10-20 (W4-CREDHEALTH; independent review INDEPENDENT_SECREVIEW_17bc373.md,
+    # "Free, budget-neutral, bounded: SAFE"): credential health only -- BFL GET /v1/credits and
+    # Anthropic POST /v1/messages/count_tokens, both documented free, no generation, a 60 s
+    # on-demand floor and the daily cadence; no billable call.
+    "brambleloop/gateway/credentials.py": "credential health: free GET /v1/credits and "
+                                          "count_tokens only; never generates",
 }
 
 

@@ -404,11 +404,19 @@ def handle_assets_build(ctx: JobContext) -> dict:
         "pages": doc.pages, "size_label": doc.size_label(),
         "storage_durable": pdf.durable,
     })
-    if not pdf.durable:
+    # INTEG4: since W4-FIRSTSALE the customer PDFs are kept in Postgres (durable), but the
+    # chart and legend files still live only on the ephemeral disk. The announcement names
+    # every file of this build that a restart would lose, so a durable PDF never reads as a
+    # durable store.
+    ephemeral = sorted(name for name, stored in (
+        [("chart", chart), ("legend", legend)]
+        + [(f"pdf:{t}", stored) for t, stored in sorted(pdfs.items())]) if not stored.durable)
+    if ephemeral:
         ctx.audit("assets.storage_not_durable", artifact=f"{slug}@{version}", detail={
-            "reason": "no object storage is provisioned; artifact bytes do not survive a "
-                      "container restart. Hashes are durable and assets re-render from the "
-                      "certified CIR."})
+            "reason": "no object storage is provisioned; these files do not survive a "
+                      "container restart: " + ", ".join(ephemeral) + ". Hashes are durable "
+                      "and assets re-render from the certified CIR.",
+            "ephemeral": ephemeral, "pdfs_kept_in_postgres": pdf.durable})
 
     # Listing imagery is part of the release, not an afterthought bolted on before publish.
     # It is rendered from the same twin as the PDF, so no frame can assert something the
