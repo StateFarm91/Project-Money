@@ -2054,3 +2054,17 @@ Before publishing, verify that the specific image use complies with Etsy's appli
 **Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
 this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
 publication stays blocked.
+
+## D-W4-LAURA-CEO and D-W4-PL-VENICE — owner rulings (2026-10-20), MANDATORY final-build additions
+
+- **D-W4-LAURA-CEO:**
+  - Business Laura is the Founder and AI CEO who runs day-to-day operations within the existing authorities. The owner owns the company.
+  - The deterministic Ask-Company replies must become real model-backed conversation, grounded in company records.
+  - Executive direction must run through the real job queue: priorities, delegation, review, correction and reporting.
+  - Multi-model routing is cost-aware. No new provider, credential or subscription without owner approval.
+  - Owner-reserved decisions, ceilings, publication gates, legal and security controls are unchanged. Nothing new is unrestricted.
+- **D-W4-PL-VENICE:**
+  - Private Laura uses Venice AI through its documented API. This is the owner's final provider decision, and research into alternatives stops unless a real technical, contractual or security blocker appears.
+  - It supersedes the earlier "keep Anthropic" provider choice for Private Laura only. Business Laura keeps the business routing.
+  - Everything else is unchanged: the separate CA$0.50/day budget, the privacy firewall, encryption, owner-only access, truthful-AI representation, D-W4-PL-2, and no activation without separate approval.
+- **Requirements:** recorded as addendum rows ADD-LCEO-01..07 and ADD-PLV-01..08 in `spec/13_Laura_CEO_Autonomy_and_Private_Laura_Venice_2026-10-20.md`. They are mandatory and are added to the completion board as an addendum section, without renumbering Build 2 or the Final Master.
