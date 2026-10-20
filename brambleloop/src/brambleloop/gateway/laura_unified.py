@@ -415,34 +415,94 @@ def render_structured(tool: str, params: dict) -> str | None:
     return None
 
 
-def plan_brief(intent: dict, cls: dict, owner_text: str, *,
-               product_slugs: dict[str, str] | None = None) -> dict:
-    """What Laura sends automatically (a structured, code-rendered request) and what she may
-    only OFFER to send (free text, crossing on the owner's explicit approval).
+# ---------------------------------------------------------------------------
+# Negative screen of the CURRENT turn (security review B-1(c)/(d)). It does not decide that
+# anything crosses -- nothing of the owner's text ever crosses without her tap -- it decides
+# only whether Laura may send even a code-rendered request automatically, and whether a tap
+# is enough or a fresh step-up is required. Categories, not a vocabulary race: personal
+# signals, health, legal, identity, personal finance, relationships, contact details and
+# credential-like strings. A hit fails toward privacy.
 
-    {send, params, offer: {text, origin, stepup} | None}.
-    * `send` is never conversation text: tool + allowlisted params rendered by code.
+SCREEN: tuple[tuple[str, re.Pattern], ...] = (
+    ("personal", _PRIVATE),
+    ("health", re.compile(
+        r"(?i)\b(?:biops\w*|chemo\w*|cancer|tumou?r|malignan\w*|diagnos\w*|pregnan\w*|"
+        r"miscarr\w*|hospital\w*|clinic|doctor|dr\.|nurse|therap\w*|psychiatr\w*|"
+        r"medicat\w*|prescri\w*|symptom\w*|surger\w*|appointment|illness|sick|pain|"
+        r"depress\w*|anxiety|disorder|disease|injur\w*|pharmac\w*|vaccin\w*|mental)\b")),
+    ("legal", re.compile(
+        r"(?i)\b(?:lawyer|attorney|solicitor|divorc\w*|custody|court|lawsuit|sue|suing|"
+        r"police|arrest\w*|charged|probation|visa|immigration|deport\w*|will and|"
+        r"estate|inherit\w*|restraining)\b")),
+    ("identity", re.compile(
+        r"(?i)\b(?:passport|social insurance|sin number|ssn|social security|driver'?s "
+        r"licen[cs]e|date of birth|birth ?date|birthday|health card)\b")),
+    ("personal_finance", re.compile(
+        r"(?i)\b(?:mortgage|my (?:debt|loan|salary|paycheque|paycheck|bank|credit score)|"
+        r"bank account|tax return|bankrupt\w*|rent is|my rent)\b")),
+    ("relationship", re.compile(
+        r"(?i)\b(?:my (?:wife|husband|partner|mum|mom|dad|mother|father|son|daughter|kids?|"
+        r"sister|brother|friend|family|ex)|girlfriend|boyfriend|funeral|passed away|died)\b")),
+    ("contact", re.compile(
+        r"[\w.+-]+@[\w-]+\.[\w.-]+|\+?\d[\d\s().-]{7,}\d|\b[A-Za-z]\d[A-Za-z][ -]?\d"
+        r"[A-Za-z]\d\b|(?i:\b\d+\s+\w+\s+(?:st|street|ave|avenue|rd|road|blvd|drive|lane|"
+        r"way|crescent|court)\b)")),
+    ("credential", re.compile(
+        r"(?i)\b(?:password|passcode|passphrase|pin(?: code| number)?|api[_ -]?key|secret|"
+        r"token|login|2fa|otp|recovery code)\b|\b(?:sk|pk|ghp|AKIA|AIza)[-_A-Za-z0-9]{6,}|"
+        r"[A-Za-z0-9+/_=-]{24,}|\d{5,}")),
+)
+
+
+def sensitive_screen(text: str) -> list[str]:
+    """The screen categories `text` hits (names only). Empty = clean."""
+    t = str(text or "")
+    return [name for name, pat in SCREEN if pat.search(t)]
+
+
+#: Longest text the owner can be offered to send (the crossing table's own cap).
+MAX_OFFER_CHARS = 2000
+
+
+def plan_brief(intent: dict, cls: dict, owner_text: str, *,
+               product_slugs: dict[str, str] | None = None,
+               routed_by_laura: bool = True) -> dict:
+    """What Laura sends automatically and what she may only OFFER to send.
+
+    {send, params, offer: {text, origin, stepup} | None, screen: [categories], held: str}.
+    * `send` is never conversation text: tool + allowlisted params rendered by code, and only
+      when LAURA (the router on Venice) chose the tool. When code decided (router unavailable,
+      out of budget, malformed, not selected) NOTHING is sent automatically: fail toward
+      privacy (security review B-1(a)).
+    * A business-classified turn sends parameters only when the current turn passes the
+      negative screen; otherwise only the tool's fixed request is possible.
     * The owner's own words, a mixed turn's business sentences and every Venice draft are only
-      ever offered. Step-up is required for anything not classified business (D-W4-LAURA-
-      UNIFIED-FEED); the owner's own business-classified words need one explicit tap."""
+      ever OFFERED. One tap suffices only for business-classified words that pass the screen;
+      everything else needs a fresh step-up. Over MAX_OFFER_CHARS nothing is offered."""
     tool = intent.get("tool")
     draft = (intent.get("brief") or "").strip()
+    screen = sensitive_screen(owner_text)
+    out = {"send": "", "params": {}, "offer": None, "screen": screen, "held": ""}
     if tool not in TOOLS or tool == "none":
-        return {"send": "", "params": {}, "offer": None}
+        return out
     label = cls["label"]
-    # Parameters come only from a business-classified turn. A private/everyday turn gives the
-    # tool alone (its fixed request). A MIXED turn sends nothing automatically: Laura answers
-    # it in the conversation, and its business sentences are offered for approval (step-up).
-    params = (extract_params(cls["business_text"], product_slugs=product_slugs)
-              if label == BUSINESS else {})
-    send = "" if label == MIXED else (render_structured(tool, params) or "")
+    clean_business = label == BUSINESS and not screen
+    if routed_by_laura:
+        params = (extract_params(cls["business_text"], product_slugs=product_slugs)
+                  if clean_business else {})
+        out["params"] = params
+        out["send"] = "" if label == MIXED else (render_structured(tool, params) or "")
+    else:
+        out["held"] = "code_routed"
     offer = None
-    if draft and normalise(draft) not in (normalise(owner_text), normalise(send)):
+    if draft and normalise(draft) not in (normalise(owner_text), normalise(out["send"])):
         offer = {"text": draft, "origin": "laura_draft", "stepup": True}
-    elif label == BUSINESS and cls["business_text"]:
-        offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": False}
-    elif label == MIXED and cls["business_text"]:
-        offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": True}
-    elif not send:
+    elif label in (BUSINESS, MIXED) and cls["business_text"]:
+        offer = {"text": cls["business_text"], "origin": "owner_quote",
+                 "stepup": not clean_business}
+    elif not out["send"]:
         offer = {"text": owner_text.strip(), "origin": "owner_quote", "stepup": True}
-    return {"send": send, "params": params, "offer": offer}
+    if offer and len(offer["text"]) > MAX_OFFER_CHARS:
+        offer, out["held"] = None, "too_long"
+    out["offer"] = offer
+    return out

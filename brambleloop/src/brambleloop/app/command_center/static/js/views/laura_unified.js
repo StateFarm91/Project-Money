@@ -102,6 +102,9 @@ export function unifiedCard(status) {
         const out = ((await api.lauraUnifiedTurn(text, keep.checked)) || {}).data || {};
         input.value = "";
         if (out.reply_status && out.reply_status !== "REPLIED") toast(out.why || out.reply_status, "info");
+        // Security review B-1(d): say when code, not Laura, routed the turn (nothing was sent).
+        const rb = (out.intent && out.intent.routed_by) || "laura";
+        if (rb !== "laura") toast(`Routed by code (${rb}): nothing was sent to the business side automatically; tap "Share" to send your words.`, "info");
       } catch (e) { toast(e.message, "bad"); }
       send.disabled = false;
       refresh();

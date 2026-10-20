@@ -143,9 +143,10 @@ class Venice:
 class Biz:
     """Business Laura's model, scripted behind the real gateway. Records every request."""
 
-    def __init__(self, reply=BIZ_ANSWER, on_call=None, offer_first=False):
+    def __init__(self, reply=BIZ_ANSWER, on_call=None, offer_first=False, vary=False):
         self.seen: list[tuple[str, str, str]] = []
         self.reply = reply
+        self.vary = vary
         self.on_call = on_call
         self.offer_first = offer_first
 
@@ -155,7 +156,13 @@ class Biz:
             if self.on_call is not None:
                 self.on_call()
             offer = ["P1"] if self.offer_first and "\nP1 |" in user else []
-            return json.dumps({"reply": self.reply, "citations": [], "offer": offer,
+            text = self.reply
+            if self.vary:
+                text = ("Listings are steady; nothing needs you there.",
+                        "Overnight the queue ran cleanly and nothing failed.",
+                        "Confirming the shop name still comes first for setup.",
+                        "Design is reviewing banner drafts today.")[(len(self.seen) - 1) % 4]
+            return json.dumps({"reply": text, "citations": [], "offer": offer,
                                "remember": ""})
         return EchoProvider(name="anthropic", model=model, cost_per_1k_input_cad=0.001,
                             cost_per_1k_output_cad=0.005, scripted=scripted)
@@ -206,6 +213,13 @@ def _rows(db, model):
         for r in rows:
             s.expunge(r)
     return rows
+
+
+def _fresh():
+    """A step-up performed now (after any offer made so far in the test)."""
+    from datetime import datetime, timedelta, timezone
+
+    return datetime.now(timezone.utc) + timedelta(seconds=1)
 
 
 def _turn(db, sid, text, biz: Biz | None = None, **kw):
@@ -446,7 +460,7 @@ def test_marking_private_afterwards_redacts_the_derived_business_records():
     with unified(Venice(replies=[R[0]])):
         a = _turn(db, sid, "What did the shop sell overnight?", biz)
         m = _turn(db, sid, MIX_TURN, biz)
-        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True, stepped_up=True,
+        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True, stepup_issued_at=_fresh(),
                                 provider_factory=biz.factory)
     assert x["crossed"] and len(_rows(db, LauraTurn)) == 2
     out = _control(db, sid, "mark_private", [a["id"], m["id"]])
@@ -490,7 +504,7 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
         except PC.PrivateUnavailable as exc:
             assert (exc.status, exc.code) == (403, "STEP_UP_REQUIRED")
         assert biz.seen == [] and _rows(db, LauraBoundaryCrossing) == []
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
                                 provider_factory=biz.factory)
     assert a["status"] == "approved" and a["crossed"] is True, a
     assert a["reply"]["text"] == BIZ_ANSWER and len(biz.seen) == 1
@@ -503,7 +517,7 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
     # A request is resolved once; nothing re-crosses.
     with unified(Venice()):
         try:
-            PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+            PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
                                 provider_factory=biz.factory)
             raise AssertionError("a crossing was approved twice")
         except PC.PrivateUnavailable as exc:
@@ -576,8 +590,9 @@ def test_budgets_right_agent_reservation_first_and_no_call_when_exhausted():
     # laura exhausted: Laura says so; no business call, and no fallback to Venice.
     with db.session() as s:
         s.scalar(select(Agent).where(Agent.name == "laura")).daily_cost_ceiling_cad = 0.0
-    with unified(None):
+    with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})) as vm:
         out = _turn(db, sid, "Which listings sold best overnight?", biz)
+    assert vm.calls == []                                   # no fallback to a Venice reply
     assert out["reply"]["status"] == ceo_chat.UNAVAILABLE, out
     assert "no authorised daily model budget" in out["reply"]["text"]
     assert len(biz.seen) == 1
@@ -822,7 +837,7 @@ def test_a_brief_venice_drafts_is_shown_to_the_owner_and_never_sent_unapproved()
             raise AssertionError("a Venice draft crossed without step-up")
         except PC.PrivateUnavailable as exc:
             assert exc.code == "STEP_UP_REQUIRED"
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepped_up=True,
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
                                 provider_factory=biz.factory)
     assert a["crossed"] and len(biz.seen) == 1 and draft in biz.seen[0][2]
     assert private not in biz.blob() and "darling" not in biz.blob()
@@ -1083,6 +1098,412 @@ def test_structured_requests_carry_only_allowlisted_parameters():
     vague = "Have Design do something about the vibe my sister mentioned."
     plan = U.plan_brief({"tool": "business.delegate", "brief": ""}, U.classify(vague), vague)
     assert plan["send"] == "" and plan["offer"]["text"] == vague
+
+
+# ================================================================ security review a4a6841
+# Each test below fails on a4a6841's behaviour (INDEPENDENT_SECREVIEW_LAURAONE.md).
+
+CHEMO = "Heading to the store after my chemo appointment ZX-CHEMO-1, then the pharmacy."
+BIOPSY = "My biopsy came back malignant, ZX-77, so what are this week's sales and orders?"
+
+
+def _no_business_trace(db, *needles):
+    blob, _ = PL.table_dump(db)
+    return [n for n in needles if n in blob]
+
+
+def test_review_b1_router_unavailable_sends_nothing_to_the_business_side():
+    """B-1(a): when code, not Laura, routes (Venice down, out of budget, malformed, not
+    selected, register off), nothing reaches Claude or any business table."""
+    cases = [("unreachable", Venice(fail=(503, "{}")), {}),
+             ("out_of_budget", None, {LR.DAILY_AUTH_ENV: "0.000001"}),
+             ("malformed", Venice(route=lambda u: "not json"), {}),
+             ("not_selected", None, {"BRAMBLELOOP_PRIVATE_PROVIDER": None}),
+             ("register_off", None, {LR.REGISTER_SWITCH_ENV: None})]
+    for name, mock, env in cases:
+        db = _db()
+        sid = _open(db)
+        biz = Biz()
+        if mock is not None and name == "malformed":
+            mock.route = None
+            orig = mock.__call__
+
+            def bad(provider, url, body, headers, timeout, _m=mock):
+                b = json.loads(body.decode())
+                if b["messages"][0]["content"] == U.INTENT.system:
+                    return _ok("this is not json")
+                return _ok(json.dumps({"text": R[0]}))
+            mock = bad
+        with unified(mock, **env):
+            out = _turn(db, sid, CHEMO, biz)
+        assert out["label"] == "business", (name, out)              # the keyword label ...
+        assert out["intent"]["routed_by"].startswith("code"), (name, out["intent"])
+        assert biz.seen == [], name                                  # ... sends nothing
+        assert _rows(db, LauraTurn) == [], name
+        assert not _no_business_trace(db, "ZX-CHEMO-1", "chemo"), name
+        x = out["crossing"]                                          # only an offer, step-up
+        assert x["text"] == CHEMO and x["requires_stepup"] is True, (name, x)
+
+
+def test_review_b1_personal_content_with_laura_routing_crosses_only_a_code_request():
+    """B-1(b)(c)(d): Laura chooses a business tool for a business-keyword turn carrying
+    personal content: only a code-rendered request without parameters goes, the business
+    tables hold that request and the result, and her words wait for her step-up."""
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+        out = _turn(db, sid, BIOPSY, biz)
+    assert out["label"] == "business" and "health" in out["intent"]["screen"], out["intent"]
+    assert out["intent"]["params"] == {}                       # no parameters from this turn
+    assert len(biz.seen) == 1 and "ZX-77" not in biz.blob() and "biopsy" not in biz.blob()
+    (bt,) = _rows(db, LauraTurn)
+    assert bt.question == "What is the company's current status?"   # code-rendered only
+    assert not _no_business_trace(db, "ZX-77", "biopsy", "malignant")
+    assert out["crossing"]["text"] == BIOPSY and out["crossing"]["requires_stepup"] is True
+
+
+def test_review_b1_no_sensitive_category_crosses_without_an_owner_tap():
+    """B-1(d): the classifier never decides alone. Health, legal, identity, contact and
+    credential content in a business-keyword turn sends no parameters and no words, and the
+    offer needs a fresh step-up."""
+    samples = {
+        "health": ("After my therapy session, check the shop orders.", "therapy"),
+        "legal": ("My divorce lawyer called; how are listing sales?", "divorce"),
+        "identity": ("Renewing my passport today, then show me the store traffic.",
+                     "passport"),
+        "contact": ("Call me at +1 416 555 0199 about the shop orders.", "416 555 0199"),
+        "contact_email": ("Send the sales numbers to jane.doe@example.com please.",
+                          "jane.doe"),
+        "credential": ("My etsy password is hunter2, check the shop orders.", "hunter2"),
+        "personal_finance": ("My mortgage is due; what is shop revenue this month?",
+                             "mortgage"),
+    }
+    for cat, (text, word) in samples.items():
+        db = _db()
+        sid = _open(db)
+        biz = Biz()
+        with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+            out = _turn(db, sid, text, biz)
+        assert out["intent"]["screen"], (cat, out["intent"])
+        assert out["intent"]["params"] == {}, cat
+        assert text not in biz.blob(), cat
+        assert word not in biz.blob() and not _no_business_trace(db, word), (cat, word)
+        assert out["crossing"]["requires_stepup"] is True, cat
+
+
+def test_review_h1_switching_off_never_forwards_business_or_excluded_turns_to_venice():
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(replies=[R[0]])):
+        a = _turn(db, sid, PRIVATE_TURN, biz)
+        _turn(db, sid, BUSINESS_TURN, biz)
+    _control(db, sid, "exclude", [a["id"]])
+    mock = Venice(replies=[R[1]])
+    with unified(mock, **{U.UNIFIED_ENV: None, U.BUSINESS_TO_VENICE_ENV: None}):
+        out = PC.owner_turn(db, sid, "Good evening")                 # the split route
+    assert out["reply_status"] == "REPLIED", out
+    u = mock.user(-1)
+    assert STRUCT_BIZ not in u and BIZ_ANSWER not in u               # no business exchange
+    assert S_PRIV not in u and R[0] not in u                         # Exclude honoured
+    assert U.BUSINESS_PLACEHOLDER in u
+    assert "brambleloop.laura.venice_context" not in u               # no company feed
+
+
+def _models_body(privacy="private", pad=60):
+    data = [{"id": V.MODEL, "model_spec": {"privacy": privacy, "offline": False},
+             "owned_by": "venice.ai"},
+            {"id": "zai-org-glm-5-2", "model_spec": {"privacy": "private", "offline": False},
+             "owned_by": "venice.ai"}]
+    data += [{"id": f"filler-model-{i}", "model_spec": {"privacy": "anonymized",
+                                                       "description": "x" * 120}}
+             for i in range(pad)]
+    return json.dumps({"data": data})
+
+
+def _cred_http(models_answer):
+    ok_bal = json.dumps({"data": {"accessPermitted": True,
+                                  "balances": {"USD": 50, "DIEM": 0, "BUNDLED_CREDITS": 0}}})
+
+    def http(method, url, headers, body, timeout):
+        if "rate_limits" in url:
+            return 200, ok_bal
+        if "/models" in url:
+            return models_answer
+        return 401, "{}"
+    return http
+
+
+def test_review_m1_live_model_check_parses_long_lists_and_fails_closed():
+    from brambleloop.gateway import credentials as CR
+
+    env = {"BRAMBLELOOP_PRIVATE_PROVIDER": "venice", "VENICE_API_KEY": VKEY}
+    big = _models_body("anonymized")
+    assert len(big) > 9000
+    db = _db()
+    CR.check_all(db, env=env, http=_cred_http((200, big)))
+    live = CR.venice_model_reading(db, V.MODEL)
+    assert live["privacy"] == "anonymized" and V.eligible(V.MODEL, live)[0] is False
+    # Sticky: a later check that cannot read the list does not reopen eligibility.
+    CR.check_all(db, env=env, http=_cred_http((503, "")))
+    assert V.eligible(V.MODEL, CR.venice_model_reading(db, V.MODEL))[0] is False
+    # A required live reading that never parsed fails closed (no silent pinned-row fallback).
+    db2 = _db()
+    CR.check_all(db2, env=env, http=_cred_http((200, big[:2000])))   # the old truncation
+    assert CR.venice_model_reading(db2, V.MODEL) == {"unreadable": True}
+    assert V.eligible(V.MODEL, {"unreadable": True})[0] is False
+    # A good long list is read in full and keeps the model eligible.
+    db3 = _db()
+    CR.check_all(db3, env=env, http=_cred_http((200, _models_body("private"))))
+    assert V.eligible(V.MODEL, CR.venice_model_reading(db3, V.MODEL))[0] is True
+    assert CR.venice_model_reading(_db(), V.MODEL) is None           # never checked: pinned
+
+
+@contextlib.contextmanager
+def _loopback_network():
+    """Real sockets for loopback-only servers (the harness refuses all sockets)."""
+    import importlib
+    import socket as _sock
+
+    saved = dict(_sock.__dict__)
+    importlib.reload(_sock)
+    try:
+        yield
+    finally:
+        _sock.__dict__.clear()
+        _sock.__dict__.update(saved)
+
+
+def test_review_m2_the_bearer_key_is_never_forwarded_on_a_redirect():
+    import http.server
+    import threading
+    import urllib.error
+    import urllib.request
+
+    from brambleloop.gateway import credentials as CR
+
+    got: list = []
+    with _loopback_network():
+        class B(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                got.append(dict(self.headers))
+                self.send_response(200)
+                self.end_headers()
+            do_POST = do_GET
+
+            def log_message(self, *a):
+                pass
+        sb = http.server.HTTPServer(("127.0.0.1", 0), B)
+        target = f"http://127.0.0.2:{sb.server_address[1]}/steal"
+
+        class A(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", target)
+                self.end_headers()
+            do_POST = do_GET
+
+            def log_message(self, *a):
+                pass
+        sa = http.server.HTTPServer(("127.0.0.1", 0), A)
+        sb2 = http.server.HTTPServer(("127.0.0.2", sb.server_address[1]), B) \
+            if False else sb
+        for srv in (sa, sb2):
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            url = f"http://127.0.0.1:{sa.server_address[1]}/chat"
+            st, _ = V.VeniceProvider()._post(url, b"{}", V.VeniceProvider.headers(VKEY), 5.0)
+            assert st == 302, st                                     # refused, not followed
+            st2, _ = CR._http("GET", url, {"Authorization": f"Bearer {VKEY}"}, None, 5.0)
+            assert st2 == 302, st2
+        finally:
+            sa.shutdown()
+            sb2.shutdown()
+    assert got == [], got                                            # B never saw a request
+    # An https -> http downgrade is refused before anything is sent to the new location.
+    opener = V.no_redirect_opener()
+    (handler,) = [h for h in opener.handlers
+                  if isinstance(h, urllib.request.HTTPRedirectHandler)]
+    req = urllib.request.Request(V.CHAT_URL, headers={"Authorization": f"Bearer {VKEY}"})
+    for new in ("http://api.venice.ai/api/v1/chat/completions", "https://evil.example/x"):
+        try:
+            handler.redirect_request(req, None, 302, "Found", {}, new)
+            raise AssertionError(f"redirect to {new} was followed")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 302
+
+
+def test_review_l1_approval_needs_a_step_up_performed_after_the_offer():
+    from datetime import datetime, timedelta, timezone
+
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(replies=[R[0]])):
+        m = _turn(db, sid, MIX_TURN, biz)
+        xid = m["crossing"]["id"]
+        before = datetime.now(timezone.utc) - timedelta(minutes=1)  # the step-up that opened
+        for issued in (None, before):
+            try:
+                PC.unified_crossing(db, sid, xid, approve=True, stepup_issued_at=issued,
+                                    provider_factory=biz.factory)
+                raise AssertionError(f"approved with step-up issued {issued}")
+            except PC.PrivateUnavailable as exc:
+                assert exc.code == "STEP_UP_REQUIRED"
+        assert biz.seen == []
+    # Over HTTP: the step-up that opened the conversation does not approve a later offer.
+    c, csrf = H.session()
+    assert H.post(c, csrf, "/api/cc/auth/step-up", {"passphrase": H.PASS}).status_code == 200
+    with unified(Venice(replies=[R[1]])):
+        assert H.post(c, csrf, "/api/cc/private/open", {}).status_code == 200
+        t = H.post(c, csrf, "/api/cc/laura/unified/turn", {"text": MIX_TURN + " (L-1)"})
+        x2 = t.json()["crossing"]["id"]
+        r = H.post(c, csrf, "/api/cc/laura/unified/crossing", {"id": x2, "approve": True})
+        assert r.status_code == 403 and "STEP_UP_REQUIRED" in r.text, r.text
+        assert H.post(c, csrf, "/api/cc/auth/step-up",
+                      {"passphrase": H.PASS}).status_code == 200
+        r = H.post(c, csrf, "/api/cc/laura/unified/crossing", {"id": x2, "approve": True})
+    assert r.status_code == 200 and r.json()["crossed"] is True, r.text
+    # The login window alone never counts.
+    login = H.client()
+    lr = login.post("/api/cc/auth/login", json={"passphrase": H.PASS})
+    lsid = lr.json()["session"]["session_id"] if "session" in lr.json() else None
+    if lsid:
+        from brambleloop.app.command_center.models import OwnerSession
+
+        with H.DB.session() as s_:
+            row = s_.scalar(select(OwnerSession).where(OwnerSession.public_id == lsid))
+            created = row.created_at
+        assert PC._stepup_counts(H.DB, lsid, "2000-01-01T00:00:00+00:00", created) is False
+
+
+def test_review_l2_a_crossing_resolves_exactly_once_under_a_race():
+    from brambleloop.laura.private import store as ST
+
+    db = _db()
+    sid = _open(db)
+    with unified(Venice(replies=[R[0]])):
+        m = _turn(db, sid, MIX_TURN)
+    p = PC._principal(db, sid)
+    xid = m["crossing"]["id"]
+    keys = __import__("brambleloop.laura.private.crypto", fromlist=["x"]).load_keys()
+    stale = ST._load(db, keys, xid, "xing")                      # both racers read "pending"
+    assert stale[1]["status"] == "pending"
+    ST.resolve_crossing(db, p, xid, approve=True)                # the first wins
+    orig = ST._load
+    ST._load = lambda db_, keys_, rid, kind: stale if rid == xid else orig(db_, keys_, rid, kind)
+    try:
+        ST.resolve_crossing(db, p, xid, approve=False)           # the second must refuse
+        raise AssertionError("a crossing resolved twice")
+    except Exception as exc:  # noqa: BLE001
+        assert type(exc).__name__ == "PrivateProvenanceRefused", exc
+    finally:
+        ST._load = orig
+    assert [x.status for x in ST.crossings(db, p)] == ["approved"]
+
+
+def test_review_l3_an_over_long_crossing_is_never_left_half_approved():
+    from brambleloop.laura.private import store as ST
+
+    db = _db()
+    sid = _open(db)
+    long_biz = " ".join(["What should the shop prioritise for listings this week?"] * 45)
+    text = f"I love you {S_MIX}. " + long_biz
+    with unified(Venice(replies=[R[0]])):
+        out = _turn(db, sid, text)
+    assert "crossing" not in out and out["intent"]["held"] == "too_long", out["intent"]
+    p = PC._principal(db, sid)
+    xid = ST.request_crossing(db, p, out["id"], long_biz, origin="owner_quote")
+    with unified(Venice()):
+        try:
+            PC.unified_crossing(db, sid, xid, approve=True, stepup_issued_at=_fresh())
+            raise AssertionError("an over-long crossing was approved")
+        except PC.PrivateUnavailable as exc:
+            assert exc.status == 400
+    assert [x.status for x in ST.crossings(db, p)] == ["pending"]    # untouched
+    assert _rows(db, LauraBoundaryCrossing) == []
+
+
+def test_review_l4_marking_a_business_turn_private_does_not_block_later_business():
+    db = _db()
+    sid = _open(db)
+    biz = Biz(vary=True)          # real answers differ; identical stubs would match each other
+    with unified(Venice(replies=[R[0]])):
+        a = _turn(db, sid, "How many listings are live in the shop?", biz)
+        _control(db, sid, "mark_private", [a["id"]])
+        b = _turn(db, sid, "What did the shop do overnight?", biz)
+        c_ = _turn(db, sid, "What should the shop prioritise this week?", biz)
+    assert b["reply_status"] == "REPLIED" and c_["reply_status"] == "REPLIED", (
+        b["reply_status"], b.get("reason"), c_["reply_status"], c_.get("reason"))
+    assert len(biz.seen) == 3
+
+
+def test_review_l5_delete_cascades_to_derived_records():
+    from brambleloop.laura.private.models import PrivateEntry
+
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(replies=[R[0]])):
+        m = _turn(db, sid, MIX_TURN, biz)
+        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True,
+                                stepup_issued_at=_fresh(), provider_factory=biz.factory)
+    gone = {m["id"], m["reply"]["id"], m["crossing"]["id"], x["approval_turn"],
+            x["reply"]["id"]}
+    out = _control(db, sid, "forget", [m["id"]])
+    assert out["redacted"] == {"business_turns": 1, "crossings": 1}, out
+    with db.session() as s_:
+        left = {r for (r,) in s_.execute(select(PrivateEntry.record_id))}
+    assert not (gone & left), gone & left
+    assert MIX_QUOTE not in PL.table_dump(db)[0]
+
+
+def test_review_l6_venice_replies_are_never_labelled_business():
+    db = _db()
+    sid = _open(db)
+    with unified(Venice(replies=[f"{R[0]} about your darling plans"],
+                        route=lambda u: {"tool": "none", "brief": ""})):
+        out = _turn(db, sid, BUSINESS_TURN)
+    assert out["label"] == "business" and out["reply"]["side"] == "conversation"
+    (reply,) = [t for t in _view(db, sid)["turns"] if t["role"] == "laura"]
+    assert reply["label"] == "private", reply
+    assert f"{R[0]} about your darling plans" in PC._private_texts(db, PC._principal(db, sid))
+
+
+def test_review_i2_the_allow_list_is_scoped_to_what_the_request_carries():
+    db = _db()
+    boundary.record(db, "Approved text one about listings")
+    boundary.record(db, "Approved text two about banners")
+    assert PC._allowed_for(db, "Brief: Approved text one about listings") == [
+        "Approved text one about listings"]
+
+
+
+def test_integ5_the_adult_register_is_never_sent_to_a_non_venice_transport():
+    """INTEG5 finding: `laura.private_reply@3` runs only on Venice. With the Anthropic private
+    transport selected, the reply path refuses (REGISTER_NEEDS_VENICE) before any reservation
+    or request -- no silent fallback to another prompt either."""
+    from brambleloop.gateway import anthropic as gw
+
+    db = _db()
+    sent: list = []
+    orig = gw.AnthropicProvider._send
+    gw.AnthropicProvider._send = lambda self, payload, key, **kw: sent.append(payload)
+    try:
+        with PL.enabled(None, **{"BRAMBLELOOP_PRIVATE_PROVIDER": "anthropic",
+                                 "ANTHROPIC_API_KEY": "test-dummy-not-a-key"}):
+            gw.AnthropicProvider._send = lambda self, payload, key, **kw: sent.append(payload)
+            try:
+                LR.reply(db, system=LR.PROMPT.system,
+                         user=LR.render_user(facts=[], turns=[], message="hello"))
+                raise AssertionError("@3 was sent to Anthropic")
+            except LR.ReplyUnavailable as exc:
+                assert exc.code == "REGISTER_NEEDS_VENICE", exc.code
+    finally:
+        gw.AnthropicProvider._send = orig
+    assert sent == [] and _rows(db, SpendReservation) == [] and _rows(db, CostEntry) == []
+    assert LR.PURPOSE == "laura.private_reply@3"
 
 
 if __name__ == "__main__":

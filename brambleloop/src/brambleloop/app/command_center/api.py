@@ -1322,11 +1322,15 @@ def make_router(db) -> APIRouter:
         # Step-up is required to approve anything not classified business; the owner's own
         # business words need one explicit tap. The store's sealed flag decides which; the
         # route only reports whether this session's step-up is fresh.
+        # Security review L-1: what counts is WHEN this session's live step-up was performed
+        # (its window start); the private context accepts only one performed after the offer
+        # and never the window a login opens.
         until = (getattr(request.state, "cc_session", None) or {}).get("stepup_until")
-        stepped_up = until is not None and until > auth._now()
+        issued = (until - auth.STEPUP_WINDOW) if until is not None and until > auth._now() \
+            else None
         return await run_in_threadpool(lambda: _private(
             request, lambda pid: private_context.unified_crossing(
-                db, pid, body.get("id"), approve=approve, stepped_up=stepped_up)))
+                db, pid, body.get("id"), approve=approve, stepup_issued_at=issued)))
 
     @router.post("/laura/unified/feed-preview")
     def laura_unified_feed_preview(request: Request):

@@ -108,6 +108,27 @@ SEPARATELY_APPROVED: frozenset = frozenset()
 REASONING_MODELS = frozenset({"zai-org-glm-5-2"})
 
 
+class RedirectRefused(Exception):
+    pass
+
+
+def no_redirect_opener():
+    """A urllib opener that never follows a redirect (security review M-2). urllib's default
+    handler copies every non-content header -- `Authorization: Bearer ...` included -- to the
+    redirect target, even another host or an https->http downgrade. Here any 3xx is returned to
+    the caller as an HTTPError with its status, before anything is sent to the new location."""
+    import urllib.error
+    import urllib.request
+
+    class _Refuse(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise urllib.error.HTTPError(req.full_url, code,
+                                         "redirect refused: credentials are never forwarded",
+                                         headers, fp)
+
+    return urllib.request.build_opener(_Refuse)
+
+
 def eligible(model: str, live: dict | None = None) -> tuple[bool, str]:
     """(eligible?, why). Fails closed on anything unverified.
 
@@ -124,6 +145,10 @@ def eligible(model: str, live: dict | None = None) -> tuple[bool, str]:
     if model not in PRICES_USD_PER_MTOK:
         return False, "no pinned price row"
     if live is not None:
+        if live.get("unreadable"):
+            # Security review M-1: a live check ran but its model list could not be read; the
+            # pinned row is NOT a silent substitute for a live reading that was required.
+            return False, "the live Venice model reading could not be verified (fail closed)"
         if not live.get("present", False):
             return False, "not listed by Venice's API now"
         if live.get("privacy") != "private":
@@ -322,7 +347,9 @@ class VeniceProvider:
         for k, v in headers.items():
             req.add_header(k, v)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            # Security review M-2: redirects are REFUSED (the bearer key is never re-sent to a
+            # redirect target, cross-host or downgraded); a 3xx comes back as its status.
+            with no_redirect_opener().open(req, timeout=timeout) as resp:
                 return int(resp.status), resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             return int(exc.code), exc.read().decode("utf-8", "replace")[:2000]

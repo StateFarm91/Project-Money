@@ -21,6 +21,7 @@ from sqlalchemy import select
 from brambleloop.agents.registry import Registry
 from brambleloop.core.models import AuditLog, CostEntry, SpendReservation
 from brambleloop.gateway import laura_register as LR
+from brambleloop.gateway import venice as V
 from brambleloop.gateway import paid_calls
 
 USER = LR.render_user(facts=[("PRIV-LABEL-B", "PRIV-SENTINEL-BUDGET-1")],
@@ -81,13 +82,15 @@ def test_private_reply_is_refused_without_authorised_ceiling():
 
 def test_over_the_authorisation_or_lauras_day_is_refused_pre_call():
     db = _db()
-    # 1. The owner's figure is smaller than one call's padded estimate.
-    with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "0.001"}):
+    # 1. The owner's figure is smaller than one call's padded estimate. (INTEG5: the reply path
+    #    runs on Venice, whose estimate is far smaller than Anthropic's; figures follow it.)
+    est = V.estimate_for(LR.PROMPT.system, USER, int(LR.PROMPT.max_output_tokens), V.MODEL)
+    with PL.enabled(None, **{LR.DAILY_AUTH_ENV: f"{est / 2:.8f}"}):
         assert _call(db) == "SPEND_CEILING"
     # 2. Today's private-reply spend already fills the authorisation.
     with db.session() as s:
-        s.add(CostEntry(agent="laura_private", amount_cad=0.395, kind="llm", purpose=LR.PURPOSE,
-                        provider="anthropic", model="claude-sonnet-5"))
+        s.add(CostEntry(agent="laura_private", amount_cad=round(0.40 - est / 2, 8), kind="llm",
+                        purpose=LR.PURPOSE, provider="venice", model=V.MODEL))
     with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "0.40"}):
         assert _call(db) == "SPEND_CEILING"
     whiches = [r.detail["which"] for r in _refusals(db)]
@@ -97,9 +100,8 @@ def test_over_the_authorisation_or_lauras_day_is_refused_pre_call():
     #    (agent_daily_ceiling). W4-PLACT: the agent is laura_private, not Business Laura.
     db2 = _db()
     with db2.session() as s:
-        s.add(CostEntry(agent="laura_private", amount_cad=0.499, kind="llm",
-                        purpose=LR.PURPOSE, provider="anthropic",
-                        model="claude-sonnet-5"))
+        s.add(CostEntry(agent="laura_private", amount_cad=round(0.50 - est / 2, 8), kind="llm",
+                        purpose=LR.PURPOSE, provider="venice", model=V.MODEL))
     with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "5.00"}):
         assert LR.daily_authorisation_cad() == 0.50
         assert _call(db2) == "SPEND_CEILING"
@@ -124,7 +126,7 @@ def test_a_paid_reply_bills_tokens_and_cost_only_and_releases_its_reservation():
     stub = PL.Stub()
     with PL.enabled(stub):
         out = LR.reply(db, system=LR.PROMPT.system, user=USER)
-    assert out["text"] == PL.REPLY and out["model_ref"] == "anthropic/claude-sonnet-5"
+    assert out["text"] == PL.REPLY and out["model_ref"] == f"venice/{V.MODEL}"
     assert out["tokens_in"] == 120 and out["tokens_out"] == 30 and out["cost_cad"] > 0
     costs = _costs(db)
     assert len(costs) == 1 and costs[0].agent == "laura_private" and costs[0].kind == "llm"

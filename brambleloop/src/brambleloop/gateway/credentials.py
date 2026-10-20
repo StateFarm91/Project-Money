@@ -78,7 +78,7 @@ PROVIDERS: dict[str, dict] = {
                   "doc": "docs.anthropic.com > Token counting (free to use)",
                   "console": "console.anthropic.com > API Keys / Billing"},
     "venice": {"label": "Venice AI (Private Laura)", "var": "VENICE_API_KEY",
-               "model": "zai-org-glm-5-2",
+               "model": "venice-uncensored-1-2",
                "check": "GET https://api.venice.ai/api/v1/api_keys/rate_limits (Bearer); "
                         "runs only when BRAMBLELOOP_PRIVATE_PROVIDER=venice",
                "doc": "docs.venice.ai/api-reference/endpoint/api_keys/rate_limits (balances + "
@@ -120,17 +120,30 @@ def _key(provider: str, env) -> str:
     return (env.get(PROVIDERS[provider]["var"]) or "").strip()
 
 
+#: Largest response body read for parsing (security review M-1: never truncate BEFORE parsing;
+#: Venice's model list is far longer than the old 2,000-character cut). Larger is refused.
+MAX_BODY_BYTES = 2 * 1024 * 1024
+TOO_LARGE = "response body over the size cap"
+
+
 def _http(method: str, url: str, headers: dict, body: bytes | None, timeout: float):
-    """(status, text). The one network call; tests replace it. Errors are statuses."""
+    """(status, text). The one network call; tests replace it. Errors are statuses.
+    Redirects are refused (security review M-2: no credential is ever re-sent to a redirect
+    target); the full body is returned for parsing, up to MAX_BODY_BYTES."""
     import urllib.error
     import urllib.request
+
+    from .venice import no_redirect_opener
 
     req = urllib.request.Request(url, data=body, method=method)
     for k, v in headers.items():
         req.add_header(k, v)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return int(resp.status), resp.read().decode(errors="replace")[:2000]
+        with no_redirect_opener().open(req, timeout=timeout) as resp:
+            raw = resp.read(MAX_BODY_BYTES + 1)
+            if len(raw) > MAX_BODY_BYTES:
+                return 0, TOO_LARGE
+            return int(resp.status), raw.decode(errors="replace")
     except urllib.error.HTTPError as exc:
         return int(exc.code), exc.read().decode(errors="replace")[:2000]
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -330,11 +343,11 @@ def _venice_models(http) -> dict:
 
     status, text = http("GET", VENICE_MODELS_URL, {"accept": "application/json"}, None, 20.0)
     if status != 200:
-        return {}
+        return {UNREADABLE: True}
     try:
         rows = {m.get("id"): m for m in (json.loads(text).get("data") or [])}
     except (ValueError, TypeError, AttributeError):
-        return {}
+        return {UNREADABLE: True}
     out = {}
     for mid in venice.VERIFIED_MODELS:
         m = rows.get(mid)
@@ -344,12 +357,29 @@ def _venice_models(http) -> dict:
     return out
 
 
+UNREADABLE = "__unreadable__"
+
+
 def venice_model_reading(db, model: str) -> dict | None:
-    """The latest recorded live reading for `model`, or None if none was recorded."""
-    rows = _previous(db, "venice", 1)
-    if not rows:
-        return None
-    return (rows[0].get("models") or {}).get(model)
+    """The live reading that decides `model`'s eligibility (security review M-1).
+
+    * None: no credential check has ever tried to read the model list (the pinned verified row
+      decides, as designed until the owner-enabled check runs).
+    * The NEWEST successfully parsed reading among recent checks. A later check that could not
+      read the list does not clear it, so a contradicting reading stays sticky until a later
+      successful reading replaces it.
+    * {"unreadable": True}: checks tried, and none in the recent window could be read. The
+      pinned row is then NOT used as a silent substitute; `venice.eligible` fails closed."""
+    tried = False
+    for rec in _previous(db, "venice", 50):
+        models = rec.get("models")
+        if not isinstance(models, dict):
+            continue
+        tried = True
+        if models.get(UNREADABLE) or not models:
+            continue
+        return models.get(model) or {"present": False, "privacy": None, "offline": False}
+    return {"unreadable": True} if tried else None
 
 
 def _venice_selected(env) -> bool:
