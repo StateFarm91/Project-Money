@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T11:08:45.519406+00:00",
+ "generated_at": "2026-10-20T21:26:51.485568+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 115,
   "handlers": 135,
   "agents": 30,
-  "follow_on_edges": 62
+  "follow_on_edges": 64
  },
  "departments": [
   {
@@ -641,6 +641,7 @@
      "products/pipeline_board.py:handle_product_pipeline",
      "radar.score",
      "runtime/release.py:enqueue_member_collections",
+     "runtime/release_recovery.py:seed_launch0",
      "seasonal.engine"
     ]
    },
@@ -814,7 +815,8 @@
      "gate.certify",
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
-     "runtime/pipeline.py:_draft_creative"
+     "runtime/pipeline.py:_draft_creative",
+     "runtime/release_recovery.py:retry_halted"
     ]
    },
    "cadence": [
