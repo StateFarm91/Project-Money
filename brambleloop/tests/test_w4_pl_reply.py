@@ -77,7 +77,7 @@ def test_owner_turn_gets_a_laura_reply_recorded_with_provenance():
     v = H.post(c, csrf, "/api/cc/private/view", {}).json()
     roles = [(t["role"], t["text"]) for t in v["conversation"]]
     assert roles[-2:] == [("owner", S[0]), ("laura", PL.REPLY)], roles
-    # Billed once, to agent laura_private (D-W4-PL-3), purpose laura.private_reply@1, tokens
+    # Billed once, to agent laura_private (D-W4-PL-3), purpose laura.private_reply@2, tokens
     # and cost only.
     costs = _private_costs()
     assert len(costs) == before + 1, len(costs)

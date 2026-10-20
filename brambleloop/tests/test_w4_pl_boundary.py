@@ -146,7 +146,7 @@ def test_protected_entry_points_reject_private_values():
 
 def test_register_prompt_keeps_identity_and_policy_bounds():
     p = LR.PROMPT
-    assert p.ref == "laura.private_reply@1" == LR.PURPOSE
+    assert p.ref == "laura.private_reply@2" == LR.PURPOSE   # W4-VENICE: @2 adds guardrails
     assert prompts.get(p.ref) is p and p.output_schema == ("text",)
     prof = identity.public_profile()
     for field in ("name", "role", "kind", "truthful_identity", "visual_identity_id"):

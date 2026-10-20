@@ -184,7 +184,7 @@ def test_auth_header_shape_pinned_model_and_request_body():
     assert "tools" not in b and "character_slug" not in vp and b["stream"] is False
     # The pinned prompt is the canonical identity with the truthful-AI clauses (unchanged).
     p = LR.PROMPT.system
-    assert LR.PURPOSE == "laura.private_reply@1"
+    assert LR.PURPOSE == "laura.private_reply@2"
     assert identity.public_profile()["visual_identity_id"] == "laura-r2-a42aeac7" and \
         "laura-r2-a42aeac7" in p
     for clause in ("You are an AI. Never claim or imply that you are human",
@@ -199,6 +199,39 @@ def test_auth_header_shape_pinned_model_and_request_body():
         pass
     else:
         raise AssertionError("an anonymized model was accepted")
+
+
+# Verified ANONYMIZED by Venice's own GET /api/v1/models (model_spec.privacy), 2026-10-20,
+# including the uncensored and roleplay ones: the upstream provider sees the prompt.
+ANONYMIZED = ("qwen-3-6-plus", "aion-labs-aion-3-0", "aion-labs-aion-3-0-mini",
+              "aion-labs-aion-3-5", "aion-labs-aion-3-5-mini",
+              "abliteration-abliterated-model-large-v2", "claude-opus-5-5", "openai-gpt-55",
+              "gemini-3-1-pro-preview")
+
+
+def test_anonymized_models_are_refused_and_the_guardrails_reach_venice():
+    for m in ANONYMIZED:
+        try:
+            V.VeniceProvider(model=m)
+        except gw.BudgetExceeded:
+            continue
+        raise AssertionError(f"anonymized model {m} was accepted")
+    assert not set(ANONYMIZED) & set(V.PRIVATE_MODELS)
+    # The pinned default is unchanged until the owner approves a switch.
+    assert V.MODEL == "zai-org-glm-5-2" and V.PRIVATE_MODELS == frozenset({V.MODEL})
+    # @2 states the guardrails explicitly and keeps every @1 sentence verbatim; @1 stays.
+    p = LR.PROMPT.system
+    for clause in ("adults only", "minor", "fictional AI persona",
+                   "never portray, impersonate or use the name, likeness or voice of any real "
+                   "person", "nothing illegal"):
+        assert clause in p, clause
+    v1 = LR.LAURA_PRIVATE_REPLY_V1.system
+    assert p.replace(LR.GUARDRAILS, "") == v1 and LR.PURPOSE == "laura.private_reply@2"
+    assert "Nothing you write is sexually explicit" in p          # D-W4-PL-2 untouched
+    mock = Venice()
+    with venice(mock):
+        LR.reply(_db(), system=LR.PROMPT.system, user=USER)
+    assert mock.calls[0]["body"]["messages"][0]["content"] == p and LR.GUARDRAILS in p
 
 
 # ---------------------------------------------------------------- money
@@ -393,7 +426,7 @@ def test_venice_receives_only_the_private_turn_and_nothing_private_leaks_anywher
     assert not [x for x in company if x in sent], "business data sent to Venice"
     # Nowhere else: SQL bound parameters, logging, stdio, every business table, the
     # continuity export, the paid-call journal and the analysis cache.
-    assert len(sql) > 20 and "laura.private_reply@1" in "\n".join(sql)   # positive control
+    assert len(sql) > 20 and "laura.private_reply@2" in "\n".join(sql)   # positive control
     assert not _leaks("\n".join(sql)), _leaks("\n".join(sql))
     assert not _leaks(log.getvalue()), "logging"
     assert not _leaks(out.getvalue() + err.getvalue()), "stdio"

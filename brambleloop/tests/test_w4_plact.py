@@ -296,9 +296,12 @@ def test_no_consent_prerequisite_and_truthful_ai_representation_kept():
         assert "consent attest" not in low, name
     board = (ROOT / "research/final_build/w4/completion_board_final.py").read_text("utf-8")
     assert "OA-PL-3 attest" not in board and "human Laura's \"\n" not in board
-    # Truthful AI representation stays in the pinned prompt (unchanged, laura.private_reply@1).
+    # Truthful AI representation stays in the pinned prompt (W4-VENICE: @2 keeps every @1
+    # sentence verbatim and adds explicit guardrails; @1 stays registered, unchanged).
     p = LR.PROMPT.system
-    assert LR.PURPOSE == "laura.private_reply@1"
+    assert LR.PURPOSE == "laura.private_reply@2"
+    assert LR.LAURA_PRIVATE_REPLY_V1.ref == "laura.private_reply@1"
+    assert LR.LAURA_PRIVATE_REPLY_V1.system == LR._system_v1()
     for clause in ("You are an AI. Never claim or imply that you are human",
                    "never claim a body, a physical action or a place",
                    "Never state or imply consent, a signature, an identity verification or a "

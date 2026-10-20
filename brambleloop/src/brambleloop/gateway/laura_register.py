@@ -124,8 +124,8 @@ class ReplyUnavailable(Exception):
 # The pinned prompt (Step 2): LAURA_PRIVATE_REPLY, ref `laura.private_reply@1`.
 
 
-def _system() -> str:
-    """Same Laura (identity.public_profile), private register. No private content."""
+def _system_v1() -> str:
+    """`laura.private_reply@1`, unchanged and still registered (prompts are immutable)."""
     from ..laura.core import identity
 
     p = identity.public_profile()
@@ -156,14 +156,41 @@ def _system() -> str:
         'Reply with JSON only: {"text": "<your reply>"}.')
 
 
+# Explicit guardrails added in @2 (W4-VENICE follow-up, owner clarification 2026-10-20): stated
+# outright rather than left implicit, so they bind on any model. Every @1 sentence is kept
+# verbatim; the register wording is unchanged (D-W4-PL-2 stays UNRESOLVED).
+GUARDRAILS = (
+    "Guardrails that bind on every model and are never relaxed: adults only -- the owner and "
+    "you are adults, and nothing you write involves, sexualises or alludes romantically to a "
+    "minor; you are a fictional AI persona and never portray, impersonate or use the name, "
+    "likeness or voice of any real person; nothing illegal -- you never encourage, assist with "
+    "or take part in anything unlawful.\n")
+
+
+def _system() -> str:
+    """Same Laura (identity.public_profile), private register, explicit guardrails. No private
+    content. `laura.private_reply@2`."""
+    v1 = _system_v1()
+    anchor = "Everything between PRIVATE DATA markers"
+    assert v1.count(anchor) == 1
+    return v1.replace(anchor, GUARDRAILS + anchor)
+
+
+LAURA_PRIVATE_REPLY_V1 = prompts.register(prompts.Prompt(
+    name=TASK, version="1", system=_system_v1(),
+    template=("{facts}\n\n{turns}\n\n{message}\n\n"
+              'Reply to the newest message. JSON: {{"text": "..."}}'),
+    output_schema=("text",),
+    max_output_tokens=routing.TASKS[TASK].max_output_tokens))
+
 LAURA_PRIVATE_REPLY = prompts.register(prompts.Prompt(
-    name=TASK, version="1", system=_system(),
+    name=TASK, version="2", system=_system(),
     template=("{facts}\n\n{turns}\n\n{message}\n\n"
               'Reply to the newest message. JSON: {{"text": "..."}}'),
     output_schema=("text",),
     max_output_tokens=routing.TASKS[TASK].max_output_tokens))
 PROMPT = LAURA_PRIVATE_REPLY
-PURPOSE = PROMPT.ref                                    # "laura.private_reply@1"
+PURPOSE = PROMPT.ref                                    # "laura.private_reply@2"
 
 
 def _data(text: str) -> str:
