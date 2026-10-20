@@ -209,3 +209,66 @@ def durable_state(db, slug: str, version: str) -> dict:
     return {"state": PASS, "pdfs": want,
             "why": (f"both certified PDFs of {slug}@{version} are held in Postgres "
                     "(durable_artifacts) under their sha256")}
+
+
+# ---- purchase -> download rehearsal (shadow; no Etsy call) --------------------------------
+
+def delivery_links(receipt: dict, listings: dict) -> list[dict]:
+    """The delivery links one paid receipt owes, per digital line and per terminology.
+
+    `receipt` is shaped as Etsy's ShopReceipt (receipt_id, is_paid/status, transactions[]
+    with transaction_id, listing_id, is_digital). `listings` maps an Etsy listing id to the
+    release it sells, `(slug, version)`, as the Listing row's `etsy_listing_id` does once a
+    listing exists. A link is an internal reference resolved by `resolve_pdf`, never a public
+    URL: the certified bytes it resolves to are what the Etsy upload carries and what a
+    support redelivery sends. Unpaid receipts and non-digital lines owe nothing.
+    """
+    from ..publish.pdf import TERMINOLOGIES
+
+    paid = bool(receipt.get("is_paid")) or str(receipt.get("status", "")).lower() in (
+        "paid", "completed")
+    if not paid:
+        return []
+    out = []
+    for tx in receipt.get("transactions") or []:
+        if not tx.get("is_digital"):
+            continue
+        rel = listings.get(str(tx.get("listing_id")))
+        for t in TERMINOLOGIES:
+            out.append({"receipt_id": receipt.get("receipt_id"),
+                        "transaction_id": tx.get("transaction_id"),
+                        "listing_id": tx.get("listing_id"),
+                        "release": f"{rel[0]}@{rel[1]}" if rel else None,
+                        "terminology": t,
+                        "href": (f"deliverable:{rel[0]}@{rel[1]}/{t}" if rel else None)})
+    return out
+
+
+def rehearse_purchase(db, receipt: dict, listings: dict, *, store=None, render=None) -> dict:
+    """Receipt -> delivery link -> bytes -> sha256 equal to the certified PDF. PASS only when
+    every owed file resolves to its certified bytes; an unmapped line or a refusal is FAIL."""
+    links = delivery_links(receipt, listings)
+    files = []
+    for link in links:
+        row = {k: link[k] for k in ("transaction_id", "listing_id", "release", "terminology",
+                                    "href")}
+        if link["release"] is None:
+            files.append({**row, "state": FAIL, "why": "the line maps to no release"})
+            continue
+        slug, version = link["release"].split("@", 1)
+        want = certified(db, slug, version)["pdfs"].get(link["terminology"])
+        try:
+            got = resolve_pdf(db, slug, version, link["terminology"], store=store,
+                              render=render)
+        except DeliveryRefused as exc:
+            files.append({**row, "state": FAIL, "certified_sha256": want,
+                          "why": str(exc)[:300]})
+            continue
+        sha = _sha(got["bytes"])
+        ok = bool(want) and sha == want and got["bytes"][:5] == b"%PDF-"
+        files.append({**row, "state": PASS if ok else FAIL, "certified_sha256": want,
+                      "served_sha256": sha, "bytes": len(got["bytes"]),
+                      "source": got["source"]})
+    return {"receipt_id": receipt.get("receipt_id"), "links": len(links),
+            "state": (PASS if files and all(f["state"] == PASS for f in files) else FAIL),
+            "files": files, "etsy_called": False}
