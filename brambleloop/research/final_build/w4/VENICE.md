@@ -219,5 +219,64 @@ Do them in order. Never paste a key into chat or Claude Code: it goes only into 
 
 ## 7. Tests
 
-All runs used the gate `/home/user/bl-runs/testslot.sh` on 2026-10-20, on SQLite, with no network. The results
-are in the section below.
+All runs used the gate `/home/user/bl-runs/testslot.sh` on 2026-10-20, on SQLite, with no network. Every suite
+below exited 0. **30 files, 313 tests, 0 failing.**
+
+**New: `tests/test_w4_venice.py`, 11/11.** It uses a mocked Venice transport, and the Anthropic transport fails
+the test if it is ever used:
+
+| Test | What it proves |
+|---|---|
+| `test_the_switch_is_off_by_default_and_nothing_is_sent` | The switch is off by default. With no provider selected, a key alone selects nothing: no request, no reservation, no cost row. The prerequisite flips only with `venice` and a key. |
+| `test_auth_header_shape_pinned_model_and_request_body` | `Authorization: Bearer <key>`; `zai-org-glm-5-2` is pinned; messages are exactly `[pinned system, user]`; `include_venice_system_prompt: false`; web off; reasoning off; cap 400; no tools. The canonical identity and truthful-AI clauses are present. An anonymized model is refused. |
+| `test_the_reservation_exists_before_the_request_and_billing_is_tokens_and_cost_only` | The open `laura_private` reservation exists at the moment of the request. The bill is tokens × the Venice price (or Venice `cost.usd` if higher). The reservation is released to the actual cost. No text. |
+| `test_budget_refusals_make_no_request` | No owner figure, a figure below one call, or the day already spent: each makes 0 requests, and 3 content-free `spend.refused` rows are written. |
+| `test_classified_failures_are_honest_single_attempts_with_no_fallback` | 12 HTTP and transport failures, plus malformed and truncated 200s. Each is one attempt, carries the right code and an honest reason, and is billed correctly: declined = none, timeout = the estimate. The health row is `venice:<model>`. There is no body or key anywhere. |
+| `test_the_private_context_shows_unavailable_never_a_fake_reply` | Over HTTP: UNAVAILABLE with "I can't reach my private model right now"; the owner turn is stored and no Laura turn is faked. |
+| `test_venice_receives_only_the_private_turn_and_nothing_private_leaks_anywhere` | What Venice receives is exactly the pinned prompt plus 3 private blocks, with no business records. No leak to SQL parameters, DEBUG logs, stdio, any business table, `paid_call_records` (0), or the continuity export. Success, error and timeout paths are all covered. |
+| `test_owner_only_access` | Anonymous requests get 401/403. An owner session without step-up gets 401/403 and makes no request. |
+| `test_persistence_across_restart_in_the_encrypted_store` | Raw database bytes contain no plaintext. After a restart (new engine, new session) the history is intact, and the earlier turns feed the next Venice request. `model_ref` is `venice/…`. |
+| `test_venice_credential_health_is_owner_enabled_and_reads_the_balance` | GET `rate_limits` with Bearer; OK, MISSING, low balance, `accessPermitted=false` and each status code are classified. Venice is not checked until it is selected. `estimate_cad` is null and its basis is UNKNOWN. No key appears in any record. |
+| `test_price_table_and_the_daily_arithmetic_in_venice_md` | The price table, the CA$0.0039 typical reply and the 127 replies per CA$0.50 match this document. |
+
+**Required regression set:**
+- test_vacuity 8
+- test_launch 28
+- test_cost_governance_wave2 39
+- test_search_hero_publish 4
+- test_cert_listing_frames 7
+- test_v11_autonomy_timeline 7
+
+**Suites for the touched files:**
+- test_cert_spend_hosts 5. It was **failing on INTEG4** (credentials.py undeclared) and is now green.
+- test_w4_plact 8.
+- test_w4_credhealth 13.
+- test_w4_pl_reply 3, pl_budget 5, pl_leak 2, pl_boundary 4, pl_auth 2, pl_continuity 3.
+- test_w4_integ3_secfixes 8.
+- test_w3_laura_cc_private 7, test_w3_priv_leak 7, test_w3_priv_access 7.
+- test_w3_laura_voice_spec 7, test_w3_laura_presence 4, test_w3_laura_cc_providers 7.
+- test_gateway 30, test_model_spend_paths 12, test_w4_spend_paid_discipline 14, test_spend_policy 24.
+- test_v11_reliability_gateway 14, test_model_access 13, test_w4_ccgap_views 10.
+
+**Existing tests changed. Each change tightens a test and none loosens one:**
+- `tests/w4_pl_harness.py`: the PL suites now select the Anthropic stub transport explicitly
+  (`BRAMBLELOOP_PRIVATE_PROVIDER=anthropic`), because the switch is now OFF by default.
+- `test_w4_pl_budget::test_the_owner_figure_is_read_by_name_only`: selects a provider by name, and adds the
+  assertion "no provider selected ⇒ not enabled".
+- `test_w4_plact`: the prerequisite list gains `private_provider_venice` (6 instead of 5). The all-met case now
+  uses Venice.
+- `test_cert_spend_hosts`: `api.venice.ai` is added to the scanner. `gateway/venice.py` and
+  `gateway/credentials.py` are declared, with reasons.
+
+## 8. Requirement closure (code + tests; production pending)
+
+| ID | Status | Evidence |
+|---|---|---|
+| ADD-PLV-01 | DONE (facts and model selection); model OWNER-approval pending | §1–2; `gateway/venice.py` (`MODEL`, `PRICES_USD_PER_MTOK`, `PRIVATE_MODELS`); `test_auth_header_shape_pinned_model_and_request_body`, `test_price_table_and_the_daily_arithmetic_in_venice_md` |
+| ADD-PLV-02 | DONE in code (same pinned prompt; Venice's prompt off; uncensored and anonymized models excluded); live judgement = §5 step 3 | `test_auth_header_shape_pinned_model_and_request_body` |
+| ADD-PLV-03 | DONE (tests); production = §5 steps 5 and 8 | `test_venice_receives_only_the_private_turn_and_nothing_private_leaks_anywhere`, `test_persistence_across_restart_in_the_encrypted_store` |
+| ADD-PLV-04 | DONE (unchanged access model, re-proved over Venice) | `test_owner_only_access` |
+| ADD-PLV-05 | DONE (the atomic `laura_private` reservation reused; tokens and cost only) | `test_the_reservation_exists_before_the_request_and_billing_is_tokens_and_cost_only`, `test_budget_refusals_make_no_request` |
+| ADD-PLV-06 | DONE in code (env only, never logged); OWNER sets it | `test_venice_credential_health_is_owner_enabled_and_reads_the_balance` (key hunted in records) |
+| ADD-PLV-07 | OPEN: runbook written (§5); must pass in production | §5 |
+| ADD-PLV-08 | DONE in code (switch OFF by default; same reply path); OWNER approval and deploy pending | `test_the_switch_is_off_by_default_and_nothing_is_sent` |
