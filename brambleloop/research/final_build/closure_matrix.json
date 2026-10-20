@@ -38678,12 +38678,16 @@
    "tests": [
     "tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart",
     "tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image",
-    "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope"
+    "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope",
+    "tests/test_w4_f852_amend.py::test_each_missing_unknown_or_failed_condition_blocks_with_its_reason",
+    "tests/test_w4_f852_amend.py::test_a_fully_verified_generated_frame_exports",
+    "tests/test_eligibility.py::test_generated_product_imagery_is_refused_in_every_listing_role"
    ],
    "evidence": [
     "module_reachability: visual/product_authority.py reached via seasonal.cycle_proof -> listing_asset.make; not in fcb982d",
     "DECISION_LOG D-FB-7, D-FB-9; fb3-V fa5ff94",
-    "remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image"
+    "remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image",
+    "DECISION_LOG.md D-W4-F852-AMEND (+ owner confirmation): F-852 amended to the verified-exception route; src/brambleloop/publish/eligibility.py::verified_exception, called from may_export"
    ],
    "build2_rows": [],
    "gate": {
@@ -38697,7 +38701,10 @@
    "searched": null,
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
-   "adjudication": [],
+   "adjudication": [
+    "override tests: ['tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart', 'tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image', 'tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope'] -> ['tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart', 'tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image', 'tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope', 'tests/test_w4_f852_amend.py::test_each_missing_unknown_or_failed_condition_blocks_with_its_reason', 'tests/test_w4_f852_amend.py::test_a_fully_verified_generated_frame_exports', 'tests/test_eligibility.py::test_generated_product_imagery_is_refused_in_every_listing_role'] (Owner decision D-W4-F852-AMEND amends F-852: generated imagery that redraws the product exports ONLY through the verified-exception route (disclosed, structural fidelity PASS for the exact release, F-856 photographic PASS, Product Truth, quality, Laura gates, Etsy policy, every publication gate, complete provenance; UNKNOWN blocks; owner visual approval is not an input). Without that evidence the refusal is unchanged. Today the Etsy listing-image policy reading is UNKNOWN, so no generated frame exports.; accepted by integrator W-INTEG4 2026-10-20 on owner decision D-W4-F852-AMEND (DECISION_LOG.md, owner-confirmed); proposal w4/OVERRIDES_PROPOSED_F852_AMEND.json by W-VISNEXT; dry run 0 problems; completion/maturity unchanged (both rows already COMPLETE/INTEGRATED), evidence/tests/reason recorded; adjudicated by cap())",
+    "override evidence: ['module_reachability: visual/product_authority.py reached via seasonal.cycle_proof -> listing_asset.make; not in fcb982d', 'DECISION_LOG D-FB-7, D-FB-9; fb3-V fa5ff94', 'remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image'] -> ['module_reachability: visual/product_authority.py reached via seasonal.cycle_proof -> listing_asset.make; not in fcb982d', 'DECISION_LOG D-FB-7, D-FB-9; fb3-V fa5ff94', 'remaining images.generate callers (visual/tournament, reference_pack, portrait_repair, gateway/image_bench) generate model persons/benchmarks, not the product listing image', 'DECISION_LOG.md D-W4-F852-AMEND (+ owner confirmation): F-852 amended to the verified-exception route; src/brambleloop/publish/eligibility.py::verified_exception, called from may_export'] (Owner decision D-W4-F852-AMEND amends F-852: generated imagery that redraws the product exports ONLY through the verified-exception route (disclosed, structural fidelity PASS for the exact release, F-856 photographic PASS, Product Truth, quality, Laura gates, Etsy policy, every publication gate, complete provenance; UNKNOWN blocks; owner visual approval is not an input). Without that evidence the refusal is unchanged. Today the Etsy listing-image policy reading is UNKNOWN, so no generated frame exports.; accepted by integrator W-INTEG4 2026-10-20 on owner decision D-W4-F852-AMEND (DECISION_LOG.md, owner-confirmed); proposal w4/OVERRIDES_PROPOSED_F852_AMEND.json by W-VISNEXT; dry run 0 problems; completion/maturity unchanged (both rows already COMPLETE/INTEGRATED), evidence/tests/reason recorded; adjudicated by cap())"
+   ],
    "id": "F-852",
    "title": "No Product Redraw by Default",
    "version": "v1.0",
@@ -38723,11 +38730,13 @@
     "tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails",
     "tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes",
     "tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling",
-    "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass"
+    "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+    "tests/test_w4_f852_amend.py::test_f853_compositing_is_mandatory_where_feasible_and_roles_without_it_are_named"
    ],
    "evidence": [
     "module_reachability: visual/compose.py and visual/product_authority.py reached; not in fcb982d",
-    "w3 lane K triage R: disclosed renders: every pixel from certified CIR/twin, sha256-bound"
+    "w3 lane K triage R: disclosed renders: every pixel from certified CIR/twin, sha256-bound",
+    "DECISION_LOG.md D-W4-F852-AMEND item 6: src/brambleloop/publish/eligibility.py::COMPOSITING_FEASIBLE encodes per job whether protected compositing of certified pixels exists; where it does (DETAIL, SCALE, COLOUR_CONTEXT) the exception is closed. Roles with none today: ANGLE, LIFESTYLE."
    ],
    "build2_rows": [],
    "gate": {
@@ -38741,7 +38750,10 @@
    "searched": " | w4-FM re-map on fee1cfe (FOLD-R): disclosed renders: every pixel from certified CIR/twin, sha256-bound",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
-   "adjudication": [],
+   "adjudication": [
+    "override tests: ['tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails', 'tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes', 'tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling', 'tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass'] -> ['tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails', 'tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes', 'tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling', 'tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass', 'tests/test_w4_f852_amend.py::test_f853_compositing_is_mandatory_where_feasible_and_roles_without_it_are_named'] (F-853 is unchanged by the owner amendment and is now enforced per role inside the exception route (D-W4-F852-AMEND item 6).; accepted by integrator W-INTEG4 2026-10-20 on owner decision D-W4-F852-AMEND (DECISION_LOG.md, owner-confirmed); proposal w4/OVERRIDES_PROPOSED_F852_AMEND.json by W-VISNEXT; dry run 0 problems; completion/maturity unchanged (both rows already COMPLETE/INTEGRATED), evidence/tests/reason recorded; adjudicated by cap())",
+    "override evidence: ['module_reachability: visual/compose.py and visual/product_authority.py reached; not in fcb982d', 'w3 lane K triage R: disclosed renders: every pixel from certified CIR/twin, sha256-bound'] -> ['module_reachability: visual/compose.py and visual/product_authority.py reached; not in fcb982d', 'w3 lane K triage R: disclosed renders: every pixel from certified CIR/twin, sha256-bound', 'DECISION_LOG.md D-W4-F852-AMEND item 6: src/brambleloop/publish/eligibility.py::COMPOSITING_FEASIBLE encodes per job whether protected compositing of certified pixels exists; where it does (DETAIL, SCALE, COLOUR_CONTEXT) the exception is closed. Roles with none today: ANGLE, LIFESTYLE.'] (F-853 is unchanged by the owner amendment and is now enforced per role inside the exception route (D-W4-F852-AMEND item 6).; accepted by integrator W-INTEG4 2026-10-20 on owner decision D-W4-F852-AMEND (DECISION_LOG.md, owner-confirmed); proposal w4/OVERRIDES_PROPOSED_F852_AMEND.json by W-VISNEXT; dry run 0 problems; completion/maturity unchanged (both rows already COMPLETE/INTEGRATED), evidence/tests/reason recorded; adjudicated by cap())"
+   ],
    "id": "F-853",
    "title": "Authoritative Product Region",
    "version": "v1.0",

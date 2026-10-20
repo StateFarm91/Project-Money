@@ -23341,7 +23341,10 @@
    "tests": [
     "tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart",
     "tests/test_owned_photography.py::test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image",
-    "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope"
+    "tests/test_disclosed_render_runtime.py::test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope",
+    "tests/test_w4_f852_amend.py::test_each_missing_unknown_or_failed_condition_blocks_with_its_reason",
+    "tests/test_w4_f852_amend.py::test_a_fully_verified_generated_frame_exports",
+    "tests/test_eligibility.py::test_generated_product_imagery_is_refused_in_every_listing_role"
    ],
    "gate": null,
    "reasons": [],
@@ -23367,7 +23370,8 @@
     "tests/test_disclosed_render.py::test_manifest_lie_with_another_products_correct_pixels_fails",
     "tests/test_disclosed_render.py::test_structural_floor_passes_only_on_verified_bound_bytes",
     "tests/test_final_visual_authority.py::test_every_nonzero_alpha_pixel_is_protected_without_resampling",
-    "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass"
+    "tests/test_final_visual_authority.py::test_tampered_product_pixels_fail_even_if_motif_and_realism_pass",
+    "tests/test_w4_f852_amend.py::test_f853_compositing_is_mandatory_where_feasible_and_roles_without_it_are_named"
    ],
    "gate": null,
    "reasons": [],
