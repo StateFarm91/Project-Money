@@ -569,6 +569,20 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
                 idempotency_key=chain_key("price", slug, version, release, token))
+    # W-OWNERIMG: a certified release whose disclosed set is usable starts autonomous
+    # image production once per slug@version@release (idempotency key). It is shadow-safe:
+    # with no generator wired, the run stops at `blocked(no image generator is wired)`.
+    if release and (disclosed or {}).get("usable"):
+        try:
+            from ..visual import image_production
+
+            image_production.trigger(
+                lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
+                                                inputs, idempotency_key=key),
+                slug=slug, version=version, release=release)
+        except Exception as exc:  # noqa: BLE001 - imagery never blocks the price chain
+            ctx.audit("visual.image_production_trigger_failed", artifact=f"{slug}@{version}",
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
     return payload
 
 
@@ -2989,8 +3003,48 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     from ..publish import physical_upgrade
 
     out = physical_upgrade.plan_upgrade(ctx.db, int(ctx.job.inputs["photo_id"]),
-                                        today=_mjs_today(ctx))
+                                        today=_mjs_today(ctx),
+                                        role=str(ctx.job.inputs.get("role") or "proof"))
     ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
+    return out
+
+
+@handlers.register("visual.image_production")
+def handle_image_production(ctx: JobContext) -> dict:
+    """One stage of the autonomous listing-image workflow (`visual.image_production`).
+
+    Each stage records its inputs, outputs, evidence and cost on the run row, then enqueues
+    the next stage under an idempotency key. Every candidate passes the shared gates
+    (`visual.candidate_gates`), and nothing is published here. GREEN in shadow: a paid
+    generator needs the image_generation gate and the per-gallery spend plan.
+    """
+    from ..visual import image_production
+
+    def follow(inputs, key):
+        return ctx.enqueue("publishing", "visual.image_production", inputs,
+                           idempotency_key=key)
+
+    out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
+    ctx.audit("visual.image_production", artifact=out.get("run_key"),
+              detail={k: out.get(k) for k in ("stage", "status", "next", "skipped", "why")})
+    return out
+
+
+@handlers.register("visual.controlled_experiment")
+def handle_controlled_experiment(ctx: JobContext) -> dict:
+    """One owner-authorised controlled visual experiment run (`experiments.controlled`).
+
+    Submitted only from the Command Center behind the owner session and step-up. It verifies
+    every reference and the prompt by sha256 before any spend, generates within the
+    authorization's caps and every existing ceiling, keeps the bytes durably and judges them
+    independently. Its output is labelled EXPERIMENT and never publishes. No key is read
+    into the job: `gateway.images` reads it from the environment at call time."""
+    from ..experiments import controlled
+
+    out = controlled.run_job(ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id)
+    ctx.audit(controlled.ACTION_RUN, artifact=str(ctx.job.inputs.get("definition_id")),
+              detail={k: out.get(k) for k in ("run_id", "ran", "image", "status", "refused",
+                                               "why", "image_sha256")})
     return out
 
 

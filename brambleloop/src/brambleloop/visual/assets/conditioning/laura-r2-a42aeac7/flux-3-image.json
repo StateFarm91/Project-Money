@@ -1,0 +1,36 @@
+{
+ "complete_pack_transmitted": true,
+ "dialect": "bfl3",
+ "identity_decision": "D-FB-14",
+ "identity_id": "laura-r2-a42aeac7",
+ "model": "flux-3-image",
+ "note": "Derived from the canonical revision only. A render conditioned with this package proves the bytes left through `gateway.images.conditioning_receipt`; this file says, before any call, which bytes those must be. Not publication approval: Laura's customer-facing gates are unchanged (identity, photorealism, anatomy, Product Truth, brand QA, disclosure, publication)",
+ "package_sha256": "aad69d5d75cd094f1a0701c693ea48be1a185a062190fa85878193fe4728d444",
+ "provider": "flux-3-image",
+ "provider_reference_limit": 10,
+ "references": [
+  {
+   "bytes": 229232,
+   "file": "canonical/laura-r2-a42aeac7/reference_pack/neutral_portrait.jpg",
+   "frame": "neutral_portrait",
+   "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+   "transmitted": true
+  },
+  {
+   "bytes": 1264368,
+   "file": "canonical/laura-r2-a42aeac7/reference_pack/torso_fit_reference.png",
+   "frame": "torso_fit_reference",
+   "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+   "transmitted": true
+  },
+  {
+   "bytes": 1398003,
+   "file": "canonical/laura-r2-a42aeac7/reference_pack/full_length_standing.png",
+   "frame": "full_length_standing",
+   "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+   "transmitted": true
+  }
+ ],
+ "transmitted": 3,
+ "version": "conditioning-package/1.0.0"
+}

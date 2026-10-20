@@ -1,0 +1,1360 @@
+{
+ "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+ "mode": "dry-run",
+ "run": {
+  "run_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+  "slug": "reading-nook-cable-wrap",
+  "version": "0.1.0",
+  "release": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+  "listing": "reading-nook-cable-wrap",
+  "stage": "owner_card",
+  "state": "ready_for_owner_review",
+  "status": "ready_for_owner_review",
+  "blocked_reason": null,
+  "attempts_exhausted": false,
+  "generation_calls": 3,
+  "spent_cad": 0.0,
+  "outfit_id": "exp-3c19bda128",
+  "card": {
+   "listing": "reading-nook-cable-wrap",
+   "slug": "reading-nook-cable-wrap",
+   "version": "0.1.0",
+   "release": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+   "roles": [
+    {
+     "position": 1,
+     "role": "lifestyle",
+     "job": "LIFESTYLE",
+     "campaign_role": "lifestyle",
+     "laura": true,
+     "required_by": [
+      "F-030"
+     ],
+     "conditional": false,
+     "preferred_source": "generated",
+     "source": "generated",
+     "candidate": {
+      "candidate_id": 4,
+      "sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+      "method": "autonomous",
+      "technical_status": "PASS",
+      "publishable": false,
+      "attempt": 1,
+      "outcome": "accepted",
+      "failure_categories": [],
+      "owner_visual_approval": null,
+      "unknown": [],
+      "failed": {},
+      "blockers": [
+       "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: the product is uncertified (certification refused); an experiment image is never publishable, exportable or approvable for a listing",
+       "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (LIFESTYLE here). A disclaimer is not permission",
+       "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help articles conflict on 'use your own photographs' for designed items (VISGATE \u00a73, V1). Whether a generated image may appear on a digital-pattern listing is UNKNOWN",
+       "Laura publication gate: these bytes are 'not_for_publication', not publication_approved"
+      ],
+      "listing": "reading-nook-cable-wrap",
+      "version": "0.1.0",
+      "release": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+      "cir_fingerprint": "23420beed766",
+      "laura_present": true,
+      "outfit_id": "exp-3c19bda128",
+      "fidelity": {
+       "status": null,
+       "unknown": [],
+       "failed": [],
+       "codes": [],
+       "needs": []
+      }
+     },
+     "status": "candidate PASS, not publishable"
+    },
+    {
+     "position": 3,
+     "role": "detail",
+     "job": "DETAIL",
+     "campaign_role": "detail",
+     "laura": false,
+     "required_by": [
+      "F-030",
+      "F-254"
+     ],
+     "conditional": false,
+     "preferred_source": "disclosed_render",
+     "source": "disclosed_render",
+     "candidate": null,
+     "status": "disclosed set (certified by the existing listing-set certificate path)",
+     "fallback": "disclosed_render"
+    },
+    {
+     "position": 4,
+     "role": "angle",
+     "job": "ANGLE",
+     "campaign_role": "angle",
+     "laura": true,
+     "required_by": [
+      "F-030",
+      "F-254"
+     ],
+     "conditional": false,
+     "preferred_source": "generated",
+     "source": "generated",
+     "candidate": {
+      "candidate_id": 5,
+      "sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+      "method": "autonomous",
+      "technical_status": "PASS",
+      "publishable": false,
+      "attempt": 1,
+      "outcome": "accepted",
+      "failure_categories": [],
+      "owner_visual_approval": null,
+      "unknown": [],
+      "failed": {},
+      "blockers": [
+       "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: the product is uncertified (certification refused); an experiment image is never publishable, exportable or approvable for a listing",
+       "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (ANGLE here). A disclaimer is not permission",
+       "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help articles conflict on 'use your own photographs' for designed items (VISGATE \u00a73, V1). Whether a generated image may appear on a digital-pattern listing is UNKNOWN",
+       "Laura publication gate: these bytes are 'not_for_publication', not publication_approved"
+      ],
+      "listing": "reading-nook-cable-wrap",
+      "version": "0.1.0",
+      "release": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+      "cir_fingerprint": "23420beed766",
+      "laura_present": true,
+      "outfit_id": "exp-3c19bda128",
+      "fidelity": {
+       "status": null,
+       "unknown": [],
+       "failed": [],
+       "codes": [],
+       "needs": []
+      }
+     },
+     "status": "candidate PASS, not publishable"
+    },
+    {
+     "position": 5,
+     "role": "size",
+     "job": "SCALE",
+     "campaign_role": "size",
+     "laura": false,
+     "required_by": [
+      "F-030",
+      "F-254"
+     ],
+     "conditional": false,
+     "preferred_source": "disclosed_render",
+     "source": "disclosed_render",
+     "candidate": null,
+     "status": "disclosed set (certified by the existing listing-set certificate path)",
+     "fallback": "disclosed_render"
+    },
+    {
+     "position": 6,
+     "role": "materials",
+     "job": "MATERIALS",
+     "campaign_role": "materials",
+     "laura": false,
+     "required_by": [
+      "#65 base set"
+     ],
+     "conditional": false,
+     "preferred_source": "disclosed_render",
+     "source": "disclosed_render",
+     "candidate": null,
+     "status": "disclosed set (certified by the existing listing-set certificate path)",
+     "fallback": "disclosed_render"
+    },
+    {
+     "position": 7,
+     "role": "whats_included",
+     "job": "CONTENTS",
+     "campaign_role": "whats_included",
+     "laura": false,
+     "required_by": [
+      "F-030"
+     ],
+     "conditional": false,
+     "preferred_source": "disclosed_render",
+     "source": "disclosed_render",
+     "candidate": null,
+     "status": "disclosed set (certified by the existing listing-set certificate path)",
+     "fallback": "disclosed_render"
+    }
+   ],
+   "set_check": {
+    "ok": false,
+    "problems": [
+     {
+      "kind": "no_hero",
+      "why": "no frame in position one, which is the frame most shoppers see and often the only one"
+     }
+    ]
+   },
+   "publication_blockers": [
+    "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: the product is uncertified (certification refused); an experiment image is never publishable, exportable or approvable for a listing",
+    "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help articles conflict on 'use your own photographs' for designed items (VISGATE \u00a73, V1). Whether a generated image may appear on a digital-pattern listing is UNKNOWN",
+    "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (ANGLE here). A disclaimer is not permission",
+    "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (LIFESTYLE here). A disclaimer is not permission",
+    "Laura publication gate: these bytes are 'not_for_publication', not publication_approved",
+    "gallery set check: no_hero: no frame in position one, which is the frame most shoppers see and often the only one"
+   ],
+   "spent_cad": 0.0,
+   "recommended_fix": [
+    "publication: F-852 refuses generated product imagery; an owner policy decision is required (VISREF E4), or a photo of a made sample"
+   ],
+   "owner_approval_is_not_technical_verification": true,
+   "campaign_consistency": {
+    "status": "PASS",
+    "why": "2 image(s): one version, release, CIR and outfit"
+   },
+   "experiment": true,
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "certification": {
+    "granted": false,
+    "reasons": [
+     "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+    ],
+    "content_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+    "source": "gate.certify job 1 (audit gate.blocked #1)"
+   },
+   "content_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+   "pdf_sha256_by_terminology": {
+    "US": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+    "UK": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12"
+   },
+   "gallery": [
+    {
+     "position": 1,
+     "name": "hero",
+     "role": "lifestyle",
+     "source": "flux",
+     "sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+     "candidate_id": 4,
+     "technical_status": "PASS",
+     "failure_categories": [],
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 2,
+     "name": "product_flat_lay",
+     "role": "product_anchor",
+     "source": "flux",
+     "sha256": "f5b15b11f1f574bb49f1e475e4ffaef77e6c55ce072f8c833e8a81a727581a87",
+     "candidate_id": 3,
+     "technical_status": "PASS",
+     "failure_categories": [],
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 3,
+     "name": "cable_texture_closeup",
+     "role": "detail",
+     "source": "disclosed_render.detail",
+     "sha256": "41954f69aa23ecce85cd40ee43685bc91ed92f2ed3ee05c9f4f719fc95d1dac9",
+     "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 4,
+     "name": "laura_back_drape",
+     "role": "angle",
+     "source": "flux",
+     "sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+     "candidate_id": 5,
+     "technical_status": "PASS",
+     "failure_categories": [],
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 5,
+     "name": "size_fit",
+     "role": "size",
+     "source": "disclosed_render.scale",
+     "sha256": "10591620b83cd4f531be068084de2fbc27390622be99b292de88c54f466c5e24",
+     "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 6,
+     "name": "materials_construction",
+     "role": "materials",
+     "source": "gallery_frames.MATERIALS",
+     "sha256": "31b82c8c97b3c16f6a28e36f5db845cfb9d8006a795b660766eb152f0724cdd1",
+     "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    },
+    {
+     "position": 7,
+     "name": "digital_download_contents",
+     "role": "whats_included",
+     "source": "contents_frame",
+     "sha256": "02ed0b8480dff6e078d55229c329a0b08e96c1563213ed7d8e07fa62b67276e9",
+     "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION"
+    }
+   ],
+   "approvals_are_separate": {
+    "visual_approval": "the owner's look at these images only",
+    "technical_certification": "REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes",
+    "publication_authorization": "NOT AVAILABLE: experiments never publish"
+   }
+  },
+  "owner_decision": {},
+  "stages": [
+   "retrieve_release",
+   "prepare_references",
+   "product_generation",
+   "fidelity_gate",
+   "load_laura_references",
+   "reserve_outfit",
+   "lifestyle_generation",
+   "remaining_roles",
+   "verification",
+   "gallery_assembly",
+   "owner_card"
+  ],
+  "updated_at": "2026-10-19T23:46:38.261252"
+ },
+ "gallery": [
+  {
+   "position": 1,
+   "name": "hero",
+   "role": "lifestyle",
+   "source": "flux",
+   "sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+   "candidate_id": 4,
+   "technical_status": "PASS",
+   "failure_categories": [],
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/01_hero_EXPERIMENT_STUB.png"
+  },
+  {
+   "position": 2,
+   "name": "product_flat_lay",
+   "role": "product_anchor",
+   "source": "flux",
+   "sha256": "f5b15b11f1f574bb49f1e475e4ffaef77e6c55ce072f8c833e8a81a727581a87",
+   "candidate_id": 3,
+   "technical_status": "PASS",
+   "failure_categories": [],
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/02_product_flat_lay_EXPERIMENT_STUB.png"
+  },
+  {
+   "position": 3,
+   "name": "cable_texture_closeup",
+   "role": "detail",
+   "source": "disclosed_render.detail",
+   "sha256": "41954f69aa23ecce85cd40ee43685bc91ed92f2ed3ee05c9f4f719fc95d1dac9",
+   "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/03_cable_texture_closeup_EXPERIMENT.png"
+  },
+  {
+   "position": 4,
+   "name": "laura_back_drape",
+   "role": "angle",
+   "source": "flux",
+   "sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+   "candidate_id": 5,
+   "technical_status": "PASS",
+   "failure_categories": [],
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/04_laura_back_drape_EXPERIMENT_STUB.png"
+  },
+  {
+   "position": 5,
+   "name": "size_fit",
+   "role": "size",
+   "source": "disclosed_render.scale",
+   "sha256": "10591620b83cd4f531be068084de2fbc27390622be99b292de88c54f466c5e24",
+   "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/05_size_fit_EXPERIMENT.png"
+  },
+  {
+   "position": 6,
+   "name": "materials_construction",
+   "role": "materials",
+   "source": "gallery_frames.MATERIALS",
+   "sha256": "31b82c8c97b3c16f6a28e36f5db845cfb9d8006a795b660766eb152f0724cdd1",
+   "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/06_materials_construction_EXPERIMENT.png"
+  },
+  {
+   "position": 7,
+   "name": "digital_download_contents",
+   "role": "whats_included",
+   "source": "contents_frame",
+   "sha256": "02ed0b8480dff6e078d55229c329a0b08e96c1563213ed7d8e07fa62b67276e9",
+   "technical_status": "DETERMINISTIC (renderer contract; content uncertified)",
+   "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+   "file": "images/07_digital_download_contents_EXPERIMENT.png"
+  }
+ ],
+ "listing": {
+  "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+  "is_digital_pattern": true,
+  "title": "Reading Nook Cable Wrap | Crochet Pattern PDF | winter | US and UK Terms",
+  "description": "Reading Nook Cable Wrap \u2014 a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a intermediate maker, every row written out and charted, so you can follow whichever you prefer.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms \u2014 the same pattern, each written throughout in its own terminology, with a stitch key to match\n\nTHE DETAILS\n- Finished size: 47 x 167 cm (computed from the stitch counts at the stated gauge; no sample has been made or measured), worked at the gauge below\n- Difficulty: intermediate\n- Yarn: worsted wool\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook\n- Stitches used: cable2x2, dc, sc\n- Colours: 2 (cream, forest)\n- cream: about 19-28 m\n- forest: about 477-716 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nMAKING IT IN TIME FOR WINTER\nStart early. A large piece takes real hours, and the whole point of buying the pattern now is having the weeks to make it.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.",
+  "tags": [
+   "winter wrap crochet",
+   "wrap crochet pattern",
+   "crochet winter gift",
+   "written and chart",
+   "cable wrap pattern",
+   "winter diy",
+   "digital download",
+   "instant download pdf",
+   "yarn craft project",
+   "us and uk terms",
+   "printable pdf chart",
+   "fiber art project",
+   "cable crochet"
+  ],
+  "materials": [
+   "worsted wool",
+   "worsted wool"
+  ],
+  "price_cad": 7.0,
+  "pricing": {
+   "slug": "reading-nook-cable-wrap",
+   "price_cad": 7.0,
+   "floor_cad": 4.5,
+   "ceiling_cad": 9.5,
+   "net_cad": 6.057,
+   "take_rate": 0.1347,
+   "reasons": [],
+   "warnings": [
+    "take rate 13.5% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.1% and the net is CA$4.75. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+   ],
+   "refused": "",
+   "net_contribution": {
+    "sticker": {
+     "amount": 7.0,
+     "currency": "CAD"
+    },
+    "gross_reporting": {
+     "amount": 7.0,
+     "currency": "CAD"
+    },
+    "fees": {
+     "transaction": 0.455,
+     "payment": 0.46,
+     "currency_conversion": 0.175,
+     "regulatory_operating": 0.0,
+     "ad_fee": 0.0,
+     "listing_amortised": 0.028
+    },
+    "total_fees": 1.118,
+    "net_contribution": {
+     "amount": 5.882,
+     "currency": "CAD"
+    },
+    "take_rate": 0.1597,
+    "rate": null,
+    "fees_not_yet_observed": [
+     "regulatory_operating",
+     "ad_fee"
+    ],
+    "basis": "commerce.fee_schedule (search_engine_excerpt_of_official_page, read 2026-09-26); conversion and regulatory fees not yet observed",
+    "why": "net contribution is CA$5.88 of a CA$7.00 gross, a 16.0% take. ['regulatory_operating', 'ad_fee'] are zero because this company has not been charged them yet -- a margin computed without a fee should say so rather than look like one that included it",
+    "foreign_share": {
+     "value": 1.0,
+     "basis": "assumed: every order paid in another currency, because no order has been ingested"
+    }
+   }
+  },
+  "category": {
+   "intent": "wrap",
+   "taxonomy": {
+    "status": "BLOCKED",
+    "why": "no Etsy taxonomy snapshot in the scratch database, and production's taxonomy reading is not readable from here without credentials (read-only access only; nothing was written). The category is UNKNOWN, never guessed",
+    "reading": {
+     "choice": "CategoryChoice(status='UNKNOWN', taxonomy_id=None, path_ids=[], path_names=[], snapshot_id=None, why='no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)', considered=[])",
+     "snapshot": null
+    }
+   }
+  },
+  "attributes": {
+   "digital": true,
+   "instant_download": true,
+   "file_type": "PDF",
+   "craft_type": "crochet",
+   "pattern_type": "wrap",
+   "skill_level": "intermediate",
+   "primary_color": "cream",
+   "secondary_color": "forest",
+   "occasion": "winter",
+   "terminology": "US terms",
+   "includes_chart": true,
+   "includes_written_instructions": true
+  },
+  "disclosures": [
+   "DIGITAL PATTERN \u2014 this listing is a downloadable crochet pattern (PDF), not a finished wrap. No physical item is shipped.",
+   "Instant download: two PDFs, the same pattern written in US terms and in UK terms.",
+   "AI-imagery disclosure: the photographs of Laura and the flat lay are AI-generated images (FLUX 3) of the pattern's computed design, not photographs of a made sample. Laura is an AI-generated model. The detail, size, materials and contents frames are computer renders drawn from the pattern's stitch counts.",
+   "Finished size and yardage are computed from the stitch counts at the stated gauge. No sample has been made or measured; yours will depend on your yarn and tension.",
+   "Created with AI assistance; every row's stitch count is checked by software.",
+   "Digital items: no returns or exchanges once downloaded; message the shop with any question about the pattern."
+  ],
+  "download_instructions": "After purchase, open Etsy > You > Purchases and reviews, find this order and click Download Files. You get reading-nook-cable-wrap-US.pdf and reading-nook-cable-wrap-UK.pdf. Open them with any PDF reader; print them or read them on screen.",
+  "alt_text": {
+   "hero": "AI-generated image: a model wearing the Reading Nook Cable Wrap made from this crochet pattern (digital pattern, not a finished item)",
+   "product_flat_lay": "AI-generated image: the Reading Nook Cable Wrap laid flat, showing the cable columns and cream end bands (digital pattern)",
+   "cable_texture_closeup": "Computer render of the Reading Nook Cable Wrap's cable stitch texture, drawn from the pattern's stitch counts",
+   "laura_back_drape": "AI-generated image: back view of a model wearing the Reading Nook Cable Wrap, showing the drape (digital pattern, not a finished item)",
+   "size_fit": "Computer render of the Reading Nook Cable Wrap with its computed finished size",
+   "materials_construction": "Materials and construction of the Reading Nook Cable Wrap crochet pattern",
+   "digital_download_contents": "What you download: the Reading Nook Cable Wrap crochet pattern PDFs in US and UK terms"
+  },
+  "pdfs": {
+   "US": {
+    "sha256": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+    "certified": false
+   },
+   "UK": {
+    "sha256": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12",
+    "certified": false
+   }
+  },
+  "claims_check": {
+   "physical_made_or_measured_claims": [],
+   "ok": true,
+   "checked": "title, description, disclosures and download instructions"
+  },
+  "code_reused": [
+   "commerce.seo.build_title",
+   "commerce.seo.build_description",
+   "commerce.search.build_query_set",
+   "commerce.search.choose_tags",
+   "commerce.search.listing_attributes",
+   "commerce.pricing.decide_price",
+   "commerce.category.for_product"
+  ]
+ },
+ "certification": {
+  "granted": false,
+  "reasons": [
+   "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+  ],
+  "content_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+  "source": "gate.certify job 1 (audit gate.blocked #1)",
+  "job_id": 1,
+  "job_status": "JobStatus.DONE",
+  "job_outputs": {
+   "artifact": "reading-nook-cable-wrap@0.1.0",
+   "granted": false,
+   "release_hash": null,
+   "reasons": [
+    "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+   ]
+  },
+  "physical_test_required": false
+ },
+ "experiment": {
+  "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+  "experiment": true,
+  "certified": false,
+  "slug": "reading-nook-cable-wrap",
+  "version": "0.1.0",
+  "title": "Reading Nook Cable Wrap",
+  "release": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+  "cir_fingerprint": "23420beed766",
+  "certification": {
+   "granted": false,
+   "reasons": [
+    "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+   ],
+   "content_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+   "source": "gate.certify job 1 (audit gate.blocked #1)"
+  },
+  "pdf_sha256_by_terminology": {
+   "US": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+   "UK": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12"
+  },
+  "released_on": "2026-10-19",
+  "budget_cad": 5.0,
+  "live": false,
+  "max_attempts_per_role": 2,
+  "owner_approval": "owner-approved experiment 2026-10-19: Reading Nook Cable Wrap v0.1.0, first end-to-end autonomous listing test, CA$5.00 total new paid usage, no credit purchases, no publishing, SHADOW only",
+  "opened_at": "2026-10-19T23:46:27.930811+00:00"
+ },
+ "command_center_notification": {
+  "id": 12,
+  "dedupe_key": "image_gallery:imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:ready_for_owner_review:experiment",
+  "severity": "normal",
+  "category": "decision",
+  "title": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: gallery ready for your look: reading-nook-cable-wrap",
+  "body": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION. Visual approval only. Technical certification: REFUSED (ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes). Publication authorization: not available for an experiment. ",
+  "consequence": "nothing publishes: an experiment can never reach store.publish, export or listing approval",
+  "deadline": null,
+  "evidence": [
+   "image_production_runs:1"
+  ],
+  "deep_link": "/cc/#/images/reading-nook-cable-wrap",
+  "first_seen_at": "2026-10-19T23:46:38.443437+00:00",
+  "last_seen_at": "2026-10-19T23:46:38.443437+00:00",
+  "occurrences": 1,
+  "acked_at": null,
+  "delivered": "in_app",
+  "held_for_quiet_hours": false
+ },
+ "budget": {
+  "cap_cad": 5.0,
+  "spent_cad": 0.0,
+  "reserved_cad": 0.0,
+  "headroom_cad": 5.0,
+  "entries": []
+ },
+ "flux_calls": [
+  {
+   "role": "product_anchor",
+   "attempt": 1,
+   "purpose": "image.product_only",
+   "size": "2048x2048",
+   "reserved_cad": 0.0,
+   "would_cost_cad": 0.13986,
+   "at": "2026-10-19T23:46:31.303286+00:00",
+   "references": 4,
+   "cost_cad": 0.0,
+   "output_px": [
+    2048,
+    2048
+   ],
+   "output_format": "PNG",
+   "output_sha256": "f5b15b11f1f574bb49f1e475e4ffaef77e6c55ce072f8c833e8a81a727581a87",
+   "task_id": "stub-1",
+   "latency_s": 0.14,
+   "upscaled": false,
+   "meets_2000px": true
+  },
+  {
+   "role": "lifestyle",
+   "attempt": 1,
+   "purpose": "image.lifestyle",
+   "size": "2048x2048",
+   "reserved_cad": 0.0,
+   "would_cost_cad": 0.13986,
+   "at": "2026-10-19T23:46:33.144756+00:00",
+   "references": 8,
+   "cost_cad": 0.0,
+   "output_px": [
+    2048,
+    2048
+   ],
+   "output_format": "PNG",
+   "output_sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+   "task_id": "stub-2",
+   "latency_s": 0.14,
+   "upscaled": false,
+   "meets_2000px": true
+  },
+  {
+   "role": "angle",
+   "attempt": 1,
+   "purpose": "image.lifestyle",
+   "size": "2048x2048",
+   "reserved_cad": 0.0,
+   "would_cost_cad": 0.13986,
+   "at": "2026-10-19T23:46:34.638767+00:00",
+   "references": 8,
+   "cost_cad": 0.0,
+   "output_px": [
+    2048,
+    2048
+   ],
+   "output_format": "PNG",
+   "output_sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+   "task_id": "stub-3",
+   "latency_s": 0.14,
+   "upscaled": false,
+   "meets_2000px": true
+  }
+ ],
+ "vision_calls": [],
+ "publication_refusals": {
+  "listing approval (image_production.approve)": "refused: EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: reading-nook-cable-wrap@0.1.0 is an uncertified experiment (release 335c61ce5658); listing approval is refused",
+  "image export (disclosed_listing.export_images)": "refused: EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: reading-nook-cable-wrap@? is an uncertified experiment (release 335c61ce5658); listing image export is refused",
+  "Etsy payload (etsy_ops.certified_payload)": "refused: EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: reading-nook-cable-wrap@0.1.0 is an uncertified experiment (release 335c61ce5658); Etsy payload (publish/activation) is refused",
+  "store.publish (handler, through the queue)": "refused: ExperimentRefused: EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: reading-nook-cable-wrap@0.1.0 is an uncertified experiment (release 335c61ce5658); store.publish is refused\nTraceback (most recent ca"
+ },
+ "outfit": {
+  "outfit_id": "exp-3c19bda128",
+  "description": "black fitted long-sleeve top; denim midi skirt; brown leather ankle boots; silver ring",
+  "garments": {
+   "top_or_dress": "black fitted long-sleeve top",
+   "lower": "denim midi skirt",
+   "shoes": "brown leather ankle boots",
+   "outerwear": "none",
+   "accessories": "silver ring"
+  },
+  "signature": "8bbeaa9b973a3335f7acc0d978ae8fe1607b02fb3075d39241a3c0e6f10e9877",
+  "colours": [
+   "black",
+   "brown",
+   "denim",
+   "silver"
+  ],
+  "reference_hashes": [],
+  "approved_reference": null,
+  "setting": "a warm reading nook: an armchair, a wool rug, a lamp and a bookshelf, late-afternoon window light",
+  "concept": {
+   "setting": "a warm reading nook: an armchair, a wool rug, a lamp and a bookshelf, late-afternoon window light",
+   "setting_reused": false,
+   "action": "wearing the wrap over her shoulders while reading",
+   "light": "natural window light",
+   "season": "winter",
+   "target_customer": "a reader who loves a calm nook",
+   "aesthetic": "warm, quiet Scandinavian-cottage: natural light, natural fibres, unhurried",
+   "formality": "casual",
+   "materials": [
+    "worsted wool"
+   ],
+   "use": "worn as a wrap while reading",
+   "avoid": [
+    "studio backdrop",
+    "generic catalogue pose",
+    "staring at camera while holding the product up",
+    "over-staged props",
+    "hands hidden or merged with the yarn",
+    "the canonical references' clothing"
+   ]
+  },
+  "approval_state": "approved",
+  "approved_by": "creative_director:styling/2",
+  "listing": "reading-nook-cable-wrap",
+  "uses": [
+   {
+    "listing": "reading-nook-cable-wrap",
+    "product": "reading-nook-cable-wrap@0.1.0",
+    "image_sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+    "at": "2026-10-19T23:46:33.334507+00:00"
+   },
+   {
+    "listing": "reading-nook-cable-wrap",
+    "product": "reading-nook-cable-wrap@0.1.0",
+    "image_sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+    "at": "2026-10-19T23:46:34.829960+00:00"
+   }
+  ],
+  "replaced_by": null
+ },
+ "candidates": [
+  {
+   "id": 3,
+   "role": "product_anchor",
+   "attempt": 1,
+   "sha256": "f5b15b11f1f574bb49f1e475e4ffaef77e6c55ce072f8c833e8a81a727581a87",
+   "provider": "stub",
+   "model": "stub (dry run)",
+   "outcome": "accepted",
+   "technical_status": "PASS",
+   "publishable": false,
+   "cost_cad": 0.0,
+   "latency_s": 1.164,
+   "width": 2048,
+   "height": 2048,
+   "failure_categories": [],
+   "prompt_sha256": "887fca568264ddf57ed3f3fa24c617764bc5a3701b30102d723ddbf676a8e6a6",
+   "references": [
+    {
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bc88ed047e86959cff881b7ec9c313037b87a504965396bdd598901fd9296ddc",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "33820e394a88b143ea1cb53dac0b3d053b41d51a573f3843ae9a48a773572310",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bfe6675b4e3b25c5478623ccbde84b86c4147280763675d17255a6dfdd704dc0",
+     "kind": "pattern_derived"
+    }
+   ],
+   "checks": {
+    "binding": {
+     "status": "PASS",
+     "why": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: bound to the UNCERTIFIED content 335c61ce5658 and its uncertified US/UK PDF hashes; certification REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes",
+     "experiment": true,
+     "certified": false,
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+     "release_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+     "pdf_sha256_by_terminology": {
+      "US": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+      "UK": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12"
+     },
+     "cir_fingerprint": "23420beed766",
+     "pieces": 1
+    },
+    "product_truth": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "quality": {
+     "status": "PASS",
+     "why": "2048x2048 PNG, opaque",
+     "width": 2048,
+     "height": 2048,
+     "format": "PNG",
+     "mode": "RGB"
+    },
+    "_publication": {}
+   }
+  },
+  {
+   "id": 4,
+   "role": "lifestyle",
+   "attempt": 1,
+   "sha256": "b0b51f50af38904c5197e9c2a8be1c42d953fba7eba6b78252b5434d063d38cc",
+   "provider": "stub",
+   "model": "stub (dry run)",
+   "outcome": "accepted",
+   "technical_status": "PASS",
+   "publishable": false,
+   "cost_cad": 0.0,
+   "latency_s": 1.379,
+   "width": 2048,
+   "height": 2048,
+   "failure_categories": [],
+   "prompt_sha256": "e1aeab7550ce59e3d93c6db1073d6918baf40dd4666124a18aafc5a1160a0e0a",
+   "references": [
+    {
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bc88ed047e86959cff881b7ec9c313037b87a504965396bdd598901fd9296ddc",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "33820e394a88b143ea1cb53dac0b3d053b41d51a573f3843ae9a48a773572310",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bfe6675b4e3b25c5478623ccbde84b86c4147280763675d17255a6dfdd704dc0",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+     "kind": "laura_canonical"
+    },
+    {
+     "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+     "kind": "laura_canonical"
+    },
+    {
+     "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+     "kind": "laura_canonical"
+    }
+   ],
+   "checks": {
+    "binding": {
+     "status": "PASS",
+     "why": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: bound to the UNCERTIFIED content 335c61ce5658 and its uncertified US/UK PDF hashes; certification REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes",
+     "experiment": true,
+     "certified": false,
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+     "release_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+     "pdf_sha256_by_terminology": {
+      "US": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+      "UK": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12"
+     },
+     "cir_fingerprint": "23420beed766",
+     "pieces": 1
+    },
+    "provenance": {
+     "status": "PASS",
+     "why": "AI-generated (stub/stub (dry run)), never a photograph",
+     "kind": "ai_generated_autonomous"
+    },
+    "quality": {
+     "status": "PASS",
+     "why": "2048x2048 PNG, opaque",
+     "width": 2048,
+     "height": 2048,
+     "format": "PNG",
+     "mode": "RGB"
+    },
+    "role": {
+     "status": "PASS",
+     "why": "CONVERSION_CREATIVE can do LIFESTYLE",
+     "job": "LIFESTYLE"
+    },
+    "product_truth": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "identity": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "body_proportions": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "anatomy": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "realism": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "disclosure": {
+     "status": "PASS",
+     "why": "honesty label assigned to the image's alt text and caption",
+     "label": "Illustrative concept image, AI-assisted; not a photograph of a finished item"
+    },
+    "outfit": {
+     "status": "PASS",
+     "why": "outfit exp-3c19bda128 is reserved for 'reading-nook-cable-wrap'; use recorded",
+     "rule": "D-W4-LAURA-OUTFIT",
+     "outfit_id": "exp-3c19bda128"
+    },
+    "outfit_distinctness": {
+     "status": "PASS",
+     "why": "distinct from every other listing's outfit and from the reference clothing",
+     "rule": "D-W4-LAURA-OUTFIT"
+    },
+    "outfit_consistency": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "_publication": {
+     "publishable": false,
+     "blockers": [
+      "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: the product is uncertified (certification refused); an experiment image is never publishable, exportable or approvable for a listing",
+      "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (LIFESTYLE here). A disclaimer is not permission",
+      "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help articles conflict on 'use your own photographs' for designed items (VISGATE \u00a73, V1). Whether a generated image may appear on a digital-pattern listing is UNKNOWN",
+      "Laura publication gate: these bytes are 'not_for_publication', not publication_approved"
+     ],
+     "may_export": false
+    }
+   }
+  },
+  {
+   "id": 5,
+   "role": "angle",
+   "attempt": 1,
+   "sha256": "43a943107a9cc48f6beffbf93b35f423bc85290bd9855361afa1f1273e14bf15",
+   "provider": "stub",
+   "model": "stub (dry run)",
+   "outcome": "accepted",
+   "technical_status": "PASS",
+   "publishable": false,
+   "cost_cad": 0.0,
+   "latency_s": 1.282,
+   "width": 2048,
+   "height": 2048,
+   "failure_categories": [],
+   "prompt_sha256": "e1aeab7550ce59e3d93c6db1073d6918baf40dd4666124a18aafc5a1160a0e0a",
+   "references": [
+    {
+     "sha256": "f3044c29b0363937622b4a8adaa7038383e25e7df83ce9c6cb7f6416e07af5a2",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bc88ed047e86959cff881b7ec9c313037b87a504965396bdd598901fd9296ddc",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "33820e394a88b143ea1cb53dac0b3d053b41d51a573f3843ae9a48a773572310",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "bfe6675b4e3b25c5478623ccbde84b86c4147280763675d17255a6dfdd704dc0",
+     "kind": "pattern_derived"
+    },
+    {
+     "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+     "kind": "laura_canonical"
+    },
+    {
+     "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+     "kind": "laura_canonical"
+    },
+    {
+     "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+     "kind": "laura_canonical"
+    }
+   ],
+   "checks": {
+    "binding": {
+     "status": "PASS",
+     "why": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: bound to the UNCERTIFIED content 335c61ce5658 and its uncertified US/UK PDF hashes; certification REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes",
+     "experiment": true,
+     "certified": false,
+     "label": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION",
+     "release_hash": "335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24",
+     "pdf_sha256_by_terminology": {
+      "US": "4dac9cbb48129a9e7945a3b84816704cb29acf80ab525d14ecfbec721b3fbb06",
+      "UK": "c536c2b4429b66d6216b806bb7bf1722929984290dece37cbbba6a6a05aedc12"
+     },
+     "cir_fingerprint": "23420beed766",
+     "pieces": 1
+    },
+    "provenance": {
+     "status": "PASS",
+     "why": "AI-generated (stub/stub (dry run)), never a photograph",
+     "kind": "ai_generated_autonomous"
+    },
+    "quality": {
+     "status": "PASS",
+     "why": "2048x2048 PNG, opaque",
+     "width": 2048,
+     "height": 2048,
+     "format": "PNG",
+     "mode": "RGB"
+    },
+    "role": {
+     "status": "PASS",
+     "why": "CONVERSION_CREATIVE can do ANGLE",
+     "job": "ANGLE"
+    },
+    "product_truth": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "identity": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "body_proportions": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "anatomy": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "realism": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "disclosure": {
+     "status": "PASS",
+     "why": "honesty label assigned to the image's alt text and caption",
+     "label": "Illustrative concept image, AI-assisted; not a photograph of a finished item"
+    },
+    "outfit": {
+     "status": "PASS",
+     "why": "outfit exp-3c19bda128 is reserved for 'reading-nook-cable-wrap'; use recorded",
+     "rule": "D-W4-LAURA-OUTFIT",
+     "outfit_id": "exp-3c19bda128"
+    },
+    "outfit_distinctness": {
+     "status": "PASS",
+     "why": "distinct from every other listing's outfit and from the reference clothing",
+     "rule": "D-W4-LAURA-OUTFIT"
+    },
+    "outfit_consistency": {
+     "status": "PASS",
+     "why": "STUB judge (dry run): no image was judged; this is plumbing, not a verdict",
+     "stub": true
+    },
+    "_publication": {
+     "publishable": false,
+     "blockers": [
+      "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: the product is uncertified (certification refused); an experiment image is never publishable, exportable or approvable for a listing",
+      "F-852: a AI_LIFESTYLE_CONCEPT is generated imagery of an object nobody has made, and generated product imagery is refused in every listing role (ANGLE here). A disclaimer is not permission",
+      "Etsy Listing Image Requirements could not be read (HTTP 403, DataDome) and the help articles conflict on 'use your own photographs' for designed items (VISGATE \u00a73, V1). Whether a generated image may appear on a digital-pattern listing is UNKNOWN",
+      "Laura publication gate: these bytes are 'not_for_publication', not publication_approved"
+     ],
+     "may_export": false
+    }
+   }
+  }
+ ],
+ "timeline": [
+  {
+   "at": "2026-10-19T23:46:15.454+00:00",
+   "stage": "scratch SHADOW database created",
+   "actor": "harness",
+   "duration_s": 1.132,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "891bc5f8ded0045efae1fc89bdc1bacd5463b1ade6fa4a222f39058855cee118",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:16.547+00:00",
+   "stage": "certification: gate.certify (real handler, scratch SHADOW DB)",
+   "actor": "quality_director",
+   "duration_s": 1.084,
+   "job_id": 1,
+   "idempotency_key": "experiment:certify:reading-nook-cable-wrap:0.1.0:23420beed766",
+   "inputs_sha256": "aaaab1c0327a15ba79ce7639496f8b71cdd35aef1656f8b23f2bea92ff9e4ffc",
+   "outputs_sha256": "061d4ec4f6b7100373a74dcd5c49fb815de1adbfa129eca95348f56ea6b1e70c",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "REFUSED: ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+  },
+  {
+   "at": "2026-10-19T23:46:27.908+00:00",
+   "stage": "uncertified PDFs rendered twice each, fixed released_on",
+   "actor": "harness",
+   "duration_s": 11.361,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": "01b9715fd97dac80b3487d99e27d642ff7ddec43bc048a027a62f1ad71786e92",
+   "outputs_sha256": "e0c449b5d9d94660f118d8b6d91e72c9db6b418a651688fd027b6f4fa647fb61",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:27.937+00:00",
+   "stage": "experiment opened (bound to content hash + uncertified PDF hashes)",
+   "actor": "harness",
+   "duration_s": 0.028,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": "857bd7c7ac9121ab7a3f8489caecf9c7cbd9b4db9271e43c0f6fde04a8760936",
+   "outputs_sha256": "91300c1f5484167c85398fc2338d4f2893fff6ec148198cb88486430cd96dbeb",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:29.027+00:00",
+   "stage": "orchestrator triggered (experiment)",
+   "actor": "harness",
+   "duration_s": 0.006,
+   "job_id": null,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:retrieve_release",
+   "inputs_sha256": null,
+   "outputs_sha256": "8cebd8a2e4592f8a05ac5b0f6a10d41e0318baefdcbfd223720786b66914a02a",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:29.177+00:00",
+   "stage": "image_production.retrieve_release",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 2,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:retrieve_release",
+   "inputs_sha256": "2472a4d410090c607d4fdee9b039fbf77edbb172ca1c7b4a7f4a41f23a0e8b85",
+   "outputs_sha256": "6e8fe61cf75d213e690cc9c271bda283bd0fe9050c09da145a0af08eed924356",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:30.237+00:00",
+   "stage": "image_production.prepare_references",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 3,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:prepare_references",
+   "inputs_sha256": "e73d97e182965e2f39efca641a5a5cf6c110890842ff2a068e73d43ea759ba8e",
+   "outputs_sha256": "1c4cc953ec1c44f350594f49ca9a6cf8630fd12896bae1fd7308ee9ec96963b7",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:31.505+00:00",
+   "stage": "image_production.product_generation",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 4,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:product_generation",
+   "inputs_sha256": "d4e4e276b511fb6aee0ed5be11b303b5c3d1876dcf4a041b7561002aba488dcd",
+   "outputs_sha256": "db71848b6936b4c424a821847c1aa423bdad5d32599e71dd7a209f5b29dabc29",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:31.537+00:00",
+   "stage": "image_production.fidelity_gate",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 5,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:fidelity_gate",
+   "inputs_sha256": "98fd7ea7310ed418c1d5aab73302aab31814414c2aec36b26cb3e050fc46df25",
+   "outputs_sha256": "7c68de0339c23573b741942f001ce97de6463dd575f2a676e6d87026f64ffd4e",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:31.657+00:00",
+   "stage": "image_production.load_laura_references",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 6,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:load_laura_references",
+   "inputs_sha256": "5f5b690e88b2cb30d6469ff0ac7df86eb2c506e30dd699d24df6e15faa4b9853",
+   "outputs_sha256": "dcda791d482abce9dbdb81f71e40909fb21284e63597e91c26c7ecfe79c34848",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:31.699+00:00",
+   "stage": "image_production.reserve_outfit",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 7,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:reserve_outfit",
+   "inputs_sha256": "103d889e9759d5e424a10759a4d1fe8ffe2cd03aae10afb2f8b4b17fc15dd844",
+   "outputs_sha256": "b7dbbbf51414e07b47df7e11da057af5d4f4a23dcaf369c061b231bee932c406",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:33.345+00:00",
+   "stage": "image_production.lifestyle_generation",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 8,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:lifestyle_generation",
+   "inputs_sha256": "71d4ca79c977c74042f2225ccaaa9327b8dcbb363c9d73bd3ca4468986f6ceed",
+   "outputs_sha256": "56368116cf7a719b4d547a6655e3cf80bf76a4534d5a0de4b6088fd41a13491c",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:34.840+00:00",
+   "stage": "image_production.remaining_roles",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 9,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:remaining_roles",
+   "inputs_sha256": "db2cb677c36a86dd5c57b478a017ec14cf1554e7523631129228740d4f03fe4e",
+   "outputs_sha256": "454d21af605ef8460b74405e03d0b8e18895eacdafe097ffe365825a490be4ab",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:34.863+00:00",
+   "stage": "image_production.verification",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 10,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:verification",
+   "inputs_sha256": "6f16b6d3027f6ac9144efeb97b46ec764eb607e65885e929e2ba70fcde8a7388",
+   "outputs_sha256": "2febef086b67237a85bcbf4dac1a18a5fdcfffd11ff903ee05bf35afe914dcc5",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:38.236+00:00",
+   "stage": "gallery assembly: deterministic frames rendered and stored",
+   "actor": "publishing",
+   "duration_s": 3.356,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "167818cc1a5640be7decfb9b112247f872f555a465af07dbb69c570960a4d350",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:38.243+00:00",
+   "stage": "image_production.gallery_assembly",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 11,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:gallery_assembly",
+   "inputs_sha256": "3701f516a68ea1d3f83a2ce6c7c8ed3a978164b940d6332a00c3ba9466d0231c",
+   "outputs_sha256": "0bdb9b9f674865d9f0082b6f10dd849b7613e0904ffd90c93af9c0c4c9f5e930",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:38.266+00:00",
+   "stage": "image_production.owner_card",
+   "actor": "publishing",
+   "duration_s": null,
+   "job_id": 12,
+   "idempotency_key": "imgprod:reading-nook-cable-wrap@0.1.0@335c61ce56587a46cf60db33b3aeb6dbdab0d5404b4c4ab4e7a7453571753a24:owner_card",
+   "inputs_sha256": "f104e5fe0ea4b6357b9e4a51ec542ee6c2884f05dc88bfc69ae94a9787643ad6",
+   "outputs_sha256": "292d228517980d4299f9e21c03239d5efde461143477d6c4c3343163f850b377",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "JobStatus.DONE"
+  },
+  {
+   "at": "2026-10-19T23:46:38.275+00:00",
+   "stage": "orchestrator idle after 11 stage jobs",
+   "actor": "harness",
+   "duration_s": 9.248,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "fa8aaa625c80926ffd05e7c940cd8d9316d18b8b743efd0a81afaa8e62cc444e",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:38.294+00:00",
+   "stage": "listing draft (seo/search/pricing/category reused)",
+   "actor": "seo",
+   "duration_s": 0.019,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "bab7d0ee1bbe88e44eef6ce861fb7427116dfc1b6a06ce0c2298cc6600d96630",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  },
+  {
+   "at": "2026-10-19T23:46:38.457+00:00",
+   "stage": "approval card created (Command Center notifications.refresh)",
+   "actor": "command_center",
+   "duration_s": 0.163,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "7550e7cb2feca0d50c6afa9e878a3fee6384e216b355dff52a13ed004eb477cb",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": "EXPERIMENT \u2014 UNCERTIFIED \u2014 NOT FOR PUBLICATION: gallery ready for your look: reading-nook-cable-wrap"
+  },
+  {
+   "at": "2026-10-19T23:46:38.485+00:00",
+   "stage": "publication paths refused (store.publish, export, listing approval)",
+   "actor": "harness",
+   "duration_s": 0.0,
+   "job_id": null,
+   "idempotency_key": null,
+   "inputs_sha256": null,
+   "outputs_sha256": "e7b7555d2d83e29b70a573f9b82fcf00753f3385ce4777f8e9d74972314a4023",
+   "cost_cad": 0.0,
+   "owner_action": null,
+   "note": ""
+  }
+ ]
+}

@@ -3,7 +3,7 @@
 Each identity-lock image provider has a stored package under
 `visual/assets/conditioning/laura-r2-a42aeac7/`. Each package records which canonical
 frames the provider receives, in which order (face first) and how many its dialect actually
-transmits (BFL: one). `verify_stored` re-derives every package from the canonical files and
+transmits (every reference, since W4-FLUXAPI). `verify_stored` re-derives every package from the canonical files and
 refuses a changed reference, a forbidden hash, a reordered pack or an edited file. Laura's
 images are read, never written. Local only; no provider call.
 
@@ -48,9 +48,12 @@ def test_the_package_is_the_canonical_revision_face_first_and_honest_about_trans
             canonical.CURRENT_REFERENCE_HASHES
         assert not {r["sha256"] for r in pkg["references"]} & forbidden
         assert pkg["references"][0]["transmitted"] is True
-    bfl = C.package("flux-2-pro")
-    assert bfl["transmitted"] == 1 and bfl["complete_pack_transmitted"] is False
-    assert "limitation" in bfl
+    # W4-FLUXAPI: BFL carried only the first reference until 2026-10-19. Both BFL models now
+    # carry the whole canonical pack (portrait, torso, full length), and nothing is limited.
+    for bfl_key in ("flux-2-pro", "flux-3-image"):
+        bfl = C.package(bfl_key)
+        assert bfl["transmitted"] == 3 and bfl["complete_pack_transmitted"] is True, bfl_key
+        assert all(r["transmitted"] for r in bfl["references"]) and "limitation" not in bfl
     gpt = C.package("gpt-image-2")
     assert gpt["transmitted"] == 3 and gpt["complete_pack_transmitted"] is True
 

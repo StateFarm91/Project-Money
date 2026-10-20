@@ -96,8 +96,26 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "flux-2-pro", "Black Forest Labs FLUX 2 Pro",
         "https://api.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
         "cheapest of the candidates that conditions on reference images, which is what an "
-        "identity lock actually is. Eight references is more than a canonical face pack "
-        "needs", account="bfl", model="flux-2-pro", dialect="bfl"),
+        "identity lock actually is. Eight references is the documented API limit "
+        "(`input_image` .. `input_image_8`, api.bfl.ai/openapi.json `Flux2Inputs`, read "
+        "2026-10-19). The table price is the 2026-09-20 assumption; the per-call reservation "
+        "uses BFL's published megapixel formula (`bfl_estimate_usd`), which is higher",
+        account="bfl", model="flux-2-pro", dialect="bfl"),
+    # FLUX 3 Image (W4-FLUXAPI). Verified 2026-10-19 against BFL's official API reference
+    # (docs.bfl.ai/api-reference/utility/generate-an-image-with-flux-3 and
+    # api.bfl.ai/openapi.json `Flux3ImageInputs`): POST /v1/flux-3-image, `x-key` auth,
+    # `images` = one to 10 references (http(s) URL or base64), `aspect_ratio` (15 ratios or
+    # `auto`), `resolution` tier (768sq/1k/1.5k/2k/4k), unknown fields refused with 422 -- so
+    # no `seed`, `width`, `input_image`. Priced per image by resolution tier, references not
+    # charged (docs.bfl.ai/quick_start/pricing, release notes 2026-10-01). `usd_per_image` is
+    # the 1k tier, the tier this gateway asks for at 1024x1024; other tiers reserve their own
+    # documented price (`BFL3_TIER_USD`).
+    ImageProvider(
+        "flux-3-image", "Black Forest Labs FLUX 3 Image",
+        "https://api.bfl.ai/v1/flux-3-image", 0.048, True, 10,
+        "the model the owner measured by hand on dashboard.bfl.ai (US$0.048 per image at 1k, "
+        "37-216 s each, up to three references). Same BFL account and key as flux-2-pro",
+        account="bfl", model="flux-3-image", dialect="bfl3"),
     ImageProvider(
         "gpt-image-2", "OpenAI GPT Image 2 at 1024px",
         "https://api.openai.com/v1/images/generations", 0.03, True, 16,
@@ -424,6 +442,117 @@ def _google_tier(size: str) -> str:
     return "4K" if px >= 3072 else "2K" if px >= 1536 else "1K"
 
 
+# BFL's published prices (W4-FLUXAPI), read 2026-10-19 from the feed the official pricing page
+# renders (docs.bfl.ai/quick_start/pricing; values there are US cents, 1 credit = US$0.01) and
+# confirmed for 768sq/1k/2k/4k in the 2026-10-01 release notes. FLUX 3 Image is priced per
+# image by `resolution` tier; references are not charged.
+BFL3_TIER_USD: dict[str, float] = {"768sq": 0.041, "1k": 0.048, "1.5k": 0.070, "2k": 0.100,
+                                   "4k": 0.607}
+BFL3_ASPECT_RATIOS: tuple[str, ...] = ("21:9", "2:1", "16:9", "3:2", "7:5", "4:3", "5:4", "1:1",
+                                       "4:5", "3:4", "5:7", "2:3", "9:16", "1:2", "9:21")
+# The only fields FLUX 3 Image accepts (`Flux3ImageInputs`, additionalProperties: false).
+BFL3_FIELDS = frozenset({"prompt", "images", "aspect_ratio", "resolution", "safety_tolerance",
+                         "grounding", "version"})
+# FLUX.2 [pro] megapixel pricing, same source: first output MP, each further output MP, and
+# each input (reference) MP. A megapixel is 1,048,576 pixels (BFL's own definition).
+BFL2_PRO_USD = {"first_mp": 0.03, "extra_mp": 0.015, "input_mp": 0.015}
+BFL_MP = 1_048_576
+BFL_PRICE_BASIS = ("published BFL price read 2026-10-19 (docs.bfl.ai/quick_start/pricing); "
+                   "the submit response's `cost` is the provider's own figure")
+
+
+def _bfl_input_field(i: int) -> str:
+    """FLUX.2's reference fields: `input_image`, then `input_image_2` .. `input_image_8`."""
+    return "input_image" if i == 0 else f"input_image_{i + 1}"
+
+
+def _wh(size: str) -> tuple[int, int]:
+    try:
+        w, h = (int(x) for x in str(size).lower().split("x"))
+        return w, h
+    except (ValueError, TypeError):
+        px = _pixels(size)
+        return px, px
+
+
+def bfl3_tier(size: str) -> str:
+    """The FLUX 3 `resolution` tier for a WxH request: the nearest equal-area tier at or above.
+
+    768sq is a square-only preview tier, so a non-square request never lands on it."""
+    w, h = _wh(size)
+    area = w * h
+    if w == h and area <= 768 * 768:
+        return "768sq"
+    for tier, cap in (("1k", 1.05 * BFL_MP), ("1.5k", 2.1 * BFL_MP), ("2k", 4.2 * BFL_MP)):
+        if area <= cap:
+            return tier
+    return "4k"
+
+
+def bfl3_aspect(size: str) -> str:
+    """The FLUX 3 `aspect_ratio` for a WxH request, refused when it is not a documented one."""
+    import math
+
+    w, h = _wh(size)
+    g = math.gcd(w, h) or 1
+    ratio = f"{w // g}:{h // g}"
+    if ratio not in BFL3_ASPECT_RATIOS:
+        raise ImagesRefused(f"{size} is {ratio}, which FLUX 3 Image does not offer; documented "
+                            f"ratios: {', '.join(BFL3_ASPECT_RATIOS)}")
+    return ratio
+
+
+def _image_mp(path: str) -> float:
+    """A local reference's megapixels, for FLUX.2's per-input-MP price. Unreadable: refused."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            w, h = im.size
+    except Exception as exc:  # noqa: BLE001 - an unpriceable input is an unbounded one
+        raise ImagesRefused(f"{Path(str(path)).name}: cannot read its dimensions to price it "
+                            f"({type(exc).__name__}); an unpriced input is refused") from exc
+    return (w * h) / BFL_MP
+
+
+def render_estimate_usd(provider: ImageProvider, size: str = "1024x1024",
+                        reference_urls: list[str] | None = None,
+                        payload: bytes | None = None) -> dict:
+    """What one render will cost, before it is asked for, in US dollars, with its basis.
+
+    Never below the table price. For FLUX 3 the tier is read from the built request body when
+    there is one (an `extra_fields` resolution changes the price). For FLUX.2 [pro] the
+    documented megapixel formula is applied to the output size and every reference's actual
+    pixels. Every other provider: its table price, as before."""
+    refs = list(reference_urls or [])
+    table = float(provider.usd_per_image)
+    if provider.dialect == "bfl3":
+        tier = ""
+        if payload:
+            try:
+                tier = str(json.loads(payload).get("resolution") or "")
+            except ValueError:
+                tier = ""
+        tier = tier or bfl3_tier(size)
+        if tier not in BFL3_TIER_USD:
+            raise ImagesRefused(f"FLUX 3 resolution {tier!r} has no published price")
+        usd = BFL3_TIER_USD[tier]
+        return {"usd": max(usd, 0.0), "basis": BFL_PRICE_BASIS, "tier": tier,
+                "formula": f"per image at resolution {tier}; references not charged"}
+    if provider.dialect == "bfl":
+        import math
+
+        w, h = _wh(size)
+        out_mp = max(1, math.ceil((w * h) / BFL_MP))
+        in_mp = sum(_image_mp(r) for r in refs if Path(str(r)).is_file())
+        usd = (BFL2_PRO_USD["first_mp"] + (out_mp - 1) * BFL2_PRO_USD["extra_mp"]
+               + in_mp * BFL2_PRO_USD["input_mp"])
+        return {"usd": round(max(usd, table), 6), "basis": BFL_PRICE_BASIS,
+                "formula": (f"{out_mp} output MP + {in_mp:.3f} input MP at "
+                            f"{BFL2_PRO_USD}; never below the table price {table}")}
+    return {"usd": table, "basis": "assumed, read 2026-09-20", "formula": "table price"}
+
+
 def refuse_benchmark_references(reference_urls: list[str] | None, *,
                                 benchmark_hashes=None) -> None:
     """F-785: no benchmark or seller image ever conditions a Brambleloop render.
@@ -475,17 +604,44 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
         }
         return url, {"x-goog-api-key": key}, json.dumps(body).encode()
 
-    if provider.dialect == "bfl":
+    if provider.dialect in ("bfl", "bfl3"):
         # Black Forest Labs is a submit-then-poll API: the POST returns a job, not a picture.
-        # Unverified; `generate` polls because a synchronous read of this endpoint would
-        # return a job id and `_first_image` would call it an answer without an image.
-        px = _pixels(size)
-        # `image_prompt` is base64 bytes, not a path. It was being handed the local
-        # filesystem path of the canonical render -- a string BFL cannot resolve, on a disk
-        # it cannot reach -- so the identity trial failed for a second, different reason
-        # after the OpenAI one was fixed, and the candidate's schedule stayed five short.
-        body = {"prompt": prompt, "width": px, "height": px,
-                **({"image_prompt": _inline_reference(refs[0])} if refs else {})}
+        #
+        # W4-FLUXAPI: every reference is transmitted, in the documented field, up to the
+        # documented limit -- and more than the limit is refused, never truncated. Until
+        # 2026-10-19 this sent only `refs[0]`, as `image_prompt`: a field the FLUX.2 schema
+        # does not define at all (it belongs to FLUX1.1 [pro]; `Flux2Inputs` allows unknown
+        # fields, so nothing refused it). The receipt saw the bytes in the body and called the
+        # reference transmitted; whether the model conditioned on it was never documented.
+        limit = int(provider.reference_images)
+        if len(refs) > limit:
+            raise ImagesRefused(
+                f"{provider.key} takes at most {limit} reference image(s) (BFL API docs); "
+                f"{len(refs)} were supplied. Refused rather than silently dropping "
+                f"{len(refs) - limit} of them: an identity lock that quietly loses a "
+                f"reference is a prompt")
+        inline = [_inline_reference(r) for r in refs]
+        if provider.dialect == "bfl3":
+            body = {"prompt": prompt, "aspect_ratio": bfl3_aspect(size),
+                    "resolution": bfl3_tier(size),
+                    # Off by default: grounding lets the model search the web and image search
+                    # for material, which would put other people's photography into a
+                    # Brambleloop render's inputs (never copy competitor imagery).
+                    "grounding": False}
+            if inline:
+                body["images"] = inline
+            extra = dict(extra_fields or {})
+            unknown = sorted(set(extra) - BFL3_FIELDS - {"images", "prompt"})
+            if unknown:
+                raise ImagesRefused(f"FLUX 3 Image refuses unknown fields with 422; "
+                                    f"not sending {unknown}")
+            body.update({k: v for k, v in extra.items() if k not in ("images", "prompt")})
+        else:
+            px = _pixels(size)
+            w, h = _wh(size)
+            body = {"prompt": prompt, "width": w or px, "height": h or px}
+            for i, data in enumerate(inline):
+                body[_bfl_input_field(i)] = data
         return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
 
     if provider.dialect == "openai" and refs:
@@ -541,7 +697,8 @@ def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | No
     refs = list(reference_urls or [])
     body = bytes(payload or b"")
     rows: list[dict] = []
-    for ref in refs:
+    inline_dialects = ("google", "bfl", "bfl3")
+    for index, ref in enumerate(refs):
         path = Path(str(ref))
         if not path.is_file():
             rows.append({"reference": str(ref)[:200], "sha256": "", "bytes": 0,
@@ -549,12 +706,14 @@ def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | No
             continue
         raw = path.read_bytes()
         encoded = base64.standard_b64encode(raw)
-        found = bool(raw) and (encoded in body if provider.dialect in ("google", "bfl")
+        found = bool(raw) and (encoded in body if provider.dialect in inline_dialects
                                else raw in body)
         rows.append({"reference": path.name, "sha256": hashlib.sha256(raw).hexdigest(),
                      "bytes": len(raw), "transmitted": found,
-                     "carried_as": ("base64_inline" if provider.dialect in ("google", "bfl")
+                     "carried_as": ("base64_inline" if provider.dialect in inline_dialects
                                     else "multipart_upload"),
+                     "field": _reference_field(provider, index),
+                     "position": index + 1,
                      "why": "" if found else (
                          f"the {provider.dialect} request body does not contain these bytes; "
                          f"this dialect did not transmit this reference")})
@@ -563,9 +722,22 @@ def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | No
             "dialect": provider.dialect, "requested": len(refs),
             "transmitted": sum(1 for r in rows if r["transmitted"]),
             "references": rows, "proven": proven,
+            "reference_sha256s": [r["sha256"] for r in rows],
+            "reference_limit": int(provider.reference_images),
             "request_sha256": hashlib.sha256(body).hexdigest(),
             "basis": ("measured: reference bytes located in the exact request body sent"
                       if rows else "no reference requested")}
+
+
+def _reference_field(provider: ImageProvider, index: int) -> str:
+    """Where reference `index` sits in this dialect's request, for the receipt."""
+    if provider.dialect == "bfl":
+        return _bfl_input_field(index)
+    if provider.dialect == "bfl3":
+        return f"images[{index}]"
+    if provider.dialect == "google":
+        return f"contents[0].parts[{index + 1}].inlineData"
+    return "image[]"
 
 
 def _multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
@@ -668,6 +840,14 @@ def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
+        # FLUX 3 docs: "A failed task can come back as HTTP 503 with a normal JSON body. Read
+        # `status` from the body before treating a 503 as a retryable outage."
+        try:
+            parsed = json.loads(exc.read().decode(errors="replace"))
+        except Exception:  # noqa: BLE001 - not a status body: an outage
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("status"):
+            return parsed
         raise TransientError(f"{label} poll {exc.code}") from exc
     except urllib.error.URLError as exc:
         raise TransientError(f"{label} poll unreachable: {exc.reason}") from exc
@@ -683,6 +863,8 @@ BFL_POLL_SECONDS = 2.0
 # and "the second provider never finished" are different findings, and the attempt log
 # was reporting the second as the first.
 BFL_POLL_ATTEMPTS = 150
+# FLUX 3 Image took 37-216 s per image by the owner's hand measurement, inside the 300 s bound.
+BFL_IN_PROGRESS = frozenset({"pending", "reasoning", "generating", "queued", "processing"})
 
 
 # The database the render guard reads when a caller passes none. `generate` had no `db`
@@ -712,7 +894,7 @@ def _budget_db(db):
 
 
 def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str = "",
-                   job_id: int | None = None) -> dict:
+                   job_id: int | None = None, estimate_cad: float | None = None) -> dict:
     """Claim one image's price against the monthly ceiling before the provider is asked.
 
     Raises `anthropic.BudgetExceeded` (or its agent-permission subclass) with the provider
@@ -721,8 +903,11 @@ def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str
     """
     from . import anthropic as gw
 
+    # W4-FLUXAPI: a per-call estimate (`render_estimate_usd`) replaces the table price when the
+    # documented price of this exact request is known, and is never below it.
+    estimate = max(float(provider.cad_per_image), float(estimate_cad or 0.0))
     return gw.check_budget_cad(
-        _budget_db(db), estimate_cad=provider.cad_per_image,
+        _budget_db(db), estimate_cad=estimate,
         agent=agent or DEFAULT_RENDER_AGENT, purpose=purpose or DEFAULT_RENDER_PURPOSE,
         job_id=job_id, model=provider.key, provider=provider.key)
 
@@ -774,7 +959,9 @@ def record_render(db, provider: ImageProvider, budget: dict | None, *, agent: st
     from ..finance import spend_report
     from . import routing
 
-    cost = float(provider.cad_per_image)
+    # The reserved per-call estimate when there is one (W4-FLUXAPI), so the ledger row and the
+    # reservation reconcile; otherwise the table price, as before.
+    cost = float((budget or {}).get("estimate_cad") or provider.cad_per_image)
     detail = {"price_basis": "assumed", "billing": billing,
               "reservation_id": (budget or {}).get("reservation_id"),
               **({"error": str(error)[:300]} if error else {}),
@@ -888,7 +1075,12 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"cannot be proven in the request body is not conditioning (F-212)")
     # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
     # after `_post` would be a report about money already spent.
-    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)
+    # The documented price of *this* request (tier, output and input megapixels), reserved
+    # before anything leaves. Never below the table price; an unpriceable input is refused.
+    estimate = render_estimate_usd(provider, size, reference_urls, payload)
+    receipt["price"] = {**estimate, "cad": round(estimate["usd"] * USD_TO_CAD, 6)}
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
+                            estimate_cad=receipt["price"]["cad"])
     started = time.time()
     billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
                "spend_detail": spend_detail}
@@ -987,18 +1179,24 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
     # The provider answered 2xx: from here on the work is billed whatever happens next.
     billing["accepted"] = True
 
-    if provider.dialect == "bfl" and body.get("polling_url"):
+    if provider.dialect in ("bfl", "bfl3") and body.get("polling_url"):
         # Submit-then-poll. A job id is not a picture, and returning one as though it were
         # is how a benchmark scores sixty identical acknowledgements.
         poll = str(body["polling_url"])
+        submitted = {k: body.get(k) for k in ("id", "cost", "input_mp", "output_mp")}
+        billing["provider_submit"] = submitted
         for _ in range(BFL_POLL_ATTEMPTS):
             body = _get(poll, headers, label=provider.key, timeout=timeout)
-            status = str(body.get("status") or "").lower()
+            # BFL's statuses are "Request Moderated", "Task not found", ...: normalised, so a
+            # moderation verdict ends the poll instead of polling to the timeout.
+            status = str(body.get("status") or "").strip().lower().replace(" ", "_")
             if status in ("ready", "succeeded", "complete", "completed"):
                 break
-            if status in ("error", "failed", "content_moderated",
-                          "request_moderated"):
-                raise ImagesRefused(f"{provider.key} returned {status}: "
+            # Only the documented in-progress statuses keep polling (StatusResponse). Any other
+            # answer -- Error, Request/Content Moderated, Task not found, No Card Generated, or
+            # something new -- is terminal: a status nobody recognises is not a reason to wait.
+            if status not in BFL_IN_PROGRESS:
+                raise ImagesRefused(f"{provider.key} returned {status or 'no status'}: "
                                     f"{json.dumps(body)[:300]}")
             time.sleep(BFL_POLL_SECONDS)
         else:
@@ -1038,9 +1236,24 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
                 f"{provider.key} returned a link that could not be fetched: {exc}. A "
                 f"presigned URL is only an image while it lasts") from exc
 
+    import hashlib
+
     suffix = ".jpg" if "jpeg" in mime else ".webp" if "webp" in mime else ".png"
     path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
     Path(path).write_bytes(raw)
+    # Fingerprinted the moment it is on disk: the delivery URL expires (BFL: 10 minutes in the
+    # integration guidelines, 1 hour on the FLUX 3 page), the bytes and their hash do not.
+    output_sha256 = hashlib.sha256(raw).hexdigest()
+    result_meta = body.get("result") if isinstance(body.get("result"), dict) else {}
+    provider_receipt = {
+        **dict(billing.get("provider_submit") or {}),
+        "task_id": body.get("id") or (billing.get("provider_submit") or {}).get("id"),
+        "seed": result_meta.get("seed"),
+        "duration_s": result_meta.get("duration"),
+        "expanded_prompt_sha256": (hashlib.sha256(str(result_meta["prompt"]).encode())
+                                   .hexdigest() if result_meta.get("prompt") else None),
+        "settled_cost_credits": body.get("cost"),
+    }
 
     # The picture exists, so the provider has billed: the ledger row is written and the
     # claim comes back with the price (B2).
@@ -1053,11 +1266,12 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
     release_render(db, budget, billed=True)
 
     return {"provider": provider.key, "url": image_url, "path": path,
-            "image_ref": path, "bytes": len(raw),
+            "image_ref": path, "bytes": len(raw), "sha256": output_sha256,
+            "model": provider.model, "provider_receipt": provider_receipt,
             # Reported rather than assumed: the first version defaulted this to image/png
             # and said so about a JPEG that BFL had plainly labelled.
             "mime": mime or "", "size": size,
-            "cad": provider.cad_per_image,
+            "cad": float(budget.get("estimate_cad") or provider.cad_per_image),
             "reservation_id": budget.get("reservation_id"),
             "cost_entry_id": cost_entry_id,
             "ceiling_headroom_cad": budget.get("headroom_cad"),

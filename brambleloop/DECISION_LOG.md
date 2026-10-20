@@ -2085,6 +2085,24 @@ incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before c
 gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
 every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.
 
+
+## D-W4-VISNEXT-JUDGES — blind vision-judge adapters and their pass rules (W-VISNEXT, 2026-10-20)
+
+**Status: routine engineering decision (worker, within autonomy); no gate, margin or test was relaxed.**
+Every vision check (identity, body proportions, five-slot outfit consistency, anatomy, realism, anchor
+consistency, the lifestyle product region) is asked as a blind, closed-vocabulary question through the
+existing `image_vision`-gated, budget-reserved `fidelity.GatewayVisionJudge`, and the answer is compared in
+code against the CIR, the wardrobe registry or `identity_gate.assess` (`visual/vision_judges.py`).
+
+- Identity and body proportions need two readings from two **different** judges (transport or model) to
+  pass; one judge can refuse but never pass. Identity also needs the biometric floor, which has no qualified
+  embedder, so identity tops out at the REVIEW band (UNKNOWN). Production configures one judge today.
+- The lifestyle product region is a set of interior fabric patches the judge points at without being shown the
+  palette; the palette is measured in code inside them. Unvalidated on real FLUX output; no patch is UNKNOWN.
+- Approved generated frames are written to `ListingAsset` only after a fresh re-verification still reads them
+  publishable, and `release_gates.listing_set` then re-judges them unchanged. While F-852 holds, nothing is
+  ever written. Brief changes learned from failures are only ever registered as `improve.league` challengers.
+
 ## D-W4-F852-PROPOSED — owner's proposed resolution of F-852 and vision authorisation (2026-10-20, PENDING owner choice on a conflict)
 
 **The owner's ruling, as given:** "I approve the use of accurately disclosed AI-generated lifestyle and product

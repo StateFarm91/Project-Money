@@ -69,6 +69,9 @@ def digest(value):
 
 def approve(db, *, authorization, slug, version, expected_digest, reason, release=""):
     from ..laura.private.firewall import reject_private
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(db, slug, version, action="activation approval")  # W4-WRAPTEST
 
     # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
     reject_private((authorization, slug, version, expected_digest, reason, release),

@@ -1575,6 +1575,11 @@ def handle_store_publish(ctx: JobContext) -> dict:
     # that it is allowed to publish at all has inverted its own gates, and the refusal
     # `/api/verify` counts as evidence of Shadow Mode working would start saying something
     # else.
+    # W4-WRAPTEST: an uncertified EXPERIMENT never reaches publication, in any phase.
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),
+                         action="store.publish")
     parity_verdict = _listing_parity(ctx)
     ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
 

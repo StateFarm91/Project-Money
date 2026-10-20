@@ -34,6 +34,15 @@ ROLE_JOBS: dict[str, tuple[str, str]] = {
     "pattern_preview": (el.PATTERN_PREVIEW, el.CUSTOMER_INFORMATION),
     "chart": (el.DETAIL, el.ENGINEERING_EVIDENCE),
     "collection": (el.CROSS_SELL, el.CUSTOMER_INFORMATION),
+    # VISGATE E-A: a photograph from `physical_upgrade` arrives as role "proof" and was
+    # removed as filler because this table did not know the role. PROOF is done only by
+    # PHYSICAL_PROOF, so a generated or drawn frame claiming it is refused when its Candidate
+    # is built. LIFESTYLE is a CONVERSION_CREATIVE job that a camera photo can do. A generated
+    # frame can also be classified for it, but `may_export` still refuses it (F-852).
+    # Both roles are photographic for the #61 review (`frame_role.classify`), so they keep
+    # every realism check. Nothing is lowered.
+    "proof": (el.PROOF, el.PHYSICAL_PROOF),
+    "lifestyle": (el.LIFESTYLE, el.CONVERSION_CREATIVE),
 }
 
 # The component the finished-size numbers describe. One per product today: every listing
@@ -45,6 +54,109 @@ _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm\s*)?[x×]\s*(\d+(?:\.\d+)?)\s*cm
 
 def _asset_id(slug: str, position: int) -> str:
     return f"{slug}-frame-{position}"
+
+
+# W-VISNEXT: frames written by `visual.gallery_persist` from autonomous image production.
+GENERATED_SOURCE = "visual.image_production"
+
+
+def is_generated_frame(f) -> bool:
+    """A ListingAsset frame that image production generated (never a photograph)."""
+    return (getattr(f, "claims", None) or {}).get("source") == GENERATED_SOURCE
+
+
+def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
+    """The four promotion gates for one generated ListingAsset frame, judged per its role.
+
+    A generated frame was not made by `assets.build`, so it is not judged on that build's
+    readings (which would say "never ran" whatever the frame is). Its gates come from its own
+    record: DATA_TRUTH from the stored technical verdict of its candidate (binding, Product
+    Truth, identity, outfit), LAYOUT_QA from its measured quality, COMMERCIAL_QA from its role,
+    realism and anatomy checks, POLICY_PROVENANCE from its provenance row (the file on record
+    must be the file written). `eligibility.may_export` then decides, and its F-852 rule refuses
+    generated product imagery in every role. Nothing here relaxes that."""
+    job = ROLE_JOBS.get(f.role)
+    base = {"asset_id": _asset_id(slug, f.position), "position": f.position, "role": f.role,
+            "sha256": f.sha256, "generated": True}
+    from ..visual.experiment import LABEL, is_experiment_image
+
+    if is_experiment_image(db, f.sha256):
+        why = f"{LABEL}: a controlled-experiment image is never exported"
+        return {**base, "may_export": False, "blockers": [why], "why": why,
+                "job": (job or ("",))[0], "gates": {}}
+    if job is None:
+        why = f"role {f.role!r} has no commercial job; a frame with no job is filler (#65)"
+        return {**base, "may_export": False, "blockers": [why], "why": why, "job": "",
+                "gates": {}}
+    try:
+        c = el.Candidate(asset_id=_asset_id(slug, f.position), medium=AssetClass(f.asset_class),
+                         purpose=job[1], job=job[0], position=f.position)
+    except (el.EligibilityRefused, ValueError) as e:
+        why = str(e)[:300]
+        return {**base, "may_export": False, "blockers": [why], "why": why, "job": job[0],
+                "gates": {}}
+    checks: dict = {}
+    cand: dict = {}
+    cid = (f.claims or {}).get("candidate_id")
+    if cid:
+        from ..visual.image_records import ImageCandidate, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            row = s.get(ImageCandidate, int(cid))
+            if row is not None and row.sha256 == f.sha256:
+                checks = dict(row.checks or {})
+                checks["_technical"] = {"status": row.technical_status}
+                cand = {"sha256": row.sha256, "role": row.role, "model": row.model,
+                        "references": list(row.references or []),
+                        "prompt_version": row.prompt_version,
+                        "provenance_kind": row.provenance_kind,
+                        "laura_present": bool(row.laura_present),
+                        "identity_evidence": checks.get("_identity_evidence") or {}}
+
+    def outcome(*names):
+        st = [str((checks.get(n) or {}).get("status") or "UNKNOWN") for n in names]
+        st = [x for x in st if x != "NOT_APPLICABLE"]
+        if "FAIL" in st:
+            return el.FAILED
+        return el.PASSED if st and all(x == "PASS" for x in st) else el.NOT_RUN
+
+    no_record = "no verification record for these bytes" if not checks else ""
+    gates = [el.GateResult(el.DATA_TRUTH, outcome("_technical"),
+                           no_record or "the candidate's stored technical verdict"),
+             el.GateResult(el.LAYOUT_QA, outcome("quality"), no_record or "measured quality"),
+             el.GateResult(el.COMMERCIAL_QA, outcome("role", "realism", "anatomy"),
+                           no_record or "role, realism and anatomy readings")]
+    sha = _provenance_sha(db, slug, version, f.id)
+    if sha is None:
+        gates.append(el.GateResult(el.POLICY_PROVENANCE, el.FAILED,
+                                   "no provenance row: source and rights cannot be shown"))
+    elif sha != f.sha256:
+        gates.append(el.GateResult(el.POLICY_PROVENANCE, el.FAILED,
+                                   f"provenance records {sha[:12]}, the frame on file is "
+                                   f"{str(f.sha256)[:12]}"))
+    else:
+        gates.append(el.GateResult(el.POLICY_PROVENANCE, el.PASSED,
+                                   "provenance row (#36 ai_generated) matches the file"))
+    evidence = None
+    if cand:
+        # D-W4-F852-AMEND: the verified-exception evidence, from the frame's own record only.
+        from ..visual import candidate_gates as CG
+
+        other = []
+        if cand["laura_present"]:
+            from ..visual import canonical
+
+            status = canonical.asset_status(f.sha256 or "")
+            if status != canonical.PUBLICATION_APPROVED_STATUS:
+                other.append(f"Laura publication gate: '{status}'")
+        evidence = CG.exception_evidence(cand, {k: v for k, v in checks.items()
+                                                if isinstance(v, dict)}, job[0],
+                                         cand["laura_present"],
+                                         other_publication_blockers=other)
+    verdict = el.may_export(c, gates, truth_verdict=gates[0].outcome,
+                            generated_evidence=evidence)
+    return {**verdict, **base}
 
 
 def _classify(reason: str) -> str:
@@ -478,6 +590,10 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
 
     per_frame: list[dict] = []
     for f in frames:
+        if is_generated_frame(f):
+            # W-VISNEXT: judged on its own verification record, per its role (F-852 holds).
+            per_frame.append(generated_frame_verdict(db, slug, version, f))
+            continue
         c = by_position.get(f.position)
         reasons_for = list(f.blocked_reasons or [])
         # DATA_TRUTH and LAYOUT_QA are the readings `assets.build` recorded (asset_truth and
@@ -638,8 +754,19 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
         supplement_qa=supplement_qa if supplements else None)
 
+    # W-VISNEXT: generated ListingAsset frames are judged per their role, not ignored. A
+    # refused one is excluded from the certified set and reported. One that passed its gates
+    # would need a mixed-set certificate, which the disclosed certificate is not: blocked.
+    generated = [generated_frame_verdict(db, slug, version, f) for f in frames
+                 if is_generated_frame(f)]
+    passing = [g for g in generated if g.get("may_export")]
+    if passing:
+        reasons.append(f"generated frame(s) {[g['position'] for g in passing]} passed their "
+                       f"gates, but the disclosed-render certificate does not cover "
+                       f"ListingAsset frames; a mixed set is not certified here")
     geometry = geometry_of(twin, cir)
-    claims = claims_of(listing, frames, _search_profile(db, slug, version))
+    claims = claims_of(listing, [f for f in frames if not is_generated_frame(f)],
+                       _search_profile(db, slug, version))
     rechecked = recheck(db, slug=slug, version=version, geometry=geometry, claims=claims,
                         policy_version=POLICY_VERSION)
     cert: dict
@@ -680,6 +807,9 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
                                            "references")},
         "certificate": cert,
+        "generated_frames": [{k: g.get(k) for k in ("position", "role", "job", "may_export",
+                                                    "why")} for g in generated],
+        "generated_excluded": [g["position"] for g in generated if not g.get("may_export")],
     }
 
 

@@ -126,6 +126,9 @@ class Database:
                  scratch: bool = False):
         """`scratch=True` marks a deliberate throwaway database (see `resolve_url`)."""
         self.engine = make_engine(url, echo, scratch=scratch)
+        # Read by `visual.experiment`: an uncertified EXPERIMENT run is refused on any
+        # database not declared a throwaway at its call site (W4-WRAPTEST).
+        self.scratch = bool(scratch)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
 
     def create_all(self) -> list[str]:
@@ -156,6 +159,8 @@ class Database:
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
+        from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
+        from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
         # REL2 tables, created at boot rather than only lazily on first use (W4-INTEG3):
         # etsy_webhook_refusals rides in etsy_webhooks above; the brief cursors live here.
         from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors

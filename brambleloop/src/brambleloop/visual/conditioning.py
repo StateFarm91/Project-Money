@@ -5,7 +5,8 @@ conditioning package an identity-locked render is built from. Until now the pack
 only implicitly, inside each request body (`gateway.images.conditioning_receipt` proves the
 bytes left, per request). Nothing recorded, ahead of any call, which canonical frames each
 provider will receive, in which order, and how many of them its dialect actually transmits.
-That matters: BFL carries only the first reference, so the order is part of the identity lock.
+Until W4-FLUXAPI (2026-10-19) BFL carried only the first reference, in a field FLUX.2 does not
+define; every BFL dialect now carries every reference up to the documented limit.
 
 A package is derived from the canonical revision alone (`visual.canonical`,
 laura-r2-a42aeac7, D-FB-14). It is never derived from a session, a scratch file or a
@@ -29,9 +30,10 @@ VERSION = "conditioning-package/1.0.0"
 FRAME_ORDER: tuple[str, ...] = ("neutral_portrait", "torso_fit_reference",
                                 "full_length_standing")
 # How many references each dialect actually places in the request body
-# (`gateway.images._build_request`): BFL inlines only the first; the others carry up to the
-# provider's own limit.
-SINGLE_REFERENCE_DIALECTS = frozenset({"bfl"})
+# (`gateway.images._request_for`): every dialect carries up to the provider's own documented
+# limit, and refuses more. BFL was single-reference until W4-FLUXAPI; the set is kept, empty,
+# so a dialect that regresses to one reference has one place to be declared.
+SINGLE_REFERENCE_DIALECTS: frozenset[str] = frozenset()
 
 
 class ConditioningRefused(ValueError):

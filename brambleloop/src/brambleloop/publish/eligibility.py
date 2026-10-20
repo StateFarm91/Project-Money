@@ -404,8 +404,110 @@ class GateResult:
                 "outcome": self.outcome, "why": self.why, "detail": dict(self.detail)}
 
 
+# ---- D-W4-F852-AMEND: the verified-exception route for generated imagery -----------------
+#
+# F-852 is amended, not deleted (owner decision D-W4-F852-AMEND, 2026-10-20). A generated
+# image of the product may export ONLY through this route, and only when every condition
+# below has been read as PASS. Anything missing or UNKNOWN blocks; the owner's visual approval
+# is never an input. F-853 still applies: where protected compositing of certified pixels is
+# feasible for a role, that path is mandatory and the exception does not apply to the role.
+# F-856, F-858 and ASSET_CONCEPT_AS_HERO are unchanged.
+AMENDMENT = "D-W4-F852-AMEND"
+# Owner scope: product-only, lifestyle and detail images, and the jobs each may do. DESIRE is
+# absent (ASSET_CONCEPT_AS_HERO, unchanged); PROOF and FIT need a photograph of a made sample.
+EXCEPTION_SCOPE: dict[str, tuple[str, ...]] = {
+    "product_only": (SCALE, ANGLE, COLOUR_CONTEXT),
+    "lifestyle": (LIFESTYLE, ANGLE, SCALE, COLOUR_CONTEXT),
+    "detail": (DETAIL,),
+}
+# F-853, encoded per job: whether a protected-compositing path of certified pixels exists
+# (exact pixels kept, `visual.compose.protect` / the disclosed render set). Where it does, it
+# is mandatory and the exception is closed for that job.
+COMPOSITING_FEASIBLE: dict[str, tuple[bool, str]] = {
+    DETAIL: (True, "disclosed_render.detail: a crop of the certified render's own pixels"),
+    SCALE: (True, "disclosed_render.scale: certified render pixels at computed size"),
+    COLOUR_CONTEXT: (True, "compose.protect: certified render pixels placed flat over a room "
+                           "or backdrop canvas, every product pixel unchanged"),
+    LIFESTYLE: (False, "the product in use is draped, worn or held; certified pixels cannot "
+                       "be deformed without resampling them, so no protected composite exists"),
+    ANGLE: (False, "a back, side or worn view is geometry the certified render does not "
+                   "contain; no certified-pixel producer exists for it"),
+}
+# The readings the exception needs, every one PASS. Laura's gates only when she appears.
+EXCEPTION_CHECKS: tuple[str, ...] = ("structural_fidelity", "photographic", "product_truth",
+                                     "quality", "etsy_policy", "publication_gates")
+EXCEPTION_LAURA_CHECKS: tuple[str, ...] = ("identity", "body_proportions", "outfit")
+EXCEPTION_PROVENANCE: tuple[str, ...] = ("model", "references", "release", "prompt_version",
+                                         "receipt", "disclosure")
+
+
+def exception_roles_without_compositing() -> list[str]:
+    """The jobs where no protected-compositing path exists today (the exception can apply)."""
+    return sorted(j for j, (ok, _) in COMPOSITING_FEASIBLE.items() if not ok)
+
+
+def verified_exception(candidate: Candidate, evidence: dict | None) -> list[str]:
+    """Every reason the D-W4-F852-AMEND exception does not hold; empty means it holds."""
+    if candidate.medium not in GENERATED_MEDIA:
+        return []
+    tag = f"F-852 ({AMENDMENT}) verified exception refused"
+    if not evidence:
+        return [f"F-852: a {candidate.medium.value} is generated imagery of the product; it "
+                f"exports only through the verified-exception route ({AMENDMENT}) and no "
+                f"exception evidence was supplied ({candidate.job} here). A disclaimer is not "
+                f"permission"]
+    ev = dict(evidence)
+    out: list[str] = []
+    label = honesty_label(candidate.medium, candidate.job)
+    shown = ev.get("label")
+    if shown is None or str(shown) != label["label"] or not label["label"]:
+        out.append(f"{tag}: disclosure: the frame must carry the AI honesty label "
+                   f"{label['label']!r}; it carries {shown!r}")
+    presented = str(ev.get("presented_as") or "").lower()
+    if presented in ("photo", "photograph", "proof", "physical_proof", "sample") or (
+            shown is not None and str(shown) == PHOTO_LABEL):
+        out.append(f"{tag}: presented as a photograph or proof of a made sample; a generated "
+                   f"image is never a photograph")
+    elif presented != "ai_generated":
+        out.append(f"{tag}: disclosure: presented_as must be 'ai_generated', got "
+                   f"{presented or 'nothing'}")
+    if candidate.job in (PROOF, FIT, HERO_JOB) or candidate.purpose == PHYSICAL_PROOF:
+        out.append(f"{tag}: {candidate.job} is outside the exception (PROOF/FIT need a "
+                   f"photograph; the hero rule ASSET_CONCEPT_AS_HERO is unchanged)")
+    scope = str(ev.get("scope") or "")
+    if scope not in EXCEPTION_SCOPE:
+        out.append(f"{tag}: scope {scope or 'missing'!r} is not one of the owner's "
+                   f"{sorted(EXCEPTION_SCOPE)}")
+    elif candidate.job not in EXCEPTION_SCOPE[scope]:
+        out.append(f"{tag}: a {scope} image may not do {candidate.job}")
+    feasible, how = COMPOSITING_FEASIBLE.get(candidate.job, (False, "no producer recorded"))
+    if feasible:
+        out.append(f"{tag}: F-853: certified pixels are feasible for {candidate.job} ({how}); "
+                   f"that path is mandatory and the exception does not apply")
+    checks = dict(ev.get("checks") or {})
+    needed = list(EXCEPTION_CHECKS) + (list(EXCEPTION_LAURA_CHECKS) if ev.get("laura_present")
+                                       else [])
+    for name in needed:
+        st = str(checks.get(name) or "UNKNOWN").upper()
+        if st != "PASS":
+            out.append(f"{tag}: {name} is {st}; every condition must read PASS and "
+                       f"UNKNOWN blocks")
+    prov = dict(ev.get("provenance") or {})
+    missing = [k for k in EXCEPTION_PROVENANCE if not prov.get(k)]
+    refs = prov.get("references") or []
+    if refs and not all(isinstance(r, dict) and r.get("sha256") for r in refs):
+        missing.append("references (ordered sha256 for each)")
+    if missing:
+        out.append(f"{tag}: provenance incomplete: {missing}")
+    rel = str(ev.get("fidelity_release") or "")
+    if prov.get("release") and not (rel and (rel.startswith(str(prov["release"])[:12]) or
+                                             str(prov["release"]).startswith(rel[:12]))):
+        out.append(f"{tag}: the structural fidelity reading is not for this exact release")
+    return out
+
+
 def may_export(candidate: Candidate, results: list[GateResult], *,
-               truth_verdict: str | None = None) -> dict:
+               truth_verdict: str | None = None, generated_evidence: dict | None = None) -> dict:
     """Whether this asset may reach a customer. All four gates, all having run.
 
     `truth_verdict` is the independent reading from `gates.asset_truth`, consulted separately
@@ -446,13 +548,11 @@ def may_export(candidate: Candidate, results: list[GateResult], *,
     if label["required"] and not label["label"]:
         blockers.append("an honesty label is required here and none is defined for this medium")
     if candidate.medium in GENERATED_MEDIA:
-        # F-852 / PT-14: a generated picture of the product is refused in every listing role,
-        # explicitly and here, rather than relying on an upstream truth finding to have
-        # caught it. A label does not change this: the object in the picture does not exist.
-        blockers.append(
-            f"F-852: a {candidate.medium.value} is generated imagery of an object nobody has "
-            f"made, and generated product imagery is refused in every listing role "
-            f"({candidate.job} here). A disclaimer is not permission")
+        # F-852 as amended by D-W4-F852-AMEND: generated product imagery is refused unless
+        # every condition of the verified-exception route reads PASS (`verified_exception`).
+        # Without that evidence it is refused in every role, as before. A label alone never
+        # changes this; the owner's visual approval is not an input.
+        blockers += verified_exception(candidate, generated_evidence)
     if truth_verdict == FAILED:
         blockers.append(
             "the asset truth gate refused this asset. The honesty label is consulted "
@@ -488,7 +588,9 @@ def state() -> dict:
             "two frames doing the same job, which no image comparison would find",
             "an export while any of the four gates has not run",
             "two verdicts for one gate, which lets somebody choose which to read",
-            "generated product imagery (an AI concept) in any listing role (F-852)",
+            "generated product imagery (an AI concept) in any listing role, unless every "
+            "condition of the verified-exception route reads PASS (F-852 as amended by "
+            "D-W4-F852-AMEND); F-853 compositing is mandatory where feasible",
         ],
         "note": ("AssetClass says what an asset is made of; purpose says what it is allowed "
                  "to do. A technically correct chart cannot be promoted to hero merely "

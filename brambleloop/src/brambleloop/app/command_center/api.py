@@ -332,6 +332,312 @@ def make_router(db) -> APIRouter:
                       404)
         return ok({"acked": notification_id})
 
+    # ---- listing images (W-OWNERIMG) -----------------------------------------------------
+    # Under /api/cc/, so `auth.gate` has already required a live owner session, plus CSRF, a
+    # fresh nonce and a timestamp on every POST. The upload is the optional owner fallback
+    # and runs the same gates as autonomous production. The approval re-checks every gate
+    # and needs a step-up, because it is the owner's publication decision.
+
+    @router.get("/images")
+    def images_board(request: Request):
+        from ...visual import image_production, outfits
+
+        out = image_production.status_board(db)
+        out["outfits"] = outfits.registry(db)
+        return ok(out)
+
+    @router.get("/images/plans")
+    def images_plans(request: Request):
+        from ...visual import shot_plans
+
+        return ok(shot_plans.all_plans())
+
+    @router.get("/images/{listing}")
+    def images_listing(listing: str, request: Request):
+        from ...products import launch0
+        from ...visual import image_production
+
+        if listing not in launch0.LAUNCH0_SLUGS:
+            return ok({"error": f"no Launch-0 listing {listing!r}", "code": "NOT_FOUND"}, 404)
+        return ok(image_production.readiness(db, listing))
+
+    @router.post("/owner-images")
+    async def owner_images_upload(request: Request):
+        import base64
+        import binascii
+
+        from ...publish import owner_images
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        try:
+            data = base64.b64decode(str(body.get("image_b64") or ""), validate=True)
+        except (binascii.Error, ValueError):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "image_b64 must be base64",
+                              session_public_id=pid) from None
+        cost = body.get("cost_usd")
+        try:
+            cost = None if cost in (None, "") else float(cost)
+            out = await run_in_threadpool(lambda: owner_images.intake(
+                db, data=data, slug=str(body.get("slug") or ""),
+                version=str(body.get("version") or ""), release=str(body.get("release") or ""),
+                role=str(body.get("role") or ""), prompt=str(body.get("prompt") or "")[:8000],
+                references=body.get("references") or "",
+                provider=str(body.get("provider") or "")[:80],
+                model=str(body.get("model") or "")[:120], cost_usd=cost,
+                laura_present=bool(body.get("laura_present")),
+                outfit_id=str(body.get("outfit_id") or "") or None,
+                owner_visual_approval=(bool(body["owner_visual_approval"])
+                                       if "owner_visual_approval" in body else None),
+                submitted_by=actor(request)))
+        except (owner_images.IntakeRefused, ValueError) as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "owner_images.intake", "sha256": out["sha256"],
+                            "technical_status": out["technical_status"]})
+        return ok(out)
+
+    @router.post("/images/outfits")
+    async def images_outfit(request: Request):
+        from ...visual import outfits
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        try:
+            out = outfits.register(db, outfit_id=str(body.get("outfit_id") or ""),
+                                   garments=dict(body.get("garments") or {}),
+                                   description=str(body.get("description") or ""),
+                                   colours=[str(c) for c in body.get("colours") or []],
+                                   reference_hashes=body.get("reference_hashes") or [],
+                                   identity_changes=body.get("identity_changes"))
+            if body.get("approve"):
+                out = outfits.approve(db, out["outfit_id"], approved_by=actor(request))
+        except outfits.OutfitRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        return ok(out)
+
+    @router.post("/images/runs/approve")
+    async def images_approve(request: Request):
+        from ...visual import image_production
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "images.approve")
+        out = await run_in_threadpool(lambda: image_production.approve(
+            db, str(body.get("run_key") or ""), decided_by=actor(request)))
+        auth.record(db, kind="action", outcome="ok" if out.get("approved") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.approve", "run_key": body.get("run_key"),
+                            "approved": out.get("approved")})
+        return ok(out)
+
+    # ---- gallery approval card, restart, wardrobe editor (W-VISNEXT) ----------------------
+    # Three decisions kept apart on the card: the owner's look (recorded, no gate reads it),
+    # technical certification (the stored verdicts; the owner cannot change them) and
+    # publication authorization (`images/runs/approve`, step-up, every gate re-checked).
+
+    @router.get("/images/runs/card")
+    def images_card(request: Request, run_key: str = ""):
+        from ...visual import image_production
+
+        card = image_production.gallery_card(db, str(run_key)[:300])
+        if card is None:
+            return ok({"error": "no such run", "code": "NOT_FOUND"}, 404)
+        return ok(card)
+
+    @router.get("/images/candidates/{candidate_id}/image")
+    def images_candidate_image(candidate_id: int, request: Request):
+        """The stored bytes of one generated candidate, unchanged (sha256-addressed)."""
+        from fastapi.responses import Response
+
+        from ...core.artifacts import ArtifactStore
+        from ...visual.image_records import ImageCandidate, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            row = s.get(ImageCandidate, int(candidate_id))
+            sha = row.sha256 if row is not None else ""
+        data = None
+        if sha:
+            try:
+                data = ArtifactStore().get(sha, db=db)
+            except Exception:  # noqa: BLE001 - missing bytes are a 404, never a substitute
+                data = None
+        if not data:
+            return ok({"error": "no stored image for this candidate", "code": "NOT_FOUND"}, 404)
+        mime = "image/jpeg" if data[:3] == b"\xff\xd8\xff" else "image/png"
+        return Response(data, media_type=mime, headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Image-Status": "AI-generated candidate; never a photograph; not published"})
+
+    @router.post("/images/runs/visual-approval")
+    async def images_visual_approval(request: Request):
+        from ...visual import image_production
+
+        body = await body_of(request)
+        out = await run_in_threadpool(lambda: image_production.record_visual_approval(
+            db, str(body.get("run_key") or ""), decided_by=actor(request),
+            approved=bool(body.get("approved")), note=str(body.get("note") or "")[:1000]))
+        auth.record(db, kind="action", outcome="ok" if out.get("recorded") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.visual_approval", "run_key": body.get("run_key"),
+                            "approved": bool(body.get("approved"))})
+        return ok(out)
+
+    @router.post("/images/runs/restart")
+    async def images_restart(request: Request):
+        from ...queue.durable import DuplicateJob, JobQueue
+        from ...visual import image_production
+
+        body = await body_of(request)
+        q = JobQueue(db)
+
+        def follow(inputs, key):
+            try:
+                return q.enqueue(image_production.AGENT, image_production.JOB_TYPE, inputs,
+                                 idempotency_key=key)
+            except DuplicateJob:
+                return None
+
+        out = await run_in_threadpool(lambda: image_production.restart(
+            db, str(body.get("run_key") or ""), follow=follow, by=actor(request),
+            reason=str(body.get("reason") or "")[:500]))
+        auth.record(db, kind="action", outcome="ok" if out.get("restarted") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.restart", "run_key": body.get("run_key"),
+                            "epoch": out.get("epoch")})
+        return ok(out)
+
+    @router.get("/wardrobe")
+    def images_wardrobe(request: Request):
+        from ...visual import outfits
+
+        return ok(outfits.wardrobe_editor(db))
+
+    @router.post("/images/outfits/action")
+    async def images_outfit_action(request: Request):
+        """Wardrobe editor actions: approve, reserve, release, replace, set_reference."""
+        from ...visual import outfits
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        act = str(body.get("action") or "")
+        oid = str(body.get("outfit_id") or "")
+        listing = str(body.get("listing") or "")
+        try:
+            if act == "approve":
+                out = outfits.approve(db, oid, approved_by=actor(request))
+            elif act == "reserve":
+                out = outfits.reserve(db, oid, listing)
+            elif act == "release":
+                out = outfits.release(db, oid, listing,
+                                      why=str(body.get("why") or "owner, wardrobe editor"))
+            elif act == "replace":
+                out = outfits.replace(db, oid, str(body.get("new_outfit_id") or ""), listing)
+            elif act == "set_reference":
+                out = outfits.set_approved_reference(db, oid, str(body.get("image_sha256") or ""),
+                                                     by=actor(request))
+            else:
+                return ok({"error": f"unknown action {act!r}", "code": "BAD_REQUEST"}, 400)
+        except outfits.OutfitRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": f"images.outfit.{act}", "outfit_id": oid,
+                            "listing": listing})
+        return ok(out)
+
+    # ---- controlled visual experiments (W-VISNEXT) -----------------------------------------
+    # Owner session for everything (auth.gate), step-up for authorize and run. No query-string
+    # secrets and no ops-token route: the provider key is read by the job from the process
+    # environment and never crosses this API.
+
+    @router.get("/experiments")
+    def experiments_board(request: Request):
+        from ...experiments import controlled
+
+        return ok({"experiments": controlled.board(db)})
+
+    @router.post("/experiments/{definition_id}/authorize")
+    async def experiments_authorize(definition_id: str, request: Request):
+        from ...experiments import controlled
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "experiments.authorize")
+        pid = auth.current_public_id(request)
+
+        def cap(name):
+            v = body.get(name)
+            return None if v in (None, "") else float(v)
+        try:
+            out = await run_in_threadpool(lambda: controlled.authorize(
+                db, str(definition_id)[:80], by=actor(request), stepped_up=True,
+                generation_cap_cad=cap("generation_cap_cad"),
+                vision_cap_cad=cap("vision_cap_cad")))
+        except (controlled.ControlledRefused, ValueError) as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "experiments.authorize", **out})
+        return ok(out)
+
+    @router.post("/experiments/{definition_id}/run")
+    async def experiments_run(definition_id: str, request: Request):
+        from ...experiments import controlled
+        from ...queue.durable import DuplicateJob, JobQueue
+
+        await body_of(request)
+        auth.require_stepup(db, request, "experiments.run")
+        pid = auth.current_public_id(request)
+        q = JobQueue(db)
+
+        def enqueue(inputs, key):
+            try:
+                return q.enqueue(controlled.AGENT, controlled.JOB_TYPE, inputs,
+                                 idempotency_key=key, max_attempts=1)
+            except DuplicateJob as exc:
+                return exc.existing_id
+        try:
+            out = await run_in_threadpool(lambda: controlled.submit(
+                db, str(definition_id)[:80], by=actor(request), enqueue=enqueue,
+                stepped_up=True))
+        except controlled.ControlledRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "experiments.run", **out})
+        return ok(out)
+
+    @router.get("/experiments/runs/{run_id}/card")
+    def experiments_card(run_id: int, request: Request):
+        from ...experiments import controlled
+
+        out = controlled.card(db, int(run_id))
+        if out is None:
+            return ok({"error": "no such experiment run", "code": "NOT_FOUND"}, 404)
+        return ok(out)
+
+    @router.get("/experiments/runs/{run_id}/image")
+    def experiments_image(run_id: int, request: Request):
+        from fastapi.responses import Response
+
+        from ...core.artifacts import ArtifactStore
+        from ...experiments import controlled
+
+        r = controlled.get_run(db, int(run_id))
+        data = None
+        if r and r.get("image_sha256"):
+            try:
+                data = ArtifactStore().get(r["image_sha256"], db=db)
+            except Exception:  # noqa: BLE001 - missing bytes are a 404
+                data = None
+        if not data:
+            return ok({"error": "no stored image for this run", "code": "NOT_FOUND"}, 404)
+        return Response(data, media_type="image/png", headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Image-Status": "EXPERIMENT; AI-generated; never a photograph; never published"})
+
     @router.get("/account")
     def account(request: Request):
         return ok(tabs.account(db, auth.current_public_id(request)))

@@ -400,6 +400,9 @@ def display(evidence_: dict) -> list[dict]:
 
 def approve(db, *, authorization, slug, version, release, expected_digest, reason):
     """Record a sealed owner grant for exactly the previewed content."""
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(db, slug, version, action="publication authority approval")  # W4-WRAPTEST
     from ..laura.private.firewall import reject_private
 
     # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.

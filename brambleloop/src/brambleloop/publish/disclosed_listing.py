@@ -511,6 +511,9 @@ def export_images(db, *, slug: str, description: str, store=None) -> list[tuple[
     `release_gates.disclosed_listing_set`); uploading is not done from here. The one upload
     path is `runtime.etsy_ops.certified_images`, which serves the certified frames with their
     certified alt text and runs `export_check` again on the bytes it sends."""
+    from ..visual.experiment import refuse_if_experiment
+
+    refuse_if_experiment(db, slug, None, action="listing image export")  # W4-WRAPTEST
     from ..core.artifacts import ArtifactStore
     from ..visual.render_verification import authoritative_cir
 

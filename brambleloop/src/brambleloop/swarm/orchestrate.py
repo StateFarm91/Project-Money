@@ -767,6 +767,7 @@ JOB_BANDS: dict[str, str] = {
     "assets.render": "proven_winner",
     "assets.owned_photography": "proven_winner",
     "assets.model_photography": "proven_winner",
+    "visual.image_production": "proven_winner",
     "listing.draft": "proven_winner",
     "listing.seo": "proven_winner",
     "pricing.position": "proven_winner",

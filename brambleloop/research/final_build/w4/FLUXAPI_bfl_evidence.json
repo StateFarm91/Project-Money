@@ -1,0 +1,355 @@
+{
+ "AsyncResponse": {
+  "properties": {
+   "cost": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "Cost in credits for this request",
+    "title": "Cost"
+   },
+   "id": {
+    "title": "Id",
+    "type": "string"
+   },
+   "input_mp": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "Input megapixels (2 decimal places)",
+    "title": "Input Mp"
+   },
+   "output_mp": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "Output megapixels (2 decimal places)",
+    "title": "Output Mp"
+   },
+   "polling_url": {
+    "title": "Polling Url",
+    "type": "string"
+   }
+  },
+  "required": [
+   "id",
+   "polling_url"
+  ],
+  "title": "AsyncResponse",
+  "type": "object"
+ },
+ "Flux2Inputs_additionalProperties": "unset (unknown fields not refused)",
+ "Flux2Inputs_reference_fields": [
+  "input_image",
+  "input_image_2",
+  "input_image_3",
+  "input_image_4",
+  "input_image_5",
+  "input_image_6",
+  "input_image_7",
+  "input_image_8"
+ ],
+ "Flux3ImageInputs": {
+  "additionalProperties": false,
+  "properties": {
+   "aspect_ratio": {
+    "anyOf": [
+     {
+      "enum": [
+       "21:9",
+       "2:1",
+       "16:9",
+       "3:2",
+       "7:5",
+       "4:3",
+       "5:4",
+       "1:1",
+       "4:5",
+       "3:4",
+       "5:7",
+       "2:3",
+       "9:16",
+       "1:2",
+       "9:21"
+      ],
+      "type": "string"
+     },
+     {
+      "const": "auto",
+      "type": "string"
+     }
+    ],
+    "default": "auto",
+    "description": "Output aspect ratio. Under `auto` a ratio the prompt asks for wins, otherwise the output keeps the first reference image's framing; without references the prompt decides, else 1:1.",
+    "title": "Aspect Ratio"
+   },
+   "grounding": {
+    "default": true,
+    "description": "When true (default) the prompt may be grounded in external research: web search and image search. When false, both are off.",
+    "title": "Grounding",
+    "type": "boolean"
+   },
+   "images": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "Optional reference image(s) the prompt edits or draws from; each is an http(s) URL or base64, one to 10 total.",
+    "title": "Images"
+   },
+   "prompt": {
+    "description": "Free-form prompt describing the image.",
+    "title": "Prompt",
+    "type": "string"
+   },
+   "resolution": {
+    "default": "1k",
+    "description": "Image resolution class, an equal-pixel-area tier: `768sq`, `1k`, `1.5k`, `2k`, or `4k`. Exact dimensions vary with the aspect ratio.",
+    "enum": [
+     "768sq",
+     "1k",
+     "1.5k",
+     "2k",
+     "4k"
+    ],
+    "title": "Resolution",
+    "type": "string"
+   },
+   "safety_tolerance": {
+    "default": 2,
+    "description": "Harm moderation tolerance from 0 to 7, with 0 the strictest. The route and organization determine the approved maximum and per-category ceilings. Unapproved levels return 422 with approved levels.",
+    "maximum": 7.0,
+    "minimum": 0.0,
+    "title": "Safety Tolerance",
+    "type": "integer"
+   },
+   "version": {
+    "const": "latest",
+    "default": "latest",
+    "description": "Endpoint version. `latest` (default) serves the current release; dated pinnable release tags are added here as they are published.",
+    "title": "Version",
+    "type": "string"
+   }
+  },
+  "required": [
+   "prompt"
+  ],
+  "title": "Flux3ImageInputs",
+  "type": "object"
+ },
+ "SettledCostResultResponse": {
+  "properties": {
+   "cost": {
+    "description": "Settled cost in credits for this request",
+    "title": "Cost",
+    "type": "number"
+   },
+   "details": {
+    "anyOf": [
+     {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "title": "Details"
+   },
+   "id": {
+    "description": "Task id for retrieving result",
+    "title": "Id",
+    "type": "string"
+   },
+   "preview": {
+    "anyOf": [
+     {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "title": "Preview"
+   },
+   "progress": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "title": "Progress"
+   },
+   "result": {
+    "anyOf": [
+     {},
+     {
+      "type": "null"
+     }
+    ],
+    "title": "Result"
+   },
+   "status": {
+    "$ref": "#/components/schemas/StatusResponse"
+   }
+  },
+  "required": [
+   "id",
+   "status",
+   "cost"
+  ],
+  "title": "SettledCostResultResponse",
+  "type": "object"
+ },
+ "StatusResponse": {
+  "enum": [
+   "Task not found",
+   "Pending",
+   "Reasoning",
+   "Generating",
+   "Request Moderated",
+   "Content Moderated",
+   "No Card Generated",
+   "Ready",
+   "Error"
+  ],
+  "title": "StatusResponse",
+  "type": "string"
+ },
+ "method": "unauthenticated GETs of public documentation; no API key used, no billable call",
+ "paths_with_flux": [
+  "/v1/flux-pro-1.1",
+  "/v1/flux-dev",
+  "/v1/flux-pro-1.1-ultra",
+  "/v1/flux-pro-1.0-fill",
+  "/v1/flux-pro-1.0-expand",
+  "/v1/flux-pro-1.1-ultra-finetuned",
+  "/v1/flux-2-flex",
+  "/v1/flux-2-klein-9b",
+  "/v1/flux-2-klein-9b-preview",
+  "/v1/flux-2-klein-4b",
+  "/v1/flux-2-max",
+  "/v1/flux-2-pro-preview",
+  "/v1/flux-2-pro",
+  "/v1/flux-3-video",
+  "/v1/flux-3-image",
+  "/v1/flux-3-image-klein",
+  "/v1/flux-tools/video-upscale-v1",
+  "/v1/flux-tools/video-edit-v1",
+  "/v1/flux-tools/outpainting-v1",
+  "/v1/flux-tools/vto-v1",
+  "/v1/flux-tools/vto-v2",
+  "/v1/flux-tools/erase-v1",
+  "/v1/flux-tools/deblur-v1",
+  "/v1/flux-kontext-max",
+  "/v1/flux-kontext-pro"
+ ],
+ "pricing_cards_us_cents": [
+  {
+   "apiEndpoint": "/v1/flux-3-image",
+   "firstMpPrice": null,
+   "imageTierRates": {
+    "_type": "imageTierRates",
+    "tier1_5k": 7,
+    "tier1k": 4.8,
+    "tier2k": 10,
+    "tier4k": 60.7,
+    "tier768": 4.1
+   },
+   "inputMpPrice": null,
+   "mpPrice": null,
+   "priceUnit": null
+  },
+  {
+   "apiEndpoint": "/v1/flux-3-image-klein",
+   "firstMpPrice": null,
+   "imageTierRates": {
+    "_type": "imageTierRates",
+    "tier1_5k": 1.1,
+    "tier1k": 0.9,
+    "tier2k": 1.4,
+    "tier4k": 3.6,
+    "tier768": 0.8
+   },
+   "inputMpPrice": null,
+   "mpPrice": null,
+   "priceUnit": null
+  },
+  {
+   "apiEndpoint": "/v1/flux-2-max",
+   "firstMpPrice": 7,
+   "imageTierRates": null,
+   "inputMpPrice": 3,
+   "mpPrice": 3,
+   "priceUnit": "0.07"
+  },
+  {
+   "apiEndpoint": "/v1/flux-2-pro",
+   "firstMpPrice": 3,
+   "imageTierRates": null,
+   "inputMpPrice": 1.5,
+   "mpPrice": 1.5,
+   "priceUnit": "0.03"
+  }
+ ],
+ "quotes": {
+  "flux2_limit": "Reference multiple images simultaneously - up to 8 via API, up to 10 in the playground.",
+  "flux3_503": "A failed task can come back as HTTP 503 with a normal JSON body. Read `status` from the body before treating a 503 as a retryable outage.",
+  "flux3_ready": "A `Ready` result also includes `result.prompt`, the expanded prompt the model used, and `result.duration`, the generation time in seconds.",
+  "flux3_ref_limits": "400: A reference image is larger than 16 megapixels; 422: an image smaller than 256 x 256",
+  "flux3_submit": "The submit response returns immediately with `id`, `polling_url`, `cost`, `input_mp`, and `output_mp`.",
+  "flux3_unknown_fields": "fields from other endpoints, such as `seed`, `width`, and `input_image`, don't work here (422)",
+  "flux3_url_expiry": "The signed URL in `result.sample` expires after **1 hour**. (flux3_image_generate)",
+  "integration_url_expiry": "10-Minute Expiration: Generated images expire after 10 minutes and become inaccessible. (integration_guidelines)",
+  "pricing_flux3": "FLUX 3 Image is priced per image by `resolution` ... The submission response includes the `cost` of each request.",
+  "rate_limit": "Maximum 24 concurrent requests for most endpoints"
+ },
+ "read_at": "2026-10-19T16:58Z",
+ "schemas_defining_image_prompt": [
+  "FinetuneFluxUltraInput",
+  "FluxDevInputs",
+  "FluxPro11Inputs",
+  "FluxUltraInput"
+ ],
+ "sources": {
+  "api_reference_flux3": "https://docs.bfl.ai/api-reference/utility/generate-an-image-with-flux-3",
+  "flux2_editing": "https://docs.bfl.ai/flux_2/flux2_image_editing",
+  "flux3_editing": "https://docs.bfl.ai/flux_3/flux3_image_layout",
+  "flux3_generate": "https://docs.bfl.ai/flux_3/flux3_image_generate",
+  "integration_guidelines": "https://docs.bfl.ai/api_integration/integration_guidelines",
+  "openapi": "https://api.bfl.ai/openapi.json",
+  "openapi_sha256": "7fbcacd8a21b381f9ad52e091899aac09c262cd180290082f4a9cd16a75329f2",
+  "pricing": "https://docs.bfl.ai/quick_start/pricing",
+  "pricing_feed": "https://2gpum2i6.api.sanity.io/v2025-02-19/data/query/production (the query the pricing page itself runs; values in US cents)",
+  "release_notes": "https://docs.bfl.ai/release-notes (FLUX 3 Image: October 1, 2026)"
+ }
+}
