@@ -1,0 +1,22 @@
+# W4-INTEG4 2026-10-20T10:57:49Z: local throwaway PostgreSQL, not production
+PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+## 1. reset schema, booted by production b931d17 code (W4-FC324927f worktree)
+reset tables: 131 create_all changes: []
+## 2. candidate boot (INTEG4 7f6dbe89 code) on that schema
+boot tables: 136 create_all changes: []
+added tables: ['controlled_experiment_runs', 'experiment_authorizations', 'image_candidates', 'image_production_runs', 'laura_outfits']
+removed tables: []
+changed existing tables: none
+## 3. second candidate boot
+added tables: []
+removed tables: []
+changed existing tables: none
+## 4. rollback: production b931d17 code boots the upgraded schema
+boot tables: 136 create_all changes: []
+added tables: []
+removed tables: []
+changed existing tables: none
+## 5. new tables exercised on PostgreSQL (fresh databases)
+tests/test_w4_controlled_experiments.py with BRAMBLELOOP_DATABASE_URL=postgresql (only the URL and ROOT lines changed, pg_controlled_experiments.py): 10 passed, 0 failed; rows: experiment_authorizations 8, controlled_experiment_runs 8
+tests/test_w4_firstsale_deliverables.py with BL_TEST_PG_URL (durable_artifacts kept/re-rendered/refused/purchase rehearsal): 6/6 passed
+tests/test_w4_ownerimg.py with make_db() on a fresh PostgreSQL database per call (pg_ownerimg.py): 35 passed, 0 failed; rows: image_production_runs 10, image_candidates 61, laura_outfits 49
