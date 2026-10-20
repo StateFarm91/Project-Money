@@ -322,3 +322,24 @@ The harness's generator inherits the capability, but the experiment's freshly ch
 The offline rehearsal now asserts it (`live_no_outfit_reference_without_an_approved_one`). Cost and number of calls are unchanged.
 
 Blockers 6 and 7 in §9 are closed by this section. What remains of 6 is the owner's F-852 policy decision.
+
+## 11. Later queue on this branch (2026-10-20)
+
+- **D-W4-F852-AMEND.** The verified-exception route is in `publish/eligibility.verified_exception` / `may_export`.
+  - **Evidence** is built only from recorded checks, in `candidate_gates.exception_evidence` and
+    `release_gates.generated_frame_verdict`.
+  - **F-853** is encoded per role in `COMPOSITING_FEASIBLE`. The roles with no protected-compositing path are
+    ANGLE and LIFESTYLE.
+  - **Today it still refuses** every generated frame, because the Etsy policy reading is UNKNOWN.
+  - **Board update** is proposed in `w4/OVERRIDES_PROPOSED_F852_AMEND.json`; it is not applied (F-867).
+  - **Tests:** `tests/test_w4_f852_amend.py`.
+- **Six-reference baseline** (the owner's method): `--baseline-six-ref` in the WRAPTEST harness,
+  `experiment_wrap/baseline_six.py` and `image_stages.six_reference_lifestyle`. Tests: `tests/test_w4_baseline_six.py`.
+- **Controlled experiments in production:**
+  - code: `experiments/controlled.py`;
+  - first definition: `exp-2026-10-20-wrap-7ref`;
+  - Command Center routes: `/api/cc/experiments…`;
+  - owner guide: `EXPERIMENTS.md`;
+  - tests: `tests/test_w4_controlled_experiments.py`.
+- **Manual versus automatic:** `MANUAL_VS_AUTO.md`. Stage A (the per-listing Laura identity anchor) and wiring
+  stage D to "the accepted lifestyle frame" are **not built**, and are listed there.
