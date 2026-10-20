@@ -184,6 +184,15 @@ Run this only after the owner approves the deploy and activation. Evidence is st
 - ADD-LCONT-11 (production acceptance) is **OPEN**.
 - Security review: a4a6841 is being reviewed independently. Everything from 3b7e6d0 onward needs the delta review.
 
-## 12. Regression results
+## 12. Regression results (2026-10-20, revision 3dc3ced; focused suites via testslot; no full suite)
 
-See §13 (updated at each checkpoint).
+All 40 suites exited 0. Where no count is shown, the suite printed no summary line but exited 0.
+
+| Group | Suites |
+|---|---|
+| New | `test_w4_laura_unified` 26/26 |
+| Laura, Venice and Private Laura | `test_w4_venice` 19/19, `test_w4_laura_ceo` 13/13, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13; `pl_auth` 2/2, `pl_leak` 2/2, `pl_reply` 3/3, `pl_boundary`, `pl_budget`, `pl_continuity` |
+| Private store and firewall | `test_cert_spend_hosts`; `test_w3_priv_access`, `priv_continuity`, `priv_firewall`, `priv_leak`, `priv_provenance`, `priv_store` |
+| Command Center Laura | `w3_laura_cc_private` 7/7, `cc_access` 5/5, `cc_followon` 4/4, `cc_talk` 9/9, `cc_wiring` 5/5, `cc_integration` 5/5; `laura_memory_isolation`, `laura_core_continuity`, `laura_voice_spec` 7/7 |
+| Security fixes and front end | `test_w4_integ3_secfixes`, `test_v11_pwa_static` 82/82, `test_cert_mjs`, `test_w4_mjs_findings`, `test_w4_mjscount` 5/5, `test_w4_cc_company` 23/23 |
+| Required set | `test_vacuity`, `test_launch`, `test_cost_governance_wave2`, `test_search_hero_publish` 4/4, `test_cert_listing_frames`, `test_v11_autonomy_timeline`, `test_w3_decision_index` |
