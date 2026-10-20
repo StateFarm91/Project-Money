@@ -1120,6 +1120,7 @@ def test_review_b1_router_unavailable_sends_nothing_to_the_business_side():
              ("malformed", Venice(route=lambda u: "not json"), {}),
              ("not_selected", None, {"BRAMBLELOOP_PRIVATE_PROVIDER": None}),
              ("register_off", None, {LR.REGISTER_SWITCH_ENV: None})]
+    assert len(cases) == 5
     for name, mock, env in cases:
         db = _db()
         sid = _open(db)
@@ -1179,6 +1180,7 @@ def test_review_b1_no_sensitive_category_crosses_without_an_owner_tap():
         "personal_finance": ("My mortgage is due; what is shop revenue this month?",
                              "mortgage"),
     }
+    assert len(samples) == 7
     for cat, (text, word) in samples.items():
         db = _db()
         sid = _open(db)

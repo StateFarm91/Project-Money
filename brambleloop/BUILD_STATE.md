@@ -1,3 +1,9 @@
+> **2026-10-20 (freeze) — W4-LAURAONE: security review fixes; feature set frozen (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Fixed from the independent review of a4a6841.** B-1 (fail toward privacy when code routes; current-turn screen; no owner text without her tap), H-1, M-1, M-2, L-1..L-6, I-2 and I-4.
+> - **INTEG5.** `laura.private_reply@3` is refused on any non-Venice transport (`REGISTER_NEEDS_VENICE`). The `pl_*` and `plact` suites now drive the stubbed Venice transport.
+> - **Tests.** `test_w4_laura_unified` 40/40; all focused suites green.
+> - **Still OPEN.** I-3, I-5 (deferred under the freeze) and ADD-LCONT-11. A delta review of a4a6841..freeze is pending.
+
 > **2026-10-20 (later) — W4-LAURAONE revision: restricted Venice feed and structured requests (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
 > Owner review (D-W4-LAURA-UNIFIED-FEED): Unified Laura is the preferred candidate.
 > - **Feed.** `laura/agency/venice_context.py` sends Venice an allowlisted, validated, size-capped company-context pack, only with `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE=1`. Every send is audited by hash, names and counts, and the owner can preview it.

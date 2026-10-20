@@ -88,8 +88,8 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
     if stub is not None:
         _venice.VeniceProvider._post = lambda self, url, body, headers, timeout: stub(
             self, url, body, headers, timeout)
-    else:
-        _venice.VeniceProvider._post = _refuse
+    # With no stub, the Venice transport is left as the caller set it (test_w4_venice and
+    # test_w4_laura_unified install their own Venice mocks); the harness refuses sockets.
     try:
         for k, v in env.items():
             if v is None:
