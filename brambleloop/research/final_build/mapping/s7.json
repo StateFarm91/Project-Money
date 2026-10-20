@@ -252,7 +252,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-559",
@@ -631,7 +631,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-571",
@@ -762,7 +762,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-575",
@@ -1117,7 +1117,7 @@
   "defect": null,
   "next_action": "none -- the registry is reached at runtime on b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-587",
@@ -1274,7 +1274,7 @@
   "defect": null,
   "next_action": "none -- deployed",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-592",
@@ -1727,7 +1727,7 @@
   "defect": null,
   "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-606",
@@ -2140,19 +2140,21 @@
   "uid": "F-619",
   "launch_class": "MATURE",
   "launch_class_reason": "The full Command Center app is executive polish; launch-level owner visibility exists in the ops dashboard and owner-action queue (F-593/F-623).",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "No Today/Month/Finance/Products/Listings/Marketing/Customers/Experiments/Departments/Agent Activity/Owner Actions/System Health navigation; current dashboard is a single ops page plus JSON endpoints.",
-  "producer": "src/brambleloop/app/main.py::dashboard",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
   "durable_state": "(reads jobs, owner_actions, incidents, agents, audit_log)",
-  "consumer": "src/brambleloop/app/main.py::api_console",
+  "consumer": "the Command Center app (/cc/, owner session): every named area is a route with a view module, reading an /api/cc/* endpoint",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
+   "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
   ],
   "evidence": [
-   "dashboard '/' and /api/console present in fcb982d"
+   "dashboard '/' and /api/console present in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health each map to a Command Center route whose view file exists and to an API the app serves; the stores stay the source of truth (no new store); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN",
@@ -2164,9 +2166,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Build a tabbed owner web page (app/main.py routes /command/*) over existing endpoints, each tab reading its store, no new source of truth.",
+  "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-620",

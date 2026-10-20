@@ -1691,16 +1691,21 @@
   "uid": "F-056",
   "launch_class": "MATURE",
   "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Size count in title and finished size in description; no size/shape query family",
-  "producer": "src/brambleloop/commerce/seo.py::build_title (N Sizes)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::shape_of; commerce/search.py::build_query_set",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_w4_size_shape_intent.py::test_the_shape_is_read_from_the_twin",
+   "tests/test_w4_size_shape_intent.py::test_the_family_adds_shape_and_graded_size_phrases_only",
+   "tests/test_w4_size_shape_intent.py::test_a_shape_word_that_contradicts_the_twin_is_refused"
+  ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: a measured shape (hexagon/round from the twin) and a graded size count add shape and multi-size query families, labelled assumed; no size class word is generated; a shape word that contradicts the twin is refused (TAG_SHAPE_UNTRUE); listing.seo passes both; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [],
   "gate": {
@@ -1709,9 +1714,9 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "Add a size/shape query family from twin dimensions",
+  "next_action": "none -- W4-SIZEINTENT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-057",

@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T06:10:22Z",
-  "branch_head": "35153cd2"
+  "generated_at": "2026-10-20T06:31:10Z",
+  "branch_head": "1c5aaeb1"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,9 +40,9 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 618,
+  "total_not_verified": 611,
   "by_class": {
-   "A": 545,
+   "A": 538,
    "C": 40,
    "B": 33
   },
@@ -53,7 +53,7 @@
     "B": 5
    },
    "final_master": {
-    "A": 452,
+    "A": 445,
     "C": 19,
     "B": 27
    },
@@ -81,12 +81,12 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 186,
+    "A": 181,
     "B": 23
    },
    "store_product": {
     "C": 14,
-    "A": 199,
+    "A": 197,
     "B": 3
    }
   },
@@ -97,12 +97,12 @@
     "B": 5
    },
    "launch_critical": {
-    "A": 101,
+    "A": 99,
     "C": 3,
     "B": 19
    },
    "post_launch": {
-    "A": 351,
+    "A": 346,
     "C": 16,
     "B": 8
    }
@@ -123,7 +123,6 @@
    "A F-118 [blocked_owner] Risk-Based Physical Escalation",
    "A F-225 [blocked_external] Gallery-as-Real-Photo-Shoot",
    "A F-227 [blocked_external] Product Truth Outranks Beauty",
-   "A F-240 [blocked_engineering] Public Seller Identity Integrity",
    "A F-246 [blocked_owner] Tag Diversity Gate",
    "A F-247 [blocked_engineering] Attribute / Category Integrity",
    "A F-248 [blocked_owner] Search Visibility Intake",
@@ -196,7 +195,6 @@
    "A F-053 [blocked_engineering] Recipient/Gift Intent",
    "A F-054 [blocked_engineering] Solution-Oriented Intent",
    "A F-055 [blocked_engineering] Style/Aesthetic Intent",
-   "A F-056 [blocked_engineering] Size/Scale Intent",
    "A F-067 [blocked_owner] Category-Matched Challenge",
    "A F-068 [blocked_owner] No Fake Win",
    "A F-075 [blocked_owner] Yardage Calibration Without Owner Labor",
@@ -391,7 +389,6 @@
    "A F-846 [blocked_engineering] Audit-Repair Loop",
    "A F-848 [blocked_owner] Shadow Rehearsal",
    "A F-850 [blocked_owner] Restart Recovery",
-   "A F-871 [blocked_engineering] Provider Funding Is Authority",
    "A F-904 [blocked_owner] Bank/Etsy/Processor Reconciliation",
    "A F-908 [blocked_owner] Cash & Runway Intelligence",
    "A B2#135 [implemented_unverified] Direct-Reference Clearance Lane",
@@ -491,7 +488,6 @@
    "A F-494 [blocked_engineering] Autonomous Dispatch",
    "A F-502 [blocked_owner] Storefront Continuous Optimization",
    "A F-503 [blocked_external] Evidence-Driven Experiments",
-   "A F-504 [blocked_engineering] Experiment Attribution",
    "A F-515@v0.15 [blocked_engineering] Launch Non-Delay Rule",
    "A F-523 [blocked_owner] Listing Funnel Model",
    "A F-550 [blocked_engineering] Continuous Etsy Improvement Cadence",
@@ -505,16 +501,13 @@
    "A F-613 [blocked_owner] Marketing & Growth Department",
    "A F-616 [blocked_owner] Paid Ads Budget & Economics",
    "A F-618 [blocked_engineering] Analytics & Intelligence",
-   "A F-619 [blocked_engineering] Brambleloop Command Center",
    "A F-620 [blocked_engineering] Command Center Finance",
    "A F-621 [blocked_engineering] Command Center Departments",
    "A F-622 [blocked_external] Command Center Marketing & Customers",
    "A F-625 [blocked_external] 90-Day Growth & Forecasting",
    "A F-626 [blocked_external] Scale Gate",
-   "A F-651 [blocked_engineering] Unified Studio",
    "A F-652 [blocked_engineering] Desktop Headquarters",
    "A F-653 [blocked_engineering] Galaxy Access",
-   "A F-660 [blocked_engineering] Elastic Capacity",
    "A F-661 [blocked_engineering] Executive Command Center",
    "A F-662 [blocked_engineering] Live Company Timeline",
    "A F-668 [blocked_engineering] Agents Workspace",
@@ -2993,21 +2986,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-056",
-   "scope": "post_launch",
-   "title": "Size/Scale Intent",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Size/Scale Intent - Capture size/shape intent where meaningful."
-  },
-  {
-   "source": "final_master",
    "id": "F-059",
    "scope": "launch_critical",
    "title": "SEO Self-Flattery Refusal",
@@ -4040,21 +4018,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Mobile Storefront QA - Before launch verify icon, banner crop, announcement opening, sections, first grid and thumbnails on mobile."
-  },
-  {
-   "source": "final_master",
-   "id": "F-240",
-   "scope": "launch_critical",
-   "title": "Public Seller Identity Integrity",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate etsy_shop is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Public Seller Identity Integrity - Approved public shop identity may differ from legal/tax presentation only where Etsy permits; legal, payout and tax identity remain truthful."
   },
   {
    "source": "final_master",
@@ -6278,21 +6241,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-504",
-   "scope": "post_launch",
-   "title": "Experiment Attribution",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Experiment Attribution - Record what changed, why, evidence, expected effect, measured effect, owner/department and retain/rollback decision."
-  },
-  {
-   "source": "final_master",
    "id": "F-505",
    "scope": "post_launch",
    "title": "Failure Memory",
@@ -7703,21 +7651,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-619",
-   "scope": "post_launch",
-   "title": "Brambleloop Command Center",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Brambleloop Command Center - Build a clean owner-facing web app with Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health. It is the executive interface; the ledger/evidence stores remain sources of truth."
-  },
-  {
-   "source": "final_master",
    "id": "F-620",
    "scope": "post_launch",
    "title": "Command Center Finance",
@@ -7853,21 +7786,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-651",
-   "scope": "post_launch",
-   "title": "Unified Studio",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Unified Studio - one Brambleloop Studio app contains Command Center, Products, Visual, Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox."
-  },
-  {
-   "source": "final_master",
    "id": "F-652",
    "scope": "post_launch",
    "title": "Desktop Headquarters",
@@ -7940,21 +7858,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "RUN/GROW/IMPROVE - every department maintains operations, growth and self-improvement queues. Empty RUN pulls GROW, then IMPROVE; otherwise the department enters WATCHING."
-  },
-  {
-   "source": "final_master",
-   "id": "F-660",
-   "scope": "post_launch",
-   "title": "Elastic Capacity",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Elastic Capacity - cloud sessions are optional burst capacity, never a structural dependency; normal multi-agent operation continues when promotional/paid cloud credit is zero."
   },
   {
    "source": "final_master",
@@ -9800,21 +9703,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Approval Friction Is Cost - Measure excessive development approval prompts as throughput loss; prefer bounded autonomous sandboxes while keeping production/spend/credential gates."
-  },
-  {
-   "source": "final_master",
-   "id": "F-871",
-   "scope": "launch_critical",
-   "title": "Provider Funding Is Authority",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering: gate model_provider is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-   "root": "gate_open_reverify",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Provider Funding Is Authority - Model/vision credit is owner financial authority; bounded experiment and max spend are prepared first."
   },
   {
    "source": "final_master",

@@ -648,6 +648,139 @@ FM_EDITS.update({
 })
 
 
+# ---- batch 6: Command Center / growth / search rows built by W4-CCFM1, W4-CCGROW, W4-CCALL
+# and W4-SIZEINTENT (all deployed in b931d17) -------------------------------------------------
+C1 = "tests/test_w4_ccfm1.py::"
+CG = "tests/test_w4_ccgrow.py::"
+SZ = "tests/test_w4_size_shape_intent.py::"
+FM_EDITS.update({
+    ("s7", "F-619"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
+        "consumer": "the Command Center app (/cc/, owner session): every named area is a route "
+                    "with a view module, reading an /api/cc/* endpoint",
+        "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
+        "evidence+": [f"{TAG}: Today, Month, Finance, Products, Listings, Marketing, Customers, "
+                      "Experiments, Departments, Agent Activity, Owner Actions and System Health "
+                      "each map to a Command Center route whose view file exists and to an API "
+                      "the app serves; the stores stay the source of truth (no new store); "
+                      f"{DT}"],
+        "tests+": [C1 + "test_every_named_owner_area_has_a_route_and_an_api"],
+    },
+    ("s8", "F-651"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
+        "consumer": "the Command Center app (/cc/)",
+        "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
+        "evidence+": [f"{TAG}: the Command Center is the one app holding Command Center, "
+                      "Products, Visual (/cc/image-review), Etsy, Marketing, Finance, Customers, "
+                      "QA, Research, Reliability, Agents and Owner Inbox, each a served route; "
+                      f"{DT}"],
+        "tests+": [C1 + "test_every_named_owner_area_has_a_route_and_an_api"],
+    },
+    ("s6", "F-504"): {
+        "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/growth/experiments.py::attribution; "
+                    "growth/experiments.py::persist",
+        "consumer": "src/brambleloop/growth/experiments.py::conclude_all (writes measured_effect "
+                    "and retain_or_rollback); GET /api/experiments",
+        "next_action": "none -- W4-CCGROW built it; deployed in b931d17",
+        "evidence+": [f"{TAG}: a registered experiment records what changed (design), why "
+                      "(hypothesis), owner/department, expected effect (pre-registered lines), "
+                      "and now the measured effect against expectation (UNMEASURED with no "
+                      "reading) and the retain/rollback decision (retain only on a causal, "
+                      f"claimable success; association stays undecided); {DT}"],
+        "tests+": [CG + "test_attribution_retains_only_a_causal_success",
+                   CG + "test_api_experiments_reports_effect_decision_and_superseded"],
+    },
+    ("s8", "F-660"): {
+        "coverage": "FULL", "missing_part": None,
+        "next_action": "none -- verified locally by W4-CCALL; deployed in b931d17",
+        "evidence+": [f"{TAG}: with the credit wallet empty and cloud/provider credential "
+                      "variables unset, three agents work concurrently through the runtime "
+                      "dispatch path, which never reads the credit wallet -- cloud sessions are "
+                      f"burst capacity, not a dependency; {DT}"],
+        "tests+": ["tests/test_w4_f660_zero_credit.py::test_three_agents_work_concurrently_with_zero_cloud_credit",
+                   "tests/test_w4_f660_zero_credit.py::test_the_dispatch_path_does_not_read_the_credit_wallet"],
+    },
+    ("s1", "F-056"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/commerce/search.py::shape_of; "
+                    "commerce/search.py::build_query_set",
+        "next_action": "none -- W4-SIZEINTENT built it; deployed in b931d17",
+        "evidence+": [f"{TAG}: a measured shape (hexagon/round from the twin) and a graded size "
+                      "count add shape and multi-size query families, labelled assumed; no size "
+                      "class word is generated; a shape word that contradicts the twin is refused "
+                      f"(TAG_SHAPE_UNTRUE); listing.seo passes both; {DT}"],
+        "tests+": [SZ + "test_the_shape_is_read_from_the_twin",
+                   SZ + "test_the_family_adds_shape_and_graded_size_phrases_only",
+                   SZ + "test_a_shape_word_that_contradicts_the_twin_is_refused"],
+    },
+})
+BATCH6 = ("F-619", "F-651", "F-504", "F-660", "F-056")
+
+
+# ---- batch 6b: F-871 (W4-FUNDING), closed on the production readback the lane named --------
+FU = "tests/test_w4_funding.py::"
+FM_EDITS.update({
+    ("s9", "F-871"): {
+        "coverage": "FULL", "missing_part": None,
+        "gate": {"kind": "none", "key": None,
+                 "detail": "model_provider OPEN in production b931d17; funding itself stays the "
+                           "owner's act (setting credit), which the packet prepares"},
+        "producer": "src/brambleloop/finance/funding_packet.py::credit_packet; "
+                    "src/brambleloop/ops/funding.py",
+        "consumer": "GET /api/funding/packets; the owner's 'add credit' action carries the "
+                    "packet (ops/funding.note)",
+        "next_action": "none -- W4-FUNDING built it; production serves the packet on b931d17",
+        "evidence+": [f"{TAG}: {EVB}/prod_api_funding_packets_20261020T0612Z.json -- production "
+                      "b931d17 serves the model-credit packet for anthropic: the bounded "
+                      "experiment (30-day spend by purpose), max spend (CA$100 monthly ceiling, "
+                      "spent CA$64.72, headroom CA$35.28, enforced before every call), the "
+                      "measured run rate and outage evidence, approves_itself false; "
+                      f"{DT}"],
+        "tests+": [FU + "test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+                   FU + "test_the_owner_funding_action_carries_the_prepared_packet",
+                   FU + "test_an_empty_ledger_is_unmeasured_never_zero",
+                   FU + "test_the_packets_route_is_registered"],
+    },
+})
+BATCH6B = ("F-871",)
+
+
+# ---- batch 6c: F-240 (built by FB-4, brand/seller_identity.py; deployed) -- the mapping still
+# said MISSING ---------------------------------------------------------------------------------
+SF = "tests/test_storefront_fb4.py::"
+FM_EDITS.update({
+    ("s4", "F-240"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/brand/seller_identity.py::check_identity; "
+                    "brand/seller_identity.py::compare",
+        "consumer": "src/brambleloop/brand/storefront.py::check_storefront (launch.plan -> "
+                    "ranking_readiness.shop_quality); launch/readiness.py seller_identity item",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None,
+                 "detail": "the rule is enforced in code; the account holder's KYC entry of the "
+                           "legal values is an owner readiness item (seller_identity), not a gap "
+                           "in this row"},
+        "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms "
+                       "them at Etsy KYC; readiness blocks until then",
+        "evidence+": [f"{TAG}: the mapping's 'nothing models public vs legal identity' is stale: "
+                      "brand/seller_identity.py (FB-4) keeps the public and legal presentations "
+                      "side by side; every legal value is UNKNOWN until owner-confirmed at KYC and "
+                      "is never invented; a difference is PERMITTED only when it cites an Etsy "
+                      "rule actually on file in gates.policy_knowledge, otherwise "
+                      "IDENTITY_DIFFERENCE_UNSOURCED / IDENTITY_RULE_NOT_ON_FILE; a storefront "
+                      "whose shop name drifted from the record is IDENTITY_STALE; reached on "
+                      f"b931d17 via launch.plan; {DT}", REACH],
+        "tests+": [SF + "test_legal_identity_is_unknown_and_never_invented",
+                   SF + "test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+                   SF + "test_the_storefront_check_refuses_a_stale_identity"],
+    },
+})
+BATCH6C = ("F-240",)
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
@@ -677,6 +810,11 @@ PRODUCTION_CLOSED = {
     "F-193": [DEPLOYED_TESTS],
     **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
        for u in ("F-491", "F-586", "F-591", "F-793", "F-498")},
+    **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
+       for u in BATCH6},
+    "F-871": [f"{EVB}/prod_api_funding_packets_20261020T0612Z.json", DEPLOYED_TESTS],
+    **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
+       for u in BATCH6C},
 }
 READING = {
     "F-152": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); "
@@ -705,6 +843,9 @@ READING = {
     "F-193": "gallery forecast tests pass on the deployed tree",
     **{u: "row tests pass on the deployed tree; producer module reached on b931d17"
        for u in ("F-491", "F-586", "F-591", "F-793", "F-498")},
+    **{u: 'W4 lane tests for the row pass on the deployed tree; producer module reached on b931d17' for u in BATCH6},
+    **{u: 'production serves the funding packet on b931d17; packet tests pass on the deployed tree' for u in BATCH6B},
+    **{u: 'seller-identity tests pass on the deployed tree; module reached on b931d17 via launch.plan' for u in BATCH6C},
 }
 
 

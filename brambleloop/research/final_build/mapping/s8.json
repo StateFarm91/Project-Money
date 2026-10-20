@@ -3,23 +3,25 @@
   "uid": "F-651",
   "launch_class": "MATURE",
   "launch_class_reason": "F-698: the unified Studio is a long-term operating requirement, not a first-sale gate",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "No unified app with Command Center/Products/Visual/Etsy/Marketing/Finance/Customers/QA/Research/Reliability/Agents/Owner Inbox workspaces. What exists is one server-rendered scrolling page ('/') with guarded blocks plus ~200 separate JSON /api/* endpoints and one extra HTML page (/ops/teardown).",
-  "producer": "src/brambleloop/app/main.py::dashboard",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
   "durable_state": "Postgres tables read live (jobs, audit_log, incidents, owner_actions, products, agents)",
-  "consumer": "src/brambleloop/app/main.py::api_console",
+  "consumer": "the Command Center app (/cc/)",
   "protected_effect": "owner reads company state without inferring from logs",
   "tests": [
    "tests/test_deploy.py::test_dashboard_renders_without_a_build_step",
    "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
    "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+   "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
   ],
   "evidence": [
    "src/brambleloop/app/main.py:4676 dashboard (single page, blocks: Build 2 coverage, Visual pipeline, MJs mission, Seasonal, CA$5K model, Creative, Improvement, Capabilities, Health, Waiting on the owner, Learning, Launch readiness, Jobs, Products, Incidents, Spend, Agents, Audit)",
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-   "#183 note: console read in production ('found by reading the live console')"
+   "#183 note: console read in production ('found by reading the live console')",
+   "w4-CLOSE5 on deployed b931d17: the Command Center is the one app holding Command Center, Products, Visual (/cc/image-review), Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox, each a served route; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN",
@@ -31,9 +33,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Build a Studio shell (e.g. src/brambleloop/app/studio.py + templates) with one route per department workspace, each composed from the existing /api/* producers; add a test that every named workspace renders from DB state.",
+  "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-652",
@@ -171,7 +173,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-656",
@@ -243,7 +245,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-658",
@@ -334,8 +336,8 @@
   "launch_class": "MATURE",
   "launch_class_reason": "capacity elasticity; first sale does not need burst capacity",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime independence from cloud sessions is proven, but there is no runtime burst-capacity path at all: 'elastic' is an in-process thread pool sized by swarm.allocate (not deployed); cloud sessions are development tooling only.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/runner.py",
   "durable_state": "swarm_allocations table",
   "consumer": "src/brambleloop/swarm/orchestrate.py::parallelism_advice",
@@ -343,11 +345,14 @@
   "tests": [
    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
    "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
-   "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target"
+   "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target",
+   "tests/test_w4_f660_zero_credit.py::test_three_agents_work_concurrently_with_zero_cloud_credit",
+   "tests/test_w4_f660_zero_credit.py::test_the_dispatch_path_does_not_read_the_credit_wallet"
   ],
   "evidence": [
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-   "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota"
+   "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota",
+   "w4-CLOSE5 on deployed b931d17: with the credit wallet empty and cloud/provider credential variables unset, three agents work concurrently through the runtime dispatch path, which never reads the credit wallet -- cloud sessions are burst capacity, not a dependency; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#175 COMPLETE+PROVEN",
@@ -359,9 +364,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Record a zero-cloud-credit test run (runtime unaffected) as evidence; if burst is wanted, add a bounded extra-worker service definition governed by finance ceilings.",
+  "next_action": "none -- verified locally by W4-CCALL; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-661",
@@ -1088,7 +1093,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-683",
@@ -1880,7 +1885,7 @@
   "defect": null,
   "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-707",
@@ -2259,7 +2264,7 @@
   "defect": null,
   "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-719",
@@ -2636,7 +2641,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "LOW",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-731",

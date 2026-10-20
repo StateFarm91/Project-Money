@@ -10,9 +10,9 @@ Reachability: HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b6
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 230 | 126 | 425 |
-| launch-critical | 29 | 26 | 0 | 5 | 55 | 375 |
-| post-launch (not blocking) | 65 | 9 | 0 | 225 | 71 | 50 |
+| all rows | 94 | 35 | 7 | 225 | 124 | 432 |
+| launch-critical | 29 | 26 | 0 | 5 | 53 | 377 |
+| post-launch (not blocking) | 65 | 9 | 0 | 220 | 71 | 55 |
 
 Launch-critical OPEN-DEFECT: **5**
 
@@ -55,7 +55,6 @@ Launch-critical OPEN-DEFECT: **5**
 | F-225 Gallery-as-Real-Photo-Shoot | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-227 Product Truth Outranks Beauty | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-239 Mobile Storefront QA | EXTERNAL-GATED | MISSING | external:rendered_pages |
-| F-240 Public Seller Identity Integrity | OWNER-GATED | MISSING | owner:etsy_shop |
 | F-243 Query-Matching Completeness | OWNER-GATED | EXERCISED | owner:etsy_api |
 | F-246 Tag Diversity Gate | DATA-GATED | EXERCISED | data:insights_access |
 | F-247 Attribute / Category Integrity | OWNER-GATED | EXERCISED | owner:etsy_api |
@@ -133,7 +132,6 @@ Launch-critical OPEN-DEFECT: **5**
 | F-849 Claude/Chat Independence | DATA-GATED | INTEGRATED | data:production_window |
 | F-850 Restart Recovery | OWNER-GATED | INTEGRATED | owner:live_restart_drill |
 | F-851 B+C Default | EXTERNAL-GATED | INTEGRATED | external:visual_v1_provider_capability |
-| F-871 Provider Funding Is Authority | OWNER-GATED | EXERCISED | owner:model_provider |
 | F-872 Etsy Scope Reauthorization | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-880 Cloud-Resident Always-On Runtime | DATA-GATED | INTEGRATED | data:production_window |
 | F-881 No Development-Chat Dependency | DATA-GATED | INTEGRATED | data:production_window |

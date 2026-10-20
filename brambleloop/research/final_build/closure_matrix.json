@@ -5,7 +5,7 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 140
+     "rows": 138
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
@@ -29,10 +29,10 @@
     },
     "b931d17": {
      "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
-     "rows": 30
+     "rows": 37
     }
    },
-   "rows_on_base": 496,
+   "rows_on_base": 491,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
@@ -54,18 +54,18 @@
   "unmapped": [],
   "problems": [],
   "maturity": {
-   "DEPLOYED": 185,
-   "INTEGRATED": 511,
-   "MISSING": 108,
-   "IMPLEMENTED": 51,
-   "EXERCISED": 17,
+   "DEPLOYED": 183,
+   "INTEGRATED": 516,
+   "MISSING": 107,
+   "IMPLEMENTED": 50,
+   "EXERCISED": 16,
    "TESTED": 45
   },
   "maturity_claimed": {
-   "EXERCISED": 117,
-   "INTEGRATED": 477,
-   "DEPLOYED": 132,
-   "MISSING": 108,
+   "EXERCISED": 115,
+   "INTEGRATED": 481,
+   "DEPLOYED": 131,
+   "MISSING": 107,
    "IMPLEMENTED": 42,
    "TESTED": 41
   },
@@ -76,29 +76,29 @@
   },
   "launch_critical_maturity": {
    "DEPLOYED": 113,
-   "INTEGRATED": 327,
+   "INTEGRATED": 329,
    "IMPLEMENTED": 1,
-   "EXERCISED": 17,
+   "EXERCISED": 16,
    "TESTED": 27,
-   "MISSING": 5
+   "MISSING": 4
   },
   "gate_kind": {
-   "none": 639,
-   "owner": 143,
+   "none": 641,
+   "owner": 141,
    "data": 96,
    "external": 39
   },
   "launch_critical_gate_kind": {
-   "none": 371,
-   "owner": 61,
+   "none": 373,
+   "owner": 59,
    "external": 29,
    "data": 29
   },
   "coverage": {
-   "FULL": 464,
-   "PARTIAL": 453
+   "FULL": 470,
+   "PARTIAL": 447
   },
-  "downgraded": 143,
+  "downgraded": 142,
   "defects": 20,
   "wave_reported": {
    "PARTIAL": 50,
@@ -106,15 +106,15 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 375,
-   "GATED": 110,
+   "COMPLETE": 377,
+   "GATED": 108,
    "POST-LAUNCH": 420,
    "OPEN": 5,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 375,
-   "GATED": 110,
+   "COMPLETE": 377,
+   "GATED": 108,
    "OPEN": 5
   },
   "launch_critical_open": 5,
@@ -123,19 +123,19 @@
    "maturity TESTED": 3
   },
   "protected_action_applicability": {
-   "protected": 583,
-   "unprotected": 334
+   "protected": 584,
+   "unprotected": 333
   },
   "capped_by_unwritten_state": 0,
   "capped_by_proxy_evidence": 0,
   "mapped_on": {
    "fee1cfe": 174,
    "8b67414": 35,
-   "6f9a2f7": 140,
+   "6f9a2f7": 138,
    "0417f35": 33,
-   "019ebf0": 496,
+   "019ebf0": 491,
    "2f36fe0": 6,
-   "b931d17": 30,
+   "b931d17": 37,
    "1b21e81": 3
   },
   "orphaned_partials": [],
@@ -2727,16 +2727,21 @@
    "uid": "F-056",
    "launch_class": "MATURE",
    "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
-   "maturity": "IMPLEMENTED",
-   "coverage": "PARTIAL",
-   "missing_part": "Size count in title and finished size in description; no size/shape query family",
-   "producer": "src/brambleloop/commerce/seo.py::build_title (N Sizes)",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/commerce/search.py::shape_of; commerce/search.py::build_query_set",
    "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
    "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_w4_size_shape_intent.py::test_the_shape_is_read_from_the_twin",
+    "tests/test_w4_size_shape_intent.py::test_the_family_adds_shape_and_graded_size_phrases_only",
+    "tests/test_w4_size_shape_intent.py::test_a_shape_word_that_contradicts_the_twin_is_refused"
+   ],
    "evidence": [
-    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+    "w4-CLOSE5 on deployed b931d17: a measured shape (hexagon/round from the twin) and a graded size count add shape and multi-size query families, labelled assumed; no size class word is generated; a shape word that contradicts the twin is refused (TAG_SHAPE_UNTRUE); listing.seo passes both; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [],
    "gate": {
@@ -2745,20 +2750,17 @@
     "detail": "software work remains; nothing external blocks it"
    },
    "defect": null,
-   "next_action": "Add a size/shape query family from twin dimensions",
+   "next_action": "none -- W4-SIZEINTENT built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s1",
-   "maturity_claimed": "EXERCISED",
-   "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED",
-    "no cited test exists in tests/ -> capped at IMPLEMENTED"
-   ],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [],
    "id": "F-056",
    "title": "Size/Scale Intent",
    "version": "v0.1",
    "master_priority": "P1-after-real-traffic",
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "POST-LAUNCH",
@@ -7179,7 +7181,7 @@
    "defect": null,
    "next_action": "none -- every scratch site is classified with its durable home (tests/test_w4_close5_rows.py SCRATCH); a new site fails the test until classified",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s2",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -9072,7 +9074,7 @@
    "defect": null,
    "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s3",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -9115,7 +9117,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (main.py edited by R1), awaiting deploy",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s3",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -9159,7 +9161,7 @@
    "defect": null,
    "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s3",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -11308,42 +11310,45 @@
    "uid": "F-240",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "P0 addendum: seller identity truthfulness / marketplace compliance",
-   "maturity": "MISSING",
+   "maturity": "INTEGRATED",
    "coverage": "FULL",
-   "missing_part": "nothing models public shop identity vs legal/payout/tax identity, nor checks that differences are Etsy-permitted",
-   "producer": null,
+   "missing_part": null,
+   "producer": "src/brambleloop/brand/seller_identity.py::check_identity; brand/seller_identity.py::compare",
    "durable_state": null,
-   "consumer": null,
+   "consumer": "src/brambleloop/brand/storefront.py::check_storefront (launch.plan -> ranking_readiness.shop_quality); launch/readiness.py seller_identity item",
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_storefront_fb4.py::test_legal_identity_is_unknown_and_never_invented",
+    "tests/test_storefront_fb4.py::test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+    "tests/test_storefront_fb4.py::test_the_storefront_check_refuses_a_stale_identity"
+   ],
    "evidence": [
-    "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only"
+    "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only",
+    "w4-CLOSE5 on deployed b931d17: the mapping's 'nothing models public vs legal identity' is stale: brand/seller_identity.py (FB-4) keeps the public and legal presentations side by side; every legal value is UNKNOWN until owner-confirmed at KYC and is never invented; a difference is PERMITTED only when it cites an Etsy rule actually on file in gates.policy_knowledge, otherwise IDENTITY_DIFFERENCE_UNSOURCED / IDENTITY_RULE_NOT_ON_FILE; a storefront whose shop name drifted from the record is IDENTITY_STALE; reached on b931d17 via launch.plan; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "owner",
-    "key": "etsy_shop",
-    "detail": "legal/payout/tax identity is entered by the account holder at Etsy KYC; the software record of the approved public identity and the permitted-difference rule can be built now"
+    "kind": "none",
+    "key": null,
+    "detail": "the rule is enforced in code; the account holder's KYC entry of the legal values is an owner readiness item (seller_identity), not a gap in this row"
    },
    "defect": null,
-   "next_action": "Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied to a policy_knowledge reading of Etsy's rule) and a check in storefront.check_storefront that refuses an un-sourced difference; owner confirms legal identity at KYC.",
+   "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms them at Etsy KYC; readiness blocks until then",
    "confidence": "MEDIUM",
-   "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/",
+   "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/ | w4-CLOSE5 on deployed b931d17",
    "slice": "s4",
-   "maturity_claimed": "MISSING",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-240",
    "title": "Public Seller Identity Integrity",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "GATED",
-   "completion_reasons": [
-    "owner gate 'etsy_shop'",
-    "maturity MISSING below target INTEGRATED"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-241",
@@ -13348,7 +13353,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
    "confidence": "HIGH",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -14116,7 +14121,7 @@
    "defect": null,
    "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s4",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -17845,7 +17850,7 @@
    "defect": null,
    "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -18789,7 +18794,7 @@
    "defect": null,
    "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -18958,7 +18963,7 @@
    "defect": null,
    "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -19203,7 +19208,7 @@
    "defect": null,
    "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [
@@ -19811,7 +19816,7 @@
    "defect": null,
    "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -19938,7 +19943,7 @@
    "defect": null,
    "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -19980,7 +19985,7 @@
    "defect": null,
    "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
    "confidence": "LOW",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -20192,7 +20197,7 @@
    "defect": null,
    "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
    "confidence": "HIGH",
-   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s5",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [
@@ -21941,7 +21946,7 @@
    "defect": null,
    "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -22548,7 +22553,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven on claude/w4-CLOSE5, awaiting deploy (fixes the production 500)",
    "confidence": "HIGH",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -22722,7 +22727,7 @@
    "defect": null,
    "next_action": "none -- deployed; isolation now asserted around the failing job",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -23044,7 +23049,7 @@
    "defect": null,
    "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23177,7 +23182,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
    "confidence": "HIGH",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23287,18 +23292,21 @@
    "launch_class": "MATURE",
    "launch_class_reason": "experiment record-keeping; post-launch",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "RegisteredExperiment carries owner, metric, design, decision, stop_on, expected value and kill reason; measured effect vs expected effect and an explicit retain/rollback decision are recorded for improvement promotions (cells) but not uniformly for storefront experiments",
-   "producer": "src/brambleloop/growth/experiments.py::persist",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/growth/experiments.py::attribution; growth/experiments.py::persist",
    "durable_state": "registered_experiments; improvements",
-   "consumer": "src/brambleloop/app/main.py::api_experiments",
+   "consumer": "src/brambleloop/growth/experiments.py::conclude_all (writes measured_effect and retain_or_rollback); GET /api/experiments",
    "protected_effect": null,
    "tests": [
     "tests/test_cert_improve_autonomy.py::test_league_promotes_a_preauthorised_winner_then_rolls_it_back_when_it_regresses",
-    "tests/test_cert_growth_ops.py"
+    "tests/test_cert_growth_ops.py",
+    "tests/test_w4_ccgrow.py::test_attribution_retains_only_a_causal_success",
+    "tests/test_w4_ccgrow.py::test_api_experiments_reports_effect_decision_and_superseded"
    ],
    "evidence": [
-    "app/main.py /api/experiments returns owner/state/metric/design/decision/expected_value/killed_reason/stop_on"
+    "app/main.py /api/experiments returns owner/state/metric/design/decision/expected_value/killed_reason/stop_on",
+    "w4-CLOSE5 on deployed b931d17: a registered experiment records what changed (design), why (hypothesis), owner/department, expected effect (pre-registered lines), and now the measured effect against expectation (UNMEASURED with no reading) and the retain/rollback decision (retain only on a causal, claimable success; association stays undecided); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [
     "#265 DATA-GATED",
@@ -23310,9 +23318,9 @@
     "detail": ""
    },
    "defect": null,
-   "next_action": "Add measured_effect and retain_or_rollback fields to RegisteredExperiment and set them in growth.experiments.conclude_all",
+   "next_action": "none -- W4-CCGROW built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23320,7 +23328,7 @@
    "title": "Experiment Attribution",
    "version": "v0.15",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "POST-LAUNCH",
@@ -23673,7 +23681,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
    "confidence": "HIGH",
-   "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -25038,7 +25046,7 @@
    "defect": null,
    "next_action": "none -- deployed; a real refund is data",
    "confidence": "HIGH",
-   "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -25399,7 +25407,7 @@
    "defect": null,
    "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
    "confidence": "HIGH",
-   "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s6",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -26162,7 +26170,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
    "confidence": "HIGH",
-   "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -26714,7 +26722,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
    "confidence": "HIGH",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -26893,7 +26901,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -27416,7 +27424,7 @@
    "defect": null,
    "next_action": "none -- the registry is reached at runtime on b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -27640,7 +27648,7 @@
    "defect": null,
    "next_action": "none -- deployed",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -28282,7 +28290,7 @@
    "defect": null,
    "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -28887,19 +28895,21 @@
    "uid": "F-619",
    "launch_class": "MATURE",
    "launch_class_reason": "The full Command Center app is executive polish; launch-level owner visibility exists in the ops dashboard and owner-action queue (F-593/F-623).",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "No Today/Month/Finance/Products/Listings/Marketing/Customers/Experiments/Departments/Agent Activity/Owner Actions/System Health navigation; current dashboard is a single ops page plus JSON endpoints.",
-   "producer": "src/brambleloop/app/main.py::dashboard",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
    "durable_state": "(reads jobs, owner_actions, incidents, agents, audit_log)",
-   "consumer": "src/brambleloop/app/main.py::api_console",
+   "consumer": "the Command Center app (/cc/, owner session): every named area is a route with a view module, reading an /api/cc/* endpoint",
    "protected_effect": null,
    "tests": [
     "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-    "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+    "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
+    "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
    ],
    "evidence": [
-    "dashboard '/' and /api/console present in fcb982d"
+    "dashboard '/' and /api/console present in fcb982d",
+    "w4-CLOSE5 on deployed b931d17: Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health each map to a Command Center route whose view file exists and to an API the app serves; the stores stay the source of truth (no new store); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [
     "#183 COMPLETE+PROVEN",
@@ -28911,19 +28921,19 @@
     "detail": ""
    },
    "defect": null,
-   "next_action": "Build a tabbed owner web page (app/main.py routes /command/*) over existing endpoints, each tab reading its store, no new source of truth.",
+   "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s7",
-   "maturity_claimed": "DEPLOYED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-619",
    "title": "Brambleloop Command Center",
    "version": "v0.18",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
-   "protected_action_applicability": "unprotected",
-   "protected_action_basis": "no protected_effect and no protected action named",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+   "protected_action_applicability": "protected",
+   "protected_action_basis": "title/producer/consumer names 'owner'",
    "completion": "POST-LAUNCH",
    "completion_reasons": []
   },
@@ -29412,23 +29422,25 @@
    "uid": "F-651",
    "launch_class": "MATURE",
    "launch_class_reason": "F-698: the unified Studio is a long-term operating requirement, not a first-sale gate",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "No unified app with Command Center/Products/Visual/Etsy/Marketing/Finance/Customers/QA/Research/Reliability/Agents/Owner Inbox workspaces. What exists is one server-rendered scrolling page ('/') with guarded blocks plus ~200 separate JSON /api/* endpoints and one extra HTML page (/ops/teardown).",
-   "producer": "src/brambleloop/app/main.py::dashboard",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
    "durable_state": "Postgres tables read live (jobs, audit_log, incidents, owner_actions, products, agents)",
-   "consumer": "src/brambleloop/app/main.py::api_console",
+   "consumer": "the Command Center app (/cc/)",
    "protected_effect": "owner reads company state without inferring from logs",
    "tests": [
     "tests/test_deploy.py::test_dashboard_renders_without_a_build_step",
     "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
     "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+    "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
    ],
    "evidence": [
     "src/brambleloop/app/main.py:4676 dashboard (single page, blocks: Build 2 coverage, Visual pipeline, MJs mission, Seasonal, CA$5K model, Creative, Improvement, Capabilities, Health, Waiting on the owner, Learning, Launch readiness, Jobs, Products, Incidents, Spend, Agents, Audit)",
     "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-    "#183 note: console read in production ('found by reading the live console')"
+    "#183 note: console read in production ('found by reading the live console')",
+    "w4-CLOSE5 on deployed b931d17: the Command Center is the one app holding Command Center, Products, Visual (/cc/image-review), Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox, each a served route; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [
     "#183 COMPLETE+PROVEN",
@@ -29440,19 +29452,17 @@
     "detail": "no gate on the remaining software work"
    },
    "defect": null,
-   "next_action": "Build a Studio shell (e.g. src/brambleloop/app/studio.py + templates) with one route per department workspace, each composed from the existing /api/* producers; add a test that every named workspace renders from DB state.",
+   "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
-   "maturity_claimed": "EXERCISED",
-   "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
-   ],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [],
    "id": "F-651",
    "title": "Unified Studio",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "POST-LAUNCH",
@@ -29635,7 +29645,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -29731,7 +29741,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -29861,8 +29871,8 @@
    "launch_class": "MATURE",
    "launch_class_reason": "capacity elasticity; first sale does not need burst capacity",
    "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "Runtime independence from cloud sessions is proven, but there is no runtime burst-capacity path at all: 'elastic' is an in-process thread pool sized by swarm.allocate (not deployed); cloud sessions are development tooling only.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/app/runner.py",
    "durable_state": "swarm_allocations table",
    "consumer": "src/brambleloop/swarm/orchestrate.py::parallelism_advice",
@@ -29870,11 +29880,14 @@
    "tests": [
     "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
     "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
-    "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target"
+    "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target",
+    "tests/test_w4_f660_zero_credit.py::test_three_agents_work_concurrently_with_zero_cloud_credit",
+    "tests/test_w4_f660_zero_credit.py::test_the_dispatch_path_does_not_read_the_credit_wallet"
    ],
    "evidence": [
     "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-    "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota"
+    "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota",
+    "w4-CLOSE5 on deployed b931d17: with the credit wallet empty and cloud/provider credential variables unset, three agents work concurrently through the runtime dispatch path, which never reads the credit wallet -- cloud sessions are burst capacity, not a dependency; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [
     "#175 COMPLETE+PROVEN",
@@ -29886,9 +29899,9 @@
     "detail": "no gate on the remaining software work"
    },
    "defect": null,
-   "next_action": "Record a zero-cloud-credit test run (runtime unaffected) as evidence; if burst is wanted, add a bounded extra-worker service definition governed by finance ceilings.",
+   "next_action": "none -- verified locally by W4-CCALL; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -29898,7 +29911,7 @@
    "title": "Elastic Capacity",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
    "completion": "POST-LAUNCH",
@@ -30928,7 +30941,7 @@
    "defect": null,
    "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -32057,7 +32070,7 @@
    "defect": null,
    "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
    "confidence": "HIGH",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -32582,7 +32595,7 @@
    "defect": null,
    "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
    "confidence": "MEDIUM",
-   "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -33118,7 +33131,7 @@
    "defect": null,
    "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
    "confidence": "LOW",
-   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -36039,7 +36052,7 @@
    "defect": null,
    "next_action": "none -- reached at runtime through certification",
    "confidence": "MEDIUM",
-   "searched": "w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -39428,49 +39441,53 @@
    "uid": "F-871",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "spend authority and ceilings",
-   "maturity": "EXERCISED",
-   "coverage": "PARTIAL",
-   "missing_part": "ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-module, not a standard record (see F-877)",
-   "producer": "src/brambleloop/finance/spend_policy.py; gateway/model_gateway.py; ops/funding.py; build2/executor.py model_provider gate",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/finance/funding_packet.py::credit_packet; src/brambleloop/ops/funding.py",
    "durable_state": "cost records; SpendLimit",
-   "consumer": "gateway calls refuse beyond ceiling",
+   "consumer": "GET /api/funding/packets; the owner's 'add credit' action carries the packet (ops/funding.note)",
    "protected_effect": "no provider call beyond owner ceiling",
    "tests": [
     "tests/test_spend_governance.py",
     "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_with_no_cap_before_any_request",
-    "tests/test_funding.py"
+    "tests/test_funding.py",
+    "tests/test_w4_funding.py::test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+    "tests/test_w4_funding.py::test_the_owner_funding_action_carries_the_prepared_packet",
+    "tests/test_w4_funding.py::test_an_empty_ledger_is_unmeasured_never_zero",
+    "tests/test_w4_funding.py::test_the_packets_route_is_registered"
    ],
    "evidence": [
-    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)"
+    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)",
+    "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_funding_packets_20261020T0612Z.json -- production b931d17 serves the model-credit packet for anthropic: the bounded experiment (30-day spend by purpose), max spend (CA$100 monthly ceiling, spent CA$64.72, headroom CA$35.28, enforced before every call), the measured run rate and outage evidence, approves_itself false; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
    ],
    "build2_rows": [
     "#188 COMPLETE+PROVEN",
     "#86 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "model_provider",
-    "detail": "provider/vision credit is owner funding"
+    "kind": "none",
+    "key": null,
+    "detail": "model_provider OPEN in production b931d17; funding itself stays the owner's act (setting credit), which the packet prepares"
    },
    "defect": null,
-   "next_action": "Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit",
+   "next_action": "none -- W4-FUNDING built it; production serves the packet on b931d17",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": "w4-CLOSE5 on deployed b931d17",
    "slice": "s9",
    "maturity_claimed": "EXERCISED",
-   "adjudication": [],
+   "adjudication": [
+    "producer module 'finance/funding_packet.py' absent from production fcb982d -> capped at INTEGRATED"
+   ],
    "id": "F-871",
    "title": "Provider Funding Is Authority",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "GATED",
-   "completion_reasons": [
-    "owner gate 'model_provider'",
-    "coverage PARTIAL: ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-modu"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-872",
@@ -39780,7 +39797,7 @@
    "defect": null,
    "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
    "confidence": "MEDIUM",
-   "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
+   "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],

@@ -276,3 +276,31 @@ Not closed, with reasons:
 - **F-600.** Most surfaces have no collector.
 - **F-478.** No test yet shows research and engineering running independently.
 - **F-148.** The producer is test infrastructure, so INTEGRATED is unreachable.
+
+### 3.7 Batch 6: Command Center, growth, search and funding rows built by merged lanes, plus F-240
+
+| row | criterion (quoted) | tests | status |
+|---|---|---|---|
+| **F-619** Brambleloop Command Center | "…web app with Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health…" | `test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api` | closed on b931d17 |
+| **F-651** Unified Studio | "one Brambleloop Studio app contains Command Center, Products, Visual, Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox." | same test | closed on b931d17 |
+| **F-504** Experiment Attribution | "Record what changed, why, evidence, expected effect, measured effect, owner/department and retain/rollback decision." | `test_w4_ccgrow.py` (2) | closed on b931d17 |
+| **F-660** Elastic Capacity | "…normal multi-agent operation continues when promotional/paid cloud credit is zero." | `test_w4_f660_zero_credit.py` (2) | closed on b931d17 |
+| **F-056** Size/Scale Intent | "Capture size/shape intent where meaningful." | `test_w4_size_shape_intent.py` (3) | closed on b931d17 |
+| **F-871** Provider Funding Is Authority (LC) | "Model/vision credit is owner financial authority; bounded experiment and max spend are prepared first." | `test_w4_funding.py` (4) | closed on b931d17 on the production readback W4-FUNDING named: `prod_api_funding_packets_20261020T0612Z.json` serves the credit packet (30-day spend by purpose, CA$100 ceiling, CA$35.28 headroom, run rate, outage evidence, `approves_itself` false) |
+| **F-240** Public Seller Identity Integrity (LC) | "Approved public shop identity may differ from legal/tax presentation only where Etsy permits; legal, payout and tax identity remain truthful." | `test_storefront_fb4.py` (3) | closed on b931d17. The mapping's "MISSING" was stale: `brand/seller_identity.py` (FB-4) enforces the rule and is reached via `launch.plan`. The legal values stay UNKNOWN until the owner confirms them at KYC, and readiness blocks until then |
+
+Not closed:
+- **F-621, F-661, F-668, F-729.** The CC views carry most of what each criterion names, but not
+  all of it:
+  - F-621: no charter-KPI trend;
+  - F-661: conversion, active departments and owner decisions are not on the executive block;
+  - F-668: no org chart, heartbeat or learning;
+  - F-729: no restarts, experiments or improvements on the autonomy-health block.
+- **F-652, F-653, F-670.** Design-quality criteria. W4-CCFM1/2 recorded these as evidence or
+  partial.
+- **F-126.** W4-CCGROW says it is partial: visual benchmark rows are not superseded.
+- **F-100.** W4-FUNDING left the approved-provider refusal for an owner ruling.
+
+Production observation from the same readback: `/api/funding/packets` reports model probes
+failing 156 of 223 (0.70) and 86 parked model jobs over 30 days. That is outage evidence for the
+owner's diversification decision, F-100.

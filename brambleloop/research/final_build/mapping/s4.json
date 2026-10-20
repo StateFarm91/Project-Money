@@ -240,27 +240,33 @@
   "uid": "F-240",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0 addendum: seller identity truthfulness / marketplace compliance",
-  "maturity": "MISSING",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "nothing models public shop identity vs legal/payout/tax identity, nor checks that differences are Etsy-permitted",
-  "producer": null,
+  "missing_part": null,
+  "producer": "src/brambleloop/brand/seller_identity.py::check_identity; brand/seller_identity.py::compare",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/brand/storefront.py::check_storefront (launch.plan -> ranking_readiness.shop_quality); launch/readiness.py seller_identity item",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_storefront_fb4.py::test_legal_identity_is_unknown_and_never_invented",
+   "tests/test_storefront_fb4.py::test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+   "tests/test_storefront_fb4.py::test_the_storefront_check_refuses_a_stale_identity"
+  ],
   "evidence": [
-   "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only"
+   "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only",
+   "w4-CLOSE5 on deployed b931d17: the mapping's 'nothing models public vs legal identity' is stale: brand/seller_identity.py (FB-4) keeps the public and legal presentations side by side; every legal value is UNKNOWN until owner-confirmed at KYC and is never invented; a difference is PERMITTED only when it cites an Etsy rule actually on file in gates.policy_knowledge, otherwise IDENTITY_DIFFERENCE_UNSOURCED / IDENTITY_RULE_NOT_ON_FILE; a storefront whose shop name drifted from the record is IDENTITY_STALE; reached on b931d17 via launch.plan; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_shop",
-   "detail": "legal/payout/tax identity is entered by the account holder at Etsy KYC; the software record of the approved public identity and the permitted-difference rule can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "the rule is enforced in code; the account holder's KYC entry of the legal values is an owner readiness item (seller_identity), not a gap in this row"
   },
   "defect": null,
-  "next_action": "Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied to a policy_knowledge reading of Etsy's rule) and a check in storefront.check_storefront that refuses an un-sourced difference; owner confirms legal identity at KYC.",
+  "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms them at Etsy KYC; readiness blocks until then",
   "confidence": "MEDIUM",
-  "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/"
+  "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/ | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-241",
@@ -1678,7 +1684,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-284",
@@ -2197,7 +2203,7 @@
   "defect": null,
   "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-300",

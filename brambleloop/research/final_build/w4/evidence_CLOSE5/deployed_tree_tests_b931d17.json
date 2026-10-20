@@ -2,7 +2,7 @@
  "kind": "brambleloop.deployed_tree_tests",
  "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
  "src_tree_clean": true,
- "run_at": "2026-10-20T06:08:05Z",
+ "run_at": "2026-10-20T06:29:00Z",
  "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
  "runs": [
   {
@@ -374,6 +374,35 @@
    ]
   },
   {
+   "file": "tests/test_storefront_fb4.py",
+   "rc": 0,
+   "ok": 17,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_the_drafted_storefront_passes_its_seo_check",
+    "test_a_stuffed_tagline_fails",
+    "test_a_category_silent_tagline_fails",
+    "test_a_keyword_stuffed_about_fails_and_readiness_reads_it",
+    "test_the_opening_grid_refuses_uncleared_and_legacy_filler",
+    "test_season_first_then_strongest_first_with_the_basis_labelled",
+    "test_the_first_screen_shows_more_than_one_price_rung",
+    "test_an_empty_grid_and_an_unjudgeable_grid_are_not_ready",
+    "test_grid_coherence_is_run_on_the_visible_window",
+    "test_readiness_registers_the_new_storefront_requirements",
+    "test_the_simulated_icon_is_legible_at_40_and_70_px",
+    "test_a_wordmark_at_the_left_edge_is_cut_by_the_phone_crop",
+    "test_the_announcement_opening_must_fit_a_phone",
+    "test_the_preview_uses_certified_frames_and_never_claims_live_inspection",
+    "test_legal_identity_is_unknown_and_never_invented",
+    "test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+    "test_the_storefront_check_refuses_a_stale_identity"
+   ],
+   "tail": [
+    "OK   test_the_storefront_check_refuses_a_stale_identity"
+   ]
+  },
+  {
    "file": "tests/test_w3_k4_launch_verdict.py",
    "rc": 0,
    "ok": 16,
@@ -399,6 +428,42 @@
    ],
    "tail": [
     "16 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_ccfm1.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_bar_chart_draws_unknown_as_a_gap_and_uses_no_html_sink",
+    "test_completed_trend_is_measured_per_department_and_day",
+    "test_customers_are_aggregates_unknown_until_orders_are_read",
+    "test_department_spend_is_recorded_zero_only_when_nothing_was_spent",
+    "test_departments_carry_objective_spend_and_trend",
+    "test_every_named_owner_area_has_a_route_and_an_api",
+    "test_f670_light_dark_tokens_chart_and_drill_down",
+    "test_spend_trend_sums_recorded_spend_per_day"
+   ],
+   "tail": [
+    "8/8 passing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_ccgrow.py",
+   "rc": 0,
+   "ok": 4,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_api_experiments_reports_effect_decision_and_superseded",
+    "test_attribution_retains_only_a_causal_success",
+    "test_supersede_refuses_without_a_reason_or_a_registered_successor",
+    "test_supersede_retains_the_row_and_leaves_every_aggregate"
+   ],
+   "tail": [
+    "4/4 passing"
    ]
   },
   {
@@ -501,6 +566,20 @@
    ]
   },
   {
+   "file": "tests/test_w4_f660_zero_credit.py",
+   "rc": 0,
+   "ok": 2,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_the_dispatch_path_does_not_read_the_credit_wallet",
+    "test_three_agents_work_concurrently_with_zero_cloud_credit"
+   ],
+   "tail": [
+    "2/2 passing"
+   ]
+  },
+  {
    "file": "tests/test_w4_failmem.py",
    "rc": 0,
    "ok": 10,
@@ -552,6 +631,23 @@
    ],
    "tail": [
     "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_funding.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_empty_ledger_is_unmeasured_never_zero",
+    "test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+    "test_the_diversification_packet_carries_measured_resilience_value_and_a_bound",
+    "test_the_owner_funding_action_carries_the_prepared_packet",
+    "test_the_packets_route_is_registered"
+   ],
+   "tail": [
+    "OK   test_the_packets_route_is_registered"
    ]
   },
   {
@@ -648,6 +744,23 @@
    ],
    "tail": [
     "10 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_size_shape_intent.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_shape_word_that_contradicts_the_twin_is_refused",
+    "test_every_launch0_curated_tag_set_agrees_with_its_twin",
+    "test_no_shape_family_without_a_measured_shape",
+    "test_the_family_adds_shape_and_graded_size_phrases_only",
+    "test_the_shape_is_read_from_the_twin"
+   ],
+   "tail": [
+    "OK test_the_shape_is_read_from_the_twin"
    ]
   },
   {

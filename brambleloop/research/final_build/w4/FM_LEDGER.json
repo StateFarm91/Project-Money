@@ -8,26 +8,26 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 425,
-   "OWNER-GATED": 126,
-   "OPEN-DEFECT": 230,
+   "PROVEN": 432,
+   "OWNER-GATED": 124,
+   "OPEN-DEFECT": 225,
    "DATA-GATED": 94,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 375,
-   "OWNER-GATED": 55,
+   "PROVEN": 377,
+   "OWNER-GATED": 53,
    "EXTERNAL-GATED": 26,
    "DATA-GATED": 29,
    "OPEN-DEFECT": 5
   },
   "status_post_launch": {
-   "OPEN-DEFECT": 225,
+   "OPEN-DEFECT": 220,
    "OWNER-GATED": 71,
    "DATA-GATED": 65,
    "EXTERNAL-GATED": 9,
-   "PROVEN": 50
+   "PROVEN": 55
   },
   "launch_critical_open": 5,
   "reachability_basis": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
@@ -1564,20 +1564,21 @@
    "title": "Size/Scale Intent",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "IMPLEMENTED",
-   "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/commerce/seo.py::build_title (N Sizes)",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/commerce/search.py::shape_of; commerce/search.py::build_query_set",
    "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity IMPLEMENTED below target INTEGRATED",
-    "coverage PARTIAL: Size count in title and finished size in description; no size/shape query family"
+   "tests": [
+    "tests/test_w4_size_shape_intent.py::test_the_shape_is_read_from_the_twin",
+    "tests/test_w4_size_shape_intent.py::test_the_family_adds_shape_and_graded_size_phrases_only",
+    "tests/test_w4_size_shape_intent.py::test_a_shape_word_that_contradicts_the_twin_is_refused"
    ],
-   "next_action": "Add a size/shape query family from twin dimensions",
-   "mapped_on": "019ebf0",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- W4-SIZEINTENT built it; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -6647,23 +6648,21 @@
    "title": "Public Seller Identity Integrity",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": {
-    "kind": "owner",
-    "key": "etsy_shop"
-   },
-   "reasons": [
-    "owner gate 'etsy_shop'",
-    "maturity MISSING below target INTEGRATED"
+   "producer": "src/brambleloop/brand/seller_identity.py::check_identity; brand/seller_identity.py::compare",
+   "consumer": "src/brambleloop/brand/storefront.py::check_storefront (launch.plan -> ranking_readiness.shop_quality); launch/readiness.py seller_identity item",
+   "tests": [
+    "tests/test_storefront_fb4.py::test_legal_identity_is_unknown_and_never_invented",
+    "tests/test_storefront_fb4.py::test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+    "tests/test_storefront_fb4.py::test_the_storefront_check_refuses_a_stale_identity"
    ],
-   "next_action": "Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied to a policy_knowledge reading of Etsy's rule) and a check in storefront.check_storefront that refuses an un-sourced difference; owner confirms legal identity at KYC.",
-   "mapped_on": "6f9a2f7",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms them at Etsy KYC; readiness blocks until then",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -14001,22 +14000,22 @@
    "title": "Experiment Attribution",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/growth/experiments.py::persist",
-   "consumer": "src/brambleloop/app/main.py::api_experiments",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/growth/experiments.py::attribution; growth/experiments.py::persist",
+   "consumer": "src/brambleloop/growth/experiments.py::conclude_all (writes measured_effect and retain_or_rollback); GET /api/experiments",
    "tests": [
     "tests/test_cert_improve_autonomy.py::test_league_promotes_a_preauthorised_winner_then_rolls_it_back_when_it_regresses",
-    "tests/test_cert_growth_ops.py"
+    "tests/test_cert_growth_ops.py",
+    "tests/test_w4_ccgrow.py::test_attribution_retains_only_a_causal_success",
+    "tests/test_w4_ccgrow.py::test_api_experiments_reports_effect_decision_and_superseded"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: RegisteredExperiment carries owner, metric, design, decision, stop_on, expected value and kill reason; measured effect vs expected effect and an explicit retain"
-   ],
-   "next_action": "Add measured_effect and retain_or_rollback fields to RegisteredExperiment and set them in growth.experiments.conclude_all",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- W4-CCGROW built it; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -17504,22 +17503,21 @@
    "title": "Brambleloop Command Center",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/app/main.py::dashboard",
-   "consumer": "src/brambleloop/app/main.py::api_console",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
+   "consumer": "the Command Center app (/cc/, owner session): every named area is a route with a view module, reading an /api/cc/* endpoint",
    "tests": [
     "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-    "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+    "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
+    "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: No Today/Month/Finance/Products/Listings/Marketing/Customers/Experiments/Departments/Agent Activity/Owner Actions/System Health navigation; current dashboard is"
-   ],
-   "next_action": "Build a tabbed owner web page (app/main.py routes /command/*) over existing endpoints, each tab reading its store, no new source of truth.",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -17842,24 +17840,23 @@
    "title": "Unified Studio",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/app/main.py::dashboard",
-   "consumer": "src/brambleloop/app/main.py::api_console",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
+   "consumer": "the Command Center app (/cc/)",
    "tests": [
     "tests/test_deploy.py::test_dashboard_renders_without_a_build_step",
     "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
     "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+    "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+    "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: No unified app with Command Center/Products/Visual/Etsy/Marketing/Finance/Customers/QA/Research/Reliability/Agents/Owner Inbox workspaces. What exists is one se"
-   ],
-   "next_action": "Build a Studio shell (e.g. src/brambleloop/app/studio.py + templates) with one route per department workspace, each composed from the existing /api/* producers; add a test that every named workspace renders from DB state.",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -18104,23 +18101,23 @@
    "title": "Elastic Capacity",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "DEPLOYED",
    "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
+   "coverage": "FULL",
    "producer": "src/brambleloop/app/runner.py",
    "consumer": "src/brambleloop/swarm/orchestrate.py::parallelism_advice",
    "tests": [
     "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
     "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
-    "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target"
+    "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target",
+    "tests/test_w4_f660_zero_credit.py::test_three_agents_work_concurrently_with_zero_cloud_credit",
+    "tests/test_w4_f660_zero_credit.py::test_the_dispatch_path_does_not_read_the_credit_wallet"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: Runtime independence from cloud sessions is proven, but there is no runtime burst-capacity path at all: 'elastic' is an in-process thread pool sized by swarm.al"
-   ],
-   "next_action": "Record a zero-cloud-credit test run (runtime unaffected) as evidence; if burst is wanted, add a bounded extra-worker service definition governed by finance ceilings.",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- verified locally by W4-CCALL; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -23819,27 +23816,25 @@
    "title": "Provider Funding Is Authority",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
-   "maturity": "EXERCISED",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
    "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/finance/spend_policy.py; gateway/model_gateway.py; ops/funding.py; build2/executor.py model_provider gate",
-   "consumer": "gateway calls refuse beyond ceiling",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/funding_packet.py::credit_packet; src/brambleloop/ops/funding.py",
+   "consumer": "GET /api/funding/packets; the owner's 'add credit' action carries the packet (ops/funding.note)",
    "tests": [
     "tests/test_spend_governance.py",
     "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_with_no_cap_before_any_request",
-    "tests/test_funding.py"
+    "tests/test_funding.py",
+    "tests/test_w4_funding.py::test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+    "tests/test_w4_funding.py::test_the_owner_funding_action_carries_the_prepared_packet",
+    "tests/test_w4_funding.py::test_an_empty_ledger_is_unmeasured_never_zero",
+    "tests/test_w4_funding.py::test_the_packets_route_is_registered"
    ],
-   "gate": {
-    "kind": "owner",
-    "key": "model_provider"
-   },
-   "reasons": [
-    "owner gate 'model_provider'",
-    "coverage PARTIAL: ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-modu"
-   ],
-   "next_action": "Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit",
-   "mapped_on": "6f9a2f7",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- W4-FUNDING built it; production serves the packet on b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []

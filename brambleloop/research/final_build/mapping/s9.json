@@ -1454,7 +1454,7 @@
   "defect": null,
   "next_action": "none -- reached at runtime through certification",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-794",
@@ -3789,33 +3789,38 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "spend authority and ceilings",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-module, not a standard record (see F-877)",
-  "producer": "src/brambleloop/finance/spend_policy.py; gateway/model_gateway.py; ops/funding.py; build2/executor.py model_provider gate",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/funding_packet.py::credit_packet; src/brambleloop/ops/funding.py",
   "durable_state": "cost records; SpendLimit",
-  "consumer": "gateway calls refuse beyond ceiling",
+  "consumer": "GET /api/funding/packets; the owner's 'add credit' action carries the packet (ops/funding.note)",
   "protected_effect": "no provider call beyond owner ceiling",
   "tests": [
    "tests/test_spend_governance.py",
    "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_with_no_cap_before_any_request",
-   "tests/test_funding.py"
+   "tests/test_funding.py",
+   "tests/test_w4_funding.py::test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+   "tests/test_w4_funding.py::test_the_owner_funding_action_carries_the_prepared_packet",
+   "tests/test_w4_funding.py::test_an_empty_ledger_is_unmeasured_never_zero",
+   "tests/test_w4_funding.py::test_the_packets_route_is_registered"
   ],
   "evidence": [
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_funding_packets_20261020T0612Z.json -- production b931d17 serves the model-credit packet for anthropic: the bounded experiment (30-day spend by purpose), max spend (CA$100 monthly ceiling, spent CA$64.72, headroom CA$35.28, enforced before every call), the measured run rate and outage evidence, approves_itself false; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
    "#86 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "model_provider",
-   "detail": "provider/vision credit is owner funding"
+   "kind": "none",
+   "key": null,
+   "detail": "model_provider OPEN in production b931d17; funding itself stays the owner's act (setting credit), which the packet prepares"
   },
   "defect": null,
-  "next_action": "Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit",
+  "next_action": "none -- W4-FUNDING built it; production serves the packet on b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-872",
@@ -4050,7 +4055,7 @@
   "defect": null,
   "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
   "confidence": "MEDIUM",
-  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-879",

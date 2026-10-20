@@ -738,7 +738,7 @@
   "defect": null,
   "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-474",
@@ -1171,7 +1171,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5, awaiting deploy (fixes the production 500)",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-488",
@@ -1297,7 +1297,7 @@
   "defect": null,
   "next_action": "none -- deployed; isolation now asserted around the failing job",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-492",
@@ -1521,7 +1521,7 @@
   "defect": null,
   "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-499",
@@ -1616,7 +1616,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-502",
@@ -1690,18 +1690,21 @@
   "launch_class": "MATURE",
   "launch_class_reason": "experiment record-keeping; post-launch",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "RegisteredExperiment carries owner, metric, design, decision, stop_on, expected value and kill reason; measured effect vs expected effect and an explicit retain/rollback decision are recorded for improvement promotions (cells) but not uniformly for storefront experiments",
-  "producer": "src/brambleloop/growth/experiments.py::persist",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/growth/experiments.py::attribution; growth/experiments.py::persist",
   "durable_state": "registered_experiments; improvements",
-  "consumer": "src/brambleloop/app/main.py::api_experiments",
+  "consumer": "src/brambleloop/growth/experiments.py::conclude_all (writes measured_effect and retain_or_rollback); GET /api/experiments",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_improve_autonomy.py::test_league_promotes_a_preauthorised_winner_then_rolls_it_back_when_it_regresses",
-   "tests/test_cert_growth_ops.py"
+   "tests/test_cert_growth_ops.py",
+   "tests/test_w4_ccgrow.py::test_attribution_retains_only_a_causal_success",
+   "tests/test_w4_ccgrow.py::test_api_experiments_reports_effect_decision_and_superseded"
   ],
   "evidence": [
-   "app/main.py /api/experiments returns owner/state/metric/design/decision/expected_value/killed_reason/stop_on"
+   "app/main.py /api/experiments returns owner/state/metric/design/decision/expected_value/killed_reason/stop_on",
+   "w4-CLOSE5 on deployed b931d17: a registered experiment records what changed (design), why (hypothesis), owner/department, expected effect (pre-registered lines), and now the measured effect against expectation (UNMEASURED with no reading) and the retain/rollback decision (retain only on a causal, claimable success; association stays undecided); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#265 DATA-GATED",
@@ -1713,9 +1716,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add measured_effect and retain_or_rollback fields to RegisteredExperiment and set them in growth.experiments.conclude_all",
+  "next_action": "none -- W4-CCGROW built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-505",
@@ -1980,7 +1983,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-513",
@@ -2951,7 +2954,7 @@
   "defect": null,
   "next_action": "none -- deployed; a real refund is data",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-536",
@@ -3192,7 +3195,7 @@
   "defect": null,
   "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-543",
