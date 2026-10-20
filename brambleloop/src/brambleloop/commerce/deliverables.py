@@ -416,6 +416,19 @@ def prune(db, *, keep_previous: int = KEEP_PREVIOUS, dry_run: bool = False) -> d
     else:
         gone = 0
         if not dry_run:
+            # INTEG4 / security review of 7f6dbe8 (L4): protection is re-read just before the
+            # delete, and only a digest both readings would prune is removed, so a release
+            # listed, sold or built since the first reading keeps its bytes. (A write landing
+            # inside this last window is re-kept by `secure_release` on the next readiness
+            # run from disk or a byte-identical re-render; a wrong file is never served.)
+            try:
+                again = {p["sha256"] for p in
+                         retention_plan(db, keep_previous=keep_previous)["prune"]}
+            except Exception:  # noqa: BLE001 - unreadable state prunes nothing
+                again = set()
+            kept_plan = [p for p in plan["prune"] if p["sha256"] in again]
+            plan = {**plan, "prune": kept_plan,
+                    "prune_bytes": sum(p["bytes"] for p in kept_plan)}
             with db.session() as s:
                 for p in plan["prune"]:
                     row = s.get(DurableArtifact, p["sha256"])

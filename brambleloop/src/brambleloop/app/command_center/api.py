@@ -490,6 +490,9 @@ def make_router(db) -> APIRouter:
         from ...queue.durable import DuplicateJob, JobQueue
         from ...visual import image_production
 
+        # INTEG4 / security review of 7f6dbe8 (L1): a restart can resume paid generation, so
+        # it needs step-up like authorize, run and approve.
+        auth.require_stepup(db, request, "images.restart")
         body = await body_of(request)
         q = JobQueue(db)
 
