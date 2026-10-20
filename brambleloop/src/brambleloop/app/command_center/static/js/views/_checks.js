@@ -69,6 +69,19 @@ export async function checksCard({ rerender, stale } = {}) {
         h("p", { class: "muted" }, lastLine(c.jobs))),
       h("div", { class: "row-actions" }, btn));
   });
+  // W4-CREDHEALTH: provider keys. Status per provider and the key fingerprint (last 4 + sha256
+  // prefix, never the key) so a rotation can be confirmed. Keys live in Railway only.
+  let keys = null;
+  try {
+    const cred = (await api.credentials()).data || {};
+    keys = h("details", { class: "page-index" },
+      h("summary", null, "Provider keys (Railway)"),
+      h("ul", { class: "rows" }, (cred.providers || []).map((p) => h("li", { class: "row" },
+        h("div", { class: "row-main" },
+          h("div", { class: "row-title" }, p.label, " ", statusPill(p.status === "OK" ? "OK" : p.status === "UNKNOWN" ? "UNKNOWN" : "FAIL", p.status)),
+          h("p", { class: "muted" }, `${p.var} · key ${p.fingerprint ? `…${p.fingerprint.last4} · ${p.fingerprint.sha256_prefix}` : "not set"}${p.latest && p.latest.at ? ` · checked ${relTime(p.latest.at)}` : ""}`),
+          p.owner_action ? h("p", null, p.owner_action) : null)))));
+  } catch (e) { keys = null; }
   return card({ title: "Run checks now", subtitle: "Run a scheduled check now instead of waiting for it. Each check has a short cool-down between runs." },
-    h("ul", { class: "rows" }, rows), more);
+    h("ul", { class: "rows" }, rows), keys, more);
 }

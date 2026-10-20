@@ -8912,3 +8912,22 @@ def handle_preproduction(ctx: JobContext) -> dict:
             "refused": len(out["refused"]), "held_for_gate": out["held_for_gate"],
             "publish": out["publish"], "unmeasured": out["unmeasured"],
             "acted_on": out["acted_on"], "brief": out["brief"]["reason"]}
+
+
+@handlers.register("ops.provider_credentials")
+def handle_provider_credentials(ctx: JobContext) -> dict:
+    """W4-CREDHEALTH: are the provider keys in Railway configured, authenticated and funded.
+
+    Daily, and on demand from the Command Center. Only free documented authenticated calls
+    (BFL `GET /v1/credits`, Anthropic `POST /v1/messages/count_tokens`), so nothing is
+    reserved against a budget: the recorded estimate is CA$0 with its documentation basis.
+    The output carries statuses only, never a key or a fingerprint.
+    """
+    from ..gateway import credentials
+
+    trigger = "on_demand" if (ctx.job.inputs or {}).get("on_demand") else "cadence"
+    records = credentials.check_all(ctx.db, trigger=trigger)
+    return {"checked": len(records), "ok": all(r["status"] == credentials.OK for r in records),
+            "statuses": {r["provider"]: r["status"] for r in records},
+            "consecutive_failures": {r["provider"]: r["consecutive_failures"]
+                                     for r in records}}

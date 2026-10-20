@@ -72,3 +72,51 @@ Publication shows as **not available**, always.
 2. Authorize it in the Command Center.
 
 No code change is needed.
+
+## Production acceptance runbook (after deploy)
+
+Do these in order, from your phone. All the spending comes from the one experiment run, which
+is capped at **CA$5 for images** and **CA$1 for vision**. Each cap is enforced in code before
+any call is made.
+
+**A. Credentials are healthy.**
+Go to **Home → Run checks now → Provider credentials → Run now** and confirm with your
+passphrase. Then open **Provider keys (Railway)**.
+- *Pass:* both FLUX 3 / BFL and Anthropic show **OK**, with a fingerprint.
+- *Fail:* anything else. Follow the card's exact action, or see `KEY_ROTATION.md`. Stop here
+  until both are OK.
+
+**B. One authorized run of the frozen 7-reference experiment.**
+Go to **More → Images → Controlled experiments** and find `exp-2026-10-20-wrap-7ref`.
+- Check that it says **inputs verified**.
+- Tap **Authorize**, then **Run**, confirming your passphrase each time.
+- *Pass:* exactly one job. Tapping Run again returns the same job.
+- Afterwards the receipt shows one FLUX call, and generation spend is at most CA$5.
+
+**C. 2048×2048.**
+Open the run's card and the image.
+- *Pass:* the receipt and the stored image are both 2048×2048. Any other size is a fail.
+
+**D. Vision review.**
+On the same card, look at every check: identity, body proportions, outfit, anatomy, realism
+and fidelity.
+- *Pass:* every check has a recorded result, and vision spend is at most CA$1.
+- UNKNOWN is listed as UNKNOWN and never counts as a pass. If a check is UNKNOWN because
+  vision is closed, note it. That is a finding, not a pass.
+
+**E. The results are in the Command Center.**
+The card shows the authorization id, the references in order, the costs against both caps,
+the provider receipt and the EXPERIMENT banner.
+
+**F. The run survives a restart.**
+In Railway, restart the service, which is the same as a redeploy. Then reopen the card.
+- *Pass:* the same image (same sha256) and the same results are still shown. The bytes are
+  kept in the database, not on the container's disk, so a restart does not lose them.
+- *Pass:* no second FLUX call appears. A restart during a run either resumes from the stored
+  image or settles the run as "billing unknown", counted once at its reservation. A paid call
+  whose outcome is unknown is never sent again.
+
+**G. Publication is refused.**
+- *Pass:* on the card, publication shows **not available**.
+- *Pass:* no listing, export or Etsy payload can use this image.
+- *Pass:* nothing appears in the store.
