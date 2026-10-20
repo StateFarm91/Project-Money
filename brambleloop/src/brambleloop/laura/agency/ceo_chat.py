@@ -226,8 +226,9 @@ def validate(data: dict | None, *, question: str, vals: dict, n_facts: int,
     stated = _numbers(_LIST_MARK.sub(" ", reply))
     extra = sorted(n for n in stated if n not in allowed)
     if extra:
-        return None, ("the reply stated figures not found in the records or the conversation: "
-                      + ", ".join(extra[:8]))
+        # The unverified figures are not echoed back to the owner: they are the problem.
+        return None, (f"it stated {len(extra)} figure(s) I could not find in the records or "
+                      f"our conversation")
 
     def ids(key: str, prefix: str, n: int) -> list[int]:
         out = []
