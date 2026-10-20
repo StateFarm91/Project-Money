@@ -1,6 +1,6 @@
 # Venice support response: evidence slot (ADD-PLV-07 step L1)
 
-**Status (2026-10-20): OWNER-REPORTED, NOT YET EVIDENCED.**
+**Status (2026-10-20): OWNER ATTESTATION RECORDED; documentary evidence NOT REVIEWED (owner declines to forward private correspondence; not requested again).**
 
 The owner reports that Venice Support answered the inquiry in `../VENICE_SUPPORT_INQUIRY.md` and confirmed
 that consensual sexually explicit adult conversation and fictional adult roleplay are permitted.

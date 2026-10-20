@@ -2306,3 +2306,28 @@ ADD-PLV-07 step L1 stays FAILING until the response is filed there and its scope
 
 The amendment itself stays PROPOSED, pending the permission review of the four copy edits, the tests
 and an independent security review. No safeguard changes.
+
+### D-W4-PL-VENICE-ADULT owner attestation (2026-10-20): binding, supersedes the evidence-pending addendum above
+
+**Owner attestation, in the owner's own words (summarised):**
+- They personally tested Venice AI, including its adult-content capabilities.
+- They contacted Venice Support and received confirmation that consensual explicit adult content is permitted.
+- They will not forward the private support correspondence and are not to be asked for it again.
+
+**Requirements reaffirmed by the owner:**
+- Private Laura uses Venice, with `venice-uncensored-1-2` preferred.
+- Adult private conversation is a mandatory product requirement.
+- Owner-only access, encryption, privacy isolation and spending limits remain mandatory.
+
+**Evidence status, kept distinct:**
+- **Owner attestation:** RECORDED.
+- **Independently verified contractual evidence:** NONE. The support correspondence has NOT been reviewed by the build.
+- **Terms §10.9(c) for API use of `venice-uncensored-1-2`:** remains documentarily unverified (ADD-PLV-07 step L1b). The owner accepts it on attestation.
+- No record may describe the correspondence as reviewed, or the contractual question as independently verified.
+
+The amendment's implementation status is unchanged by this entry. It stays PROPOSED until:
+- the four copy edits pass Claude Code's permission review;
+- the tests pass;
+- an independent security review passes.
+
+The old narrower register is not reinstated.
