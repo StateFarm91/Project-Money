@@ -242,6 +242,287 @@
    ],
    "worker": "W4-CLOSE5 2026-10-20",
    "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-378",
+   "criterion": "Failure Memory - Known failed methods/providers/prompts/architectures are fingerprinted with the evidence that rejected them. They are not retried without a materially changed premise or new evidence.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+    "tests/test_w4_failmem.py::test_new_evidence_or_a_changed_premise_reopens_the_question",
+    "tests/test_w4_failmem.py::test_decision_log_dead_ends_are_seeded_and_enforced",
+    "tests/test_w4_failmem.py::test_digits_are_kept_so_new_measurements_are_a_new_claim"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-427",
+   "criterion": "Negative Evidence - Record well-designed failed experiments and authoritative negative findings as durable knowledge; absence of success is not proof of impossibility unless the evidence supports that scope.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_failmem.py::test_a_refusal_or_first_measurement_is_not_a_failure",
+    "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered",
+    "tests/test_w4_failmem.py::test_records_need_evidence_and_scope",
+    "tests/test_w4_failmem.py::test_failure_memory_is_a_non_rederivable_record"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-428",
+   "criterion": "Scope Discipline - A failed implementation rejects only the tested method/class at the supported scope. Do not generalize a glyph-render failure into 'deterministic rendering is impossible' without evidence.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_failmem.py::test_scope_blocks_only_inside_the_observed_conditions",
+    "tests/test_w4_failmem.py::test_generalisation_beyond_scope_needs_new_evidence"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-706",
+   "criterion": "Learning Ledger - Persist successful and failed experiments, evidence, conditions, cost, result and decision. Failed approaches remain institutional knowledge so Brambleloop does not unknowingly repeat known failures.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+    "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-403",
+   "criterion": "Unknown Detection - Agents must explicitly identify uncertainty, missing evidence, stale knowledge, conflicting evidence, unfamiliar failure modes and capability gaps rather than silently filling them with plausible assumptions.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_research.py::test_unknowns_on_decision_paths_open_research_questions_once",
+    "tests/test_w4_research.py::test_an_observed_domain_is_no_longer_an_unknown",
+    "tests/test_w4_research.py::test_learn_scan_routes_unknowns"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-409",
+   "criterion": "Fact / Claim / Inference Separation - Research artifacts distinguish directly observed facts, source claims, Brambleloop inference, hypothesis and unresolved uncertainty. Do not flatten these into one confidence class.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_research.py::test_claim_classes_are_enforced",
+    "tests/test_w4_research.py::test_claims_and_guesses_cannot_close_a_task",
+    "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-424",
+   "criterion": "Research Reproducibility - Record queries/terms, source identifiers/URLs where permitted, versions/dates, key evidence, extracted constraints and resulting decisions sufficiently for later audit/reproduction.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision",
+    "tests/test_w4_research.py::test_internal_evidence_is_searched_first"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-433",
+   "criterion": "Research Freshness - Durable research carries freshness/expiry semantics appropriate to the domain; evergreen mathematics differs from Etsy policy, API behavior, pricing or marketplace demand.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_research.py::test_answers_expire_by_their_domain_and_mathematical_never_does"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-399",
+   "criterion": "Learning Health Metrics - Expose useful improvement health: opportunities detected, experiments run, adoption/rejection rate, regressions caught, repeated-failure avoidance, cost per adopted improvement, and business impact where measurable.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_improvemetrics.py::test_learning_health_rates_are_none_until_a_verdict",
+    "tests/test_w4_improvemetrics.py::test_learning_health_measures_adoption_rejection_regressions_and_cost"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-605",
+   "criterion": "Company Learning Memory - Persist experiments, failures, reversals, evidence, confidence and withdrawn claims so agents compound knowledge and do not repeatedly rediscover the same lesson.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "W4 lane tests for the row pass on the deployed tree; module reached on b931d17",
+   "tests": [
+    "tests/test_w4_improvemetrics.py::test_a_withdrawn_lesson_is_kept_but_no_longer_matched"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-535",
+   "criterion": "Refund/Cancellation Root Cause - Every refund, cancellation, case or complaint receives a reason code and owner. Repeated causes trigger listing, deliverable, pricing, policy or product investigation.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "root-cause tests pass on the deployed tree; transactions_r OPEN",
+   "tests": [
+    "tests/test_k8_shop_cx.py::test_every_refund_and_case_gets_a_code_and_owner_and_repetition_opens_an_investigation",
+    "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-542",
+   "criterion": "Remote Write Readback - Every Etsy mutation that can affect customers must be followed by authoritative remote readback where the API permits. A 2xx response is insufficient proof that the intended business field changed.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "read-back rule + refusal tests pass on the deployed tree; etsy_api OPEN",
+   "tests": [
+    "tests/test_w4_close5_rows3.py::test_f542_every_customer_affecting_etsy_mutation_is_followed_by_a_readback",
+    "tests/test_w4_close5_rows3.py::test_f542_an_activation_etsy_accepted_but_did_not_apply_is_not_recorded_live",
+    "tests/test_w4_close5_rows3.py::test_f542_a_rollback_etsy_accepted_but_did_not_apply_is_not_recorded_restored",
+    "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
+    "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-878",
+   "criterion": "Launch Packet - Owner receives candidate SHA, tests/audit, Visual status, listings/products, policy state, owner actions, spend limits, economics, rollback and activation steps.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/launch_packet_b931d17a738d_20261020T053641Z.json",
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "launch packet generated by the deployed tree: recorded_suite PASS, every section",
+   "tests": [
+    "tests/test_fb4_launch.py::test_launch_packet_on_a_fresh_shadow_db_with_launch0_certified_is_honest",
+    "tests/test_fb4_launch.py::test_launch_packet_script_writes_json_and_markdown",
+    "tests/test_w4_packetrel.py::test_record_only_commit_cites_its_release_record_by_tree_digest",
+    "tests/test_w4_packetrel.py::test_a_tampered_or_ineligible_record_is_fail_with_its_problems"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-473",
+   "criterion": "Priority Preemption - Higher-value launch/customer/reliability work may preempt lower-value optimization when capacity is constrained, while preserving durable state for later resumption.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "preemption tests pass on the deployed tree; swarm/preempt.py reached on b931d17",
+   "tests": [
+    "tests/test_w4_swarmcontrol.py::test_preemption_wanted_only_behind_a_full_pool_for_better_waiting_work",
+    "tests/test_w4_swarmcontrol.py::test_a_yielding_handler_is_requeued_uncounted_with_its_checkpoint",
+    "tests/test_w4_swarmcontrol.py::test_gallery_analysis_yields_between_images"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-191",
+   "criterion": "MJs Scan Consistency - All MJs dashboard counters must derive from the same canonical observation state and explain distinctions such as listings known, listings audited, images pending and gallery backlog. Conflicting counts require reconciliation.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "MJs snapshot/reconciliation tests pass on the deployed tree",
+   "tests": [
+    "tests/test_w4_mjscount.py::test_every_counter_comes_from_one_snapshot_and_reconciles",
+    "tests/test_w4_mjscount.py::test_the_backlog_count_no_longer_saturates_at_a_page",
+    "tests/test_w4_mjscount.py::test_a_broken_identity_is_reported_not_corrected"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-193",
+   "criterion": "Gallery Cost Forecast - Show observed cost/image, remaining images, projected drain cost, allocation consumed and expected completion time together; forecasts must update from measured token usage.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "gallery forecast tests pass on the deployed tree",
+   "tests": [
+    "tests/test_w4_mjscount.py::test_forecast_is_measured_or_unknown_never_zero",
+    "tests/test_w4_mjscount.py::test_dashboard_mission_shows_scan_health_detail_reconciliation_and_forecast"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
   }
  ]
 }

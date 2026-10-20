@@ -252,7 +252,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-559",
@@ -631,7 +631,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-571",
@@ -762,7 +762,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-575",
@@ -1696,17 +1696,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "Learning memory compounds post-launch.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Lessons carry confidence/evidence/superseded_by and improvements record rejection/reversion, but there is no unified withdrawn-claims register across experiments and research.",
-  "producer": "src/brambleloop/improve/bus.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/bus.py::withdraw; improve/bus.py::publish",
   "durable_state": "lessons, improvements, learning_observations, registered_experiments",
   "consumer": "src/brambleloop/improve/consume.py::matching",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_improve_wave.py::test_market_radar_and_listings_act_on_their_lessons",
-   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model"
+   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model",
+   "tests/test_w4_improvemetrics.py::test_a_withdrawn_lesson_is_kept_but_no_longer_matched"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: a lesson is withdrawn only with a reason and an evidence ref (audited lesson.withdrawn), stays on file, and is no longer matched by consume.matching; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
   "build2_rows": [
    "#97 COMPLETE+PROVEN",
    "#101 COMPLETE+PROVEN"
@@ -1717,9 +1720,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add a withdrawn-claim status to Lesson (withdrawn_at, reason) and make consume.matching exclude withdrawn lessons; test it.",
+  "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-606",

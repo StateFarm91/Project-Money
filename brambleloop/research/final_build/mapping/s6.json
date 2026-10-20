@@ -709,18 +709,23 @@
   "launch_class": "MATURE",
   "launch_class_reason": "capacity arbitration; first sale does not depend on preemption",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "priority bands order claiming and lane holds return over-share jobs to PENDING, but running lower-value work is never preempted/checkpointed",
-  "producer": "src/brambleloop/swarm/orchestrate.py::priority_for",
-  "durable_state": "jobs.priority",
-  "consumer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/preempt.py::preemption_wanted",
+  "durable_state": "job_checkpoints; jobs",
+  "consumer": "src/brambleloop/runtime/worker.py (JobContext.should_yield / yield_now; Worker.run_once requeues a preempted job)",
   "protected_effect": "customer incidents and truth defects are claimed before optimisation work",
   "tests": [
    "tests/test_swarm.py::test_a_band_is_never_traded_away_for_value",
-   "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever"
+   "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
+   "tests/test_w4_swarmcontrol.py::test_preemption_wanted_only_behind_a_full_pool_for_better_waiting_work",
+   "tests/test_w4_swarmcontrol.py::test_a_yielding_handler_is_requeued_uncounted_with_its_checkpoint",
+   "tests/test_w4_swarmcontrol.py::test_gallery_analysis_yields_between_images"
   ],
   "evidence": [
-   "BUILD_STATE/requirements #187 note: every job type maps to one of eight bands (C-46)"
+   "BUILD_STATE/requirements #187 note: every job type maps to one of eight bands (C-46)",
+   "w4-CLOSE5 on deployed b931d17: preemption is wanted only when the pool is full, a strictly better band or protected tier is waiting and has waited >= 120 s; a yielding handler checkpoints, is requeued PENDING with its attempt uncounted and audited job.preempted; intel.gallery_analysis yields between images; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#187 COMPLETE+PROVEN"
@@ -731,9 +736,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add cooperative preemption: long handlers check a preempt flag between steps (lease renewal thread) and requeue with a checkpoint when higher-band work is waiting and the pool is full",
+  "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-474",
@@ -1138,17 +1143,21 @@
   "launch_class": "MATURE",
   "launch_class_reason": "operator visibility of departments; not a first-sale floor",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "agent quality, lane allocation and orphans are exposed; per-department active task, blocker, READY backlog, last durable progress, spend and idle capacity are not composed into one department view",
-  "producer": "src/brambleloop/swarm/orchestrate.py::agent_quality",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/metrics.py::agents_view",
   "durable_state": "swarm_allocations, jobs, audit_log",
-  "consumer": "src/brambleloop/app/main.py::api_swarm_runtime",
+  "consumer": "src/brambleloop/app/main.py::api_departments (GET /api/departments)",
   "protected_effect": null,
   "tests": [
-   "tests/test_swarm_runtime.py"
+   "tests/test_swarm_runtime.py",
+   "tests/test_w4_close5_rows4.py::test_f487_departments_route_serves_a_backed_off_job_type_instead_of_a_500",
+   "tests/test_w4_close5_rows4.py::test_f487_every_clause_is_on_each_department_row",
+   "tests/test_w4_swarmmetrics.py::test_agents_view_composes_running_pending_parked_completion_and_spend"
   ],
   "evidence": [
-   "app/main.py /api/swarm/runtime, /api/improve (cells), /api/spend-report by department"
+   "app/main.py /api/swarm/runtime, /api/improve (cells), /api/spend-report by department",
+   "w4-CLOSE5: production b931d17 serves GET /api/departments as HTTP 500 (research/final_build/w4/evidence_BOARD/prod_api_departments_20261020T0540Z.json): agents_view indexed parked[t]['why'] and a backoff entry has no 'why'. Fixed (_parked_why) and the view now carries each agent's last output (newest finished job) -- the 'output/evidence' clause; tests execute the route against a backoff"
   ],
   "build2_rows": [
    "#174 COMPLETE+PROVEN",
@@ -1160,9 +1169,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add /api/departments composing per-agent: running job, parked gates, pending count, last completion time, month spend (finance/spend_report), idle flag",
+  "next_action": "none in code -- dev-proven on claude/w4-CLOSE5, awaiting deploy (fixes the production 500)",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-488",
@@ -1600,7 +1609,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-502",
@@ -1964,7 +1973,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-513",
@@ -2906,8 +2915,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no real refund/cancellation has been read: receipts need the owner's transactions_r grant",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/cx_root_cause.py::run",
   "durable_state": "orders.refunded; ledger refunds_cad",
   "consumer": "runtime/orders.handle_order_readings (commerce.order_readings cadence) -> commerce/order_readings.read",
@@ -2921,20 +2930,21 @@
   "evidence": [
    "commerce/orders_ingest.py:141 refunded = bool(receipt.get('refunds'))",
    "commerce/kill_table.py refund_high_above",
-   "w4-FM close on 8b67414 (FOLD): commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r"
+   "w4-FM close on 8b67414 (FOLD): commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r",
+   "w4-CLOSE5 on deployed b931d17: every refund, cancellation and support case gets a reason code and an owner; a repeated cause opens one investigation incident naming the area (listing, deliverable, ...) and resolves when the cause goes; refund reasons are captured at ingest; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#41 DATA-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "owner gate transactions_r: re-authorise Etsy with transactions_r; the coding and repetition trigger then run on real receipts",
+  "next_action": "none -- deployed; a real refund is data",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD)"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-536",
@@ -3145,33 +3155,37 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "a 2xx is not proof a customer-facing field changed — safe publication",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "field-by-field read-back (etsy_verify.verify) runs in the exercise/probe path (/api/etsy/exercise) and catches ignored writes, but the production publish path (store.publish -> EtsyClient.publish/attach_file) performs no remote read-back, and no read-back path has run against Etsy yet",
-  "producer": "src/brambleloop/integrations/etsy_verify.py::verify",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py::_publish_and_read_back; src/brambleloop/integrations/etsy_verify.py::verify",
   "durable_state": "audit_log (exercise report)",
-  "consumer": "src/brambleloop/integrations/etsy_probe.py::run_exercise",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_activate; src/brambleloop/commerce/listing_rollback.py::execute",
   "protected_effect": "an ignored write (e.g. quantity PATCH 200) or misread tag list fails read-back",
   "tests": [
    "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
    "tests/test_etsy_transport.py::test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else",
    "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
-   "tests/test_etsy_transport.py::test_read_back_verifies_every_field_including_the_ones_etsy_transforms"
+   "tests/test_etsy_transport.py::test_read_back_verifies_every_field_including_the_ones_etsy_transforms",
+   "tests/test_w4_close5_rows3.py::test_f542_every_customer_affecting_etsy_mutation_is_followed_by_a_readback",
+   "tests/test_w4_close5_rows3.py::test_f542_an_activation_etsy_accepted_but_did_not_apply_is_not_recorded_live",
+   "tests/test_w4_close5_rows3.py::test_f542_a_rollback_etsy_accepted_but_did_not_apply_is_not_recorded_restored"
   ],
   "evidence": [
    "integrations/etsy_verify.py and etsy_exercise.py present in fcb982d; /api/etsy/exercise route",
    "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'",
-   "w4-FM close on 8b67414 (REGATE): store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified"
+   "w4-FM close on 8b67414 (REGATE): store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified",
+   "w4-CLOSE5 on deployed b931d17: publish reads the draft, files, images and alt text back (etsy_ops.read_back) and a draft whose read-back fails is incomplete_on_etsy; activation reads the state back and a 2xx that left the listing inactive is store.activate_incomplete with an incident; a rollback reads its fields back and reports what still differs; every mutation call site in src/ is checked by rule (draft-only sites listed with reasons); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_api",
-   "detail": "store.publish reads back fields/properties/files; the controlled round trip is owner-authorised"
+   "kind": "none",
+   "key": null,
+   "detail": "etsy_api OPEN in production b931d17; the read-back is in the deployed publish, activate and rollback paths"
   },
   "defect": null,
-  "next_action": "owner gate etsy_api: store.publish reads back fields/properties/files; the controlled round trip is owner-authorised",
+  "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REGATE)"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-543",

@@ -10,18 +10,18 @@ Reachability: HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b6
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 253 | 128 | 400 |
-| launch-critical | 29 | 26 | 0 | 6 | 57 | 372 |
-| post-launch (not blocking) | 65 | 9 | 0 | 247 | 71 | 28 |
+| all rows | 94 | 35 | 7 | 235 | 126 | 420 |
+| launch-critical | 29 | 26 | 0 | 5 | 55 | 375 |
+| post-launch (not blocking) | 65 | 9 | 0 | 230 | 71 | 45 |
 
-Launch-critical OPEN-DEFECT: **6**
+Launch-critical OPEN-DEFECT: **5**
 
 ## Open clusters (launch-critical)
 
 | Cluster | Lane | Rows | Title |
 |---|---|---|---|
 | K13 | FM | 1 | Closure/certification tooling in code |
-| PROCESS | integrator | 3 | PROCESS |
+| PROCESS | integrator | 2 | PROCESS |
 | REGATE | FM | 1 | Wave-3 audit found an owner/data/external gate the canonical mapping does not re |
 | UNCLUSTERED | FM | 1 | Launch-critical OPEN rows not in any wave-3 cluster |
 
@@ -97,11 +97,9 @@ Launch-critical OPEN-DEFECT: **6**
 | F-515@v0.16 Shop Completeness Gate | OWNER-GATED | DEPLOYED | owner:etsy_shop |
 | F-524 First-Image Program | DATA-GATED | DEPLOYED | data:live_listings |
 | F-532 Customer-Service Standards Watch | EXTERNAL-GATED | INTEGRATED | external:customer_service_stats |
-| F-535 Refund/Cancellation Root Cause | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-536 Policy-Violation Watch | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
 | F-538 Finance Reconciliation | OWNER-GATED | DEPLOYED | owner:transactions_r |
 | F-540 OAuth Credential Health | OWNER-GATED | DEPLOYED | owner:etsy_api |
-| F-542 Remote Write Readback | OWNER-GATED | DEPLOYED | owner:etsy_api |
 | F-543 Draft-to-Live Activation Gate | OWNER-GATED | INTEGRATED | owner:publication_authority |
 | F-556 Message SLA Engine | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
 | F-557 Message Triage & Escalation | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
@@ -137,7 +135,6 @@ Launch-critical OPEN-DEFECT: **6**
 | F-851 B+C Default | EXTERNAL-GATED | INTEGRATED | external:visual_v1_provider_capability |
 | F-871 Provider Funding Is Authority | OWNER-GATED | EXERCISED | owner:model_provider |
 | F-872 Etsy Scope Reauthorization | OWNER-GATED | INTEGRATED | owner:transactions_r |
-| F-878 Launch Packet | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE |
 | F-880 Cloud-Resident Always-On Runtime | DATA-GATED | INTEGRATED | data:production_window |
 | F-881 No Development-Chat Dependency | DATA-GATED | INTEGRATED | data:production_window |
 | F-895 Overnight Autonomy | DATA-GATED | INTEGRATED | data:production_window |

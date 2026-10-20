@@ -15,7 +15,7 @@
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 37
+     "rows": 35
     },
     "2f36fe0": {
      "sha": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0",
@@ -23,7 +23,7 @@
     },
     "0417f35": {
      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
-     "rows": 34
+     "rows": 33
     },
     "1b21e81": {
      "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
@@ -31,10 +31,10 @@
     },
     "b931d17": {
      "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
-     "rows": 9
+     "rows": 25
     }
    },
-   "rows_on_base": 514,
+   "rows_on_base": 501,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
@@ -5510,7 +5510,7 @@
    "reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-536",
@@ -5580,7 +5580,7 @@
    "reason": "a 2xx is not proof a customer-facing field changed — safe publication",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-543",
@@ -8754,7 +8754,7 @@
    "reason": "owner needs a truthful launch packet",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-879",

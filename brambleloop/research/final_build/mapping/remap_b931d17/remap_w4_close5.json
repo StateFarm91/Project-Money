@@ -36,7 +36,7 @@
   "defect": null,
   "next_action": "none -- every scratch site is classified with its durable home (tests/test_w4_close5_rows.py SCRATCH); a new site fails the test until classified",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-299",
@@ -77,7 +77,7 @@
   "defect": null,
   "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-718",
@@ -118,7 +118,7 @@
   "defect": null,
   "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-283",
@@ -156,7 +156,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-682",
@@ -191,7 +191,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-558",
@@ -234,7 +234,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-570",
@@ -271,7 +271,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-574",
@@ -306,7 +306,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-657",
@@ -343,6 +343,566 @@
   },
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-378",
+  "launch_class": "MATURE",
+  "launch_class_reason": "failure memory for methods/providers is an efficiency/learning capability",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::check; improve/failure_memory.py::record",
+  "durable_state": "failure_memory; improvements",
+  "consumer": "src/brambleloop/improve/cells.py::propose (refuses a repeat of a measured failure inside its scope unless new evidence or a changed premise is cited)",
+  "protected_effect": "tactics rejected repeatedly and reverted changes are surfaced as STOP items; dead jobs are not re-driven under the same build without a changed hypothesis",
+  "tests": [
+   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next",
+   "tests/test_persistence.py::test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect",
+   "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+   "tests/test_w4_failmem.py::test_new_evidence_or_a_changed_premise_reopens_the_question",
+   "tests/test_w4_failmem.py::test_decision_log_dead_ends_are_seeded_and_enforced",
+   "tests/test_w4_failmem.py::test_digits_are_kept_so_new_measurements_are_a_new_claim"
+  ],
+  "evidence": [
+   "#34 stagnation: requeue_dead refuses re-drive under same SHA; suspension lifts on changed hypothesis",
+   "w4-CLOSE5 on deployed b931d17: failures are fingerprinted (cell, normalised claim, touches, premise digest) with the evidence ids that rejected them; cells.propose refuses the repeat (audited improve.repeat_refused) and reopens on new evidence or a changed premise; DECISION_LOG dead ends are seeded; the recorded defect (stop_doing advisory, propose did not consult it) is fixed by that guard; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#34 COMPLETE+PROVEN",
+   "#53 COMPLETE+PROVEN",
+   "#127 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-427",
+  "launch_class": "MATURE",
+  "launch_class_reason": "negative evidence as knowledge",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::record",
+  "durable_state": "failure_memory",
+  "consumer": "src/brambleloop/improve/cells.py::propose",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next",
+   "tests/test_w4_failmem.py::test_a_refusal_or_first_measurement_is_not_a_failure",
+   "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered",
+   "tests/test_w4_failmem.py::test_records_need_evidence_and_scope",
+   "tests/test_w4_failmem.py::test_failure_memory_is_a_non_rederivable_record"
+  ],
+  "evidence": [
+   "improvements REJECTED/REVERTED rows kept; director.experiments reports killed",
+   "w4-CLOSE5 on deployed b931d17: a measured failure or a recorded finding with evidence and scope is durable (failure_memory, NON_REDERIVABLE in continuity); a refusal, a first measurement or a withdrawal is not a failure, so absence of success never retires an idea; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#127 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-428",
+  "launch_class": "MATURE",
+  "launch_class_reason": "scope discipline of negative results",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::check; improve/failure_memory.py::generalise",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/cells.py::propose",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_the_replay_scopes_its_claim_to_the_simulator_it_ran",
+   "tests/test_w4_failmem.py::test_scope_blocks_only_inside_the_observed_conditions",
+   "tests/test_w4_failmem.py::test_generalisation_beyond_scope_needs_new_evidence"
+  ],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: a failure blocks only proposals inside its method, class and conditions; widening a scope needs new evidence, narrowing needs none; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
+  "confidence": "LOW",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-706",
+  "launch_class": "MATURE",
+  "launch_class_reason": "institutional memory is compounding capability",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py::propose",
+  "durable_state": "improvements, registered_experiments, lessons",
+  "consumer": "src/brambleloop/improve/failure_memory.py::check (consulted by propose); src/brambleloop/improve/profiles.py::self_review",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_profiles.py::test_a_tactic_rejected_twice_for_the_same_reason_is_recorded_as_answered",
+   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards",
+   "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+   "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered"
+  ],
+  "evidence": [
+   "src/brambleloop/improve/cells.py:151 propose (no prior-experiment check)",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect (no guard against repeating a known failed experiment) is fixed: the identical failed improvement proposed months later is refused and the refusal is audited; experiments, evidence, cost, result and decision persist as before; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#93 COMPLETE+PROVEN",
+   "#96 COMPLETE+PROVEN",
+   "#127 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no gate on the remaining software work"
+  },
+  "defect": null,
+  "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
+  "confidence": "HIGH",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-403",
+  "launch_class": "MATURE",
+  "launch_class_reason": "unknown detection feeding research",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::detect_unknowns",
+  "durable_state": "research_tasks",
+  "consumer": "src/brambleloop/learn/runtime.py learn.scan handler (hourly) -> research_tasks",
+  "protected_effect": "gaps named rather than filled with plausible values",
+  "tests": [
+   "tests/test_childrens.py::test_the_sources_we_could_not_read_are_listed_rather_than_glossed",
+   "tests/test_weekly.py::test_a_domain_with_nothing_read_is_not_audited",
+   "tests/test_intent.py::test_with_no_market_evidence_every_phrase_is_labelled_assumed",
+   "tests/test_w4_research.py::test_unknowns_on_decision_paths_open_research_questions_once",
+   "tests/test_w4_research.py::test_an_observed_domain_is_no_longer_an_unknown",
+   "tests/test_w4_research.py::test_learn_scan_routes_unknowns"
+  ],
+  "evidence": [
+   "build2/maturity UNMEASURABLE; creative/outcome_learning UNMEASURED; intel/childrens unfetched_sources; improve/weekly not_audited",
+   "w4-CLOSE5 on deployed b931d17: unknowns on decision paths (unobserved learning domains, children's-safety sources never fetched) open a research question once, from the hourly learn.scan; stale answers re-open on expiry; UNKNOWN / UNMEASURED readings stay explicit everywhere else; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-409",
+  "launch_class": "MATURE",
+  "launch_class_reason": "fact/claim/inference separation",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::add_finding; intel/learning.py::record",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py",
+  "protected_effect": "a read signal is never promoted into causal evidence",
+  "tests": [
+   "tests/test_learning.py::test_a_signal_passed_as_internal_evidence_is_refused",
+   "tests/test_learning.py::test_a_claim_resting_on_signals_alone_is_allowed_and_says_so",
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list",
+   "tests/test_w4_research.py::test_claim_classes_are_enforced",
+   "tests/test_w4_research.py::test_claims_and_guesses_cannot_close_a_task",
+   "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision"
+  ],
+  "evidence": [
+   "intel/learning.as_evidence/support in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: findings and observations carry claim_class fact | source_claim | inference | hypothesis | unresolved; a fact needs a fetched/repository/rendered/internal source, a search summary supports only a source claim, claims and guesses cannot close a task; pre-existing rows read 'unresolved', never an assigned class; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#98 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-424",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research reproducibility",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/learning.py::record; intel/research.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/intel/learning.py::observations",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_learning.py::test_an_observation_with_no_citation_is_refused",
+   "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision",
+   "tests/test_w4_research.py::test_internal_evidence_is_searched_first"
+  ],
+  "evidence": [
+   "intel/learning.record refuses no source/citation/date; intel/childrens sources carry URL/date/retrieval",
+   "w4-CLOSE5 on deployed b931d17: observations and research tasks record query_terms and decision_ref beside source, citation and date; tasks record sources with retrieval class and read date; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-433",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research freshness semantics",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::expire_due; improve/freshness.py::sweep",
+  "durable_state": null,
+  "consumer": "src/brambleloop/learn/runtime.py learn.scan handler (expire_due)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_freshness.py::test_compiler_mathematics_has_no_interval_rather_than_a_long_one",
+   "tests/test_freshness.py::test_the_same_age_is_stale_for_one_department_and_fresh_for_another",
+   "tests/test_w4_research.py::test_answers_expire_by_their_domain_and_mathematical_never_does"
+  ],
+  "evidence": [
+   "improve/freshness world speeds, compiler answered by code fingerprint; in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: a research answer's expires_on comes from its domain (marketplace policy 21 d, techniques 365 d, market 3 d); a mathematical finding never expires on a date; an unknown domain is refused (no default expiry); an expired answer re-opens its question; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#191 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-399",
+  "launch_class": "MATURE",
+  "launch_class_reason": "learning health reporting",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py::retrospective; improve/director.py::experiments",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_improve",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_improve.py::test_the_retrospective_reports_what_regressed_and_what_was_never_measured",
+   "tests/test_roi.py::test_nothing_promoted_says_so_rather_than_reporting_a_hit_rate",
+   "tests/test_w4_improvemetrics.py::test_learning_health_rates_are_none_until_a_verdict",
+   "tests/test_w4_improvemetrics.py::test_learning_health_measures_adoption_rejection_regressions_and_cost"
+  ],
+  "evidence": [
+   "/api/improve, /api/roi, /api/league",
+   "w4-CLOSE5 on deployed b931d17: retrospective learning_health reports adoption and rejection rates (None until a verdict), regressions caught, repeated failures avoided (improve.repeat_refused rows) and cost per adopted change (only when every adopted change has attributed spend); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#100 COMPLETE+PROVEN",
+   "#99 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-605",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Learning memory compounds post-launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/bus.py::withdraw; improve/bus.py::publish",
+  "durable_state": "lessons, improvements, learning_observations, registered_experiments",
+  "consumer": "src/brambleloop/improve/consume.py::matching",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_market_radar_and_listings_act_on_their_lessons",
+   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model",
+   "tests/test_w4_improvemetrics.py::test_a_withdrawn_lesson_is_kept_but_no_longer_matched"
+  ],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: a lesson is withdrawn only with a reason and an evidence ref (audited lesson.withdrawn), stays on file, and is no longer matched by consume.matching; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#97 COMPLETE+PROVEN",
+   "#101 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-535",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/cx_root_cause.py::run",
+  "durable_state": "orders.refunded; ledger refunds_cad",
+  "consumer": "runtime/orders.handle_order_readings (commerce.order_readings cadence) -> commerce/order_readings.read",
+  "protected_effect": "refund rate above ceiling reads as a defect",
+  "tests": [
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "tests/test_k8_shop_cx.py::test_every_refund_and_case_gets_a_code_and_owner_and_repetition_opens_an_investigation",
+   "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+   "tests/test_k8_shop_cx.py::test_the_daily_order_readings_carry_the_root_cause_reading"
+  ],
+  "evidence": [
+   "commerce/orders_ingest.py:141 refunded = bool(receipt.get('refunds'))",
+   "commerce/kill_table.py refund_high_above",
+   "w4-FM close on 8b67414 (FOLD): commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r",
+   "w4-CLOSE5 on deployed b931d17: every refund, cancellation and support case gets a reason code and an owner; a repeated cause opens one investigation incident naming the area (listing, deliverable, ...) and resolves when the cause goes; refund reasons are captured at ingest; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
+  },
+  "defect": null,
+  "next_action": "none -- deployed; a real refund is data",
+  "confidence": "HIGH",
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-542",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "a 2xx is not proof a customer-facing field changed — safe publication",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py::_publish_and_read_back; src/brambleloop/integrations/etsy_verify.py::verify",
+  "durable_state": "audit_log (exercise report)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_activate; src/brambleloop/commerce/listing_rollback.py::execute",
+  "protected_effect": "an ignored write (e.g. quantity PATCH 200) or misread tag list fails read-back",
+  "tests": [
+   "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
+   "tests/test_etsy_transport.py::test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else",
+   "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
+   "tests/test_etsy_transport.py::test_read_back_verifies_every_field_including_the_ones_etsy_transforms",
+   "tests/test_w4_close5_rows3.py::test_f542_every_customer_affecting_etsy_mutation_is_followed_by_a_readback",
+   "tests/test_w4_close5_rows3.py::test_f542_an_activation_etsy_accepted_but_did_not_apply_is_not_recorded_live",
+   "tests/test_w4_close5_rows3.py::test_f542_a_rollback_etsy_accepted_but_did_not_apply_is_not_recorded_restored"
+  ],
+  "evidence": [
+   "integrations/etsy_verify.py and etsy_exercise.py present in fcb982d; /api/etsy/exercise route",
+   "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'",
+   "w4-FM close on 8b67414 (REGATE): store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified",
+   "w4-CLOSE5 on deployed b931d17: publish reads the draft, files, images and alt text back (etsy_ops.read_back) and a draft whose read-back fails is incomplete_on_etsy; activation reads the state back and a 2xx that left the listing inactive is store.activate_incomplete with an incident; a rollback reads its fields back and reports what still differs; every mutation call site in src/ is checked by rule (draft-only sites listed with reasons); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "etsy_api OPEN in production b931d17; the read-back is in the deployed publish, activate and rollback paths"
+  },
+  "defect": null,
+  "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
+  "confidence": "HIGH",
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-878",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "owner needs a truthful launch packet",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/packet.py::build",
+  "durable_state": "audit_log; operating readings",
+  "consumer": "src/brambleloop/app/command_center/launch_packet.py (GET /api/cc/launch/packet, owner session); scripts/launch_packet.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
+   "tests/test_fb4_launch.py::test_launch_packet_on_a_fresh_shadow_db_with_launch0_certified_is_honest",
+   "tests/test_fb4_launch.py::test_launch_packet_script_writes_json_and_markdown",
+   "tests/test_w4_packetrel.py::test_record_only_commit_cites_its_release_record_by_tree_digest",
+   "tests/test_w4_packetrel.py::test_a_tampered_or_ineligible_record_is_fail_with_its_problems"
+  ],
+  "evidence": [
+   "launch/rollback.py not in fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+   "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
+   "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven",
+   "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_CLOSE5/launch_packet_b931d17a738d_20261020T053641Z.json -- generated by the deployed tree's scripts/launch_packet.py (clean worktree of b931d17, scratch DB, shadow): candidate SHA, recorded_suite PASS bound to release/RELEASE_324927f1... by tree digest + ancestor, the closure summary, per-product visual/parity, listing, policy, search, rollback and economics sections, owner queue, spend limits, rollback path and activation steps; verdict UNKNOWN on a scratch DB, as it must be"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
+  "confidence": "MEDIUM",
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-473",
+  "launch_class": "MATURE",
+  "launch_class_reason": "capacity arbitration; first sale does not depend on preemption",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/preempt.py::preemption_wanted",
+  "durable_state": "job_checkpoints; jobs",
+  "consumer": "src/brambleloop/runtime/worker.py (JobContext.should_yield / yield_now; Worker.run_once requeues a preempted job)",
+  "protected_effect": "customer incidents and truth defects are claimed before optimisation work",
+  "tests": [
+   "tests/test_swarm.py::test_a_band_is_never_traded_away_for_value",
+   "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
+   "tests/test_w4_swarmcontrol.py::test_preemption_wanted_only_behind_a_full_pool_for_better_waiting_work",
+   "tests/test_w4_swarmcontrol.py::test_a_yielding_handler_is_requeued_uncounted_with_its_checkpoint",
+   "tests/test_w4_swarmcontrol.py::test_gallery_analysis_yields_between_images"
+  ],
+  "evidence": [
+   "BUILD_STATE/requirements #187 note: every job type maps to one of eight bands (C-46)",
+   "w4-CLOSE5 on deployed b931d17: preemption is wanted only when the pool is full, a strictly better band or protected tier is waiting and has waited >= 120 s; a yielding handler checkpoints, is requeued PENDING with its attempt uncounted and audited job.preempted; intel.gallery_analysis yields between images; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
+  "build2_rows": [
+   "#187 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-191",
+  "launch_class": "MATURE",
+  "launch_class_reason": "MJs research dashboard consistency",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/mission.py::snapshot",
+  "durable_state": "benchmark_listings, benchmark_observations",
+  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_intel.py::test_the_dashboard_leads_with_whether_the_mission_can_see_anything",
+   "tests/test_intel.py::test_the_backlog_is_counted_rather_than_capped_by_the_query_limit",
+   "tests/test_w4_mjscount.py::test_every_counter_comes_from_one_snapshot_and_reconciles",
+   "tests/test_w4_mjscount.py::test_the_backlog_count_no_longer_saturates_at_a_page",
+   "tests/test_w4_mjscount.py::test_a_broken_identity_is_reported_not_corrected"
+  ],
+  "evidence": [
+   "main.py _mission rows",
+   "w4-CLOSE5 on deployed b931d17: every MJs counter derives from one BenchmarkListing read (known, audited, gallery-audited, by pod, image slots, gap total) with a reconciliation row of five identities; a broken identity is reported, never corrected; the backlog no longer saturates at 200; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#318 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
+  "confidence": "MEDIUM",
+  "searched": "w4-CLOSE5 on deployed b931d17"
+ },
+ {
+  "uid": "F-193",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research-backlog cost forecasting",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/vision.py::forecast",
+  "durable_state": "benchmark_listings.detail",
+  "consumer": "src/brambleloop/app/main.py::dashboard (_mission row)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_w4_mjscount.py::test_forecast_is_measured_or_unknown_never_zero",
+   "tests/test_w4_mjscount.py::test_dashboard_mission_shows_scan_health_detail_reconciliation_and_forecast"
+  ],
+  "evidence": [
+   "vision.plan uses routing.estimate_cad; per_image_estimate_cad deliberately padded, not measured mean",
+   "w4-CLOSE5 on deployed b931d17: measured CA$/image (gallery_observation cost rows / images judged; UNKNOWN when either is zero, never 0), remaining images, cost to drain, allocation share/spent/allowed, images per run, runs per day and the ETA, shown together on the mission row; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
+  "build2_rows": [
+   "#209 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
   "searched": "w4-CLOSE5 on deployed b931d17"
  }

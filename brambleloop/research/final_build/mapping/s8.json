@@ -138,21 +138,24 @@
   "launch_class": "MATURE",
   "launch_class_reason": "throughput optimisation across lanes; the worker already processes the queue continuously",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "No measurement or alarm for valuable READY work left untouched because another lane is busy; lane concurrency is an in-process pool sized by allocation, not per-department capacity; not deployed (bands/aging/lanes/feed_idle all post-fcb982d).",
-  "producer": "src/brambleloop/swarm/orchestrate.py::allocate",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/metrics.py::starved_ready",
   "durable_state": "swarm_allocations table; jobs.priority (bands)",
-  "consumer": "src/brambleloop/swarm/orchestrate.py::may_claim",
+  "consumer": "src/brambleloop/ops/health.py (starved_ready signal); GET /api/swarm/runtime",
   "protected_effect": "a lane over its share yields while another lane waits; aged low-band work is claimed",
   "tests": [
    "tests/test_chaos.py::test_aging_claims_a_low_band_job_within_the_stated_bound",
    "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
    "tests/test_cert_lanes_capacity.py::test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits",
-   "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once"
+   "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
+   "tests/test_w4_swarmmetrics.py::test_late_ready_work_with_idle_capacity_is_starved",
+   "tests/test_w4_swarmmetrics.py::test_health_reports_starved_ready_as_a_signal"
   ],
   "evidence": [
    "src/brambleloop/queue/durable.py AGING_STEP_SECONDS/_effective_priority",
-   "src/brambleloop/runtime/worker.py cadences swarm_allocate/swarm_backlog (not in fcb982d)"
+   "src/brambleloop/runtime/worker.py cadences swarm_allocate/swarm_backlog (not in fcb982d)",
+   "w4-CLOSE5: production b931d17 research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261020T0540Z.json starved_ready: reading ok, starved 0, late_ready 0, capacity_idle true -- 'no READY work is past its band SLA'; the ops/health signal is DEGRADED when starved"
   ],
   "build2_rows": [
    "#174 COMPLETE+PROVEN",
@@ -166,9 +169,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Add a starved-READY metric (ready jobs older than their band SLA while any lane is idle) to ops/health.read and surface it; deploy.",
+  "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-656",
@@ -240,7 +243,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-658",
@@ -1085,7 +1088,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-683",
@@ -1848,18 +1851,21 @@
   "launch_class": "MATURE",
   "launch_class_reason": "institutional memory is compounding capability",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Experiments, evidence, cost, result and decision persist, but nothing checks a new proposal against prior failed experiments: cells.propose has no repeat lookup; only self_review flags a tactic family rejected twice.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/improve/cells.py::propose",
   "durable_state": "improvements, registered_experiments, lessons",
-  "consumer": "src/brambleloop/improve/profiles.py::self_review",
+  "consumer": "src/brambleloop/improve/failure_memory.py::check (consulted by propose); src/brambleloop/improve/profiles.py::self_review",
   "protected_effect": null,
   "tests": [
    "tests/test_profiles.py::test_a_tactic_rejected_twice_for_the_same_reason_is_recorded_as_answered",
-   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards"
+   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards",
+   "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+   "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered"
   ],
   "evidence": [
-   "src/brambleloop/improve/cells.py:151 propose (no prior-experiment check)"
+   "src/brambleloop/improve/cells.py:151 propose (no prior-experiment check)",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect (no guard against repeating a known failed experiment) is fixed: the identical failed improvement proposed months later is refused and the refusal is audited; experiments, evidence, cost, result and decision persist as before; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#93 COMPLETE+PROVEN",
@@ -1871,10 +1877,10 @@
    "key": "none",
    "detail": "no gate on the remaining software work"
   },
-  "defect": "no guard against unknowingly repeating a known failed experiment",
-  "next_action": "In cells.propose, look up REJECTED/REVERTED improvements with the same cell+touches+hypothesis fingerprint and refuse unless new evidence is cited; test the v0.20 'same failed improvement months later' scenario.",
+  "defect": null,
+  "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-707",
@@ -2253,7 +2259,7 @@
   "defect": null,
   "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-719",
@@ -2605,17 +2611,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "operating definition; mechanisms are throughput optimisation",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Idle feeding never spends and polling types with no change are backed off, so no wasteful calls; opportunity discovery is cadence-based and 'acted on' is not measured.",
-  "producer": "src/brambleloop/swarm/orchestrate.py::feed_idle",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/metrics.py::untouched_opportunities",
   "durable_state": "jobs",
-  "consumer": "src/brambleloop/swarm/orchestrate.py::suspended_job_types",
+  "consumer": "GET /api/swarm/runtime; src/brambleloop/swarm/orchestrate.py::feed_idle",
   "protected_effect": "idleness never buys work",
   "tests": [
    "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
-   "tests/test_swarm.py::test_an_idle_agent_takes_the_backlog_rather_than_polling_or_stopping"
+   "tests/test_swarm.py::test_an_idle_agent_takes_the_backlog_rather_than_polling_or_stopping",
+   "tests/test_w4_swarmmetrics.py::test_untouched_opportunities_are_counted_and_value_weighted"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5: production b931d17 research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261020T0540Z.json untouched_opportunities: reading ok, untouched 0 of 20 discovered gaps after 7 days, 'every discovered gap was acted on within the window'; idle feeding spends nothing (existing evidence)"
+  ],
   "build2_rows": [
    "#186 COMPLETE+PROVEN"
   ],
@@ -2625,9 +2634,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Measure untouched opportunities (F-719).",
+  "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "LOW",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-731",
