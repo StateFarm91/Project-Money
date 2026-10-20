@@ -551,10 +551,15 @@ def record_edges(db, slug: str, version: str) -> dict:
         l_d = ({"id": listing.id, "release_hash": listing.release_hash,
                 "etsy_listing_id": listing.etsy_listing_id} if listing else None)
 
+    every = _jobs(db, CHAIN, slug)
+
     def by_job(action, job_type):
-        j = jobs.get(job_type)
-        rows = [a for a in _audits(db, action, slug) if j and a["job_id"] == j["id"]]
-        return j, (rows[-1] if rows else None)
+        """The newest audit row of `action` written by a job of `job_type` for this product,
+        and that job (a later re-run of the same type that has not finished yet does not
+        hide the run that wrote the row)."""
+        ids = {j["id"]: j for j in every if j["job_type"] == job_type}
+        rows = [a for a in _audits(db, action, slug) if a["job_id"] in ids]
+        return (ids[rows[-1]["job_id"]], rows[-1]) if rows else (None, None)
 
     j, a = by_job("cir.compiled", "cir.compile")
     if j and a and pv_d:
