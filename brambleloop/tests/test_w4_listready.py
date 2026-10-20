@@ -215,6 +215,33 @@ def test_publication_refuses_a_superseded_release():
     assert not any(r.startswith("superseded release") for r in newest["reasons"])
 
 
+# ---- R4: genuinely stale marketing is rebuildable; publication still refuses ----------------
+
+def test_genuinely_stale_marketing_may_be_rebuilt_while_publication_still_refuses():
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
+    key = P.marketing_key("hex", "pin", "t")
+    # built from a design no certified release holds: genuinely stale against the newest
+    _record_from(db, "hex", "1.0.0", cls="marketing_asset", key=key,
+                 inputs={"cir:hex": P.fingerprint({"rows": 11})})
+    out = _sentinel(db)
+    assert out["stale"] == 1 and out["publication_blocked"] == ["hex"]
+
+    st = G.staleness(db, slug="hex")
+    assert st["halted"] is True and st["blocks"] is True          # publication refuses
+    assert st["rebuild"]["outstanding"] == [f"marketing_asset:{key}"]
+    assert st["outstanding_only_marketing"] is True                # the rebuild may run
+
+    # any other halt still refuses the marketing rebuild too (Gate E unchanged)
+    tracker = IncidentTracker(db)
+    for i in range(3):
+        tracker.report(DefectReport("hex", "1.0.0", "coaster", 4, f"c{i}", "row 4"))
+    st = G.staleness(db, slug="hex")
+    assert st["halted"] is True and st["outstanding_only_marketing"] is False
+
+
 # ---- R3: a halted certification is retried once per halt episode --------------------------
 
 def _launch0_cir(slug="hexagon-coaster-set"):

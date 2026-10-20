@@ -1259,7 +1259,17 @@ def staleness(db, *, slug: str) -> dict:
     # C-80 defect 11: a structured flag for the one exception marketing.schedule may take --
     # the only thing outstanding is marketing content and nothing halts the product -- so
     # the caller reads a field, not the wording of a reason.
-    only_marketing = (bool(outstanding) and not halting
+    # W4-LISTREADY (R4): "nothing halts the product" means nothing *besides* the sentinel's
+    # own rows for exactly this outstanding marketing content. Those rows exist because the
+    # content is stale, so counting them made stale marketing unrebuildable by construction
+    # (the rebuild was refused on the staleness it exists to cure). This flag lets only the
+    # marketing rebuild proceed; `halted`, `reasons` and `blocks` -- what publication reads --
+    # are unchanged, and any other halting incident still refuses the rebuild too.
+    own_marketing = {f"stale-artefact:{k}" for k in outstanding
+                     if str(k).startswith("marketing_asset:")}
+    halting_other = [i for i in tracker.open_incidents(slug)
+                     if i.halts_publication and i.signature not in own_marketing]
+    only_marketing = (bool(outstanding) and not halting_other
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
