@@ -2074,3 +2074,13 @@ is in `spec/12_FLUX3_Visual_Production_Standard_2026-10-19.md`.
 - **Process:** autonomous, bounded and resumable, with learning.
 - **Unchanged:** every Product Truth, identity, disclosure and publication gate. Manual FLUX images are a temporary
   launch fallback only. Autonomy is not complete until a real unattended end-to-end test passes.
+
+## D-W4-SLOWLOOP-CONTRACT3 — the free gathered hero challenger is redesigned for disclosed-render contract 3 (integrator, 2026-10-20)
+
+**Status: routine engineering decision (coordinator, within autonomy); no gate, margin or test was relaxed.**
+Contract 3 (D-W4-VISROLE-LEGIBILITY: 58 px lettering, product zone 0.085-0.745) took about 0.02 objective
+points from the free `disclosed_finished_render_close` challenger at `hero_gap_ratio` 0.06: it beat the
+incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before contract 3), so
+`tests/test_w3_visual_commercial_slowloop.py` failed. The challenger's framing, not the margin, is changed:
+gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
+every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.

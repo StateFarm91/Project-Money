@@ -45,11 +45,21 @@ class Stub:
 
 
 @contextlib.contextmanager
-def enabled(stub: Stub | None = None, **overrides):
-    """Owner switch + spend authorisation + dummy provider key, and the stubbed transport."""
+def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **overrides):
+    """Owner switch + spend authorisation + dummy provider key, and the stubbed transport.
+
+    INTEG3 (security review of 5f18d11, L3): replies now also require a proven, deployed
+    release. A test process is never one, so the harness stands in for the boot guard's
+    verdict (`release_proven=False` exercises the refusal; test_w4_integ3_secfixes).
+    `release_proven=None` leaves the real check in place (a test that drives BOOT itself)."""
     env = {**ENABLE, **overrides}
     saved = {k: os.environ.get(k) for k in env}
     orig = gw.AnthropicProvider._send
+    orig_release = laura_register.release_proven
+    if release_proven is not None:
+        laura_register.release_proven = lambda env=None, boot=None: {
+            "met": bool(release_proven), "detail": "test harness stand-in for the boot guard",
+            "commit_short": "test"}
     if stub is not None:
         gw.AnthropicProvider._send = lambda self, payload, key: stub(self, payload, key)
     else:
@@ -65,6 +75,7 @@ def enabled(stub: Stub | None = None, **overrides):
         yield stub
     finally:
         gw.AnthropicProvider._send = orig
+        laura_register.release_proven = orig_release
         for k, v in saved.items():
             if v is None:
                 os.environ.pop(k, None)

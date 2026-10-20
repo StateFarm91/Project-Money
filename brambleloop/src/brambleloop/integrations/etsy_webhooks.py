@@ -54,7 +54,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Mapping
 
-from sqlalchemy import DateTime, Integer, String, func, select, update
+from sqlalchemy import BigInteger, DateTime, Integer, String, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -113,12 +113,14 @@ class EtsyWebhookRefusal(Base):
     __tablename__ = "etsy_webhook_refusals"
 
     reason: Mapped[str] = mapped_column(String(40), primary_key=True)
-    count: Mapped[int] = mapped_column(Integer, default=0)
+    # Security review of 5f18d11 (L1): BIGINT, so a flood cannot overflow the counter (int4
+    # stops at 2^31-1 and the swallowed error would freeze it silently).
+    count: Mapped[int] = mapped_column(BigInteger, default=0)
     last_status: Mapped[int] = mapped_column(Integer, default=0)
     first_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # Unix seconds of the last sampled audit row, compared as an integer on every dialect.
-    last_audit_epoch: Mapped[int] = mapped_column(Integer, default=0)
+    last_audit_epoch: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
 _LOCK = threading.Lock()
@@ -267,34 +269,60 @@ def verify(headers: Mapping[str, str], body: bytes, *, secret: str | None,
 # Storage, idempotency and the wake
 
 
+def _upsert(dialect: str, reason: str, now: datetime, status: int):
+    """INSERT ... ON CONFLICT (reason) DO UPDATE count = count + 1: one statement, atomic,
+    on the two dialects this runs on. None for any other dialect (then the two-step path)."""
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    elif dialect == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert
+    else:
+        return None
+    t = EtsyWebhookRefusal
+    ins = insert(t).values(reason=reason, count=1, first_at=now, last_at=now,
+                           last_status=status, last_audit_epoch=0)
+    return ins.on_conflict_do_update(index_elements=[t.reason],
+                                     set_={"count": t.count + 1, "last_at": now,
+                                           "last_status": status})
+
+
 def _refused(db, exc: WebhookRefused, *, now: datetime | None = None) -> None:
     """Count one refusal: an upsert on its reason's counter row, and an audit row only when
     that reason has not been sampled within AUDIT_SAMPLE_SECONDS (REL2/M1). Storage is bounded
-    by the closed reason set, whatever the request rate."""
+    by the closed reason set, whatever the request rate.
+
+    Security review of 5f18d11 (M1): ONE transaction per refusal -- the counter upsert, the
+    conditional claim of the sample slot and (when claimed) the sampled audit row commit
+    together -- instead of up to three. The route runs this off the event loop."""
     from ..core.models import AuditLog
 
     reason = exc.reason if exc.reason in REFUSAL_REASONS else "other"
     now = now or datetime.now(timezone.utc)
     epoch = int(now.timestamp())
+    status = int(exc.status)
     try:
         ensure_table(db)
-        bump = (update(EtsyWebhookRefusal).where(EtsyWebhookRefusal.reason == reason)
-                .values(count=EtsyWebhookRefusal.count + 1, last_at=now,
-                        last_status=int(exc.status)))
+        upsert = _upsert(db.engine.dialect.name, reason, now, status)
+        if upsert is None:  # pragma: no cover - only sqlite and postgresql are deployed
+            bump = (update(EtsyWebhookRefusal).where(EtsyWebhookRefusal.reason == reason)
+                    .values(count=EtsyWebhookRefusal.count + 1, last_at=now,
+                            last_status=status))
+            with db.session() as s:
+                hit = s.execute(bump).rowcount
+            if not hit:
+                try:
+                    with db.session() as s:
+                        s.add(EtsyWebhookRefusal(reason=reason, count=1, first_at=now,
+                                                 last_at=now, last_status=status,
+                                                 last_audit_epoch=0))
+                except IntegrityError:  # a concurrent first refusal won the insert
+                    with db.session() as s:
+                        s.execute(bump)
         with db.session() as s:
-            hit = s.execute(bump).rowcount
-        if not hit:
-            try:
-                with db.session() as s:
-                    s.add(EtsyWebhookRefusal(reason=reason, count=1, first_at=now,
-                                             last_at=now, last_status=int(exc.status),
-                                             last_audit_epoch=0))
-            except IntegrityError:  # a concurrent first refusal won the insert
-                with db.session() as s:
-                    s.execute(bump)
-        # Claim the sample slot with a conditional update, so concurrent refusals write one
-        # audit row between them rather than one each.
-        with db.session() as s:
+            if upsert is not None:
+                s.execute(upsert)
+            # Claim the sample slot with a conditional update, so concurrent refusals write
+            # one audit row between them rather than one each.
             claimed = s.execute(
                 update(EtsyWebhookRefusal).where(
                     EtsyWebhookRefusal.reason == reason,

@@ -84,6 +84,7 @@ REASONS: dict[str, str] = {
     "MALFORMED": "The model's answer could not be used.",
     "JOB_SCOPE": "Private replies are never generated inside a background job.",
     "REFUSED": "This reply path was called incorrectly and refused.",
+    "RELEASE_UNPROVEN": "Private replies run only on a proven, deployed release.",
 }
 
 
@@ -203,6 +204,33 @@ def enablement(env=None) -> dict:
                       "private_key": PRIVATE_KEY_ENV, "provider_key": "ANTHROPIC_API_KEY"}}
 
 
+def release_proven(env=None, boot: dict | None = None) -> dict:
+    """Is this process a proven, deployed release (security review of 5f18d11, L3)?
+
+    Met only when the build commit is known (`core.build`), the process runs on the hosting
+    platform, and the runtime boot guard (`ops.release_record.BOOT`) found a committed,
+    release-eligible record for this exact tree. Unprovable is unmet. Non-secret facts only.
+    The owner's status shows this as a prerequisite and the reply path now enforces it."""
+    from ..core import build
+    from ..ops import release_record
+
+    b = release_record.BOOT if boot is None else boot
+    ident = build.identity(None if env is None else dict(env))
+    on_platform = bool((b or {}).get("platform_markers"))
+    proven = bool((b or {}).get("ok"))
+    met = bool(ident["known"] and on_platform and proven)
+    if met:
+        detail = (f"running {ident['commit_short']} on the hosting platform, proven by "
+                  f"release/{((b.get('record') or {}).get('file') or '?')}")
+    elif not ident["known"]:
+        detail = "the running build commit is unknown here"
+    elif not on_platform:
+        detail = "not running on the hosting platform"
+    else:
+        detail = "the boot guard found no committed release record for this build"
+    return {"met": met, "detail": detail, "commit_short": ident["commit_short"]}
+
+
 def _refuse(db, code: str, *, which: str, why: str, estimate: float = 0.0,
             ceiling: float = 0.0, committed: float = 0.0, model: str = "") -> None:
     from ..finance import spend_report
@@ -289,6 +317,8 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
                 estimate=estimate, model=model)
     if not state["provider_configured"]:
         raise ReplyUnavailable("NO_PROVIDER")
+    if not release_proven(env)["met"]:             # L3: enforced, not only displayed
+        raise ReplyUnavailable("RELEASE_UNPROVEN")
     try:
         h = failover.health(db).get(failover._key("anthropic", model)) or {}
     except Exception:  # noqa: BLE001 - unreadable health never blocks a call

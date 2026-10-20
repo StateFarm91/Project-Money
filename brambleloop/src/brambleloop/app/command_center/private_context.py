@@ -128,31 +128,11 @@ def _agent_present(db) -> bool:
 
 
 def _release_deployed(boot: dict | None = None, env=None) -> dict:
-    """Is the running process a proven, deployed release (not a dev or unproven build)?
+    """Is the running process a proven, deployed release? One rule, in
+    `gateway.laura_register.release_proven`, shared with the reply path that enforces it."""
+    from ...gateway import laura_register
 
-    Met only when all hold: the build commit is known (`core.build`), the process runs on the
-    hosting platform, and the runtime boot guard (`ops.release_record.BOOT`) found a committed,
-    release-eligible record for this exact tree. A build this process cannot prove is unmet,
-    never assumed. Returns non-secret facts only (short SHA and the record's file name).
-    """
-    from ...core import build
-    from ...ops import release_record
-
-    b = release_record.BOOT if boot is None else boot
-    ident = build.identity(env)
-    on_platform = bool((b or {}).get("platform_markers"))
-    proven = bool((b or {}).get("ok"))
-    met = bool(ident["known"] and on_platform and proven)
-    if met:
-        detail = (f"running {ident['commit_short']} on the hosting platform, proven by "
-                  f"release/{((b.get('record') or {}).get('file') or '?')}")
-    elif not ident["known"]:
-        detail = "the running build commit is unknown here"
-    elif not on_platform:
-        detail = "not running on the hosting platform"
-    else:
-        detail = "the boot guard found no committed release record for this build"
-    return {"met": met, "detail": detail, "commit_short": ident["commit_short"]}
+    return laura_register.release_proven(env, boot)
 
 
 def prerequisites(db, *, env=None, boot: dict | None = None) -> list[dict]:
@@ -196,13 +176,16 @@ def _enablement(db=None) -> dict:
     e = laura_register.enablement()
     key = store.configured()
     agent = _agent_present(db) if db is not None else True
+    # Security review of 5f18d11 (L3): the release prerequisite gates enablement too.
+    release = bool(laura_register.release_proven()["met"])
     return {"key_configured": key, "register_switch": e["register_switch"],
             "spend_authorised_cad_per_day": e["spend_authorised_cad_per_day"],
             "provider_configured": e["provider_configured"],
             "laura_private_agent": agent,
+            "current_release_deployed": release,
             "enabled": bool(key and e["register_switch"]
                             and e["spend_authorised_cad_per_day"] > 0
-                            and e["provider_configured"] and agent)}
+                            and e["provider_configured"] and agent and release)}
 
 
 def _register_label(en: dict) -> str:

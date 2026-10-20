@@ -395,16 +395,21 @@ def reading_refused(db, listing_ref: str, benchmark_key: str) -> bool:
             is not None
 
 
+def refusal_kind(exc: Exception) -> str:
+    """The class of a refused reading, never its text (the refused text may quote the model)."""
+    why = str(exc)
+    return ("depiction" if "depicts" in why else "not_json" if "JSON" in why
+            else "closed_vocabulary" if "construction fields" in why
+            else "empty" if "empty reading" in why else "refused")
+
+
 def record_refused_reading(db, listing_ref: str, *, benchmark_key: str, image_key: str,
                            exc: Exception) -> None:
     """Record that this image's paid reading was refused. Only the refusal's class is kept:
     a refused reading's text is exactly what must not be stored."""
     from ..core.models import AuditLog
 
-    why = str(exc)
-    kind = ("depiction" if "depicts" in why else "not_json" if "JSON" in why
-            else "closed_vocabulary" if "construction fields" in why
-            else "empty" if "empty reading" in why else "refused")
+    kind = refusal_kind(exc)
     with db.session() as s:
         s.add(AuditLog(actor="creative_director", action=READING_REFUSED_ACTION,
                        artifact=_refusal_artifact(benchmark_key, listing_ref),
@@ -465,10 +470,15 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
                                        exc=exc)
             except Exception:  # noqa: BLE001 - the refusal still stands unrecorded
                 pass
-            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200],
+            # Security review of 5f18d11 (L2): the job result is persisted, so it carries the
+            # refusal's class only -- the message can quote the refused model text.
+            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: "
+                                                      f"{refusal_kind(exc)}",
                            "recorded_refusal": True})
         except Exception as exc:  # noqa: BLE001 - one unreadable image is skipped, not faked
-            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200]})
+            # L2: the exception class only; a provider or parse error message can carry text
+            # from the model's answer.
+            failed.append({"listing_ref": ref, "why": type(exc).__name__})
     stored, refused_pods = [], []
     for pod in sorted({p for _r, p, _u in rows if p}):
         # REL2: one department's refusal is that department's, not the run's. A depiction

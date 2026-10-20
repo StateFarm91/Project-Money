@@ -338,7 +338,8 @@ def test_status_reports_each_prerequisite_met_or_unmet_without_secrets():
     commit = "1b21e81c6d1b228a93f72be44cfdf8193740b61b"
     saved_boot = dict(release_record.BOOT)
     try:
-        with PL.enabled(None, **{LR.DAILY_AUTH_ENV: "0.25", "RAILWAY_GIT_COMMIT_SHA": commit}):
+        with PL.enabled(None, release_proven=None,   # the real boot-guard check (INTEG3)
+                        **{LR.DAILY_AUTH_ENV: "0.25", "RAILWAY_GIT_COMMIT_SHA": commit}):
             release_record.BOOT.clear()
             release_record.BOOT.update({"ok": True, "platform_markers": ["RAILWAY_GIT_COMMIT_SHA"],
                                         "record": {"file": "RELEASE_x.json", "sha": "x"}})
