@@ -63,7 +63,8 @@ def _leaks(blob: str) -> list[str]:
 
 
 def _ok(text: str, *, tokens=(900, 60), cost_usd=None, finish="stop") -> tuple[int, str]:
-    body = {"id": "x", "object": "chat.completion", "model": V.MODEL,
+    # No "model" field: the provider then records the model it actually requested.
+    body = {"id": "x", "object": "chat.completion",
             "choices": [{"index": 0, "finish_reason": finish,
                          "message": {"role": "assistant", "content": text}}],
             "usage": {"prompt_tokens": tokens[0], "completion_tokens": tokens[1],
@@ -172,25 +173,33 @@ def test_auth_header_shape_pinned_model_and_request_body():
     assert call["headers"]["Authorization"] == f"Bearer {VKEY}"           # exact shape
     assert call["headers"]["Content-Type"] == "application/json"
     b = call["body"]
-    assert V.MODEL == "zai-org-glm-5-2" and b["model"] == V.MODEL         # pinned
-    assert b["model"] in V.PRIVATE_MODELS                                  # zero-retention class
+    assert V.MODEL == "venice-uncensored-1-2" and b["model"] == V.MODEL   # approved default
+    assert V.eligible(b["model"])[0] and b["model"] in V.PRIVATE_MODELS    # Private class
     assert b["messages"] == [{"role": "system", "content": LR.PROMPT.system},
                              {"role": "user", "content": USER}]            # nothing else
     vp = b["venice_parameters"]
     assert vp["include_venice_system_prompt"] is False                     # ours only
     assert vp["enable_web_search"] == "off" and vp["enable_web_scraping"] is False
-    assert vp["disable_thinking"] is True and b["reasoning_effort"] == "none"
+    # Not a reasoning model: no reasoning parameters at all (unsupported-feature errors count
+    # against Venice's error budget). GLM 5.2, owner-selectable, gets reasoning switched off.
+    assert "reasoning_effort" not in b and "disable_thinking" not in vp
+    glm = Venice()
+    with venice(glm, BRAMBLELOOP_PRIVATE_MODEL="zai-org-glm-5-2"):
+        LR.reply(_db(), system=LR.PROMPT.system, user=USER)
+    gb = glm.calls[0]["body"]
+    assert gb["model"] == "zai-org-glm-5-2" and gb["reasoning_effort"] == "none"
+    assert gb["venice_parameters"]["disable_thinking"] is True
     assert b["max_completion_tokens"] == LR.PROMPT.max_output_tokens == 400
     assert "tools" not in b and "character_slug" not in vp and b["stream"] is False
     # The pinned prompt is the canonical identity with the truthful-AI clauses (unchanged).
     p = LR.PROMPT.system
-    assert LR.PURPOSE == "laura.private_reply@2"
+    assert LR.PURPOSE == "laura.private_reply@3"
     assert identity.public_profile()["visual_identity_id"] == "laura-r2-a42aeac7" and \
         "laura-r2-a42aeac7" in p
     for clause in ("You are an AI. Never claim or imply that you are human",
                    "never claim a body, a physical action or a place",
-                   "the provider's usage policies are the outer limit and you never work "
-                   "around them"):
+                   "Venice's Terms, including its mature-content rules, are the outer limit "
+                   "and you never work around them"):
         assert clause in p, clause
     # An anonymized (third-party-visible) model cannot be constructed.
     try:
@@ -209,29 +218,171 @@ ANONYMIZED = ("qwen-3-6-plus", "aion-labs-aion-3-0", "aion-labs-aion-3-0-mini",
               "gemini-3-1-pro-preview")
 
 
-def test_anonymized_models_are_refused_and_the_guardrails_reach_venice():
+def _record_live(db, readings: dict) -> None:
+    """A Venice credential-health record carrying Venice's live model metadata (as written by
+    `credentials.check_all` after the owner selected Venice)."""
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=CR.ACTION, artifact="venice",
+                       detail={"provider": "venice", "status": "OK", "models": readings}))
+
+
+LIVE_OK = {"present": True, "privacy": "private", "offline": False, "owned_by": "venice.ai"}
+
+
+def test_an_anonymized_model_is_refused_everywhere():
     for m in ANONYMIZED:
+        ok, why = V.eligible(m)
+        assert ok is False, (m, why)
         try:
             V.VeniceProvider(model=m)
         except gw.BudgetExceeded:
-            continue
-        raise AssertionError(f"anonymized model {m} was accepted")
+            pass
+        else:
+            raise AssertionError(f"anonymized model {m} was accepted")
     assert not set(ANONYMIZED) & set(V.PRIVATE_MODELS)
-    # The pinned default is unchanged until the owner approves a switch.
-    assert V.MODEL == "zai-org-glm-5-2" and V.PRIVATE_MODELS == frozenset({V.MODEL})
-    # @2 states the guardrails explicitly and keeps every @1 sentence verbatim; @1 stays.
+    # Selected by the owner's variable: refused before any request, never substituted.
+    db = _db()
+    with venice(Venice(), BRAMBLELOOP_PRIVATE_MODEL="aion-labs-aion-3-5") as m:
+        assert _call(db) == "MODEL_NOT_ALLOWED" and m.calls == []
+    assert _rows(db, SpendReservation) == [] and _rows(db, CostEntry) == []
+
+
+def test_the_approved_model_is_accepted_when_row_and_live_reading_agree():
+    assert V.MODEL == "venice-uncensored-1-2"
+    row = V.VERIFIED_MODELS[V.MODEL]
+    assert row["privacy"] == "private" and row["hosted_by"] == "venice.ai"
+    assert V.MODEL in V.PRICES_USD_PER_MTOK and V.eligible(V.MODEL)[0]
+    assert V.eligible(V.MODEL, LIVE_OK) == (True, "verified Venice-hosted Private class with a "
+                                                  "pinned price")
+    db = _db()
+    _record_live(db, {V.MODEL: LIVE_OK})
+    mock = Venice()
+    with venice(mock):
+        out = LR.reply(db, system=LR.PROMPT.system, user=USER)
+    assert out["model_ref"] == f"venice/{V.MODEL}" and mock.calls[0]["body"]["model"] == V.MODEL
+
+
+def test_an_unknown_classification_is_refused():
+    new = "venice-uncensored-9-9"                     # not verified: UNKNOWN, never assumed
+    ok, why = V.eligible(new)
+    assert ok is False and why.startswith("UNKNOWN"), why
+    saved = dict(V.PRICES_USD_PER_MTOK)
+    try:
+        V.PRICES_USD_PER_MTOK[new] = (0.01, 0.01)     # a price alone does not make it eligible
+        assert V.eligible(new)[0] is False
+        db = _db()
+        with venice(Venice(), BRAMBLELOOP_PRIVATE_MODEL=new) as m:
+            assert _call(db) == "MODEL_NOT_ALLOWED" and m.calls == []
+    finally:
+        V.PRICES_USD_PER_MTOK.clear()
+        V.PRICES_USD_PER_MTOK.update(saved)
+    # A verified row without a pinned price is refused too.
+    saved_rows = dict(V.VERIFIED_MODELS)
+    try:
+        V.VERIFIED_MODELS["unpriced-private"] = {"privacy": "private", "hosted_by": "venice.ai"}
+        assert V.eligible("unpriced-private") == (False, "no pinned price row")
+    finally:
+        V.VERIFIED_MODELS.clear()
+        V.VERIFIED_MODELS.update(saved_rows)
+
+
+def test_a_contradicting_live_reading_fails_closed():
+    cases = {"not private": {**LIVE_OK, "privacy": "anonymized"},
+             "offline": {**LIVE_OK, "offline": True},
+             "absent": {"present": False, "privacy": None, "offline": False}}
+    assert len(cases) == 3
+    for name, reading in cases.items():
+        assert V.eligible(V.MODEL, reading)[0] is False, name
+        db = _db()
+        _record_live(db, {V.MODEL: reading})
+        with venice(Venice()) as m:
+            assert _call(db) == "MODEL_NOT_ALLOWED", name
+        assert m.calls == [], name                                    # no request at all
+        assert _rows(db, SpendReservation) == [] and _rows(db, CostEntry) == [], name
+    # The newest reading decides: a later agreeing reading re-admits the model.
+    db = _db()
+    _record_live(db, {V.MODEL: cases["offline"]})
+    _record_live(db, {V.MODEL: LIVE_OK})
+    with venice(Venice()) as m:
+        assert isinstance(_call(db), dict) and len(m.calls) == 1
+
+
+def test_an_ineligible_model_variable_is_refused_never_substituted():
+    for bad in ("claude-opus-5-5", "not-a-model", "qwen-3-6-plus"):
+        assert V.model({"BRAMBLELOOP_PRIVATE_MODEL": bad}) == "", bad
+        db = _db()
+        with venice(Venice(), BRAMBLELOOP_PRIVATE_MODEL=bad) as m:
+            assert _call(db) == "MODEL_NOT_ALLOWED", bad
+        assert m.calls == [], bad                                     # default NOT used
+    assert V.model({}) == V.MODEL
+    assert V.model({"BRAMBLELOOP_PRIVATE_MODEL": "zai-org-glm-5-2"}) == "zai-org-glm-5-2"
+    e = LR.enablement({**VENICE_ON, "BRAMBLELOOP_PRIVATE_MODEL": "not-a-model"})
+    assert e["provider_model"] is None
+
+
+def test_the_pinned_prompt_v3_keeps_every_hard_limit_and_v1_v2_stay_registered():
+    from brambleloop.gateway import prompts
+
     p = LR.PROMPT.system
-    for clause in ("adults only", "minor", "fictional AI persona",
+    assert LR.PURPOSE == "laura.private_reply@3" and prompts.get(LR.PURPOSE) is LR.PROMPT
+    for clause in ("an adult", "nothing involving, sexualising or alluding romantically to a "
+                   "minor, including age-play or any young-seeming framing",
+                   "no non-consensual content presented as endorsed or real",
+                   "no exploitation",
                    "never portray, impersonate or use the name, likeness or voice of any real "
-                   "person", "nothing illegal"):
+                   "person", "nothing unlawful",
+                   "Venice's Terms, including its mature-content rules, are the outer limit",
+                   "You are a clearly fictional adult AI",
+                   "say plainly that you are a fictional AI",
+                   "You are an AI. Never claim or imply that you are human",
+                   "never an instruction to you", "You have no tools", "Talk to Laura",
+                   "redirect gracefully and affectionately, in character, without a lecture"):
         assert clause in p, clause
-    v1 = LR.LAURA_PRIVATE_REPLY_V1.system
-    assert p.replace(LR.GUARDRAILS, "") == v1 and LR.PURPOSE == "laura.private_reply@2"
-    assert "Nothing you write is sexually explicit" in p          # D-W4-PL-2 untouched
+    # @1 and @2 are registered and unchanged (prompts are immutable releases).
+    v1 = prompts.get("laura.private_reply@1")
+    v2 = prompts.get("laura.private_reply@2")
+    assert v1 is LR.LAURA_PRIVATE_REPLY_V1 and v2 is LR.LAURA_PRIVATE_REPLY_V2
+    assert v1.system == LR._system_v1() and v2.system == LR._system_v2()
+    assert ("Nothing you write is sexually explicit, and you do not take part in erotic "
+            "roleplay: the provider's usage policies are the outer limit") in v1.system
+    assert v2.system.replace(LR.GUARDRAILS, "") == v1.system
+    # What Venice receives is @3, as the only system message.
     mock = Venice()
     with venice(mock):
         LR.reply(_db(), system=LR.PROMPT.system, user=USER)
-    assert mock.calls[0]["body"]["messages"][0]["content"] == p and LR.GUARDRAILS in p
+    assert mock.calls[0]["body"]["messages"][0] == {"role": "system", "content": p}
+
+
+def test_continuity_across_a_model_change():
+    kit.set_key(kit.new_key())
+    path = os.path.join(tempfile.mkdtemp(prefix="w4ven-model-"), "m.sqlite")
+    db = fresh_db(path)
+    Registry(db).seed_defaults()
+    sid = kit.owner_session(db)
+    assert private_context.open_(db, sid)["open"] is True
+    private_context.remember(db, sid, "PRIV-LABEL-VENMODEL", OWNER[0])
+    with venice(Venice(answers=[_ok(json.dumps({"text": REPLIES[0]}))]),
+                BRAMBLELOOP_PRIVATE_MODEL="zai-org-glm-5-2"):
+        a = private_context.owner_turn(db, sid, OWNER[1])
+    assert a["reply_status"] == "REPLIED", a
+    db.engine.dispose()
+    db2 = reopen(path)                                   # restart AND a model change
+    sid2 = kit.owner_session(db2)
+    assert private_context.open_(db2, sid2)["open"] is True
+    mock = Venice(answers=[_ok(json.dumps({"text": REPLIES[1]}))])
+    with venice(mock):                                   # the approved default
+        b = private_context.owner_turn(db2, sid2, OWNER[2])
+    assert b["reply_status"] == "REPLIED", b
+    body = mock.calls[0]["body"]
+    assert body["model"] == V.MODEL != "zai-org-glm-5-2"
+    user = body["messages"][1]["content"]
+    assert OWNER[0] in user and OWNER[1] in user and REPLIES[0] in user   # one memory
+    assert body["messages"][0]["content"] == LR.PROMPT.system             # one Laura
+    from brambleloop.laura.private import store
+    refs = [t.model_ref for t in store.conversation(db2, private_context._principal(db2, sid2))
+            if t.role == "laura"]
+    assert refs == ["venice/zai-org-glm-5-2", f"venice/{V.MODEL}"], refs
+    assert identity.public_profile()["visual_identity_id"] == "laura-r2-a42aeac7"
 
 
 # ---------------------------------------------------------------- money
@@ -426,7 +577,7 @@ def test_venice_receives_only_the_private_turn_and_nothing_private_leaks_anywher
     assert not [x for x in company if x in sent], "business data sent to Venice"
     # Nowhere else: SQL bound parameters, logging, stdio, every business table, the
     # continuity export, the paid-call journal and the analysis cache.
-    assert len(sql) > 20 and "laura.private_reply@2" in "\n".join(sql)   # positive control
+    assert len(sql) > 20 and "laura.private_reply@3" in "\n".join(sql)   # positive control
     assert not _leaks("\n".join(sql)), _leaks("\n".join(sql))
     assert not _leaks(log.getvalue()), "logging"
     assert not _leaks(out.getvalue() + err.getvalue()), "stdio"
@@ -501,11 +652,19 @@ def test_persistence_across_restart_in_the_encrypted_store():
 class Http:
     def __init__(self, answer=(200, json.dumps({"data": {
             "accessPermitted": True, "balances": {"USD": 12.5, "DIEM": 0,
-                                                  "BUNDLED_CREDITS": 1.0}}}))):
+                                                  "BUNDLED_CREDITS": 1.0}}})),
+                 models=None):
         self.answer, self.calls = answer, []
+        self.models = models or (200, json.dumps({"data": [
+            {"id": "venice-uncensored-1-2", "owned_by": "venice.ai",
+             "model_spec": {"privacy": "private", "offline": False}},
+            {"id": "zai-org-glm-5-2", "owned_by": "venice.ai",
+             "model_spec": {"privacy": "private", "offline": True}}]}))
 
     def __call__(self, method, url, headers, body, timeout):
         self.calls.append({"method": method, "url": url, "headers": dict(headers), "body": body})
+        if "api.venice.ai/api/v1/models" in url:
+            return self.models
         if "venice" in url:
             return self.answer
         return (200, '{"credits": 500}') if "bfl" in url else (200, '{"input_tokens": 3}')
@@ -515,10 +674,19 @@ def test_venice_credential_health_is_owner_enabled_and_reads_the_balance():
     h = Http()
     got = CR.check_venice({"VENICE_API_KEY": VKEY}, h)
     assert got["status"] == CR.OK and got["balance_usd"] == 12.5, got
-    (call,) = h.calls
+    call, models_call = h.calls
     assert call["method"] == "GET" and call["body"] is None
     assert call["url"] == "https://api.venice.ai/api/v1/api_keys/rate_limits"
     assert call["headers"]["Authorization"] == f"Bearer {VKEY}"
+    # The live model metadata comes from the PUBLIC model list: no key is sent with it.
+    assert models_call["method"] == "GET" and models_call["body"] is None
+    assert models_call["url"] == "https://api.venice.ai/api/v1/models?type=text"
+    assert "Authorization" not in models_call["headers"]
+    assert VKEY not in json.dumps(models_call)
+    assert got["models"]["venice-uncensored-1-2"] == {"present": True, "privacy": "private",
+                                                      "offline": False, "owned_by": "venice.ai"}
+    assert got["models"]["zai-org-glm-5-2"]["offline"] is True
+    assert got["models"]["venice-uncensored-role-play"]["present"] is False
     assert CR.check_venice({}, h)["status"] == CR.MISSING
     low = {"data": {"accessPermitted": True, "balances": {"USD": 0, "DIEM": 0,
                                                           "BUNDLED_CREDITS": 0}}}
@@ -538,11 +706,16 @@ def test_venice_credential_health_is_owner_enabled_and_reads_the_balance():
     recs = CR.check_all(db, env={"VENICE_API_KEY": VKEY}, http=h)
     assert [r["provider"] for r in recs] == ["bfl", "anthropic"]
     assert not [c for c in h.calls if "venice" in c["url"]]
+    assert CR.venice_model_reading(db, V.MODEL) is None          # nothing before selection
     h = Http()
     recs = CR.check_all(db, env=VENICE_ON, http=h)
     (vr,) = [r for r in recs if r["provider"] == "venice"]
     assert vr["status"] == CR.OK and vr["estimate_cad"] is None             # UNKNOWN, never 0
     assert vr["estimate_basis"].startswith("UNKNOWN")
+    assert CR.venice_model_reading(db, V.MODEL)["privacy"] == "private"
+    assert CR.venice_model_reading(db, "zai-org-glm-5-2")["offline"] is True
+    assert V.eligible("zai-org-glm-5-2",
+                      CR.venice_model_reading(db, "zai-org-glm-5-2"))[0] is False
     stored = json.dumps([a.detail for a in _rows(db, AuditLog)], default=str)
     assert VKEY not in stored and VKEY[-4:] + '"' not in stored
     st = {p["provider"]: p for p in CR.state(db, owner=True, env=VENICE_ON)}
@@ -554,17 +727,20 @@ def test_venice_credential_health_is_owner_enabled_and_reads_the_balance():
 # ---------------------------------------------------------------- prices and the day
 
 def test_price_table_and_the_daily_arithmetic_in_venice_md():
-    assert V.PRICES_USD_PER_MTOK[V.MODEL] == (1.40, 4.40)
-    assert V.CONTEXT_TOKENS[V.MODEL] == 1_000_000
-    pin, pout = V.PRICES_USD_PER_MTOK[V.MODEL]
-    typical_usd = 1500 / 1e6 * pin + 150 / 1e6 * pout                   # a typical reply
-    typical_cad = typical_usd * gw.USD_TO_CAD
-    assert 0.0038 < typical_cad < 0.0040, typical_cad
-    assert int(0.50 // typical_cad) == 127, int(0.50 // typical_cad)
+    assert V.PRICES_USD_PER_MTOK["zai-org-glm-5-2"] == (1.40, 4.40)
+    assert V.PRICES_USD_PER_MTOK[V.MODEL] == (0.20, 0.90)
+    assert V.CONTEXT_TOKENS[V.MODEL] == 128_000 and V.MAX_COMPLETION_TOKENS[V.MODEL] == 8_192
+    for model, lo, hi, n in (("zai-org-glm-5-2", 0.0038, 0.0040, 127),
+                             (V.MODEL, 0.0006, 0.00063, 812)):
+        pin, pout = V.PRICES_USD_PER_MTOK[model]
+        typical_cad = (1500 / 1e6 * pin + 150 / 1e6 * pout) * gw.USD_TO_CAD   # a typical reply
+        assert lo < typical_cad < hi, (model, typical_cad)
+        assert int(0.50 // typical_cad) == n, (model, int(0.50 // typical_cad))
     worst = V.estimate_for(LR.PROMPT.system, "x" * 12000, 400)          # a long context
     assert worst < 0.02, worst
     doc = (ROOT / "research/final_build/w4/VENICE.md").read_text(encoding="utf-8")
-    for needle in ("zai-org-glm-5-2", "https://api.venice.ai/api/v1", "Authorization: Bearer",
+    for needle in ("zai-org-glm-5-2", "venice-uncensored-1-2", "812",
+                   "https://api.venice.ai/api/v1", "Authorization: Bearer",
                    "VENICE_API_KEY", "BRAMBLELOOP_PRIVATE_PROVIDER=venice", "127",
                    "PRODUCTION ACCEPTANCE TEST", "ADD-PLV-07", "include_venice_system_prompt"):
         assert needle in doc, needle

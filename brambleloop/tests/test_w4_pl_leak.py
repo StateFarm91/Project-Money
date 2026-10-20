@@ -89,13 +89,13 @@ def test_reply_text_never_reaches_business_tables_logs_paid_calls_or_cache():
     assert PROVIDER_BODY not in json.dumps([e, f])
     assert j["reply_status"] == "UNAVAILABLE" and j["reason"] == "JOB_SCOPE", j
     assert len(sql) > 20, len(sql)
-    assert "laura.private_reply@2" in "\n".join(sql)          # positive control: params seen
+    assert "laura.private_reply@3" in "\n".join(sql)          # positive control: params seen
     assert not _leaks("\n".join(sql)), _leaks("\n".join(sql))           # bound parameters
     assert not _leaks(log.getvalue()), "logging"
     assert not _leaks(out.getvalue() + err.getvalue()), "stdio"
     blob, counts = PL.table_dump(DB)
     assert counts.get("cost_entries", 0) >= 2, counts      # the replies were billed ...
-    assert "laura.private_reply@2" in blob and "model.attempt" in blob   # positive control
+    assert "laura.private_reply@3" in blob and "model.attempt" in blob   # positive control
     assert not _leaks(blob), _leaks(blob)                  # ... with no content anywhere
     assert paid_calls.rows(DB, job_id=777) == []
     with tempfile.TemporaryDirectory(prefix="w4pl-") as td:
