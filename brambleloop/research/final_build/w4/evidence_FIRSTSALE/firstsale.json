@@ -1,5 +1,5 @@
 {
- "chain_seconds": 571.8,
+ "chain_seconds": 595.0,
  "releases": {
   "market-basket-small@1.2.0": {
    "candidate": "nursery-nesting-baskets",
@@ -307,9 +307,7 @@
    "image_upload": {
     "state": "PASS",
     "failures": [],
-    "warnings": [
-     "rank 3: alt text 255 chars > Etsy's advice 250"
-    ],
+    "warnings": [],
     "images": [
      {
       "rank": 1,
@@ -352,7 +350,7 @@
       "filename": "market-basket-medium-frame-3.png",
       "bytes": 109053,
       "sha256": "ce682d56be8797a7cef916e15336217d4f9e8d780a7e5e04fc1d6acbeba2e084",
-      "alt_text_chars": 255,
+      "alt_text_chars": 226,
       "method": "POST",
       "operation": "uploadListingImage",
       "path": "/shops/{shop_id}/listings/{listing_id}/images",
@@ -528,9 +526,7 @@
    "image_upload": {
     "state": "PASS",
     "failures": [],
-    "warnings": [
-     "rank 3: alt text 254 chars > Etsy's advice 250"
-    ],
+    "warnings": [],
     "images": [
      {
       "rank": 1,
@@ -573,7 +569,7 @@
       "filename": "market-basket-large-frame-3.png",
       "bytes": 121325,
       "sha256": "22a57252def000229543e01892b6310383cacbc01179926d4f0023a55e34dc46",
-      "alt_text_chars": 254,
+      "alt_text_chars": 225,
       "method": "POST",
       "operation": "uploadListingImage",
       "path": "/shops/{shop_id}/listings/{listing_id}/images",
@@ -1115,9 +1111,7 @@
    "image_upload": {
     "state": "PASS",
     "failures": [],
-    "warnings": [
-     "rank 2: alt text 253 chars > Etsy's advice 250"
-    ],
+    "warnings": [],
     "images": [
      {
       "rank": 1,
@@ -1142,7 +1136,7 @@
       "filename": "nordic-star-ornaments-frame-2.png",
       "bytes": 30357,
       "sha256": "9bc354a9139405bba85fd00bbd7384092d2742f77958896e6a13be8ff2f0e5c3",
-      "alt_text_chars": 253,
+      "alt_text_chars": 224,
       "method": "POST",
       "operation": "uploadListingImage",
       "path": "/shops/{shop_id}/listings/{listing_id}/images",
@@ -1483,9 +1477,7 @@
    "image_upload": {
     "state": "PASS",
     "failures": [],
-    "warnings": [
-     "rank 2: alt text 255 chars > Etsy's advice 250"
-    ],
+    "warnings": [],
     "images": [
      {
       "rank": 1,
@@ -1510,7 +1502,7 @@
       "filename": "nordic-forest-mosaic-throw-baby-frame-2.png",
       "bytes": 32364,
       "sha256": "49a496b8c28ed6430339f8564330f31486a68a99751a8c575ad89999b3652255",
-      "alt_text_chars": 255,
+      "alt_text_chars": 226,
       "method": "POST",
       "operation": "uploadListingImage",
       "path": "/shops/{shop_id}/listings/{listing_id}/images",
@@ -1668,9 +1660,7 @@
    "image_upload": {
     "state": "PASS",
     "failures": [],
-    "warnings": [
-     "rank 2: alt text 256 chars > Etsy's advice 250"
-    ],
+    "warnings": [],
     "images": [
      {
       "rank": 1,
@@ -1695,7 +1685,7 @@
       "filename": "mosaic-placemat-pair-frame-2.png",
       "bytes": 39232,
       "sha256": "3db9092bd3a8cb51e80a5301a3350be8fad138648876347a883ad602f29e0547",
-      "alt_text_chars": 256,
+      "alt_text_chars": 227,
       "method": "POST",
       "operation": "uploadListingImage",
       "path": "/shops/{shop_id}/listings/{listing_id}/images",
@@ -2005,7 +1995,7 @@
   }
  },
  "first_sale": {
-  "generated_at": "2026-10-20T05:02:23+00:00",
+  "generated_at": "2026-10-20T06:07:07+00:00",
   "gates": [
    "certification",
    "product_truth",
@@ -2084,10 +2074,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2197,10 +2199,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2213,13 +2227,11 @@
        },
        "image_upload_payload": {
         "state": "PASS",
-        "why": "8 uploadListingImage requests match Etsy's documented contract; 1 recommendation(s) noted",
+        "why": "8 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
         "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
         "who_acts": null,
         "action": "",
-        "warnings": [
-         "rank 3: alt text 255 chars > Etsy's advice 250"
-        ],
+        "warnings": [],
         "blocker": "B4"
        },
        "durable_delivery": {
@@ -2312,10 +2324,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2328,13 +2352,11 @@
        },
        "image_upload_payload": {
         "state": "PASS",
-        "why": "8 uploadListingImage requests match Etsy's documented contract; 1 recommendation(s) noted",
+        "why": "8 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
         "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
         "who_acts": null,
         "action": "",
-        "warnings": [
-         "rank 3: alt text 254 chars > Etsy's advice 250"
-        ],
+        "warnings": [],
         "blocker": "B4"
        },
        "durable_delivery": {
@@ -2454,10 +2476,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2594,10 +2628,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2734,10 +2780,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -2750,13 +2808,11 @@
        },
        "image_upload_payload": {
         "state": "PASS",
-        "why": "6 uploadListingImage requests match Etsy's documented contract; 1 recommendation(s) noted",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
         "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
         "who_acts": null,
         "action": "",
-        "warnings": [
-         "rank 2: alt text 253 chars > Etsy's advice 250"
-        ],
+        "warnings": [],
         "blocker": "B4"
        },
        "durable_delivery": {
@@ -2876,10 +2932,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -3016,10 +3084,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -3032,13 +3112,11 @@
        },
        "image_upload_payload": {
         "state": "PASS",
-        "why": "6 uploadListingImage requests match Etsy's documented contract; 1 recommendation(s) noted",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
         "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
         "who_acts": null,
         "action": "",
-        "warnings": [
-         "rank 2: alt text 255 chars > Etsy's advice 250"
-        ],
+        "warnings": [],
         "blocker": "B4"
        },
        "durable_delivery": {
@@ -3158,10 +3236,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -3174,13 +3264,11 @@
        },
        "image_upload_payload": {
         "state": "PASS",
-        "why": "6 uploadListingImage requests match Etsy's documented contract; 1 recommendation(s) noted",
+        "why": "6 uploadListingImage requests match Etsy's documented contract; 0 recommendation(s) noted",
         "evidence": "integrations.etsy_image_readiness (uploadListingImage, no Etsy call)",
         "who_acts": null,
         "action": "",
-        "warnings": [
-         "rank 2: alt text 256 chars > Etsy's advice 250"
-        ],
+        "warnings": [],
         "blocker": "B4"
        },
        "durable_delivery": {
@@ -3300,10 +3388,22 @@
        },
        "seo": {
         "state": "FAIL",
-        "why": "search certificate refuses",
+        "why": "cause: category UNKNOWN (B2) only -- copy, tags, description and hero all pass; the category and its attributes are the only refusals",
         "evidence": "launch.product_readiness",
         "who_acts": "company",
-        "action": "the category matcher: production reads Etsy's seller taxonomy daily; the next refresh with W4-FIRSTSALE confirms crochet by Etsy's own names or property values, then listing.seo re-runs",
+        "action": "none beyond B2: once the matcher chooses a node, listing.seo re-runs and sets the attributes",
+        "cause": {
+         "category_only": true,
+         "category_status": "UNKNOWN",
+         "independent_checks": {
+          "copy": true,
+          "tags": true,
+          "description": true,
+          "hero": true
+         },
+         "independent_failing": [],
+         "other_reasons": []
+        },
         "blocker": "B2"
        },
        "vision_review": {
@@ -3421,6 +3521,6 @@
   "publishes_anything": false,
   "rule": "read at generation time; UNKNOWN is never PASS; no gate here grants publication"
  },
- "seconds": 707.3,
+ "seconds": 739.6,
  "etsy_called": false
 }

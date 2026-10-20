@@ -1,6 +1,6 @@
 # First-sale readiness (8 products)
 
-Generated 2026-10-20T05:02:23+00:00 by `launch.first_sale`. read at generation time; UNKNOWN is never PASS; no gate here grants publication.
+Generated 2026-10-20T06:07:07+00:00 by `launch.first_sale`. read at generation time; UNKNOWN is never PASS; no gate here grants publication.
 
 | product | certification | product_truth | image_truth | listing_readiness | price_plan | disclosure | etsy_category | seo | vision_review | image_upload_payload | durable_delivery | physical_sample | etsy_upload_confirmed | publication_grant | who acts |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

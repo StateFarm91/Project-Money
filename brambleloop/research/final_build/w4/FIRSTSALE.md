@@ -137,8 +137,8 @@ new provider.
   - 59 listing frames, 14.3 MB;
   - 35 supplement images, 2.9 MB;
   - plus 30 disclosed renders that were already kept, 1.7 MB.
-  - That is about 2.4 MB per release, one row per distinct hash. There is no pruning yet. A
-    superseded release's rows stay until retention is added (company follow-up).
+  - That is about 2.4 MB per release, one row per distinct hash. Retention for superseded
+    releases is in §6.2.
 
 **Proof:** `tests/test_w4_firstsale_deliverables.py`, 6 tests on a real Launch-0 CIR. They pass on
 SQLite and, with `BL_TEST_PG_URL`, on a throwaway local **Postgres 16**. Every case passes on both:
@@ -205,7 +205,7 @@ What is checked against Etsy's OpenAPI and the Help Center rules already quoted 
 - The largest image is 219 KB.
 - There are 5 warnings, none blocking. Five disclosed alt texts are 253–256 characters,
   against Etsy's advice of "up to 250 characters". Those alt texts are written by the visual
-  lane's disclosed renders, so this is passed to W-VISNEXT and not changed here.
+  lane's disclosed renders. They were fixed later on this branch, in the non-visual source (§6.3).
 
 **A defect this found.** Before the fix, the same check after the redeploy failed on frames 4
 and up of every release ("recorded but not on disk").
@@ -257,6 +257,114 @@ disclosure and seo) and adds these gates:
 - The PWA renders it as the "First-sale readiness" card on the Completion tab
   (`static/js/views/completion.js`). The CC mock fixture includes it.
 
+## 6. Follow-up (coordinator, same branch)
+
+### 6.1 Root cause of the `seo` FAIL, per product
+
+**How it was read.** The search certificate was read on the rehearsal database for all 10
+releases (`publication_authority._search`, which runs `release_gates.search_gate`). Every
+release gives the same two reasons:
+- `search certificate (F-005): category UNKNOWN ...`
+- `search certificate (F-004) attributes: no category, so no property schema ...`
+
+**Every other check passes:** `copy`, `tags`, `description` and `hero`. **So for all 8 products
+the only cause is B2.** No independent search defect exists to fix.
+
+**Shown explicitly in the view.**
+- `publication_authority._search` now carries each check's verdict (`checks`).
+- `product_readiness._seo` passes the verdicts through.
+- `launch.first_sale.seo_cause` classifies the refusal. It reports `category_only` only when
+  all of these hold:
+  - the category is not CHOSEN;
+  - every failing check is category-dependent (`category`, `attributes`);
+  - copy, tags, description and hero each read True;
+  - no other reason is given (for example a stale F-294 fingerprint or a missing profile).
+- Unread checks prove nothing.
+- What the `seo` gate then reads:
+  - when the refusal is category-only: "cause: category UNKNOWN (B2) only ...", blocker B2,
+    who acts: company;
+  - otherwise: it names the independent failure.
+- The Command Center row carries `cause`.
+
+### 6.2 Retention for `durable_artifacts`
+
+**What it is.** `commerce.deliverables.retention_plan` and `prune`. `launch.readiness` runs it
+daily, after `secure_release`.
+
+**Protected (never pruned):**
+- every release with a non-withdrawn listing (draft, listed or on sale);
+- every release an Order names. An Order with no version protects every release of that
+  product;
+- the newest `KEEP_PREVIOUS` = 2 other releases of each product;
+- any hash a protected release names, even if another release kept it first. Names come from
+  every `assets.built` row, the stored frames and every listing-set certificate;
+- any hash a delivery record names (`store.published`, `store.pdf_hash_verified`);
+- every row not kept as a certified customer deliverable (for example the canonical model's
+  reference pack and the disclosed renders).
+
+**Safety:**
+- Each row is re-checked at delete time.
+- A dry run deletes nothing.
+- Unreadable state prunes nothing.
+- Every run is audited (`deliverables.retention`).
+
+**Tests:** `tests/test_w4_firstsale_retention.py`, which also covers §6.1 and §6.3.
+
+**On the rehearsal database:** 10 releases protected, 144 kept rows, 0 candidates. That is the
+correct result: every release is listed, so nothing may go.
+
+### 6.3 Alt texts over 250 characters
+
+**Where the text comes from.** The source is `publish/disclosed_listing.alt_text`. That is not
+one of W-VISNEXT's files, so it was fixed here.
+
+**The fix.** When the text exceeds Etsy's advised 250 characters (Help Center 4406604492823,
+`ALT_TEXT_ADVICE`), the redundant clause ", with a centimetre scale bar" is dropped. The bar is
+in the pixels and in the scale frame.
+- The disclosure stays first.
+- The size and colours stay.
+
+**Measured** on every disclosed frame of all 10 Launch-0 releases (`listing_set`): every alt
+text is now at most 250 characters (test above).
+
+**The gallery supplements' alt texts** (`visual/launch_imagery.supplement_alt_text`) were
+already 129 to 181 characters, so they needed nothing.
+
+### 6.3a Rehearsal rerun with the follow-up code
+
+The rehearsal was rerun with the full chain and the simulated redeploy. The evidence in
+`evidence_FIRSTSALE/` is from this run. Results:
+
+| check | result |
+|---|---|
+| durable delivery | 10/10 PASS |
+| purchase → download | 10/10 PASS |
+| byte-identical re-render | FAIL→PASS, 10/10 |
+| `deliverables_restorable` | 10/10 |
+| image upload | PASS, 69 images |
+| image upload warnings | **0** (5 before the alt-text fix) |
+
+Every product's `seo` gate reads "cause: category UNKNOWN (B2) only".
+
+### 6.4 Remaining first-sale gates the company could close
+
+**The publication-scope gate**, run with each release's real listing
+(`eligibility.product_publication`, on the rehearsal database), now blocks every product on
+exactly two areas:
+- `gauge_and_size_claims` UNRESOLVED: needs a physical sample (owner or tester);
+- `etsy_remote_state` UNVERIFIABLE: needs a real upload (owner publication grant).
+
+`fulfilment_and_download` now passes.
+
+**The rest of the first-sale view:**
+- `vision_review` needs funded spend (owner);
+- `publication_grant` and the phase are owner decisions;
+- `etsy_category` and `seo` wait on the next production refresh read through the new matcher
+  (§1). That is company work, but it is gated on the release and deploy, which the integrator
+  does.
+
+**No other non-owner gate is open.**
+
 ## OWNER ACTION REQUIRED (batched; nothing here is new spend by this branch)
 
 | # | action | why | max cost | minutes | if it waits |
@@ -270,8 +378,6 @@ disclosure and seo) and adds these gates:
   `tests/test_w4_firstsale_taxonomy_live.py`. If it reads VERIFIED, `listing.seo` re-runs and
   the category becomes PASS. If it reads UNKNOWN, `name_evidence` shows Etsy's real structure,
   and the matcher is corrected from it.
-- (b) Retention for `durable_artifacts` of superseded releases.
-- (c) The visual lane shortens 5 alt texts to 250 characters or fewer.
 
 ## Tests (testslot)
 
@@ -344,3 +450,44 @@ All rc=0.
 | test_w3_tmp_hygiene | 16 |
 
 BUILD_STATE.md and DECISION_LOG.md are left to the integrator at merge.
+
+**Third batch, after the follow-up** (all rc=0, 0 FAIL):
+
+| suite | result |
+|---|---|
+| test_vacuity | 8 |
+| test_launch | 28 |
+| test_cost_governance_wave2 | 39 |
+| test_search_hero_publish | 4 |
+| test_cert_listing_frames | 6 |
+| test_v11_autonomy_timeline | 6 |
+| test_w4_firstsale_retention | 6 |
+| test_w4_firstsale_view | 5 |
+| test_w4_firstsale_deliverables | 6 |
+| test_w4_firstsale_taxonomy | 6 |
+| test_w4_l0_product_readiness | 8 |
+| test_disclosed_certified_upload | 7 |
+| test_disclosed_render | 27 |
+| test_disclosed_render_runtime | 3 |
+| test_w4_multipiece | 5 |
+| test_w4_visual2 | 8 |
+| test_w4_visual_certified_gallery | 7 |
+| test_w4_visualseo | 8 |
+| test_w4_disclosedqa | 8 |
+| test_w4_cap1_gates_intact | 5 |
+| test_publish_execution_gate | 1 |
+| test_w3_k11_authority | 18 |
+| test_v11_cc_actions | 7 |
+| test_r2_product_listing_writes | 5 |
+| test_w4_pl_boundary | 4 |
+| test_owned_photography | 30 |
+| test_parity | 8 |
+| test_w4_herovision | 6 |
+| test_w4_imgfix | 3 |
+| test_w4_render_assembled | 50 |
+| test_w4_cand_garland | 29 |
+| test_fb4_lc | 16 |
+| test_w4_pipe_launch_promotion | 18 |
+| test_w4_etsysurf | 8 |
+| test_w4_ccpacket | 5 |
+| test_w3_tmp_hygiene | 16 |
