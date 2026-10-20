@@ -146,7 +146,41 @@ New tables and columns in this release:
 
 ## 5. Focused suites (venv-integ4, through testslot.sh; no full suite)
 
-(results below)
+Tree: merge 79285c4 (identical code at 41d3951 and later Phase A commits, which add records only).
+Run 20:51Z-21:20Z. From 20:47Z the coordinator's restarted b997efd full suite shared the machine, and
+these runs used nice 19 through `testslot.sh`.
+
+**Result: 39/39 suite files exit 0.** No `FAIL`, `SKIP` or traceback appears in any log.
+
+- **Required set:**
+  - vacuity 8 OK;
+  - launch 28 OK;
+  - cost_governance_wave2 39 OK;
+  - search_hero_publish 4 OK;
+  - cert_listing_frames PASS;
+  - v11_autonomy_timeline PASS.
+- **Laura:**
+  - w4_laura_unified 26/26;
+  - w4_venice 19/19;
+  - w4_laura_ceo 13/13.
+- **Private Laura:**
+  - pl_auth 2/2, pl_boundary 4 OK, pl_budget 5 OK, pl_continuity 3 OK, pl_leak 2/2, pl_reply 3/3;
+  - plact 8/8;
+  - priv_access 7, priv_continuity 3, priv_firewall 7, priv_leak 7, priv_provenance 7, priv_store 8
+    (all OK).
+- **Laura CC** (laura_cc_*): access 5/5, delegation 5/5, followon 4/4, integration 5/5, private 7/7,
+  providers 7/7, talk 9/9, wiring 5/5.
+- **Release gates and security:**
+  - voice_spec 7/7;
+  - credhealth 13/13;
+  - cert_spend_hosts PASS;
+  - integ3_secfixes PASS;
+  - integ4_secfixes 12/12;
+  - integ4_deliverable_routes 4/4.
+- **App and records:** pwa_static 82/82, cc_company 23/23, decision_index 3 OK.
+
+Logs: scratch only (`focusA/*.log` in the integrator's scratchpad). The full suite in Phase B is the
+certifying run.
 
 ## 6. Phase B
 
