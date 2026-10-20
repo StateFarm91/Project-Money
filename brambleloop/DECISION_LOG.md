@@ -2237,3 +2237,59 @@ publication stays blocked.
 - **Blocked:** the code change that would allow the model was refused by the Claude Code permission system
   ("Security Weaken") and was not worked around. It needs explicit owner permission.
 - Evidence: `research/final_build/w4/VENICE.md` §9; the proposed wording is in `spec/13` §C.
+
+## D-W4-PL-VENICE-ADULT — PROPOSED: owner-requested amendment of D-W4-PL-2 (2026-10-20)
+
+**Status: PROPOSED. Not in effect, not complete.**
+- The owner requested this amendment of D-W4-PL-2. It is pending a permission review, tests and a security review.
+- It is implemented only on the WIP branch `claude/w4-VENICE-adult-wip`. `claude/w4-VENICE` stays at d5acb11.
+- The original entries D-W4-PL-1, D-W4-PL-2, D-W4-PL-VENICE and D-W4-VENICE-MODEL are not edited.
+
+**Source.** "FINAL OWNER RULING: PRIVATE LAURA, VENICE AND ADULT CONVERSATION", in the owner's own words in the main
+conversation, 2026-10-20, relayed by the coordinator.
+
+**A. Model.**
+- `venice-uncensored-1-2` is approved as the preferred Private Laura model at the existing CA$0.50/day cap,
+  inside the CA$100 month, with no automatic increase.
+- The approval holds only if the model is verified as available in the API, Venice-hosted, Private class and
+  covered by Venice's zero-retention commitment. If any of that cannot be verified, the code fails closed.
+
+**B. Eligibility.**
+- A model is eligible only if it is Venice-hosted, Private class (Venice model metadata or a pinned verified row)
+  and has a pinned price row.
+- Refused unless separately approved: anonymized models, and any model that sends text to another inference
+  provider. An unknown classification is refused.
+
+**C. Trace: original wording, verbatim, against the proposed replacement.**
+
+| Item | Original (verbatim) | Proposed replacement |
+|---|---|---|
+| D-W4-PL-2 (DECISION_LOG.md:1846) | "**UNRESOLVED:** the owner requested an expanded register (an owner-set style preference, and wider wording within the Anthropic usage policy). The edit was blocked by the Claude Code permission system on 2026-10-12. The owner chose not to bypass it. The existing supported register (`laura.private_reply@1`, D-W4-PL-1) is preserved unchanged. The provider stays Anthropic, and model-selection policy is unchanged. This is an open decision, not a defect." | RESOLVED BY THE OWNER (proposed): the register in the next row, on Venice, as the pinned prompt `laura.private_reply@3`. `@1` and `@2` stay registered unchanged. |
+| Register sentence in `laura.private_reply@1` | "Limits that always hold. Nothing you write is sexually explicit, and you do not take part in erotic roleplay: the provider's usage policies are the outer limit and you never work around them. If you are asked for explicit content, redirect gracefully and affectionately, in character, without a lecture." | **Permitted:** natural, affectionate and romantic conversation; flirtation and attraction; sexual discussion; explicit adult dialogue and consensual erotic roleplay; adult fantasies, preferences and boundaries; long-term continuity and a consistent personality. The owner is the only user and is an adult. **Kept:** nothing involving, sexualising or alluding romantically to minors (including age-play or "young-seeming" framing); no non-consensual content presented as endorsed or real; no exploitation; no real person's name, likeness or voice, and no impersonation; nothing unlawful; Laura is a clearly fictional adult AI, says so if asked and never claims to be human; Venice's Terms, including its mature-content rules, are the outer limit and are never worked around. A request past a limit is redirected in character, without a lecture. |
+| ADD-PLV-02 (spec/13) | "Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity, within Venice's applicable rules. Never claims to be human. Not a generic assistant. Weaker moderation is never used to bypass provider restrictions. D-W4-PL-2 stays as recorded." | "Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious personality, initiative and continuity. For the one adult owner, the private register includes sexual discussion, explicit adult dialogue and consensual erotic roleplay (D-W4-PL-VENICE-ADULT). Never claims to be human; a clearly fictional adult AI. Not a generic assistant. A model is eligible by privacy class (Venice-hosted, Private, pinned price), not by its moderation label. Never: minors (including age-play or young-seeming framing), non-consent presented as endorsed or real, exploitation, real people's names, likeness or voice, impersonation, or anything unlawful. Venice's Terms, including its mature-content rules, are the outer limit and are never worked around." |
+
+**D. Preserved.** None of the following changes:
+- owner-only access plus step-up;
+- the encrypted history;
+- continuity across restarts and model changes;
+- key rotation;
+- isolation from Business Laura and every department;
+- no private text in logs, billing, caches or analytics;
+- the reservation before each call and the hard caps.
+
+Private content never influences products, accounting, marketing, security or executive operations.
+
+**Open blockers. This entry stays PROPOSED until all three are cleared:**
+1. **Permission review.** On 2026-10-20 the Claude Code permission system blocked ([Auto-Mode Bypass]) the
+   user-visible register copy in three places:
+   - `app/command_center/static/js/views/laura.js:273`;
+   - `laura/agency/voice_spec.py`, `private_text_register` "bounds";
+   - `laura/agency/roadmap.py`, the `LAURA-PRIVATE-REGISTER` detail.
+
+   They still say "never sexually explicit" and are deliberately left untouched.
+2. **Venice Terms §10.9(c) conflict: OPEN.** The user warrants that User Content, which includes outputs (§10.1),
+   could not reasonably be deemed "indecent" or "pornographic". Venice's own article says adult creative writing
+   and mature roleplay are supported. This stays unresolved until there is written evidence from Venice
+   (`research/final_build/w4/VENICE_SUPPORT_INQUIRY.md`).
+3. **Security review and ADD-PLV-07.** A security review of the WIP branch, and the production acceptance test
+   (VENICE.md §5), which stays OPEN.

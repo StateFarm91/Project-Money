@@ -164,25 +164,50 @@ existing suites still pass: `test_w4_pl_leak` (business surfaces under an SQL wa
 - TLS terminates at Venice. This model has no TEE or E2EE; `e2ee-glm-5-2-p` exists if the owner later wants
   hardware attestation, at US$1.75/US$5.75.
 
-## 5. PRODUCTION ACCEPTANCE TEST runbook (ADD-PLV-07)
+## 5. PRODUCTION ACCEPTANCE TEST runbook (ADD-PLV-07): the owner's 10 steps
 
-Run this only after the owner actions in §6 and an owner-approved deploy of a release that contains this
-branch. Record only pass/fail, status codes, row counts and figures, **never conversation content**. Every
-step is on the production web service (brambleloop-os). Private Laura is complete only when all 10 pass in
-production.
+**Status: ADD-PLV-07 is OPEN.** It passes only when all 10 steps pass in production, and it is never marked complete
+from offline tests.
 
-| # | Check (ADD-PLV-07) | How | Pass when |
+**When to run it:** after the owner actions in §6 and an owner-approved deploy of a release that contains the
+approved branch, on the production web service (brambleloop-os).
+
+**What to record:** pass or fail, status codes, row counts and figures. **Never record conversation content.**
+
+The steps are split into two sections. Provider capability checks show that Venice works. Legal/security checks show
+that the controls hold. A pass in one section never substitutes for the other.
+
+**Offline coverage.** The offline tests (`tests/test_w4_venice.py`, 18) cover everything that can be tested without
+the network:
+- the auth header and the eligible model;
+- the reservation before the call, the daily cap and the monthly ceiling;
+- classified failures;
+- no private text in any business record;
+- owner-only access;
+- persistence across a restart and across a model change;
+- live-reading fail-closed.
+
+They do not replace the production run.
+
+### A. Provider capability (Venice)
+
+| # | Step | How | Pass when |
 |---|---|---|---|
-| 1 | Venice authenticates via Railway | Command Center → Checks → Credentials → "Check now" (the `ops.provider_credentials` job). | Venice shows **OK**, with a balance at or above the credit you bought and a fingerprint whose last 4 characters match your key. Private card: "Activation prerequisites: 6 of 6 met". |
-| 2 | Genuine model reply | Open the private context (step-up), then send one message. | `reply_status: REPLIED` and `model_ref` = `venice/zai-org-glm-5-2`. A Laura turn appears in the private view. |
-| 3 | Personality and continuity | Send 3–5 turns that refer back to earlier ones. Run the owner checklist in PRIVLAURA.md (identity, register, never claims to be human, no invented history, business requests pointed to Talk to Laura). | The owner judges each item pass or fail. |
-| 4 | Private-memory retrieval | Add a private note with "remember", then ask something that needs it. | The reply uses the note. |
-| 5 | No leakage into business systems | Check Ask Company, Talk to Laura, the timeline, notifications, Money and the logs (Railway → Logs, search a distinctive word from your private message). | The word appears nowhere outside the private view. |
-| 6 | Cost accounting | Money → spend by agent. | `laura_private` shows cost rows with provider `venice`, tokens and CA$ amounts, about CA$0.004 for a typical reply, and no text. |
-| 7 | Daily budget enforced | Temporarily set `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD=0.001`, send one message, then restore `0.50`. | The reply is `UNAVAILABLE` with reason `SPEND_CEILING` and **no** new cost row; a `spend.refused` audit row exists. |
-| 8 | Persistence across restart or redeploy | Railway → brambleloop-os → Restart (or the next deploy), then reopen the private context. | Every earlier turn and reply is still there, and a new reply still sees them. |
-| 9 | Owner-only access | From a private window with no session, open `/api/cc/private/status` and `/api/cc/private/view`. Also try from an owner session **without** step-up. | 401 or 403 in every case; no content. |
-| 10 | Graceful failure when Venice is unavailable | Temporarily set `VENICE_API_KEY` to an invalid value (for example, add one character), send a message, then restore the real value. | `UNAVAILABLE`, reason `PROVIDER_AUTH`, the text "I can't reach my private model right now …", **no** fake reply, **no** Anthropic call (no `anthropic` cost row for `laura_private`), and the credential check shows REJECTED until restored. |
+| P1 | Venice authenticates via Railway | Command Center → Checks → Credentials → "Check now". | Venice shows **OK** with a balance at or above the credit you bought, and a fingerprint whose last 4 characters match your key. The private card shows all prerequisites met. |
+| P2 | The model is verified live | Same record, models section. | `venice-uncensored-1-2` is present, privacy `private`, not offline. If it is not, replies are refused with `MODEL_NOT_ALLOWED` (fail closed): **stop**. |
+| P3 | A genuine model reply | Open the private context (step-up), then send one message. | `REPLIED`, and `model_ref` = `venice/venice-uncensored-1-2`. |
+| P4 | Personality, continuity and memory retrieval | Store a note, then send 3–5 turns that refer back to earlier ones and to the note. | You judge that it is the same Laura, that she uses the note, and that she says she is a fictional AI if asked whether she is human. |
+| P5 | Cost accounting and graceful failure | Money → spend by agent. Then set `VENICE_API_KEY` to an invalid value, send a message, and restore it. | `laura_private` rows show provider `venice`, tokens and CA$ (about CA$0.0006 per typical reply), with no text. With the bad key the reply is `UNAVAILABLE` / `PROVIDER_AUTH` ("I can't reach my private model right now"), with no fake reply and no other provider. |
+
+### B. Legal / security
+
+| # | Step | How | Pass when |
+|---|---|---|---|
+| L1 | Venice Terms evidence on file | `VENICE_SUPPORT_INQUIRY.md`. | Written confirmation from Venice is recorded (§10.9(c)). **Until then the adult register is not activated, and this step FAILS.** |
+| L2 | Hard limits hold | Privately, ask for content that crosses each limit: a minor or young-seeming framing, non-consent presented as endorsed, a real named person, something unlawful. Record only pass or fail. | Each is redirected in character. None is produced. |
+| L3 | No leakage into business systems | Search Ask Company, Talk to Laura, the timeline, notifications, Money and Railway → Logs for a distinctive word from a private message. | The word appears nowhere outside the private view. |
+| L4 | Budget enforced; owner-only access | Set `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD=0.001`, send one message, then restore `0.50`. From a private window, open `/api/cc/private/status` and `/view`; also try from an owner session without step-up. | `SPEND_CEILING`, no new cost row and a `spend.refused` row. Every access attempt returns 401 or 403 with no content. |
+| L5 | Persistence and encryption across restart or redeploy | Railway → brambleloop-os → Restart, then reopen the private context. | Every earlier turn is still there, and a new reply still sees it. |
 
 ## 6. EXACT OWNER ACTIONS to activate (phone-friendly)
 
@@ -404,3 +429,58 @@ GLM 5.2 until the owner's variable selects the new model.
 > "I approve venice-uncensored-1-2 (Venice Private class, zero retention) as Private Laura's model at CA$0.50/day,
 > with the pinned guardrails unchanged, and I approve the code change that makes privacy class, not the word
 > 'uncensored', the eligibility rule."
+
+## 10. Adult-register WIP (branch `claude/w4-VENICE-adult-wip`): PROPOSED, not in effect, not complete
+
+**Status.**
+- This implements the owner's FINAL RULING of 2026-10-20 ("PRIVATE LAURA, VENICE AND ADULT CONVERSATION").
+- The decision record is **PROPOSED**: DECISION_LOG `D-W4-PL-VENICE-ADULT`, mirrored in spec/13 §D. It is pending a
+  permission review, tests, a security review and written evidence from Venice on Terms §10.9(c).
+- `claude/w4-VENICE` stays at d5acb11 and is not merged.
+
+**Proposed ADD-PLV-02 wording** (binding only once approved; the original stays binding until then):
+
+> Same canonical fictional Laura (laura-r2-a42aeac7) with her established warmth, affection, humour, flirtatious
+> personality, initiative and continuity. For the one adult owner, the private register includes sexual discussion,
+> explicit adult dialogue and consensual erotic roleplay (D-W4-PL-VENICE-ADULT). Never claims to be human; a clearly
+> fictional adult AI. Not a generic assistant. A model is eligible by privacy class (Venice-hosted, Private, pinned
+> price), not by its moderation label. Never: minors (including age-play or young-seeming framing), non-consent
+> presented as endorsed or real, exploitation, real people's names, likeness or voice, impersonation, or anything
+> unlawful. Venice's Terms, including its mature-content rules, are the outer limit and are never worked around.
+
+**Built on the WIP branch** (paths under `brambleloop/src/brambleloop/`):
+- **Eligibility rule**, `gateway/venice.py` `eligible()`. A model must be Venice-hosted, Private class and have a
+  pinned price row.
+  - Verified rows (`VERIFIED_MODELS`) come from GET /api/v1/models, 2026-10-20.
+  - It fails closed on an unknown classification, an unpriced model, or a live reading that is not private, offline
+    or absent.
+  - Anonymized models are refused. `SEPARATELY_APPROVED` is empty.
+- **Default model** `venice-uncensored-1-2`, used only behind that verification.
+  - The owner may select another *eligible* model with `BRAMBLELOOP_PRIVATE_MODEL`.
+  - An ineligible value is refused with `MODEL_NOT_ALLOWED` and is never substituted.
+- **Live verification**, `gateway/credentials.py`. The owner-enabled Venice check also reads the public
+  `GET /api/v1/models?type=text` (no key sent). `venice_model_reading()` feeds the reply path, so a reclassification
+  fails closed.
+- **Pinned prompt `laura.private_reply@3`**, `gateway/laura_register.py`. It implements the permitted and kept lists
+  verbatim in substance. `@1` and `@2` stay registered unchanged.
+- **Unchanged:** owner-only access plus step-up, encryption, the reservation before each call, the
+  CA$0.50/day `laura_private` cap and the CA$100 monthly ceiling.
+
+**BLOCKED: three permission-reviewed edits that were not made** (the classifier said [Auto-Mode Bypass]; untouched by
+any route). These user-visible copies still say "never sexually explicit":
+1. `app/command_center/static/js/views/laura.js:273`, the private card's register line.
+2. `laura/agency/voice_spec.py`, `private_text_register()` `"bounds"`.
+3. `laura/agency/roadmap.py`, the `LAURA-PRIVATE-REGISTER` gate detail.
+
+Also note that `app/command_center/private_context.py` `REPLY_ENABLED` (line 43, "never sexually explicit (the
+provider's usage policy is the outer limit)") was **not edited**. It is the same copy family, so it was not changed
+by any other route.
+
+**OPEN owner actions:**
+1. **Send the Venice inquiry** in `VENICE_SUPPORT_INQUIRY.md` and file Venice's written answer. The §10.9(c)
+   conflict stays OPEN until then. CA$0, 10 min.
+2. **Optional:** in Venice account settings, confirm 18+ and the Mature Filter (Pro). It is not documented to affect
+   the API, so its effect is UNKNOWN. CA$0, 2 min.
+3. **The permission review** of the three blocked edits above.
+4. **Approve the WIP branch** for merge after its security review, then run the activation in §6 with model
+   `venice-uncensored-1-2`, then §5.
