@@ -4,7 +4,10 @@ Integrator: W-INTEG3. Worktree `.claude/worktrees/W4-INTEG3`, branch `claude/w4-
 `origin/claude/w4-INTEG2` 9c3812b. Production: 1b21e81 (= a25a377 + release record), SHADOW.
 No deploy, no production write, no spend. Production contact: none (local Postgres only).
 
-**Candidate: `324927f1003808dd07a14b0cb0bce29e5c7d7cbc`, branch `claude/final-candidate-324927f`.**
+**Candidate: `324927f1003808dd07a14b0cb0bce29e5c7d7cbc`, branch `claude/final-candidate-324927f`;
+release record commit `b931d17a738d6a5bcd96580f620069b669ca5f57` (records only, no src change).
+Full suite PASSED (643 suites, 8654 tests, 0 failing); DRY_RUN deploy ALLOW; rollback
+rehearsal ALLOW; independent security review NO BLOCKER.**
 Results: §9. Superseded freezes (do not deploy): `claude/final-candidate-5f18d11` (BRANDRULE
 arrived after it, §2), `cd7e7dc` (PRODREADY's final head changed `seo/strategy.py`), `8de23ad`
 (5 suites failed, §7), `e66d931` (1 suite failed, §8; security findings then fixed, §9).
@@ -182,6 +185,32 @@ margin or weakening the test; fix the review's M1/L1/L2/L3 now; regenerate once;
   (no totals); restarted detached as run 20261020T011631Z-1452. Results, guard and rollback
   follow in §10.
 
+
+
+## 10. Candidate 324927f: release gates
+
+- **Full suite:** run 20261020T011631Z-1452 on 324927f1 (REQUIRE_CLEAN=1, JOBS=3, venv-integ3,
+  SIG_DFL launcher, nice 10 / ionice idle, detached; 5875 s): **643 suites, 8654 tests passing,
+  0 failing, 0 tmp leak.** Record `passed`, release-eligible. (Run 20261020T002035Z-31096 was
+  killed by a container restart; its stale lock was taken over.)
+- **`python3 ops/deploy_guard.py record`:** `ok: true`, `release/RELEASE_324927f1….json`,
+  tree_sha256 `31723169cba87c59…`. Committed with `release/NOTES_324927f.md`, the run record,
+  its log and the full log as **b931d17** on `claude/final-candidate-324927f` (pushed). The
+  records commit changes nothing under `src/`.
+- **`DRY_RUN=1 sh ops/deploy.sh --deployed 1b21e81…`** (from the candidate worktree, at
+  b931d17): **ALLOW** (check ALLOW, rehearse-rollback ALLOW; nothing pushed). 1b21e81 is an
+  ancestor (fast-forward).
+- **Rollback rehearsal (dry run only):** `DRY_RUN=1 sh ops/deploy.sh --rollback-to 1b21e81…
+  --reason "INTEG3 rollback rehearsal" --deployed b931d17…` -> **ALLOW** (rollback commit
+  181f8b7 built locally, nothing pushed); `deploy_guard.py rehearse-rollback --candidate HEAD
+  --deployed 1b21e81` -> ALLOW. The same form with `--deployed 1b21e81` is refused ("rollback
+  target 1b21e81c6d1b is not in the tracked deployed history"): the guard reads
+  DEPLOYED_HISTORY at the *deployed* commit, and 1b21e81's own history predates its deploy
+  (recorded later in INTEG2 9c3812b). A rollback is only meaningful once the candidate is the
+  deployed commit, which is the ALLOW form above.
+- **Security:** NO BLOCKER (§9). Open for the next release: R1 (LOW).
+- **Not done:** no deploy. Deploying b931d17 needs the owner's explicit approval of the SHA,
+  and a fresh db-backup first (the last one left 315M free on the 1.9G volume).
 
 
 ---
