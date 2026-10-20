@@ -4953,13 +4953,15 @@ def api_audit(request: Request, limit: int = 100, action: str | None = None) -> 
         rows = list(s.scalars(q))
         return {"audit": [
             {"id": a.id, "at": a.at.isoformat(), "actor": a.actor, "action": a.action,
-             "artifact": a.artifact, "phase": a.phase.value if a.phase else None,
+             "artifact": shorten(a.artifact), "phase": a.phase.value if a.phase else None,
              "detail": shorten(a.detail)}
             for a in rows
         ]}
 
 
-_DIGEST64 = re.compile(r"(?<![0-9a-fA-F])([0-9a-fA-F]{12})[0-9a-fA-F]{52}(?![0-9a-fA-F])")
+# Any run of 64+ hex digits (a digest, two concatenated digests, a digest glued to other hex)
+# keeps only its first 12 characters (security review of 17bc373, I7).
+_DIGEST64 = re.compile(r"([0-9a-fA-F]{12})[0-9a-fA-F]{52,}")
 
 
 def _shorten_digests(value):

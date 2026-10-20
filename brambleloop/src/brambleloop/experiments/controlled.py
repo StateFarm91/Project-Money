@@ -477,6 +477,17 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
                 "reservation, not resent")
         return {"ran": True, "image": False, "run_id": run_id, "resumed": True,
                 "settled": "billing_unknown"}
+    if resume and resume["attempts"]:
+        # INTEG4 / security review of 17bc373 (M1): the paid-call guard keys a call by its
+        # occurrence within THIS execution, so a resumed loop starting at attempt N would
+        # reuse attempt 1's key and never reach the interrupted attempt's record. The guard's
+        # own records decide instead: a new attempt is sent only if every earlier paid call
+        # of this job was DECLINED (never billed, nothing in flight). Anything else -- in
+        # flight (PENDING), unknown (UNCERTAIN), billed (OK / FAILED_BILLED) -- settles the
+        # run without sending; a PENDING call is counted once at its reservation estimate.
+        settled = _settle_if_any_paid_call(db, run_id, job_id, resume)
+        if settled is not None:
+            return settled
     _update(db, run_id, status="running", job_id=job_id,
             references=[{k: r[k] for k in ("position", "role", "sha256")}
                         for r in v["references"]])
@@ -546,6 +557,39 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
     _update(db, run_id, image_sha256=stored.sha256, receipt=receipt, attempt_log=log)
     return _finish(db, run_id, data, defn, auth, vision=vision, cir_loader=cir_loader,
                    secrets=secrets, resumed=bool(resume))
+
+
+def _settle_if_any_paid_call(db, run_id: int, job_id: int | None, resume: dict) -> dict | None:
+    """None when every earlier paid call of this job was DECLINED (a new attempt may be sent);
+    otherwise the run is settled as failed, nothing is sent, and the result is returned."""
+    from sqlalchemy import select
+
+    from ..gateway import paid_calls as PC
+
+    try:
+        PC.ensure_table(db)
+        with db.session() as s:
+            rows = list(s.scalars(select(PC.PaidCallRecord)
+                                  .where(PC.PaidCallRecord.job_id == job_id)))
+            outcomes = [r.outcome for r in rows]
+            if all(o == PC.DECLINED for o in outcomes):
+                return None
+            for r in rows:
+                if r.outcome == PC.PENDING:
+                    s.expunge(r)
+                    PC._count_orphan(db, r)
+    except Exception as exc:  # noqa: BLE001 - unreadable records: never resend
+        outcomes = [f"unreadable ({type(exc).__name__})"]
+    unknown = any(o not in (PC.OK, PC.FAILED_BILLED, PC.DECLINED) for o in outcomes)
+    billing = "unknown" if unknown else "billed"
+    _update(db, run_id, status="failed", attempt_log=resume["log"] + [{
+        "attempt": resume["attempts"], "sent": None, "billing": billing,
+        "paid_call_outcomes": outcomes,
+        "why": "resumed after the worker was lost; an earlier paid call was not DECLINED, "
+               "so nothing is resent (F-339)"}],
+        why=f"worker lost during generation; billing {billing}, counted, not resent (F-339)")
+    return {"ran": True, "image": False, "run_id": run_id, "resumed": True,
+            "settled": f"billing_{billing}"}
 
 
 def paid_calls_scope() -> int | None:

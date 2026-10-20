@@ -79,7 +79,13 @@ def fingerprint(key: str) -> dict | None:
     k = (key or "").strip()
     if not k:
         return None
-    return {"last4": k[-4:], "sha256_prefix": hashlib.sha256(k.encode()).hexdigest()[:12]}
+    # INTEG4 / security review of 17bc373 (I8): domain-separated, so the prefix is not the
+    # plain sha256 of the key that other tools publish and cannot confirm a guess made there.
+    return {"last4": k[-4:], "sha256_prefix": hashlib.sha256(
+        FINGERPRINT_DOMAIN + k.encode()).hexdigest()[:12]}
+
+
+FINGERPRINT_DOMAIN = b"brambleloop-owner-key-fingerprint:v1:"
 
 
 def _key(provider: str, env) -> str:

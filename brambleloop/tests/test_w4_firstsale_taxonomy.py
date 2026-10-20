@@ -7,7 +7,7 @@ property value. The matcher may now choose a pattern-named node, but only when E
 schema for exactly that node offers "Crochet". Ids and paths come only from the snapshot.
 
 Every tree here is ILLUSTRATIVE (ids are not Etsy's). The live verification against the real
-audit row is `tests/test_w4_firstsale_taxonomy_live.py`.
+audit row is `tests/verify_w4_firstsale_taxonomy_live.py`.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python tests/test_w4_firstsale_taxonomy.py
 """
@@ -163,6 +163,21 @@ def test_refresh_reads_the_candidate_schemas_and_records_the_choices():
     import inspect
 
     assert '"category_choices"' in inspect.getsource(release.handle_taxonomy_refresh)
+
+
+def test_the_live_verifiers_own_rules_hold_offline():
+    """INTEG4: the live production verifier (`tests/verify_w4_firstsale_taxonomy_live.py`) is
+    an operator step outside the hermetic suite (its answer depends on production and exits 3
+    while UNKNOWN). Its rules -- CHOSEN must end at its id, carry a crochet basis, and a
+    contradiction is CONTRADICTED -- are checked here, offline, with no network."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "verify_w4_firstsale_taxonomy_live",
+        Path(__file__).resolve().parent / "verify_w4_firstsale_taxonomy_live.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod._self_test()
 
 
 if __name__ == "__main__":

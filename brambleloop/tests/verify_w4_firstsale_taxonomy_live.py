@@ -16,7 +16,7 @@ What it checks, on the newest refresh row:
   whether a unique pattern root exists. A prediction is diagnostic only -- it is never a match,
   because names carry no ids.
 
-Run: cd brambleloop && PYTHONPATH=src:tests python tests/test_w4_firstsale_taxonomy_live.py
+Run: cd brambleloop && PYTHONPATH=src:tests python tests/verify_w4_firstsale_taxonomy_live.py
      (BRAMBLELOOP_PROD_URL overrides the production origin.)
 """
 from __future__ import annotations

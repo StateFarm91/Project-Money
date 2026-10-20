@@ -5,7 +5,7 @@ Read this on a phone. A rotation takes about five minutes and costs nothing.
 **How keys work here.** Railway is the only place the keys are kept. Every image and vision
 call comes from a backend job running on Railway. Claude Code never runs those jobs and never
 holds a key. The Command Center never shows a key. The most it shows is a **fingerprint**: the
-last 4 characters and a short sha256 prefix, enough to tell one key from another.
+last 4 characters and a short, domain-separated sha256 prefix, enough to tell one key from another.
 
 | Provider | Railway variable | Where the key is made |
 |---|---|---|

@@ -176,6 +176,26 @@ def test_b1_the_operator_reads_the_audit_digests_unchanged():
         "b931d17a738d6a5bcd96580f620069b669ca5f57"
 
 
+def test_i7_the_public_audit_shortens_glued_digests_and_the_artifact_column():
+    a, b = hashlib.sha256(b"one").hexdigest(), hashlib.sha256(b"two").hexdigest()
+    _audit("integ4.glued_probe", {"blob": f"ab{a}{b}", "upper": a.upper()}, artifact=a)
+    row = _client().get("/api/audit?action=integ4.glued_probe").json()["audit"][0]
+    text = str(row)
+    for d in (a, b, a.upper()):
+        assert d not in text, d
+    assert row["artifact"] == a[:12] + "…"
+
+
+def test_i8_the_owner_fingerprint_is_domain_separated():
+    from brambleloop.gateway import credentials as CR
+
+    key = "bfl-sk-" + "x" * 30
+    fp = CR.fingerprint(key)
+    assert fp["last4"] == "xxxx" and len(fp["sha256_prefix"]) == 12
+    assert fp["sha256_prefix"] != hashlib.sha256(key.encode()).hexdigest()[:12]
+    assert key not in str(fp)
+
+
 # ---- L1 ----------------------------------------------------------------------------------
 
 def _session(c):

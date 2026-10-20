@@ -80,7 +80,7 @@ read 2026-10-20. This is the document `etsy_constraints.OPENAPI_URL` already cit
 - It records `property_candidates` and `category_choices` on the audit row: for each Launch-0
   category, the status, id, `path_ids`, `path_names` and crochet basis.
 
-**Verification against the real row:** `tests/test_w4_firstsale_taxonomy_live.py`. It makes one
+**Verification against the real row:** `tests/verify_w4_firstsale_taxonomy_live.py` (an operator step outside the hermetic suite; its offline rules run in `test_w4_firstsale_taxonomy`). It makes one
 public GET.
 - If the row has `category_choices`: every CHOSEN category must end its `path_ids` at its
   `taxonomy_id`, have as many names as ids, have a pattern-named node on its path, and carry a
@@ -375,7 +375,7 @@ exactly two areas:
 
 **Company follow-ups:**
 - (a) After this branch deploys and one daily refresh runs (around 00:0xZ), run
-  `tests/test_w4_firstsale_taxonomy_live.py`. If it reads VERIFIED, `listing.seo` re-runs and
+  `tests/verify_w4_firstsale_taxonomy_live.py` (an operator step outside the hermetic suite; its offline rules run in `test_w4_firstsale_taxonomy`). If it reads VERIFIED, `listing.seo` re-runs and
   the category becomes PASS. If it reads UNKNOWN, `name_evidence` shows Etsy's real structure,
   and the matcher is corrected from it.
 
