@@ -484,3 +484,28 @@ by any other route.
 3. **The permission review** of the three blocked edits above.
 4. **Approve the WIP branch** for merge after its security review, then run the activation in §6 with model
    `venice-uncensored-1-2`, then §5.
+
+**WIP tests (2026-10-20, testslot, SQLite, no network): 33 files, 351 tests, all exit 0.**
+- **`test_w4_venice`, 18.** It adds:
+  - anonymized refused;
+  - approved accepted when the verified row and live reading agree;
+  - unknown classification refused;
+  - contradicting live reading fails closed (not private / offline / absent);
+  - ineligible `BRAMBLELOOP_PRIVATE_MODEL` refused and never substituted;
+  - the `@3` hard limits, with `@1`/`@2` still registered;
+  - continuity across a model change (with a restart);
+  - the live model reading: public GET with no key, and no record before Venice is selected.
+- **Required set:** test_vacuity 8, test_launch 28, test_cost_governance_wave2 39, test_search_hero_publish 4,
+  test_cert_listing_frames 7, test_v11_autonomy_timeline 7.
+- **Touched suites:**
+  - Private Laura: plact 8, pl_reply 3, pl_budget 5, pl_leak 2, pl_boundary 4, pl_auth 2, pl_continuity 3.
+  - Private store: priv_leak 7, priv_access 7, priv_continuity 3, priv_store 8.
+  - Credentials and spend: credhealth 13, cert_spend_hosts 5, gateway 30, model_spend_paths 12,
+    spend_paid_discipline 14, spend_policy 24, rc1_spend 20.
+  - Other: integ3_secfixes 8, laura_cc_private 7, voice_spec 7, presence 4, reliability_gateway 14,
+    model_access 13, ccgap_views 10, laura_cc_providers 7.
+- **Changed assertions:**
+  - `@2`→`@3` in pl_boundary, plact, pl_leak and pl_reply (the comment only). pl_boundary now asserts the `@3` hard
+    limits, and that `@1` still holds the original sentence word for word.
+  - No assertion about the three BLOCKED strings was changed. No test asserts them, so none is BLOCKED by a failing
+    test; the blocked items are user-visible copy (listed above).
