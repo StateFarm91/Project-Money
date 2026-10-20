@@ -577,6 +577,77 @@ FM_EDITS.update({
 })
 
 
+# ---- batch 5: rows whose code is deployed and whose remaining gap was a test, a consumer
+# name or a maturity claim the stale reachability capped ------------------------------------
+R5 = "tests/test_w4_close5_rows5.py::"
+ES = "tests/test_etsy_surfaces.py::"
+EU = "tests/test_w4_etsysurf.py::"
+FM_EDITS.update({
+    ("s6", "F-491"): {
+        "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (fails only the job "
+                    "that raised; JobQueue.fail fenced to its lease)",
+        "next_action": "none -- deployed; isolation now asserted around the failing job",
+        "evidence+": [f"{TAG}: a dead-lettered job leaves an already-completed job's status, "
+                      "outputs, finish time and audit rows untouched, and independent work "
+                      f"queued beside it completes; {DT}"],
+        "tests+": [R5 + "test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"],
+    },
+    ("s7", "F-586"): {
+        "maturity": "INTEGRATED",
+        "consumer": "src/brambleloop/app/main.py::api_etsy_surfaces (GET /api/etsy/surfaces); "
+                    "launch.readiness.etsy_first_sale_surfaces",
+        "next_action": "none -- the registry is reached at runtime on b931d17",
+        "evidence+": [f"{TAG}: delivery_settings is recorded NOT_APPLICABLE with its reason in "
+                      "words and its thirteen shipping-profile operations named, never "
+                      "UNSUPPORTED and never a silent gap; intel/etsy_surfaces.py is reached on "
+                      f"b931d17 (GET /api/etsy/surfaces, readiness); {DT}", REACH],
+        "tests+": [ES + "test_unsupported_and_not_applicable_are_never_the_same_verdict",
+                   EU + "test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"],
+    },
+    ("s7", "F-591"): {
+        "maturity": "INTEGRATED",
+        "consumer": "src/brambleloop/commerce/sales_channels.py::inventory (orders_ingest "
+                    "receipt_type: a Pattern sale is its own channel, unreadied -> incident); "
+                    "GET /api/etsy/surfaces",
+        "next_action": "none -- deployed",
+        "evidence+": [f"{TAG}: sales_channels is a separate registry decision (NOT_APPLICABLE "
+                      "with its reason: no Pattern subscription); a Pattern sale is recorded as "
+                      "its own channel with its own listing/inventory/payment/customer-data/"
+                      "attribution effects and opens an incident until readied -- nothing "
+                      f"about it is assumed from etsy.com; {DT}"],
+        "tests+": [ES + "test_the_registry_passes_its_own_invariants",
+                   "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"],
+    },
+    ("s9", "F-793"): {
+        "maturity": "INTEGRATED",
+        "consumer": "src/brambleloop/gates/certificate.py::certify (calls "
+                    "specification.refuse_a_benchmark_in_our_clothes)",
+        "next_action": "none -- reached at runtime through certification",
+        "evidence+": [f"{TAG}: the two-tier identifying match lets standard construction "
+                      "through (a plain rectangle of a benchmark's sleeve width is not a match; "
+                      "no genuine Brambleloop design is a false positive) and refuses a "
+                      "benchmark's identifying piece; cir/specification.py is reached on b931d17 "
+                      f"via certification; {DT}", REACH],
+        "tests+": ["tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"],
+    },
+    ("s6", "F-498"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces; "
+                    "intel/etsy_surfaces.py::first_sale_blockers",
+        "consumer": "src/brambleloop/launch/readiness.py::assess",
+        "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
+        "evidence+": [f"{TAG}: launch readiness carries the bounded first-sale list (11 surfaces, "
+                      "each FRESH / STALE / NO_EVIDENCE / NO_COLLECTOR from its collector's last "
+                      "reading) and is ready only when every one is FRESH and every shop check "
+                      "passes; the requirement is never 'build', so it cannot grow the build "
+                      f"queue; {DT}", REACH],
+        "tests+": [EU + "test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+                   EU + "test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+                   EU + "test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"],
+    },
+})
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
@@ -604,6 +675,8 @@ PRODUCTION_CLOSED = {
     "F-473": [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"],
     "F-191": [DEPLOYED_TESTS],
     "F-193": [DEPLOYED_TESTS],
+    **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
+       for u in ("F-491", "F-586", "F-591", "F-793", "F-498")},
 }
 READING = {
     "F-152": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); "
@@ -630,6 +703,8 @@ READING = {
     "F-473": "preemption tests pass on the deployed tree; swarm/preempt.py reached on b931d17",
     "F-191": "MJs snapshot/reconciliation tests pass on the deployed tree",
     "F-193": "gallery forecast tests pass on the deployed tree",
+    **{u: "row tests pass on the deployed tree; producer module reached on b931d17"
+       for u in ("F-491", "F-586", "F-591", "F-793", "F-498")},
 }
 
 

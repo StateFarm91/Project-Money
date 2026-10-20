@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-20T05:57:56Z",
- "branch_head": "7f8936df",
+ "generated_at": "2026-10-20T06:10:22Z",
+ "branch_head": "35153cd2",
  "production": {
   "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
   "known": true,
@@ -117,10 +117,10 @@
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 407,
+   "verified_complete": 412,
    "implemented_unverified": 13,
    "in_progress": 5,
-   "blocked_engineering": 268,
+   "blocked_engineering": 263,
    "blocked_owner": 127,
    "blocked_external": 90,
    "not_applicable": 7
@@ -153,19 +153,19 @@
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 407,
+    "production_verified": 412,
     "dev_proven_not_deployed": 12,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 264,
+    "engineering_blocked": 259,
     "owner_blocked": 121,
     "external_blocked": 81,
     "live_customer_C": 19,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 503,
+    "unfinished": 498,
     "post_launch_empirical": 65,
-    "executable_engineering": 282,
+    "executable_engineering": 277,
     "owner_or_external_non_empirical": 156
    },
    "final_master_launch_critical": {
@@ -232,16 +232,21 @@
    "F-428",
    "F-433",
    "F-473",
+   "F-491",
+   "F-498",
    "F-535",
    "F-542",
    "F-558",
    "F-570",
    "F-574",
+   "F-586",
+   "F-591",
    "F-605",
    "F-657",
    "F-682",
    "F-706",
    "F-718",
+   "F-793",
    "F-878"
   ],
   "ledger_native": {
@@ -875,13 +880,13 @@
   {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 227,
+   "rows": 222,
    "build2": 2,
    "fm_launch_critical": 4,
-   "fm_post_launch": 221,
+   "fm_post_launch": 216,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 227
+    "blocked_engineering": 222
    },
    "owner_actions": [],
    "ids": [
@@ -1002,11 +1007,9 @@
     "F-488",
     "F-489",
     "F-490",
-    "F-491",
     "F-492",
     "F-494",
     "F-496",
-    "F-498",
     "F-504",
     "F-505",
     "F-515@v0.15",
@@ -1018,8 +1021,6 @@
     "F-579",
     "F-581",
     "F-582",
-    "F-586",
-    "F-591",
     "F-599",
     "F-600",
     "F-601",
@@ -1082,7 +1083,6 @@
     "F-759",
     "F-775",
     "F-789",
-    "F-793",
     "F-800",
     "F-803",
     "F-804",
@@ -1713,9 +1713,9 @@
    "b2": []
   },
   "claude/w4-VISNEXT": {
-   "head": "05265e9a",
-   "last_commit": "2026-10-20T05:56:15+00:00",
-   "commits_ahead": 50,
+   "head": "0beb522d",
+   "last_commit": "2026-10-20T06:09:28+00:00",
+   "commits_ahead": 54,
    "fm": [
     "F-852",
     "F-853"
@@ -18502,14 +18502,22 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "none \u2014 at target maturity for launch",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (queue)",
-    "missing_evidence": null,
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+     "tests": [
+      "tests/test_w4_close5_rows5.py::test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -18645,18 +18653,29 @@
     "title": "Finite Parallel Launch",
     "ledger_state": "POST-LAUNCH",
     "modules": [
-     "intel/etsy_surfaces.py"
+     "intel/etsy_surfaces.py",
+     "launch/readiness.py"
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "Wire etsy_surfaces.first_sale_blockers() into launch/readiness.assess as the bounded Etsy launch list",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (intel)",
-    "missing_evidence": "work classes A-D and first-sale blockers are encoded in intel/etsy_surfaces.py but not read by launch readiness or the executor; launch list boundedness is otherwise prose",
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+     "tests": [
+      "tests/test_w4_etsysurf.py::test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+      "tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+      "tests/test_w4_etsysurf.py::test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -20842,14 +20861,23 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "none \u2014 at target maturity for launch",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (intel)",
-    "missing_evidence": null,
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+     "tests": [
+      "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+      "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -20959,14 +20987,23 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "none \u2014 at target maturity for launch",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (intel)",
-    "missing_evidence": null,
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+     "tests": [
+      "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+      "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {
@@ -24705,14 +24742,22 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "remaining": "none \u2014 at target maturity for launch",
-    "cls": "blocked_engineering",
-    "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (cir)",
-    "missing_evidence": null,
-    "verifiability": "A",
-    "recount": "engineering_blocked",
+    "cls": "verified_complete",
+    "root": null,
+    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "closed_on_production_evidence": {
+     "evidence_files": [
+      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+     ],
+     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+     "tests": [
+      "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
+     ],
+     "worker": "W4-CLOSE5 2026-10-20"
+    },
+    "recount": "production_verified",
     "empirical": false
    },
    {

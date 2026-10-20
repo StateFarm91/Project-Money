@@ -1678,7 +1678,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-284",
@@ -2197,7 +2197,7 @@
   "defect": null,
   "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-300",

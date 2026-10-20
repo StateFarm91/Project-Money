@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T05:57:56Z",
-  "branch_head": "7f8936df"
+  "generated_at": "2026-10-20T06:10:22Z",
+  "branch_head": "35153cd2"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,9 +40,9 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 623,
+  "total_not_verified": 618,
   "by_class": {
-   "A": 550,
+   "A": 545,
    "C": 40,
    "B": 33
   },
@@ -53,7 +53,7 @@
     "B": 5
    },
    "final_master": {
-    "A": 457,
+    "A": 452,
     "C": 19,
     "B": 27
    },
@@ -63,7 +63,7 @@
   },
   "by_domain": {
    "autonomy_learning": {
-    "A": 79,
+    "A": 76,
     "B": 6,
     "C": 5
    },
@@ -81,12 +81,12 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 187,
+    "A": 186,
     "B": 23
    },
    "store_product": {
     "C": 14,
-    "A": 200,
+    "A": 199,
     "B": 3
    }
   },
@@ -102,7 +102,7 @@
     "B": 19
    },
    "post_launch": {
-    "A": 356,
+    "A": 351,
     "C": 16,
     "B": 8
    }
@@ -295,7 +295,6 @@
    "A F-775 [blocked_engineering] Cross-Sell Graph",
    "A F-778 [blocked_external] Review-to-Product Learning",
    "A F-789 [blocked_engineering] Full Competitor Reverse-Engineering Allowed for Private R&D;",
-   "A F-793 [blocked_engineering] Functional Technique Reuse",
    "A F-800 [blocked_engineering] Structured Curriculum",
    "A F-802 [blocked_external] Support-to-Lesson Trigger",
    "A F-803 [blocked_engineering] Search-to-Lesson Trigger",
@@ -488,7 +487,6 @@
    "A F-485 [blocked_engineering] Deadlock Detection",
    "A F-488 [blocked_engineering] Company-Wide Progress",
    "A F-490 [blocked_engineering] Concurrency Backpressure",
-   "A F-491 [blocked_engineering] Failure Isolation",
    "A F-492 [blocked_engineering] Department-Specific Stop Conditions",
    "A F-494 [blocked_engineering] Autonomous Dispatch",
    "A F-502 [blocked_owner] Storefront Continuous Optimization",
@@ -692,7 +690,6 @@
    "A F-470 [blocked_engineering] Resource-Aware Concurrency",
    "A F-487 [implemented_unverified] Department Health",
    "A F-489 [blocked_engineering] Parallelism Efficiency",
-   "A F-498 [blocked_engineering] Finite Parallel Launch",
    "A F-505 [blocked_engineering] Failure Memory",
    "A F-514@v0.15 [blocked_external] Outcome-Based Improvement",
    "A F-516@v0.15 [blocked_external] 3/6/12-Month Learning",
@@ -704,9 +701,7 @@
    "A F-565 [blocked_owner] Marketplace Insights Opportunity Score",
    "A F-580 [blocked_owner] Apps Inventory & Permissions",
    "A F-583 [blocked_owner] Shared Access Governance",
-   "A F-586 [blocked_engineering] Delivery Settings Applicability",
    "A F-590 [blocked_engineering] Sales Channel Inventory",
-   "A F-591 [blocked_engineering] Pattern / External Channel Boundary",
    "A F-599 [blocked_engineering] Etsy UI Drift Detector",
    "A F-602 [blocked_engineering] Executive COO",
    "A F-624 [blocked_engineering] Executive Cadence",
@@ -6148,21 +6143,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-491",
-   "scope": "post_launch",
-   "title": "Failure Isolation",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "ops_runtime_governance",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Failure Isolation - A failed department task does not roll back unrelated validated work. Contain failures to their dependency branch and preserve successful independent outputs."
-  },
-  {
-   "source": "final_master",
    "id": "F-492",
    "scope": "post_launch",
    "title": "Department-Specific Stop Conditions",
@@ -6235,21 +6215,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Build vs Operate Separation - Development agents and production-operation agents have distinct authority and deployment paths. Building in parallel cannot destabilize the live business."
-  },
-  {
-   "source": "final_master",
-   "id": "F-498",
-   "scope": "post_launch",
-   "title": "Finite Parallel Launch",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "autonomy_learning",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Finite Parallel Launch - Parallelism is used to shorten the finite launch path, not to create infinite simultaneous pre-launch optimization. Launch blockers remain explicitly bounded."
   },
   {
    "source": "final_master",
@@ -7363,21 +7328,6 @@
   },
   {
    "source": "final_master",
-   "id": "F-586",
-   "scope": "post_launch",
-   "title": "Delivery Settings Applicability",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "autonomy_learning",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Delivery Settings Applicability - Audit delivery/shipping settings even for a digital-first shop; mark physical-only controls explicitly not applicable rather than silently ignoring them."
-  },
-  {
-   "source": "final_master",
    "id": "F-587",
    "scope": "launch_critical",
    "title": "Policy Settings Canonicalization",
@@ -7435,21 +7385,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Sales Channel Inventory - Inventory every enabled Etsy sales channel/integration and its effect on listings, inventory, payments, customer data and attribution. New channels require explicit readiness."
-  },
-  {
-   "source": "final_master",
-   "id": "F-591",
-   "scope": "post_launch",
-   "title": "Pattern / External Channel Boundary",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "autonomy_learning",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Pattern / External Channel Boundary - If Etsy surfaces Pattern or other owned-site channels, evaluate them separately from Etsy marketplace sales. Do not assume Etsy marketplace SEO, fees, policies or analytics transfer unchanged."
   },
   {
    "source": "final_master",
@@ -9220,21 +9155,6 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Full Competitor Reverse-Engineering Allowed for Private R&D; - Agents may ingest the complete purchased pattern, reconstruct its functional garment architecture, stitch logic, grading, dimensions, workflow, customer experience, merchandising system and weaknesses inside the private benchmark environment."
-  },
-  {
-   "source": "final_master",
-   "id": "F-793",
-   "scope": "post_launch",
-   "title": "Functional Technique Reuse",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Functional Technique Reuse - Standard crochet methods, stitch names, general construction techniques, gauge concepts, sizing practices and other functional methods may be used when appropriate. Brambleloop should combine them into its own independently designed product rather than preserve a competitor's distinctive overall expression by default."
   },
   {
    "source": "final_master",

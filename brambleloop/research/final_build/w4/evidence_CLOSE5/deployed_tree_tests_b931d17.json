@@ -2,7 +2,7 @@
  "kind": "brambleloop.deployed_tree_tests",
  "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
  "src_tree_clean": true,
- "run_at": "2026-10-20T05:56:27Z",
+ "run_at": "2026-10-20T06:08:05Z",
  "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
  "runs": [
   {
@@ -79,6 +79,71 @@
    ],
    "tail": [
     "37 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_etsy_surfaces.py",
+   "rc": 0,
+   "ok": 53,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_boolean_check_will_not_accept_something_merely_truthy",
+    "test_a_capability_being_withdrawn_is_reported_too",
+    "test_a_collector_that_has_never_run_is_not_the_same_as_a_clean_run",
+    "test_a_correct_and_current_shop_is_the_only_thing_that_reads_green",
+    "test_a_listing_deactivated_behind_our_back_is_drift_too",
+    "test_a_listing_nobody_here_created_is_reported",
+    "test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
+    "test_a_manual_action_this_registry_still_maps_but_shop_package_dropped_is_reported",
+    "test_a_matching_current_census_is_green",
+    "test_a_policy_etsy_returned_as_null_is_a_failure_not_an_unknown",
+    "test_a_price_decision_says_out_loud_that_its_take_rate_is_a_floor",
+    "test_a_secondary_claim_names_a_source_this_environment_could_not_read",
+    "test_a_surface_with_no_collector_says_so_rather_than_saying_fine",
+    "test_a_take_rate_carries_the_fees_it_does_not_include",
+    "test_an_ads_api_appearing_is_reported_rather_than_aged_into_a_lie",
+    "test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
+    "test_an_eu_only_policy_field_set_on_a_canadian_shop_is_a_failure",
+    "test_an_old_census_is_not_a_current_one",
+    "test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green",
+    "test_every_manual_action_shop_package_lists_has_a_surface_that_owns_it",
+    "test_every_owner_action_is_actionable_and_closes_on_evidence",
+    "test_every_surface_the_brief_named_is_classified_exactly_once",
+    "test_every_unsupported_verdict_names_a_counted_absence",
+    "test_every_verdict_rests_on_at_least_one_document_this_build_read",
+    "test_holding_no_record_of_our_own_listings_is_not_a_clean_census",
+    "test_injected_defect_a_field_nobody_read_must_not_read_as_a_pass",
+    "test_injected_defect_a_first_sale_blocker_filed_as_post_launch_work",
+    "test_injected_defect_a_manual_action_with_no_surface_is_reported",
+    "test_injected_defect_an_endpoint_that_does_not_exist_is_refused",
+    "test_injected_defect_an_owner_only_surface_with_nothing_asked_of_the_owner",
+    "test_injected_defect_an_unread_census_must_not_read_as_no_drift",
+    "test_injected_defect_an_unsupported_verdict_with_no_absence_probe_is_refused",
+    "test_no_ad_spend_ceiling_can_be_enforced_in_code_and_the_registry_admits_it",
+    "test_no_owner_action_pretends_software_could_have_done_it",
+    "test_no_snapshot_at_all_is_no_evidence_and_says_which_kind_of_nothing",
+    "test_no_surface_claims_a_scope_etsy_does_not_publish",
+    "test_the_absence_probes_reproduce_against_a_document_that_matches_them",
+    "test_the_document_the_registry_was_read_from_is_identified_by_hash",
+    "test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without",
+    "test_the_first_sale_blockers_come_first_and_are_the_ones_that_block",
+    "test_the_orders_surface_is_a_read_this_shop_is_not_authorised_to_make",
+    "test_the_owner_actions_that_close_on_a_reading_actually_have_one",
+    "test_the_registry_and_the_fee_model_agree_about_why_this_is_unmodelled",
+    "test_the_registry_passes_its_own_invariants",
+    "test_the_rendered_registry_reports_its_own_problems_rather_than_hiding_them",
+    "test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task",
+    "test_the_settings_that_silently_stop_every_sale_are_checked",
+    "test_the_unmodelled_fees_are_labelled_secondary_because_etsy_refuses_to_be_read",
+    "test_the_work_plan_uses_all_four_classes_and_keeps_a_for_real_blockers",
+    "test_the_worst_case_is_materially_worse_and_that_is_the_point",
+    "test_unsupported_and_not_applicable_are_never_the_same_verdict",
+    "test_what_is_still_unknown_is_recorded_rather_than_filled_in",
+    "test_widening_the_grant_closes_the_gaps_and_nothing_else"
+   ],
+   "tail": [
+    "OK   test_widening_the_grant_closes_the_gaps_and_nothing_else"
    ]
   },
   {
@@ -273,6 +338,42 @@
    ]
   },
   {
+   "file": "tests/test_specification.py",
+   "rc": 0,
+   "ok": 24,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_back_neck_wider_than_the_cross_back_is_refused_when_the_body_is_known",
+    "test_a_benchmark_may_be_as_incomplete_as_its_source",
+    "test_a_brambleloop_design_must_state_its_join_targets",
+    "test_a_brambleloop_design_must_state_panel_orientation",
+    "test_a_bridging_chain_needs_no_chain_gauge_because_it_adds_no_width",
+    "test_a_design_with_width_adding_chains_must_state_a_chain_gauge",
+    "test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
+    "test_a_raglan_whose_neck_is_most_of_its_chest_is_refused",
+    "test_any_one_identifying_benchmark_piece_is_refused_on_its_own",
+    "test_authorship_defaults_to_being_held_to_the_standard",
+    "test_certification_and_grading_refuse_a_template_that_ships_a_wide_neck",
+    "test_every_existing_catalogue_product_is_reconstructible",
+    "test_no_catalogue_product_matches_a_benchmark",
+    "test_no_genuine_brambleloop_design_is_a_false_positive",
+    "test_renaming_the_pieces_does_not_launder_the_counts",
+    "test_the_benchmark_itself_passes_because_it_is_what_it_says_it_is",
+    "test_the_benchmark_relabelled_as_brambleloop_is_refused_at_every_size",
+    "test_the_benchmarks_gaps_are_exactly_the_two_its_pattern_leaves_to_a_photograph",
+    "test_the_counts_tier_survives_relabelling_the_stitch",
+    "test_the_firewall_thresholds_are_stated",
+    "test_the_gate_refuses_an_underspecified_brambleloop_design",
+    "test_the_neck_derivation_walks_real_increases_back_to_the_neck",
+    "test_the_same_design_authored_by_brambleloop_is_refused",
+    "test_trimming_or_padding_a_few_rows_does_not_evade_the_firewall"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
    "file": "tests/test_w3_k4_launch_verdict.py",
    "rc": 0,
    "ok": 16,
@@ -364,6 +465,39 @@
    ],
    "tail": [
     "PASS: 0 failing of 3"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows5.py",
+   "rc": 0,
+   "ok": 1,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
+   ],
+   "tail": [
+    "PASS: 0 failing of 1"
+   ]
+  },
+  {
+   "file": "tests/test_w4_etsysurf.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+    "test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+    "test_a_failing_shop_check_is_named",
+    "test_the_requirement_is_part_of_readiness_and_never_blocks_on_build",
+    "test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list",
+    "test_openapi_watch_is_already_a_weekly_cadence",
+    "test_openapi_watch_fingerprints_the_document_and_reports_a_change",
+    "test_dashboard_shows_the_surface_registry"
+   ],
+   "tail": [
+    "8 passed, 0 failed"
    ]
   },
   {

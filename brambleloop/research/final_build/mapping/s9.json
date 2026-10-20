@@ -1429,18 +1429,22 @@
   "uid": "F-793",
   "launch_class": "MATURE",
   "launch_class_reason": "permission clause; enforceable part is not over-blocking standard technique",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/cir/specification.py (two-tier identifying match: plain rectangles are not matches)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/gates/certificate.py::certify (calls specification.refuse_a_benchmark_in_our_clothes)",
   "protected_effect": null,
   "tests": [
    "tests/test_specification.py::test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
-   "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive"
+   "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive",
+   "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: the two-tier identifying match lets standard construction through (a plain rectangle of a benchmark's sleeve width is not a match; no genuine Brambleloop design is a false positive) and refuses a benchmark's identifying piece; cir/specification.py is reached on b931d17 via certification; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -1448,9 +1452,9 @@
    "detail": "remaining work is software"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- reached at runtime through certification",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-794",
@@ -4046,7 +4050,7 @@
   "defect": null,
   "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
   "confidence": "MEDIUM",
-  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-879",

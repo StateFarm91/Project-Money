@@ -738,7 +738,7 @@
   "defect": null,
   "next_action": "none -- W4-SWARMCONTROL built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-474",
@@ -1171,7 +1171,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5, awaiting deploy (fixes the production 500)",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-488",
@@ -1275,14 +1275,16 @@
   "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.fail",
   "durable_state": "jobs dead letters; incidents",
-  "consumer": null,
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (fails only the job that raised; JobQueue.fail fenced to its lease)",
   "protected_effect": "one failed job dead-letters alone; other products/jobs continue",
   "tests": [
    "tests/test_cert_orchestration.py::test_retries_back_off_exponentially_then_dead_letter",
-   "tests/test_cert_orchestration.py::test_deliberate_refusal_is_dead_lettered_once_and_never_redriven"
+   "tests/test_cert_orchestration.py::test_deliberate_refusal_is_dead_lettered_once_and_never_redriven",
+   "tests/test_w4_close5_rows5.py::test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
   ],
   "evidence": [
-   "queue/durable.py in production; per-product publication gate (ops/rebuild_graph.publication_gate)"
+   "queue/durable.py in production; per-product publication gate (ops/rebuild_graph.publication_gate)",
+   "w4-CLOSE5 on deployed b931d17: a dead-lettered job leaves an already-completed job's status, outputs, finish time and audit rows untouched, and independent work queued beside it completes; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
@@ -1293,9 +1295,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- deployed; isolation now asserted around the failing job",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-492",
@@ -1490,20 +1492,25 @@
   "uid": "F-498",
   "launch_class": "MATURE",
   "launch_class_reason": "launch-scope discipline",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "work classes A-D and first-sale blockers are encoded in intel/etsy_surfaces.py but not read by launch readiness or the executor; launch list boundedness is otherwise prose",
-  "producer": "src/brambleloop/intel/etsy_surfaces.py::work_plan",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces; intel/etsy_surfaces.py::first_sale_blockers",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
   "protected_effect": null,
   "tests": [
    "tests/test_etsy_surfaces.py::test_the_work_plan_uses_all_four_classes_and_keeps_a_for_real_blockers",
-   "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without"
+   "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without",
+   "tests/test_w4_etsysurf.py::test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+   "tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+   "tests/test_w4_etsysurf.py::test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"
   ],
   "evidence": [
    "ops/ORG_BOARD.md: Analytics lane not dispatched because 'dispatching would manufacture completion'",
-   "intel/etsy_surfaces.py not reached by any runtime root (module_reachability)"
+   "intel/etsy_surfaces.py not reached by any runtime root (module_reachability)",
+   "w4-CLOSE5 on deployed b931d17: launch readiness carries the bounded first-sale list (11 surfaces, each FRESH / STALE / NO_EVIDENCE / NO_COLLECTOR from its collector's last reading) and is ready only when every one is FRESH and every shop check passes; the requirement is never 'build', so it cannot grow the build queue; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
@@ -1512,9 +1519,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Wire etsy_surfaces.first_sale_blockers() into launch/readiness.assess as the bounded Etsy launch list",
+  "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-499",
@@ -1609,7 +1616,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (etsy_webhooks R1 edit), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-502",
@@ -1973,7 +1980,7 @@
   "defect": null,
   "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (R1 gate), awaiting deploy",
   "confidence": "HIGH",
-  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep -ri webhook src/: only intel/etsy_surfaces.py | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-513",
@@ -2944,7 +2951,7 @@
   "defect": null,
   "next_action": "none -- deployed; a real refund is data",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-536",
@@ -3185,7 +3192,7 @@
   "defect": null,
   "next_action": "none -- the mapping's 'publish path performs no read-back' is stale",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REGATE) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-543",

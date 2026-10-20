@@ -523,6 +523,90 @@
    ],
    "worker": "W4-CLOSE5 2026-10-20",
    "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-491",
+   "criterion": "Failure Isolation - A failed department task does not roll back unrelated validated work. Contain failures to their dependency branch and preserve successful independent outputs.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+   "tests": [
+    "tests/test_w4_close5_rows5.py::test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-586",
+   "criterion": "Delivery Settings Applicability - Audit delivery/shipping settings even for a digital-first shop; mark physical-only controls explicitly not applicable rather than silently ignoring them.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+   "tests": [
+    "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+    "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-591",
+   "criterion": "Pattern / External Channel Boundary - If Etsy surfaces Pattern or other owned-site channels, evaluate them separately from Etsy marketplace sales. Do not assume Etsy marketplace SEO, fees, policies or analytics transfer unchanged.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+   "tests": [
+    "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+    "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-793",
+   "criterion": "Functional Technique Reuse - Standard crochet methods, stitch names, general construction techniques, gauge concepts, sizing practices and other functional methods may be used when appropriate. Brambleloop should combine them into its own independently designed product rather than preserve a competitor's distinctive overall expression by default.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+   "tests": [
+    "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-498",
+   "criterion": "Finite Parallel Launch - Parallelism is used to shorten the finite launch path, not to create infinite simultaneous pre-launch optimization. Launch blockers remain explicitly bounded.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
+   "tests": [
+    "tests/test_w4_etsysurf.py::test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+    "tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+    "tests/test_w4_etsysurf.py::test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"
+   ],
+   "worker": "W4-CLOSE5 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
   }
  ]
 }

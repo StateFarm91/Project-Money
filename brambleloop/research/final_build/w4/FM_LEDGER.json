@@ -8,9 +8,9 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 420,
+   "PROVEN": 425,
    "OWNER-GATED": 126,
-   "OPEN-DEFECT": 235,
+   "OPEN-DEFECT": 230,
    "DATA-GATED": 94,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
@@ -23,11 +23,11 @@
    "OPEN-DEFECT": 5
   },
   "status_post_launch": {
-   "OPEN-DEFECT": 230,
+   "OPEN-DEFECT": 225,
    "OWNER-GATED": 71,
    "DATA-GATED": 65,
    "EXTERNAL-GATED": 9,
-   "PROVEN": 45
+   "PROVEN": 50
   },
   "launch_critical_open": 5,
   "reachability_basis": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
@@ -13650,22 +13650,21 @@
    "title": "Failure Isolation",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "DEPLOYED",
    "maturity_claimed": "DEPLOYED",
    "coverage": "FULL",
    "producer": "src/brambleloop/queue/durable.py::JobQueue.fail",
-   "consumer": null,
+   "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (fails only the job that raised; JobQueue.fail fenced to its lease)",
    "tests": [
     "tests/test_cert_orchestration.py::test_retries_back_off_exponentially_then_dead_letter",
-    "tests/test_cert_orchestration.py::test_deliberate_refusal_is_dead_lettered_once_and_never_redriven"
+    "tests/test_cert_orchestration.py::test_deliberate_refusal_is_dead_lettered_once_and_never_redriven",
+    "tests/test_w4_close5_rows5.py::test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
    ],
    "gate": null,
-   "reasons": [
-    "no producer->consumer chain named (F-831)"
-   ],
-   "next_action": "none — at target maturity for launch",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- deployed; isolation now asserted around the failing job",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -13840,23 +13839,23 @@
    "title": "Finite Parallel Launch",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "TESTED",
-   "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/intel/etsy_surfaces.py::work_plan",
-   "consumer": null,
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces; intel/etsy_surfaces.py::first_sale_blockers",
+   "consumer": "src/brambleloop/launch/readiness.py::assess",
    "tests": [
     "tests/test_etsy_surfaces.py::test_the_work_plan_uses_all_four_classes_and_keeps_a_for_real_blockers",
-    "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without"
+    "tests/test_etsy_surfaces.py::test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without",
+    "tests/test_w4_etsysurf.py::test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+    "tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+    "tests/test_w4_etsysurf.py::test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: work classes A-D and first-sale blockers are encoded in intel/etsy_surfaces.py but not read by launch readiness or the executor; launch list boundedness is othe"
-   ],
-   "next_action": "Wire etsy_surfaces.first_sale_blockers() into launch/readiness.assess as the bounded Etsy launch list",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- W4-ETSYSURF built it; deployed in b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -16564,21 +16563,20 @@
    "title": "Delivery Settings Applicability",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "TESTED",
-   "maturity_claimed": "TESTED",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
    "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (delivery_settings NOT_APPLICABLE)",
-   "consumer": null,
+   "consumer": "src/brambleloop/app/main.py::api_etsy_surfaces (GET /api/etsy/surfaces); launch.readiness.etsy_first_sale_surfaces",
    "tests": [
-    "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict"
+    "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+    "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
-   "next_action": "none — at target maturity for launch",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- the registry is reached at runtime on b931d17",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -16712,21 +16710,20 @@
    "title": "Pattern / External Channel Boundary",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "TESTED",
-   "maturity_claimed": "TESTED",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
    "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (sales_channels decision)",
-   "consumer": null,
+   "consumer": "src/brambleloop/commerce/sales_channels.py::inventory (orders_ingest receipt_type: a Pattern sale is its own channel, unreadied -> incident); GET /api/etsy/surfaces",
    "tests": [
-    "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants"
+    "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+    "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
-   "next_action": "none — at target maturity for launch",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- deployed",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -21728,22 +21725,21 @@
    "title": "Functional Technique Reuse",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "TESTED",
-   "maturity_claimed": "TESTED",
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
    "producer": "src/brambleloop/cir/specification.py (two-tier identifying match: plain rectangles are not matches)",
-   "consumer": null,
+   "consumer": "src/brambleloop/gates/certificate.py::certify (calls specification.refuse_a_benchmark_in_our_clothes)",
    "tests": [
     "tests/test_specification.py::test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
-    "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive"
+    "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive",
+    "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
-   "next_action": "none — at target maturity for launch",
-   "mapped_on": "019ebf0",
+   "reasons": [],
+   "next_action": "none -- reached at runtime through certification",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []

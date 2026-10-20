@@ -252,7 +252,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-559",
@@ -631,7 +631,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-571",
@@ -762,7 +762,7 @@
   "defect": null,
   "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-575",
@@ -1091,19 +1091,22 @@
   "uid": "F-586",
   "launch_class": "MATURE",
   "launch_class_reason": "Digital listings do not use shipping profiles (OAS), so no first-sale consequence.",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (delivery_settings NOT_APPLICABLE)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/app/main.py::api_etsy_surfaces (GET /api/etsy/surfaces); launch.readiness.etsy_first_sale_surfaces",
   "protected_effect": "physical-only controls explicitly marked N/A with evidence, never silently ignored",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict"
+   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+   "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
   ],
   "evidence": [
    "research/ETSY_SURFACE_REGISTRY.md row 25 delivery_settings NOT_APPLICABLE with OAS evidence (13 shipping-profile ops)",
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "w4-CLOSE5 on deployed b931d17: delivery_settings is recorded NOT_APPLICABLE with its reason in words and its thirteen shipping-profile operations named, never UNSUPPORTED and never a silent gap; intel/etsy_surfaces.py is reached on b931d17 (GET /api/etsy/surfaces, readiness); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
@@ -1112,9 +1115,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- the registry is reached at runtime on b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-587",
@@ -1247,18 +1250,20 @@
   "uid": "F-591",
   "launch_class": "MATURE",
   "launch_class_reason": "Pattern/owned-site channels are not in use; a decision record suffices.",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (sales_channels decision)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/commerce/sales_channels.py::inventory (orders_ingest receipt_type: a Pattern sale is its own channel, unreadied -> incident); GET /api/etsy/surfaces",
   "protected_effect": "Pattern treated as a separate paid channel requiring its own decision",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants"
+   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+   "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
   ],
   "evidence": [
-   "research/ETSY_SURFACE_REGISTRY.md row 29 WHY N/A (Pattern is a separate subscription)"
+   "research/ETSY_SURFACE_REGISTRY.md row 29 WHY N/A (Pattern is a separate subscription)",
+   "w4-CLOSE5 on deployed b931d17: sales_channels is a separate registry decision (NOT_APPLICABLE with its reason: no Pattern subscription); a Pattern sale is recorded as its own channel with its own listing/inventory/payment/customer-data/attribution effects and opens an incident until readied -- nothing about it is assumed from etsy.com; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [],
   "gate": {
@@ -1267,9 +1272,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- deployed",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-592",
@@ -1722,7 +1727,7 @@
   "defect": null,
   "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "w4-CLOSE5 on deployed b931d17"
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-606",

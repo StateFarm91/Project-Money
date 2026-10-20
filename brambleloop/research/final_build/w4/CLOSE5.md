@@ -258,3 +258,21 @@ Left open after the audit:
    b931d17 (§3.0). It should be regenerated at every deploy.
 4. **Lanes that build rows should run `close_*.py` and write the mapping back.** Six merged
    lanes did not, so about 30 rows looked unbuilt.
+
+### 3.6 Batch 5: deployed rows whose gap was a test, a consumer name or a stale maturity cap
+
+| row | criterion (quoted) | tests | status |
+|---|---|---|---|
+| **F-491** Failure Isolation | "A failed department task does not roll back unrelated validated work. Contain failures to their dependency branch and preserve successful independent outputs." | new `test_w4_close5_rows5.py`. The cited tests only covered the failing job itself; this one shows a dead letter leaves a completed job's status, outputs and audit untouched, and work queued beside it completes | closed on b931d17 |
+| **F-586** Delivery Settings Applicability | "Audit delivery/shipping settings even for a digital-first shop; mark physical-only controls explicitly not applicable rather than silently ignoring them." | `test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict`, `test_w4_etsysurf.py` route | closed on b931d17. The registry is reached at runtime, so TESTED becomes INTEGRATED |
+| **F-591** Pattern / External Channel Boundary | "If Etsy surfaces Pattern or other owned-site channels, evaluate them separately from Etsy marketplace sales…" | registry invariants, plus `test_f590_inventory_names_effects…` (a Pattern sale is its own channel and opens an incident) | closed on b931d17 |
+| **F-793** Functional Technique Reuse | "Standard crochet methods … may be used … rather than preserve a competitor's distinctive overall expression by default." | `test_specification.py` (3) | closed on b931d17. It is reached through certification |
+| **F-498** Finite Parallel Launch | "…Launch blockers remain explicitly bounded." | `test_w4_etsysurf.py` (3). W4-ETSYSURF put the bounded first-sale list into readiness | closed on b931d17 |
+
+Not closed, with reasons:
+- **F-546.** Seller Handbook, Etsy Plus and Shop Manager capability changes are not watched;
+  only the OpenAPI document is.
+- **F-599.** Its owner-review task is not built, and it needs a ruling.
+- **F-600.** Most surfaces have no collector.
+- **F-478.** No test yet shows research and engineering running independently.
+- **F-148.** The producer is test infrastructure, so INTEGRATED is unreachable.
