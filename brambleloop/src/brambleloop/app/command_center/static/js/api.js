@@ -80,6 +80,7 @@ export const ENDPOINTS = {
   company: () => `${API_BASE}/company`,
   completion: () => `${API_BASE}/completion`,
   launchPacket: () => `${API_BASE}/launch/packet`,
+  firstSale: () => `${API_BASE}/first-sale`,
   // W4-STORE: owner-session gated (CSRF + nonce) although it is outside API_BASE.
   liveObservation: () => "/api/store/live_observation",
   insights: () => `${API_BASE}/insights`,
@@ -294,6 +295,7 @@ export const api = {
   company: () => get(ENDPOINTS.company()),
   completion: () => get(ENDPOINTS.completion()),
   launchPacket: () => get(ENDPOINTS.launchPacket()),
+  firstSale: () => get(ENDPOINTS.firstSale()),
   liveObservation: (observedAt, fields, statement) => post(ENDPOINTS.liveObservation(), { observed_at: observedAt, fields, statement }),
   insights: () => get(ENDPOINTS.insights()),
   timeline: (limit) => get(ENDPOINTS.timeline(limit)),
