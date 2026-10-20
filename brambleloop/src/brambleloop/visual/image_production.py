@@ -492,6 +492,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
     if exp is not None:
         base["experiment"] = True
+    if hasattr(type(gen), "current_run_key"):
+        gen.current_run_key = key         # the generator reads this run's own anchor
     try:
         kw = {"repair": repair} if repair else {}
         out = gen.generate(stage=stage, role=role, brief=brief, references=refs,
@@ -1028,13 +1030,15 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                 "owner_approval_is_not_technical_verification": True}
         card["campaign_consistency"] = view.get("campaign_consistency")
         if exp is None and _controlled_of(db, key):
+            from ..experiments import controlled as CX
             from . import experiment as XP
 
-            card.update(experiment=True, label=XP.LABEL, controlled_run_id=_controlled_of(
+            lbl = CX.label_of_run(db, _controlled_of(db, key))
+            card.update(experiment=True, label=lbl, controlled_run_id=_controlled_of(
                 db, key), certification={"granted": True, "reasons": [
                     "certified release; this gallery is a controlled experiment's output"]},
                 publication_blockers=sorted(set(card["publication_blockers"]) | {
-                    f"{XP.LABEL}: controlled experiment output, never published"}),
+                    f"{lbl}: controlled experiment output, never published"}),
                 approvals_are_separate={
                     "visual_approval": "the owner's look at these images only",
                     "technical_certification": "the stored verdicts",
@@ -1607,8 +1611,11 @@ def notification_candidates(db) -> list[dict]:
                 "severity": "normal", "category": "decision",
                 "title": (f"{card.get('label')}: gallery "
                           f"{'ready for your look' if ready else 'stopped'}: {r.listing}")[:300],
-                "body": (f"{card.get('label')}. Visual approval only. Technical certification: "
-                         f"REFUSED ({'; '.join((card.get('certification') or {}).get('reasons') or [])[:300]}). "
+                "body": (f"{card.get('label')}. Visual approval only. Pattern certification: "
+                         + ("granted (certified release)" if (card.get("certification") or {})
+                            .get("granted") else
+                            f"REFUSED ({'; '.join((card.get('certification') or {}).get('reasons') or [])[:300]})")
+                         + ". "
                          f"Publication authorization: not available for an experiment. "
                          + ("" if ready else f"Stopped: {r.blocked_reason}"))[:1000],
                 "consequence": ("nothing publishes: an experiment can never reach "

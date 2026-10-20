@@ -663,6 +663,22 @@ def _engineered(slug: str):
 
 # ---- pipeline runs (W-VISNEXT2) ---------------------------------------------------------------
 
+CERTIFIED_LABEL = "EXPERIMENT — NOT FOR PUBLICATION"
+
+
+def label_for(defn: dict) -> str:
+    """The banner: an uncertified product's experiment says so; a certified one's does not
+    claim it is uncertified. Either way: EXPERIMENT, never for publication."""
+    from ..visual import experiment as XP
+
+    return CERTIFIED_LABEL if (defn.get("product") or {}).get("certified") else XP.LABEL
+
+
+def label_of_run(db, run_id: int) -> str:
+    r = get_run(db, run_id)
+    return label_for(load(r["definition_id"])["definition"]) if r else CERTIFIED_LABEL
+
+
 def pipeline_ns(run_id: int) -> str:
     return f"exp{int(run_id)}"
 
@@ -831,7 +847,8 @@ def card(db, run_id: int) -> dict | None:
                     "vision_cap_cad": a.vision_cap_cad, "authorized_by": a.authorized_by,
                     "revoked": a.revoked}
     ver = r["verification"] or {}
-    blockers = [XP.LABEL, "controlled experiment output: never publishable"]
+    label = label_for(defn)
+    blockers = [label, "controlled experiment output: never publishable"]
     ip_key = (r["receipt"] or {}).get("ip_run_key")
     if defn.get("kind") == "pipeline" and ip_key:
         from ..visual import image_production as IP
@@ -841,7 +858,7 @@ def card(db, run_id: int) -> dict | None:
         dec["publication_authorization"] = {"state": "not_available", "blockers": blockers,
                                             "requires": "not available for experiments",
                                             "what": "experiments never publish"}
-        return {**base, "experiment": True, "label": XP.LABEL, "banner": XP.LABEL,
+        return {**base, "experiment": True, "label": label, "banner": label,
                 "run_id": r["run_id"], "definition_id": r["definition_id"],
                 "definition_sha256": r["definition_sha256"], "authorization": auth,
                 "references_in_order": r["references"], "receipt": r["receipt"],
@@ -856,7 +873,7 @@ def card(db, run_id: int) -> dict | None:
         blockers.append("the product is uncertified")
     img = (f"/api/cc/experiments/runs/{r['run_id']}/image" if r["image_sha256"] else None)
     return {
-        "experiment": True, "label": XP.LABEL, "banner": XP.LABEL, "run_key": None,
+        "experiment": True, "label": label, "banner": label, "run_key": None,
         "run_id": r["run_id"], "listing": (defn.get("product") or {}).get("slug"),
         "definition_id": r["definition_id"], "definition_sha256": r["definition_sha256"],
         "authorization": auth, "state": r["status"], "status": r["status"], "why": r["why"],

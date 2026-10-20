@@ -77,13 +77,15 @@ def _default_cir_loader(db):
 
 
 def _default_anchor_lookup(db):
-    def lookup(slug: str, version: str, release: str):
+    def lookup(slug: str, version: str, release: str, run_key: str | None = None):
         from ..core.artifacts import ArtifactStore
         from ..visual import image_production as IP
         from ..visual import outfits
 
+        # `run_key`: the orchestrator run this generation belongs to (a controlled run has
+        # its own namespaced key, W-VISNEXT2); never another run's anchor.
         best = IP._best(db, listing=outfits.listing_of(slug), role=IP.ANCHOR_ROLE,
-                        run=IP.run_key(slug, version, release))
+                        run=run_key or IP.run_key(slug, version, release))
         if not best or not best.get("sha256"):
             return None
         return {"data": ArtifactStore().get(best["sha256"], db=db),
@@ -99,6 +101,7 @@ class Flux3Generator:
     paid = True
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
     accepts_staged_method = ACCEPTS_STAGED_METHOD
+    current_run_key: str | None = None     # set by the orchestrator per generation
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
@@ -297,7 +300,13 @@ class Flux3Generator:
         return str(p)
 
     def _anchor(self, rel: S.Release, slug: str, version: str, release: str) -> dict:
-        got = self.anchor_lookup(slug, version, release)
+        if self.current_run_key:
+            try:
+                got = self.anchor_lookup(slug, version, release, run_key=self.current_run_key)
+            except TypeError:           # a caller's own lookup without the run key
+                got = self.anchor_lookup(slug, version, release)
+        else:
+            got = self.anchor_lookup(slug, version, release)
         if not got or not got.get("data"):
             raise GeneratorRefused("no product-only flat lay for this release; lifestyle and "
                                    "other roles come after it")
