@@ -393,6 +393,12 @@ export const DATA = {
         evidence: { api: {}, observations: {}, owner_actions: [{ key: "store:OA-F", done: false, action: "Policy Settings" }] } },
     ],
   }),
+  firstSale: () => tab("FIRST_SALE", { first_sale: { status: "BLOCKED", as_of: new Date().toISOString(), basis: "measured",
+    reason: "no product is first-sale ready", owner_actions: ["publication_grant: owner records a sealed draft grant"],
+    shop: [{ gate: "operating_phase", state: "FAIL", status: "BLOCKED", why: "operating phase shadow", evidence: "core.phase.resolve", who_acts: "owner", action: "owner go-live" }],
+    items: [{ title: "Hexagon Coaster Set (hexagon-coaster-set)", status: "BLOCKED", who_acts: ["company", "owner"],
+      gates: [{ gate: "etsy_category", state: "FAIL", status: "BLOCKED", blocker: "B2", why: "category UNKNOWN", evidence: "commerce.category", who_acts: "company", action: "next refresh" }] }],
+    sources: ["launch.first_sale.build"] } }),
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],

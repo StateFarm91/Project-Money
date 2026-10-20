@@ -474,12 +474,17 @@ class CappedVision:
         return got
 
 
-def _price_cad(model: str, size: str) -> float:
+def _price_cad(model: str, size: str, refs: list[str] | None = None) -> float:
+    """What one attempt reserves against the authorization's cap: the price the gateway
+    itself reserves and bills (`images.render_estimate_usd`, which counts the references'
+    input megapixels for FLUX.2), never below the table price. INTEG4 / security review of
+    7f6dbe8 (L2): the table price alone admitted an attempt whose billed cost could pass
+    the cap."""
     from ..gateway import images
 
-    if model == "flux-3-image":
-        return round(images.BFL3_TIER_USD[images.bfl3_tier(size)] * images.USD_TO_CAD, 6)
-    return float(images.BY_KEY[model].cad_per_image)
+    provider = images.BY_KEY[model]
+    usd = float(images.render_estimate_usd(provider, size, list(refs or []))["usd"])
+    return round(max(usd * images.USD_TO_CAD, float(provider.cad_per_image)), 6)
 
 
 def _update(db, run_id: int, **fields) -> None:
@@ -534,7 +539,7 @@ def run_job(db, inputs: dict, *, job_id: int | None = None, env=None, vision=Non
         return _start_pipeline(db, run_id, defn, v, enqueue=enqueue, job_id=job_id)
     refs = [r["path"] for r in v["references"]]
     model, size = defn["model"], defn["size"]
-    price = _price_cad(model, size)
+    price = _price_cad(model, size, refs)
     max_attempts = 1 + int(defn.get("max_retries") or 0)
     _update(db, run_id, status="running", job_id=job_id,
             references=[{k: r[k] for k in ("position", "role", "sha256")}

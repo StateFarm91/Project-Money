@@ -2085,6 +2085,7 @@ incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before c
 gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
 every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.
 
+
 ## D-W4-VISNEXT-JUDGES — blind vision-judge adapters and their pass rules (W-VISNEXT, 2026-10-20)
 
 **Status: routine engineering decision (worker, within autonomy); no gate, margin or test was relaxed.**

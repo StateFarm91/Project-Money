@@ -913,6 +913,245 @@ class GridJudgeRefused(Exception):
     pass
 
 
+# ---------------------------------------------------------------------------
+# CLOSE5 (spend): what a grid judge is shown, and when a grid need not be judged again.
+#
+# The weekly tournament cost about CA$13 a run in production: 84 judge calls and 2.89M input
+# tokens, about 34,000 per call of up to eight images. The images dominate. A benchmark cell
+# was Etsy's `il_fullxfull` original (up to 3000 px a side; measured at about 5,000 tokens an
+# image, see `gateway.anthropic.IMAGE_TOKENS_ESTIMATE`), and a render of ours was sent at
+# full size.
+#
+# The judges are asked to score *thumbnails on a simulated search results page*, and the
+# browsing judge looks at one "on a phone ... for about a second". On a search results card,
+# Etsy itself serves `il_340x270` (1x) and `il_570xN` (2x, the srcset variant). 570 px wide
+# is the largest picture a real search page puts in front of a shopper, so it is the
+# smallest resolution that loses nothing the simulated page would show. Every cell is shown
+# at that width, on both sides:
+#
+# * benchmark cells: the `il_570xN` sibling of the same Etsy image (same path, Etsy's own
+#   resize). It is still a URL the provider fetches; nothing is downloaded here;
+# * our cells: resized locally to the same rule (570 px wide, height in proportion, never
+#   enlarged). The copy is content-addressed, so a grid rendered twice resizes once.
+#
+# By the provider's (w x h) / 750 rule, a 570 x 570 cell is about 433 tokens and a 2:3
+# portrait about 650, against about 5,000 measured at full size.
+#
+# This changes neither the models nor the judge count, the batching, the median or the
+# threshold. The reservation estimate (IMAGE_TOKENS_ESTIMATE per image) stays as it is, so
+# the budget check stays conservative.
+JUDGE_VIEW_WIDTH = 570
+JUDGE_VIEW_VERSION = 1
+_ETSY_FULL = __import__("re").compile(
+    r"^(https://i\.etsystatic\.com/.+/)il_fullxfull\.([^/?#]+)$")
+# A bounded, content-addressed cache of resized copies of our renders (oldest evicted).
+JUDGE_VIEW_CACHE_MAX = 256
+
+
+def judge_view_tokens(width: int, height: int) -> int:
+    """The provider's published estimate for one image: (width x height) / 750."""
+    return -(-int(width) * int(height) // 750)
+
+
+def _view_dir():
+    import tempfile
+    from pathlib import Path
+
+    d = Path(tempfile.gettempdir()) / "brambleloop-judge-view"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def judge_view(ref: str, *, width: int = JUDGE_VIEW_WIDTH) -> str:
+    """The picture a grid judge is shown for cell thumbnail `ref`, at search-card width.
+
+    An Etsy `il_fullxfull` URL becomes its `il_570xN` sibling. A local image wider than
+    `width` becomes a resized copy. Anything else (another URL, a fixture scheme, a path that
+    is not a file, an image already narrow enough) is returned unchanged. The copy keeps the
+    source's basename, so a reader of the path sees the same name."""
+    from pathlib import Path
+
+    ref = str(ref or "")
+    m = _ETSY_FULL.match(ref)
+    if m:
+        return f"{m.group(1)}il_{width}xN.{m.group(2)}"
+    if "://" in ref:
+        return ref
+    path = Path(ref)
+    if not ref or not path.is_file():
+        return ref
+    data = path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    out = _view_dir() / f"{digest[:24]}-w{width}v{JUDGE_VIEW_VERSION}" / path.name
+    if out.is_file():
+        return str(out)
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as im:
+            im.load()
+            fmt = (im.format or "").upper()
+            if im.width <= width:
+                return ref
+            size = (width, max(1, round(im.height * width / im.width)))
+            small = im.resize(size, Image.LANCZOS)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".part")
+            if fmt == "JPEG":
+                small.convert("RGB").save(tmp, format="JPEG", quality=92)
+            else:
+                small.save(tmp, format="PNG")
+            tmp.replace(out)
+    except Exception:  # noqa: BLE001 - an image PIL cannot read goes as it is
+        return ref
+    _evict_views()
+    return str(out)
+
+
+def _evict_views(keep: int = JUDGE_VIEW_CACHE_MAX) -> None:
+    import shutil
+
+    try:
+        entries = sorted((p for p in _view_dir().iterdir() if p.is_dir()),
+                         key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return
+    for old in entries[keep:]:
+        shutil.rmtree(old, ignore_errors=True)
+
+
+# A grid whose every cell shows the same picture as a grid already fully judged, by the
+# same panel on the same model with the same prompt, is not judged again. Its scores are the
+# earlier panel's, carried cell by cell through the picture's content address. Scores are
+# relative to the page, so the WHOLE page must match, not just our cells. A panel is stored
+# only when it is complete: every judge answered every cell on every field, nothing was
+# stopped and nothing failed. An unjudged grid is never stored, so it is never reused.
+# Reuse is read inside PANEL_REUSE_DAYS, well inside the 90-day audit horizon
+# (`ops.retention`, "windowed").
+GRID_PANEL_ACTION = "creative.grid_panel"
+PANEL_REUSE_DAYS = 56
+
+
+def cell_content_id(thumbnail: str) -> str:
+    """The content address of what a judge is shown for one cell."""
+    from pathlib import Path
+
+    view = judge_view(thumbnail)
+    if "://" not in view and view and Path(view).is_file():
+        return "sha256:" + hashlib.sha256(Path(view).read_bytes()).hexdigest()
+    return "ref:" + view
+
+
+def grid_fingerprint(grid: dict, *, provider, judges=None) -> tuple[str | None, dict]:
+    """(hash of everything a panel's verdict depends on, {cell id: content id}).
+
+    The hash is None when two cells show the same picture, because their scores could not
+    then be carried back cell by cell."""
+    import json as _json
+
+    from ..gateway import anthropic as gw
+
+    judges = judges if judges is not None else GRID_JUDGES
+    cells = [c for c in grid.get("cells") or [] if c.get("thumbnail")]
+    content = {c["cell"]: cell_content_id(c["thumbnail"]) for c in cells}
+    if len(set(content.values())) != len(content):
+        return None, content
+    h = lambda t: hashlib.sha256(t.encode()).hexdigest()  # noqa: E731
+    payload = {
+        "v": 1, "pod": grid.get("pod"), "cells": sorted(content.values()),
+        "provider": getattr(provider, "name", ""), "model": getattr(provider, "model", ""),
+        "judges": [[j, h(p)] for j, p in judges],
+        "prompt": h(grid_judge_prompt([{"cell": "X"}])),
+        "fields": list(GRID_JUDGE_FIELDS), "max_tokens": GRID_JUDGE_MAX_TOKENS,
+        "batch": gw.MAX_IMAGES_PER_CALL, "view": [JUDGE_VIEW_WIDTH, JUDGE_VIEW_VERSION],
+    }
+    return h(_json.dumps(payload, sort_keys=True)), content
+
+
+def _panel_complete(panel: dict, cells: set[str], judges) -> bool:
+    if panel.get("problems") or panel.get("stopped_by"):
+        return False
+    if set(panel.get("judged_by") or []) != {j for j, _ in judges}:
+        return False
+    for cell in cells:
+        row = (panel.get("judgements") or {}).get(cell) or {}
+        if any(row.get(f) is None for f in GRID_JUDGE_FIELDS):
+            return False
+        for j, _ in judges:
+            got = ((panel.get("per_judge") or {}).get(j) or {}).get(cell) or {}
+            if any(got.get(f) is None for f in GRID_JUDGE_FIELDS):
+                return False
+    return True
+
+
+def cached_panel(db, fingerprint: str, content: dict, *, judges=None,
+                 now=None) -> dict | None:
+    """The stored complete panel for this exact grid, mapped onto this render's cell ids,
+    or None."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    judges = judges if judges is not None else GRID_JUDGES
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=PANEL_REUSE_DAYS)
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(
+            AuditLog.action == "creative.grid_panel",
+            AuditLog.artifact == f"grid:{fingerprint}",
+            AuditLog.at >= since).order_by(AuditLog.id.desc()).limit(1)).first()
+        if row is None:
+            return None
+        detail, audit_id = dict(row.detail or {}), row.id
+        at = row.at.isoformat() if row.at else None
+    if detail.get("fingerprint") != fingerprint:
+        return None
+    by_content = detail.get("judgements") or {}
+    per_judge_c = detail.get("per_judge") or {}
+    if set(by_content) != set(content.values()):
+        return None
+    panel = {
+        "judgements": {cell: dict(by_content[cid]) for cell, cid in content.items()},
+        "per_judge": {j: {cell: dict((per_judge_c.get(j) or {}).get(cid) or {})
+                          for cell, cid in content.items()} for j, _ in judges},
+        "judges": [j for j, _ in judges], "judged_by": sorted(j for j, _ in judges),
+        "problems": [], "stopped_by": "", "cost_cad": 0.0,
+        "method": "median of independent judges, each seeing its own shuffled order, "
+                  "blinded to side and seller (reused: this exact grid was judged before)",
+        "reused_from": {"audit_id": audit_id, "at": at, "job_id": detail.get("job_id"),
+                        "cost_cad": detail.get("cost_cad")},
+    }
+    # Deterministic validation over trust in a stored row: a reused panel must be complete.
+    if not _panel_complete(panel, set(content), judges):
+        return None
+    return panel
+
+
+def store_panel(db, fingerprint: str, content: dict, panel: dict, *, pod: str,
+                model: str, job_id: int | None = None, judges=None) -> bool:
+    """Record a complete panel by content address so the same grid is not judged again."""
+    from ..core.models import AuditLog
+
+    judges = judges if judges is not None else GRID_JUDGES
+    if not _panel_complete(panel, set(content), judges):
+        return False
+    detail = {
+        "fingerprint": fingerprint, "pod": pod, "model": model, "job_id": job_id,
+        "cost_cad": panel.get("cost_cad"), "cells": len(content),
+        "judgements": {cid: panel["judgements"][cell] for cell, cid in content.items()},
+        "per_judge": {j: {cid: panel["per_judge"][j][cell] for cell, cid in content.items()}
+                      for j, _ in judges},
+    }
+    with db.session() as s:
+        s.add(AuditLog(actor=GRID_JUDGE_AGENT, action=GRID_PANEL_ACTION,
+                       artifact=f"grid:{fingerprint}", job_id=job_id, detail=detail))
+    return True
+
+
 def grid_judge_prompt(cells: list[dict]) -> str:
     labels = ", ".join(c["cell"] for c in cells)
     return (
@@ -997,7 +1236,9 @@ def judge_grid(db, grid: dict, *, provider, judges: tuple[tuple[str, str], ...] 
                 break
             held = reservation["reservation_id"]
             try:
-                response = provider.see(persona, prompt, [c["thumbnail"] for c in chunk],
+                # CLOSE5: each cell at search-card width (judge_view), not its original.
+                response = provider.see(persona, prompt,
+                                        [judge_view(c["thumbnail"]) for c in chunk],
                                         max_tokens=GRID_JUDGE_MAX_TOKENS)
             except Exception as exc:  # noqa: BLE001 - a judge that fails leaves cells unjudged
                 gw.release_reservation(db, held)
@@ -1043,7 +1284,17 @@ def grid_tournament(db, ours: list[dict], *, pod: str, provider, seed: int = 0,
     verdict reads. Refusals (too few benchmarks, nothing of ours) propagate as GridRefused.
     """
     grid = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key)
-    panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
+    # CLOSE5: a grid identical, picture for picture, to one a complete panel already judged
+    # reuses that panel (no call, no spend); anything else is judged and, if complete, stored.
+    fingerprint, content = grid_fingerprint(grid, provider=provider)
+    panel = cached_panel(db, fingerprint, content) if fingerprint else None
+    if panel is None:
+        panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
+        if fingerprint:
+            panel["stored_for_reuse"] = store_panel(
+                db, fingerprint, content, panel, pod=pod,
+                model=getattr(provider, "model", ""), job_id=job_id)
+    panel["fingerprint"] = fingerprint
     judged = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key,
                          judgements=panel["judgements"])
     # F-278: each of our cells' scores by its candidate ref, read through the key after

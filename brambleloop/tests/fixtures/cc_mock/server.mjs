@@ -82,7 +82,7 @@ export function createMock() {
       const simple = { home: "home", "brief/morning": "morning", approvals: "approvals", store: "store", operations: "operations",
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
         account: "account", "account/sessions": "sessions", emergency: "emergency",
-        company: "company", completion: "completion", "launch/packet": "launchPacket",
+        company: "company", completion: "completion", "launch/packet": "launchPacket", "first-sale": "firstSale",
         checks: "checks", "store/settings": "storeSettings" };
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
       if (route === "laura") return send(res, 200, DATA.laura());

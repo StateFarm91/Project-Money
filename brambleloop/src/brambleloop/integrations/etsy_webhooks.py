@@ -445,4 +445,98 @@ def summary(db) -> dict:
         "events_supported": list(SUPPORTED_EVENTS), "docs": DOCS,
         "note": ("deliveries are wakes: orders come only from the authenticated receipt read. "
                  "Registering the endpoint is an owner Developer Portal action."),
+        # CLOSE5/R1: in-process admission gate (process-local counters, no DB read).
+        "gate": GATE.state(),
     }
+
+
+# ------------------------------------------------------------------------------------------
+# CLOSE5 / security review of 324927f, R1 (LOW): a dedicated admission gate for the public
+# webhook's database work.
+#
+# The route is unauthenticated, so a flood of bad-signature deliveries must not be able to take
+# the threadpool tokens (AnyIO's default limiter: 40 per process, shared with every sync route)
+# or the DB pool (5 + 10 overflow) that the owner's Command Center needs. Every `refuse` /
+# `receive` call therefore runs on its OWN `anyio.CapacityLimiter` of WEBHOOK_SLOTS tokens, and
+# is admitted only if a slot is free *right now* (non-blocking). A saturated gate answers 503
+# with Retry-After immediately -- no thread, no connection, no database work -- and Etsy retries
+# a 5xx on its documented schedule, so a genuine delivery shed during a flood is not lost.
+# The slot is taken only after the body is read (read_body is async and capped), so a slow
+# client cannot hold a slot while trickling bytes.
+WEBHOOK_SLOTS = 4
+BUSY_RETRY_AFTER_SECONDS = 5
+
+
+class WebhookGate:
+    """At most `slots` webhook DB calls in flight per process, on a private limiter."""
+
+    def __init__(self, slots: int = WEBHOOK_SLOTS):
+        if slots < 1:
+            raise ValueError("a webhook gate needs at least one slot")
+        self.slots = slots
+        self._sem = threading.BoundedSemaphore(slots)
+        self._limiters: dict[int, object] = {}
+        self._mx = threading.Lock()
+        self.in_flight = 0
+        self.admitted = 0
+        self.shed = 0
+
+    def _limiter(self):
+        # One CapacityLimiter per running event loop (a limiter is loop-bound; production has
+        # one loop per worker, tests may run several). Never AnyIO's shared default limiter.
+        import anyio
+        import asyncio
+
+        key = id(asyncio.get_running_loop())
+        with self._mx:
+            lim = self._limiters.get(key)
+            if lim is None:
+                if len(self._limiters) > 8:
+                    self._limiters.clear()
+                lim = self._limiters[key] = anyio.CapacityLimiter(self.slots)
+            return lim
+
+    def try_enter(self) -> bool:
+        if not self._sem.acquire(blocking=False):
+            with self._mx:
+                self.shed += 1
+            return False
+        with self._mx:
+            self.in_flight += 1
+            self.admitted += 1
+        return True
+
+    def leave(self) -> None:
+        with self._mx:
+            self.in_flight -= 1
+        self._sem.release()
+
+    async def run(self, fn, *args):
+        """Run `fn(*args)` in a worker thread on this gate's private limiter, or return None
+        at once (no thread, no DB) when every slot is taken."""
+        import functools
+
+        import anyio.to_thread
+
+        if not self.try_enter():
+            return None
+        try:
+            return await anyio.to_thread.run_sync(functools.partial(fn, *args),
+                                                  limiter=self._limiter())
+        finally:
+            self.leave()
+
+    def state(self) -> dict:
+        with self._mx:
+            return {"slots": self.slots, "in_flight": self.in_flight,
+                    "admitted": self.admitted, "shed_busy": self.shed}
+
+
+GATE = WebhookGate()
+
+
+def busy() -> tuple[int, dict, dict]:
+    """The saturated-gate answer: (status, JSON body, headers). Static, no request data."""
+    return (503, {"accepted": False, "reason": "busy",
+                  "why": "webhook capacity saturated; retry"},
+            {"Retry-After": str(BUSY_RETRY_AFTER_SECONDS)})

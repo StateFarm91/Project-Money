@@ -216,23 +216,28 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant",
-  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/order_ledger.py::ledger; src/brambleloop/commerce/orders_ingest.py::ingest",
   "durable_state": "orders, customers, order_versions, ledger",
-  "consumer": "src/brambleloop/commerce/order_readings.py::read",
+  "consumer": "src/brambleloop/app/main.py::api_orders_ledger (GET /api/orders/ledger, operator credential)",
   "protected_effect": "no order invented; UNMEASURED with reason while gated; idempotent per receipt:transaction",
   "tests": [
    "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
    "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
-   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed"
+   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+   "tests/test_w4_fmclose_etsy.py::test_f558_every_order_reconciles_six_parts_and_names_what_does_not",
+   "tests/test_w4_close5_rows2.py::test_f558_item_version_is_named_with_its_basis_and_a_cancellation_reaches_the_row",
+   "tests/test_w4_close5_rows2.py::test_f558_an_unknown_version_is_a_problem_never_a_pass"
   ],
   "evidence": [
    "src/brambleloop/runtime/orders.py::handle_orders_ingest (6-hourly cadence orders_ingest)",
    "commerce/orders_ingest.py not in production fcb982d",
    "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)",
-   "w4-FM close on 8b67414 (REMAP): commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read"
+   "w4-FM close on 8b67414 (REMAP): commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read",
+   "w4-CLOSE5 on deployed b931d17: per order -- payment state, item (listing id, product, version and how the version was known), digital delivery state (UNKNOWN when the line does not say), buyer cases, refund/cancellation state with reasons, and the sale ledger row; any disagreement is a named problem; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#11 OWNER-GATED",
@@ -240,14 +245,14 @@
    "#42 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from real rows",
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17; a real receipt is data",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (REMAP)"
+  "searched": "w4-FM close on 8b67414 (REMAP) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-559",
@@ -596,32 +601,37 @@
   "launch_class": "MATURE",
   "launch_class_reason": "Offsite Ads economics are post-first-sale; the pricing floor already carries the worst-case offsite fee.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "No source for Offsite Ads attribution (absent from the API); 365-day threshold tracked from order sums; contribution recompute on attributed orders depends on an attribution flag nothing sets.",
-  "producer": "src/brambleloop/commerce/paid_media.py::offsite_ads_forecast",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/paid_media.py::offsite_share; commerce/paid_media.py::offsite_ads_forecast",
   "durable_state": "orders.offsite_ad_attributed",
-  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan (ads.adjust)",
   "protected_effect": "UNMEASURED with no orders; terms read from the policy reading",
   "tests": [
    "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
-   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
+   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold",
+   "tests/test_w4_fmclose_etsy.py::test_f570_unread_attribution_is_unmeasured_never_a_zero_share",
+   "tests/test_w4_fmclose_etsy.py::test_f570_ledger_read_measures_attribution_fee_and_recomputed_margin",
+   "tests/test_w4_fmclose_etsy.py::test_f570_ads_plan_reports_unknown_attribution_and_the_threshold_status"
   ],
   "evidence": [
    "research/ETSY_SURFACE_REGISTRY.md row 11 offsite_ads UNSUPPORTED; owner action 10",
-   "src/brambleloop/commerce/pricing.py::worst_case_fees"
+   "src/brambleloop/commerce/pricing.py::worst_case_fees",
+   "w4-CLOSE5 on deployed b931d17: attribution is tri-state (unread is UNMEASURED, never a 0% share); an offsite_ads_fee ledger line sets attribution and the fee, and contribution is recomputed with it; the 15% rate, 30-day window and 365-day participation threshold are reported; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect ('_record_line never sets offsite_ad_attributed, so the share would read as a measured 0%') is fixed: the column default is no longer read as a measurement -- paid_media.offsite_attribution reads the ledger fee line, and an unread order is UNMEASURED (test_f570_unread_attribution_is_unmeasured_never_a_zero_share asserts both the default and the UNMEASURED share)"
   ],
   "build2_rows": [
    "#244 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "orders need transactions_r; attribution needs owner-read fee lines"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
-  "defect": "commerce/orders_ingest._record_line never sets offsite_ad_attributed (defaults False), so once orders exist the offsite share would read as a measured 0% rather than UNKNOWN.",
-  "next_action": "Make Order.offsite_ad_attributed tri-state (None=unknown) in cohorts.record_order and orders_ingest, and set it only from Payment/ledger fee lines or an owner record; offsite_ads_forecast must report UNKNOWN while any order is None.",
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE fixed unread-as-0% and built the fee/margin read",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-571",
@@ -724,30 +734,35 @@
   "launch_class": "MATURE",
   "launch_class_reason": "Channel attribution is growth analytics.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "No listing/product-family channel comparison across organic/Ads/Offsite/social/Share&Save and no single-credit rule; ingest hardcodes acquisition_source='etsy' and never sets search_term or offsite flag.",
-  "producer": "src/brambleloop/scale/evidence.py::cac",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/channel_comparison.py::compare",
   "durable_state": "orders (acquisition_source, search_term, offsite_ad_attributed)",
   "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
   "protected_effect": "CAC split new vs blended",
   "tests": [
-   "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac"
+   "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac",
+   "tests/test_w4_fmclose_etsy.py::test_f574_channels_compared_per_listing_and_family_one_credit_per_order",
+   "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged"
   ],
   "evidence": [
-   "src/brambleloop/commerce/orders_ingest.py::_record_line acquisition_source='etsy'"
+   "src/brambleloop/commerce/orders_ingest.py::_record_line acquisition_source='etsy'",
+   "w4-CLOSE5 on deployed b931d17: organic search, Etsy Ads, Offsite Ads, social and Share & Save compared per listing and per product family; one credit per order, a flag/source disagreement is a named conflict, unknown stays unattributed; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect (channel fields defaulting to organic-looking values) is fixed: orders_ingest writes acquisition_source='unknown' (orders_ingest.py:956,963) and finance.sources maps the legacy 'etsy' to unattributed; the test asserts an unknown order stays unattributed"
   ],
   "build2_rows": [
    "#266 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "no orders to attribute"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
-  "defect": "Channel fields default to organic-looking values (acquisition_source='etsy', offsite False) that would read as measured attribution.",
-  "next_action": "Add a channel field with values {organic_search, etsy_ads, offsite_ads, social, share_and_save, unknown} defaulting to unknown, enforce one channel per order, and report per product family in scale/evidence.",
+  "defect": null,
+  "next_action": "none -- W4-FMCLOSE built it; data accrues with sales",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-575",
@@ -1076,19 +1091,22 @@
   "uid": "F-586",
   "launch_class": "MATURE",
   "launch_class_reason": "Digital listings do not use shipping profiles (OAS), so no first-sale consequence.",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (delivery_settings NOT_APPLICABLE)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/app/main.py::api_etsy_surfaces (GET /api/etsy/surfaces); launch.readiness.etsy_first_sale_surfaces",
   "protected_effect": "physical-only controls explicitly marked N/A with evidence, never silently ignored",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict"
+   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+   "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
   ],
   "evidence": [
    "research/ETSY_SURFACE_REGISTRY.md row 25 delivery_settings NOT_APPLICABLE with OAS evidence (13 shipping-profile ops)",
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "w4-CLOSE5 on deployed b931d17: delivery_settings is recorded NOT_APPLICABLE with its reason in words and its thirteen shipping-profile operations named, never UNSUPPORTED and never a silent gap; intel/etsy_surfaces.py is reached on b931d17 (GET /api/etsy/surfaces, readiness); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
@@ -1097,9 +1115,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- the registry is reached at runtime on b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-587",
@@ -1232,18 +1250,20 @@
   "uid": "F-591",
   "launch_class": "MATURE",
   "launch_class_reason": "Pattern/owned-site channels are not in use; a decision record suffices.",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (sales_channels decision)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/commerce/sales_channels.py::inventory (orders_ingest receipt_type: a Pattern sale is its own channel, unreadied -> incident); GET /api/etsy/surfaces",
   "protected_effect": "Pattern treated as a separate paid channel requiring its own decision",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants"
+   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+   "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
   ],
   "evidence": [
-   "research/ETSY_SURFACE_REGISTRY.md row 29 WHY N/A (Pattern is a separate subscription)"
+   "research/ETSY_SURFACE_REGISTRY.md row 29 WHY N/A (Pattern is a separate subscription)",
+   "w4-CLOSE5 on deployed b931d17: sales_channels is a separate registry decision (NOT_APPLICABLE with its reason: no Pattern subscription); a Pattern sale is recorded as its own channel with its own listing/inventory/payment/customer-data/attribution effects and opens an incident until readied -- nothing about it is assumed from etsy.com; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [],
   "gate": {
@@ -1252,9 +1272,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- deployed",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-592",
@@ -1681,17 +1701,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "Learning memory compounds post-launch.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Lessons carry confidence/evidence/superseded_by and improvements record rejection/reversion, but there is no unified withdrawn-claims register across experiments and research.",
-  "producer": "src/brambleloop/improve/bus.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/bus.py::withdraw; improve/bus.py::publish",
   "durable_state": "lessons, improvements, learning_observations, registered_experiments",
   "consumer": "src/brambleloop/improve/consume.py::matching",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_improve_wave.py::test_market_radar_and_listings_act_on_their_lessons",
-   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model"
+   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model",
+   "tests/test_w4_improvemetrics.py::test_a_withdrawn_lesson_is_kept_but_no_longer_matched"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: a lesson is withdrawn only with a reason and an evidence ref (audited lesson.withdrawn), stays on file, and is no longer matched by consume.matching; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
   "build2_rows": [
    "#97 COMPLETE+PROVEN",
    "#101 COMPLETE+PROVEN"
@@ -1702,9 +1725,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add a withdrawn-claim status to Lesson (withdrawn_at, reason) and make consume.matching exclude withdrawn lessons; test it.",
+  "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-606",
@@ -2117,19 +2140,21 @@
   "uid": "F-619",
   "launch_class": "MATURE",
   "launch_class_reason": "The full Command Center app is executive polish; launch-level owner visibility exists in the ops dashboard and owner-action queue (F-593/F-623).",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "No Today/Month/Finance/Products/Listings/Marketing/Customers/Experiments/Departments/Agent Activity/Owner Actions/System Health navigation; current dashboard is a single ops page plus JSON endpoints.",
-  "producer": "src/brambleloop/app/main.py::dashboard",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
   "durable_state": "(reads jobs, owner_actions, incidents, agents, audit_log)",
-  "consumer": "src/brambleloop/app/main.py::api_console",
+  "consumer": "the Command Center app (/cc/, owner session): every named area is a route with a view module, reading an /api/cc/* endpoint",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
+   "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
   ],
   "evidence": [
-   "dashboard '/' and /api/console present in fcb982d"
+   "dashboard '/' and /api/console present in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health each map to a Command Center route whose view file exists and to an API the app serves; the stores stay the source of truth (no new store); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN",
@@ -2141,9 +2166,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Build a tabbed owner web page (app/main.py routes /command/*) over existing endpoints, each tab reading its store, no new source of truth.",
+  "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-620",

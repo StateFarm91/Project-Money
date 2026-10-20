@@ -10,6 +10,7 @@ anything waiting on me.
 from __future__ import annotations
 
 import os
+import re
 from datetime import timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, Request
@@ -2162,8 +2163,17 @@ def api_model_tournament_image(sha256: str) -> Response:
     """
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
-    if not sha256.isalnum() or len(sha256) != 64:
+    sha256 = sha256.lower()
+    if len(sha256) != 64 or any(c not in "0123456789abcdef" for c in sha256):
         return JSONResponse({"error": "not a digest"}, status_code=400)
+    # INTEG4 / security review of 7f6dbe8 (B1): the store holds every artifact by digest --
+    # the paid pattern PDFs (now kept durably for delivery), experiment outputs and
+    # image-production candidates among them -- so this public route serves only what it
+    # exists for. A digest kept in Postgres for any purpose other than the canonical
+    # reference pack is not served, and neither is anything that is not an image.
+    refusal = tournament_image_refusal(sha256)
+    if refusal:
+        return JSONResponse({"error": "not a tournament image"}, status_code=404)
     try:
         # `db` so an image that was kept deliberately comes back after a restart. A
         # tournament field is evidence and re-rendering it is expected; the canonical
@@ -2173,8 +2183,55 @@ def api_model_tournament_image(sha256: str) -> Response:
     except ArtifactMissing as exc:
         # The hash is durable and the bytes are not, which the store says in its own words.
         return JSONResponse({"error": str(exc)}, status_code=404)
-    return Response(content=payload, media_type="image/png",
-                    headers={"Cache-Control": "public, max-age=86400"})
+    media = image_media_type(payload)
+    if media is None:
+        return JSONResponse({"error": "not a tournament image"}, status_code=404)
+    return Response(content=payload, media_type=media,
+                    headers={"Cache-Control": "private, max-age=86400",
+                             "X-Content-Type-Options": "nosniff"})
+
+
+def image_media_type(payload: bytes) -> str | None:
+    """The image type the bytes themselves declare (PNG, JPEG or WebP), else None."""
+    head = bytes(payload[:12])
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def tournament_image_refusal(sha256: str) -> str | None:
+    """Why the public tournament route must not serve this digest, or None.
+
+    An allowlist, failing closed. Served: a digest kept in Postgres for the canonical
+    reference pack, or one that a recorded tournament or reference-pack package names (the
+    only producer of this route's URLs is `visual.tournament._keep`, whose outputs those
+    packages carry). Refused: a row kept for anything else (customer deliverables, certified
+    listing frames, experiment outputs, image-production candidates, concept boards,
+    disclosed renders), any digest no package names (a chart, a PDF, a frame on disk), and
+    anything when the state cannot be read."""
+    import json as _json
+
+    from ..core.models import AuditLog, DurableArtifact
+    from ..visual import reference_pack, tournament
+
+    try:
+        with db.session() as s:
+            row = s.get(DurableArtifact, sha256)
+            if row is not None:
+                return (None if (row.why_kept or "") == reference_pack.KEEP_REASON[:200]
+                        else "kept for another purpose")
+            for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
+                    (tournament.TOURNAMENT_ACTION, reference_pack.PACK_ACTION)))
+                    .order_by(AuditLog.id.desc()).limit(50)):
+                if sha256 in _json.dumps(a.detail or {}, default=str):
+                    return None
+    except Exception as exc:  # noqa: BLE001 - unreadable: refuse, never serve blind
+        return f"state unreadable ({type(exc).__name__})"
+    return "no tournament or reference-pack package names this digest"
 
 
 @app.get("/api/model-tournament")
@@ -2964,22 +3021,28 @@ async def api_etsy_webhook(request: Request):
     operator credential); every delivery is verified against its own HMAC signature before a
     byte of the body is parsed, and a verified one only wakes the authenticated receipt read.
     2xx = stored or already stored; 4xx = refused (not retried usefully); 5xx = Etsy retries."""
-    from starlette.concurrency import run_in_threadpool
-
     from ..integrations import etsy_webhooks
 
     # REL2/L1: refuse on a declared Content-Length above the cap, and read the body as a
     # stream with a running cap, so an oversized body is never buffered whole.
-    # Security review of 5f18d11 (M1): the database work runs in the threadpool, never on the
+    # Security review of 5f18d11 (M1): the database work runs in a worker thread, never on the
     # event loop, so a refusal flood cannot stall every other request in this worker.
+    # Security review of 324927f (R1): that thread runs on the webhook's OWN small limiter
+    # (etsy_webhooks.GATE), never the shared default threadpool limiter, and a saturated gate
+    # answers 503 + Retry-After at once with no database work, so a flood cannot exhaust the
+    # threads or DB connections the owner's routes need.
+    gate = etsy_webhooks.GATE
     try:
         body = await etsy_webhooks.read_body(request.stream(),
                                              request.headers.get("content-length"))
     except etsy_webhooks.WebhookRefused as exc:
-        status, payload = await run_in_threadpool(etsy_webhooks.refuse, db, exc)
-        return JSONResponse(payload, status_code=status)
-    status, payload = await run_in_threadpool(etsy_webhooks.receive, db,
-                                              dict(request.headers), body)
+        out = await gate.run(etsy_webhooks.refuse, db, exc)
+    else:
+        out = await gate.run(etsy_webhooks.receive, db, dict(request.headers), body)
+    if out is None:
+        status, payload, headers = etsy_webhooks.busy()
+        return JSONResponse(payload, status_code=status, headers=headers)
+    status, payload = out
     return JSONResponse(payload, status_code=status)
 
 
@@ -4871,8 +4934,17 @@ def api_launch() -> dict:
 
 
 @app.get("/api/audit")
-def api_audit(limit: int = 100, action: str | None = None) -> dict:
-    """Read-only audit trail. The dashboard shows fifteen rows; verification needs more."""
+def api_audit(request: Request, limit: int = 100, action: str | None = None) -> dict:
+    """Read-only audit trail. The dashboard shows fifteen rows; verification needs more.
+
+    INTEG4 / security review of 7f6dbe8 (B1): without the operator credential, every full
+    sha256 digest in a row's detail is shortened to its first 12 characters, so the public
+    trail never hands out the address of a stored artifact (a paid pattern PDF among them).
+    The operator credential reads the rows unchanged."""
+    from .security import presents_operator_credential
+
+    full = presents_operator_credential(request.headers.get("authorization"))
+    shorten = (lambda d: d) if full else _shorten_digests
     with db.session() as s:
         q = select(AuditLog).order_by(AuditLog.id.desc()).limit(min(limit, 1000))
         if action:
@@ -4882,9 +4954,24 @@ def api_audit(limit: int = 100, action: str | None = None) -> dict:
         return {"audit": [
             {"id": a.id, "at": a.at.isoformat(), "actor": a.actor, "action": a.action,
              "artifact": a.artifact, "phase": a.phase.value if a.phase else None,
-             "detail": a.detail}
+             "detail": shorten(a.detail)}
             for a in rows
         ]}
+
+
+_DIGEST64 = re.compile(r"(?<![0-9a-fA-F])([0-9a-fA-F]{12})[0-9a-fA-F]{52}(?![0-9a-fA-F])")
+
+
+def _shorten_digests(value):
+    """`value` with every 64-hex-digit run cut to its 12-character prefix plus an ellipsis."""
+    if isinstance(value, str):
+        return _DIGEST64.sub(lambda m: m.group(1) + "…", value)
+    if isinstance(value, dict):
+        return {(_shorten_digests(k) if isinstance(k, str) else k): _shorten_digests(v)
+                for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_shorten_digests(v) for v in value]
+    return value
 
 
 # F-202: the audit action each /api/verify outcome is recorded under.

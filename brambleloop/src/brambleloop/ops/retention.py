@@ -266,6 +266,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                  "scores by month inside the horizon, and the daily "
                                  "creative.north_star operating_readings rows keep older "
                                  "cohorts"),
+    # CLOSE5: a complete grid-judge panel by content address; reused only inside
+    # creative.blinded.PANEL_REUSE_DAYS (56), far inside the 90-day horizon.
+    "creative.grid_panel": ("windowed", "creative.blinded.cached_panel reuses a complete "
+                            "panel for an identical grid judged within PANEL_REUSE_DAYS"),
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),

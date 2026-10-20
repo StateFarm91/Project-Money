@@ -7,7 +7,8 @@
  "sample": {
   "criterion_B_pattern": "every verified row whose criterion matches prelaunch_scope.B_PATTERNS (15)",
   "criterion_C_pattern": "8 of the 20 verified rows whose criterion matches C_PATTERNS",
-  "random": "18 rows, random.seed(20261019) over the verified_complete rows"
+  "random": "18 rows, random.seed(20261019) over the verified_complete rows",
+  "close5_random": "20 rows, random.seed(20261020) over the verified_complete rows not already audited, on the board regenerated against production b931d17 (W4-CLOSE5 2026-10-20)"
  },
  "rows": [
   {
@@ -495,6 +496,304 @@
    "evidence": [
     "tests/test_v11_accounting_money.py::test_forecast_is_a_range_with_assumptions_never_a_booked_point"
    ]
+  },
+  {
+   "source": "final_master",
+   "id": "F-784",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "all five named dimensions are compared and material overlap escalates: wording (hashes), unusual numeric runs, construction, distinctive features, presentation",
+   "evidence": [
+    "tests/test_k9_rows.py::test_presentation_is_a_similarity_dimension_read_from_the_library",
+    "tests/test_originality.py::test_a_relabelled_benchmark_1_is_escalated_for_redesign",
+    "tests/test_originality.py::test_a_light_derivative_of_benchmark_2_is_escalated_for_redesign",
+    "tests/test_originality.py::test_an_unusual_numeric_run_in_the_text_escalates_but_an_arithmetic_one_does_not",
+    "tests/test_originality.py::test_wording_overlap_is_measured_from_hashes_and_escalates"
+   ],
+   "production_reading": null,
+   "citation_finding": "ledger cites 2 of the 5 dimensions; the other three are asserted in tests/test_originality.py"
+  },
+  {
+   "source": "final_master",
+   "id": "F-251",
+   "sample": "close5_random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'Titles/tags follow shop-language rules; translations are deliberate and not used as impression bait'",
+   "evidence": [
+    "tests/test_search_truth.py::test_a_non_english_tag_is_refused_without_a_translation_record",
+    "tests/test_w3_k1_search.py::test_ascii_foreign_words_are_caught_and_bait_translations_refused"
+   ],
+   "production_reading": null,
+   "downgrade_reason": "both cited tests put the foreign words in a TAG; no test asserts a foreign-language TITLE is refused (seo.check_search_copy does scan the title, untested)",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_close5_audit.py::test_f251_a_foreign_language_title_is_refused_unless_a_deliberate_translation"
+    ],
+    "at": "2026-10-20",
+    "by": "W4-CLOSE5",
+    "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+   }
+  },
+  {
+   "source": "final_master",
+   "id": "F-073",
+   "sample": "close5_random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion names fitted garments, complex grading, closed 3-D forms, novel assemblies, high-yardage claims and new construction primitives",
+   "evidence": [
+    "tests/test_risk_matrix.py::test_a_closed_stuffed_form_is_class_c_and_a_declared_c_is_never_lowered",
+    "tests/test_risk_matrix.py::test_graded_garments_are_at_least_class_b",
+    "tests/test_risk_matrix.py::test_launch0_tiers_are_derived_from_features_not_typed"
+   ],
+   "production_reading": null,
+   "downgrade_reason": "no test asserts the multi_seam_assembly (novel assembly) or uncalibrated_primitive (new primitive) features raise the matrix class; both exist in gates/risk_matrix.features",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_close5_audit.py::test_f073_a_novel_assembly_raises_the_class_and_a_short_one_does_not",
+     "tests/test_w4_close5_audit.py::test_f073_a_new_construction_primitive_raises_the_class_until_calibrated"
+    ],
+    "at": "2026-10-20",
+    "by": "W4-CLOSE5",
+    "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+   }
+  },
+  {
+   "source": "final_master",
+   "id": "F-835",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "revalidation at the effect boundary on publish (halting incident, moved upstream), withholding through every rebuild path, a revoked grant before draft creation and a revoke/mutation during a reservation",
+   "evidence": [
+    "tests/test_cert_publish_gates.py::test_a_halting_incident_blocks_store_publish_before_any_upload",
+    "tests/test_draft_intent_precreate_refusal.py::PreCreateRefusal.test_revoked_grant_is_refused",
+    "tests/test_operating_cost_basis.py::test_revoke_or_mutate_during_reservation_refuses_external_effect"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "build2",
+   "id": 194,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "every named domain is required in a complete cycle; add/merge/retire/revise-metric moves are validated; the roadmap carries completeness forward",
+   "evidence": [
+    "tests/test_weekly.py::test_every_domain_the_requirement_names_is_present",
+    "tests/test_weekly.py::test_three_of_the_four_moves_are_not_additions",
+    "tests/test_weekly.py::test_a_valid_revision_preserves_the_old_metrics_history",
+    "tests/test_weekly.py::test_the_roadmap_carries_the_cycles_completeness_forward"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "final_master",
+   "id": "F-860",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "with the visual gate closed, unrelated READY work is next and claimable",
+   "evidence": [
+    "tests/test_w3_final_master_gate.py::test_executor_reports_parked_work_split_by_kind_and_the_final_master"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "build2",
+   "id": 219,
+   "sample": "close5_random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'a changing elite panel including other category leaders and purchased Benchmark Library products'",
+   "evidence": [
+    "tests/test_cert_intel_wave.py::test_panel_discovery_registers_and_scans_a_second_elite_seller_in_a_second_market"
+   ],
+   "production_reading": null,
+   "downgrade_reason": "the test adds a second observed seller; nothing asserts that a purchased Benchmark Library product (BenchmarkProduct) puts its seller on the panel, though mission_runtime.panel_members reads them",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_close5_audit.py::test_b2_219_a_purchased_library_product_puts_its_seller_on_the_panel"
+    ],
+    "at": "2026-10-20",
+    "by": "W4-CLOSE5",
+    "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+   }
+  },
+  {
+   "source": "build2",
+   "id": 57,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "four purpose classes exist and a chart cannot be the hero by rendering",
+   "evidence": [
+    "tests/test_eligibility.py::test_every_purpose_the_requirement_names_exists",
+    "tests/test_eligibility.py::test_a_chart_cannot_become_the_hero_by_rendering_successfully"
+   ],
+   "production_reading": null,
+   "citation_finding": "the ledger cites no test; the criterion is asserted in tests/test_eligibility.py"
+  },
+  {
+   "source": "build2",
+   "id": 139,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "a catchphrase is declared a slogan token and refused in copy; direct use needs a recorded basis; without one the original-language lane is taken",
+   "evidence": [
+    "tests/test_cert_intel_wave2.py::test_a_catchphrase_topic_declares_a_slogan_token_the_copy_screen_refuses",
+    "tests/test_cert_parity_copy.py::test_a_declared_catchphrase_in_the_copy_blocks_listing_seo_unless_cleared",
+    "tests/test_culture.py"
+   ],
+   "production_reading": null,
+   "citation_finding": "the ledger cites only test_cert_intel_wave2; clearance and the original lane are in test_cert_parity_copy and test_culture"
+  },
+  {
+   "source": "final_master",
+   "id": "F-277",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "concentration on one query is measured and listing.seo moves slots off shared phrases",
+   "evidence": [
+    "tests/test_portfolio.py::test_a_catalogue_all_reaching_for_one_term_is_concentrated_and_cannibalising",
+    "tests/test_cert_parity_copy.py::test_diversify_moves_slots_off_shared_phrases_when_alternatives_exist"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "final_master",
+   "id": "F-891",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "declared-tier routing never degrades a deep task; every department charter carries an evidence requirement and an escalation rule; idle work is evidence-backed",
+   "evidence": [
+    "tests/test_v11_reliability_gateway.py::test_deep_task_with_its_model_down_parks_rather_than_degrading",
+    "tests/test_v11_reliability_gateway.py::test_fallbacks_only_go_up_and_deep_has_none",
+    "tests/test_v11_autonomy_orchestrator.py::test_every_charter_has_kpis_with_guardrails_and_a_generator"
+   ],
+   "production_reading": null,
+   "citation_finding": "the charter test (escalation + evidence requirement per department) is not in the ledger's citation"
+  },
+  {
+   "source": "final_master",
+   "id": "F-057",
+   "sample": "close5_random",
+   "verdict": "DOWNGRADE",
+   "basis": "criterion: 'Capture buyer-relevant crochet technique/material differentiators truthfully'",
+   "evidence": [
+    "tests/test_commerce.py::test_a_technique_the_pattern_does_not_use_is_never_tagged"
+   ],
+   "production_reading": null,
+   "downgrade_reason": "only technique truth is asserted; no test refuses a MATERIAL the pattern does not use (seo.truth refuses it and seo.strategy blocks the family phrase, untested)",
+   "reclosed": {
+    "tests": [
+     "tests/test_w4_close5_audit.py::test_f057_a_material_the_pattern_does_not_use_is_refused_and_the_strategy_blocks_it"
+    ],
+    "at": "2026-10-20",
+    "by": "W4-CLOSE5",
+    "what": "the missing clause is now asserted by the named test(s); code unchanged (behaviour already in the deployed b931d17)"
+   }
+  },
+  {
+   "source": "build2",
+   "id": 200,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "the owner selects once; a second selection is a redesign; the pack is versioned, persisted, pinned by hash, and drift blocks",
+   "evidence": [
+    "tests/test_model_identity.py::test_the_owner_selects_one_and_a_second_selection_is_a_redesign",
+    "tests/test_model_identity.py::test_a_matching_face_passes_and_a_drifted_one_blocks",
+    "tests/test_model_freeze.py::test_nothing_freezes_without_the_owner_and_nothing_freezes_twice",
+    "tests/test_model_freeze.py::test_the_freeze_pins_every_reference_by_hash"
+   ],
+   "production_reading": null,
+   "citation_finding": "the ledger cites no test; the criterion is asserted in test_model_identity/test_model_freeze"
+  },
+  {
+   "source": "final_master",
+   "id": "F-133",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "a partial with no named gate or check is refused by both the adjudicator and the runtime",
+   "evidence": [
+    "tests/test_w3_final_master_gate.py::test_an_orphaned_partial_is_named_by_both_the_adjudicator_and_the_runtime"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "final_master",
+   "id": "F-700",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "each per-action clause blocks and fails closed; every clause names an importable enforcer",
+   "evidence": [
+    "tests/test_w3_k11_authority.py::test_f700_evaluate_blocks_each_per_action_clause_and_fails_closed",
+    "tests/test_w3_k11_authority.py::test_f700_every_clause_names_an_importable_enforcer"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "build2",
+   "id": 233,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "the ladder's rungs, gaps, tier movement (unmeasurable, not zero), lifetime value and the discount rules are asserted",
+   "evidence": [
+    "tests/test_ladder.py::test_a_complete_ladder_is_climbable",
+    "tests/test_ladder.py::test_tier_movement_is_unmeasurable_rather_than_zero",
+    "tests/test_ladder.py::test_lifetime_value_needs_a_lifetime",
+    "tests/test_ladder.py::test_the_flagship_is_never_routinely_discounted"
+   ],
+   "production_reading": null,
+   "citation_finding": "the ledger cites only test_cert_orders.py; the ladder is asserted in tests/test_ladder.py"
+  },
+  {
+   "source": "final_master",
+   "id": "F-101",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "every spend path is ceiling-checked (scan); a non-llm kind closes the month and an unknown kind counts inside the ceiling",
+   "evidence": [
+    "tests/test_model_spend_paths.py::test_no_model_spend_path_reaches_a_provider_without_the_ceiling_check",
+    "tests/test_rc1_spend.py::test_b2_image_spend_closes_the_monthly_ceiling"
+   ],
+   "production_reading": null,
+   "citation_finding": "the alias half is asserted by test_rc1_spend (not cited by the ledger)"
+  },
+  {
+   "source": "final_master",
+   "id": "F-918",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "every department has up-KPIs with guardrails; a refused job and duplicate/no-op output void or cannot farm the KPI",
+   "evidence": [
+    "tests/test_v11_autonomy_orchestrator.py::test_every_charter_has_kpis_with_guardrails_and_a_generator",
+    "tests/test_v11_autonomy_kpis.py::test_a_refused_job_voids_every_kpi_of_its_department",
+    "tests/test_v11_autonomy_kpis.py::test_duplicate_and_noop_outputs_cannot_farm_the_useful_count"
+   ],
+   "production_reading": null,
+   "citation_finding": "the 'each department has KPIs plus guardrails' test is not in the ledger's citation"
+  },
+  {
+   "source": "final_master",
+   "id": "F-074",
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "a new primitive starts uncalibrated and restricts the certificate until a passed sample calibrates it",
+   "evidence": [
+    "tests/test_gates.py::test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence",
+    "tests/test_gates.py::test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated"
+   ],
+   "production_reading": null
+  },
+  {
+   "source": "build2",
+   "id": 63,
+   "sample": "close5_random",
+   "verdict": "PASS",
+   "basis": "the six-stage flow runs in order in assets.build; invented content is blocked in every category (motif, dimension, texture, construction, deliverable) and sent back to the brief",
+   "evidence": [
+    "tests/test_cert_parity_copy.py::test_assets_build_walks_the_evidence_to_creative_flow",
+    "tests/test_cert_parity_copy.py::test_creative_that_invents_a_stitch_is_blocked_and_sent_back_to_the_brief",
+    "tests/test_brief.py::test_invention_is_caught_in_each_category_not_only_motifs",
+    "tests/test_brief.py::test_a_deliverable_nobody_ships_is_the_expensive_one"
+   ],
+   "production_reading": null,
+   "citation_finding": "the category-by-category invention test is in tests/test_brief.py (not cited)"
   }
  ]
 }

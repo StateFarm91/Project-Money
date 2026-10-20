@@ -3,23 +3,25 @@
   "uid": "F-651",
   "launch_class": "MATURE",
   "launch_class_reason": "F-698: the unified Studio is a long-term operating requirement, not a first-sale gate",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "No unified app with Command Center/Products/Visual/Etsy/Marketing/Finance/Customers/QA/Research/Reliability/Agents/Owner Inbox workspaces. What exists is one server-rendered scrolling page ('/') with guarded blocks plus ~200 separate JSON /api/* endpoints and one extra HTML page (/ops/teardown).",
-  "producer": "src/brambleloop/app/main.py::dashboard",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/tabs.py::WORKSPACES",
   "durable_state": "Postgres tables read live (jobs, audit_log, incidents, owner_actions, products, agents)",
-  "consumer": "src/brambleloop/app/main.py::api_console",
+  "consumer": "the Command Center app (/cc/)",
   "protected_effect": "owner reads company state without inferring from logs",
   "tests": [
    "tests/test_deploy.py::test_dashboard_renders_without_a_build_step",
    "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
    "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
-   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing"
+   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+   "tests/test_w4_ccfm1.py::test_every_named_owner_area_has_a_route_and_an_api"
   ],
   "evidence": [
    "src/brambleloop/app/main.py:4676 dashboard (single page, blocks: Build 2 coverage, Visual pipeline, MJs mission, Seasonal, CA$5K model, Creative, Improvement, Capabilities, Health, Waiting on the owner, Learning, Launch readiness, Jobs, Products, Incidents, Spend, Agents, Audit)",
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-   "#183 note: console read in production ('found by reading the live console')"
+   "#183 note: console read in production ('found by reading the live console')",
+   "w4-CLOSE5 on deployed b931d17: the Command Center is the one app holding Command Center, Products, Visual (/cc/image-review), Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox, each a served route; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN",
@@ -31,9 +33,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Build a Studio shell (e.g. src/brambleloop/app/studio.py + templates) with one route per department workspace, each composed from the existing /api/* producers; add a test that every named workspace renders from DB state.",
+  "next_action": "none -- W4-CCFM1 built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-652",
@@ -138,21 +140,24 @@
   "launch_class": "MATURE",
   "launch_class_reason": "throughput optimisation across lanes; the worker already processes the queue continuously",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "No measurement or alarm for valuable READY work left untouched because another lane is busy; lane concurrency is an in-process pool sized by allocation, not per-department capacity; not deployed (bands/aging/lanes/feed_idle all post-fcb982d).",
-  "producer": "src/brambleloop/swarm/orchestrate.py::allocate",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/metrics.py::starved_ready",
   "durable_state": "swarm_allocations table; jobs.priority (bands)",
-  "consumer": "src/brambleloop/swarm/orchestrate.py::may_claim",
+  "consumer": "src/brambleloop/ops/health.py (starved_ready signal); GET /api/swarm/runtime",
   "protected_effect": "a lane over its share yields while another lane waits; aged low-band work is claimed",
   "tests": [
    "tests/test_chaos.py::test_aging_claims_a_low_band_job_within_the_stated_bound",
    "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
    "tests/test_cert_lanes_capacity.py::test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits",
-   "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once"
+   "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
+   "tests/test_w4_swarmmetrics.py::test_late_ready_work_with_idle_capacity_is_starved",
+   "tests/test_w4_swarmmetrics.py::test_health_reports_starved_ready_as_a_signal"
   ],
   "evidence": [
    "src/brambleloop/queue/durable.py AGING_STEP_SECONDS/_effective_priority",
-   "src/brambleloop/runtime/worker.py cadences swarm_allocate/swarm_backlog (not in fcb982d)"
+   "src/brambleloop/runtime/worker.py cadences swarm_allocate/swarm_backlog (not in fcb982d)",
+   "w4-CLOSE5: production b931d17 research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261020T0540Z.json starved_ready: reading ok, starved 0, late_ready 0, capacity_idle true -- 'no READY work is past its band SLA'; the ops/health signal is DEGRADED when starved"
   ],
   "build2_rows": [
    "#174 COMPLETE+PROVEN",
@@ -166,9 +171,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Add a starved-READY metric (ready jobs older than their band SLA while any lane is idle) to ops/health.read and surface it; deploy.",
+  "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-656",
@@ -209,34 +214,38 @@
   "launch_class": "MATURE",
   "launch_class_reason": "event-driven latency; polling cadences cover first-sale order/support handling",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Wakeups are fixed-period polling cadences plus follow-on enqueues on completion; no event ingestion (no webhooks, no Etsy event feed, no message/review/refund events). orders_ingest and support_triage cadences are post-fcb982d.",
-  "producer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/autonomy/event_wakes.py::scan",
   "durable_state": "jobs table",
-  "consumer": "src/brambleloop/runtime/pipeline.py (ctx.enqueue follow-ons, e.g. cir.compile -> gate.certify -> listing.draft)",
+  "consumer": "src/brambleloop/autonomy/handlers.py::handle_orchestrate (autonomy.orchestrate tick runs the scan; each wake enqueues its team's job once)",
   "protected_effect": "work follows completions; a material policy change opens a blocking incident",
   "tests": [
    "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
    "tests/test_cert_intel_wave2.py::test_a_material_policy_change_opens_a_blocking_incident_until_reviewed",
-   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion"
+   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion",
+   "tests/test_w4_fmclose_etsy.py::test_f657_each_business_event_wakes_its_team_once",
+   "tests/test_w4_fmclose_etsy.py::test_f657_the_orchestrate_tick_runs_the_event_scan"
   ],
   "evidence": [
    "src/brambleloop/runtime/worker.py CADENCES (orders_ingest 6h, support_triage 1h, finance_governor 1h, policy_watch 24h)",
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w4-CLOSE5 on deployed b931d17: orders, refunds, reviews, messages, policy changes, incidents, spend anomalies, research signals and owner decisions each wake their team once (idempotency wake:<kind>:<marker>); Etsy events wake from the webhook receiver; schedules are the Scheduler's cadences; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN",
    "#214 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "order/receipt events need the owner's Etsy re-authorisation; a generic event bus can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "Add an event table + dispatcher (e.g. src/brambleloop/queue/events.py) mapping event kinds (order, message, review, refund, policy_change, incident, spend_anomaly, owner_decision) to job enqueues; have orders_ingest/support/governor/owner-decision emit events; test a wake per kind.",
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-658",
@@ -327,8 +336,8 @@
   "launch_class": "MATURE",
   "launch_class_reason": "capacity elasticity; first sale does not need burst capacity",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime independence from cloud sessions is proven, but there is no runtime burst-capacity path at all: 'elastic' is an in-process thread pool sized by swarm.allocate (not deployed); cloud sessions are development tooling only.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/runner.py",
   "durable_state": "swarm_allocations table",
   "consumer": "src/brambleloop/swarm/orchestrate.py::parallelism_advice",
@@ -336,11 +345,14 @@
   "tests": [
    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
    "tests/test_cert_claude_independence.py::test_the_deployed_image_and_start_command_carry_no_session_state",
-   "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target"
+   "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target",
+   "tests/test_w4_f660_zero_credit.py::test_three_agents_work_concurrently_with_zero_cloud_credit",
+   "tests/test_w4_f660_zero_credit.py::test_the_dispatch_path_does_not_read_the_credit_wallet"
   ],
   "evidence": [
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
-   "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota"
+   "research/CLOUD_SESSIONS.md: cloud sessions hold no production credentials; add parallelism, possibly not quota",
+   "w4-CLOSE5 on deployed b931d17: with the credit wallet empty and cloud/provider credential variables unset, three agents work concurrently through the runtime dispatch path, which never reads the credit wallet -- cloud sessions are burst capacity, not a dependency; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#175 COMPLETE+PROVEN",
@@ -352,9 +364,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Record a zero-cloud-credit test run (runtime unaffected) as evidence; if burst is wanted, add a bounded extra-worker service definition governed by finance ceilings.",
+  "next_action": "none -- verified locally by W4-CCALL; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-661",
@@ -1053,31 +1065,35 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "pricing/economics integrity: mismatches must never be silently zeroed",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Spend-side reconciliation exists (attribution must sum to the bill or is refused; estimate vs actual recorded). Revenue-side reconciliation against Etsy receipts/payments/payouts, discrepancy records, close status and tax/threshold alerts are missing; finance.reconcile only recomputes the P&L.",
-  "producer": "src/brambleloop/finance/governor.py::attribution",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/accounting/activity.py::activity",
   "durable_state": "cost_entries (estimate beside actual), spend_reservations",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+  "consumer": "src/brambleloop/finance/accounting/dashboard.py::summary (owner Money view, activity block)",
   "protected_effect": "an attribution table that does not sum to the bill is refused",
   "tests": [
    "tests/test_governor.py::test_every_dollar_is_attributed_or_named_unattributed",
-   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles"
+   "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles",
+   "tests/test_w4_fmclose_etsy.py::test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+   "tests/test_w4_fmclose_etsy.py::test_f682_threshold_alert_approaches_and_crosses"
   ],
   "evidence": [
-   "src/brambleloop/runtime/pipeline.py:1493 finance.reconcile (P&L only)"
+   "src/brambleloop/runtime/pipeline.py:1493 finance.reconcile (P&L only)",
+   "w4-CLOSE5 on deployed b931d17: activity() shows last reconciliation (NEVER_RUN before the first), the open fee mismatch with booked vs statement evidence, close status (locked periods) and tax/threshold alerts (UNKNOWN is never 0); a second controller cycle leaves the discrepancy open, never zeroed; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "revenue reconciliation needs Etsy receipts; the reconciliation engine can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); no owner step remains on this row"
   },
   "defect": null,
-  "next_action": "Build finance/reconcile.py comparing LedgerEntry revenue/fees to ingested Etsy receipts and payouts, persisting Discrepancy rows (never zeroed) and a close status; expose on /api/finance; test a mismatch stays open.",
+  "next_action": "none -- W4-FMCLOSE built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-683",
@@ -1840,18 +1856,21 @@
   "launch_class": "MATURE",
   "launch_class_reason": "institutional memory is compounding capability",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Experiments, evidence, cost, result and decision persist, but nothing checks a new proposal against prior failed experiments: cells.propose has no repeat lookup; only self_review flags a tactic family rejected twice.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/improve/cells.py::propose",
   "durable_state": "improvements, registered_experiments, lessons",
-  "consumer": "src/brambleloop/improve/profiles.py::self_review",
+  "consumer": "src/brambleloop/improve/failure_memory.py::check (consulted by propose); src/brambleloop/improve/profiles.py::self_review",
   "protected_effect": null,
   "tests": [
    "tests/test_profiles.py::test_a_tactic_rejected_twice_for_the_same_reason_is_recorded_as_answered",
-   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards"
+   "tests/test_experiment_persistence.py::test_registration_is_write_once_so_a_threshold_cannot_move_afterwards",
+   "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+   "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered"
   ],
   "evidence": [
-   "src/brambleloop/improve/cells.py:151 propose (no prior-experiment check)"
+   "src/brambleloop/improve/cells.py:151 propose (no prior-experiment check)",
+   "w4-CLOSE5 on deployed b931d17: the recorded defect (no guard against repeating a known failed experiment) is fixed: the identical failed improvement proposed months later is refused and the refusal is audited; experiments, evidence, cost, result and decision persist as before; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#93 COMPLETE+PROVEN",
@@ -1863,10 +1882,10 @@
    "key": "none",
    "detail": "no gate on the remaining software work"
   },
-  "defect": "no guard against unknowingly repeating a known failed experiment",
-  "next_action": "In cells.propose, look up REJECTED/REVERTED improvements with the same cell+touches+hypothesis fingerprint and refuse unless new evidence is cited; test the v0.20 'same failed improvement months later' scenario.",
+  "defect": null,
+  "next_action": "none -- the repeat guard (W4-FAILMEM) is deployed in b931d17",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-707",
@@ -2211,21 +2230,27 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "runtime durability/provenance: critical state must not live in a conversation",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved canonical pack fingerprint exists only in a production audit row (not reproducible from the repo), and dev-lane state depends on ops/registry records rather than company objects.",
-  "producer": "src/brambleloop/core/db.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/db.py; src/brambleloop/visual/approval_record.py::compare",
   "durable_state": "Postgres; repository files",
-  "consumer": "src/brambleloop/runtime/worker.py",
+  "consumer": "src/brambleloop/app/main.py::api_model_identity (approval_record state); src/brambleloop/runtime/worker.py",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_claude_independence.py::test_the_runtime_import_closure_names_no_claude_session_artefact",
    "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
-   "tests/test_model_identity.py::test_the_pack_survives_a_restart"
+   "tests/test_model_identity.py::test_the_pack_survives_a_restart",
+   "tests/test_w4_provenance.py::test_a_matching_database_row_is_match",
+   "tests/test_w4_provenance.py::test_the_model_identity_route_serves_the_comparison",
+   "tests/test_w4_close5_rows.py::test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+   "tests/test_w4_close5_rows.py::test_f718_the_runtime_reads_no_dev_lane_or_session_state"
   ],
   "evidence": [
    "build2 #198 note: owner aesthetic direction recorded in visual/brief.py as code rather than chat",
    "research/BUILD2_CLOSEOUT_REPORT.md I: approved pack fingerprint left None, exists only in production audit row",
-   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1"
+   "w4-FMGATE on 0417f35: the gate (production_window) does not govern this row: the approval record is already readable from production -- GET /api/audit?action=model.frozen row 5693 (2026-09-22T03:52:53Z, pack_version v15, candidate_fingerprint 914ee7da716baef7) and /api/model-identity canonical_selected:true v1",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_model_identity_20261020T0416Z.json approval_record.state MATCH, database_audit_id 5693, mismatched_fields [] -- the repository record visual/approval_record.json and production's model.frozen row agree on every pinned field (research/final_build/w4/evidence_BOARD/prod_api_audit_model_frozen_20261020T0416Z.json)",
+   "w4-CLOSE5 on deployed b931d17: the 'dev-lane state depends on ops/registry records' gap -- ops/registry.py (ops/JOBS.json) is operator tooling for build sessions, outside the deployed tree; no runtime module imports it, opens its file or reads its variable (test), and each lane's outcome is committed (branch + research/final_build/w4/<NAME>.md, WORKER_RULES). Judgment call recorded in w4/CLOSE5.md for the owner"
   ],
   "build2_rows": [
    "#101 COMPLETE+PROVEN",
@@ -2237,9 +2262,9 @@
    "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "company: export the production model.frozen approval record and pack fingerprint into the repository manifest with a test that the manifest matches the DB row (read-only GET suffices)",
+  "next_action": "none -- the approval record is a repository object (W4-PROVENANCE) and production reads MATCH; the runtime reads no dev-lane state",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35"
+  "searched": "w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1) | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-719",
@@ -2591,17 +2616,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "operating definition; mechanisms are throughput optimisation",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Idle feeding never spends and polling types with no change are backed off, so no wasteful calls; opportunity discovery is cadence-based and 'acted on' is not measured.",
-  "producer": "src/brambleloop/swarm/orchestrate.py::feed_idle",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/metrics.py::untouched_opportunities",
   "durable_state": "jobs",
-  "consumer": "src/brambleloop/swarm/orchestrate.py::suspended_job_types",
+  "consumer": "GET /api/swarm/runtime; src/brambleloop/swarm/orchestrate.py::feed_idle",
   "protected_effect": "idleness never buys work",
   "tests": [
    "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
-   "tests/test_swarm.py::test_an_idle_agent_takes_the_backlog_rather_than_polling_or_stopping"
+   "tests/test_swarm.py::test_an_idle_agent_takes_the_backlog_rather_than_polling_or_stopping",
+   "tests/test_w4_swarmmetrics.py::test_untouched_opportunities_are_counted_and_value_weighted"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5: production b931d17 research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261020T0540Z.json untouched_opportunities: reading ok, untouched 0 of 20 discovered gaps after 7 days, 'every discovered gap was acted on within the window'; idle feeding spends nothing (existing evidence)"
+  ],
   "build2_rows": [
    "#186 COMPLETE+PROVEN"
   ],
@@ -2611,9 +2639,9 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "Measure untouched opportunities (F-719).",
+  "next_action": "none in code -- dev-proven (swarm/metrics.py edited on this branch); the production reading already holds",
   "confidence": "LOW",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-731",

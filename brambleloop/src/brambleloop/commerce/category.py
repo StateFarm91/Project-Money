@@ -98,12 +98,17 @@ class CategoryChoice:
     snapshot_id: int | None = None
     why: str = ""
     considered: list[dict] = field(default_factory=list)
+    # W4-FIRSTSALE: how the node is known to be a CROCHET pattern node -- "path" (an
+    # ancestor-or-self is named crochet) or the node's own Etsy property that offers the
+    # value "Crochet" (property_id/value_id as Etsy returned them). None when UNKNOWN.
+    crochet_basis: dict | None = None
 
     def to_dict(self) -> dict:
         return {"status": self.status, "taxonomy_id": self.taxonomy_id,
                 "path_ids": list(self.path_ids), "path_names": list(self.path_names),
                 "snapshot_id": self.snapshot_id, "why": self.why,
-                "considered": list(self.considered)}
+                "considered": list(self.considered),
+                "crochet_basis": dict(self.crochet_basis) if self.crochet_basis else None}
 
 
 def _index(snapshot: dict) -> dict[int, dict]:
@@ -121,6 +126,127 @@ def crochet_pattern_root(snapshot: dict) -> dict | None:
     return best
 
 
+# ---- W4-FIRSTSALE (B2): the tree production actually reads ------------------------------
+#
+# Production read Etsy's real seller taxonomy daily (3065 nodes, 2026-10-17..20) and no node's
+# path names both a pattern and crochet, so `crochet_pattern_root` is None and every category
+# stayed UNKNOWN. Etsy documents the seller taxonomy as a tree of SellerTaxonomyNode (id,
+# level, name, parent_id, children, full_path_taxonomy_ids) and documents per-node product
+# properties (getPropertiesByTaxonomyId: property_id, name, possible_values[value_id, name]),
+# https://developers.etsy.com/documentation/reference#operation/getSellerTaxonomyNodes and
+# #operation/getPropertiesByTaxonomyId (OpenAPI 3.0.0, read 2026-10-20). The technique a
+# pattern teaches can therefore be a PROPERTY of a pattern node rather than a node itself.
+#
+# So a second, stricter route to CHOSEN: the unique pattern-named root (not under another
+# craft), descended by the product's own terms, and CHOSEN only when Etsy's own property
+# schema for exactly that node offers the value "Crochet". Names locate the node; ids, paths
+# and the crochet value come only from the stored snapshot Etsy returned. Nothing is assumed:
+# no snapshot, no unique root, or no stored schema offering "Crochet" is UNKNOWN.
+
+# A pattern node under one of these is another craft's pattern, never a crochet pattern.
+OTHER_CRAFTS = ("knit", "sew", "quilt", "cross stitch", "embroider", "needlepoint", "weav",
+                "macrame", "tatting", "felt", "bead", "jewel", "paper", "wood", "leather",
+                "pottery", "ceramic", "candle", "soap", "glass", "stained", "punch needle",
+                "rug hook", "latch hook", "lace making", "bobbin", "tapestry")
+CROCHET_VALUE = "Crochet"
+MODE_PATH = "path"
+MODE_PROPERTY = "pattern_node_with_crochet_property"
+
+
+def _other_craft(node: dict) -> bool:
+    text = " ".join(n.lower() for n in node.get("path_names") or [])
+    return any(c in text for c in OTHER_CRAFTS)
+
+
+def pattern_roots(snapshot: dict) -> list[dict]:
+    """Pattern-named nodes not under another pattern-named node and not another craft's."""
+    nodes = snapshot.get("nodes") or []
+    named = [n for n in nodes if "pattern" in str(n.get("name") or "").lower()
+             and not _other_craft(n)]
+    named_ids = {int(n["id"]) for n in named}
+    return sorted((n for n in named
+                   if not any(int(a) in named_ids for a in (n.get("path_ids") or [])[:-1])),
+                  key=lambda n: (len(n.get("path_ids") or []), int(n["id"])))
+
+
+def pattern_root(snapshot: dict) -> tuple[dict | None, str]:
+    """(the one pattern root, why). Several unrelated roots are ambiguous and refused,
+    except that one under a top-level node named for craft supplies is preferred."""
+    roots = pattern_roots(snapshot)
+    if len(roots) > 1:
+        crafty = [r for r in roots if "craft" in str((r.get("path_names") or [""])[0]).lower()]
+        roots = crafty if len(crafty) == 1 else roots
+    if not roots:
+        return None, "the stored taxonomy has no pattern-named node outside another craft"
+    if len(roots) > 1:
+        return None, ("the stored taxonomy has several unrelated pattern roots and none is "
+                      "under craft supplies alone: "
+                      + "; ".join(" > ".join(r["path_names"]) for r in roots[:6]))
+    return roots[0], ""
+
+
+def crochet_property(snapshot: dict, taxonomy_id: int) -> dict | None:
+    """The property of this node, as Etsy returned it, that offers the value "Crochet"."""
+    raw = (snapshot.get("properties") or {}).get(str(int(taxonomy_id)))
+    for p in raw or []:
+        hit = _value(p, CROCHET_VALUE)
+        if hit is not None and hit.get("value_id") is not None:
+            return {"via": "property", "property_id": p.get("property_id"),
+                    "property": p.get("name") or p.get("display_name"),
+                    "value_id": hit.get("value_id"), "value": hit.get("name")}
+    return None
+
+
+def _descend(index: dict, root: dict, terms: dict, *, pattern_children: bool) -> tuple:
+    node, considered = root, []
+    while True:
+        children = [index[c] for c in node.get("child_ids") or [] if c in index]
+        if pattern_children:
+            children = [c for c in children if not _other_craft(c)]
+        by_object = [c for c in children if _names(c, terms["object"])]
+        by_family = [c for c in children if _names(c, terms["family"])] if terms["family"] \
+            else []
+        # Under a generic pattern root, a child that is itself a pattern node (Etsy files
+        # finished-object patterns beneath it) is deeper and still truthful for a pattern.
+        # Only a GENERIC pattern child is descended into this way: one naming another object
+        # or shelf ("Blanket Patterns", "Home Decor Patterns" for an ornament) is someone
+        # else's category, and descending into it would be a claim the tree does not make.
+        others = tuple(t for v in CATEGORY_NODE_TERMS.values()
+                       for t in v["object"] + v["family"]
+                       if t not in terms["object"] and t not in terms["family"])
+        by_pattern = ([c for c in children if "pattern" in c["name"].lower()
+                       and not _names(c, others)] if pattern_children else [])
+        considered.append({"at": node["id"], "children": [c["name"] for c in children],
+                           "object_matches": [c["name"] for c in by_object],
+                           "family_matches": [c["name"] for c in by_family]}
+                          | ({"pattern_matches": [c["name"] for c in by_pattern]}
+                             if pattern_children else {}))
+        pick = (by_object or by_family or by_pattern)
+        if not pick:
+            break
+        # Two siblings both naming the product is a tie the tree cannot settle; the lower id
+        # makes the choice deterministic and `considered` records that it was a tie.
+        node = sorted(pick, key=lambda c: int(c["id"]))[0]
+    return node, considered
+
+
+def candidate_node(snapshot: dict | None, category: str) -> tuple[dict | None, str, str]:
+    """(node, mode, why) located by names alone -- what `refresh` reads the schema of."""
+    if not snapshot:
+        return None, "", "no snapshot"
+    index = _index(snapshot)
+    terms = _terms(category)
+    root = crochet_pattern_root(snapshot)
+    if root is not None:
+        node, _ = _descend(index, root, terms, pattern_children=False)
+        return node, MODE_PATH, ""
+    root, why = pattern_root(snapshot)
+    if root is None:
+        return None, "", why
+    node, _ = _descend(index, root, terms, pattern_children=True)
+    return node, MODE_PROPERTY, ""
+
+
 def choose(snapshot: dict | None, category: str) -> CategoryChoice:
     """The deepest node in the crochet-pattern subtree that truthfully names this product."""
     if not snapshot:
@@ -128,31 +254,41 @@ def choose(snapshot: dict | None, category: str) -> CategoryChoice:
             "no Etsy taxonomy snapshot is stored: the tree has never been read, so no "
             "category can be chosen and none is assumed (taxonomy 66 was never verified)"))
     index = _index(snapshot)
-    root = crochet_pattern_root(snapshot)
-    if root is None:
-        return CategoryChoice(UNKNOWN, snapshot_id=snapshot.get("id"), why=(
-            "the stored taxonomy has no node whose path names both a pattern and crochet"))
     terms = _terms(category)
-    node, considered = root, []
-    while True:
-        children = [index[c] for c in node.get("child_ids") or [] if c in index]
-        by_object = [c for c in children if _names(c, terms["object"])]
-        by_family = [c for c in children if _names(c, terms["family"])] if terms["family"] \
-            else []
-        considered.append({"at": node["id"], "children": [c["name"] for c in children],
-                           "object_matches": [c["name"] for c in by_object],
-                           "family_matches": [c["name"] for c in by_family]})
-        pick = (by_object or by_family)
-        if not pick:
-            break
-        # Two siblings both naming the product is a tie the tree cannot settle; the lower id
-        # makes the choice deterministic and `considered` records that it was a tie.
-        node = sorted(pick, key=lambda c: int(c["id"]))[0]
+    root = crochet_pattern_root(snapshot)
+    if root is not None:
+        node, considered = _descend(index, root, terms, pattern_children=False)
+        return CategoryChoice(
+            CHOSEN, taxonomy_id=int(node["id"]), path_ids=list(node["path_ids"]),
+            path_names=list(node["path_names"]), snapshot_id=snapshot.get("id"),
+            why=(f"deepest crochet-pattern node naming a {category.replace('_', ' ')}: "
+                 f"{' > '.join(node['path_names'])}"), considered=considered,
+            crochet_basis={"via": MODE_PATH})
+    proot, why = pattern_root(snapshot)
+    if proot is None:
+        return CategoryChoice(UNKNOWN, snapshot_id=snapshot.get("id"), why=(
+            "the stored taxonomy has no node whose path names both a pattern and crochet, "
+            f"and no single pattern root to confirm crochet on by property ({why})"))
+    node, considered = _descend(index, proot, terms, pattern_children=True)
+    nid = int(node["id"])
+    if str(nid) not in (snapshot.get("properties") or {}):
+        return CategoryChoice(UNKNOWN, snapshot_id=snapshot.get("id"), considered=considered,
+                              why=(f"pattern node {' > '.join(node['path_names'])} has no "
+                                   "stored property schema, so crochet is not confirmed by "
+                                   "Etsy; the refresh reads it"))
+    basis = crochet_property(snapshot, nid)
+    if basis is None:
+        return CategoryChoice(UNKNOWN, snapshot_id=snapshot.get("id"), considered=considered,
+                              why=(f"Etsy's property schema for {' > '.join(node['path_names'])}"
+                                   f" offers no {CROCHET_VALUE!r} value, so this node is not "
+                                   "known to be a crochet pattern node"))
     return CategoryChoice(
-        CHOSEN, taxonomy_id=int(node["id"]), path_ids=list(node["path_ids"]),
+        CHOSEN, taxonomy_id=nid, path_ids=list(node["path_ids"]),
         path_names=list(node["path_names"]), snapshot_id=snapshot.get("id"),
-        why=(f"deepest crochet-pattern node naming a {category.replace('_', ' ')}: "
-             f"{' > '.join(node['path_names'])}"), considered=considered)
+        why=(f"deepest pattern node naming a {category.replace('_', ' ')}: "
+             f"{' > '.join(node['path_names'])}; crochet confirmed by Etsy's own property "
+             f"{basis['property']!r} offering {basis['value']!r}"),
+        considered=considered, crochet_basis=basis)
 
 
 def refuse_broad(snapshot: dict | None, taxonomy_id: int | None, category: str) -> str | None:
@@ -346,6 +482,15 @@ def _decide(prop: dict, facts: Facts) -> dict:
                     f"pattern; it cannot be called complete until one does")}
 
 
+def _crochet_decision(prop: dict, basis: dict) -> dict:
+    """The property that makes this node a crochet node is set to Etsy's own Crochet value."""
+    return {"property_id": prop.get("property_id"), "name": prop.get("name"),
+            "is_required": bool(prop.get("is_required")), "status": SET,
+            "source": "the product is a crochet pattern (category crochet basis)",
+            "value_ids": [basis.get("value_id")], "values": [basis.get("value")],
+            "scale_id": None}
+
+
 def properties_for(snapshot: dict | None, choice: CategoryChoice, facts: Facts) -> dict:
     """Every property of the chosen node, decided, plus the payload and the filter audit."""
     if choice.status != CHOSEN or not snapshot:
@@ -357,7 +502,10 @@ def properties_for(snapshot: dict | None, choice: CategoryChoice, facts: Facts) 
         return {"status": UNKNOWN, "decisions": [], "payload": [], "complete": False,
                 "why": f"the snapshot holds no property schema for node {choice.taxonomy_id}",
                 "filters": {"entered": [], "lost": [], "measurable": False}}
-    decisions = [_decide(p, facts) for p in raw]
+    basis = choice.crochet_basis or {}
+    decisions = [_crochet_decision(p, basis) if basis.get("via") == "property"
+                 and p.get("property_id") == basis.get("property_id") else _decide(p, facts)
+                 for p in raw]
     gaps = [d for d in decisions if d["status"] in (MISSING, UNDECIDED)]
     payload = [{"property_id": d["property_id"], "value_ids": d["value_ids"],
                 "values": d["values"], "scale_id": d["scale_id"], "name": d["name"]}

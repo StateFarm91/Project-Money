@@ -864,18 +864,24 @@
   "launch_class": "MATURE",
   "launch_class_reason": "failure memory for methods/providers is an efficiency/learning capability",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no fingerprinted registry of rejected methods/providers/prompts/architectures; stop_doing is advisory and does not block re-proposal; visual/provider rejections live in prose (DECISION_LOG, module docstrings)",
-  "producer": "src/brambleloop/improve/director.py::stop_doing",
-  "durable_state": "improvements (REJECTED/REVERTED with why)",
-  "consumer": "src/brambleloop/improve/cells.py::retrospective",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::check; improve/failure_memory.py::record",
+  "durable_state": "failure_memory; improvements",
+  "consumer": "src/brambleloop/improve/cells.py::propose (refuses a repeat of a measured failure inside its scope unless new evidence or a changed premise is cited)",
   "protected_effect": "tactics rejected repeatedly and reverted changes are surfaced as STOP items; dead jobs are not re-driven under the same build without a changed hypothesis",
   "tests": [
    "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next",
-   "tests/test_persistence.py::test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect"
+   "tests/test_persistence.py::test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect",
+   "tests/test_w4_failmem.py::test_the_same_failed_improvement_months_later_is_refused",
+   "tests/test_w4_failmem.py::test_new_evidence_or_a_changed_premise_reopens_the_question",
+   "tests/test_w4_failmem.py::test_decision_log_dead_ends_are_seeded_and_enforced",
+   "tests/test_w4_failmem.py::test_digits_are_kept_so_new_measurements_are_a_new_claim"
   ],
   "evidence": [
-   "#34 stagnation: requeue_dead refuses re-drive under same SHA; suspension lifts on changed hypothesis"
+   "#34 stagnation: requeue_dead refuses re-drive under same SHA; suspension lifts on changed hypothesis",
+   "w4-CLOSE5 on deployed b931d17: failures are fingerprinted (cell, normalised claim, touches, premise digest) with the evidence ids that rejected them; cells.propose refuses the repeat (audited improve.repeat_refused) and reopens on new evidence or a changed premise; DECISION_LOG dead ends are seeded; the recorded defect (stop_doing advisory, propose did not consult it) is fixed by that guard; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [
    "#34 COMPLETE+PROVEN",
@@ -887,10 +893,10 @@
    "key": null,
    "detail": "no external gate on the remaining step"
   },
-  "defect": "stop_doing output is advisory; cells.propose does not consult it",
-  "next_action": "add improve/failure_memory.py (fingerprint = cell+normalised hypothesis/method+premise digest, evidence ids) and make cells.propose refuse a matching fingerprint unless new evidence ids or a changed premise are supplied; seed with visual/provider rejections from DECISION_LOG",
+  "defect": null,
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-379",
@@ -1541,18 +1547,21 @@
   "launch_class": "MATURE",
   "launch_class_reason": "learning health reporting",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "repeated-failure avoidance and cost per adopted improvement are not computed",
-  "producer": "src/brambleloop/improve/director.py::experiments",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py::retrospective; improve/director.py::experiments",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py::api_improve",
   "protected_effect": null,
   "tests": [
    "tests/test_improve.py::test_the_retrospective_reports_what_regressed_and_what_was_never_measured",
-   "tests/test_roi.py::test_nothing_promoted_says_so_rather_than_reporting_a_hit_rate"
+   "tests/test_roi.py::test_nothing_promoted_says_so_rather_than_reporting_a_hit_rate",
+   "tests/test_w4_improvemetrics.py::test_learning_health_rates_are_none_until_a_verdict",
+   "tests/test_w4_improvemetrics.py::test_learning_health_measures_adoption_rejection_regressions_and_cost"
   ],
   "evidence": [
-   "/api/improve, /api/roi, /api/league"
+   "/api/improve, /api/roi, /api/league",
+   "w4-CLOSE5 on deployed b931d17: retrospective learning_health reports adoption and rejection rates (None until a verdict), regressions caught, repeated failures avoided (improve.repeat_refused rows) and cost per adopted change (only when every adopted change has attributed spend); deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#100 COMPLETE+PROVEN",
@@ -1564,9 +1573,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "add adoption/rejection rate, regressions caught, repeated-failure-avoided and cost-per-adopted metrics to improve/director retrospective",
+  "next_action": "none -- W4-IMPROVEMETRICS built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-400",
@@ -1657,19 +1666,24 @@
   "launch_class": "MATURE",
   "launch_class_reason": "unknown detection feeding research",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "unknowns are surfaced as explicit states (UNMEASURED/UNKNOWN/unrenderable/not_audited) but not routed to a research queue",
-  "producer": "src/brambleloop/intel/learning.py::radar",
-  "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::detect_unknowns",
+  "durable_state": "research_tasks",
+  "consumer": "src/brambleloop/learn/runtime.py learn.scan handler (hourly) -> research_tasks",
   "protected_effect": "gaps named rather than filled with plausible values",
   "tests": [
    "tests/test_childrens.py::test_the_sources_we_could_not_read_are_listed_rather_than_glossed",
    "tests/test_weekly.py::test_a_domain_with_nothing_read_is_not_audited",
-   "tests/test_intent.py::test_with_no_market_evidence_every_phrase_is_labelled_assumed"
+   "tests/test_intent.py::test_with_no_market_evidence_every_phrase_is_labelled_assumed",
+   "tests/test_w4_research.py::test_unknowns_on_decision_paths_open_research_questions_once",
+   "tests/test_w4_research.py::test_an_observed_domain_is_no_longer_an_unknown",
+   "tests/test_w4_research.py::test_learn_scan_routes_unknowns"
   ],
   "evidence": [
-   "build2/maturity UNMEASURABLE; creative/outcome_learning UNMEASURED; intel/childrens unfetched_sources; improve/weekly not_audited"
+   "build2/maturity UNMEASURABLE; creative/outcome_learning UNMEASURED; intel/childrens unfetched_sources; improve/weekly not_audited",
+   "w4-CLOSE5 on deployed b931d17: unknowns on decision paths (unobserved learning domains, children's-safety sources never fetched) open a research question once, from the hourly learn.scan; stale answers re-open on expiry; UNKNOWN / UNMEASURED readings stay explicit everywhere else; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
@@ -1678,9 +1692,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "emit a research.question row whenever a reading returns UNMEASURED/UNKNOWN on a decision path (start with intel/childrens unfetched_sources and learning unobserved domains)",
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-404",
@@ -1824,19 +1838,23 @@
   "launch_class": "MATURE",
   "launch_class_reason": "fact/claim/inference separation",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "separation is signal vs internal causal evidence and observed vs assumed phrases; no hypothesis/unresolved classes; research docs use SOURCED/DERIVED/ESTIMATED/UNKNOWN only as prose",
-  "producer": "src/brambleloop/intel/learning.py::support",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::add_finding; intel/learning.py::record",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py",
   "protected_effect": "a read signal is never promoted into causal evidence",
   "tests": [
    "tests/test_learning.py::test_a_signal_passed_as_internal_evidence_is_refused",
    "tests/test_learning.py::test_a_claim_resting_on_signals_alone_is_allowed_and_says_so",
-   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list"
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list",
+   "tests/test_w4_research.py::test_claim_classes_are_enforced",
+   "tests/test_w4_research.py::test_claims_and_guesses_cannot_close_a_task",
+   "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision"
   ],
   "evidence": [
-   "intel/learning.as_evidence/support in fcb982d"
+   "intel/learning.as_evidence/support in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: findings and observations carry claim_class fact | source_claim | inference | hypothesis | unresolved; a fact needs a fetched/repository/rendered/internal source, a search summary supports only a source claim, claims and guesses cannot close a task; pre-existing rows read 'unresolved', never an assigned class; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#98 DATA-GATED"
@@ -1847,9 +1865,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "add a claim_class field (fact/source_claim/inference/hypothesis/unresolved) to learning observations and research task outputs",
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-410",
@@ -2242,17 +2260,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "research reproducibility",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "external observations record source/citation/date but not queries/terms or resulting decisions",
-  "producer": "src/brambleloop/intel/learning.py::record",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/learning.py::record; intel/research.py",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/intel/learning.py::observations",
   "protected_effect": null,
   "tests": [
-   "tests/test_learning.py::test_an_observation_with_no_citation_is_refused"
+   "tests/test_learning.py::test_an_observation_with_no_citation_is_refused",
+   "tests/test_w4_research.py::test_learning_observations_carry_class_terms_and_decision",
+   "tests/test_w4_research.py::test_internal_evidence_is_searched_first"
   ],
   "evidence": [
-   "intel/learning.record refuses no source/citation/date; intel/childrens sources carry URL/date/retrieval"
+   "intel/learning.record refuses no source/citation/date; intel/childrens sources carry URL/date/retrieval",
+   "w4-CLOSE5 on deployed b931d17: observations and research tasks record query_terms and decision_ref beside source, citation and date; tasks record sources with retrieval class and read date; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [],
   "gate": {
@@ -2261,9 +2282,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "add query_terms and decision_ref fields to learning observations and research tasks",
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-425",
@@ -2326,17 +2347,22 @@
   "launch_class": "MATURE",
   "launch_class_reason": "negative evidence as knowledge",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "rejected/reverted improvements are durable; negative research findings (visual methods) live only in DECISION_LOG prose",
-  "producer": "src/brambleloop/improve/director.py::experiments",
-  "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::api_improve",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::record",
+  "durable_state": "failure_memory",
+  "consumer": "src/brambleloop/improve/cells.py::propose",
   "protected_effect": null,
   "tests": [
-   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next"
+   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next",
+   "tests/test_w4_failmem.py::test_a_refusal_or_first_measurement_is_not_a_failure",
+   "tests/test_w4_failmem.py::test_a_reverted_promotion_is_remembered",
+   "tests/test_w4_failmem.py::test_records_need_evidence_and_scope",
+   "tests/test_w4_failmem.py::test_failure_memory_is_a_non_rederivable_record"
   ],
   "evidence": [
-   "improvements REJECTED/REVERTED rows kept; director.experiments reports killed"
+   "improvements REJECTED/REVERTED rows kept; director.experiments reports killed",
+   "w4-CLOSE5 on deployed b931d17: a measured failure or a recorded finding with evidence and scope is durable (failure_memory, NON_REDERIVABLE in continuity); a refusal, a first measurement or a withdrawal is not a failure, so absence of success never retires an idea; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#127 COMPLETE+PROVEN"
@@ -2347,25 +2373,29 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "see F-378: structured failure memory with scope field",
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-428",
   "launch_class": "MATURE",
   "launch_class_reason": "scope discipline of negative results",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "only the replay trial scopes its claim; no general scope field on rejected methods",
-  "producer": "src/brambleloop/improve/replay.py::cycle",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/failure_memory.py::check; improve/failure_memory.py::generalise",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/improve/cells.py::propose",
   "protected_effect": null,
   "tests": [
-   "tests/test_cert_improve_wave.py::test_the_replay_scopes_its_claim_to_the_simulator_it_ran"
+   "tests/test_cert_improve_wave.py::test_the_replay_scopes_its_claim_to_the_simulator_it_ran",
+   "tests/test_w4_failmem.py::test_scope_blocks_only_inside_the_observed_conditions",
+   "tests/test_w4_failmem.py::test_generalisation_beyond_scope_needs_new_evidence"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: a failure blocks only proposals inside its method, class and conditions; widening a scope needs new evidence, narrowing needs none; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2373,9 +2403,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "add a scope field (method, class, conditions) to the F-378 failure-memory record and refuse generalisation beyond it",
+  "next_action": "none -- W4-FAILMEM built it; deployed in b931d17",
   "confidence": "LOW",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-429",
@@ -2501,18 +2531,20 @@
   "launch_class": "MATURE",
   "launch_class_reason": "research freshness semantics",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "freshness applies to internal cells, learning signal domains and policy; no expiry on research/*.md conclusions",
-  "producer": "src/brambleloop/improve/freshness.py::sweep",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/research.py::expire_due; improve/freshness.py::sweep",
   "durable_state": null,
-  "consumer": "src/brambleloop/improve/nightly.py",
+  "consumer": "src/brambleloop/learn/runtime.py learn.scan handler (expire_due)",
   "protected_effect": null,
   "tests": [
    "tests/test_freshness.py::test_compiler_mathematics_has_no_interval_rather_than_a_long_one",
-   "tests/test_freshness.py::test_the_same_age_is_stale_for_one_department_and_fresh_for_another"
+   "tests/test_freshness.py::test_the_same_age_is_stale_for_one_department_and_fresh_for_another",
+   "tests/test_w4_research.py::test_answers_expire_by_their_domain_and_mathematical_never_does"
   ],
   "evidence": [
-   "improve/freshness world speeds, compiler answered by code fingerprint; in fcb982d"
+   "improve/freshness world speeds, compiler answered by code fingerprint; in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: a research answer's expires_on comes from its domain (marketplace policy 21 d, techniques 365 d, market 3 d); a mathematical finding never expires on a date; an unknown domain is refused (no default expiry); an expired answer re-opens its question; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#191 COMPLETE+PROVEN"
@@ -2523,9 +2555,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "attach expires_on/domain to research findings (F-401 task rows) using improve/freshness world speeds",
+  "next_action": "none -- W4-RESEARCH built it; deployed in b931d17",
   "confidence": "HIGH",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-434",

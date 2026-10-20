@@ -138,12 +138,15 @@ def test_listing_readiness_needs_a_bound_listing_and_launch_clearance():
     assert g3["state"] == PR.PASS, g3
 
 
-def test_a_missing_taxonomy_is_an_owner_item_and_unknown_is_never_pass():
+def test_a_missing_category_is_company_matcher_work_and_unknown_is_never_pass():
+    # W4-FIRSTSALE: re-attributed from owner to company on production evidence -- the daily
+    # etsy.taxonomy_refreshed rows (2026-10-17..20) read 3065 nodes with the keystring already
+    # configured and credential_refused=false; what remains is the company's matcher.
     ev = {"search": {"state": "FAIL", "why": "search certificate refuses",
                      "reasons": ["search certificate (F-005): category UNKNOWN -- no stored "
                                  "Etsy taxonomy snapshot"]}}
     g = PR._seo(ev)
-    assert g["state"] == PR.FAIL and g["owner"] == PR.OWNER and "keystring" in g["remaining"]
+    assert g["state"] == PR.FAIL and g["owner"] == PR.COMPANY and "matcher" in g["remaining"]
     assert PR._row("PASSING", "x")["state"] == PR.UNKNOWN
     assert PR._worst([PR.PASS, PR.UNKNOWN]) == PR.UNKNOWN
     assert PR._worst([PR.PASS, PR.FAIL, PR.UNKNOWN]) == PR.FAIL

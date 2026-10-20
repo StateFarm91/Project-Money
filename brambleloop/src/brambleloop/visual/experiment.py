@@ -473,6 +473,21 @@ def refuse_if_experiment_image(db, sha256s, *, action: str) -> None:
     """Publication paths that handle image bytes call this: an experiment image never
     reaches a listing, whatever product it shows."""
     hits = [s for s in (sha256s or []) if is_experiment_image(db, s)]
+    if not hits and any(sha256s or []):
+        # INTEG4 / security review of 7f6dbe8 (L3): on a publication path an unreadable run
+        # table is not "no experiment image" -- it fails closed.
+        try:
+            from sqlalchemy import select
+
+            from ..experiments.controlled import ControlledRun, ensure_tables
+
+            ensure_tables(db)
+            with db.session() as s:
+                s.scalar(select(ControlledRun.id).limit(1))
+        except Exception as exc:  # noqa: BLE001
+            raise ExperimentRefused(
+                f"{LABEL}: the controlled-experiment table is unreadable "
+                f"({type(exc).__name__}); {action} is refused until it can be read") from exc
     if not hits:
         return
     why = (f"{LABEL}: image {str(hits[0])[:12]} is a controlled-experiment output; {action} "

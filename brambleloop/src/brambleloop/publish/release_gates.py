@@ -972,6 +972,7 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
         return {"valid": False, "issued": False, "rechecked": rechecked,
                 "why": (f"{cert.slug}@{cert.version} has no release hash on file, so a "
                         f"listing-set certificate would bind to nothing; refused")}
+    covered = None
     with db.session() as s:
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == cert.slug,
@@ -982,12 +983,16 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
             on_file = {f["position"]: f["sha256"]
                        for f in (current.certificate or {}).get("frames", [])}
             if on_file == hashes:
-                return {"valid": True, "issued": False, "record_id": current.id,
-                        "rechecked": rechecked,
-                        "why": "a valid certificate covers exactly these frame hashes"}
-            current.state = "superseded"
-            current.invalidated_by = ["frame_hashes_changed"]
-            current.invalidated_at = datetime.now(timezone.utc)
+                covered = {"valid": True, "issued": False, "record_id": current.id,
+                           "rechecked": rechecked,
+                           "why": "a valid certificate covers exactly these frame hashes"}
+            else:
+                current.state = "superseded"
+                current.invalidated_by = ["frame_hashes_changed"]
+                current.invalidated_at = datetime.now(timezone.utc)
+    if covered is not None:
+        _keep_frame_bytes(db, cert.slug, cert.version, list(hashes.values()))
+        return covered
     if not issue:
         return {"valid": False, "issued": False, "rechecked": rechecked,
                 "why": "no valid certificate covers these frames and issuing was not asked"}
@@ -1000,6 +1005,7 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
         s.add(rec)
         s.flush()
         rid = rec.id
+    _keep_certified_bytes(db, cert)
     return {"valid": True, "issued": True, "record_id": rid, "rechecked": rechecked,
             "frame_order": list(cert.frame_order),
             "why": "every disclosed frame passed all four gates and the exporter's "
@@ -1088,6 +1094,7 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     rechecked = recheck(db, slug=slug, version=version, geometry=geometry, claims=claims,
                         policy_version=POLICY_VERSION)
     hashes = {v["position"]: v.get("sha256") for v in per_frame}
+    covered = None
     with db.session() as s:
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
@@ -1098,12 +1105,16 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
             on_file = {f["position"]: f["sha256"]
                        for f in (current.certificate or {}).get("frames", [])}
             if on_file == hashes:
-                return {"valid": True, "issued": False, "record_id": current.id,
-                        "rechecked": rechecked,
-                        "why": "a valid certificate covers exactly these frame hashes"}
-            current.state = "superseded"
-            current.invalidated_by = ["frame_hashes_changed"]
-            current.invalidated_at = datetime.now(timezone.utc)
+                covered = {"valid": True, "issued": False, "record_id": current.id,
+                           "rechecked": rechecked,
+                           "why": "a valid certificate covers exactly these frame hashes"}
+            else:
+                current.state = "superseded"
+                current.invalidated_by = ["frame_hashes_changed"]
+                current.invalidated_at = datetime.now(timezone.utc)
+    if covered is not None:
+        _keep_frame_bytes(db, slug, version, list(hashes.values()))
+        return covered
 
     if not issue:
         return {"valid": False, "issued": False, "rechecked": rechecked,
@@ -1139,9 +1150,26 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
         s.add(rec)
         s.flush()
         rid = rec.id
+    _keep_certified_bytes(db, cert)
     return {"valid": True, "issued": True, "record_id": rid, "rechecked": rechecked,
             "frame_order": list(cert.frame_order),
             "why": "every frame passed all four gates; certificate issued"}
+
+
+def _keep_certified_bytes(db, cert) -> None:
+    """W4-FIRSTSALE: the certified upload set must outlive a redeploy (Postgres keep)."""
+    body = cert.to_dict()
+    _keep_frame_bytes(db, body.get("slug") or "", body.get("version") or "",
+                      [f.get("sha256") for f in body.get("frames") or []])
+
+
+def _keep_frame_bytes(db, slug: str, version: str, shas: list) -> None:
+    try:
+        from ..commerce import deliverables
+
+        deliverables.keep_frames(db, shas, slug=slug, version=version)
+    except Exception:  # noqa: BLE001 - keeping never blocks a certificate
+        pass
 
 
 # ---- #297: the launch window -------------------------------------------------------------

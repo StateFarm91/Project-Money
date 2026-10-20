@@ -44,7 +44,7 @@ def _install(fake):
     from brambleloop.gateway.anthropic import AnthropicProvider
 
     original = AnthropicProvider._send
-    AnthropicProvider._send = lambda self, payload, key: fake(self, payload, key)
+    AnthropicProvider._send = lambda self, payload, key, **kw: fake(self, payload, key)
     return lambda: setattr(AnthropicProvider, "_send", original)
 
 

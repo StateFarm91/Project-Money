@@ -557,6 +557,12 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
     cert = certified_frames(db, slug, version, release=release)
+    # INTEG4 / security review of 7f6dbe8 (L3): each certified frame's bytes are checked
+    # too, not only the product, so an experiment output never uploads under any release.
+    from ..visual.experiment import refuse_if_experiment_image
+
+    refuse_if_experiment_image(db, [str(f.get("sha256") or "") for f in cert["frames"]
+                                    if f.get("sha256")], action="listing image upload")
     problems = list(cert["problems"])
     images: list[tuple[str, bytes]] = []
     order: list[dict] = []

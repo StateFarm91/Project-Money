@@ -398,18 +398,22 @@
   "launch_class": "MATURE",
   "launch_class_reason": "MJs research dashboard consistency",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "counters come from intel.mission.mission_report and intel.vision.plan separately; no reconciliation or explanation of known vs audited vs images pending vs gallery backlog",
-  "producer": "src/brambleloop/intel/mission.py::mission_report",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/mission.py::snapshot",
   "durable_state": "benchmark_listings, benchmark_observations",
   "consumer": "src/brambleloop/app/main.py::dashboard",
   "protected_effect": null,
   "tests": [
    "tests/test_intel.py::test_the_dashboard_leads_with_whether_the_mission_can_see_anything",
-   "tests/test_intel.py::test_the_backlog_is_counted_rather_than_capped_by_the_query_limit"
+   "tests/test_intel.py::test_the_backlog_is_counted_rather_than_capped_by_the_query_limit",
+   "tests/test_w4_mjscount.py::test_every_counter_comes_from_one_snapshot_and_reconciles",
+   "tests/test_w4_mjscount.py::test_the_backlog_count_no_longer_saturates_at_a_page",
+   "tests/test_w4_mjscount.py::test_a_broken_identity_is_reported_not_corrected"
   ],
   "evidence": [
-   "main.py _mission rows"
+   "main.py _mission rows",
+   "w4-CLOSE5 on deployed b931d17: every MJs counter derives from one BenchmarkListing read (known, audited, gallery-audited, by pod, image slots, gap total) with a reconciliation row of five identities; a broken identity is reported, never corrected; the backlog no longer saturates at 200; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#318 COMPLETE+PROVEN"
@@ -420,24 +424,27 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Derive all MJs counters from one snapshot function and add a reconciliation row; test that the counts are mutually consistent",
+  "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-192",
   "launch_class": "MATURE",
   "launch_class_reason": "MJs research dashboard semantics",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "dashboard prints only scan_health['state'] (e.g. unverified) without the unverified dimension",
-  "producer": "src/brambleloop/intel/benchmarks.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/main.py::_mission (scan_health state + problem + checked_at)",
   "durable_state": "benchmark registry scan_health JSON",
   "consumer": "src/brambleloop/app/main.py::dashboard",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_w4_mjscount.py::test_dashboard_mission_shows_scan_health_detail_reconciliation_and_forecast"
+  ],
   "evidence": [
-   "main.py:4836 str(scan_health.get('state'))"
+   "main.py:4836 str(scan_health.get('state'))",
+   "w4-CLOSE5: the mission row shows the scan-health state with the dimension that is unverified (its problem text) and the check time, or 'never checked' (W4-MJSCOUNT, deployed in b931d17; the module is edited on this branch, so dev-proven)"
   ],
   "build2_rows": [
    "#318 COMPLETE+PROVEN"
@@ -448,24 +455,28 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Render scan_health reason/dimension beside the state in _mission",
+  "next_action": "none in code -- dev-proven on claude/w4-CLOSE5 (main.py edited by R1), awaiting deploy",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-193",
   "launch_class": "MATURE",
   "launch_class_reason": "research-backlog cost forecasting",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "shows pending images and padded estimate total only; no observed cost/image from measured tokens, no allocation consumed, no expected completion time",
-  "producer": "src/brambleloop/intel/vision.py::plan",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/vision.py::forecast",
   "durable_state": "benchmark_listings.detail",
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "src/brambleloop/app/main.py::dashboard (_mission row)",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_w4_mjscount.py::test_forecast_is_measured_or_unknown_never_zero",
+   "tests/test_w4_mjscount.py::test_dashboard_mission_shows_scan_health_detail_reconciliation_and_forecast"
+  ],
   "evidence": [
-   "vision.plan uses routing.estimate_cad; per_image_estimate_cad deliberately padded, not measured mean"
+   "vision.plan uses routing.estimate_cad; per_image_estimate_cad deliberately padded, not measured mean",
+   "w4-CLOSE5 on deployed b931d17: measured CA$/image (gallery_observation cost rows / images judged; UNKNOWN when either is zero, never 0), remaining images, cost to drain, allocation share/spent/allowed, images per run, runs per day and the ETA, shown together on the mission row; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#209 COMPLETE+PROVEN"
@@ -476,9 +487,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add measured cost/image (from cost_entries purpose gallery_observation / images judged), allocation share and ETA from cadence rate to vision.plan and render in _mission",
+  "next_action": "none -- W4-MJSCOUNT built it; deployed in b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-194",

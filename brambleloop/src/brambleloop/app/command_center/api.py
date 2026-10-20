@@ -287,6 +287,13 @@ def make_router(db) -> APIRouter:
 
         return ok(launch_packet.view(db))
 
+    # W4-FIRSTSALE: every first-sale gate per product and shop-wide, read-only, owner session.
+    @router.get("/first-sale")
+    def first_sale_view(request: Request):
+        from . import first_sale
+
+        return ok(first_sale.view(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
@@ -512,6 +519,9 @@ def make_router(db) -> APIRouter:
         from ...queue.durable import DuplicateJob, JobQueue
         from ...visual import image_production
 
+        # INTEG4 / security review of 7f6dbe8 (L1): a restart can resume paid generation, so
+        # it needs step-up like authorize, run and approve.
+        auth.require_stepup(db, request, "images.restart")
         body = await body_of(request)
         q = JobQueue(db)
 
