@@ -161,7 +161,9 @@ Assumes a routine day of 20 chat turns, 4 executive questions, 2 tick orderings 
 | Budget | `test_budget_enforcement_refuses_before_any_provider_call`: permission 0, day spent and allocation spent each cause no provider call; a real call is billed to `laura`; the routine-day estimate is ≤ CA$0.50 and the month ≤ CA$15 |
 | No Private Laura data | `test_no_private_laura_data_is_touched`: firewall refusal; static check that no private store, Venice or `laura_private` reference appears; no `laura_private` spend |
 
-The required regression set and the suites for touched files are recorded in the commit that adds this document (see the report).
+Regression (each through `testslot.sh`, all exit code 0):
+- Required set: test_vacuity, test_launch, test_cost_governance_wave2, test_search_hero_publish (4/4), test_cert_listing_frames, test_v11_autonomy_timeline.
+- Suites for touched files: test_w3_laura_cc_talk 9/9, _delegation 5/5, _followon 4/4, _integration 5/5, _access 5/5, _private 7/7, _providers 7/7, _wiring 5/5; test_w3_laura_core_executive; test_w3_laura_core_wiring; test_w4_laura1_budget 4/4; test_w4_laura1_briefing 19/19; test_w4_laurafix_truncation 8/8; test_w3_spend_laura_phrase; test_spend_policy; test_model_access; test_w4_spend_paid_discipline; test_cert_cost; test_w4_pl_leak 2/2; test_w4_pl_boundary; test_w4_ccgap_views 10/10; test_w4_ccgap2 3/3; test_w4_ccrel 8/8; test_w3_laura_presence 4/4; test_w3_decision_index 3/3.
 
 ---
 
