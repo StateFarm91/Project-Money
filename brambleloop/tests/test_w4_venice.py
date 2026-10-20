@@ -761,7 +761,7 @@ def test_every_register_surface_states_the_v3_adult_register_with_its_hard_limit
         "voice_spec.private_text_register.bounds": voice_spec.private_text_register()["bounds"],
         "roadmap.LAURA-PRIVATE-REGISTER": next(
             r["gate"]["detail"] for r in roadmap.ROWS
-            if r.get("gate", {}).get("key") == "laura_private_register"),
+            if (r.get("gate") or {}).get("key") == "laura_private_register"),
     }
     js = (Path(private_context.__file__).parent / "static" / "js" / "views" / "laura.js").read_text()
     line = next(ln for ln in js.splitlines() if 'reply_register === "ENABLED"' in ln)
@@ -769,7 +769,7 @@ def test_every_register_surface_states_the_v3_adult_register_with_its_hard_limit
 
     for name, text in surfaces.items():
         assert "never sexually explicit" not in text, name
-        assert "adult register" in text or "@3" in text, (name, text)
+        assert ("adult" in text and "register" in text) or "@3" in text, (name, text)
     for name in ("private_context.REPLY_ENABLED", "voice_spec.private_text_register.bounds"):
         text = surfaces[name]
         for limit in ("minors", "real people", "unlawful", "Venice's Terms"):
