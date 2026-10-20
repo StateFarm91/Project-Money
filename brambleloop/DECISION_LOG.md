@@ -2028,3 +2028,29 @@ A generated image that depicts a Brambleloop product may be used in a listing ga
 Unchanged: F-856, F-858, ASSET_CONCEPT_AS_HERO pending separate review, the Etsy policy reading (still UNKNOWN until the
 binding page has been read), and SHADOW mode. Implementation is a code change to `publish/eligibility.may_export` and its
 callers, with tests. It ships only through a normally certified release.
+
+### D-W4-F852-AMEND — owner confirmation and traceability (2026-10-20)
+
+**Owner's words:** "I choose Option 1: Amend — verified exception. Approve the formal owner amendment to F-852, F-853 and F-855 as
+described. Accurately disclosed AI-generated product-only, lifestyle and detail images may be considered for publication if they
+independently satisfy the original product-accuracy, photographic-realism, Product Truth, identity and publication acceptance
+standards. Unknown or failed verification must continue to block publication. Preserve certified product pixels wherever
+technically feasible. Where generation necessarily redraws the product, require independent evidence of structural fidelity
+rather than assuming prompt compliance. Do not mark existing FLUX images as certified merely because I approve their appearance.
+Before publishing, verify that the specific image use complies with Etsy's applicable listing-image policy."
+
+**Superseded wording** (master_registry, section 88), kept verbatim:
+
+- **F-852:** "Do not ask generative AI to recreate structure Brambleloop already knows when that can change stitch count,
+  gauge, cable pitch, silhouette or features."
+  - Amended: generation that redraws the product is allowed ONLY through the verified-exception route in D-W4-F852-AMEND.
+- **F-853:** "Certified product geometry/pixels remain authoritative through presentation wherever technically feasible."
+  - Unchanged. Where compositing certified pixels is technically feasible for a role, it is mandatory.
+- **F-855:** "AI may enhance fibre/fuzz/micro-material only when macro geometry/stitch boundaries remain protected and
+  revalidated."
+  - Amended: beyond fibre-level enhancement, a full redraw requires independent structural-fidelity evidence (D-W4-F852-AMEND
+    item 2).
+
+**Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
+this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
+publication stays blocked.
