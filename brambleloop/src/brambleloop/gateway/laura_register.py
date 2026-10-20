@@ -47,6 +47,15 @@ Money (G-9), all before the request, and every refusal audited without content:
 No tools, no follow-on work, no delegation, no identity or business-memory access: the
 request carries a system prompt and one user message, and the answer is a single `text`
 field that is returned to the private context and nowhere else (G-8).
+
+Provider (owner ruling D-W4-PL-VENICE, spec/13 ADD-PLV-01..08; W4-VENICE): Private Laura uses
+Venice AI (`gateway.venice`, pinned model `venice.MODEL`, key `VENICE_API_KEY`). The transport
+is selected by `BRAMBLELOOP_PRIVATE_PROVIDER` and is OFF by default: unset means no private
+provider, so no reply. "venice" selects Venice; "anthropic" (the pre-ruling transport) works
+only as an explicit owner choice. Either way it is THIS path: the same pinned prompt, the same
+`laura_private` reservation, the same content-free billing and refusals. A Venice failure is a
+classified, honest UNAVAILABLE ("I can't reach my private model right now"); there is no
+retry, no canned reply and no fallback to another provider.
 """
 from __future__ import annotations
 
@@ -85,6 +94,19 @@ REASONS: dict[str, str] = {
     "JOB_SCOPE": "Private replies are never generated inside a background job.",
     "REFUSED": "This reply path was called incorrectly and refused.",
     "RELEASE_UNPROVEN": "Private replies run only on a proven, deployed release.",
+    # W4-VENICE: no provider selected, and the classified Venice failures. Honest, generic.
+    "PROVIDER_NOT_SELECTED": "No private model provider is selected (owner switch "
+                             "BRAMBLELOOP_PRIVATE_PROVIDER is off).",
+    "PROVIDER_UNREACHABLE": "I can't reach my private model right now (the provider is "
+                            "unavailable or timed out). No reply was generated.",
+    "PROVIDER_AUTH": "I can't reach my private model right now: the provider refused the "
+                     "credential (VENICE_API_KEY). No reply was generated.",
+    "PROVIDER_CREDIT": "I can't reach my private model right now: the provider account has "
+                       "no API credit left. No reply was generated.",
+    "PROVIDER_RATE_LIMITED": "I can't reach my private model right now: the provider is "
+                             "rate-limiting requests. No reply was generated.",
+    "PROVIDER_POLICY": "The provider declined this request under its content policy. No reply "
+                       "was generated.",
 }
 
 
@@ -190,18 +212,32 @@ def daily_authorisation_cad(env=None) -> float:
     return round(min(v, agent_ceiling_cad()), 6)
 
 
+def _provider_key_env(selected: str) -> str:
+    from . import venice
+
+    return venice.KEY_ENV if selected == venice.PROVIDER_VALUE else "ANTHROPIC_API_KEY"
+
+
 def enablement(env=None) -> dict:
     """Non-content booleans and one figure. Never a value of any secret."""
+    from . import venice
+
     env = os.environ if env is None else env
     switch = str(env.get(REGISTER_SWITCH_ENV) or "").strip() == "1"
     daily = daily_authorisation_cad(env)
-    provider = bool(str(env.get("ANTHROPIC_API_KEY") or "").strip())
+    selected = venice.selected(env)                     # "" = OFF (default), W4-VENICE
+    key_env = _provider_key_env(selected)
+    provider = bool(selected) and bool(str(env.get(key_env) or "").strip())
     key_present = bool(str(env.get(PRIVATE_KEY_ENV) or "").strip())
     return {"register_switch": switch, "spend_authorised_cad_per_day": daily,
+            "provider": selected or None,
+            "provider_model": (venice.MODEL if selected == venice.PROVIDER_VALUE else
+                               (routing.route(TASK)[1].model if selected else None)),
             "provider_configured": provider, "private_key_present": key_present,
             "enabled": switch and daily > 0 and provider and key_present,
             "names": {"switch": REGISTER_SWITCH_ENV, "spend": DAILY_AUTH_ENV,
-                      "private_key": PRIVATE_KEY_ENV, "provider_key": "ANTHROPIC_API_KEY"}}
+                      "private_key": PRIVATE_KEY_ENV, "provider_key": key_env,
+                      "provider_switch": venice.PROVIDER_ENV}}
 
 
 def release_proven(env=None, boot: dict | None = None) -> dict:
@@ -232,13 +268,14 @@ def release_proven(env=None, boot: dict | None = None) -> dict:
 
 
 def _refuse(db, code: str, *, which: str, why: str, estimate: float = 0.0,
-            ceiling: float = 0.0, committed: float = 0.0, model: str = "") -> None:
+            ceiling: float = 0.0, committed: float = 0.0, model: str = "",
+            provider: str = "anthropic") -> None:
     from ..finance import spend_report
 
     spend_report.record_refusal(
         db, agent=AGENT, ceiling_cad=ceiling, estimate_cad=estimate, committed_cad=committed,
         which=which, why=why, purpose=PURPOSE,
-        detail={"model": model, "provider": "anthropic", "job_id": None})
+        detail={"model": model, "provider": provider, "job_id": None})
     raise ReplyUnavailable(code)
 
 
@@ -250,9 +287,13 @@ def _sanitised(exc: BaseException) -> BaseException:
     """The same failure KIND (for billing and health) with none of its text."""
     from ..core.resilience import PermanentError, TransientError
 
-    m = re.match(r"anthropic (\d{3})", str(exc))
+    m = re.match(r"(?:anthropic|venice) (\d{3})(?: ([A-Z][A-Z0-9_]+))?", str(exc))
     status = m.group(1) if m else ""
-    label = f"{type(exc).__name__}{(' ' + status) if status else ''}"
+    # W4-VENICE: a documented Venice error code (whitelisted in `venice.classify`) is kept;
+    # it is a fixed token, never provider text.
+    code = (m.group(2) or "") if m else ""
+    label = (f"{type(exc).__name__}{(' ' + status) if status else ''}"
+             f"{(' ' + code) if code else ''}")
     if isinstance(exc, TimeoutError):
         return TimeoutError(label)
     if isinstance(exc, TransientError):
@@ -300,33 +341,46 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
         raise ReplyUnavailable("JOB_SCOPE")
     if system != PROMPT.system or not isinstance(user, str) or not user.strip():
         raise ReplyUnavailable("REFUSED")
+    from . import venice
+
     state = enablement(env)
     if not state["register_switch"]:
         raise ReplyUnavailable("REGISTER_OFF")
     now = now or datetime.now(timezone.utc)
-    _, tier = routing.route(TASK)
-    model = tier.model
+    selected = state["provider"] or ""
+    is_venice = selected == venice.PROVIDER_VALUE
     max_out = int(PROMPT.max_output_tokens)
-    estimate = gw.estimate_cad(model, input_tokens=(len(system) + len(user)) // 4,
-                               output_tokens=max_out)
+    if is_venice:
+        # W4-VENICE: the pinned Venice model, priced from the Venice table (read 2026-10-20).
+        model = venice.MODEL
+        estimate = venice.estimate_for(system, user, max_out, model)
+    else:
+        _, tier = routing.route(TASK)
+        model = tier.model
+        estimate = gw.estimate_cad(model, input_tokens=(len(system) + len(user)) // 4,
+                                   output_tokens=max_out)
+    provider_name = venice.NAME if is_venice else "anthropic"
     daily = state["spend_authorised_cad_per_day"]
     if daily <= 0:
         _refuse(db, "SPEND_UNAUTHORISED", which="purpose_daily_unauthorised",
                 why=(f"no owner spend authorisation for {PURPOSE} ({DAILY_AUTH_ENV} is unset "
                      "or CA$0); refused before any reservation"),
-                estimate=estimate, model=model)
+                estimate=estimate, model=model, provider=provider_name)
+    if not selected:
+        raise ReplyUnavailable("PROVIDER_NOT_SELECTED")
     if not state["provider_configured"]:
         raise ReplyUnavailable("NO_PROVIDER")
     if not release_proven(env)["met"]:             # L3: enforced, not only displayed
         raise ReplyUnavailable("RELEASE_UNPROVEN")
     try:
-        h = failover.health(db).get(failover._key("anthropic", model)) or {}
+        h = failover.health(db).get(failover._key(provider_name, model)) or {}
     except Exception:  # noqa: BLE001 - unreadable health never blocks a call
         h = {}
     if h.get("state") == failover.DOWN:
         raise ReplyUnavailable("PROVIDER_DOWN")      # no stronger fallback by design
     registry = registry or Registry(db)
-    provider = gw.AnthropicProvider(model=model)
+    provider = (venice.VeniceProvider(model=model) if is_venice
+                else gw.AnthropicProvider(model=model))
     gateway = ModelGateway([provider], registry=registry)
     try:
         # One atomic step under budget_lock: the month, the `laura_private` day tightened to
@@ -339,8 +393,11 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
         raise ReplyUnavailable("SPEND_CEILING") from None   # audited by check_budget_cad
     except (BudgetExceeded, PermissionDenied, PermissionError):
         raise ReplyUnavailable("BUDGET") from None     # audited by check_budget_cad
-    payload = json.dumps({"model": model, "max_tokens": max_out, "system": system,
-                          "messages": [{"role": "user", "content": user}]}).encode()
+    if is_venice:
+        payload = provider.payload(system, user, max_tokens=max_out)
+    else:
+        payload = json.dumps({"model": model, "max_tokens": max_out, "system": system,
+                              "messages": [{"role": "user", "content": user}]}).encode()
     started = time.time()
     try:
         # Directly, not `_guarded`: the paid-call journal stores response text (G-6).
@@ -355,7 +412,8 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
                             billing=basis, latency_ms=(time.time() - started) * 1000)
         except BudgetExceeded:
             pass
-        raise ReplyUnavailable("PROVIDER_ERROR") from None
+        raise ReplyUnavailable(venice.reply_code(exc) if is_venice
+                               else "PROVIDER_ERROR") from None
     elapsed = (time.time() - started) * 1000
     try:
         text = _parse(response.text)
@@ -364,6 +422,10 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
         text, ok = "", False
     gateway._note_attempt(provider, AGENT, PURPOSE, ok=True)
     in_tok, out_tok, override, basis = gateway._billing(None, response, reservation)
+    reported = getattr(response, "cost_usd", None)
+    if is_venice and reported is not None and reported >= 0:
+        # Venice reports its own charge (`cost.usd`); the bill is never below it.
+        override = max(float(override or 0.0), round(float(reported) * gw.USD_TO_CAD, 6))
     try:
         cost = gateway._record(PROMPT, provider, AGENT, in_tok, out_tok, 1, ok,
                                "" if ok else "MalformedModelOutput", latency_ms=elapsed,

@@ -21,7 +21,7 @@ from brambleloop.visual import d_judge  # noqa: E402
 
 PAID_HOSTS = re.compile(
     r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.bfl\.ai"
-    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai")
+    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai|api\.venice\.ai")
 
 # Each file allowed to address a paid provider, and what holds its ceiling. A new file here is
 # a decision about spend, made in review, not a refactor.
@@ -33,6 +33,16 @@ DECLARED = {
     # cost-report endpoints, refused without an owner-supplied admin key; no billable call.
     "brambleloop/ops/provider_accounts.py": "read-only billing settlement: GET cost reports, "
                                             "refuses with no admin key",
+    # Reviewed in W4-VENICE (it was undeclared since W4-CREDHEALTH 17bc373, so this test
+    # failed on INTEG4): provider credential health makes only free/no-inference auth checks
+    # (BFL GET /v1/credits, Anthropic POST count_tokens, Venice GET api_keys/rate_limits, the
+    # last owner-enabled only); no billable generation.
+    "brambleloop/gateway/credentials.py": "credential health: free / no-inference auth checks "
+                                          "only, no generation",
+    # W4-VENICE (D-W4-PL-VENICE): Private Laura's transport. Only `laura_register._reply`
+    # calls it, after check_budget_cad reserved on `laura_private` (atomic, CA$0.50/day).
+    "brambleloop/gateway/venice.py": "Private Laura transport: laura_register reserves via "
+                                     "check_budget_cad first",
 }
 
 

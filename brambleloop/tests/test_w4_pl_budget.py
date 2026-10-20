@@ -155,15 +155,21 @@ def test_inside_a_job_scope_the_reply_is_refused():
 
 
 def test_the_owner_figure_is_read_by_name_only():
+    # W4-VENICE: the private provider is an explicit owner switch (OFF by default), so the
+    # Anthropic transport these suites stub is selected by name here.
+    sel = {"BRAMBLELOOP_PRIVATE_PROVIDER": "anthropic"}
     e = LR.enablement({LR.REGISTER_SWITCH_ENV: "1", LR.DAILY_AUTH_ENV: "0.25",
-                       "ANTHROPIC_API_KEY": "x", LR.PRIVATE_KEY_ENV: "y"})
+                       "ANTHROPIC_API_KEY": "x", LR.PRIVATE_KEY_ENV: "y", **sel})
     assert e["enabled"] is True and e["spend_authorised_cad_per_day"] == 0.25
     blob = json.dumps(e)
     assert '"y"' not in blob and ': "x"' not in blob, blob                # no secret values
     assert LR.enablement({})["enabled"] is False                         # default OFF
     assert LR.enablement({LR.REGISTER_SWITCH_ENV: "true", LR.DAILY_AUTH_ENV: "1",
-                          "ANTHROPIC_API_KEY": "x", LR.PRIVATE_KEY_ENV: "y"})[
+                          "ANTHROPIC_API_KEY": "x", LR.PRIVATE_KEY_ENV: "y", **sel})[
         "enabled"] is False                                              # exactly "1"
+    assert LR.enablement({LR.REGISTER_SWITCH_ENV: "1", LR.DAILY_AUTH_ENV: "0.25",
+                          "ANTHROPIC_API_KEY": "x", LR.PRIVATE_KEY_ENV: "y"})[
+        "enabled"] is False                                              # no provider selected
 
 
 _TESTS = [(n, f) for n, f in list(globals().items()) if n.startswith("test_")]
