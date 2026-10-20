@@ -56,7 +56,11 @@ def test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owne
     assert states <= {es.NO_EVIDENCE, es.NO_COLLECTOR}
 
 
-def test_a_fresh_passing_shop_still_names_what_no_collector_can_observe():
+def test_a_fresh_passing_shop_still_names_every_surface_without_a_reading():
+    # W4-FIRSTSALE2: every first-sale surface now has a collector (the five that had none read
+    # orders, taxonomy, deliverables and the owner's page observations). With only the shop
+    # and census recorded, those five have NO_EVIDENCE and the item is still not ready; the
+    # full ready / one-missing proof is tests/test_w4_firstsale2_surfaces.py.
     db = _db()
     now = time.time()
     _record_shop(db, _good_shop(), now)
@@ -64,12 +68,14 @@ def test_a_fresh_passing_shop_still_names_what_no_collector_can_observe():
     req = rd.etsy_first_sale_surfaces(db, now=now)
     rows = {r["surface"]: r for r in req.evidence["surfaces"]}
     fresh = {k for k, r in rows.items() if r["evidence_state"] == es.FRESH}
-    collected = {s.key for s in es.first_sale_blockers() if s.collector}
-    assert fresh == collected, (fresh, collected)
+    by_snapshot = {s.key for s in es.first_sale_blockers()
+                   if s.collector in ("shop_snapshot", "listing_census")}
+    assert fresh == by_snapshot, (fresh, by_snapshot)
     assert req.evidence["shop_checks_failing"] == []
-    no_collector = {s.key for s in es.first_sale_blockers() if not s.collector}
-    assert set(req.evidence["not_fresh"]) == no_collector
-    assert req.ready is False  # a surface nothing can observe is never assumed done
+    unread = {s.key for s in es.first_sale_blockers()} - by_snapshot
+    assert unread and set(req.evidence["not_fresh"]) == unread
+    assert {rows[k]["evidence_state"] for k in unread} == {es.NO_EVIDENCE}
+    assert req.ready is False  # a surface with no reading is never assumed done
 
 
 def test_a_failing_shop_check_is_named():
