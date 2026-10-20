@@ -1,11 +1,12 @@
 {
  "_meta": {
-  "status": "PROPOSED -- not applied. W4-CLOSE6, for integrator acceptance.",
+  "status": "ACCEPTED by the coordinator 2026-10-20 (D-W4-CLOSE6-OVERRIDES); to be applied to build2/requirements.json at INTEG5, not before.",
   "what": "Re-park Build 2 #11 (First 100 Customers Program) and #12 (Customer LTV and Cohorts) from the `transactions_r` gate, which is now OPEN in production, to the `customers` data gate.",
   "precedent": "#242-245 were re-parked from ad_authority to customers the same way (W4-GATESB, 2026-10-07; their registry notes).",
   "how_to_accept": "In src/brambleloop/build2/requirements.json set parked_on='customers' on ids 11 and 12 and append the note below to each; then re-run research/final_build/w4/build2_ledger.py and the board regeneration, and tests/test_build2_*.py + test_w4_board.py.",
-  "accepted_by": null,
-  "accepted_by_is_null": "F-867: a worker cannot certify itself; the integrator accepts or rejects."
+  "accepted_by": "coordinator (operator session) 2026-10-20",
+  "accepted_by_is_null": "F-867: a worker cannot certify itself; the integrator accepts or rejects.",
+  "acceptance_rationale": "the cohort/LTV code is live and reached from the live order handlers; only real buyer orders can supply the remaining evidence, so the rows wait on customers (data), not transactions_r."
  },
  "rows": {
   "11": {

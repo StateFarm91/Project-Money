@@ -2084,3 +2084,30 @@ incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before c
 `tests/test_w3_visual_commercial_slowloop.py` failed. The challenger's framing, not the margin, is changed:
 gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
 every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.
+
+## D-W4-CLOSE6-OVERRIDES — F-145..148 and F-834 at TESTED; Build 2 #11/#12 re-parked on `customers` (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session. Recorded on
+`claude/w4-CLOSE6`. Applied at INTEG5, not before.**
+
+**1. `research/final_build/w4/OVERRIDES_PROPOSED_CLOSE6.json`: `completion_target: TESTED` for F-145, F-146,
+F-147, F-148 and F-834.**
+- Same basis as F-123, F-170 and F-178: each producer is operator tooling or the offline adjudicator
+  (`run_tests.sh`, `tests/_tmp.py`, `scripts/shadow_rehearsal.py` -> `scripts/emit_runtime_packets.py`,
+  `build2/final_proof.py`). No runtime root can import them, so INTEGRATED is unreachable by construction.
+- Evidence:
+  - F-145..148: `tests/test_w3_tmp_hygiene.py` and `tests/test_w4_close6_hygiene.py`.
+  - F-834: `tests/test_w4_close6_proof.py`, plus `evidence_CLOSE6/final_proof_8e4efd3.json`. On it, the chain
+    errors are gone for F-048 and F-477, and every row stays BLOCKED on independent review.
+- Dry run: no problems.
+
+**2. `research/final_build/w4/B2_REGATE_PROPOSED_CLOSE6.json`: Build 2 #11 and #12 `parked_on` moves from
+`transactions_r` to `customers`.**
+- `transactions_r` is open in production b931d17.
+- `commerce.orders_ingest` and `commerce.order_readings` complete on cadence, and `commerce/cohorts.py` and
+  `commerce/ladder.py` are reached from them.
+- No receipt exists to ingest. What remains, a cohort of real buyers with repeat purchases and lifetime value,
+  can only come from real buyer orders. That is a data gate, as with the #242-245 re-park (W4-GATESB).
+- Evidence: `evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json`.
+
+**Neither is applied here.** `overrides.json` and `build2/requirements.json` are unchanged on this branch.
