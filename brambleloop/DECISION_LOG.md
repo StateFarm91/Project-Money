@@ -2002,3 +2002,29 @@ only. It is separate from the CA$5.00 wearable-listing experiment: neither ceili
 counted twice. Every existing daily, monthly and provider limit still applies. The independent-reviewer requirements are
 unchanged: if two independent reviewers or a qualified face-matching model are unavailable, the check is UNKNOWN and the
 image goes to owner review. The owner approving how an image looks never turns UNKNOWN into PASS.
+
+## D-W4-F852-AMEND — owner amendment to F-852 / F-853 / F-855: verified-exception route (owner decision, 2026-10-20)
+
+The owner chose "Amend: verified exception" for the conflict recorded in D-W4-F852-PROPOSED. This is the binding amendment.
+The original text of F-852, F-853 and F-855 is kept, and this record adds an explicit exception route alongside it.
+
+A generated image that depicts a Brambleloop product may be used in a listing gallery only if ALL of the following hold:
+
+1. **Disclosed.** It is labelled as AI-generated, never as a photograph, and never implies a physically made or measured
+   sample.
+2. **Structural fidelity checked independently.** It passes the independent structural fidelity check against the certified
+   CIR of the exact release: stitch and motif repeats, cable count and pitch, colour palette and layout, end bands, edges and
+   piece count.
+3. **Photographic gate passed.** F-856 still applies: structure and realism are independent hard gates, and both must pass.
+4. **Every other gate passed.** That means Product Truth, image quality, the Laura identity, body-proportion and outfit gates
+   where Laura appears, the Etsy listing-image policy, and every publication gate.
+5. **UNKNOWN blocks.** Any check that cannot be completed reads UNKNOWN and blocks. The owner approving how an image looks
+   never converts UNKNOWN into PASS.
+6. **Certified pixels where feasible.** F-853 still applies wherever protected compositing of certified pixels is
+   technically feasible for a role. In that case it is used, and the exception does not apply to that role.
+7. **Provenance.** Model, references with their fingerprints and order, product version, prompt version, the receipt and the
+   disclosure are recorded for every image.
+
+Unchanged: F-856, F-858, ASSET_CONCEPT_AS_HERO pending separate review, the Etsy policy reading (still UNKNOWN until the
+binding page has been read), and SHADOW mode. Implementation is a code change to `publish/eligibility.may_export` and its
+callers, with tests. It ships only through a normally certified release.
