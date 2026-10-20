@@ -1962,3 +1962,43 @@ is in `spec/12_FLUX3_Visual_Production_Standard_2026-10-19.md`.
 - **Process:** autonomous, bounded and resumable, with learning.
 - **Unchanged:** every Product Truth, identity, disclosure and publication gate. Manual FLUX images are a temporary
   launch fallback only. Autonomy is not complete until a real unattended end-to-end test passes.
+
+## D-W4-F852-PROPOSED — owner's proposed resolution of F-852 and vision authorisation (2026-10-20, PENDING owner choice on a conflict)
+
+**The owner's ruling, as given:** "I approve the use of accurately disclosed AI-generated lifestyle and product
+visualizations in Brambleloop's listing galleries, provided they comply with Etsy's applicable requirements and pass all existing
+Product Truth, image-quality and publication gates." The owner also ruled that an AI-generated image must never be
+represented as a photograph of a physically made sample, and that honest provenance must be preserved: model, references,
+product version, prompt, receipt and disclosure.
+
+**Authoritative wording** (`research/final_build/master_registry.json`, Final Master section 88, "Visual V2 — Product Truth
+owns the product"):
+
+- **F-852 No Product Redraw by Default:** "Do not ask generative AI to recreate structure Brambleloop already knows when that
+  can change stitch count, gauge, cable pitch, silhouette or features."
+- **F-853 Authoritative Product Region:** "Certified product geometry/pixels remain authoritative through presentation
+  wherever technically feasible."
+- **F-855 Bounded Material Enhancement:** "AI may enhance fibre/fuzz/micro-material only when macro geometry/stitch
+  boundaries remain protected and revalidated."
+- **F-856:** structural Product Truth and photographic realism are independent hard gates, and both must pass.
+- **F-858:** on-model images come only after the product is locked, and must preserve both the exact product and the exact
+  canonical model.
+
+**How the code implements it today:** `publish/eligibility.may_export` refuses generated product imagery in every listing
+role. That is stricter than F-852's "by default" wording.
+
+**Conflict.** FLUX 3 lifestyle generation redraws the product, so stitch count, cable pitch and features can change. That is
+exactly what F-852 restricts, and exactly what the owner's Reading Nook wrap test showed. It also departs from F-853's
+"certified pixels remain authoritative wherever technically feasible" and from F-855's protected macro geometry.
+
+The owner's ruling does not override these rows silently. They are the owner's own agreed Final Master acceptance criteria,
+so amending them is an explicit scope decision the owner has to make. **Status: PROPOSED, awaiting the owner's specific
+decision.**
+
+**Not changed by this record:** no code, no gate and no publication path.
+
+**Vision authorisation (granted).** Up to CA$1.00 of new paid independent vision-review usage, for the controlled visual test
+only. It is separate from the CA$5.00 wearable-listing experiment: neither ceiling is raised, and overlapping charges are not
+counted twice. Every existing daily, monthly and provider limit still applies. The independent-reviewer requirements are
+unchanged: if two independent reviewers or a qualified face-matching model are unavailable, the check is UNKNOWN and the
+image goes to owner review. The owner approving how an image looks never turns UNKNOWN into PASS.
