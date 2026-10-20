@@ -323,4 +323,24 @@ All rc=0.
 | test_secret_scan | 7 |
 | test_w4_l0_product_readiness | 4 (updated attribution) |
 
-The second batch, run after the release_gates change, is listed in the final report.
+**Second batch, after the release_gates change** (all rc=0, 0 FAIL):
+
+| suite | result |
+|---|---|
+| test_w4_firstsale_taxonomy | 6 |
+| test_w4_firstsale_deliverables | 6 |
+| test_w4_firstsale_view | 5 |
+| test_disclosed_certified_upload | 7 |
+| test_cert_publish_gates | 18 |
+| test_w4_cap1_gates_intact | 5 |
+| test_search_certificate_integrity | 2 |
+| test_k8_listing_estate | 9 |
+| test_w4_disclosedqa | 8 |
+| test_draft_intent_precreate_refusal | 1 |
+| test_cert_commerce | 14 |
+| test_cert_listing_frames | 6 |
+| test_search_hero_publish | 4 |
+| test_vacuity | 8 |
+| test_w3_tmp_hygiene | 16 |
+
+BUILD_STATE.md and DECISION_LOG.md are left to the integrator at merge.
