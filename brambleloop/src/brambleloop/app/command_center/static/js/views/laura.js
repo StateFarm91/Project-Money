@@ -300,7 +300,7 @@ export async function render() {
     const pending = loading("Laura is reading the records");
     thread.append(pending);
     try {
-      const a = await api.lauraAsk(q);
+      const a = await api.lauraConverse(q);
       turns.push(a || { question: q, status: "UNKNOWN", answer: "UNKNOWN" });
       input.value = "";
     } catch (e) {
@@ -321,7 +321,7 @@ export async function render() {
     headerCard(ov),
     presRes.data ? presenceCard(presRes.data) : null,
     thread,
-    card({ title: "Ask", subtitle: "Business conversation. Evidence-linked answers; Unknown when there is no evidence." },
+    card({ title: "Ask", subtitle: "Business conversation with Laura. Her replies cite company records; when her model is unavailable she says so instead of answering from a template." },
       form,
       h("div", { class: "chips" }, suggested.map((s) => h("button", { class: "chip", type: "button", onclick: () => ask(s) }, s)))),
     privRes.data ? privateCard(privRes.data) : null);

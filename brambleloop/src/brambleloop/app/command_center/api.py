@@ -1087,6 +1087,30 @@ def make_router(db) -> APIRouter:
         # Phase 1 delivers text; a richer mode requested degrades with its reason (D-FB-16).
         return ok({**turn, "delivery": presence.negotiate(modes)})
 
+    # W4-LAURACEO (ADD-LCEO-01/02/03/06): Business Laura's real conversation. The model
+    # writes the reply over the deterministic evidence tools (`/laura/ask` stays as the
+    # evidence tool); unavailable -> said plainly, never a template. Business register only.
+    @router.post("/laura/converse")
+    async def laura_converse(request: Request):
+        from ...laura.agency import ceo_chat, presence
+
+        body = await body_of(request)
+        question = body.get("question")
+        if not isinstance(question, str):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "question must be a string")
+        modes = body.get("modes")
+        modes = [str(m) for m in modes][:3] if isinstance(modes, list) else None
+        pid = auth.current_public_id(request)
+        turn = await run_in_threadpool(
+            lambda: ceo_chat.converse(db, question, session_public_id=pid))
+        return ok({**turn, "delivery": presence.negotiate(modes)})
+
+    @router.get("/laura/costs")
+    def laura_costs(request: Request, days: int = 30):
+        from ...laura.agency import costs
+
+        return ok(costs.summary(db, days=max(1, min(int(days or 30), 92))))
+
     @router.post("/laura/follow-on")
     async def laura_follow_on(request: Request):
         from ...laura.agency import followon

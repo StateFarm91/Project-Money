@@ -116,6 +116,8 @@ export const ENDPOINTS = {
   laura: () => `${API_BASE}/laura`,
   lauraConversation: (limit = 20) => `${API_BASE}/laura/conversation${q({ limit })}`,
   lauraAsk: () => `${API_BASE}/laura/ask`,
+  lauraConverse: () => `${API_BASE}/laura/converse`,
+  lauraCosts: () => `${API_BASE}/laura/costs`,
   lauraFollowOn: () => `${API_BASE}/laura/follow-on`,
   lauraPortrait: () => `${API_BASE}/laura/portrait`,
   lauraPresence: () => `${API_BASE}/laura/presence`,
@@ -345,6 +347,9 @@ export const api = {
   laura: () => get(ENDPOINTS.laura()),
   lauraConversation: (limit) => get(ENDPOINTS.lauraConversation(limit)),
   lauraAsk: (question) => post(ENDPOINTS.lauraAsk(), { question }),
+  // W4-LAURACEO: Laura's model-backed conversation (lauraAsk is her evidence tool).
+  lauraConverse: (question) => post(ENDPOINTS.lauraConverse(), { question }),
+  lauraCosts: () => get(ENDPOINTS.lauraCosts()),
   lauraPresence: () => get(ENDPOINTS.lauraPresence()),
   lauraVoiceSpec: () => get(ENDPOINTS.lauraVoiceSpec()),
   // Owner-private context: status is non-content; every content call is a POST, so nothing
