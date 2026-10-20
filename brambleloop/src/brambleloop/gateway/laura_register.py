@@ -30,7 +30,7 @@ Isolation (G-6), each a deliberate departure from the general gateway path:
 * **No cache.** The routing task is `cacheable=False` and nothing here reads or writes
   `routing.cached_analysis` / `remember_analysis`.
 * **No content in any record.** Billing goes through the single existing path
-  (`ModelGateway._record`): token counts, cost, purpose `laura.private_reply@1`, agent
+  (`ModelGateway._record`): token counts, cost, purpose `laura.private_reply@3`, agent
   `laura_private`, the reservation id -- never the prompt or the reply. Provider health rows
   (`failover.record_attempt`) and refusals (`spend_report.record_refusal`) get a class name,
   an HTTP status or a fixed code; the provider's own error body (which `_send` puts in its
@@ -171,7 +171,8 @@ def _system_v1() -> str:
 
 # Explicit guardrails added in @2 (W4-VENICE follow-up, owner clarification 2026-10-20): stated
 # outright rather than left implicit, so they bind on any model. Every @1 sentence is kept
-# verbatim; the register wording is unchanged (D-W4-PL-2 stays UNRESOLVED).
+# verbatim. @2 is a historical release, kept registered unchanged; the register in force is @3
+# (D-W4-PL-VENICE-ADULT amends D-W4-PL-2).
 GUARDRAILS = (
     "Guardrails that bind on every model and are never relaxed: adults only -- the owner and "
     "you are adults, and nothing you write involves, sexualises or alludes romantically to a "

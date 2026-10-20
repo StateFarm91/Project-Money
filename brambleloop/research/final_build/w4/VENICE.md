@@ -6,6 +6,21 @@ D-W4-PL-VENICE.
 
 This file holds no private content and no key material. Variables are named here, never valued.
 
+> **CURRENT STATUS (2026-10-20, branch `claude/w4-VENICE-adult-wip`). This supersedes older status text below.**
+> - **Model:** `venice-uncensored-1-2` is owner-approved and is the pinned default, failing closed if its
+>   verification fails.
+> - **Eligibility:** decided by privacy class (Venice-hosted, Private, pinned price).
+> - **Register:** the adult register `laura.private_reply@3` (D-W4-PL-VENICE-ADULT) is IMPLEMENTED IN CODE. That
+>   covers all four user-visible copy surfaces, which the owner approved and which passed the permission review
+>   at fcb2bcd.
+> - **Still pending:** independent security review, integration into a certified release, owner deploy approval,
+>   activation, and the ADD-PLV-07 production run.
+> - **Terms §10.9(c):** L1a owner attestation RECORDED. L1b documentary verification NOT VERIFIED; the owner
+>   accepts it on attestation.
+> - **`VENICE_API_KEY`:** present in Railway production (checked by name only). The Venice account is funded
+>   (owner-reported).
+> - §9 and §10 below are historical records of the proposal stage.
+
 **Honest status.**
 - The adapter and its tests are done on this branch.
 - Nothing was deployed. No production variable was changed. No Venice key was created or handled.
@@ -213,9 +228,10 @@ They do not replace the production run.
 
 Do them in order. Never paste a key into chat or Claude Code: it goes only into Railway (ADD-PLV-06).
 
-1. **Approve the model and the budget** (CA$0, 1 min). Reply: "Approve Venice zai-org-glm-5-2 for Private
-   Laura at CA$0.50/day." This is required by ADD-PLV-08.
-2. **Buy Venice API credit** (**US$10**, about CA$14.15, 3 min). Go to venice.ai → sign in → Settings → **API**
+1. **Approve the model and the budget**: DONE. The owner approved `venice-uncensored-1-2` at CA$0.50/day on
+   2026-10-20 (D-W4-PL-VENICE-ADULT). The original text of this step named GLM 5.2 and is superseded.
+2. **Buy Venice API credit**: DONE (owner-reported, about US$12.31, auto top-up off). The original step read:
+   (**US$10**, about CA$14.15, 3 min). Go to venice.ai → sign in → Settings → **API**
    (venice.ai/settings/api) → add USD API credit. US$10 covers a month at the full CA$0.50/day cap (about
    US$10.60) or about 3,600 typical replies. The minimum purchase is UNKNOWN in the docs. Do not count on the
    Pro one-time US$5 credit (F8).
@@ -226,7 +242,8 @@ Do them in order. Never paste a key into chat or Claude Code: it goes only into 
    - **Epoch Consumption Limits: USD 0.36 per epoch**. This is a provider-side backstop about equal to
      CA$0.50/day; the code ceiling still governs.
    - Copy the key once.
-4. **Set the key in Railway** (CA$0, 2 min). Railway → project → **brambleloop-os** (the web service) →
+4. **Set the key in Railway**: DONE. `VENICE_API_KEY` is present on brambleloop-os production (name-only check
+   2026-10-20). Steps 3–4 as originally written (CA$0, 2 min): Railway → project → **brambleloop-os** (the web service) →
    Variables → New Variable → name `VENICE_API_KEY`, value = the key → Add. Railway redeploys the same build.
 5. **Existing Private Laura prerequisites**, in the same Variables screen, if not already done (PLACT.md):
    - **a.** `BRAMBLELOOP_PRIVATE_MEMORY_KEY` = 32 random bytes in base64, generated on your own machine:
@@ -298,7 +315,7 @@ the test if it is ever used:
 | ID | Status | Evidence |
 |---|---|---|
 | ADD-PLV-01 | DONE (facts and model selection); model OWNER-approval pending | §1–2; `gateway/venice.py` (`MODEL`, `PRICES_USD_PER_MTOK`, `PRIVATE_MODELS`); `test_auth_header_shape_pinned_model_and_request_body`, `test_price_table_and_the_daily_arithmetic_in_venice_md` |
-| ADD-PLV-02 | DONE in code (same pinned prompt; Venice's prompt off; uncensored and anonymized models excluded); live judgement = §5 step 3 | `test_auth_header_shape_pinned_model_and_request_body` |
+| ADD-PLV-02 | DONE in code as AMENDED (D-W4-PL-VENICE-ADULT): `@3` adult register with hard limits; eligibility by privacy class; Venice's own prompt off; anonymized models refused. Security review and production §5 pending | `test_auth_header_shape_pinned_model_and_request_body` |
 | ADD-PLV-03 | DONE (tests); production = §5 steps 5 and 8 | `test_venice_receives_only_the_private_turn_and_nothing_private_leaks_anywhere`, `test_persistence_across_restart_in_the_encrypted_store` |
 | ADD-PLV-04 | DONE (unchanged access model, re-proved over Venice) | `test_owner_only_access` |
 | ADD-PLV-05 | DONE (the atomic `laura_private` reservation reused; tokens and cost only) | `test_the_reservation_exists_before_the_request_and_billing_is_tokens_and_cost_only`, `test_budget_refusals_make_no_request` |
@@ -306,7 +323,7 @@ the test if it is ever used:
 | ADD-PLV-07 | OPEN: runbook written (§5); must pass in production | §5 |
 | ADD-PLV-08 | DONE in code (switch OFF by default; same reply path); OWNER approval and deploy pending | `test_the_switch_is_off_by_default_and_nothing_is_sent` |
 
-## 9. Uncensored and roleplay models compared with GLM 5.2 (owner clarification 2026-10-20; PROPOSAL only)
+## 9. Uncensored and roleplay models compared with GLM 5.2 (owner clarification 2026-10-20). Historical: the proposal stage; the owner has since approved venice-uncensored-1-2
 
 **What the owner asked.** Private Laura should hold natural adult private conversation that does not feel
 restricted, including mature and intimate topics, within the law and Venice's Terms. The owner also asked us to
@@ -430,7 +447,11 @@ GLM 5.2 until the owner's variable selects the new model.
 > with the pinned guardrails unchanged, and I approve the code change that makes privacy class, not the word
 > 'uncensored', the eligibility rule."
 
-## 10. Adult-register WIP (branch `claude/w4-VENICE-adult-wip`): PROPOSED, not in effect, not complete
+## 10. Adult-register WIP (branch `claude/w4-VENICE-adult-wip`). Historical: written while PROPOSED; now IMPLEMENTED IN CODE (see CURRENT STATUS at the top)
+
+> The BLOCKED copy edits listed in this section were made at fcb2bcd, on the owner's explicit approval, and passed
+> Claude Code's permission review. The `private_context.py` docstring and the `@1`→`@3` references were reconciled
+> afterwards.
 
 **Status.**
 - This implements the owner's FINAL RULING of 2026-10-20 ("PRIVATE LAURA, VENICE AND ADULT CONVERSATION").

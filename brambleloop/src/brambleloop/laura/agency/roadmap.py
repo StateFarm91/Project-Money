@@ -41,7 +41,7 @@ ROWS: tuple[dict, ...] = (
      "supported, the same voice's private delivery)", "required": True,
      "source": "spec/07 Ruling 2; D-FB-15; D-FB-16 item 11; D-FB-18 item 6",
      "gate": {"kind": "owner", "key": "laura_private_register",
-              "detail": "text register built (gateway.laura_register, LAURA_PRIVATE_REPLY@1; "
+              "detail": "text register built (gateway.laura_register, LAURA_PRIVATE_REPLY@3; "
                         "D-W4-PL-1, pending owner acknowledgement) and bounded by the "
                         "owner ruling D-W4-PL-VENICE-ADULT (@3 adult register with hard "
                         "limits) and Venice's Terms. Enabled only by "

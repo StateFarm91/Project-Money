@@ -746,5 +746,37 @@ def test_price_table_and_the_daily_arithmetic_in_venice_md():
         assert needle in doc, needle
 
 
+def test_every_register_surface_states_the_v3_adult_register_with_its_hard_limits():
+    """D-W4-PL-VENICE-ADULT: the four owner-visible descriptions of the private register agree
+    with the pinned prompt @3. None says "never sexually explicit". Each one that lists limits
+    names the hard limits, so the copy can never describe a register the code does not run."""
+    from brambleloop.laura.agency import roadmap, voice_spec
+
+    from brambleloop.gateway import laura_register
+
+    assert laura_register.PURPOSE == "laura.private_reply@3", laura_register.PURPOSE
+
+    surfaces = {
+        "private_context.REPLY_ENABLED": private_context.REPLY_ENABLED,
+        "voice_spec.private_text_register.bounds": voice_spec.private_text_register()["bounds"],
+        "roadmap.LAURA-PRIVATE-REGISTER": next(
+            r["gate"]["detail"] for r in roadmap.ROWS
+            if (r.get("gate") or {}).get("key") == "laura_private_register"),
+    }
+    js = (Path(private_context.__file__).parent / "static" / "js" / "views" / "laura.js").read_text()
+    line = next(ln for ln in js.splitlines() if 'reply_register === "ENABLED"' in ln)
+    surfaces["laura.js reply_register line"] = line
+
+    for name, text in surfaces.items():
+        assert "never sexually explicit" not in text, name
+        assert ("adult" in text and "register" in text) or "@3" in text, (name, text)
+    for name in ("private_context.REPLY_ENABLED", "voice_spec.private_text_register.bounds"):
+        text = surfaces[name]
+        for limit in ("minors", "real people", "unlawful", "Venice's Terms"):
+            assert limit in text, (name, limit)
+    assert "LAURA_PRIVATE_REPLY@3" in surfaces["roadmap.LAURA-PRIVATE-REGISTER"]
+    assert "hard limits always hold" in surfaces["laura.js reply_register line"]
+
+
 if __name__ == "__main__":
     H.run(globals())

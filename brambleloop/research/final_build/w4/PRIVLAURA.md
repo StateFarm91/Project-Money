@@ -1,5 +1,7 @@
 # W4-PRIVLAURA: Private Laura register (engineering per PRIVATE_LAURA_TRACE §5)
 
+> **Historical (2026-10-20).** The Private Laura register described here (`laura.private_reply@1`, "never sexually explicit", D-W4-PL-2 unresolved) is superseded by D-W4-PL-VENICE-ADULT: the `@3` adult register on Venice, with hard limits. See `VENICE.md` (CURRENT STATUS) and spec/13 ADD-PLV-02. This file is kept as the record of its stage.
+
 Branch `claude/w4-PRIVLAURA`, from `origin/claude/w4-INTEG2` @ 84ee2a0. This file holds no private
 content, no key material and no intimate text. Environment variables are named, never valued.
 

@@ -22,8 +22,11 @@ private enters and leaves through here, and only here:
   `store.record_turn(role="laura", reply_to=<owner turn>, model_ref=...)` -- the only
   provenance-valid way a reply enters history. The reply is returned only in this no-store
   POST body. Any unavailability is `reply_status: UNAVAILABLE` with a generic reason; there is
-  never a canned or templated private reply. Sexually explicit content is out of scope under
-  the provider's usage policy and is not bypassed.
+  never a canned or templated private reply. The register is the owner's adult register
+  (`laura.private_reply@3`, D-W4-PL-VENICE-ADULT): explicit adult dialogue and consensual
+  roleplay for the one adult owner, with hard limits that are never relaxed (no minors, no
+  non-consent presented as endorsed, no real people, nothing unlawful) and Venice's Terms as the
+  outer limit, never worked around.
 
 Business paths never import this module (`test_w3_laura_cc_private` proves it statically and
 with an SQL watch), and `laura.private.firewall.reject_private` refuses its values on every
