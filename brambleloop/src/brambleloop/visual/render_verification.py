@@ -69,7 +69,7 @@ from PIL import Image, ImageDraw
 
 from . import render_contract as K
 
-VERIFIER_VERSION = "render-verification/2.1.0"
+VERIFIER_VERSION = "render-verification/3.0.0"   # contract 3: two-line caption, wrapped lines
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
@@ -304,12 +304,15 @@ def _caption(frame: _Frame) -> dict:
     probe = Image.new("L", (frame.w, frame.h), 0)
     d = ImageDraw.Draw(probe)
     d.fontmode = "1"
-    width = d.textlength(K.DISCLOSURE, font=f)
-    x = round((frame.w - width) / 2)
-    y = round(K.CAPTION_TOP * frame.h)
-    d.text((x, y), K.DISCLOSURE, fill=255, font=f)
+    # Contract 3: the disclosure is lettered on the lines `caption_layout` computes, and every
+    # one of them is compared -- the band spans all lines, so a frame that drops "not a
+    # photograph" from the second line fails the IoU like any other missing word.
+    lines = K.caption_layout(frame.w)
+    for text, xy in lines:
+        d.text(xy, text, fill=255, font=f)
     expected = np.asarray(probe) > 0
-    band = slice(int(y - 12), int(y + K.CAPTION_PX * 2))
+    y, y_last = lines[0][1][1], lines[-1][1][1]
+    band = slice(int(y - 12), int(y_last + K.CAPTION_PX * 2))
     seen = frame.cls[band, :] == frame.CAPTION
     exp = expected[band, :]
     union = (seen | exp).sum()
@@ -932,13 +935,18 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
                                        {"vessel": True, "base_rounds": model["base_rounds"]})
     w, h = frame.w, frame.h
     # The text that may appear, re-lettered at the contract positions.
-    probe = ImageDraw.Draw(Image.new("L", (1, 1)))
-    lf = K.font(K.LABEL_PX)
-    texts = [(K.DISCLOSURE, (round((w - probe.textlength(K.DISCLOSURE, font=K.font(K.CAPTION_PX))) / 2),
-                             round(K.CAPTION_TOP * h)), K.CAPTION_PX)]
-    if lines:
-        texts += [(t, xy, K.LABEL_PX) for t, xy in
-                  zip(lines, K.annotation_xy([probe.textlength(t, font=lf) for t in lines], w))]
+    # Contract 3: the lines are wrapped and placed by the same contract functions the
+    # producer uses, from the verifier's own figures; a line that cannot be lettered legibly
+    # is a FAIL here, never a smaller re-lettering.
+    try:
+        texts = [(t, xy, K.CAPTION_PX) for t, xy in K.caption_layout(w)]
+        if lines:
+            texts += [(t, xy, K.LABEL_PX) for t, xy in K.annotation_layout(lines, w)]
+    except K.LetteringRefused as exc:
+        checks.append(_check("annotation_text", FAIL, "the contract lettering does not fit "
+                             "its rows at the legible size", why=str(exc)[:200],
+                             expected_lines=lines))
+        return
     o = K.SCALE_BAR_OUTLINE_PX
     bx0, by0, bx1, _by1 = scale["bar_px"]
     x0, y0, end = bx0 + o, by0 + o, bx1 - o + 1

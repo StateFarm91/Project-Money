@@ -105,13 +105,19 @@ class _RecordingDraw(ImageDraw.ImageDraw):
         self._im = im
         im.info.setdefault("layout", [])
 
-    def text(self, xy, text, fill=None, font=None, *args, **kwargs):  # noqa: D401
+    def text(self, xy, text, fill=None, font=None, *args, slot: str | None = None,
+             **kwargs):  # noqa: D401
+        # `slot` names what the line is in the frame plan (title, disclosure, row label...).
+        # `visual.frame_role.text_tier` reads it to decide, deterministically, whether the
+        # line is essential (must be legible at its real display size) or secondary
+        # (reported). A line drawn with no slot is classified essential, the strict rule.
         out = super().text(xy, text, fill, font, *args, **kwargs)
         try:
-            box = self.textbbox(xy, text, font=font)
+            box = self.textbbox(xy, text, font=font, anchor=kwargs.get("anchor"))
             size = getattr(font, "size", None)
             self._im.info["layout"].append({"kind": "text", "box": list(box),
-                                            "text": str(text)[:60], "pt": size})
+                                            "text": str(text)[:60], "pt": size,
+                                            "slot": slot})
         except Exception:  # noqa: BLE001 - measuring must never stop a render
             pass
         return out
@@ -150,19 +156,44 @@ def _wrap(d: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
 
 
 def _fit_text(d: ImageDraw.ImageDraw, text: str, x: int, y: int, max_w: int,
-              start_pt: int, color) -> None:
+              start_pt: int, color, *, slot: str | None = None, min_pt: int = 14,
+              leading: float = 1.22) -> int:
     """Shrink until it fits rather than letting a long title run off the canvas.
 
     A title clipped mid-word is the single clearest signal that a listing was machine-made
     without anyone looking at it, which is the opposite of what this brand is selling.
+
+    Shrinking stops at `min_pt`, the size the line must keep to stay legible where it is
+    actually shown (`min_pt_for`). A line still too wide there wraps onto further lines at
+    that size instead of shrinking into decoration. Returns the y below the last line.
     """
     pt = start_pt
-    while pt > 14:
+    while pt > max(14, min_pt):
         font = _font(pt)
         if d.textlength(text, font=font) <= max_w:
             break
-        pt = int(pt * 0.94)
-    d.text((x, y), text, font=_font(pt), fill=color)
+        pt = max(int(pt * 0.94), min_pt)
+    font = _font(pt)
+    lines = [text] if d.textlength(text, font=font) <= max_w else _wrap(d, text, font, max_w)
+    for line in lines:
+        d.text((x, y), line, font=font, fill=color, slot=slot)
+        y += int(pt * leading)
+    return y
+
+
+def min_pt_for(slot: str, size: int = CANVAS, role: str = "") -> int:
+    """The smallest face a line in `slot` may be set in on a `size`-px frame and still clear
+    `thumbnail.MIN_LEGIBLE_TEXT_PX` at the size it is really displayed (D-W4-VISROLE, owner
+    ruling 2026-10-19). Secondary lines have no floor beyond layout QA's minimum face."""
+    import math
+
+    from ..commerce.thumbnail import MIN_LEGIBLE_TEXT_PX
+    from ..visual.frame_role import text_tier
+
+    tier = text_tier(role, slot)
+    if not tier["essential"]:
+        return 14
+    return math.ceil(MIN_LEGIBLE_TEXT_PX * size / tier["display_px"])
 
 
 def _title_block(d: ImageDraw.ImageDraw, text: str, y: int, size: int = CANVAS,
@@ -170,7 +201,7 @@ def _title_block(d: ImageDraw.ImageDraw, text: str, y: int, size: int = CANVAS,
     font = _font(int(size * 0.052))
     m = _safe(size)
     for line in _wrap(d, text, font, size - 2 * m):
-        d.text((m, y), line, font=font, fill=color)
+        d.text((m, y), line, font=font, fill=color, slot="headline")
         y += int(size * 0.062)
     d.line([(m, y + 10), (m + int(size * 0.09), y + 10)], fill=GOLD, width=4)
     return y + int(size * 0.05)
@@ -178,15 +209,19 @@ def _title_block(d: ImageDraw.ImageDraw, text: str, y: int, size: int = CANVAS,
 
 def _rows(d: ImageDraw.ImageDraw, pairs: list[tuple[str, str]], y: int,
           size: int = CANVAS) -> int:
-    """Label/value rows. The whole point of these frames is legibility at thumbnail size."""
-    label_font = _font(int(size * 0.026))
-    value_font = _font(int(size * 0.034))
+    """Label/value rows. The whole point of these frames is legibility at thumbnail size.
+
+    Both halves are essential text (a label names the deliverable or the requirement it
+    introduces), so the label face is the listing-view floor, not a smaller caption face: at
+    the old 2.6% it rendered at 10.1 px in a 390 px phone gallery."""
+    label_font = _font(max(int(size * 0.029), min_pt_for("row_label", size)))
+    value_font = _font(max(int(size * 0.034), min_pt_for("row_value", size)))
     m = _safe(size)
     for label, value in pairs:
-        d.text((m, y), label.upper(), font=label_font, fill=MUTED)
-        y += int(size * 0.034)
+        d.text((m, y), label.upper(), font=label_font, fill=MUTED, slot="row_label")
+        y += int(size * 0.036)
         for line in _wrap(d, value, value_font, size - 2 * m):
-            d.text((m, y), line, font=value_font, fill=INK)
+            d.text((m, y), line, font=value_font, fill=INK, slot="row_value")
             y += int(size * 0.045)
         y += int(size * 0.022)
     return y
@@ -223,7 +258,10 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
     # search-grid size, and a hero that is mostly cream background loses the click to one
     # that is not -- an earlier layout sat barely above the floor at 36%.
     top = int(size * 0.195)
-    bottom = int(size * 0.805)
+    # 0.775, not 0.805: the product-type line and the two-line disclosure under the fabric are
+    # essential text and are set at the listing-view floor (`min_pt_for`), which needs more
+    # height than the old 2.5% faces did, and all of it must stay inside the title-safe band.
+    bottom = int(size * 0.775)
     box_w, box_h = size - 2 * m, bottom - top
     round_worked = is_round(cir, twin)
     hero_fabric_flat = False
@@ -257,17 +295,24 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
            "fabric")
 
     d.text((m, int(size * 0.095)), "BRAMBLELOOP STUDIO", font=_font(int(size * 0.024)),
-           fill=MUTED)
-    _fit_text(d, cir.title, m, int(size * 0.125), size - 2 * m, int(size * 0.052), PINE)
+           fill=MUTED, slot="brand")
+    _fit_text(d, cir.title, m, int(size * 0.125), size - 2 * m, int(size * 0.052), PINE,
+              slot="title", min_pt=min_pt_for("title", size, "hero"))
 
     # Fitted to the inner width like the title: the disclosure line at full size ran past the
     # right edge of the title-safe band, which is the one place it must never be hidden.
-    _fit_text(d, "CROCHET PATTERN · PDF · CHART + WRITTEN", m, int(size * 0.818),
-              size - 2 * m, int(size * 0.025), GOLD)
-    _fit_text(d, ("Digital render from above, not a photograph of a finished item"
-                  if round_worked else
-                  "Digital pattern render, not a photograph of a finished item"),
-              m, int(size * 0.852), size - 2 * m, int(size * 0.025), MUTED)
+    # Both lines are essential (what is sold; that the picture is not a photograph), so they
+    # never shrink below the listing-view floor: at 2.5% the disclosure was fitted down to
+    # 8.0 px in a 390 px phone gallery. The disclosure is drawn as two lines split after the
+    # comma, so "not a photograph" is always whole on one line.
+    floor = min_pt_for("disclosure", size, "hero")
+    y = _fit_text(d, "CROCHET PATTERN · PDF · CHART + WRITTEN", m, int(size * 0.79),
+                  size - 2 * m, max(int(size * 0.029), floor), GOLD, slot="product_type",
+                  min_pt=min_pt_for("product_type", size, "hero"))
+    first = "Digital render from above," if round_worked else "Digital pattern render,"
+    for part in (first, "not a photograph of a finished item"):
+        y = _fit_text(d, part, m, y, size - 2 * m, floor, MUTED, slot="disclosure",
+                      min_pt=floor)
     return Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
                  caption="clean finished-result hero", image=img,
                  fabric_is_flat=hero_fabric_flat,
@@ -342,6 +387,8 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
         w_px = int(twin.width_cm * px_per_cm)
         h_px = int(twin.height_cm * px_per_cm)
         d.rectangle([left, top, left + w_px, top + h_px], fill=PINE, outline=PINE)
+        img.info["layout"].append({"kind": "piece", "box": [left, top, left + w_px,
+                                                             top + h_px]})
         # A vessel's two numbers are a diameter and a height, and "26 × 23 cm" beside a solid
         # block reads as a flat rectangle 26 cm by 23 cm. The drawing is right -- the side
         # profile of a cylinder is that rectangle -- and the label was the part that made a
@@ -350,15 +397,29 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
         shown = size_frame_displays(width_cm=twin.width_cm, height_cm=twin.height_cm,
                                     shape=getattr(twin, "shape", None))
         label = shown["label"]
-        d.text((left + w_px // 2, top + h_px + 18), label,
-               font=_font(int(size * 0.030)), fill=INK, anchor="ma")
-        ref_x = left + w_px + int(size * 0.10)
+        # Centred under the piece, but kept inside the safe area. A small piece (a 10 cm
+        # coaster is 26 px wide on this card) centred its label on a point 26 px from the
+        # margin, so "10 cm across × 8 cm tall" started 290 px off the left edge of the image:
+        # the measurement was cut off. The recorder measured the box without the anchor, so
+        # layout QA saw a box that was not where the text was; both are fixed.
+        label_font = _font(max(int(size * 0.030), min_pt_for("size_label", size, "size")))
+        label_w = d.textlength(label, font=label_font)
+        label_x = int(min(max(left + w_px // 2 - label_w / 2, left),
+                          size - _safe(size) - label_w))
+        d.text((label_x, top + h_px + 18), label, font=label_font, fill=INK,
+               slot="size_label")
+        # Right of the piece AND of its label: beside a small piece the label is wider than
+        # the piece, and a bar placed from the piece's edge alone ran through the label.
+        ref_x = max(left + w_px + int(size * 0.10), int(label_x + label_w) + int(size * 0.05))
         d.rectangle([ref_x, top, ref_x + int(size * 0.035), top + area_h], outline=LINE,
                     width=4)
+        img.info["layout"].append({"kind": "scale_bar", "box": [
+            ref_x, top, ref_x + int(size * 0.035), top + area_h]})
         # Named, not bare: "180 cm" alone beside the card is the unexplained marker #60
         # names by example, and it reads as a second size of the product.
         d.text((ref_x + int(size * 0.018), top + area_h + 18), shown["reference_label"],
-               font=_font(int(size * 0.026)), fill=MUTED, anchor="ma")
+               font=_font(max(int(size * 0.026), min_pt_for("scale_reference", size, "size"))),
+               fill=MUTED, anchor="ma", slot="scale_reference")
         _rows(d, [("Worked at", "the gauge in the pattern — your gauge changes the size "
                                 "in the same proportion")],
               top + area_h + int(size * 0.09), size)
@@ -402,7 +463,9 @@ def _materials_frame(cir: CIR, twin: TwinModel, difficulty: str) -> Frame:
         x = m + i * int(size * 0.13)
         d.rectangle([x, y, x + int(size * 0.10), y + int(size * 0.10)],
                     fill=_hex_to_rgb(hexv), outline=LINE, width=3)
-        d.text((x, y + int(size * 0.11)), name, font=_font(int(size * 0.024)), fill=MUTED)
+        d.text((x, y + int(size * 0.11)), name,
+               font=_font(max(int(size * 0.024), min_pt_for("colour_name", size, "materials"))),
+               fill=MUTED, slot="colour_name")
     return Frame(position=4, role="materials", asset_class=AssetClass.INFOGRAPHIC,
                  caption="materials and difficulty", image=img,
                  depicts_colors=sorted(c for c in twin.colors_used if c),
@@ -421,14 +484,15 @@ def _pattern_preview(cir: CIR, twin: TwinModel, pattern_text: str) -> Frame:
     lines = [ln for ln in pattern_text.split("\n") if ln.strip()][:14]
     for line in lines:
         for wrapped in _wrap(d, line, body, size - 2 * m):
-            d.text((m, y), wrapped, font=body, fill=INK)
+            d.text((m, y), wrapped, font=body, fill=INK, slot="excerpt")
             y += int(size * 0.031)
             if y > size * 0.86:
                 break
         if y > size * 0.86:
             break
-    d.text((m, int(size * 0.92)), "Actual pattern text from this release",
-           font=_font(int(size * 0.024)), fill=MUTED)
+    d.text((m, int(size * 0.905)), "Actual pattern text from this release",
+           font=_font(max(int(size * 0.024), min_pt_for("caption", size, "pattern_preview"))),
+           fill=MUTED, slot="caption")
     return Frame(position=5, role="pattern_preview", asset_class=AssetClass.PATTERN_PREVIEW,
                  caption="real excerpt from the released pattern", image=img,
                  depicts_stitches=sorted(twin.stitch_types_used))
@@ -664,6 +728,22 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
                     f"frame this empty says nothing at any size")
         for problem in _lq.check_layout(f.image, position=f.position):
             problems.append(f"LISTING_{problem}")
+    # Owner ruling 2026-10-19 (D-W4-VISROLE): essential customer-facing text must be readable
+    # at the size it is actually displayed. Each recorded line is classified from the frame
+    # plan (`frame_role.text_tier`, by slot); an essential line under
+    # `thumbnail.MIN_LEGIBLE_TEXT_PX` at its display size blocks. Secondary lines are
+    # reported by `frame_role.legibility`, not here.
+    from ..visual import frame_role as _fr
+
+    for f in rendered:
+        leg = _fr.legibility(f)
+        if leg is None:
+            continue    # LAYOUT_UNRECORDED is already reported by check_layout above
+        for ln in leg["essential_failing"]:
+            problems.append(
+                f"LISTING_FRAME_{f.position}_ESSENTIAL_TEXT_ILLEGIBLE: {ln['text']!r} "
+                f"({ln['slot']}) renders at {ln['px']}px at its {ln['display_px']}px display "
+                f"size; essential text must reach {leg['floor_px']}px")
     # #61: "A size card must communicate scale clearly." Deterministic half: the card the
     # renderer drew must carry a measurement -- the piece to scale beside a named reference,
     # or the stated circumference. A rendered card titled "Finished size" with nothing under

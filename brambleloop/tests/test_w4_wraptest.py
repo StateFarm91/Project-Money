@@ -327,7 +327,12 @@ def test_budget_reserves_before_every_call_and_caps_attempts():
     check("third_attempt_per_role_refused",
           raises(lambda: rend2("p", reference_urls=[], size="2048x2048", work_dir=w,
                                purpose="x", agent="a"), XP.ExperimentBudgetStop) is not None)
-    check("failed_calls_billed_conservatively", abs(rend2.budget.spent_cad - 2 * 0.13986) < 1e-6,
+    # Each failed call is billed at its reservation: the 2k tier price at the repo FX rate
+    # (core.fx; INTEG3 moved it to the Bank of Canada 2026-10-16 rate), never at zero.
+    from brambleloop.gateway import images as _gi
+    per_call = round(_gi.BFL3_TIER_USD[_gi.bfl3_tier("2048x2048")] * _gi.USD_TO_CAD, 6)
+    check("failed_calls_billed_conservatively", per_call > 0.0 and
+          abs(rend2.budget.spent_cad - 2 * per_call) < 1e-6,
           rend2.budget.to_dict())
 
 

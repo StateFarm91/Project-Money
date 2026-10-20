@@ -33,6 +33,14 @@ storage            ``etsy_webhook_deliveries`` (body digest, never the body)
 observability      ``summary``: counts by status/event, last delivery, refusals by reason,
                    served under ``GET /api/etsy`` (``webhooks``)
 =================  ==========================================================================
+
+REL2 (independent security review of a25a377, M1/L1/L2): the endpoint is public, so a refusal
+must cost the server O(1) storage however often it is provoked. A refusal increments one
+counter row per reason (``etsy_webhook_refusals``, a closed set of code-defined reasons) and
+writes at most one sampled audit row per reason per ``AUDIT_SAMPLE_SECONDS``; ``summary``
+aggregates in SQL. The body is read as a stream against a running cap (``read_body``), so an
+oversized body is refused without being buffered, and a signature header that is not ASCII is
+compared as bytes, so it is a clean ``bad_signature`` refusal rather than a 500.
 """
 from __future__ import annotations
 
@@ -46,7 +54,8 @@ import threading
 from datetime import datetime, timezone
 from typing import Mapping
 
-from sqlalchemy import DateTime, Integer, String, select
+from sqlalchemy import BigInteger, DateTime, Integer, String, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db import Base
@@ -57,7 +66,15 @@ SUPPORTED_EVENTS = ("order.paid", "order.canceled", "order.shipped", "order.deli
 MAX_SKEW_SECONDS = 300
 MAX_BODY_BYTES = 64 * 1024
 INGEST_AGENT, INGEST_JOB = "cfo", "commerce.orders_ingest"
+# Legacy: one audit row per refusal (a25a377 and earlier). No longer written; still counted.
 REFUSED_ACTION = "etsy.webhook_refused"
+# REL2/M1: at most one sampled audit row per refusal reason per AUDIT_SAMPLE_SECONDS.
+REFUSAL_SAMPLE_ACTION = "etsy.webhook_refusal_sampled"
+AUDIT_SAMPLE_SECONDS = 3600
+# The closed set of refusal reasons. A reason outside it is counted as "other", so the counter
+# table can never grow with what a request says.
+REFUSAL_REASONS = ("not_configured", "secret_malformed", "missing_headers", "malformed",
+                   "too_large", "stale", "bad_signature", "unsupported_event", "foreign_shop")
 DOCS = "https://developers.etsy.com/documentation/essentials/webhooks"
 
 
@@ -90,6 +107,22 @@ class EtsyWebhookDelivery(Base):
                                                                nullable=True)
 
 
+class EtsyWebhookRefusal(Base):
+    """REL2/M1: one row per refusal reason, incremented in place (never one row per request)."""
+
+    __tablename__ = "etsy_webhook_refusals"
+
+    reason: Mapped[str] = mapped_column(String(40), primary_key=True)
+    # Security review of 5f18d11 (L1): BIGINT, so a flood cannot overflow the counter (int4
+    # stops at 2^31-1 and the swallowed error would freeze it silently).
+    count: Mapped[int] = mapped_column(BigInteger, default=0)
+    last_status: Mapped[int] = mapped_column(Integer, default=0)
+    first_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Unix seconds of the last sampled audit row, compared as an integer on every dialect.
+    last_audit_epoch: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
 _LOCK = threading.Lock()
 _FLAG = "_brambleloop_etsy_webhooks_ready"
 
@@ -100,7 +133,8 @@ def ensure_table(db) -> None:
         return
     with _LOCK:
         if not getattr(engine, _FLAG, False):
-            Base.metadata.create_all(engine, tables=[EtsyWebhookDelivery.__table__],
+            Base.metadata.create_all(engine, tables=[EtsyWebhookDelivery.__table__,
+                                                     EtsyWebhookRefusal.__table__],
                                      checkfirst=True)
             setattr(engine, _FLAG, True)
 
@@ -139,6 +173,41 @@ def _header(headers: Mapping[str, str], name: str) -> str:
     return ""
 
 
+class BodyTooLarge(WebhookRefused):
+    def __init__(self, why: str):
+        super().__init__("too_large", why, status=413)
+
+
+async def read_body(stream, content_length: str | None, *, cap: int = MAX_BODY_BYTES) -> bytes:
+    """REL2/L1: the request body, refused before it is buffered past `cap`.
+
+    A declared Content-Length above the cap is refused without reading a byte; a body that
+    declares nothing (chunked) or understates itself is read chunk by chunk and refused the
+    moment the running total passes the cap. Raises BodyTooLarge or WebhookRefused."""
+    if content_length is not None and str(content_length).strip():
+        try:
+            declared = int(str(content_length).strip())
+        except ValueError:
+            raise WebhookRefused("malformed", "Content-Length is not an integer",
+                                 status=400) from None
+        if declared < 0:
+            raise WebhookRefused("malformed", "Content-Length is negative", status=400)
+        if declared > cap:
+            raise BodyTooLarge(f"declared body over {cap} bytes")
+    buf = bytearray()
+    async for chunk in stream:
+        buf += chunk
+        if len(buf) > cap:
+            raise BodyTooLarge(f"body over {cap} bytes")
+    return bytes(buf)
+
+
+def _ascii_bytes(value: str) -> bytes:
+    """A header value as bytes for a constant-time compare. Starlette decodes headers as
+    latin-1, so a non-ASCII value is legal input here; it must mismatch, never raise (L2)."""
+    return value.encode("utf-8", "surrogateescape") if isinstance(value, str) else bytes(value)
+
+
 def expected_shop_id() -> str | None:
     """The shop this company's grant is bound to, when known. None means not yet bound; a
     delivery is then still only a wake (it writes nothing an ingest would not)."""
@@ -172,9 +241,10 @@ def verify(headers: Mapping[str, str], body: bytes, *, secret: str | None,
         raise WebhookRefused("stale", f"timestamp {skew:.0f}s from server time (limit "
                              f"{MAX_SKEW_SECONDS}s): a replay or a clock fault")
     mac = hmac.new(key, f"{wid}.{ts}.".encode() + body, hashlib.sha256).digest()
-    want = base64.b64encode(mac).decode()
+    want = base64.b64encode(mac)
     offered = [p.split(",", 1)[1] for p in sig.split() if "," in p]
-    if not any(hmac.compare_digest(want, o) for o in offered):
+    # REL2/L2: compare bytes. compare_digest(str, str) raises TypeError on non-ASCII text.
+    if not any(hmac.compare_digest(want, _ascii_bytes(o)) for o in offered):
         raise WebhookRefused("bad_signature", "no webhook-signature entry matches")
     try:
         payload = json.loads(body.decode("utf-8"))
@@ -199,16 +269,80 @@ def verify(headers: Mapping[str, str], body: bytes, *, secret: str | None,
 # Storage, idempotency and the wake
 
 
-def _refused(db, exc: WebhookRefused) -> None:
+def _upsert(dialect: str, reason: str, now: datetime, status: int):
+    """INSERT ... ON CONFLICT (reason) DO UPDATE count = count + 1: one statement, atomic,
+    on the two dialects this runs on. None for any other dialect (then the two-step path)."""
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    elif dialect == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert
+    else:
+        return None
+    t = EtsyWebhookRefusal
+    ins = insert(t).values(reason=reason, count=1, first_at=now, last_at=now,
+                           last_status=status, last_audit_epoch=0)
+    return ins.on_conflict_do_update(index_elements=[t.reason],
+                                     set_={"count": t.count + 1, "last_at": now,
+                                           "last_status": status})
+
+
+def _refused(db, exc: WebhookRefused, *, now: datetime | None = None) -> None:
+    """Count one refusal: an upsert on its reason's counter row, and an audit row only when
+    that reason has not been sampled within AUDIT_SAMPLE_SECONDS (REL2/M1). Storage is bounded
+    by the closed reason set, whatever the request rate.
+
+    Security review of 5f18d11 (M1): ONE transaction per refusal -- the counter upsert, the
+    conditional claim of the sample slot and (when claimed) the sampled audit row commit
+    together -- instead of up to three. The route runs this off the event loop."""
     from ..core.models import AuditLog
 
+    reason = exc.reason if exc.reason in REFUSAL_REASONS else "other"
+    now = now or datetime.now(timezone.utc)
+    epoch = int(now.timestamp())
+    status = int(exc.status)
     try:
+        ensure_table(db)
+        upsert = _upsert(db.engine.dialect.name, reason, now, status)
+        if upsert is None:  # pragma: no cover - only sqlite and postgresql are deployed
+            bump = (update(EtsyWebhookRefusal).where(EtsyWebhookRefusal.reason == reason)
+                    .values(count=EtsyWebhookRefusal.count + 1, last_at=now,
+                            last_status=status))
+            with db.session() as s:
+                hit = s.execute(bump).rowcount
+            if not hit:
+                try:
+                    with db.session() as s:
+                        s.add(EtsyWebhookRefusal(reason=reason, count=1, first_at=now,
+                                                 last_at=now, last_status=status,
+                                                 last_audit_epoch=0))
+                except IntegrityError:  # a concurrent first refusal won the insert
+                    with db.session() as s:
+                        s.execute(bump)
         with db.session() as s:
-            s.add(AuditLog(actor="orchestrator", action=REFUSED_ACTION,
-                           detail={"reason": exc.reason, "why": exc.why[:300],
-                                   "status": exc.status}))
+            if upsert is not None:
+                s.execute(upsert)
+            # Claim the sample slot with a conditional update, so concurrent refusals write
+            # one audit row between them rather than one each.
+            claimed = s.execute(
+                update(EtsyWebhookRefusal).where(
+                    EtsyWebhookRefusal.reason == reason,
+                    EtsyWebhookRefusal.last_audit_epoch <= epoch - AUDIT_SAMPLE_SECONDS)
+                .values(last_audit_epoch=epoch)).rowcount
+            if claimed:
+                total = s.scalar(select(EtsyWebhookRefusal.count).where(
+                    EtsyWebhookRefusal.reason == reason))
+                s.add(AuditLog(actor="orchestrator", action=REFUSAL_SAMPLE_ACTION,
+                               detail={"reason": reason, "why": exc.why[:300],
+                                       "status": exc.status, "count_so_far": int(total or 0),
+                                       "sample_window_seconds": AUDIT_SAMPLE_SECONDS}))
     except Exception:  # noqa: BLE001 - a refusal is answered even if it cannot be counted
         pass
+
+
+def refuse(db, exc: WebhookRefused) -> tuple[int, dict]:
+    """Count a refusal raised outside `receive` (the route's body read) and answer it."""
+    _refused(db, exc)
+    return exc.status, {"accepted": False, "reason": exc.reason, "why": exc.why}
 
 
 def receive(db, headers: Mapping[str, str], body: bytes, *, secret: str | None = None,
@@ -220,8 +354,7 @@ def receive(db, headers: Mapping[str, str], body: bytes, *, secret: str | None =
     try:
         got = verify(headers, body, secret=secret, now=now, shop_id=shop_id)
     except WebhookRefused as exc:
-        _refused(db, exc)
-        return exc.status, {"accepted": False, "reason": exc.reason, "why": exc.why}
+        return refuse(db, exc)
     ensure_table(db)
     from ..queue.durable import DuplicateJob, JobQueue
 
@@ -267,9 +400,10 @@ def receive(db, headers: Mapping[str, str], body: bytes, *, secret: str | None =
 
 
 def summary(db) -> dict:
-    """Observability for GET /api/etsy: what arrived, what it woke, what was refused."""
-    from sqlalchemy import func
+    """Observability for GET /api/etsy: what arrived, what it woke, what was refused.
 
+    Every count is a SQL aggregate (REL2/M1): refusals are the per-reason counter rows plus
+    the legacy one-row-per-refusal audit rows grouped by reason in SQL, never iterated."""
     from ..core.models import AuditLog, Job
 
     configured = bool(os.environ.get(SECRET_ENV))
@@ -290,10 +424,13 @@ def summary(db) -> dict:
                         Job.id.in_(job_ids)).group_by(Job.status)).all():
                     job_states[getattr(st, "value", str(st))] = n
             refused: dict[str, int] = {}
-            for d in s.scalars(select(AuditLog.detail).where(
-                    AuditLog.action == REFUSED_ACTION)):
-                r = (d or {}).get("reason") or "unknown"
-                refused[r] = refused.get(r, 0) + 1
+            for r, n in s.execute(select(EtsyWebhookRefusal.reason,
+                                         EtsyWebhookRefusal.count)).all():
+                refused[r] = refused.get(r, 0) + int(n or 0)
+            legacy_reason = AuditLog.detail["reason"].as_string()
+            for r, n in s.execute(select(legacy_reason, func.count()).where(
+                    AuditLog.action == REFUSED_ACTION).group_by(legacy_reason)).all():
+                refused[r or "unknown"] = refused.get(r or "unknown", 0) + int(n or 0)
     except Exception as exc:  # noqa: BLE001 - a status read never 500s
         return {"configured": configured, "reading": "UNKNOWN",
                 "why": f"{type(exc).__name__}"}

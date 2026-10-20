@@ -58,6 +58,11 @@ FIRST_SALE_NOTE = ("One sale proves possibility, not scale. It says a buyer can 
                    "and pay for this product; it says nothing about how many more will.")
 
 
+# REL2 (security review a25a377, I3): evidence is free text from the operator; it is capped
+# like the other operator inputs rather than stored at whatever length is sent.
+MAX_EVIDENCE_CHARS = 2000
+
+
 class AttributionRefused(ValueError):
     """A source claimed without evidence, or a source this module does not know."""
 
@@ -85,6 +90,10 @@ def attribute(db, external_ref: str, source: str, *, evidence: str,
     if not (evidence or "").strip():
         raise AttributionRefused("an acquisition source without evidence is a guess; "
                                  "leave the order unknown instead")
+    if len(evidence) > MAX_EVIDENCE_CHARS:
+        raise AttributionRefused(f"evidence is {len(evidence)} characters; at most "
+                                 f"{MAX_EVIDENCE_CHARS} are stored. Cite the document "
+                                 f"rather than pasting it")
     with db.session() as s:
         order = s.scalar(select(Order).where(Order.external_ref == external_ref))
         if order is None:

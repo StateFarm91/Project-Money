@@ -1110,25 +1110,26 @@
   "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
   "durable_state": "jobs (priority, run_after)",
-  "consumer": null,
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (claims through JobQueue.claim, so the aged ordering is what the worker executes)",
   "protected_effect": "bounded aging lifts a waiting low-band job; a starved lane's engineering is moved up",
   "tests": [
    "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
    "tests/test_cert_lanes_capacity.py::test_a_starved_lane_has_its_queued_engineering_moved_up"
   ],
   "evidence": [
-   "queue/durable.py AGING (C-15) absent from fcb982d"
+   "queue/durable.py AGING (C-15) absent from fcb982d",
+   "research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261019T1249Z.json (production 1b21e81): starved_ready {reading: ok, starved: 0, late_ready: 0, why: 'no READY work is past its band SLA'} with parallelism.utilisation 0.98 (the worker busy) -- long-running work is not starving smaller READY jobs; band SLAs are the fairness bound"
   ],
   "build2_rows": [
    "#187 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "production_window",
-   "detail": "not deployed"
+   "kind": "none",
+   "key": null,
+   "detail": "deployed: queue/durable.py aging runs in production 1b21e81"
   },
   "defect": null,
-  "next_action": "none beyond deploying Build 2 (owner)",
+  "next_action": "none -- deployed and read in production",
   "confidence": "HIGH",
   "searched": null
  },

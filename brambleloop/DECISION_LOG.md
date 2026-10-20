@@ -1917,6 +1917,118 @@ the size label at 60 pt is 10.2 px). That is recorded per frame (`smallest_px`).
 line to 11 px would block every current infographic until the frames are redesigned with larger
 type.
 
+## D-W4-PL-3 (owner decisions 2026-10-13; recorded 2026-10-19 by W4-PLACT) — Private Laura: separate budget, no consent prerequisite, activation status
+
+**Status: owner decisions, binding. Nothing is enabled or deployed by this entry; the reply path stays OFF by
+default.** Supersedes only the named parts of D-W4-PL-1 items 3-4 and PRIVATE_LAURA_TRACE OA-PL-3/OA-PL-4; D-W4-PL-1's
+acknowledgement (OA-PL-2) and D-W4-PL-2 (UNRESOLVED; register wording unchanged) are untouched.
+1. **Separate budget.** Private replies are billed to a distinct agent, `laura_private`
+   (`agents.registry.DEFAULT_AGENTS`), with its own CA$0.50/day ceiling, independent of Business Laura's
+   CA$0.50/day (`laura`, D-W4-LAURA1-BUDGET). Both stay inside the existing CA$100 monthly ceiling; no other limit
+   changes. Each private reply is checked and reserved in ONE atomic step under `budget_lock`
+   (`gateway.anthropic.check_budget_cad(..., agent_daily_cap_cad=...)`), closing security-review finding L1 (the
+   per-purpose figure was read outside the lock and reserved separately). `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD`
+   stays the owner switch for spend, capped at the agent ceiling (it can only tighten).
+2. **Identity / consent.** The owner's clarification, quoted: "Private Laura is Brambleloop's established AI
+   persona, not an impersonation of a real person." OA-PL-3 (an attestation of human consent) is therefore
+   **removed as a prerequisite everywhere** (docs, roadmap/status copy, UI copy). Truthful AI representation is
+   KEPT: she never claims to be human and never asserts consent, signatures or physical acts on anyone's behalf
+   (the pinned `laura.private_reply@1` prompt is unchanged). The register wording is not changed; D-W4-PL-2 stays
+   unresolved.
+3. **Status.** The owner-only `/api/cc/private/status` reports each activation prerequisite as met or unmet, with
+   no secret values: private key configured; register switch; daily CAD set; `laura_private` agent present;
+   current release deployed.
+
+## D-W4-VISROLE-LEGIBILITY: essential text is legible at its actual display size (owner, 2026-10-19; amends D-W4-VISROLE)
+
+**Owner, as relayed by the coordinator:**
+
+> "Essential customer-facing text must be readable at the ACTUAL display size; there is no
+> blanket pixel floor."
+
+This answers D-W4-VISROLE's "for the owner to tighten if wanted": the 11 px floor
+(`thumbnail.MIN_LEGIBLE_TEXT_PX`) now applies to every *essential* line, measured at the size the
+line is really shown, and not only to the headline. It does not apply to every line.
+
+**Measured failures at 390 px** (the phone gallery, `mobile.CONTEXT_MEANS[PHONE_GALLERY]`), on
+INTEG2 9c3812b:
+- the hero's "not a photograph" disclosure: 8.0 px;
+- "CROCHET PATTERN · PDF": 9.75 px;
+- the size card's "180 cm adult": 10.1 px;
+- the materials colour names: 9.4 px;
+- every row label ("WRITTEN PATTERN", "YARN", "WORKED AT"): 10.1 px.
+
+**Applied:**
+1. **Each line is classified deterministically from the frame plan.**
+   - `listing_assets` records a `slot` for every line it draws.
+   - `visual/frame_role.text_tier(role, slot)` maps the slot to essential or secondary, and to
+     its display size:
+     - title and headline: essential, read in the 340 px grid;
+     - product type, disclosure, row label and value, size label, scale reference, colour
+       name, preview caption: essential, read in the 390 px phone gallery;
+     - the brand line and the pattern excerpt: secondary.
+   - A slot the table does not name is essential at 340 px, the strictest rule. No model is
+     consulted.
+2. **Essential lines are drawn at or above the floor for their display size** (`min_pt_for`):
+   65 pt on a 2000 px frame for grid text, and 57 pt for listing-view text. A line too wide at
+   the floor wraps instead of shrinking. The hero disclosure is set on two lines, split after
+   the comma, so "not a photograph" is always whole on one line.
+3. **An essential line below the floor blocks, deterministically.**
+   - `check_frame_plan` reports `LISTING_FRAME_<n>_ESSENTIAL_TEXT_ILLEGIBLE`.
+   - The `text_legible_340` role check fails on it.
+   - Secondary lines below the floor are reported with the verdict (`secondary_below_floor`)
+     and do not block.
+   - The headline-at-340 rule and the `layout_qa.MIN_TEXT_PT` rule for every line are
+     unchanged.
+4. **Found while measuring.** The size card's label was drawn centre-anchored, and the layout
+   recorder measured it without the anchor.
+   - A small piece's label therefore started up to 290 px off the left edge of the image, so
+     the measurement was cut off, while layout QA read a box that was not where the text was.
+   - The recorder now measures with the anchor, and the label is kept inside the safe area.
+   - The scale bar is placed clear of the label. The piece and the bar are recorded as
+     graphics, so a collision with them is now measured.
+
+## D-W4-CONTRACT3: disclosed-render contract 3, so the uploaded images letter legibly (2026-10-19; applies D-W4-VISROLE-LEGIBILITY)
+
+**Problem.** The images Launch-0 actually uploads break the owner's legibility rule. That set
+is the disclosed renders plus the gallery and CONTENTS frames. At their display size:
+- the disclosure was 6.6 px and the scale and dimension labels 5.8 px, at 390 px;
+- the gallery and contents frames ran 7.0 to 9.8 px at 390 px, and their titles 10.9 px at
+  340 px.
+
+**Applied.**
+- **The contract is versioned, not patched.** `render_contract.CONTRACT_VERSION` is
+  `disclosed-render-contract/3`. Each component's version is bumped, so no cached contract-2
+  render is reused:
+  - disclosed-render 3.0.0;
+  - assembled 2.0.0;
+  - verifier 3.0.0;
+  - gallery-frames 2.0.0;
+  - contents-frame 2.0.0.
+  `product_authority` qualifies only the contract-3 renderers.
+- **Every contract word is set at `TEXT_PX` = 58 px on the 2000 px canvas**, which is 11.3 px at
+  390 px. Frame titles are 66 px, 11.2 px at 340 px.
+  - The disclosure is set on two lines, split after its comma.
+  - The annotation lines are at most two, and are wrapped to the zone.
+  - Each gets its own row below the product.
+  - Lettering that cannot fit refuses (`LetteringRefused`), and is never shrunk.
+- **The verifier re-letters exactly the lines the contract functions place.** It computes them
+  from its own CIR figures.
+  - The caption IoU spans both lines.
+  - A frame in contract-2 type, a dropped "not a photograph", or one edited figure each fails.
+  - No tolerance was changed.
+- **The product zone ends at 0.745 instead of 0.78.** That keeps 95 % of contract 2's height.
+  - At 0.68, the cloudline blanket's cream row fell to 0.4 % at 340 px, and the 340 px colour
+    check refused it.
+  - That check was kept as it is, and the layout was made to fit it.
+- **Every lettered line is recorded with a slot.** `frame_role.text_tier` classifies it:
+  `annotation` and `scale_label` are essential at 390 px.
+
+**Boundary.**
+- W-VISREF owns compose, owned_photography and gateway/images.
+- The only change made outside the render contract, its renderers and its verifier is the
+  one-line `product_authority.QUALIFIED_RENDERERS` update that the version bump requires.
+
 ## D-W4-LAURA-OUTFIT — one Laura outfit per listing (owner rule, 2026-10-19, permanent)
 
 **Owner's rule:** "Each distinct product listing must use a different Laura outfit, while multiple
@@ -1962,3 +2074,13 @@ is in `spec/12_FLUX3_Visual_Production_Standard_2026-10-19.md`.
 - **Process:** autonomous, bounded and resumable, with learning.
 - **Unchanged:** every Product Truth, identity, disclosure and publication gate. Manual FLUX images are a temporary
   launch fallback only. Autonomy is not complete until a real unattended end-to-end test passes.
+
+## D-W4-SLOWLOOP-CONTRACT3 — the free gathered hero challenger is redesigned for disclosed-render contract 3 (integrator, 2026-10-20)
+
+**Status: routine engineering decision (coordinator, within autonomy); no gate, margin or test was relaxed.**
+Contract 3 (D-W4-VISROLE-LEGIBILITY: 58 px lettering, product zone 0.085-0.745) took about 0.02 objective
+points from the free `disclosed_finished_render_close` challenger at `hero_gap_ratio` 0.06: it beat the
+incumbent by 0.0185 against `visual.rnd.hero.PROXY_MARGIN` 0.02 (0.0215 before contract 3), so
+`tests/test_w3_visual_commercial_slowloop.py` failed. The challenger's framing, not the margin, is changed:
+gathered to 0.04 inside the contract-3 zone it measures 0.8315 against the incumbent's 0.8087 and passes
+every gate (0.0, touching, is refused by the structure gate). The test is unchanged and passes 4/4.

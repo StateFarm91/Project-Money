@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from sqlalchemy import select, text, func
 from ..core.models import CostEntry, LedgerEntry
+from ..core import fx as _fx
 
 
 @contextmanager
@@ -46,7 +47,8 @@ def reserve(db, *, listing_id, amount, agent, ceiling, job_id=None):
                         amount_cad=amount, estimated_cad=amount,
                         detail={'listing_id': str(listing_id), 'basis': 'modelled',
                                 'state': 'reserved_unreconciled', 'usd': 0.20,
-                                'conversion': 'assumed 0.715 USD/CAD (core.fx); not payment evidence'})
+                                'conversion': f'assumed {_fx.ASSUMED_USD_PER_CAD:.4f} USD/CAD (core.fx); '
+                                              'not payment evidence'})
         s.add(row);s.flush();return row.id
 
 

@@ -24,3 +24,9 @@ pypdfium2>=4.0
 # is only needed to run the feasibility spike by hand, never by the deployed service, so the
 # production image should not carry it.
 numpy>=2.0
+# W4-PRODREADY (2026-10-19): image analysis for the disclosed-render verifier and the
+# listing export check (visual/render_verification.py, publish/disclosed_listing.py,
+# visual/stitch_identity.py import scipy.ndimage). It was imported by production code but
+# declared nowhere, so the production image (installed only from requirements.lock) could not
+# render or verify listing images. Needs only numpy (<2.7,>=1.26.4).
+scipy>=1.13

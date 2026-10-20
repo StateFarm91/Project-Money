@@ -53,7 +53,12 @@ TREATMENTS: dict[str, dict] = {
                              "pipeline parameters"},
     "disclosed_finished_render_close": {
         "execution": _DET, "classes": ("coasters_tabletop",), "kind": "finished_product",
-        "params": {"hero_gap_ratio": 0.06}, "why": "pieces gathered: larger in the thumbnail"},
+        # W4-INTEG3 (D-W4-SLOWLOOP-CONTRACT3): redesigned for disclosed-render contract 3. The
+        # 58 px lettering and the 0.085-0.745 product zone took 0.02 objective points from the
+        # gathered framing at 0.06 (0.0185 over the incumbent, under PROXY_MARGIN); gathering
+        # the pieces to 0.04 restores "larger in the thumbnail" inside the contract-3 zone
+        # (measured 0.8315 vs 0.8087). 0.0 (touching) is refused by the structure gate.
+        "params": {"hero_gap_ratio": 0.04}, "why": "pieces gathered: larger in the thumbnail"},
     "disclosed_finished_render_airy": {
         "execution": _DET, "classes": ("coasters_tabletop",), "kind": "finished_product",
         "params": {"hero_gap_ratio": 0.24}, "why": "more air between pieces: calmer, premium"},

@@ -1,0 +1,74 @@
+{
+ "kind": "brambleloop.board_closures",
+ "schema": 1,
+ "rule": "a row listed here counts as closed on committed production evidence of the deployed commit only when the ledger itself says done, every evidence file exists, the /health read with the same timestamp names the deployed commit, and every named test exists",
+ "deployed_commit": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+ "rows": [
+  {
+   "source": "build2",
+   "id": 51,
+   "criterion": "Nightly or scheduled exports preserve CIRs, PDFs, charts, listing copy/assets metadata, customer-support knowledge, competitor snapshots, experiments and financial ledger in portable formats. The company must be reconstructable if a SaaS provider disappears.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_offsite_20261019T1249Z.json",
+    "research/final_build/w4/evidence_BOARD/prod_api_continuity_20261019T1249Z.json",
+    "research/final_build/w4/evidence_BOARD/prod_api_build_20261019T1249Z.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261019T1249Z.json",
+   "reading": "offsite last_archive 2026-10-19T12:43:39Z ok, encrypted, uploaded off-provider (Backblaze B2), read back, decrypted and restored (tables_restored 124, rows_restored 131981, survives provider_loss true); nightly retained archives 10-17/10-18/10-19; gates.offsite_storage open",
+   "tests": [
+    "tests/test_continuity.py::test_the_export_is_portable_rather_than_engine_native",
+    "tests/test_offsite.py::test_a_complete_round_trip_restores_the_company",
+    "tests/test_w4_board_close.py::test_f697_durable_artifacts_ride_in_the_continuity_export"
+   ],
+   "worker": "W4-BOARD 2026-10-19"
+  },
+  {
+   "source": "final_master",
+   "id": "F-697",
+   "criterion": "Business Continuity - database, queue, ledger, experiments, credentials, artifacts and job state survive restarts; recovery and backups are tested.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_offsite_20261019T1249Z.json",
+    "research/final_build/w4/evidence_BOARD/prod_api_continuity_20261019T1249Z.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261019T1249Z.json",
+   "reading": "as B2#51: production offsite round-trip restore drill recorded on 1b21e81; durable_artifacts bytes are in the export",
+   "tests": [
+    "tests/test_continuity.py::test_a_retained_archive_restores_a_working_database",
+    "tests/test_offsite.py::test_a_complete_round_trip_restores_the_company",
+    "tests/test_w4_board_close.py::test_f697_durable_artifacts_ride_in_the_continuity_export"
+   ],
+   "worker": "W4-BOARD 2026-10-19"
+  },
+  {
+   "source": "final_master",
+   "id": "F-486",
+   "criterion": "Starvation Prevention - Long-running high-profile work cannot permanently starve smaller READY tasks. Scheduler fairness is balanced against critical-path priority.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261019T1249Z.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261019T1249Z.json",
+   "reading": "starved_ready {reading ok, starved 0, late_ready 0, 'no READY work is past its band SLA'} at utilisation 0.98 on 1b21e81",
+   "tests": [
+    "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
+    "tests/test_cert_lanes_capacity.py::test_a_starved_lane_has_its_queued_engineering_moved_up"
+   ],
+   "worker": "W4-BOARD 2026-10-19"
+  },
+  {
+   "source": "final_master",
+   "id": "F-171",
+   "criterion": "Production Smoke Matrix - Exercise critical APIs, cadences, queues, provider probes, continuity and search intelligence after final deploy.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_BOARD/prod_api_verify_smoke_20261019T1308Z.json",
+    "research/final_build/w4/evidence_BOARD/readback_1b21e81_20261019T1308Z.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261019T1308Z.json",
+   "reading": "GET /api/verify/smoke on 1b21e81: verdict PASS, 7/7 checks (three provider probes ran, continuity restore proven, cadence coverage, queue round trip, search intelligence captured), HTTP 200",
+   "tests": [
+    "tests/test_w4_smoke.py::test_a_healthy_production_passes_every_check_and_a_refused_probe_still_ran",
+    "tests/test_w4_smoke.py::test_the_smoke_route_is_public_read_only_and_never_200_unless_pass"
+   ],
+   "worker": "W4-BOARD 2026-10-19"
+  }
+ ]
+}

@@ -1445,7 +1445,8 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
     summary = {k: got.get(k) for k in ("ran", "reading", "network_calls", "snapshot_id",
                                        "new_snapshot", "nodes", "pattern_subtree",
                                        "properties_read", "truncated", "why",
-                                       "credential_refused", "status")}
+                                       "credential_refused", "status",
+                                       "name_evidence")}
     # W4-ETSYCOMM: a refused credential is a reported stand-aside, never a dead letter.
     summary["credential_refused"] = bool(got.get("credential_refused"))
     if got.get("etsy_error"):
@@ -3786,21 +3787,45 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
         from ..core.models import MjsMissionEvent
         from ..creative import breakthrough
 
+        # REL2: one tournament per (pod, arena, target event, ISO week), attached to every
+        # event in the group. The old key was (event, day), so each MJs listing in an arena
+        # bought the same brief again every day it stayed at risk.
+        groups: dict[tuple, list[int]] = {}
         for event_id in result["needs_tournament"]:
             with ctx.db.session() as s:
                 ev = s.get(MjsMissionEvent, event_id)
-                arena, pod, ref, key = ev.arena, ev.pod, ev.listing_ref, ev.benchmark_key
                 target = ((ev.seasonal or {}).get("target") or {}).get("event", "")
+                group = mission_runtime.tournament_group(ev.pod, ev.arena, target)
+            groups.setdefault(group, []).append(event_id)
+        iso_year, iso_week, _ = today.isocalendar()
+        for (pod, arena, target), event_ids in groups.items():
+            event_ids = sorted(event_ids)
+            with ctx.db.session() as s:
+                ev = s.get(MjsMissionEvent, event_ids[0])
+                ref = ev.listing_ref
             inputs = breakthrough.release_brief(ctx.db, arena=arena, pod=pod, listing_ref=ref)
-            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel",
+            inputs.update({"mjs_event_id": event_ids[0], "mjs_event_ids": event_ids,
+                           "reallocated_by": "mjs.seasonal_sentinel",
                            "seasonal_target": target})
+            key = (f"mjs.at_risk:{pod}:{arena}:{target}:"
+                   f"{iso_year}-W{iso_week:02d}")[:200]
             job = ctx.enqueue("creative_director", "creative.tournament", inputs,
                               priority=priority_for("mjs.seasonal_sentinel"),
-                              idempotency_key=f"mjs.at_risk:{key}:{event_id}:{today}")
-            if job is not None:
+                              idempotency_key=key)
+            job_id = job.id if job is not None else None
+            if job_id is None:   # already queued this week: attach that one
+                from sqlalchemy import select
+
+                from ..core.models import Job
+
                 with ctx.db.session() as s:
-                    s.get(MjsMissionEvent, event_id).tournament_job_id = job.id
-                queued.append(job.id)
+                    job_id = s.scalar(select(Job.id).where(Job.idempotency_key == key))
+            if job_id is not None:
+                with ctx.db.session() as s:
+                    for event_id in event_ids:
+                        s.get(MjsMissionEvent, event_id).tournament_job_id = job_id
+                if job is not None:
+                    queued.append(job.id)
     # #309: every entered event's response is walked forward from what the later stages
     # recorded, and winners that waited on a vision judgement are re-presented (C-61).
     from ..creative import intake as winner_intake
@@ -5035,9 +5060,14 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         return {"ran": False, "arena": f"{arena.event}/{arena.pod}",
                 "reason": str(e)[:200]}
 
+    from ..creative import intake as _intake
+
     selection = ideation.select(plan, candidates=result.get("candidate_objects") or [],
                                 survivors=result.get("survivor_objects") or [],
-                                window=result.get("window"))
+                                window=result.get("window"),
+                                # The same day `intake` judges the winner on.
+                                free_gates=lambda c: _intake.free_gate_check(
+                                    c.concept, arena=arena))
     # C-61: the winner is taken into engineering intake -- a brief generated from it and its
     # evidence, the funnel asked whether it was carried to prototype (#3), the
     # pre-engineering gate run with that brief, and `cir.draft` queued only for a winner
@@ -5065,8 +5095,9 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     if inputs.get("mjs_event_id"):
         from ..intel import mission_runtime
 
-        pipeline_moves = mission_runtime.advance_pipeline(
-            ctx.db, event_ids=[int(inputs["mjs_event_id"])])
+        # REL2: a grouped seasonal tournament answers every event in its group.
+        ids = [int(i) for i in (inputs.get("mjs_event_ids") or [inputs["mjs_event_id"]])]
+        pipeline_moves = mission_runtime.advance_pipeline(ctx.db, event_ids=ids)
 
     generated = result["field"]["generated"]
     attempted = generated > 0 or result["cost_cad"] > 0
@@ -5155,7 +5186,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     # The expedition's field is its survivors plus everything the gauntlet killed; only the
     # survivors are objects here, so the field diversity is measured over what it proposed
     # and survived, and says so through `entrants`.
-    selection = ideation.select(plan, candidates=survivors, survivors=survivors)
+    selection = ideation.select(plan, candidates=survivors, survivors=survivors,
+                                free_gates=lambda c: winner_intake.free_gate_check(
+                                    c.concept, arena=arena))
     # An expedition is discovery, not the staged funnel: its winner gets the same generated
     # brief and gate, and `may_engineer` refuses it engineering (#3) -- recorded, not skipped.
     gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,

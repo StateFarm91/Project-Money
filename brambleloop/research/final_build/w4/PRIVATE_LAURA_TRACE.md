@@ -1,5 +1,11 @@
 # Private Laura: requirement, gate, inventory, gaps and completion plan (W4-PLTRACE)
 
+> **Owner decisions 2026-10-13 (D-W4-PL-3; W4-PLACT, `PLACT.md`) supersede parts of this trace:** OA-PL-3 and
+> G-10 (human consent) are **removed** as prerequisites, because Private Laura is Brambleloop's established AI
+> persona, not an impersonation of a real person; truthful AI representation still binds. G-9/OA-PL-4: private
+> replies are billed to their own agent `laura_private` (CA$0.50/day, atomic reservation), separate from Business
+> Laura's CA$0.50/day. The text below is kept as the historical trace.
+
 Read-only trace. Base: `origin/claude/w4-INTEG2` @ 4a64708. Production (GET only, 2026-10-12): `/health`
 reports build `c498888` (its `laura/private/**` and `app/command_center/private_context.py` are
 byte-identical to INTEG2). All paths are relative to `brambleloop/` unless stated. This document holds
@@ -245,7 +251,7 @@ Then a production soak (class B): owner sets the key, opens the private context,
 |---|---|---|---|---|---|
 | OA-PL-1 | In Railway (production web service) add variable **`BRAMBLELOOP_PRIVATE_MEMORY_KEY`** = 32 random bytes, base64. Keep an offline copy. | The store refuses everything without it. Losing it loses the private store by design. | CA$0 | 5 | Private context stays 503 and the soak cannot run. |
 | OA-PL-2 | Acknowledge D-W4-PL-1: build the register inside the provider's Usage Policy (warm, romantic, flirtatious, suggestive but not explicit). Sexually explicit content and erotic chat are not built and are not bypassed. | spec/07 note (a) and the current Anthropic Usage Policy ("Do Not Generate Sexually Explicit Content … Engage in erotic chats"). | CA$0 | 2 | The register stays wholly GATED. |
-| OA-PL-3 | Record that human Laura consents to the AI Laura persona being used in the private register (the owner attests; the AI never asserts it). | PL-10, D-FB-13. | CA$0 | 2 | The register must not be enabled. |
+| ~~OA-PL-3~~ (REMOVED, D-W4-PL-3) | Record that human Laura consents to the AI Laura persona being used in the private register (the owner attests; the AI never asserts it). | PL-10, D-FB-13. | CA$0 | 2 | The register must not be enabled. |
 | OA-PL-4 | Authorise spend for `laura.private_reply`: either inside Laura's existing CA$0.50/day or as a separate daily figure. | It is a new paid purpose under agent `laura`, and the owner approves spend. | Owner-set (suggest ≤ CA$0.50/day) | 2 | Replies are refused pre-call with an audited reason. |
 
 ---
@@ -258,4 +264,4 @@ Then a production soak (class B): owner sets the key, opens the private context,
 3. CC owner: `private_context.py`, `api.py`, `laura.js`, roadmap/voice_spec/presence status, `test_w4_pl_reply`, `test_w4_pl_auth`, `test_w4_pl_continuity`, update `test_w3_laura_cc_private`.
 4. Protected owners: firewall call sites + tests.
 5. PRIV owner: rekey + Postgres run.
-6. Owner: OA-PL-1/3/4 → approved deploy → class-B soak.
+6. Owner: OA-PL-1/2/4 (OA-PL-3 removed, D-W4-PL-3) → approved deploy → class-B soak.

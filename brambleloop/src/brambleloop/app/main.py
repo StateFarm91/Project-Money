@@ -2964,10 +2964,22 @@ async def api_etsy_webhook(request: Request):
     operator credential); every delivery is verified against its own HMAC signature before a
     byte of the body is parsed, and a verified one only wakes the authenticated receipt read.
     2xx = stored or already stored; 4xx = refused (not retried usefully); 5xx = Etsy retries."""
+    from starlette.concurrency import run_in_threadpool
+
     from ..integrations import etsy_webhooks
 
-    body = await request.body()
-    status, payload = etsy_webhooks.receive(db, dict(request.headers), body)
+    # REL2/L1: refuse on a declared Content-Length above the cap, and read the body as a
+    # stream with a running cap, so an oversized body is never buffered whole.
+    # Security review of 5f18d11 (M1): the database work runs in the threadpool, never on the
+    # event loop, so a refusal flood cannot stall every other request in this worker.
+    try:
+        body = await etsy_webhooks.read_body(request.stream(),
+                                             request.headers.get("content-length"))
+    except etsy_webhooks.WebhookRefused as exc:
+        status, payload = await run_in_threadpool(etsy_webhooks.refuse, db, exc)
+        return JSONResponse(payload, status_code=status)
+    status, payload = await run_in_threadpool(etsy_webhooks.receive, db,
+                                              dict(request.headers), body)
     return JSONResponse(payload, status_code=status)
 
 

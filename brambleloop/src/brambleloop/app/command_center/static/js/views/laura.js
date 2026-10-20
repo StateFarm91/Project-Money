@@ -232,6 +232,14 @@ function privateGates(en) {
   return `Key ${yes(e.key_configured)} · register switch ${yes(e.register_switch)} · spend authorised CA$${Number(e.spend_authorised_cad_per_day || 0).toFixed(2)}/day · provider ${yes(e.provider_configured)}.`;
 }
 
+// W4-PLACT: each activation prerequisite as met / not met (names only; no secret values).
+// Human consent is not a prerequisite (D-W4-PL-3): Private Laura is Brambleloop's AI persona.
+function privatePrereqs(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  return h("ul", { class: "rows" }, list.map((p) => h("li", { class: "row" },
+    h("p", { class: "row-title" }, `${p.met ? "Met" : "Not met"}: ${p.label || p.id}`))));
+}
+
 function privateCard(status) {
   const st = status || {};
   const body = h("div", { class: "stack" });
@@ -269,6 +277,8 @@ function privateCard(status) {
   return card({ title: "Private", subtitle: st.configured ? "Configured · closed by default" : "Not configured on this server", cls: "laura-private" },
     h("p", { class: "muted small" }, st.reply_why || "Laura's private register: gated."),
     st.enablement ? h("p", { class: "muted small" }, privateGates(st.enablement)) : null,
+    st.prerequisites ? h("p", { class: "muted small" }, `Activation prerequisites: ${st.prerequisites.filter((p) => p.met).length} of ${st.prerequisites.length} met.`) : null,
+    privatePrereqs(st.prerequisites),
     st.configured ? openBtn : h("p", { class: "callout callout-warn" }, "The private store has no key here, so it refuses everything. Nothing else is affected."),
     body);
 }

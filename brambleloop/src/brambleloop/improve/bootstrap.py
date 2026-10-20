@@ -317,6 +317,10 @@ def _policy_payloads() -> dict[str, tuple[str, tuple[str, ...], str]]:
     }
 
 
+def _version_key(version: str) -> tuple:
+    return tuple(int(x) if x.isdigit() else -1 for x in str(version).split("."))
+
+
 def register_code_versions(db) -> dict:
     """Register every prompt, deterministic tool and decision policy the code runs (#96)."""
     from ..gateway import prompts
@@ -335,7 +339,16 @@ def register_code_versions(db) -> dict:
         if out.get("unchanged"):
             _follow_code(db, out["id"], source=key)
 
+    # W4-INTEG3: one incumbent per prompt NAME, the newest version -- the one the code runs
+    # (REL2 keeps creative.concept_field@2 registered beside @3 so earlier output stays
+    # explainable). Registering both under one key made @3 the incumbent and demoted @2 into
+    # a phantom "challenger" no one runs (test_improve_director, test_cert_improve_autonomy).
+    newest: dict[str, object] = {}
     for prompt in prompts.all_prompts():
+        cur = newest.get(prompt.name)
+        if cur is None or _version_key(prompt.version) > _version_key(cur.version):
+            newest[prompt.name] = prompt
+    for prompt in sorted(newest.values(), key=lambda p: p.ref):
         one(PROMPT_KIND, f"prompt:{prompt.name}",
             json.dumps({"ref": prompt.ref, "sha256": prompt.sha256,
                         "output_schema": list(prompt.output_schema),

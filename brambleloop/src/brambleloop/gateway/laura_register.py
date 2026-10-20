@@ -24,7 +24,7 @@ Isolation (G-6), each a deliberate departure from the general gateway path:
   `routing.cached_analysis` / `remember_analysis`.
 * **No content in any record.** Billing goes through the single existing path
   (`ModelGateway._record`): token counts, cost, purpose `laura.private_reply@1`, agent
-  `laura`, the reservation id -- never the prompt or the reply. Provider health rows
+  `laura_private`, the reservation id -- never the prompt or the reply. Provider health rows
   (`failover.record_attempt`) and refusals (`spend_report.record_refusal`) get a class name,
   an HTTP status or a fixed code; the provider's own error body (which `_send` puts in its
   exception message) is dropped. Nothing is logged.
@@ -34,10 +34,15 @@ Money (G-9), all before the request, and every refusal audited without content:
 1. The owner's register switch `BRAMBLELOOP_LAURA_PRIVATE_REGISTER` must be exactly "1"
    (default OFF).
 2. The owner's spend authorisation for this purpose, `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD`
-   (CA$ per UTC day; default CA$0 = refused before any reservation). It can only TIGHTEN:
-3. Laura's own daily permission (`agents.registry` row `laura`, CA$0.50 since
-   D-W4-LAURA1-BUDGET) and the monthly ceiling still bind, atomically, through
-   `anthropic.check_budget_cad` (month, provider, agent day, reservation).
+   (CA$ per UTC day; default CA$0 = refused before any reservation). It is capped at the
+   `laura_private` agent ceiling and can only TIGHTEN it.
+3. Private replies are billed to their OWN agent, `laura_private` (CA$0.50/day; owner
+   decision 2026-10-13, D-W4-PL-3), independent of Business Laura's CA$0.50/day for the CEO
+   briefing: neither budget can consume the other. The day (min of the agent ceiling and the
+   owner's figure) and the monthly ceiling bind ATOMICALLY in one step with the reservation,
+   through `anthropic.check_budget_cad(..., agent_daily_cap_cad=...)` under `budget_lock`
+   (month, provider, agent day, reservation) -- so two concurrent private turns cannot both
+   pass the cap (security review L1: the purpose figure used to be read outside the lock).
 
 No tools, no follow-on work, no delegation, no identity or business-memory access: the
 request carries a system prompt and one user message, and the answer is a single `text`
@@ -55,7 +60,7 @@ from datetime import datetime, timezone
 from . import prompts, routing
 
 TASK = "laura.private_reply"
-AGENT = "laura"
+AGENT = "laura_private"            # agents.registry.LAURA_PRIVATE_AGENT (D-W4-PL-3 item 1)
 REGISTER_SWITCH_ENV = "BRAMBLELOOP_LAURA_PRIVATE_REGISTER"
 DAILY_AUTH_ENV = "BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD"
 PRIVATE_KEY_ENV = "BRAMBLELOOP_PRIVATE_MEMORY_KEY"      # name only; presence is all we read
@@ -70,15 +75,16 @@ REASONS: dict[str, str] = {
                     f"{REGISTER_SWITCH_ENV}).",
     "SPEND_UNAUTHORISED": "No spend is authorised for private replies yet "
                           f"({DAILY_AUTH_ENV} is CA$0).",
-    "SPEND_CEILING": "Today's private-reply spend authorisation is used up.",
-    "BUDGET": "Refused by the spend controls before the call (monthly ceiling or Laura's "
-              "daily permission).",
+    "SPEND_CEILING": "Today's private-reply budget is used up (the owner's daily figure or "
+                     "the laura_private CA$0.50/day ceiling).",
+    "BUDGET": "Refused by the spend controls before the call (the monthly ceiling).",
     "NO_PROVIDER": "No model provider is configured here.",
     "PROVIDER_DOWN": "The model provider is unavailable right now.",
     "PROVIDER_ERROR": "The model call failed.",
     "MALFORMED": "The model's answer could not be used.",
     "JOB_SCOPE": "Private replies are never generated inside a background job.",
     "REFUSED": "This reply path was called incorrectly and refused.",
+    "RELEASE_UNPROVEN": "Private replies run only on a proven, deployed release.",
 }
 
 
@@ -163,15 +169,25 @@ def render_user(*, facts: list[tuple[str, str]], turns: list[tuple[str, str]],
 # Enablement (owner switch + spend authorisation + provider), names only.
 
 
+def agent_ceiling_cad() -> float:
+    """The `laura_private` daily ceiling DEFAULT_AGENTS declares (0.0 if absent)."""
+    from ..agents.registry import declared_daily_ceiling
+
+    v = declared_daily_ceiling(AGENT)
+    return float(v) if v is not None and math.isfinite(float(v)) and v > 0 else 0.0
+
+
 def daily_authorisation_cad(env=None) -> float:
-    """The owner's per-UTC-day authorisation for this purpose; 0.0 unless validly set."""
+    """The owner's per-UTC-day authorisation, capped at the agent ceiling; 0.0 unless set."""
     env = os.environ if env is None else env
     raw = str(env.get(DAILY_AUTH_ENV) or "").strip()
     try:
         v = float(raw)
     except ValueError:
         return 0.0
-    return v if math.isfinite(v) and v > 0 else 0.0
+    if not (math.isfinite(v) and v > 0):
+        return 0.0
+    return round(min(v, agent_ceiling_cad()), 6)
 
 
 def enablement(env=None) -> dict:
@@ -188,24 +204,31 @@ def enablement(env=None) -> dict:
                       "private_key": PRIVATE_KEY_ENV, "provider_key": "ANTHROPIC_API_KEY"}}
 
 
-def _purpose_committed_today(db, now: datetime) -> float:
-    """Billed today for this purpose plus live reservations held for it."""
-    from sqlalchemy import select
+def release_proven(env=None, boot: dict | None = None) -> dict:
+    """Is this process a proven, deployed release (security review of 5f18d11, L3)?
 
-    from ..core.models import CostEntry
-    from ..finance import reservations
+    Met only when the build commit is known (`core.build`), the process runs on the hosting
+    platform, and the runtime boot guard (`ops.release_record.BOOT`) found a committed,
+    release-eligible record for this exact tree. Unprovable is unmet. Non-secret facts only.
+    The owner's status shows this as a prerequisite and the reply path now enforces it."""
+    from ..core import build
+    from ..ops import release_record
 
-    today = now.astimezone(timezone.utc).date()
-    total = 0.0
-    with db.session() as s:
-        for e in s.scalars(select(CostEntry).where(CostEntry.purpose == PURPOSE[:60])):
-            at = e.at if e.at is None or e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)
-            if at is not None and at.astimezone(timezone.utc).date() == today:
-                total += float(e.amount_cad or 0.0)
-    held = reservations.outstanding(db, now=now)
-    total += sum(float(r["amount_cad"]) for r in held["reservations"]
-                 if r.get("purpose") == PURPOSE)
-    return round(total, 6)
+    b = release_record.BOOT if boot is None else boot
+    ident = build.identity(None if env is None else dict(env))
+    on_platform = bool((b or {}).get("platform_markers"))
+    proven = bool((b or {}).get("ok"))
+    met = bool(ident["known"] and on_platform and proven)
+    if met:
+        detail = (f"running {ident['commit_short']} on the hosting platform, proven by "
+                  f"release/{((b.get('record') or {}).get('file') or '?')}")
+    elif not ident["known"]:
+        detail = "the running build commit is unknown here"
+    elif not on_platform:
+        detail = "not running on the hosting platform"
+    else:
+        detail = "the boot guard found no committed release record for this build"
+    return {"met": met, "detail": detail, "commit_short": ident["commit_short"]}
 
 
 def _refuse(db, code: str, *, which: str, why: str, estimate: float = 0.0,
@@ -292,15 +315,10 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
                 why=(f"no owner spend authorisation for {PURPOSE} ({DAILY_AUTH_ENV} is unset "
                      "or CA$0); refused before any reservation"),
                 estimate=estimate, model=model)
-    committed = _purpose_committed_today(db, now)
-    if committed + estimate > daily:
-        _refuse(db, "SPEND_CEILING", which="purpose_daily_authorisation",
-                why=(f"{PURPOSE} has CA${committed:.4f} committed today of the owner's "
-                     f"CA${daily:.2f} authorisation; this call is estimated at "
-                     f"CA${estimate:.4f}. Refused before the call"),
-                estimate=estimate, ceiling=daily, committed=committed, model=model)
     if not state["provider_configured"]:
         raise ReplyUnavailable("NO_PROVIDER")
+    if not release_proven(env)["met"]:             # L3: enforced, not only displayed
+        raise ReplyUnavailable("RELEASE_UNPROVEN")
     try:
         h = failover.health(db).get(failover._key("anthropic", model)) or {}
     except Exception:  # noqa: BLE001 - unreadable health never blocks a call
@@ -311,9 +329,14 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
     provider = gw.AnthropicProvider(model=model)
     gateway = ModelGateway([provider], registry=registry)
     try:
+        # One atomic step under budget_lock: the month, the `laura_private` day tightened to
+        # the owner's figure, and the reservation (W4-PLACT; security review L1).
         reservation = gw.check_budget_cad(db, estimate_cad=estimate, agent=AGENT,
                                           purpose=PURPOSE, model=model,
-                                          provider=provider.name, now=now)
+                                          provider=provider.name, now=now,
+                                          agent_daily_cap_cad=daily)
+    except gw.AgentCeilingExceeded:
+        raise ReplyUnavailable("SPEND_CEILING") from None   # audited by check_budget_cad
     except (BudgetExceeded, PermissionDenied, PermissionError):
         raise ReplyUnavailable("BUDGET") from None     # audited by check_budget_cad
     payload = json.dumps({"model": model, "max_tokens": max_out, "system": system,

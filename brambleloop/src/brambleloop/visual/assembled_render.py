@@ -56,7 +56,7 @@ from ..cir.assembly import BAND_EDGES
 from . import disclosed_render as D
 from . import render_contract as K
 
-ASSEMBLED_RENDERER_VERSION = "disclosed-render-assembled/1.0.0"
+ASSEMBLED_RENDERER_VERSION = "disclosed-render-assembled/2.0.0"  # contract 3 lettering
 
 OPPOSITE = {("bottom", "top"), ("top", "bottom"), ("left", "right"), ("right", "left")}
 SIDES = ("left", "right", "top", "bottom")

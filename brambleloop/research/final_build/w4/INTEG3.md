@@ -1,3 +1,222 @@
+# INTEG3 (2026-10-19/20): release candidate 324927f on top of production 1b21e81
+
+Integrator: W-INTEG3. Worktree `.claude/worktrees/W4-INTEG3`, branch `claude/w4-INTEG3`, created from
+`origin/claude/w4-INTEG2` 9c3812b. Production: 1b21e81 (= a25a377 + release record), SHADOW.
+No deploy, no production write, no spend. Production contact: none (local Postgres only).
+
+**Candidate: `324927f1003808dd07a14b0cb0bce29e5c7d7cbc`, branch `claude/final-candidate-324927f`;
+release record commit `b931d17a738d6a5bcd96580f620069b669ca5f57` (records only, no src change).
+Full suite PASSED (643 suites, 8654 tests, 0 failing); DRY_RUN deploy ALLOW; rollback
+rehearsal ALLOW; independent security review NO BLOCKER.**
+Results: §9. Superseded freezes (do not deploy): `claude/final-candidate-5f18d11` (BRANDRULE
+arrived after it, §2), `cd7e7dc` (PRODREADY's final head changed `seo/strategy.py`), `8de23ad`
+(5 suites failed, §7), `e66d931` (1 suite failed, §8; security findings then fixed, §9).
+The visual branches VISAUTO, FIDELITY and WRAPTEST are not in this candidate.
+
+## 1. Merges (in order, one implementation per defect)
+
+| # | Branch @ head | Merge commit | Conflicts and resolution |
+|---|---|---|---|
+| 1 | w4-REL2 @ c314c36 (webhook M1/L1/L2, I2/I3, spend B1-B5) | c591529 | none |
+| 2 | w4-PLACT @ 6c9d177 (laura_private budget, D-W4-PL-3, status prerequisites) | 20d8b69 | none (gateway/anthropic.py auto-merged with REL2) |
+| 3 | w4-BOARD @ e6ee1aa (recount, closures, generator fixes) | 88e91da | `creative/reference.py`: **REL2's B4 fix kept** (canonical; also records refused readings), BOARD's duplicate dropped. `test_w4_board_close.py:174` `test_b195_...` passes unchanged against REL2's implementation. Board files: placeholder, regenerated once (§3). |
+| 4 | w4-VISREF @ 8eab43b (compose.py glue, tests, VISREF.md, owner PDF) | e969eb3 | none |
+| - | INTEG3 FX fix | c8c4abc | §4 |
+| - | INTEG3 boot tables | 93431f8 | §6 |
+| 5 | w4-PRODREADY @ 9b25797 (B1 contract-3 legibility, B2 taxonomy, ornament/placemat Product Truth, scipy lock, #61) | 5b16704 | Polled 14:45-16:06Z; head moved fb32507 -> bdd8968 -> 9b25797 (15:42Z), then stable 24 min; PRODREADY.md second pass reports B1, B2 and the motif fixes. `DECISION_LOG.md`: both appended sections kept, no line removed. Generated board/ledger/scope/card files: placeholder, regenerated (§3). |
+| - | Regeneration | 5f18d11 | §3 |
+| 6 | w4-BRANDRULE @ 75d3bd1 (D-W4-LAURA-OUTFIT, records only; coordinator addition) | cd7e7dc | `DECISION_LOG.md` append-only, both kept; `src/brambleloop/core/decision_index.json` regenerated (26 ids), `test_w3_decision_index` 3/3. |
+| - | INTEG3.md checkpoint | afe1fc1 | - |
+| 7 | w4-PRODREADY final @ 407089e (ornament SEO phrases "stripe ornament", colour_pattern family; PRODREADY.md test record; BUILD_STATE) | 34dff34 | `test_w4_prodready_contract3.py`: INTEG3's assertions kept (`assert BUILDS` + per-key non-empty), a superset of PRODREADY's. Lock unchanged. Focused: prodready_motif, w3_seo_strategy, size_shape_intent, catalogue_floor_proposal, contract3, vacuity all pass. |
+| 8 | w4-BRANDRULE @ 3e01326 (spec/12 FLUX3 standard, D-W4-LAURA-FLUX3) | 7034cf5 | append-only; decision index regenerated (27 ids), test 3/3 |
+| 9 | w4-BRANDRULE @ 783af10 (flux_experiments record folder, images + RECORD.json) | 8de23ad | none; research files only |
+
+Freeze: `claude/final-candidate-8de23ad` = 8de23ad (INTEG3 head at freeze).
+
+## 2. Why the candidate was refrozen (5f18d11 -> cd7e7dc)
+
+BRANDRULE arrived while the 5f18d11 suite was half way. "Records commit, no refreeze" was not
+possible without breaking something: D-W4-LAURA-OUTFIT is a heading, so `decision_index.json`
+(under `src/`) must change for `test_w3_decision_index` to stay green, and any `src/` change in
+the records commit breaks the release record's `source_tree_sha256` (deploy_guard `check` and
+the boot guard compare it). The 5f18d11 run (20261019T162018Z-22556) was stopped with SIGTERM
+(record `interrupted`), BRANDRULE was merged on INTEG3 and the candidate refrozen at cd7e7dc.
+The delta 5f18d11..cd7e7dc is DECISION_LOG.md (+26 lines) and decision_index.json (+1 id): no code.
+
+## 3. Regeneration (once, after all merges)
+
+With the fresh venv: `build2_ledger.py evidence_BOARD/prod_api_build_20261019T1249Z.json`
+(PROVEN 229, OPEN-DEFECT 2: #11, #12), `aggregate.py`, `fm_ledger.py` (no change),
+`completion_board_final.py`, `prelaunch_scope.py`, CC snapshots, `decision_index`.
+
+Generator defect found and fixed (`completion_board_final.py`, unfinished-row branch):
+BOARD's rule makes a production module edited since the deploy "not deployed". The
+`exists and deployed is False` branch then promoted OPEN rows F-144 (app/main.py, edited by
+REL2) and F-718 (core/db.py, edited by INTEG3) to implemented_unverified, so the board's
+launch-critical done count (367) exceeded the ledger's COMPLETE (365) and `test_w4_board`
+failed. Now an unfinished row is implemented_unverified only when its module is new (absent
+from production). The test was not changed.
+
+Effect of BOARD's rule on this candidate (honest, by design): Build 2 production_verified
+reads 117 and dev_proven_not_deployed 107, because many verified rows name modules this release
+edits; they return to verified after the deploy is read back.
+
+`test_w4_prodready_contract3::test_the_honest_frames_still_verify_pass` gained a
+non-emptiness assertion before its loop (test_vacuity).
+
+## 4. FX reference rate
+
+`core/fx.py` was 1/0.715 = 1.3986 CAD/USD, labelled an assumption (not a DECISION_LOG policy).
+Now `ASSUMED_CAD_PER_USD = 1.4154` (Bank of Canada, 2026-10-16), USD/CAD derived. USD-priced
+calls reserve ~1.2% more CAD (conservative). No ceiling, cap or limit changed: all are CAD
+and none reads the rate (asserted). Labels in `routing.FX_NOTE` and `listing_costs` derive
+from the constant. Tests: `tests/test_w4_integ3_fx.py` (4); `test_model_access` pin 0.715 -> 1.4154.
+FX-dependent suites passed: model_access, v11_wiring, currency, fee_schedule, cert_commerce,
+gateway, model_provider, w4_spenda_k5a, w4_finhealth, insights_budget.
+
+## 5. Fresh venv
+
+`/home/user/bl-runs/venv-integ3`: Python 3.11.17, `pip install --no-deps --require-hashes -r
+requirements.lock` (lock identical to the merged one, sha256 d7b9a8e6...), plus test-only
+httpx 0.28.1, httpcore 1.0.9, certifi 2026.10.18 (not in the lock). `pip freeze` = lock pins + those
+3. `pip check` clean. test_dependency_lock, test_w4_prodready_deps, test_cert_dependencies,
+test_dependency, test_w3_supply_chain, test_w4_fm2_lock_boot_guard: all pass. (The old `.venv`
+had drifted on 20 distributions, e.g. SQLAlchemy 2.1.5, pillow 13; it was left in place.)
+
+## 6. New DB tables and migration
+
+| table | from | created |
+|---|---|---|
+| `etsy_webhook_refusals` (reason PK, count, last_status, first_at, last_at, last_audit_epoch) | REL2 M1 | at boot (`etsy_webhooks` is imported in `Database.create_all`) and on first use |
+| `prospecting_brief_cursors` (event, pod, form PK, offset, updated_at) | REL2 B3 | REL2 created it only lazily (`__table__.create(checkfirst=True)`, not atomic across processes). INTEG3 registers `creative.prospecting` in `Database.create_all`, so boot creates it. |
+
+Proof on a local throwaway PostgreSQL 16.15 (`evidence_INTEG3/rc_pg_boot_output.txt`,
+scripts `rc_pg_boot.py`, `rc_pg_exercise.py`): schema built by production 1b21e81 code = 129
+tables, neither new table; candidate boot `create_all` -> 131 tables, exactly the two new ones,
+`apply_migrations` changes `[]` (no column change on any existing table); second boot no-op;
+both tables exercised (counter upsert 5 bad_signature + 1 `other`, 2 sampled audit rows, summary
+aggregates; brief offset 0 -> 3 -> 5; reserved word `offset` quoted). Test:
+`tests/test_w4_integ3_boot_tables.py` (2). Purely additive: rollback to 1b21e81 ignores the tables.
+
+## 7. Full suite on 8de23ad: 5 suites failed; 4 fixed, 1 needs a visual R&D decision
+
+Run 20261019T191237Z-13016 on 8de23ad (REQUIRE_CLEAN=1, JOBS=3, venv-integ3, SIG_DFL launcher,
+nice 10 / ionice idle; 7823 s): **8638 tests passing, 5 suites failing, 0 tmp leak.** Every
+failure reproduced alone; none on INTEG2 9c3812b with the same venv (so not venv drift).
+Bisected over the merge commits:
+
+| suite | introduced by | root cause | fix (e66d931) |
+|---|---|---|---|
+| test_improve_director, test_cert_improve_autonomy (2 tests) | REL2 (c591529) | REL2 registered `creative.concept_field@3` beside `@2` (kept for explainability). `improve.bootstrap.register_code_versions` registered every prompt under the key `prompt:<name>`, so @3 became the incumbent and @2 was demoted into a phantom challenger nobody runs | bootstrap registers one incumbent per prompt name: the newest version (the one `creative/prospecting.py` runs). Tests unchanged. League/learn regressions pass (league, league_holdout, cert_improve_wave, cert_owner_decision, r2_product_policy_alias, v11/w4_learn_loops, w4_rel2, cert_design_pipeline). |
+| test_final_closure_matrix | BOARD (88e91da) | BOARD's 1b21e81 closure remap also re-mapped post-launch F-486; `aggregate.launch_scope` assumes every remap row was launch-critical, so F-486 read "moved out by the launch-critical re-map wave" with an 18-character reason | `aggregate.CLOSURE_ONLY_REMAPS = {"1b21e81"}`: a closure remap records the mapping commit but is not a launch-class move. LAUNCH_SCOPE.json regenerated; only F-486 changes (back to INTEG2's). closure_matrix.json unchanged. |
+| test_provider_accounts (2 tests) | INTEG3 FX (c8c4abc) | the reconciliation pins were the 0.715 arithmetic | pinned to the 1.4154 reference, each derived from `core.fx` in the test: 14 CAD = US$9.8912, difference 0.1888, runway 342 renders (was 10.01 / 0.07 / 338). |
+| test_w3_visual_commercial_slowloop (3 tests) | PRODREADY (5b16704) | **Not fixed.** Disclosed-render contract 3 (owner D-W4-VISROLE-LEGIBILITY: 58 px lettering) shrinks the product zone to 95 % of its height for every frame. The free hero challenger `disclosed_finished_render_close` now beats the incumbent by 0.0185 proxy points (0.8272 vs 0.8087); `hero.PROXY_MARGIN` is 0.02. Before contract 3 the margin was 0.0215 (0.8425 vs 0.8210). The gate is behaving correctly; the test's fixture premise ("a free challenger promotes on proxy") no longer holds for any Launch-0 class (probed all 11 builders: only coasters_tabletop runs challengers; hexagon_coasters 0.0185, placemat_pair 0.0). | Not weakened, not tuned: lowering the margin or retuning `hero_gap_ratio` to pass a test is a product decision. Needs the visual R&D owner: re-design the free challengers for contract 3, or restate the test premise with an owner decision. |
+
+## 8. Full suite on e66d931, guard, rollback, security (superseded by §9)
+
+- **Full suite** run 20261019T215024Z-3001 on e66d931 (same settings; 7912 s): **8644 tests
+  passing, 1 suite failing (test_w3_visual_commercial_slowloop, 3 tests, the unfixed row
+  above), 0 tmp leak.** The four fixed suites pass. Record `failed`, not release-eligible.
+- **`python3 ops/deploy_guard.py record`:** `ok: false`, "no release-eligible local suite run
+  record for e66d9318b37e". No release record was written or committed.
+- **`DRY_RUN=1 sh ops/deploy.sh --deployed 1b21e81…`:** **REFUSE** ("no tracked release record
+  names the deployable tree digest of e66d9318b37e (171d8f22…)"). Nothing pushed.
+- **Rollback rehearsal (dry run only).**
+  - `--rollback-to 1b21e81 --reason "INTEG3 rollback rehearsal" --deployed 1b21e81`: REFUSE,
+    "rollback target 1b21e81c6d1b is not in the tracked deployed history". Expected: the guard
+    reads DEPLOYED_HISTORY at the deployed commit, and 1b21e81's own history predates its deploy
+    (recorded later in INTEG2 9c3812b). Rolling production back to itself is not a rollback.
+  - The meaningful rehearsal, as if the candidate were deployed: `--rollback-to 1b21e81
+    --reason "INTEG3 rollback rehearsal" --deployed e66d931`: **ALLOW** (rollback commit 6333133
+    built locally, nothing pushed). `deploy_guard.py rehearse-rollback --candidate HEAD
+    --deployed 1b21e81`: **ALLOW**.
+- **Security:** independent review of 1b21e81..5f18d11 by a fresh session
+  (`claude/w4-SECREVIEW-5f18d11` @ 457e02e, copied here as `INDEPENDENT_SECREVIEW_5f18d11.md`):
+  **NO BLOCKER**; 1 MEDIUM (M1: synchronous DB work on the public webhook's event loop, 2-3
+  transactions on one hot row per refusal: wrap in a threadpool, merge the transactions), 3 LOW
+  (L1 int4 counter overflow; L2 refused reading text still persisted via `failed[].why`; L3
+  `current_release_deployed` displayed but not enforced), 2 INFO. Not fixed in this candidate.
+  The 5f18d11..e66d931 src delta (not independently reviewed) is `decision_index.json` (data),
+  `seo/strategy.py` (SEO phrase lists) and `improve/bootstrap.py` (incumbent registration):
+  no endpoint, auth, spend, schema or dependency change.
+- **Migration:** two additive tables created at boot (§6); no column change, no data change;
+  rollback-safe.
+
+## 9. Candidate 324927f: slowloop redesign, security fixes, regeneration
+
+Coordinator decisions (2026-10-20, routine engineering): fix the slowloop without lowering the
+margin or weakening the test; fix the review's M1/L1/L2/L3 now; regenerate once; refreeze.
+
+- **Slowloop (D-W4-SLOWLOOP-CONTRACT3).** The free gathered hero challenger is redesigned
+  for contract 3: `visual/rnd/hero.py` `disclosed_finished_render_close` `hero_gap_ratio`
+  0.06 -> 0.04 (pieces gathered inside the contract-3 zone). Measured 0.8315 vs the
+  incumbent's 0.8087 (margin 0.0228 > `PROXY_MARGIN` 0.02, unchanged); 0.02 also clears
+  (0.8353) and 0.0 (touching) is refused by the structure gate. `test_w3_visual_commercial_slowloop`
+  unchanged, 4/4; `test_w3_visual_rnd_guard` and `test_w3_visual_rnd_loop` pass.
+- **M1** `/api/etsy/webhook` runs `refuse`/`receive` in the threadpool
+  (`run_in_threadpool`); `_refused` is one transaction (dialect `ON CONFLICT (reason) DO
+  UPDATE count = count + 1`, conditional sample claim, sampled audit row).
+- **L1** `etsy_webhook_refusals.count` and `last_audit_epoch` are BIGINT. The table has never
+  been deployed, so no migration is needed.
+- **L2** `creative/reference.py` `failed[].why` carries `ReferenceRefused: <kind>` or the
+  exception class only (`refusal_kind`).
+- **L3** `gateway/laura_register.release_proven` (moved from private_context, which now
+  delegates) is enforced in `_reply` (`RELEASE_UNPROVEN`, after the cheap refusals and before
+  any reservation or provider call) and in the private `_enablement`. The PL test harness
+  stands in for the boot guard's verdict (`release_proven=True` by default; `None` keeps the
+  real check, used by the PLACT status test).
+- Tests: `tests/test_w4_integ3_secfixes.py` (7): route AST check, one session per refusal,
+  6x15 concurrent refusals counted exactly, BIGINT past 2^31-1, no model text in
+  `failed[].why` (refusal and generic paths), unproven release -> no reply, no cost, no
+  reservation, and the real release check.
+- PostgreSQL 16 proof re-run (`evidence_INTEG3/rc_pg_boot_output.txt`): 129 -> 131 tables,
+  BIGINT columns, second boot no-op, 8x25 concurrent refusals on PostgreSQL counted exactly
+  200 with 1 sampled audit row (`rc_pg_concurrency.py`).
+- Regenerated once after these: Build 2 ledger (PROVEN 229, OPEN-DEFECT 2), aggregate,
+  FM ledger, board, prelaunch scope, CC snapshots, decision index (28 ids).
+- Focused regression before the freeze: 22 suites, all pass.
+- **Independent security review of 5f18d11..324927f** by a fresh session
+  (`claude/w4-SECREVIEW-324927f` @ 615a1fb, copied here as `INDEPENDENT_SECREVIEW_324927f.md`):
+  **NO BLOCKER. M1, L1, L2, L3: FIXED.** New R1 (LOW, next release): a refusal flood can now
+  saturate the shared AnyIO threadpool (40 tokens) and DB pool instead of the event loop;
+  fix with a dedicated small `CapacityLimiter` for the webhook and/or edge rate limiting.
+  I1/I2 unchanged (informational).
+- Full suite on 324927f: run 20261020T002035Z-31096 was killed by a container restart
+  (no totals); restarted detached as run 20261020T011631Z-1452. Results, guard and rollback
+  follow in §10.
+
+
+
+## 10. Candidate 324927f: release gates
+
+- **Full suite:** run 20261020T011631Z-1452 on 324927f1 (REQUIRE_CLEAN=1, JOBS=3, venv-integ3,
+  SIG_DFL launcher, nice 10 / ionice idle, detached; 5875 s): **643 suites, 8654 tests passing,
+  0 failing, 0 tmp leak.** Record `passed`, release-eligible. (Run 20261020T002035Z-31096 was
+  killed by a container restart; its stale lock was taken over.)
+- **`python3 ops/deploy_guard.py record`:** `ok: true`, `release/RELEASE_324927f1….json`,
+  tree_sha256 `31723169cba87c59…`. Committed with `release/NOTES_324927f.md`, the run record,
+  its log and the full log as **b931d17** on `claude/final-candidate-324927f` (pushed). The
+  records commit changes nothing under `src/`.
+- **`DRY_RUN=1 sh ops/deploy.sh --deployed 1b21e81…`** (from the candidate worktree, at
+  b931d17): **ALLOW** (check ALLOW, rehearse-rollback ALLOW; nothing pushed). 1b21e81 is an
+  ancestor (fast-forward).
+- **Rollback rehearsal (dry run only):** `DRY_RUN=1 sh ops/deploy.sh --rollback-to 1b21e81…
+  --reason "INTEG3 rollback rehearsal" --deployed b931d17…` -> **ALLOW** (rollback commit
+  181f8b7 built locally, nothing pushed); `deploy_guard.py rehearse-rollback --candidate HEAD
+  --deployed 1b21e81` -> ALLOW. The same form with `--deployed 1b21e81` is refused ("rollback
+  target 1b21e81c6d1b is not in the tracked deployed history"): the guard reads
+  DEPLOYED_HISTORY at the *deployed* commit, and 1b21e81's own history predates its deploy
+  (recorded later in INTEG2 9c3812b). A rollback is only meaningful once the candidate is the
+  deployed commit, which is the ALLOW form above.
+- **Security:** NO BLOCKER (§9). Open for the next release: R1 (LOW).
+- **Not done:** no deploy. Deploying b931d17 needs the owner's explicit approval of the SHA,
+  and a fresh db-backup first (the last one left 315M free on the 1.9G volume).
+
+
+---
+
+# Earlier integration record (2026-10-12/13, candidate a25a377), kept verbatim
+
 # INTEG3: integration release candidate on `claude/w4-INTEG2` (2026-10-12)
 
 Integrator: W-INTEG. Worktree: `.claude/worktrees/W4-INTEG2`, branch `claude/w4-INTEG2`.

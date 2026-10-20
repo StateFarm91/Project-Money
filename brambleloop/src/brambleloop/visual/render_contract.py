@@ -17,7 +17,15 @@ from __future__ import annotations
 
 import math
 
-CONTRACT_VERSION = "disclosed-render-contract/2"
+# Contract 3 (W4-PRODREADY, owner ruling 2026-10-19, D-W4-VISROLE-LEGIBILITY): every word a
+# disclosed frame letters is essential text -- the disclosure, the scale label, the finished
+# dimensions -- and must be legible at the size it is really shown (a 390 px phone gallery).
+# Contract 2 lettered the disclosure at 34 px and the labels at 30 px on the 2000 px canvas,
+# 6.6 px and 5.8 px in a phone gallery. Contract 3 letters both at `TEXT_PX`, wraps lines
+# to the zone instead of shrinking them, and gives the lettering its own rows below the
+# product zone. Positions are computed here, once, by `caption_layout` and
+# `annotation_layout`; the producer draws them and the verifier re-letters exactly them.
+CONTRACT_VERSION = "disclosed-render-contract/3"
 
 # Square, because the gallery must share one aspect (layout_qa FRAME_RATIOS_DISAGREE) and a
 # square frame survives the mobile grid's centre crop whole. 2000 px is Etsy's recommended
@@ -46,11 +54,26 @@ MAX_OFF_PALETTE_SHARE = 0.001
 
 # Zones, as fractions of the canvas. Everything sits inside the 8 % title-safe band
 # (publish.mobile.TITLE_SAFE_MARGIN), so nothing the marketplace overlays can hide it.
-PRODUCT_ZONE = (0.09, 0.09, 0.91, 0.78)        # x0, y0, x1, y1
-SCALE_ZONE = (0.09, 0.795, 0.91, 0.845)
-CAPTION_TOP = 0.858
-CAPTION_PX = 34
-LABEL_PX = 30
+# Contract 3 rows, top to bottom on the 2000 px canvas: the product 170-1490; the scale bar
+# and its "N cm" label on the row from 1504; up to two annotation lines from 1570; the two
+# disclosure lines from 1704. The last line's glyphs end at 1836, inside the 8 % title-safe
+# band (1840). The product keeps 95 % of contract 2's height: measured, a smaller drawing
+# loses a thin contrast row at 340 px (the cloudline blanket's cream at 0.68), and the 340 px
+# colour check is not relaxed to make room for type.
+# The top edge moved from 0.09 to 0.085 (170 px, still 10 px inside the 160 px title-safe
+# band): a tall assembled piece (the stocking hero) sat at exactly the 25 % coverage floor of
+# the 340 px check after the lettering rows took 3.5 % of the height; the floor is unchanged.
+PRODUCT_ZONE = (0.09, 0.085, 0.91, 0.745)        # x0, y0, x1, y1
+SCALE_ZONE = (0.09, 0.753, 0.91, 0.77)
+ANNOTATION_TOP = 0.785
+CAPTION_TOP = 0.852
+# The legibility floor at the display size (`frame_role.text_tier`): essential text is
+# 11 px at 390 px, i.e. 57 px on 2000 px. One size for every contract word.
+TEXT_PX = 58
+CAPTION_PX = TEXT_PX
+LABEL_PX = TEXT_PX
+LINE_STEP_PX = 66
+MAX_ANNOTATION_LINES = 2
 
 # Oblique camera for vessel heroes: elevated this far above horizontal, looking at a flat
 # face. Dimensions views use 0 (a true elevation), so heights read without projection.
@@ -138,9 +161,7 @@ FONT_PATHS = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",)
 # with "certified safe for newborns" beside it passed every check.
 SCALE_LABEL_GAP_PX = 24
 SCALE_LABEL_RISE_PX = 8
-ANNOTATION_LINE_STEP_PX = 36
-# The annotation block may not reach further left than this, so it never crosses the bar.
-ANNOTATION_MIN_X_FRACTION = 0.40
+ANNOTATION_LINE_STEP_PX = LINE_STEP_PX
 _POLYGON = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon"}
 
 
@@ -159,10 +180,13 @@ def annotation_lines(view: str, form: str, dims: dict) -> list[str]:
     `dims` keys: flat -- width, height; rounds -- sides, points, flats, across, height,
     vessel (bool); detail -- rows, cols (flat) or base_rounds (vessel base)."""
     n1 = lambda v: f"{float(v):.1f}"  # noqa: E731
+    # Contract 3: at most two lines, each within the zone width at TEXT_PX (`annotation_layout`
+    # refuses otherwise). The figures and their words are contract 2's; only the line breaks
+    # moved so that nothing is set smaller to fit.
     if view == "detail":
         if form == "flat":
-            return [f"Detail: first {dims['rows']} rows x {dims['cols']} stitches, "
-                    f"drawn stitch for stitch"]
+            return [f"Detail: first {dims['rows']} rows x {dims['cols']} stitches,",
+                    "drawn stitch for stitch"]
         if dims.get("vessel"):
             return [f"Base from above: all {dims['base_rounds']} base rounds"]
         return []
@@ -170,36 +194,116 @@ def annotation_lines(view: str, form: str, dims: dict) -> list[str]:
         return []
     if form == "assembled" and dims.get("copies"):
         # W4-CAND: one of several identical pockets threaded on a cord, drawn alone.
-        return [f"One of {int(dims['copies'])} pockets at the stated gauge: "
-                f"{n1(dims['width'])} cm wide x {n1(dims['height'])} cm tall",
-                f"threaded on a {n1(dims['cord_cm'])} cm cord (not drawn)"]
+        return [f"One of {int(dims['copies'])} pockets, {n1(dims['width'])} cm wide x "
+                f"{n1(dims['height'])} cm tall,",
+                f"at the stated gauge, on a {n1(dims['cord_cm'])} cm cord (not drawn)"]
     if form == "assembled":
         # W4-RENDER: the assembled object as drawn (pieces placed by the CIR's joins).
-        return [f"Assembled at the stated gauge: {n1(dims['width'])} cm wide x "
-                f"{n1(dims['height'])} cm tall"]
+        return ["Assembled at the stated gauge:",
+                f"{n1(dims['width'])} cm wide x {n1(dims['height'])} cm tall"]
     if form == "flat":
-        return [f"Finished size at the stated gauge: {n1(dims['width'])} cm wide x "
-                f"{n1(dims['height'])} cm long"]
+        return ["Finished size at the stated gauge:",
+                f"{n1(dims['width'])} cm wide x {n1(dims['height'])} cm long"]
     sides = dims.get("sides") or 0
     if sides >= 3:
         name = _POLYGON.get(sides, f"{sides}-sided")
         spans = (f"{n1(dims['points'])} cm across the points, {n1(dims['flats'])} cm across "
                  f"the flats")
         if dims.get("vessel"):
-            return [f"Finished size at the stated gauge ({name} base):",
-                    f"{spans}, {n1(dims['height'])} cm tall"]
+            return [f"{name.capitalize()} base at the stated gauge, {n1(dims['height'])} cm "
+                    f"tall:", spans]
         return [f"Finished size at the stated gauge ({name}):", spans]
     if dims.get("vessel"):
-        return [f"Finished size at the stated gauge: {n1(dims['across'])} cm across, "
-                f"{n1(dims['height'])} cm tall"]
-    return [f"Finished size at the stated gauge: {n1(dims['across'])} cm across"]
+        return ["Finished size at the stated gauge:",
+                f"{n1(dims['across'])} cm across, {n1(dims['height'])} cm tall"]
+    return ["Finished size at the stated gauge:", f"{n1(dims['across'])} cm across"]
 
 
-def annotation_xy(line_widths: list[float], canvas: int = CANVAS_PX) -> list[tuple[int, int]]:
-    """Each annotation line right-aligned to the scale zone, one under the other."""
-    _x0, zy0, zx1, _y1 = zone_px(SCALE_ZONE, canvas)
-    return [(round(zx1 - w), zy0 + i * ANNOTATION_LINE_STEP_PX)
-            for i, w in enumerate(line_widths)]
+class LetteringRefused(ValueError):
+    """The words do not fit the contract rows at a legible size; nothing is shrunk to fit."""
+
+
+def _measure():
+    from PIL import Image, ImageDraw
+
+    return ImageDraw.Draw(Image.new("L", (1, 1)))
+
+
+def wrap(text: str, px: int, max_w: float) -> list[str]:
+    """Greedy word wrap at `px`. A single word wider than `max_w` is refused, not shrunk."""
+    d, f = _measure(), font(px)
+    out, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if d.textlength(trial, font=f) <= max_w:
+            line = trial
+            continue
+        if not line or d.textlength(word, font=f) > max_w:
+            raise LetteringRefused(f"{word!r} is wider than {max_w:.0f} px at {px} px")
+        out.append(line)
+        line = word
+    if line:
+        out.append(line)
+    return out
+
+
+def caption_lines() -> list[str]:
+    """The disclosure on two lines, split after its comma, so "not a photograph" is whole."""
+    head, _sep, tail = DISCLOSURE.partition(", ")
+    return [head + ",", tail] if tail else [DISCLOSURE]
+
+
+def centred_layout(lines: list[str], top: float, canvas: int = CANVAS_PX,
+                   px: int = TEXT_PX) -> list[tuple[str, tuple[int, int]]]:
+    """Each line centred on the canvas, one LINE_STEP_PX under the other, from `top`."""
+    d, f = _measure(), font(px)
+    y0 = round(top * canvas)
+    return [(t, (round((canvas - d.textlength(t, font=f)) / 2), y0 + i * LINE_STEP_PX))
+            for i, t in enumerate(lines)]
+
+
+def caption_layout(canvas: int = CANVAS_PX, lines: list[str] | None = None
+                   ) -> list[tuple[str, tuple[int, int]]]:
+    """Where the disclosure (or another frame label) is lettered: centred, from CAPTION_TOP.
+    A line wider than the zone refuses (`LetteringRefused`)."""
+    zx0, _zy0, zx1, _zy1 = zone_px(PRODUCT_ZONE, canvas)
+    d, f = _measure(), font(CAPTION_PX)
+    lines = list(lines if lines is not None else caption_lines())
+    out: list[str] = []
+    for t in lines:
+        out += [t] if d.textlength(t, font=f) <= zx1 - zx0 else wrap(t, CAPTION_PX, zx1 - zx0)
+    if len(out) > 2:
+        raise LetteringRefused(f"the caption needs {len(out)} lines; the contract has 2")
+    return centred_layout(out, CAPTION_TOP, canvas, CAPTION_PX)
+
+
+def annotation_layout(lines: list[str], canvas: int = CANVAS_PX
+                      ) -> list[tuple[str, tuple[int, int]]]:
+    """The annotation lines wrapped to the zone width at LABEL_PX, left-aligned, one under
+    the other from ANNOTATION_TOP. More than MAX_ANNOTATION_LINES refuses."""
+    zx0, _zy0, zx1, _zy1 = zone_px(PRODUCT_ZONE, canvas)
+    out: list[str] = []
+    for t in lines:
+        out += wrap(t, LABEL_PX, zx1 - zx0)
+    if len(out) > MAX_ANNOTATION_LINES:
+        raise LetteringRefused(f"{len(out)} annotation lines at {LABEL_PX} px; the contract "
+                               f"has {MAX_ANNOTATION_LINES}")
+    y0 = round(ANNOTATION_TOP * canvas)
+    return [(t, (zx0, y0 + i * ANNOTATION_LINE_STEP_PX)) for i, t in enumerate(out)]
+
+
+def lettering(caption: list[tuple[str, tuple[int, int]]],
+              annotations: list[tuple[str, tuple[int, int]]],
+              scale: tuple[str, tuple[int, int]] | None) -> list[dict]:
+    """The frame's lettering as layout records ({text, pt, slot, box}) for legibility checks
+    (`frame_role.legibility`): the disclosure, the dimension annotations, the scale label."""
+    d = _measure()
+    rows = [(t, xy, CAPTION_PX, "disclosure") for t, xy in caption]
+    rows += [(t, xy, LABEL_PX, "annotation") for t, xy in annotations]
+    if scale:
+        rows.append((scale[0], scale[1], LABEL_PX, "scale_label"))
+    return [{"kind": "text", "text": t, "pt": px, "slot": slot,
+             "box": list(d.textbbox(xy, t, font=font(px)))} for t, xy, px, slot in rows]
 
 
 def font(size: int):

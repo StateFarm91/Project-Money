@@ -7,7 +7,7 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 145
+     "rows": 144
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
@@ -23,10 +23,14 @@
     },
     "0417f35": {
      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
-     "rows": 36
+     "rows": 35
+    },
+    "1b21e81": {
+     "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+     "rows": 3
     }
    },
-   "rows_on_base": 518,
+   "rows_on_base": 517,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD 0417f35 (deployed production 0417f3516f30bb7c52926187fc475a0f46536e86 per /health build.commit 2026-10-11T14:39Z; clean detached worktree, W4-FMGATE) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 added",
@@ -1768,7 +1772,7 @@
    "reason": "post-deploy truth of critical paths",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-172",
@@ -6924,7 +6928,7 @@
    "reason": "runtime durability and recovery",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-698",
