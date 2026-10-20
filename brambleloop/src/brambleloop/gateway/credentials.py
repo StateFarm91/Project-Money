@@ -281,8 +281,10 @@ def _rotation_marker(key: str) -> str | None:
     """A short marker that changes when the key changes, so a rotation shows in the history
     without storing anything derived from the key that could be used against it: 4 hex of a
     sha256 cannot be reversed or searched usefully. The owner view adds the fuller
-    fingerprint, computed live from the environment and never stored."""
-    return hashlib.sha256(key.encode()).hexdigest()[:4] if key else None
+    fingerprint, computed live from the environment and never stored. Domain-separated, so
+    it shares no characters by construction with the owner-view fingerprint."""
+    return hashlib.sha256(b"brambleloop-rotation-marker:" + key.encode()).hexdigest()[:4] \
+        if key else None
 
 
 def state(db, *, owner: bool = False, env=None) -> list[dict]:

@@ -160,7 +160,8 @@ def test_cards_dedupe_alert_owner_states_and_recover():
 def test_outage_alerts_only_after_consecutive_failures():
     _clear_credential_rows()
     CR.check_all(DB, env=ENV, http=Http())
-    for i in range(1, CR.ALERT_AFTER_CONSECUTIVE):
+    assert CR.ALERT_AFTER_CONSECUTIVE == 3
+    for i in (1, 2):                                   # ALERT_AFTER_CONSECUTIVE - 1 checks
         recs = CR.check_all(DB, env=ENV, http=Http(ant=(503, "overloaded")))
         assert recs[1]["consecutive_failures"] == i
         assert [c for c in _cred_cards() if c[3] is None] == [], i     # no spam
@@ -246,6 +247,9 @@ def test_on_demand_check_runs_the_job_and_no_key_leaks_anywhere():
         for name in ("jobs", "audit", "notifications", "api_notes", "log"):
             for fp in (fp_b, fp_a):
                 assert fp["sha256_prefix"] not in blobs[name], f"fingerprint in {name}"
+        # the stored rotation marker is domain-separated from the owner-view fingerprint
+        fixed = "fixed-test-key-0001"
+        assert CR._rotation_marker(fixed) != CR.fingerprint(fixed)["sha256_prefix"][:4]
     finally:
         CR._http = saved_http
         os.environ.pop("ANTHROPIC_API_KEY", None)
