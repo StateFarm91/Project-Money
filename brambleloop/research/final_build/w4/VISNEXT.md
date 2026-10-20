@@ -246,17 +246,19 @@ adapters:
 - Dry run and live rehearsal: `test_w4_wraptest` passes (112 checks). The harness still waits
   for `BRAMBLELOOP_IMAGE_KEY_BFL` and `ANTHROPIC_API_KEY` in the environment.
 
-## 8. Tests (all through `testslot`)
+## 8. Tests (all through `testslot`, final code, every one exit 0)
 
-See the final commit message for the counts of the last run.
-
-- New: `tests/test_w4_visnext.py`, 21/21.
-- Touched suites: test_w4_fidelity, test_w4_ownerimg, test_w4_wraptest,
-  test_w4_flux3generator, test_w4_fluxapi, test_w4_fluxstages, test_w4_fluxtexture,
-  test_w4_visref, test_v11_pwa_static, test_v11_cc_views, test_web_security and
-  test_w4_ccnotify.
-- Required: test_vacuity, test_launch, test_cost_governance_wave2, test_search_hero_publish,
-  test_cert_listing_frames and test_v11_autonomy_timeline.
+| Suite | Result |
+|---|---|
+| test_w4_visnext (new) | 21/21 |
+| test_w4_fidelity | 22/22 |
+| test_w4_ownerimg | 35/35 |
+| test_w4_wraptest | 112 checks, 0 failed |
+| test_w4_flux3generator / fluxapi / fluxstages / fluxtexture | 9/9, 13/13, 16/16, 9/9 |
+| test_w4_visref | 14/14 |
+| test_v11_pwa_static / test_v11_cc_views / test_web_security / test_w4_ccnotify | 82/82, 14/14, 11 ok, 5/5 |
+| test_vacuity / test_launch / test_cost_governance_wave2 | 8/8, 28/28, 39/39 |
+| test_search_hero_publish / test_cert_listing_frames / test_v11_autonomy_timeline | 4/4, 7 ok, 7 ok |
 
 ## 9. Still blocked on the owner or on funding
 
