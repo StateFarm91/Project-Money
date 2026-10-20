@@ -20,7 +20,9 @@ from sqlalchemy import or_, select
 METHOD = "deterministic retrieval over durable state (no model call)"
 SUPPORTED = ("why is <product> blocked?", "what is blocking launch?",
              "what did Brambleloop do overnight?", "why did profit fall? / how much revenue?",
-             "why does <thing> need my approval?", "what incidents are open?")
+             "why does <thing> need my approval?", "what incidents are open?",
+             # W4-CLOSE6 (F-664): the three the master plan names that had no reader.
+             "what are the agents doing?", "what did we spend?", "what opportunities are open?")
 
 
 def _fact(statement: str, source: str, as_of: str | None = None) -> dict:
@@ -65,6 +67,15 @@ def classify(question: str) -> tuple[str, str | None]:
     if any(w in low for w in ("overnight", "last night", "while i", "since yesterday",
                               "today", "did brambleloop do", "what happened")):
         return "overnight", None
+    # W4-CLOSE6 (F-664): spend, agents and opportunities. Spend is checked before profit
+    # ("money" alone stays a profit question; "spend"/"cost" are not).
+    if any(w in low for w in ("spend", "spent", "cost", "burn", "bill")):
+        return "spend", None
+    if any(w in low for w in ("agent", "department", "working on", "who is doing", "busy",
+                              "idle")):
+        return "agents", None
+    if any(w in low for w in ("opportunit", "idea", "what should we make", "gap")):
+        return "opportunities", None
     if any(w in low for w in ("profit", "revenue", "sales", "money", "margin", "earn")):
         return "profit", None
     if any(w in low for w in ("incident", "broken", "wrong", "failing", "outage")):
@@ -319,6 +330,97 @@ def incidents_q(db, question: str) -> dict:
                    f"most severe: {inc['items'][0]['summary'][:160]}.")
 
 
+def spend_q(db, question: str) -> dict:
+    """This month's recorded spend, by purpose and agent, each line citing cost_entries."""
+    from ...finance import spend_report
+
+    try:
+        w = spend_report.what_it_bought(db)
+    except Exception as exc:  # noqa: BLE001
+        return _result(question, "spend", [], f"spend unreadable: {type(exc).__name__}")
+    if not w.get("calls"):
+        return _result(question, "spend",
+                       [_fact(f"no cost row is recorded for {w['month']}", "cost_entries")],
+                       f"Nothing is recorded as spent this month ({w['month']}).")
+    facts = [_fact(f"{k}: CA${v['cad']:.2f} over {v['calls']} call(s)",
+                   "cost_entries (finance.spend_report.what_it_bought by_purpose)")
+             for k, v in list(w["by_purpose"].items())[:6]]
+    facts += [_fact(f"agent {k}: CA${v['cad']:.2f}",
+                    "cost_entries (finance.spend_report.what_it_bought by_agent)")
+              for k, v in list(w["by_agent"].items())[:4]]
+    top = next(iter(w["by_purpose"].items()))
+    return _result(question, "spend", facts,
+                   f"Recorded spend this month ({w['month']}) is CA${w['spent_cad']:.2f} over "
+                   f"{w['calls']} calls; the largest purpose is {top[0]} at "
+                   f"CA${top[1]['cad']:.2f}. This is recorded exposure, not a reconciled bill; "
+                   f"the linear projection to month end is "
+                   f"CA${w['projected_month_end_cad']:.2f}.")
+
+
+def agents_q(db, question: str) -> dict:
+    """What each agent is doing now: running job, ready backlog, parked types, idle."""
+    from ...swarm import metrics
+
+    try:
+        view = metrics.agents_view(db)
+    except Exception as exc:  # noqa: BLE001
+        return _result(question, "agents", [], f"agents unreadable: {type(exc).__name__}")
+    rows = view.get("agents") or []
+    if not rows:
+        return _result(question, "agents", [], "no agent is registered")
+    busy = [r for r in rows if r.get("running_job")]
+    facts = [_fact(f"{r['agent']} is running {r['running_job']['job_type']}",
+                   r["running_job"]["job"]) for r in busy[:8]]
+    facts += [_fact(f"{r['agent']} has {r['pending_ready']} ready job(s) waiting", "jobs")
+              for r in rows if not r.get("running_job") and r.get("pending_ready")][:6]
+    facts += [_fact(f"{r['agent']} parked: {t} ({why})", "swarm.orchestrate")
+              for r in rows for t, why in (r.get("parked_job_types") or {}).items()][:6]
+    idle = [r["agent"] for r in rows if r.get("idle")]
+    if not facts:
+        facts = [_fact(f"{len(idle)} enabled agent(s) idle with no ready work", "jobs")]
+    return _result(question, "agents", facts,
+                   f"{len(busy)} agent(s) are running a job now; {len(idle)} enabled agent(s) "
+                   f"are idle with nothing ready (see facts for who and what).")
+
+
+def opportunities_q(db, question: str) -> dict:
+    """Open opportunities from durable rows: MJs-derived marketplace openings the mission
+    entered, and improvement proposals not yet decided. Never invented."""
+    from ...core.models import Improvement, MjsMissionEvent
+
+    facts = []
+    with db.session() as s:
+        for ev in s.scalars(select(MjsMissionEvent).where(
+                MjsMissionEvent.entered == True)  # noqa: E712
+                .order_by(MjsMissionEvent.id.desc()).limit(6)):
+            tgt = (ev.seasonal or {}).get("target") or {}
+            facts.append(_fact(
+                f"marketplace opening: {ev.pod or '?'} / {ev.arena or '?'}"
+                + (f" for {tgt['event']}" if tgt.get("event") else "")
+                + (f" ({ev.decision})" if ev.decision else ""),
+                f"mjs_mission_events:{ev.id}", _iso_or_none(ev.at)))
+        for imp in s.scalars(select(Improvement).where(
+                Improvement.state.in_(("proposed", "PROPOSED", "testing", "TESTING")))
+                .order_by(Improvement.id.desc()).limit(4)):
+            facts.append(_fact(f"improvement proposal ({imp.cell}): {imp.hypothesis[:160]}",
+                               f"improvements:{imp.id}", _iso_or_none(imp.at)))
+    if not facts:
+        return _result(question, "opportunities", [],
+                       "no entered marketplace opening and no open improvement proposal is "
+                       "recorded")
+    return _result(question, "opportunities", facts,
+                   f"{len(facts)} open opportunit{'y' if len(facts) == 1 else 'ies'} on record "
+                   f"(marketplace openings the mission entered, then undecided improvement "
+                   f"proposals); each cites its row.")
+
+
+def _iso_or_none(v):
+    try:
+        return v.isoformat() if v is not None else None
+    except AttributeError:
+        return None
+
+
 def ask(db, question: str) -> dict:
     question = str(question or "").strip()[:500]
     if not question:
@@ -336,6 +438,12 @@ def ask(db, question: str) -> dict:
         return approval_reason(db, question)
     if intent == "incidents":
         return incidents_q(db, question)
+    if intent == "spend":
+        return spend_q(db, question)
+    if intent == "agents":
+        return agents_q(db, question)
+    if intent == "opportunities":
+        return opportunities_q(db, question)
     return _result(question, "unknown", [],
                    "this question is not one the company can answer from recorded evidence "
                    "yet. Supported: " + "; ".join(SUPPORTED))

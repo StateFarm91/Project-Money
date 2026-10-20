@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T11:24:00Z",
-  "branch_head": "ee244a15"
+  "generated_at": "2026-10-20T11:54:16Z",
+  "branch_head": "01b1c8cf"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,11 +40,11 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 618,
+  "total_not_verified": 625,
   "by_class": {
-   "A": 545,
+   "A": 550,
    "C": 40,
-   "B": 33
+   "B": 35
   },
   "by_source": {
    "build2": {
@@ -53,9 +53,9 @@
     "B": 5
    },
    "final_master": {
-    "A": 448,
+    "A": 453,
     "C": 19,
-    "B": 27
+    "B": 29
    },
    "tracked": {
     "B": 1
@@ -72,12 +72,12 @@
     "C": 5
    },
    "command_center_ui": {
-    "A": 1
+    "A": 7,
+    "B": 3
    },
    "image_visual": {
     "C": 3,
-    "A": 55,
-    "B": 1
+    "A": 55
    },
    "ops_runtime_governance": {
     "C": 13,
@@ -86,7 +86,7 @@
    },
    "store_product": {
     "C": 14,
-    "A": 192,
+    "A": 191,
     "B": 3
    }
   },
@@ -97,12 +97,12 @@
     "B": 5
    },
    "launch_critical": {
-    "A": 104,
+    "A": 107,
     "C": 3,
-    "B": 19
+    "B": 21
    },
    "post_launch": {
-    "A": 344,
+    "A": 346,
     "C": 16,
     "B": 8
    }
@@ -278,7 +278,6 @@
    "A F-598 [blocked_owner] Cross-Surface Consistency Audit",
    "A F-614 [blocked_owner] Etsy Plus Credit Wallet",
    "A F-615 [blocked_owner] Free-Credit-First Rule",
-   "A F-664 [blocked_engineering] Ask Brambleloop",
    "A F-744 [blocked_engineering] Model Evidence Ledger",
    "A F-766 [blocked_external] Project Tips from Failure Modes",
    "A F-767 [blocked_owner] Tutorial Linkage",
@@ -636,7 +635,6 @@
    "A F-857 [blocked_engineering] Blind Original Graduation",
    "A F-858 [blocked_external] On-Model After Product Lock",
    "A F-859 [blocked_engineering] Visual Economics",
-   "B F-666 [blocked_engineering] Overnight Brief",
    "C F-088 [blocked_external] Post-Launch Reality Feedback",
    "C B2#8 [blocked_external] Proof Stack",
    "C F-330 [blocked_external] Post-Launch Cost Learning"
@@ -737,7 +735,16 @@
    "C F-699 [blocked_engineering] Continuous Greatness"
   ],
   "command_center_ui": [
-   "A F-897 [blocked_owner] Smart Notification Policy"
+   "A F-888 [implemented_unverified] Account & Security Tab",
+   "A F-897 [blocked_owner] Smart Notification Policy",
+   "A F-899 [implemented_unverified] Operational Drill-Down",
+   "A F-929 [implemented_unverified] No Autonomous Hallucinated Action",
+   "A F-619 [implemented_unverified] Brambleloop Command Center",
+   "A F-651 [implemented_unverified] Unified Studio",
+   "A F-664 [implemented_unverified] Ask Brambleloop",
+   "B F-884 [implemented_unverified] Owner Home Brief",
+   "B F-928 [implemented_unverified] Owner Search / Ask Company",
+   "B F-666 [implemented_unverified] Overnight Brief"
   ]
  },
  "rows": [
@@ -7778,6 +7785,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-619",
+   "scope": "post_launch",
+   "title": "Brambleloop Command Center",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Brambleloop Command Center - Build a clean owner-facing web app with Today, Month, Finance, Products, Listings, Marketing, Customers, Experiments, Departments, Agent Activity, Owner Actions and System Health. It is the executive interface; the ledger/evidence stores remain sources of truth."
+  },
+  {
+   "source": "final_master",
    "id": "F-620",
    "scope": "post_launch",
    "title": "Command Center Finance",
@@ -7913,6 +7935,21 @@
   },
   {
    "source": "final_master",
+   "id": "F-651",
+   "scope": "post_launch",
+   "title": "Unified Studio",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Unified Studio - one Brambleloop Studio app contains Command Center, Products, Visual, Etsy, Marketing, Finance, Customers, QA, Research, Reliability, Agents and Owner Inbox."
+  },
+  {
+   "source": "final_master",
    "id": "F-652",
    "scope": "post_launch",
    "title": "Desktop Headquarters",
@@ -8021,10 +8058,10 @@
    "id": "F-664",
    "scope": "post_launch",
    "title": "Ask Brambleloop",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,
@@ -8051,10 +8088,10 @@
    "id": "F-666",
    "scope": "post_launch",
    "title": "Overnight Brief",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "image_visual",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy, then production evidence",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
    "verifiability": "B",
    "criterion_quote": "Overnight Brief - 'While you were away' shows autonomous hours, tasks/experiments, products advanced/rejected, image candidates, Etsy findings, compute/ad spend, sales/profit, incidents and decisions.",
    "matched": "Overnight",
@@ -9893,6 +9930,36 @@
   },
   {
    "source": "final_master",
+   "id": "F-884",
+   "scope": "launch_critical",
+   "title": "Owner Home Brief",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "B",
+   "criterion_quote": "Owner Home Brief - Home presents a concise current-state and overnight brief: money, store, work completed, work in progress, incidents, opportunities, launch state, owner actions and meaningful changes since last view.",
+   "matched": "overnight",
+   "basis": "criterion text requires production deployment / soak",
+   "criterion": "Owner Home Brief - Home presents a concise current-state and overnight brief: money, store, work completed, work in progress, incidents, opportunities, launch state, owner actions and meaningful changes since last view."
+  },
+  {
+   "source": "final_master",
+   "id": "F-888",
+   "scope": "launch_critical",
+   "title": "Account & Security Tab",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Account & Security Tab - Account exposes owner profile, authentication, active sessions/devices, connected services, OAuth scopes, model providers, budgets, authorities, notification preferences, owner policies and emergency controls."
+  },
+  {
+   "source": "final_master",
    "id": "F-895",
    "scope": "launch_critical",
    "title": "Overnight Autonomy",
@@ -9920,6 +9987,21 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Smart Notification Policy - Notify the owner for decisions, risk, deadlines, meaningful commercial events and anomalies - not routine machine chatter. Alerts are deduplicated, severity-ranked and actionable."
+  },
+  {
+   "source": "final_master",
+   "id": "F-899",
+   "scope": "launch_critical",
+   "title": "Operational Drill-Down",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "Operational Drill-Down - Every headline metric/action can drill into provenance: source, timestamp, confidence, affected product/order/job, responsible agent, relevant evidence and audit history."
   },
   {
    "source": "final_master",
@@ -9995,6 +10077,36 @@
    "matched": null,
    "basis": "no production or live-operations requirement in the criterion text",
    "criterion": "Store Preview Mode - Provide an owner-facing customer-view preview of the complete shop/listing set before activation, including images, titles, descriptions, prices, files, disclosures and mobile presentation."
+  },
+  {
+   "source": "final_master",
+   "id": "F-928",
+   "scope": "launch_critical",
+   "title": "Owner Search / Ask Company",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "B",
+   "criterion_quote": "Owner Search / Ask Company - Provide a secure natural-language query surface over authorized company evidence so the owner can ask questions such as 'what did Brambleloop do overnight?', 'why did profit drop?', or 'what is blocking launch?' with source-linked answers.",
+   "matched": "overnight",
+   "basis": "criterion text requires production deployment / soak",
+   "criterion": "Owner Search / Ask Company - Provide a secure natural-language query surface over authorized company evidence so the owner can ask questions such as 'what did Brambleloop do overnight?', 'why did profit drop?', or 'what is blocking launch?' with source-linked answers."
+  },
+  {
+   "source": "final_master",
+   "id": "F-929",
+   "scope": "launch_critical",
+   "title": "No Autonomous Hallucinated Action",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "command_center_ui",
+   "verifiability": "A",
+   "criterion_quote": null,
+   "matched": null,
+   "basis": "no production or live-operations requirement in the criterion text",
+   "criterion": "No Autonomous Hallucinated Action - An agent may reason creatively, but external/company-state actions require validated inputs and declared authority. Uncertain facts become questions, probes or parked work - never invented execution."
   },
   {
    "source": "tracked",

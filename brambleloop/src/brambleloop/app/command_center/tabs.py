@@ -525,6 +525,8 @@ def morning_brief(db, hours: float = 12) -> dict:
         return envelope("OK", [{"job_type": t, "pending": int(c)} for t, c in types],
                         ["jobs"], provider="jobs", pending_total=int(n))
 
+    from . import brief as brief_mod
+
     box = approvals.inbox(db)
     autonomy = providers.call("autonomy", db)
     return _tab("MORNING_BRIEF", {
@@ -536,6 +538,10 @@ def morning_brief(db, hours: float = 12) -> dict:
         "discoveries": guard("discoveries", discoveries, sources=["lessons"]),
         "overnight_autonomy": autonomy,
         "queued_actions": guard("queued", queued, sources=["jobs"]),
+        # W4-CLOSE6 (F-666): the "while you were away" items the handoff did not carry --
+        # autonomous hours, experiments, products advanced/rejected, image candidates, Etsy
+        # findings and sales/profit (`command_center.brief`).
+        **brief_mod.morning_sections(db, since=since),
         "decisions_needed": envelope("OK" if not box["cards"] else "BLOCKED",
                                      [{"card_id": c["card_id"], "title": c["title"]}
                                       for c in box["cards"]],

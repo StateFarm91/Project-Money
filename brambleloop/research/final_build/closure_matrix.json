@@ -55,17 +55,17 @@
   "problems": [],
   "maturity": {
    "DEPLOYED": 183,
-   "INTEGRATED": 521,
-   "MISSING": 102,
+   "INTEGRATED": 522,
+   "MISSING": 100,
    "IMPLEMENTED": 50,
    "EXERCISED": 16,
-   "TESTED": 45
+   "TESTED": 46
   },
   "maturity_claimed": {
    "EXERCISED": 115,
-   "INTEGRATED": 485,
+   "INTEGRATED": 487,
    "DEPLOYED": 132,
-   "MISSING": 102,
+   "MISSING": 100,
    "IMPLEMENTED": 42,
    "TESTED": 41
   },
@@ -95,10 +95,10 @@
    "data": 29
   },
   "coverage": {
-   "FULL": 474,
-   "PARTIAL": 443
+   "FULL": 476,
+   "PARTIAL": 441
   },
-  "downgraded": 143,
+  "downgraded": 144,
   "defects": 20,
   "wave_reported": {
    "PARTIAL": 50,
@@ -123,8 +123,8 @@
    "maturity TESTED": 3
   },
   "protected_action_applicability": {
-   "protected": 585,
-   "unprotected": 332
+   "protected": 586,
+   "unprotected": 331
   },
   "capped_by_unwritten_state": 0,
   "capped_by_proxy_evidence": 0,
@@ -30083,35 +30083,43 @@
    "uid": "F-664",
    "launch_class": "MATURE",
    "launch_class_reason": "F-698: universal command/search bar is Studio capability, not first-sale",
-   "maturity": "MISSING",
-   "coverage": "PARTIAL",
-   "missing_part": "No command/search bar, no natural-language question endpoint over company state.",
-   "producer": null,
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/app/command_center/ask.py::ask (spend_q, agents_q, opportunities_q added; overnight, profit, launch_blocked, product_blocked, approval_reason, incidents_q existing)",
    "durable_state": null,
-   "consumer": null,
+   "consumer": "POST /api/cc/ask (app/command_center/api.py) -> the Command Center Ask view (static/js/views/ask.js)",
    "protected_effect": null,
-   "tests": [],
-   "evidence": [],
+   "tests": [
+    "tests/test_w4_close6_ask.py::test_every_named_question_routes_to_a_reader",
+    "tests/test_w4_close6_ask.py::test_spend_agents_and_opportunities_are_answered_from_cited_rows",
+    "tests/test_w4_close6_ask.py::test_an_empty_company_answers_nothing_recorded_never_an_invention",
+    "tests/test_w4_close6_ask.py::test_the_surface_is_the_command_center_bar",
+    "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing"
+   ],
+   "evidence": [
+    "w4-CLOSE6 on deployed b931d17: the mapping's 'no command/search bar' is stale: v1.1 F-928/F-929 built Ask Company (deterministic retrieval, every fact citing its row; UNKNOWN rather than invention) and its Command Center view. It answered what changed, profit/revenue and what blocks launch; W4-CLOSE6 adds the three named intents it lacked -- what agents are doing (swarm.metrics.agents_view), spend (finance.spend_report.what_it_bought, cost_entries) and opportunities (entered mjs_mission_events + undecided improvements). Dev-proven, awaiting deploy."
+   ],
    "build2_rows": [],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no gate on the remaining software work"
+    "key": null,
+    "detail": "software only"
    },
    "defect": null,
-   "next_action": "Build /api/ask routing a question to a fixed set of deterministic answerers (what changed: timeline; why profit moved: finance.books delta; what blocks launch: launch.readiness; agents: swarm; spend: spend_report) with cited evidence; optional LLM phrasing under gateway budget; test each intent.",
+   "next_action": "deploy W4-CLOSE6",
    "confidence": "HIGH",
-   "searched": "grep ask_brambleloop|/api/ask|search bar|command bar in src/brambleloop and app/main.py routes: none",
+   "searched": "grep ask_brambleloop|/api/ask|search bar|command bar in src/brambleloop and app/main.py routes: none | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
-   "maturity_claimed": "MISSING",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-664",
    "title": "Ask Brambleloop",
    "version": "v0.19",
    "master_priority": null,
    "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
-   "protected_action_applicability": "unprotected",
-   "protected_action_basis": "no protected_effect and no protected action named",
+   "protected_action_applicability": "protected",
+   "protected_action_basis": "title/producer/consumer names 'spend'",
    "completion": "POST-LAUNCH",
    "completion_reasons": []
   },
@@ -30181,17 +30189,22 @@
    "uid": "F-666",
    "launch_class": "MATURE",
    "launch_class_reason": "F-698: overnight brief is owner convenience",
-   "maturity": "MISSING",
-   "coverage": "PARTIAL",
-   "missing_part": "No 'while you were away' brief; ingredients exist separately (learning-changes block, /api/nightly improvement sweep, spend_report, incidents) but nothing aggregates autonomous hours, products advanced/rejected, image candidates, Etsy findings, spend, sales and decisions since the owner's last visit.",
-   "producer": null,
+   "maturity": "TESTED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/app/command_center/brief.py::morning_sections; app/command_center/tabs.py::morning_brief",
    "durable_state": null,
-   "consumer": null,
+   "consumer": "GET /api/cc/brief/morning -> HOME 'Overnight handoff' card (static/js/views/home.js BRIEF_ORDER)",
    "protected_effect": null,
-   "tests": [],
+   "tests": [
+    "tests/test_w4_close6_brief.py::test_every_named_item_is_a_section_read_from_its_rows",
+    "tests/test_w4_close6_brief.py::test_unmeasured_sales_are_never_zero_and_an_unreadable_source_is_unknown",
+    "tests/test_w4_close6_brief.py::test_the_overnight_handoff_on_home_carries_every_named_item"
+   ],
    "evidence": [
     "src/brambleloop/app/main.py dashboard _learning block",
-    "src/brambleloop/improve/nightly.py"
+    "src/brambleloop/improve/nightly.py",
+    "w4-CLOSE6 on deployed b931d17: the F-896 overnight handoff already carried what changed, completed tasks, money spent by kind (compute vs ads), incidents, discoveries, queue and decisions; W4-CLOSE6 adds autonomous hours, experiments, products advanced/rejected, image candidates, Etsy findings and sales/profit (UNMEASURED, never CA$0), each from its own rows, an unreadable source UNKNOWN. Dev-proven, awaiting deploy."
    ],
    "build2_rows": [
     "#193 COMPLETE+PROVEN",
@@ -30199,16 +30212,18 @@
    ],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no gate on the remaining software work"
+    "key": null,
+    "detail": "software only"
    },
    "defect": null,
-   "next_action": "Build /api/brief?since=<ts> composing jobs completed, products/status transitions, owned/model photography attempts, mjs findings, CostEntry sums, LedgerEntry sales, incidents and open owner actions; render on Studio home; test with seeded rows.",
+   "next_action": "deploy W4-CLOSE6",
    "confidence": "HIGH",
-   "searched": "grep overnight|while you were away|since_last_visit in src/brambleloop: no brief",
+   "searched": "grep overnight|while you were away|since_last_visit in src/brambleloop: no brief | w4-CLOSE5 on deployed b931d17",
    "slice": "s8",
-   "maturity_claimed": "MISSING",
-   "adjudication": [],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [
+    "producer module 'app/command_center/brief.py' not reached from a live root -> capped at TESTED"
+   ],
    "id": "F-666",
    "title": "Overnight Brief",
    "version": "v0.19",

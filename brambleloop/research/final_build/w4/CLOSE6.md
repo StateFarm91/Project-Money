@@ -69,3 +69,32 @@ Every entry has `accepted_by: null`.
 
 **Dry run:** `aggregate.py --overrides w4/OVERRIDES_PROPOSED_CLOSE6.json --dry-run` reports
 `problems: []`. All four rows adjudicate to maturity TESTED with no remaining reasons.
+
+## 3. Batch 2: F-664 Ask Brambleloop and F-666 Overnight Brief (dev-proven, awaiting deploy)
+
+| row | criterion (quoted) | tests | status |
+|---|---|---|---|
+| **F-664** Ask Brambleloop | "universal company command/search bar answering what changed, why profit moved, what blocks launch, what agents are doing, opportunities, spend and evidence." | `test_w4_close6_ask.py` (4) + `test_v11_cc_views.py` ask | dev-proven; 3 intents added (see below) |
+| **F-666** Overnight Brief | "'While you were away' shows autonomous hours, tasks/experiments, products advanced/rejected, image candidates, Etsy findings, compute/ad spend, sales/profit, incidents and decisions." | `test_w4_close6_brief.py` (3) | dev-proven; 6 sections added (see below) |
+
+**F-664: three intents added, dev-proven.**
+- The mapping's "MISSING" was stale. v1.1 had already built Ask Company: `command_center/ask.py`,
+  POST `/api/cc/ask`, and the Ask view.
+- It now also answers what the agents are doing, spend, and opportunities. Every fact cites its
+  row, and an empty store answers "nothing recorded" or UNKNOWN.
+
+**F-666: six sections added, dev-proven.**
+- The F-896 Overnight handoff already carried what changed, completed tasks, money spent by kind,
+  incidents, discoveries, the queue and decisions.
+- `command_center/brief.py` adds autonomous hours, experiments, products advanced or rejected,
+  image candidates, Etsy findings, and sales and profit. The handoff card renders all of them.
+- Sales that are not measured stay UNMEASURED, and an unreadable source is UNKNOWN.
+
+**Looked at, not closed:**
+- **F-662**, Live Company Timeline. `/api/cc/timeline` already merges the autonomy company
+  timeline, incidents, decisions, spend and significant jobs. There is still no cause-to-effect
+  linking, so I am leaving the row open rather than claiming it.
+- **Build 2 #11 and #12**, the customer program and cohorts. The code is live in
+  `commerce.orders_ingest`. With `transactions_r` open, the rows have nothing left to exercise
+  until customers exist, which matches the production gate `customers=false`. That is a gate
+  remap for the integrator.

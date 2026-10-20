@@ -10,9 +10,9 @@ Reachability: HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b6
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 94 | 35 | 7 | 220 | 124 | 437 |
+| all rows | 94 | 35 | 7 | 219 | 124 | 438 |
 | launch-critical | 29 | 26 | 0 | 5 | 53 | 377 |
-| post-launch (not blocking) | 65 | 9 | 0 | 215 | 71 | 60 |
+| post-launch (not blocking) | 65 | 9 | 0 | 214 | 71 | 61 |
 
 Launch-critical OPEN-DEFECT: **5**
 

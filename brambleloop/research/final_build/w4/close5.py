@@ -917,6 +917,56 @@ C6_BATCH1_PROD = ("F-685",)
 C6_CLOSED: set[str] = set(C6_BATCH1_PROD)
 
 
+# ---- CLOSE6 batch 2: F-664 Ask Brambleloop, F-666 Overnight Brief (dev-proven) --------------
+AK6 = "tests/test_w4_close6_ask.py::"
+BR6 = "tests/test_w4_close6_brief.py::"
+FM_EDITS.update({
+    ("s8", "F-664"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/ask.py::ask (spend_q, agents_q, "
+                    "opportunities_q added; overnight, profit, launch_blocked, product_blocked, "
+                    "approval_reason, incidents_q existing)",
+        "consumer": "POST /api/cc/ask (app/command_center/api.py) -> the Command Center Ask "
+                    "view (static/js/views/ask.js)",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the mapping's 'no command/search bar' is stale: v1.1 F-928/F-929 "
+                      "built Ask Company (deterministic retrieval, every fact citing its row; "
+                      "UNKNOWN rather than invention) and its Command Center view. It answered "
+                      "what changed, profit/revenue and what blocks launch; W4-CLOSE6 adds the "
+                      "three named intents it lacked -- what agents are doing (swarm.metrics."
+                      "agents_view), spend (finance.spend_report.what_it_bought, cost_entries) "
+                      "and opportunities (entered mjs_mission_events + undecided improvements). "
+                      "Dev-proven, awaiting deploy."],
+        "tests+": [AK6 + "test_every_named_question_routes_to_a_reader",
+                   AK6 + "test_spend_agents_and_opportunities_are_answered_from_cited_rows",
+                   AK6 + "test_an_empty_company_answers_nothing_recorded_never_an_invention",
+                   AK6 + "test_the_surface_is_the_command_center_bar",
+                   "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing"],
+    },
+    ("s8", "F-666"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/brief.py::morning_sections; "
+                    "app/command_center/tabs.py::morning_brief",
+        "consumer": "GET /api/cc/brief/morning -> HOME 'Overnight handoff' card "
+                    "(static/js/views/home.js BRIEF_ORDER)",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the F-896 overnight handoff already carried what changed, "
+                      "completed tasks, money spent by kind (compute vs ads), incidents, "
+                      "discoveries, queue and decisions; W4-CLOSE6 adds autonomous hours, "
+                      "experiments, products advanced/rejected, image candidates, Etsy findings "
+                      "and sales/profit (UNMEASURED, never CA$0), each from its own rows, an "
+                      "unreadable source UNKNOWN. Dev-proven, awaiting deploy."],
+        "tests+": [BR6 + "test_every_named_item_is_a_section_read_from_its_rows",
+                   BR6 + "test_unmeasured_sales_are_never_zero_and_an_unreadable_source_is_unknown",
+                   BR6 + "test_the_overnight_handoff_on_home_carries_every_named_item"],
+    },
+})
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
