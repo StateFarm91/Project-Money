@@ -1544,13 +1544,28 @@ def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
     shop = readings.get("shop_snapshot") or {}
     failing = [c.get("key") for c in ((shop.get("status") or {}).get("checks") or [])
                if c.get("result") != es.PASS]
+    # W4-FIRSTSALE2: the five surfaces that had no collector read theirs here; a record is
+    # keyed by (collector, surface) because one collector (the owner's page observation)
+    # serves two surfaces with different readings.
+    from . import first_sale_surfaces
+
+    per_surface = first_sale_surfaces.readings(db, now=now)
     rows = []
     for s in es.first_sale_blockers():
-        record = readings.get(s.collector) if s.collector else None
+        if s.collector and (s.collector, s.key) in per_surface:
+            record = per_surface[(s.collector, s.key)]
+        else:
+            record = readings.get(s.collector) if s.collector else None
         state = es.evidence_state(s, record, now=now)
+        action = s.owner_action.key if s.owner_action else None
+        if action is None and record and record.get("owner_action"):
+            # Raised only while the reading says the owner is needed (e.g. the orders gate
+            # is closed); never a standing reference to a step already done.
+            action = record["owner_action"]
         rows.append({"surface": s.key, "name": s.name, "verdict": s.verdict,
                      "work_class": s.work_class, "evidence_state": state,
-                     "owner_action": s.owner_action.key if s.owner_action else None,
+                     "owner_action": action,
+                     "why": (record or {}).get("why", "")[:200] if record else "",
                      "why_required": s.why_required[:200]})
     all_fresh = all(r["evidence_state"] == es.FRESH for r in rows)
     ready = bool(rows) and all_fresh and not failing and bool(shop)
