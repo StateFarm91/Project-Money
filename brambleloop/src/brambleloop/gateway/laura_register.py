@@ -116,6 +116,10 @@ REASONS: dict[str, str] = {
                          "(zero-retention) model, so no request was sent.",
     "PROVIDER_POLICY": "The provider declined this request under its content policy. No reply "
                        "was generated.",
+    # W4-LAURAONE: the one thread runs on Venice only; it never forwards the thread elsewhere.
+    "UNIFIED_NEEDS_VENICE": "The one Laura thread runs only on Venice (owner switch "
+                            "BRAMBLELOOP_PRIVATE_PROVIDER=venice). Nothing was sent to any "
+                            "other provider.",
 }
 
 
@@ -362,12 +366,12 @@ def release_proven(env=None, boot: dict | None = None) -> dict:
 
 def _refuse(db, code: str, *, which: str, why: str, estimate: float = 0.0,
             ceiling: float = 0.0, committed: float = 0.0, model: str = "",
-            provider: str = "anthropic") -> None:
+            provider: str = "anthropic", purpose: str | None = None) -> None:
     from ..finance import spend_report
 
     spend_report.record_refusal(
         db, agent=AGENT, ceiling_cad=ceiling, estimate_cad=estimate, committed_cad=committed,
-        which=which, why=why, purpose=PURPOSE,
+        which=which, why=why, purpose=purpose or PURPOSE,
         detail={"model": model, "provider": provider, "job_id": None})
     raise ReplyUnavailable(code)
 
@@ -410,14 +414,15 @@ def _parse(text: str) -> str:
 
 
 def reply(db, *, system: str, user: str, registry=None, now: datetime | None = None,
-          env=None) -> dict:
+          env=None, prompt=None) -> dict:
     """{text, model_ref, cost_cad, tokens_in, tokens_out}, or raise ReplyUnavailable.
 
     `system` must be the pinned LAURA_PRIVATE_REPLY system prompt (anything else is refused:
     the purpose billed is that prompt). Never raises anything but ReplyUnavailable.
     """
     try:
-        return _reply(db, system=system, user=user, registry=registry, now=now, env=env)
+        return _reply(db, system=system, user=user, registry=registry, now=now, env=env,
+                      prompt=prompt)
     except ReplyUnavailable:
         raise
     except Exception:  # noqa: BLE001 - nothing private may ride out on an exception
@@ -435,7 +440,20 @@ def _venice_live(db, model: str) -> dict | None:
         return None
 
 
-def _reply(db, *, system, user, registry, now, env) -> dict:
+def _prompt_and_parser(prompt):
+    """The pinned prompts this isolated path may bill and run: the private reply (default) and
+    W4-LAURAONE's intent router (`laura.unified_intent@1`, Venice only). Anything else is
+    refused."""
+    if prompt is None or prompt is PROMPT:
+        return PROMPT, _parse
+    from . import laura_unified
+
+    if prompt is laura_unified.INTENT:
+        return laura_unified.INTENT, laura_unified.parse_intent
+    raise ReplyUnavailable("REFUSED")
+
+
+def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
     from ..agents.registry import BudgetExceeded, PermissionDenied, Registry
     from . import anthropic as gw
     from . import failover, paid_calls
@@ -443,7 +461,9 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
 
     if paid_calls.current_job_id() is not None:
         raise ReplyUnavailable("JOB_SCOPE")
-    if system != PROMPT.system or not isinstance(user, str) or not user.strip():
+    PROMPT_, parse = _prompt_and_parser(prompt)
+    PURPOSE_ = PROMPT_.ref
+    if system != PROMPT_.system or not isinstance(user, str) or not user.strip():
         raise ReplyUnavailable("REFUSED")
     from . import venice
 
@@ -453,7 +473,9 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
     now = now or datetime.now(timezone.utc)
     selected = state["provider"] or ""
     is_venice = selected == venice.PROVIDER_VALUE
-    max_out = int(PROMPT.max_output_tokens)
+    max_out = int(PROMPT_.max_output_tokens)
+    if PROMPT_ is not PROMPT and not is_venice:
+        raise ReplyUnavailable("UNIFIED_NEEDS_VENICE")      # never forwarded to another provider
     if is_venice:
         # W4-VENICE: the pinned Venice model, priced from the Venice table (read 2026-10-20).
         model = venice.model(env)               # the approved default unless the owner chose
@@ -472,9 +494,10 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
     daily = state["spend_authorised_cad_per_day"]
     if daily <= 0:
         _refuse(db, "SPEND_UNAUTHORISED", which="purpose_daily_unauthorised",
-                why=(f"no owner spend authorisation for {PURPOSE} ({DAILY_AUTH_ENV} is unset "
+                why=(f"no owner spend authorisation for {PURPOSE_} ({DAILY_AUTH_ENV} is unset "
                      "or CA$0); refused before any reservation"),
-                estimate=estimate, model=model, provider=provider_name)
+                estimate=estimate, model=model, provider=provider_name,
+                purpose=PURPOSE_)
     if not selected:
         raise ReplyUnavailable("PROVIDER_NOT_SELECTED")
     if not state["provider_configured"]:
@@ -495,7 +518,7 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
         # One atomic step under budget_lock: the month, the `laura_private` day tightened to
         # the owner's figure, and the reservation (W4-PLACT; security review L1).
         reservation = gw.check_budget_cad(db, estimate_cad=estimate, agent=AGENT,
-                                          purpose=PURPOSE, model=model,
+                                          purpose=PURPOSE_, model=model,
                                           provider=provider.name, now=now,
                                           agent_daily_cap_cad=daily)
     except gw.AgentCeilingExceeded:
@@ -513,10 +536,10 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
         response = provider._send(payload, provider.key())
     except Exception as exc:  # noqa: BLE001
         clean = _sanitised(exc)
-        gateway._note_attempt(provider, AGENT, PURPOSE, ok=False, error=clean)
+        gateway._note_attempt(provider, AGENT, PURPOSE_, ok=False, error=clean)
         in_tok, out_tok, override, basis = gateway._billing(clean, None, reservation)
         try:
-            gateway._record(PROMPT, provider, AGENT, in_tok, out_tok, 1, False,
+            gateway._record(PROMPT_, provider, AGENT, in_tok, out_tok, 1, False,
                             str(clean), reservation=reservation, cost_override=override,
                             billing=basis, latency_ms=(time.time() - started) * 1000)
         except BudgetExceeded:
@@ -525,18 +548,18 @@ def _reply(db, *, system, user, registry, now, env) -> dict:
                                else "PROVIDER_ERROR") from None
     elapsed = (time.time() - started) * 1000
     try:
-        text = _parse(response.text)
+        text = parse(response.text)
         ok = True
     except Exception:  # noqa: BLE001 - billed either way; the text is never echoed
         text, ok = "", False
-    gateway._note_attempt(provider, AGENT, PURPOSE, ok=True)
+    gateway._note_attempt(provider, AGENT, PURPOSE_, ok=True)
     in_tok, out_tok, override, basis = gateway._billing(None, response, reservation)
     reported = getattr(response, "cost_usd", None)
     if is_venice and reported is not None and reported >= 0:
         # Venice reports its own charge (`cost.usd`); the bill is never below it.
         override = max(float(override or 0.0), round(float(reported) * gw.USD_TO_CAD, 6))
     try:
-        cost = gateway._record(PROMPT, provider, AGENT, in_tok, out_tok, 1, ok,
+        cost = gateway._record(PROMPT_, provider, AGENT, in_tok, out_tok, 1, ok,
                                "" if ok else "MalformedModelOutput", latency_ms=elapsed,
                                reservation=reservation, cost_override=override,
                                billing=basis)

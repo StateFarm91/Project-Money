@@ -313,8 +313,15 @@ def _laura_reply(db, principal, owner_turn_id: str, text: str) -> dict:
 
 
 def owner_turn(db, session_public_id: str, text: str) -> dict:
-    """Record what the owner typed; Laura replies only when the owner has enabled it."""
+    """Record what the owner typed; Laura replies only when the owner has enabled it.
+
+    W4-LAURAONE: with the unified thread switched on, this split route is closed (409
+    UNIFIED_THREAD) so no second, disconnected conversation can grow beside the one thread."""
+    from ...gateway import laura_unified
     from ...laura.private import store
+
+    if laura_unified.enabled():
+        raise PrivateUnavailable(409, "UNIFIED_THREAD", "UnifiedThreadActive")
 
     def run():
         p = _principal(db, session_public_id)
@@ -329,3 +336,345 @@ def forget(db, session_public_id: str, record_id: str) -> dict:
 
     return _call(lambda: {"deleted": store.forget(db, _principal(db, session_public_id),
                                                   str(record_id or ""))})
+
+
+# ---------------------------------------------------------------------------
+# W4-LAURAONE: one Laura, one thread (owner requirement 2026-10-20, D-W4-LAURA-UNIFIED,
+# spec/13 ADD-LCONT-01..10; research/final_build/w4/LAURAONE.md).
+#
+# Every turn, whatever its subject, is recorded in THIS encrypted store with a sealed topic
+# label. Private and everyday turns are answered through the ONE existing private reply path
+# (`_unified_venice` -> `laura_register.reply`: Venice, `laura_private` budget, the pinned
+# prompt unchanged). Business turns become a brief that holds only the business question; a
+# deterministic leak guard (`gateway.laura_unified.leak_check`) compares the brief, and then the
+# exact outbound request, against every private turn and note, and refuses on any hit. Business
+# Laura (`laura.agency.ceo_chat.converse`: Claude, `laura` budget) answers the brief; the
+# business side records only the brief and its result. A mixed turn, or a brief the guard stops,
+# becomes an in-thread question showing the exact text that would cross; only the owner's
+# approval (with a fresh step-up, enforced by the route) releases exactly that text, recorded in
+# `laura_boundary_crossings` with nothing else. Off by default: `BRAMBLELOOP_LAURA_UNIFIED`.
+
+UNIFIED_CONTEXT_SCAN = 120          # turns read to build Venice's context (then filtered)
+UNIFIED_VIEW_TURNS = 200
+UNIFIED_MAX_IDS = 200
+UNIFIED_APPROVAL_TEXT = ("(Owner action: approved sharing the quoted text with the business "
+                         "side.)")
+UNIFIED_CONTROLS = ("mark_private", "exclude", "include", "forget")
+#: The business side's conversation key for the one thread: business history (briefs and
+#: results only) follows the THREAD, not the owner's login session, so it survives restarts
+#: and new sessions like the thread itself does.
+UNIFIED_BUSINESS_SESSION = "laura-unified-thread"
+
+
+def _unified_required() -> None:
+    from ...gateway import laura_unified
+
+    if not laura_unified.enabled():
+        raise PrivateUnavailable(404, "UNIFIED_OFF", "UnifiedThreadOff")
+
+
+def unified_status(db, session_public_id: str) -> dict:
+    """Non-content status of the one thread: switches, prerequisites, budgets (names only)."""
+    from ...gateway import laura_register, laura_unified
+
+    base = status(db, session_public_id)
+    on = laura_unified.enabled()
+    b2v = laura_unified.business_to_venice()
+    prereq = [{"id": "unified_switch", "met": on,
+               "label": f"unified thread switch {laura_unified.UNIFIED_ENV}=venice"},
+              *base["prerequisites"]]
+    return {"unified": laura_unified.mode() or "off",
+            "business_to_venice": b2v,
+            "business_to_venice_label": (
+                f"{laura_unified.BUSINESS_TO_VENICE_ENV}=1: business briefs and validated "
+                "answers enter Venice's context" if b2v else
+                f"{laura_unified.BUSINESS_TO_VENICE_ENV} off: Venice sees a content-free "
+                "placeholder for business exchanges"),
+            "configured": base["configured"], "open": base["open"],
+            "requires": base["requires"],
+            "venice_replies": base["reply_register"],
+            "budgets": {"conversation": f"{laura_register.AGENT} (Venice replies)",
+                        "business": "laura (Business Laura via Claude)"},
+            "prerequisites": prereq,
+            "prerequisites_met": all(p["met"] for p in prereq),
+            "isolation": base["isolation"]}
+
+
+def _thread_row(r) -> dict:
+    return {"id": r.record_id, "role": r.role, "label": r.label or "private",
+            "excluded": bool(r.excluded), "sensitive": bool(r.sensitive),
+            "reply_to": r.reply_to, "model_ref": r.model_ref,
+            "at": (r.created_at.isoformat() if hasattr(r.created_at, "isoformat")
+                   else (str(r.created_at) if r.created_at else None)),
+            "text": r.value.reveal() if r.value is not None else None}
+
+
+def unified_view(db, session_public_id: str, *, limit: int = UNIFIED_VIEW_TURNS) -> dict:
+    """The one thread, revealed for the no-store response body only."""
+    from ...gateway import laura_unified
+    from ...laura.private import store
+
+    _unified_required()
+
+    def run():
+        p = _principal(db, session_public_id)
+        return {"unified": laura_unified.mode(),
+                "business_to_venice": laura_unified.business_to_venice(),
+                "turns": [_thread_row(r) for r in store.conversation(db, p, limit=limit)],
+                "crossings": [{"id": x.record_id, "status": x.status,
+                               "source": (x.sources or (None,))[0],
+                               "sensitive": bool(x.sensitive),
+                               "text": x.value.reveal(),
+                               "question": laura_unified.crossing_question(x.value.reveal())}
+                              for x in store.crossings(db, p)],
+                "notes": len(store.facts(db, p))}
+    return _call(run)
+
+
+def _private_texts(db, principal) -> list[str]:
+    """Plain strings the leak guard compares against: every non-business turn (owner and
+    Laura), every private note (key and text) and every crossing request not approved.
+    Built here, used for one check, never stored or logged."""
+    from ...laura.private import store
+
+    out: list[str] = []
+    for r in store.conversation(db, principal, limit=500):
+        if (r.label or "private") != "business":
+            out.append(r.value.reveal())
+    for f in store.facts(db, principal, history=True):
+        out.append(f.value.reveal())
+        if f.key is not None:
+            out.append(f.key.reveal())
+    for x in store.crossings(db, principal):
+        if x.status != "approved":
+            out.append(x.value.reveal())
+    return out
+
+
+def _venice_context(db, principal, owner_turn_id: str):
+    """(notes, turns) Venice may see for continuity: non-excluded turns; business exchanges
+    as a content-free placeholder unless the owner approved business-to-Venice."""
+    from ...gateway import laura_unified
+    from ...laura.private import store
+
+    b2v = laura_unified.business_to_venice()
+    facts = [(r.key.reveal() if r.key is not None else "", r.value.reveal())
+             for r in store.facts(db, principal)[:CONTEXT_FACTS]]
+    turns: list[tuple[str, str]] = []
+    for r in store.conversation(db, principal, limit=UNIFIED_CONTEXT_SCAN):
+        if r.record_id == owner_turn_id or r.excluded:
+            continue
+        if (r.label or "private") == "business" and not b2v:
+            if r.role == "owner":
+                turns.append(("laura", laura_unified.BUSINESS_PLACEHOLDER))
+            continue
+        turns.append((r.role, r.value.reveal()))
+    return facts, turns[-CONTEXT_TURNS:]
+
+
+def _venice_selected() -> bool:
+    from ...gateway import laura_register, venice
+
+    return laura_register.enablement().get("provider") == venice.PROVIDER_VALUE
+
+
+def _laura_intent(db, principal, owner_turn_id: str, text: str, cls: dict) -> tuple[dict, str]:
+    """Laura (Venice) decides whether a business tool is needed. When her router cannot be
+    reached, code decides (business-classified turns only) -- and says so."""
+    from ...gateway import laura_register, laura_unified
+
+    if not (laura_register.enablement()["register_switch"] and _venice_selected()):
+        return laura_unified.code_intent(cls), "code"
+    _, turns = _venice_context(db, principal, owner_turn_id)
+    user = laura_unified.render_intent_user(turns=turns, message=text)
+    try:
+        out = laura_register.reply(db, system=laura_unified.INTENT.system, user=user,
+                                   prompt=laura_unified.INTENT)
+    except laura_register.ReplyUnavailable as exc:
+        return laura_unified.code_intent(cls), f"code (Laura's router: {exc.code})"
+    return out["text"], "laura"
+
+
+def _unified_venice(db, principal, owner_turn_id: str, text: str, label: str) -> dict:
+    """Laura's reply through the ONE private reply path (Venice; `laura_private` budget).
+    Venice only: the thread is never forwarded to any other provider."""
+    from ...gateway import laura_register
+    from ...laura.private import store
+
+    if not laura_register.enablement()["register_switch"]:
+        return {"reply": None, "reply_status": "UNAVAILABLE", "reason": "REGISTER_OFF",
+                "why": laura_register.REASONS["REGISTER_OFF"]}
+    if not _venice_selected():
+        return {"reply": None, "reply_status": "UNAVAILABLE", "reason": "UNIFIED_NEEDS_VENICE",
+                "why": laura_register.REASONS["UNIFIED_NEEDS_VENICE"]}
+    facts, turns = _venice_context(db, principal, owner_turn_id)
+    user = laura_register.render_user(facts=facts, turns=turns, message=text)
+    try:
+        out = laura_register.reply(db, system=laura_register.PROMPT.system, user=user)
+    except laura_register.ReplyUnavailable as exc:
+        return {"reply": None, "reply_status": "UNAVAILABLE", "reason": exc.code,
+                "why": exc.reason}
+    rid = store.record_turn(db, principal, "laura", out["text"], reply_to=owner_turn_id,
+                            model_ref=out["model_ref"], label=label)
+    return {"reply": {"id": rid, "role": "laura", "text": out["text"],
+                      "model_ref": out["model_ref"], "side": "conversation"},
+            "reply_status": "REPLIED"}
+
+
+def _request_crossing(db, principal, source_turn_id: str, text: str, sensitive: bool,
+                      origin: str = "owner_quote") -> dict:
+    from ...gateway import laura_unified
+    from ...laura.private import store
+
+    xid = store.request_crossing(db, principal, source_turn_id, text, sensitive=sensitive,
+                                 origin=origin)
+    return {"id": xid, "status": "pending", "sensitive": bool(sensitive), "text": text,
+            "origin": origin, "question": laura_unified.crossing_question(text)}
+
+
+def _origin_of(db, principal, owner_turn_id: str, text: str) -> str:
+    from ...laura.private import store
+
+    for r in store.conversation(db, principal, limit=500):
+        if r.record_id == owner_turn_id:
+            return "owner_quote" if text in r.value.reveal() else "laura_draft"
+    return "laura_draft"
+
+
+def _unified_business(db, principal, session_public_id: str, owner_turn_id: str, brief: str,
+                      *, sensitive: bool = False, provider_factory=None) -> dict:
+    """Business Laura answers a business-only brief, or nothing is sent."""
+    from ...gateway import laura_unified
+    from ...laura.agency import boundary, ceo_chat
+    from ...laura.private import store
+
+    private_texts = _private_texts(db, principal)
+    allowed = boundary.approved_texts(db)
+    if laura_unified.leak_check(brief, private_texts, allowed=allowed):
+        # The brief itself would carry private-thread text: ask, never send.
+        return {"reply": None, "reply_status": "NEEDS_APPROVAL",
+                "crossing": _request_crossing(db, principal, owner_turn_id, brief,
+                                              sensitive, origin=_origin_of(db, principal,
+                                                                           owner_turn_id,
+                                                                           brief))}
+
+    def outbound(task, system, user):
+        # The exact request the business model would receive (rendered user message; the
+        # pinned system prompt is code). Any hit refuses the call before any reservation.
+        hits = laura_unified.leak_check(user, private_texts, allowed=allowed)
+        return laura_unified.GUARD_REFUSED if hits else ""
+
+    res = ceo_chat.converse(db, brief, session_public_id=UNIFIED_BUSINESS_SESSION,
+                            provider_factory=provider_factory, outbound_check=outbound)
+    if res["status"] == ceo_chat.REFUSED:
+        return {"reply": None, "reply_status": "REFUSED", "reason": "LEAK_GUARD",
+                "why": res["answer"]}
+    model = (res.get("model") or {}).get("model") or "none"
+    rid = store.record_turn(db, principal, "laura", res["answer"], reply_to=owner_turn_id,
+                            model_ref=f"business/{model}"[:120], label="business")
+    return {"reply": {"id": rid, "role": "laura", "text": res["answer"], "side": "business",
+                      "status": res["status"], "business_turn_id": res.get("turn_id"),
+                      "facts": res.get("facts") or [], "sources": res.get("sources") or [],
+                      "unknowns": res.get("unknowns") or [],
+                      "proposals": res.get("proposals") or [],
+                      "model_ref": f"business/{model}"[:120]},
+            "reply_status": ("REPLIED" if res["status"] in ("ANSWERED", "PARTIAL")
+                             else res["status"])}
+
+
+def unified_turn(db, session_public_id: str, text: str, *, force_private: bool = False,
+                 provider_factory=None) -> dict:
+    """One owner turn in the one thread. Laura's intent (Venice) decides whether a business
+    tool is used; code decides what may cross (`laura_unified.plan_brief`) and guards it.
+    `provider_factory` is the business model transport (tests inject one; production None)."""
+    from ...gateway import laura_unified
+    from ...laura.private import store
+
+    _unified_required()
+
+    def run():
+        p = _principal(db, session_public_id)
+        text_ = str(text or "")
+        cls = laura_unified.classify(text_, force_private=bool(force_private))
+        label = cls["label"]
+        tid = store.record_turn(db, p, "owner", text_, label=label,
+                                sensitive=cls["sensitive"])
+        if force_private:
+            intent, routed = {"tool": "none", "brief": ""}, "owner (kept private)"
+        else:
+            intent, routed = _laura_intent(db, p, tid, text_, cls)
+        plan = laura_unified.plan_brief(intent, cls, text_)
+        out: dict = {"id": tid, "label": label, "sensitive": cls["sensitive"],
+                     "intent": {"tool": intent.get("tool", "none"), "routed_by": routed}}
+        if not plan["send"]:
+            out.update(_unified_venice(db, p, tid, text_, label))
+            return out
+        if plan["needs_owner"]:
+            out.update(_unified_venice(db, p, tid, text_, label))
+            out["crossing"] = _request_crossing(db, p, tid, plan["send"], cls["sensitive"],
+                                                origin=("laura_draft"
+                                                        if plan["origin"] == "laura_draft"
+                                                        else "owner_quote"))
+            return out
+        out.update(_unified_business(db, p, session_public_id, tid, plan["send"],
+                                     sensitive=cls["sensitive"],
+                                     provider_factory=provider_factory))
+        out["brief_origin"] = plan["origin"]
+        return out
+    return _call(run)
+
+
+def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: bool,
+                     provider_factory=None) -> dict:
+    """The owner's answer to "Can I share X with the business side?". The route requires a
+    fresh step-up to approve. Approval records exactly X (`laura_boundary_crossings`), then
+    Business Laura answers X as a brief -- still through the leak guard, with X allowed."""
+    from ...laura.agency import boundary
+    from ...laura.private import store
+
+    _unified_required()
+
+    def run():
+        p = _principal(db, session_public_id)
+        rec = store.resolve_crossing(db, p, str(crossing_id or ""), approve=bool(approve))
+        if rec is None:
+            raise PrivateUnavailable(404, "CROSSING_NOT_FOUND", "CrossingNotFound")
+        if not approve:
+            return {"id": rec.record_id, "status": "declined", "crossed": False}
+        text_ = rec.value.reveal()
+        crossed = boundary.record(db, text_, session_public_id=session_public_id)
+        atid = store.record_turn(db, p, "owner", UNIFIED_APPROVAL_TEXT, label="business")
+        out = {"id": rec.record_id, "status": "approved", "crossed": True,
+               "crossing_record": crossed["id"], "approval_turn": atid}
+        out.update(_unified_business(db, p, session_public_id, atid, text_,
+                                     sensitive=bool(rec.sensitive),
+                                     provider_factory=provider_factory))
+        return out
+    return _call(run)
+
+
+def unified_control(db, session_public_id: str, action: str, ids) -> dict:
+    """The owner's privacy controls over a turn or a range of turns: mark private, exclude
+    from model context, include again, or forget. An owner turn's reply follows it."""
+    from ...laura.private import store
+
+    _unified_required()
+    if action not in UNIFIED_CONTROLS:
+        raise PrivateUnavailable(400, "PRIVATE_INPUT_REFUSED", "UnknownControl")
+    if not isinstance(ids, list) or not ids or len(ids) > UNIFIED_MAX_IDS \
+            or not all(isinstance(i, str) for i in ids):
+        raise PrivateUnavailable(400, "PRIVATE_INPUT_REFUSED", "BadIds")
+
+    def run():
+        p = _principal(db, session_public_id)
+        if action == "forget":
+            return {"action": action,
+                    "affected": sum(store.forget(db, p, i) for i in ids)}
+        replies = {r.reply_to: r.record_id
+                   for r in store.conversation(db, p, limit=500) if r.reply_to}
+        targets = list(dict.fromkeys([*ids, *[replies[i] for i in ids if i in replies]]))
+        kw = ({"label": "private"} if action == "mark_private"
+              else {"excluded": action == "exclude"})
+        return {"action": action,
+                "affected": sum(1 for i in targets if store.set_turn_flags(db, p, i, **kw))}
+    return _call(run)

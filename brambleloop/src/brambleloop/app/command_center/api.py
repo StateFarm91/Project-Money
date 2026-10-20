@@ -1100,6 +1100,13 @@ def make_router(db) -> APIRouter:
             raise auth.refuse(db, request, 400, "BAD_REQUEST", "question must be a string")
         modes = body.get("modes")
         modes = [str(m) for m in modes][:3] if isinstance(modes, list) else None
+        from ...gateway import laura_unified
+
+        if laura_unified.enabled():
+            # W4-LAURAONE: with the one thread switched on, this split route is closed so no
+            # second, disconnected conversation grows beside it (ADD-LCONT-01).
+            raise auth.refuse(db, request, 409, "UNIFIED_THREAD",
+                              "the unified Laura thread is on; use /api/cc/laura/unified/turn")
         pid = auth.current_public_id(request)
         turn = await run_in_threadpool(
             lambda: ceo_chat.converse(db, question, session_public_id=pid))
@@ -1283,6 +1290,46 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         return _private(request, lambda pid: private_context.forget(
             db, pid, body.get("id")))
+
+    # ---- W4-LAURAONE: one Laura, one thread (D-W4-LAURA-UNIFIED; ADD-LCONT-01..10) ----------
+    # Owner session + CSRF + nonce (gate) + the private grant opened with a fresh step-up
+    # (/private/open). Approving a boundary crossing needs a fresh step-up of its own. Every
+    # content route is POST and `no-store`; status is non-content. Off by default.
+
+    @router.get("/laura/unified/status")
+    def laura_unified_status(request: Request):
+        return ok(private_context.unified_status(db, auth.current_public_id(request)))
+
+    @router.post("/laura/unified/view")
+    def laura_unified_view(request: Request):
+        return _private(request, lambda pid: private_context.unified_view(db, pid))
+
+    @router.post("/laura/unified/turn")
+    async def laura_unified_turn(request: Request):
+        body = await body_of(request)
+        text = body.get("text")
+        if not isinstance(text, str):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "text must be a string")
+        force = body.get("private") is True
+        return await run_in_threadpool(lambda: _private(
+            request, lambda pid: private_context.unified_turn(db, pid, text,
+                                                              force_private=force)))
+
+    @router.post("/laura/unified/crossing")
+    async def laura_unified_crossing(request: Request):
+        body = await body_of(request)
+        approve = body.get("approve") is True
+        if approve:
+            auth.require_stepup(db, request, "laura.unified.crossing")
+        return await run_in_threadpool(lambda: _private(
+            request, lambda pid: private_context.unified_crossing(
+                db, pid, body.get("id"), approve=approve)))
+
+    @router.post("/laura/unified/control")
+    async def laura_unified_control(request: Request):
+        body = await body_of(request)
+        return _private(request, lambda pid: private_context.unified_control(
+            db, pid, body.get("action"), body.get("ids")))
 
     return router
 

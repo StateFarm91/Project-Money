@@ -106,8 +106,28 @@ class LauraCostEvent(Base):
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class LauraBoundaryCrossing(Base):
+    """Text the owner EXPLICITLY approved to cross from the one Laura thread to the business
+    side (W4-LAURAONE, D-W4-LAURA-UNIFIED, ADD-LCONT-05).
+
+    One row per approval, made only by the owner-private surface after an approval with a
+    fresh step-up. It holds the approved text and nothing else from the conversation: no
+    surrounding turns, no labels, no private record ids. The approved text is business
+    content from then on (it becomes a business brief), so it may appear in business records.
+    """
+
+    __tablename__ = "laura_boundary_crossings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    session_public_id: Mapped[str] = mapped_column(String(40), default="", index=True)
+    approved_text: Mapped[str] = mapped_column(Text, default="")
+    text_sha256: Mapped[str] = mapped_column(String(64), default="")
+    approval: Mapped[str] = mapped_column(String(40), default="owner_stepup")
+
+
 TABLES = (LauraTurn.__table__, LauraFollowOn.__table__, LauraVoiceIdentity.__table__,
-          LauraCostEvent.__table__)
+          LauraCostEvent.__table__, LauraBoundaryCrossing.__table__)
 _ENSURED: set[int] = set()
 
 

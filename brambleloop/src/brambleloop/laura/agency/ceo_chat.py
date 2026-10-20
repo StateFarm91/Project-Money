@@ -51,6 +51,7 @@ MEMORY_PREFIX = "context/conversation/"
 
 UNAVAILABLE = "UNAVAILABLE"
 WITHHELD = "WITHHELD"
+REFUSED = "REFUSED"
 
 # Executive reasoning: the question asks for judgement, not a reading of the records.
 _EXEC_INTENTS = {"briefing", "briefing_followup", "launch_next", "needs_me", "delegate",
@@ -282,9 +283,14 @@ def _remember(db, turn_id: int, note: str) -> dict:
 
 
 def converse(db, question: str, *, session_public_id: str = "",
-             provider_factory=None) -> dict:
+             provider_factory=None, outbound_check=None) -> dict:
     """One owner turn with Business Laura. Persists the turn and its cost; never raises for
-    money or provider failure; never returns a template as the reply."""
+    money or provider failure; never returns a template as the reply.
+
+    W4-LAURAONE (ADD-LCONT-04): `outbound_check(task, system, user)` -- supplied by the
+    unified thread -- sees the EXACT request a model would receive before any reservation or
+    call. A truthy return is the refusal reason: nothing is sent, billed or persisted, and
+    the result has status REFUSED. Without it, behaviour is unchanged."""
     from ...gateway import laura_converse as lc
     from ..private.firewall import reject_private
     from . import costs, identity_view
@@ -306,6 +312,18 @@ def converse(db, question: str, *, session_public_id: str = "",
     vals = values(question or "(the owner opened the conversation without a message)",
                   ident=ident, hist=hist, mem=mem, facts=facts, unknowns=unknowns,
                   proposals=proposals)
+    if outbound_check is not None:
+        prompt = lc.PROMPT_FOR_TASK[task]
+        refusal = outbound_check(task, prompt.system, prompt.render(**vals))
+        if refusal:
+            return {"turn_id": None, "register": REGISTER, "status": REFUSED,
+                    "answer": str(refusal), "intent": f"ceo:{tool['intent']}",
+                    "facts": [], "sources": [], "unknowns": [], "proposals": [],
+                    "method": f"refused before any call ({task}): outbound check",
+                    "model": {"task": task, "source": "not_called", "model": None,
+                              "reason": "outbound check", "prompt": prompt.ref},
+                    "cost": None, "memory": {}, "evidence_offered": len(facts),
+                    "speaker": speaker(ident)}
     out = lc.call(db, task, values=vals, provider_factory=provider_factory)
     cited: list[dict] = []
     offered: list[dict] = []
