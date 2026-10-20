@@ -2498,6 +2498,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "marketing.schedule": ("pieces",),
     "mjs.seasonal_sentinel": ("incidents_opened", "queued", "reallocated"),
     "model.probe": ("ok",),
+    "ops.provider_credentials": ("checked",),
     "ops.capability_probes": ("working",),
     "ops.capacity": ("reallocation.move",),
     "ops.continuity": ("retained.archive_id",),

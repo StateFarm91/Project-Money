@@ -367,6 +367,8 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     # archive is a backup, not a poll: backing it off is skipping backups. All are free.
     "etsy.probe", "model.probe", "ops.capability_probes", "ops.offsite_archive",
     "ops.continuity",
+    # W4-CREDHEALTH: its job is to notice the owner's key rotation or top-up.
+    "ops.provider_credentials",
 })
 _VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
                   "allocation_id", "reading_id", "job_id", "audit_id", "id")
@@ -730,6 +732,7 @@ JOB_BANDS: dict[str, str] = {
     "finance.challenge": "truth_defect",
     "ops.capability_probes": "truth_defect",
     "model.probe": "truth_defect",
+    "ops.provider_credentials": "truth_defect",
     "ops.policy_watch": "truth_defect",
     # W4-ARCHIVEPRIO (#51, production 2026-10-12): the continuity restore proof and the daily
     # offsite archive are the system's claim that its state survives losing the database or the

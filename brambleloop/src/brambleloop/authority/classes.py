@@ -61,6 +61,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "autonomy.department_review": _O, "commerce.order_readings": _O,
     "commerce.orders_ingest": _O, "commerce.readings": _O,
     "etsy.credential_health": _O, "etsy.listing_census": _O, "etsy.probe": _O,
+    "ops.provider_credentials": _O,
     "etsy.shop_snapshot": _O, "etsy.openapi_reverify": _O, "store.live_drift": _O,
     "finance.accounting.cycle": _O, "finance.challenge": _O,
     "finance.escalation_check": _O, "finance.governor": _O, "finance.reconcile": _O,

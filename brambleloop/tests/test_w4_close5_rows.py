@@ -158,6 +158,22 @@ SCRATCH = {
         "durable", "visual/hero_review.py::review_disclosed_hero", ("AuditLog(",)),
     "visual/inspect.py::identify_at_grid": ("caller", "visual/hero_review.py::review_disclosed_hero",
                                             ("identify_at_grid(",)),
+    # INTEG4 (VISNEXT merged with CLOSE5): the generator's scratch holds the render only until
+    # its bytes are returned; image_production._generate keeps them (`store_bytes`, durable
+    # artifact row) and records the candidate row.
+    "creative/flux3_generator.py::_scratch": ("caller", "visual/image_production.py::_generate",
+                                              ("gen.generate(", "store_bytes(",
+                                               "record_candidate(")),
+    # The experiment's scratch holds the provider download; run_job keeps the image as a
+    # durable artifact and the handler writes the audit row (the run row is written by
+    # controlled._update throughout).
+    "experiments/controlled.py::run_job": ("caller",
+                                           "runtime/release.py::handle_controlled_experiment",
+                                           ("controlled.run_job(", "ctx.audit(")),
+    # The fidelity judge's scratch holds copies of the image bytes it was handed, for the
+    # provider call; its reading is returned to the gates that record it.
+    "visual/fidelity.py::read": ("caller", "visual/fidelity.py::craft_texture",
+                                 ("judge.read(",)),
     "visual/milestone_d.py::assess": ("reading", "visual/milestones.py::assess", ()),
     "visual/pbr_scene.py::render": ("reading", "visual/pbr_scene.py::render", ()),
 }

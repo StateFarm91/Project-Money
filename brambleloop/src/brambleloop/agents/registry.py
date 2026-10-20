@@ -736,7 +736,9 @@ for _agent in DEFAULT_AGENTS:
             "store.live_drift",
             # W4-FM2 F-514: weekly re-verification of the Etsy surface classifications
             # against Etsy's published OpenAPI document (GREEN, public read-only GET, CA$0).
-            "etsy.openapi_reverify"]
+            "etsy.openapi_reverify",
+            # W4-CREDHEALTH: daily provider credential health (free authenticated reads).
+            "ops.provider_credentials"]
     elif _agent["name"] == "store_operator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
 for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):

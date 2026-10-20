@@ -682,6 +682,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # This is what makes the gate open by itself the moment that changes, and it is cheap:
     # eight tokens on the smallest model, refused entirely if the month's ceiling is close.
     ("model_probe", "orchestrator", "model.probe", 6 * 60 * 60),
+    # W4-CREDHEALTH: daily provider credential health (BFL + Anthropic), free documented
+    # authenticated calls only (GET /v1/credits, POST /v1/messages/count_tokens). CA$0.
+    ("provider_credentials", "orchestrator", "ops.provider_credentials", 24 * 60 * 60),
     # Requirement 51. Daily, and it proves the restore rather than only writing the export --
     # a backup nobody has restored is a hope, not a continuity plan.
     ("continuity_proof", "orchestrator", "ops.continuity", 24 * 60 * 60),

@@ -62,6 +62,11 @@ CHECKS: dict[str, Check] = {c.key: c for c in (
           "re-checks every certified release and re-certifies anything whose inputs moved"),
     Check("launch_readiness", "Launch readiness", ("launch_readiness",), False, 60,
           "re-assesses every launch requirement and the owner-action queue"),
+    # W4-CREDHEALTH: the provider keys in Railway, by free documented authenticated calls.
+    Check("credentials", "Provider credentials (FLUX 3 / BFL, Anthropic)",
+          ("provider_credentials",), True, 60,
+          "BFL GET /v1/credits and Anthropic count_tokens with an image block: both free; "
+          "statuses only, never a key"),
 )}
 
 
