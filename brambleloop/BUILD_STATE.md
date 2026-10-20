@@ -5,7 +5,7 @@
 > - **Crossings.** Mixed content and any Venice-drafted brief cross only after the owner approves the exact text with a step-up (`laura_boundary_crossings`, which stores the approved text only).
 > - **Owner controls.** Mark private, exclude, include again, and real deletion. Key rotation keeps all of it. There is no fallback that sends thread history to Claude or GPT.
 > - **Tests.** `tests/test_w4_laura_unified.py` 21/21.
-> - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings pending the owner's own commit are untouched.
+> - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings come only from the owner's commit fcb2bcd, merged unchanged.
 > - **Owner actions.** OA-LCONT-1..4 in `research/final_build/w4/LAURAONE.md` §8.
 
 > **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3

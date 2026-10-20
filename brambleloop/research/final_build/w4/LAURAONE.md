@@ -2,7 +2,7 @@
 
 - **Source.** Owner requirement 2026-10-20 ("LAURA CONVERSATIONAL CONTINUITY"), plus the owner's clarification the same day (one Laura; she remains the autonomous CEO; Laura's intent drives the business tools; binding information-flow rules; leak channels a–e).
 - **Rows.** ADD-LCONT-01..11 (`spec/13` §E). Decision: D-W4-LAURA-UNIFIED.
-- **Branch.** `claude/w4-LAURAONE` = `origin/claude/w4-LAURACEO` (a3eec7b) + `origin/claude/w4-VENICE-adult-wip` (98110d8).
+- **Branch.** `claude/w4-LAURAONE` = `origin/claude/w4-LAURACEO` (a3eec7b) + `origin/claude/w4-VENICE-adult-wip` (98110d8; then fcb2bcd, the owner-approved register copy).
 - **State.** Not deployed. No paid call, no key, no Railway change. Everything new is **OFF by default**.
 
 ## 1. Architecture
@@ -164,9 +164,22 @@ Verdict: Venice is fit as Laura's conversational voice and intent layer. It is n
 
 ## 9. BLOCKED / not done
 
-- **The four register strings are untouched and byte-identical:** `laura.js:273`, `voice_spec.py` `private_text_register` "bounds", `roadmap.py` `LAURA-PRIVATE-REGISTER` detail, and `private_context.py` `REPLY_ENABLED`. They are pending the owner's own commit. The thread uses the private reply path's register as it stands, and the router prompt carries no register wording. `laura.js` loads the thread view by dynamic import, so line 273 does not move.
+- **The four register strings were never edited here.** They are `laura.js:273`, `voice_spec.py` `private_text_register` "bounds", `roadmap.py` `LAURA-PRIVATE-REGISTER` detail and `private_context.py` `REPLY_ENABLED`. The owner's own commit `fcb2bcd` (`claude/w4-VENICE-adult-wip`) was merged unchanged, and all four are byte-identical to that commit. The router prompt carries no register wording. `laura.js` loads the thread view by dynamic import, so line 273 does not move.
 - ADD-LCONT-11 (production acceptance) is **OPEN**.
 
 ## 10. Tests
 
 `tests/test_w4_laura_unified.py`: 21 offline tests. Regression results are in §11.
+
+## 11. Regression results (2026-10-20, focused suites via testslot; no full suite)
+
+- **New suite.** `test_w4_laura_unified` 21/21, re-run after merging fcb2bcd.
+- **Laura, Venice and Private Laura suites, all green:**
+  - `test_w4_venice` 18/18, `test_w4_laura_ceo` 13/13, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13;
+  - `test_w4_pl_auth` / `pl_reply` / `pl_leak` / `pl_boundary` / `pl_budget` / `pl_continuity`;
+  - `test_cert_spend_hosts`;
+  - `test_w3_priv_access` / `continuity` / `firewall` / `leak` / `provenance` / `store`;
+  - `test_w3_laura_cc_private` 7/7, `test_w3_laura_cc_access` / `followon` / `talk` / `wiring` / `integration`, `test_w3_laura_memory_isolation`, `test_w3_laura_core_continuity`, `test_w3_laura_voice_spec` 7/7;
+  - `test_w4_integ3_secfixes`.
+- **Command Center front end, all green:** `test_v11_pwa_static` 82/82, `test_cert_mjs`, `test_w4_mjs_findings`, `test_w4_mjscount`, `test_w4_cc_company` 23/23.
+- **Required set, all exit 0:** `test_vacuity`, `test_launch`, `test_cost_governance_wave2`, `test_search_hero_publish` (4/4), `test_cert_listing_frames`, `test_v11_autonomy_timeline`, `test_w3_decision_index`.

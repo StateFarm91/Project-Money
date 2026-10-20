@@ -2363,3 +2363,7 @@ The old narrower register is not reinstated.
   - OA-LCONT-3: the Private Laura prerequisites;
   - OA-LCONT-4: deploy.
 - **BLOCKED.** The four register strings pending the owner's own commit are untouched.
+
+### D-W4-LAURA-UNIFIED addendum (2026-10-20): register copy merged
+
+The owner's commit fcb2bcd (the four register strings) was merged into `claude/w4-LAURAONE` unchanged. The strings are byte-identical to that commit, and none was edited by W4-LAURAONE. The "BLOCKED" item above is therefore resolved by the owner's own commit.

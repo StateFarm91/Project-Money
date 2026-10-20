@@ -692,11 +692,12 @@ def test_static_isolation_is_unchanged():
         text = (src / rel).read_text()
         assert ".reveal(" not in text and "laura.private import" not in text, rel
         assert "private.store" not in text and "from ..laura.private" not in text, rel
+    # The register copy is the owner's own commit (fcb2bcd), merged unchanged: this branch
+    # neither edits it nor moves it (laura.js loads the thread view by dynamic import).
     js = (src / "app/command_center/static/js/views/laura.js").read_text().splitlines()
-    assert js[272].endswith('"Laura replies in her private register (never sexually '
-                            'explicit)." : "Laura\'s private replies are off until you enable '
-                            'them."],'), js[272]
-    assert PC.REPLY_ENABLED.startswith("Laura replies in her private register: warm")
+    assert js[272].lstrip().startswith('st.reply_register === "ENABLED" ? "Laura replies in '
+                                       'her private'), js[272]
+    assert PC.REPLY_ENABLED.startswith("Laura replies in her private")
 
 
 # ---------------------------------------------------------------- Laura's intent drives tools
