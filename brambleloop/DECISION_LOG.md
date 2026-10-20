@@ -2208,3 +2208,16 @@ publication stays blocked.
   - It supersedes the earlier "keep Anthropic" provider choice for Private Laura only. Business Laura keeps the business routing.
   - Everything else is unchanged: the separate CA$0.50/day budget, the privacy firewall, encryption, owner-only access, truthful-AI representation, D-W4-PL-2, and no activation without separate approval.
 - **Requirements:** recorded as addendum rows ADD-LCEO-01..07 and ADD-PLV-01..08 in `spec/13_Laura_CEO_Autonomy_and_Private_Laura_Venice_2026-10-20.md`. They are mandatory and are added to the completion board as an addendum section, without renumbering Build 2 or the Final Master.
+
+## D-W4-VENICE — Private Laura's Venice transport: model recommendation and switch semantics (2026-10-20, W4-VENICE; routine technical decisions under D-W4-PL-VENICE)
+
+- **Transport, not a second system:** Venice is added as a transport on the one existing reply path (`gateway/laura_register.py`). The pinned prompt `laura.private_reply@1`, the encrypted store, the owner-only context and the atomic `laura_private` CA$0.50/day reservation are unchanged.
+- **Switch:** `BRAMBLELOOP_PRIVATE_PROVIDER` is OFF by default. Unset means no private provider, so no reply. `venice` selects Venice with `VENICE_API_KEY`. `anthropic` stays available only as an explicit owner choice. There is no automatic fallback between providers.
+- **Model recommended, pending owner approval (ADD-PLV-08):** `zai-org-glm-5-2`.
+  - Venice privacy class `private` (zero retention); Venice's `default` model.
+  - US$1.40/US$4.40 per 1M tokens; reasoning switched off.
+  - About CA$0.0039 for a typical reply, so about 127 replies per CA$0.50.
+  - Venice's own system prompt is turned off (`include_venice_system_prompt: false`).
+  - Anonymized (third-party-visible) models and the "uncensored" models are excluded (ADD-PLV-02/03).
+- **Credential health:** Venice's balance check (`GET /api_keys/rate_limits`) has an UNDOCUMENTED cost, so it is recorded as UNKNOWN (never 0) and runs only after the owner selects Venice.
+- Evidence: `research/final_build/w4/VENICE.md`; `tests/test_w4_venice.py`.
