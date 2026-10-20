@@ -574,9 +574,12 @@ def test_persist_never_bypasses_f852_or_the_publication_gates():
 def test_written_generated_frames_are_rejudged_by_listing_set_and_never_certified():
     from brambleloop.visual import gallery_persist as GP
 
+    import test_w4_visnext_frames as VF
+
     db = O.make_db()
-    frames = [{"position": 2, "role": "lifestyle", "job": "LIFESTYLE", "candidate_id": 1,
-               "sha256": "c" * 64}]
+    cid, sha = VF._candidate(db)
+    frames = [{"position": 2, "role": "lifestyle", "job": "LIFESTYLE", "candidate_id": cid,
+               "sha256": sha}]
     w = GP.write_frames(db, CLOUD, "1.2.0", frames, run_key="k")
     assert w["written"] == [2] and _asset_rows(db) == [(2, "lifestyle", "AI_LIFESTYLE_CONCEPT")]
     again = GP.write_frames(db, CLOUD, "1.2.0", frames, run_key="k")

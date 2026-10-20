@@ -228,9 +228,15 @@ def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0) -
 
     ev = dict(cand.get("identity_evidence") or {})
     evidence = {"conditioning": conditioning_of(cand, size_of),
-                "non_identity_references": ev.get("non_identity_references") or [
-                    r.get("sha256") for r in cand.get("references") or []
-                    if r.get("kind") != "laura_canonical" and r.get("sha256")],
+                # A product chart, the anchor or the outfit reference conditions the fabric or
+                # the clothes, not the woman: exempt from "is this her reference" by the role
+                # the stage receipt recorded (or the orchestrator's declared kind).
+                "non_identity_references": ev.get("non_identity_references") or sorted(
+                    {r.get("sha256") for r in ev.get("references") or []
+                     if isinstance(r, dict) and r.get("sha256") and r.get("role")
+                     and not str(r.get("role")).startswith("laura_")}
+                    | {r.get("sha256") for r in cand.get("references") or []
+                       if r.get("kind") != "laura_canonical" and r.get("sha256")}),
                 "biometric": ev.get("biometric"),
                 "judges": [{"judge": r["judge"], "scored": r["scored"]} for r in readings
                            if r.get("answered") and r.get("scored")]}

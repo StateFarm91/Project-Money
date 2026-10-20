@@ -281,3 +281,44 @@ adapters:
    frames. W-PRODREADY owns both. Both block (never pass) until then.
 7. **A FLUX supplementary outfit reference** (W-FLUXAPI). The approved outfit reference is not
    yet sent to FLUX.
+
+## 10. Follow-ups closed on this branch (coordinator, 2026-10-20)
+
+### 10.1 (7) The approved outfit reference is carried to FLUX
+
+- **Generator.** `Flux3Generator` declares `accepts_outfit_reference` and takes the orchestrator's `prior_candidate`/`outfit_reference` input. It sends that input only when its sha256 equals the outfit's `approved_reference`; anything else is `GeneratorRefused` before any call is made.
+- **Stage.** The image goes to `image_stages.lifestyle` as the existing `outfit` supplementary reference. The request order is fixed: the three canonical Laura references, then the four product references, then `product_candidate`, then `outfit`. That makes 9 inputs, within FLUX 3's documented limit of 10.
+- **Guards in `campaign_references`.** The request is refused when:
+  - the canonical three are not first and in order;
+  - the outfit reference is a canonical or retired identity reference;
+  - the outfit reference comes before the canonical three.
+- **Over the limit.** The existing lossless combined product sheet is used. If the request is still over the limit, it is refused and nothing is sent.
+- **Receipt.** The receipt records the reference as `outfit_reference: {position, sha256}`, or None when none was sent.
+- **Identity evidence.** The reference counts as a non-identity reference (by the receipt role), so it does not invalidate the identity trial. The same now applies to the anchor and the product references.
+- **Tests:** `tests/test_w4_visnext_frames.py`.
+
+### 10.2 (6) Generated ListingAsset frames
+
+- **Provenance.** `gallery_persist.write_frames` records each written frame with:
+  - an append-only audit row (`images.listing_asset_written`);
+  - a `visual_truth` provenance row, keyed to the frame row and carrying the file sha256. Its lineage is backfilled and cites that audit row. It names the provider, model and cost, and records the evidence kind `ai_generated_autonomous` (#36) and `is_photograph: False`.
+- **No matching record.** A frame whose bytes match no generated-candidate record is refused, and nothing is written.
+- **Judging.** `release_gates.generated_frame_verdict` judges a generated frame (`claims.source == visual.image_production`) on its role, using its own record:
+  - DATA_TRUTH from the candidate's stored technical verdict;
+  - LAYOUT_QA from its measured quality;
+  - COMMERCIAL_QA from the role, realism and anatomy checks;
+  - POLICY_PROVENANCE from the provenance row.
+
+  It is no longer judged on readings from `assets.build`, which never ran for it.
+- **Both paths.**
+  - `listing_set` uses this verdict for generated frames.
+  - `disclosed_listing_set` evaluates generated frames instead of ignoring them. It reports them as `generated_frames`, and excludes refused ones from the certified set (`generated_excluded`). A generated frame that passed its gates would block the listing: the disclosed certificate does not cover a mixed set.
+- **F-852.** `eligibility.may_export` still refuses every generated frame. The tests assert the F-852 refusal on both paths, and no certificate is issued. Nothing relaxes F-852 or the publication gates.
+
+### 10.3 WRAPTEST
+
+The harness's generator inherits the capability, but the experiment's freshly chosen outfit has no approved reference. An approved reference needs a stored image of that outfit that the vision judge read as matching, set explicitly. So the CA$5 run sends no ninth image, and it never feeds its own unverified hero back in as a clothing reference. That is the right behaviour for a one-shot experiment.
+
+The offline rehearsal now asserts it (`live_no_outfit_reference_without_an_approved_one`). Cost and number of calls are unchanged.
+
+Blockers 6 and 7 in §9 are closed by this section. What remains of 6 is the owner's F-852 policy decision.

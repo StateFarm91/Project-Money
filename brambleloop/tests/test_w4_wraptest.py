@@ -557,6 +557,16 @@ def test_live_path_rehearsed_offline():
     check("live_lifestyle_sent_laura_and_product_refs", all(
         len(p.get("images") or []) == 8 for p in net.posts[1:]), [len(p.get("images") or [])
                                                                    for p in net.posts])
+    # W-VISNEXT: the generator can now carry an outfit's approved reference image, but the
+    # experiment's freshly chosen outfit has none (an approved reference needs a stored image
+    # the vision judge read as that outfit, set explicitly), so no 9th image is sent and the
+    # experiment never feeds its own unverified hero back in as a clothing reference.
+    from brambleloop.creative.flux3_generator import Flux3Generator as _F3
+
+    check("live_no_outfit_reference_without_an_approved_one",
+          _F3.accepts_outfit_reference is True and all(
+              len(p.get("images") or []) <= 8 for p in net.posts),
+          [len(p.get("images") or []) for p in net.posts])
     check("live_vision_reserved_and_counted", s["vision_calls"] == len(net.vision) >= 2
           and all(v.get("cost_cad") for v in ev["vision_calls"]), ev["vision_calls"][:2])
     check("live_inside_budget", 0 < s["spent_cad"] <= 5.0, s["spent_cad"])

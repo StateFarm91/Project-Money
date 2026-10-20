@@ -40,6 +40,9 @@ from . import image_stages as S
 from . import pattern_refs as P
 
 ANCHOR_ROLE = "product_anchor"
+# W-VISNEXT: the orchestrator sends an outfit's approved reference image only to a generator
+# that declares it can carry one (as the stage's `outfit` supplementary reference).
+ACCEPTS_OUTFIT_REFERENCE = True
 _KIND_PRODUCT = "pattern_derived"
 _KIND_LAURA = "laura_canonical"
 
@@ -89,6 +92,7 @@ class Flux3Generator:
 
     name = "flux3-image-stages"
     paid = True
+    accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
@@ -193,10 +197,13 @@ class Flux3Generator:
             anchor = self._anchor(rel, slug, version, release)
             if laura is not None:
                 o = dict(outfit or {})
+                spec = {"id": o.get("outfit_id") or o.get("id"),
+                        "description": o.get("description"), "garments": o.get("garments")}
+                img = self._outfit_reference(references, o)
+                if img:
+                    spec["image"] = img
                 cand = S.lifestyle(
-                    rel, anchor["candidate"], laura,
-                    {"id": o.get("outfit_id") or o.get("id"),
-                     "description": o.get("description"), "garments": o.get("garments")},
+                    rel, anchor["candidate"], laura, spec,
                     fidelity=anchor["verdict"], role=role, size=self.size,
                     scene={"environment": o.get("setting") or "",
                            "pose": brief or "", "framing": ""}, **kw)
@@ -209,6 +216,31 @@ class Flux3Generator:
                 "cost_cad": r.get("cost_cad"), "latency_s": round(time.time() - started, 3),
                 "cost_basis": (r.get("price") or {}).get("basis") or "generator receipt",
                 "identity_evidence": r}
+
+    def _outfit_reference(self, references: list[dict], outfit: dict) -> str | None:
+        """The listing outfit's approved reference image, written for the stage (W-VISNEXT).
+
+        Sent only when it is exactly the outfit's `approved_reference` (by sha256). It goes in
+        as the stage's `outfit` supplementary reference, after the canonical three and the
+        product references; the stage records it in the receipt and refuses it if it is an
+        identity reference or the request would exceed the provider limit."""
+        refs = [r for r in references if r.get("kind") == "prior_candidate"
+                and r.get("label") == "outfit_reference"]
+        if not refs:
+            return None
+        if len(refs) > 1:
+            raise GeneratorRefused("more than one outfit reference was handed in")
+        data = refs[0]["data"]
+        sha = hashlib.sha256(data).hexdigest()
+        want = str(outfit.get("approved_reference") or "")
+        if sha != want or sha != str(refs[0].get("sha256") or sha):
+            raise GeneratorRefused("the outfit reference handed in is not this outfit's "
+                                   "approved reference; refused")
+        root = self._root / "outfit"
+        root.mkdir(parents=True, exist_ok=True)
+        p = root / f"{sha}.png"
+        p.write_bytes(data)
+        return str(p)
 
     def _anchor(self, rel: S.Release, slug: str, version: str, release: str) -> dict:
         got = self.anchor_lookup(slug, version, release)

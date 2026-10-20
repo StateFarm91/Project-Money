@@ -348,8 +348,29 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
             raise StageRefused(f"{len(items)} references even after merging the product "
                                f"sheet; the provider takes {reference_limit}. Refused rather "
                                f"than dropping any")
-    return {"roles": [r for r, _ in items], "paths": [p for _, p in items],
-            "sha256s": [_sha(p) for _, p in items], "combined_sheet": combined,
+    roles = [r for r, _ in items]
+    shas = [_sha(p) for _, p in items]
+    if features_laura and tuple(roles[:3]) != LAURA_ROLES:
+        raise StageRefused("the three canonical Laura references must lead the request, in "
+                           "order; a supplementary reference never displaces them")
+    if "outfit" in roles:
+        # W-VISNEXT: the approved outfit reference is clothing only. It may never be (or
+        # stand in for) an identity reference, and it always comes after the canonical three.
+        from ..visual import canonical
+
+        o_sha = shas[roles.index("outfit")]
+        canon = set(canonical_laura_hashes())
+        try:
+            canon |= set(canonical.forbidden_hashes())
+        except Exception as exc:  # noqa: BLE001 - an unreadable manifest is refused
+            raise StageRefused(f"the canonical manifest cannot be read ({exc}); refused") from exc
+        if o_sha in canon:
+            raise StageRefused("the outfit reference is a canonical (or retired) identity "
+                               "reference; an outfit reference is clothing only")
+        if features_laura and roles.index("outfit") < 3:
+            raise StageRefused("the outfit reference may not precede the canonical three")
+    return {"roles": roles, "paths": [p for _, p in items],
+            "sha256s": shas, "combined_sheet": combined,
             "limitation": limitation, "reference_limit": reference_limit}
 
 
@@ -431,6 +452,10 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             "references": [{"position": i + 1, "role": r, "sha256": h}
                            for i, (r, h) in enumerate(zip(refs["roles"], refs["sha256s"]))],
             "input_sha256s": list(refs["sha256s"]),
+            # W-VISNEXT: the supplementary outfit reference, when one was sent (clothing only)
+            "outfit_reference": ({"position": refs["roles"].index("outfit") + 1,
+                                  "sha256": refs["sha256s"][refs["roles"].index("outfit")]}
+                                 if "outfit" in refs["roles"] else None),
             "reference_limit": refs["reference_limit"],
             "combined_sheet": refs["combined_sheet"], "limitation": refs["limitation"],
             "size": size, "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
