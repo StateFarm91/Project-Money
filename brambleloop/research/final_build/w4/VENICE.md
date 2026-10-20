@@ -280,3 +280,127 @@ the test if it is ever used:
 | ADD-PLV-06 | DONE in code (env only, never logged); OWNER sets it | `test_venice_credential_health_is_owner_enabled_and_reads_the_balance` (key hunted in records) |
 | ADD-PLV-07 | OPEN: runbook written (§5); must pass in production | §5 |
 | ADD-PLV-08 | DONE in code (switch OFF by default; same reply path); OWNER approval and deploy pending | `test_the_switch_is_off_by_default_and_nothing_is_sent` |
+
+## 9. Uncensored and roleplay models compared with GLM 5.2 (owner clarification 2026-10-20; PROPOSAL only)
+
+**What the owner asked.** Private Laura should hold natural adult private conversation that does not feel
+restricted, including mature and intimate topics, within the law and Venice's Terms. The owner also asked us to
+review the blanket refusal of "uncensored" models. In this section, eligibility is judged by **privacy class**
+(Venice Private only, never Anonymized), not by the word "uncensored".
+
+**Sources** (all official Venice; no paid call; read 2026-10-20 15:50Z):
+- [S1] public `GET https://api.venice.ai/api/v1/models?type=text`, fields `model_spec.privacy / offline /
+  betaModel / uncensored / traits / model_sets / pricing / availableContextTokens / maxCompletionTokens /
+  capabilities / description / modelSource`.
+- [S2] `GET https://api.venice.ai/api/v1/models/traits?type=text` returns `most_uncensored` =
+  `venice-uncensored-1-2` and `default` = `zai-org-glm-5-2`.
+- [S3] https://docs.venice.ai/overview/models
+- [S4] https://docs.venice.ai/overview/privacy
+- [S5] https://venice.ai/legal/tos (last updated 2026-06-08)
+- [S6] https://venice.ai/models/venice-uncensored-1-2
+- [S7] https://venice.ai/models/venice-uncensored-role-play (served from cdn.venice.ai)
+- [S8] https://venice.ai/blog/introducing-dolphin-mistral-24b-venice-edition-the-most-uncensored-ai-model-yet
+- [S9] https://venice.ai/blog/what-is-an-uncensored-ai-model
+- [S10] https://venice.ai/models/qwen-3-8-27b
+
+**Is the ID `venice-uncensored` itself live?** No. That exact ID is not in [S1] today, and
+`/models/compatibility_mapping` does not map it to anything. The current model is `venice-uncensored-1-2`.
+
+**Content rules that apply to every model below.**
+- Venice's Terms [S5] prohibit:
+  - illegal use;
+  - abuse or exploitation of children, including CSAM, even AI-generated;
+  - using a third party's name, likeness or voice without consent;
+  - impersonation.
+- The Terms also say users must not circumvent the mature-content filter.
+- Venice states "Venice does not allow illegal content, regardless of settings" and "Permissive defaults within
+  legal limits" [S9].
+- The API returns 422 `CONTENT_POLICY_VIOLATION` [docs error codes].
+- On "uncensored", the vendor's own page says the model "lacks safety guardrails; users must self-police output
+  appropriateness" [S6]. That is why the pinned prompt now states its guardrails explicitly (below).
+
+**Typical reply and cap.** A typical reply is 1,500 input and 150 output tokens. CA$ uses FX 1.4154 from
+`core.fx`, and the cap is CA$0.50/day.
+
+| Model ID | Privacy class [S1] | Available [S1] | Uncensored flag / traits [S1,S2] | Conversational / persona evidence (documented only) | Context / max output | US$ per 1M in / out | CA$ per typical reply | Replies per CA$0.50 | Eligible? |
+|---|---|---|---|---|---|---|---|---|---|
+| **zai-org-glm-5-2** (current pin) | **private** | online, not beta | no; `default` | "improved instruction following", multilingual; reasoning can be switched off [S1]. Persona benchmarks: UNKNOWN | 1,000,000 / 131,072 | 1.40 / 4.40 | 0.0039 | 127 | yes (pinned) |
+| **venice-uncensored-1-2** | **private** ("absolute privacy with zero retention" [S6]) | online, not beta; released 2026-04-01 [S6]; in set `venice_recommendations` | **yes**; `most_uncensored` | "designed for maximum creative freedom and authentic interaction … roleplay, and unfiltered dialogue with improved capabilities over 1.1" [S1]; "improved coherence and instruction following" (Venice changelog). Its predecessor scored a 2.20% refusal rate on Venice's 45-question suite; that is **not re-measured for 1.2** [S8]. Function calling and JSON schema supported [S1]. Persona continuity and system-prompt adherence: UNKNOWN (not documented) | 128,000 / 8,192 | 0.20 / 0.90 | 0.0006 | 812 | **yes by privacy class**; not allowed in code yet (see note) |
+| venice-uncensored-role-play | **private** (zero retention; not TEE [S7]) | online, not beta; released 2026-02-20 [S7] | yes | "optimized for highly expressive, low-refusal character interactions"; advises a detailed character system prompt and periodic summaries "if the model drifts" [S7]. Benchmarks: UNKNOWN | 128,000 / 4,096 | 0.50 / 2.00 | 0.0015 | 336 | yes by privacy class |
+| gemma-4-uncensored | private | online | yes | a community fine-tune (`Jiunsong/supergemma4-26b-uncensored-gguf-v2`), **int4** quantised, 4B active parameters, "uncensored chat without content filtering" [S1]. Persona evidence: UNKNOWN | 256,000 / 8,192 | 0.1625 / 0.50 | 0.0005 | 1,108 | yes by class; weak quality signal |
+| e2ee-gemma-4-26b-a4b-uncensored-p | private, **TEE + E2EE** | online | yes | a community "heretic" Gemma 4 [S1]. E2EE requires client-side encryption, which this adapter does not implement; whether plaintext requests are accepted is UNKNOWN | 64,000 / 4,096 | 0.19 / 0.88 | 0.0006 | 847 | class yes; needs E2EE work |
+| olafangensan-glm-4.7-flash-heretic | private | online | yes | "uncensored **experimental** variant of GLM-4.7-Flash" [S1] | 200,000 / 24,000 | 0.07 / 0.40 | 0.0002 | 2,140 | class yes; experimental |
+| qwen-3-8-27b | private | online, **beta** (`betaModel: true`) | yes; `default_vision` | coding, agentic and vision focus; no conversational claims [S10] | 262,144 / — | 0.45 / 3.20 | 0.0016 | 305 | class yes; beta, not conversational |
+| hermes-3-llama-3.1-405b | private | online | no | "aligning LLMs to the user, with powerful steering capabilities" [S1]; Llama 3.1 era | 128,000 / 16,384 | 1.10 / 3.00 | 0.0030 | 168 | class yes |
+| qwen-3-6-plus ("Qwen 3.6 Plus Uncensored") | **anonymized** | online | yes | — | 1,000,000 / 65,536 | 0.625 / 3.75 | 0.0021 | 235 | **NO**: upstream sees prompts |
+| aion-labs-aion-3-5 / -3-5-mini / -3-0 / -3-0-mini | **anonymized** | online | yes | "roleplaying and storytelling system … mature and darker themes" [S1] | 128K–262K | 3.75 / 7.50 and 0.875 / 1.75 | 0.0096 / 0.0022 | 52 / 224 | **NO**: upstream sees prompts |
+| abliteration-abliterated-model-large-v2 | **anonymized** | online | yes | "unrestricted reasoning model" | 1,000,000 | 3.00 / 5.00 | 0.0074 | 67 | **NO** |
+
+**Recommendation (PROPOSED; the pinned default stays GLM 5.2 until the owner approves): `venice-uncensored-1-2`.**
+
+Why it fits the owner's stated experience while meeting the privacy rule:
+1. It is Venice-hosted and **Private** (zero retention). It is Venice's own uncensored conversational
+   flagship: the trait `most_uncensored`, and in Venice's `venice_recommendations` set.
+2. It is described as built for "authentic interaction … roleplay, and unfiltered dialogue". GLM 5.2 is
+   described for reasoning and instruction following, and nothing documents it as a conversational or persona
+   model.
+3. It is not a beta, an experimental or a quantised community model. That rules out gemma-4-uncensored,
+   heretic and qwen-3-8-27b.
+4. Its 128K context is far more than Private Laura uses (6K tokens or fewer).
+5. It has no reasoning tokens, so its cost is predictable.
+6. It is about **6.3x cheaper** than GLM 5.2: about 812 typical replies fit in CA$0.50/day.
+
+The role-play model is the documented alternative if the owner prefers a more immersive "character" feel. It
+costs 2.4x as much per reply, has a 4,096-token output cap, and Venice warns it may "drift".
+
+**Honest unknowns:**
+- No official benchmark for persona continuity or system-prompt adherence exists for any candidate.
+- Venice's "zero refusals" wording [S6] is marketing.
+- The decisive test is ADD-PLV-07 step 3, the owner's live judgement, after approval. If continuity or truthful
+  AI representation fails there, revert to GLM 5.2. That costs CA$0 and is a single value.
+
+**Two things the owner should know before approving:**
+1. **The pinned prompt still governs content.** `laura.private_reply@2` keeps "Nothing you write is sexually
+   explicit, and you do not take part in erotic roleplay" (D-W4-PL-2 is still **UNRESOLVED**; its wording was
+   not touched here).
+   - A less restrictive model changes tone and how often it refuses or lectures on mature and intimate topics.
+   - It does not by itself unlock explicit content. That is the owner's separate D-W4-PL-2 decision, within
+     Venice's Terms and the law.
+2. **Guardrails are now explicit** in `laura.private_reply@2` (commit 2bc5e30; every `@1` sentence is kept
+   verbatim, and `@1` stays registered):
+   - adults only, with nothing involving or sexualising a minor;
+   - a fictional AI persona, never portraying or using any real person's name, likeness or voice;
+   - nothing illegal.
+
+   With an uncensored model, these, the law and Venice's Terms are the content layer. Truthful AI
+   representation ("never claim … that you are human") is unchanged.
+
+**Code status (not done; blocked by the permission system).** I tried to switch eligibility to privacy class:
+- an allowed set = Venice-verified Private class with a pinned price row;
+- rows for `venice-uncensored-1-2` and `venice-uncensored-role-play`;
+- an owner-only model selector `BRAMBLELOOP_PRIVATE_MODEL`, with the default unchanged;
+- reasoning parameters sent only to reasoning models.
+
+The Claude Code permission system **refused the edit as "Security Weaken"**. It was not retried or worked
+around. The code therefore still allows only `zai-org-glm-5-2`.
+
+What *was* done, all of it tightening:
+- the explicit guardrails above;
+- `test_anonymized_models_are_refused_and_the_guardrails_reach_venice`, which checks that 9 real Venice IDs
+  verified as Anonymized are refused, uncensored and roleplay models among them.
+
+If the owner approves both the model and the code change, the edit has to be explicitly allowed in Claude Code.
+Then a worker adds those rows, adds a test that `venice-uncensored-1-2` is accepted, and keeps the default on
+GLM 5.2 until the owner's variable selects the new model.
+
+**ADD-PLV-02: PROPOSED amended wording (not in force; spec/13 carries the same proposal):**
+> Same canonical fictional Laura (laura-r2-a42aeac7) … Never claims to be human. Not a generic assistant. A model
+> is eligible by **privacy class** (Venice Private, zero retention, verified from Venice's API metadata, with a
+> pinned price), not by whether Venice labels it "uncensored". A model's lighter moderation never bypasses the
+> law, Venice's Terms, consent, privacy, or the pinned guardrails (adults only, fictional persona, no
+> real-person likeness, nothing illegal). D-W4-PL-2 stays as recorded.
+
+**Exact owner approval sentence for the recommended model:**
+> "I approve venice-uncensored-1-2 (Venice Private class, zero retention) as Private Laura's model at CA$0.50/day,
+> with the pinned guardrails unchanged, and I approve the code change that makes privacy class, not the word
+> 'uncensored', the eligibility rule."

@@ -28,3 +28,17 @@ unchanged.
 | ADD-PLV-06 | The credential lives only in Railway variables. It is never requested in chat or Claude Code. |
 | ADD-PLV-07 | Production acceptance test: (1) Venice authenticates via Railway; (2) a genuine model reply; (3) personality and continuity; (4) private-memory retrieval; (5) no leakage into business systems; (6) cost accounting; (7) the daily budget is enforced; (8) persistence across restart or redeploy; (9) owner-only access; (10) graceful failure when Venice is unavailable. Not complete until it passes in production. |
 | ADD-PLV-08 | No activation, paid call or deploy without separate owner approval of the model and budget. The existing reply path, encryption, memory and CC screens are reused; there is no second private-chat system. |
+
+## C. PROPOSED amendment to ADD-PLV-02 (2026-10-20, W4-VENICE; NOT in force until the owner approves)
+
+The owner has clarified that "uncensored" must not be assumed to mean unsafe, and that legal, consent, privacy and
+provider restrictions are never bypassed. The proposed wording, which replaces the sentence "Weaker moderation is
+never used to bypass provider restrictions." only once approved:
+
+> A model is eligible by **privacy class**: Venice Private (zero retention), verified from Venice's API metadata,
+> with a pinned price. Eligibility does not depend on whether Venice labels the model "uncensored". A model's
+> lighter moderation never bypasses the law, Venice's Terms, consent, privacy, or the pinned guardrails (adults
+> only, fictional persona, no real-person likeness, nothing illegal). Anonymized models are never used.
+
+The evidence and the model comparison are in `research/final_build/w4/VENICE.md` §9. ADD-PLV-02 as written above
+remains binding until then.

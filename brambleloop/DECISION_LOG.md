@@ -2221,3 +2221,19 @@ publication stays blocked.
   - Anonymized (third-party-visible) models and the "uncensored" models are excluded (ADD-PLV-02/03).
 - **Credential health:** Venice's balance check (`GET /api_keys/rate_limits`) has an UNDOCUMENTED cost, so it is recorded as UNKNOWN (never 0) and runs only after the owner selects Venice.
 - Evidence: `research/final_build/w4/VENICE.md`; `tests/test_w4_venice.py`.
+
+## D-W4-VENICE-MODEL — PROPOSED (not decided): eligibility by privacy class; venice-uncensored-1-2 for Private Laura (2026-10-20, W4-VENICE)
+
+- **Status: PROPOSED, awaiting the owner.** Nothing is activated. The pinned default stays `zai-org-glm-5-2`.
+- **Proposal:**
+  - Eligibility is Venice **Private** class (zero retention, verified from `GET /api/v1/models`) with a pinned
+    price. The word "uncensored" is not a criterion. Anonymized models are never used.
+  - The recommended model is **`venice-uncensored-1-2`**: Private, trait `most_uncensored`, in
+    `venice_recommendations`, 128K context, US$0.20 / US$0.90 per 1M tokens, about CA$0.0006 per typical reply,
+    about 812 replies per CA$0.50.
+  - The alternative is `venice-uncensored-role-play`.
+- **Guardrails already made explicit** in `laura.private_reply@2` (adults only, fictional persona, no real-person
+  likeness, nothing illegal). D-W4-PL-2 is untouched and UNRESOLVED.
+- **Blocked:** the code change that would allow the model was refused by the Claude Code permission system
+  ("Security Weaken") and was not worked around. It needs explicit owner permission.
+- Evidence: `research/final_build/w4/VENICE.md` §9; the proposed wording is in `spec/13` §C.
