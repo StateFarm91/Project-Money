@@ -1,0 +1,50 @@
+{
+ "kind": "brambleloop.deployed_tree_tests",
+ "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+ "src_tree_clean": true,
+ "run_at": "2026-10-20T11:20:24Z",
+ "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
+ "runs": [
+  {
+   "file": "tests/test_v11_ads_readiness.py",
+   "rc": 0,
+   "ok": 11,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+    "test_eligibility_evidence_expires_and_is_not_authority",
+    "test_fully_evidenced_listing_is_ready_with_modelled_basis",
+    "test_future_or_blank_evidence_refused",
+    "test_next_work_contract",
+    "test_offsite_exposure_is_modelled_and_labelled",
+    "test_summary_contract_on_empty_and_populated_db",
+    "test_trust_gate_unreadable_is_unknown_not_pass",
+    "test_uncertified_or_unpublished_or_truth_incident_blocks",
+    "test_unknown_economics_is_never_ready",
+    "test_unknown_gates_never_count_as_pass"
+   ],
+   "tail": [
+    "11 passing, 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close6_ads.py",
+   "rc": 1,
+   "ok": 2,
+   "fail": 3,
+   "failing": [
+    "test_f686_the_owner_reading_completes_the_recheck_through_the_route",
+    "test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+    "test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"
+   ],
+   "passed_tests": [
+    "test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+    "test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible"
+   ],
+   "tail": [
+    "FAIL: 3 failing of 5"
+   ]
+  }
+ ]
+}

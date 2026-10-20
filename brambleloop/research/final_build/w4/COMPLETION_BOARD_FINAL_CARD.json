@@ -1,8 +1,8 @@
 {
  "kind": "brambleloop.completion_board_final_card",
  "schema": 1,
- "generated_at": "2026-10-20T11:15:42Z",
- "branch_head": "27fb1d40",
+ "generated_at": "2026-10-20T11:24:00Z",
+ "branch_head": "ee244a15",
  "production_commit": "b931d17a738d",
  "production_read_at": "20261020T0540Z",
  "headline": {
@@ -28,10 +28,10 @@
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 415,
-   "implemented_unverified": 19,
+   "verified_complete": 416,
+   "implemented_unverified": 21,
    "in_progress": 5,
-   "blocked_engineering": 254,
+   "blocked_engineering": 251,
    "blocked_owner": 127,
    "blocked_external": 90,
    "not_applicable": 7
@@ -64,19 +64,19 @@
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 415,
-    "dev_proven_not_deployed": 18,
+    "production_verified": 416,
+    "dev_proven_not_deployed": 20,
     "implemented_unverified": 1,
     "in_progress": 5,
-    "engineering_blocked": 250,
+    "engineering_blocked": 247,
     "owner_blocked": 121,
     "external_blocked": 81,
     "live_customer_C": 19,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 495,
+    "unfinished": 494,
     "post_launch_empirical": 65,
-    "executable_engineering": 274,
+    "executable_engineering": 273,
     "owner_or_external_non_empirical": 156
    },
    "final_master_launch_critical": {
@@ -162,6 +162,7 @@
    "F-657",
    "F-660",
    "F-682",
+   "F-685",
    "F-706",
    "F-718",
    "F-793",
@@ -188,12 +189,12 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 53,
+   "rows": 55,
    "build2": 35,
    "fm_launch_critical": 12,
-   "fm_post_launch": 6,
+   "fm_post_launch": 8,
    "classes": {
-    "implemented_unverified": 53
+    "implemented_unverified": 55
    },
    "owner_action": null
   },
@@ -309,12 +310,12 @@
   {
    "root": "engineering_open",
    "title": "Open engineering work",
-   "rows": 215,
+   "rows": 212,
    "build2": 2,
    "fm_launch_critical": 4,
-   "fm_post_launch": 209,
+   "fm_post_launch": 206,
    "classes": {
-    "blocked_engineering": 215
+    "blocked_engineering": 212
    },
    "owner_action": null
   }
@@ -337,7 +338,7 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 53,
+   "unblocks_rows": 55,
    "unblocks_fm_launch_critical": 12,
    "unblocks_build2": 35,
    "who": "engineering",

@@ -835,6 +835,88 @@ FM_EDITS.update({
 BATCH7 = ("F-019", "F-046")
 
 
+# ==== W4-CLOSE6 (branch claude/w4-CLOSE6 from ee244a1) ==========================================
+TAG6 = "w4-CLOSE6 on deployed b931d17"
+EV6 = "research/final_build/w4/evidence_CLOSE6"
+DEPLOYED_TESTS6 = f"{EV6}/deployed_tree_tests_b931d17.json"
+DT6 = f"deployed-tree run {DEPLOYED_TESTS6}"
+AD6 = "tests/test_w4_close6_ads.py::"
+OA6 = f"{EV6}/prod_api_owner_actions_ads_20261020T1119Z.json"
+
+# ---- CLOSE6 batch 1: Etsy Ads eligibility, recheck and Ads-credit accounting -----------------
+FM_EDITS.update({
+    ("s8", "F-685"): {
+        "maturity": "DEPLOYED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/growth/ads_readiness.py::tick; "
+                    "growth/ads_readiness.py::locked_row (MarketplaceCapability row)",
+        "consumer": "growth/ads_readiness.py::_eligibility_gate (listing_readiness); "
+                    "launch/visibility.py etsy_ads; Command Center ads provider",
+        "durable_state": "marketplace_capabilities (key etsy_ads: status, eligible_from, "
+                         "last_verified_at, evidence_source, detail.date_is_estimate)",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "none -- deployed; the owner's reading is recorded through F-686's route",
+        "evidence+": [f"{TAG6}: the mapping's 'no persisted etsy_ads_status...' is stale: "
+                      "growth/ads_readiness.py persists all four fields in "
+                      "marketplace_capabilities; the reported 2026-09-25 countdown is seeded as "
+                      "WAITING_REPORTED with date_is_estimate true and never gates as eligible; "
+                      f"production b931d17 ran the hourly recheck ({OA6}: OwnerAction #32 "
+                      "raised for etsy_ads_eligibility_evidence when the countdown came due, "
+                      f"status RECHECK_REQUIRED, not ELIGIBLE); {DT6}", REACH],
+        "tests+": [AD6 + "test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+                   "tests/test_v11_ads_readiness.py::test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+                   "tests/test_v11_ads_readiness.py::test_eligibility_evidence_expires_and_is_not_authority"],
+    },
+    ("s8", "F-686"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/growth/ads_readiness.py::tick; "
+                    "src/brambleloop/app/main.py::api_ads_eligibility "
+                    "(growth/ads_readiness.py::record_evidence)",
+        "consumer": "OwnerAction etsy_ads_eligibility_evidence (closed SATISFIED by the "
+                    "recorded reading); growth/ads_readiness.py::_eligibility_gate",
+        "durable_state": "marketplace_capabilities.detail.evidence_history; owner_actions",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "no Etsy API exposes Ads eligibility; the reading is the owner's, "
+                           "requested automatically and now recordable"},
+        "next_action": "deploy W4-CLOSE6 (POST /api/ads/eligibility); then the owner records "
+                       "the reading OwnerAction #32 asks for",
+        "evidence+": [f"{TAG6}: the recheck half was deployed (hourly marketing.ads_readiness; "
+                      f"production raised OwnerAction #32 at the due countdown, {OA6}), but the "
+                      "re-verification could never complete: record_evidence had no caller, so "
+                      "the owner action was unsatisfiable. W4-CLOSE6 adds the authenticated "
+                      "POST /api/ads/eligibility; a stale, future or date-less WAITING reading "
+                      "is refused, the reading closes the recheck action, the next due countdown "
+                      "asks again, and ELIGIBLE comes only from a reading and authorises no "
+                      "spend. Dev-proven, awaiting deploy."],
+        "tests+": [AD6 + "test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible",
+                   AD6 + "test_f686_the_owner_reading_completes_the_recheck_through_the_route"],
+    },
+    ("s8", "F-688"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/finance/credits.py::ads_credit; "
+                    "finance/credits.py::record_ads_credit_cycle; "
+                    "src/brambleloop/app/main.py::api_ads_credit",
+        "consumer": "finance/credits.py::wallet -> finance/spend_report.py::governance "
+                    "(dashboard spend governance)",
+        "durable_state": "ads_credit_cycles (cycle_start/end, entitlement_usd, displayed_cad, "
+                         "used_displayed_cad NULL=UNKNOWN, source, evidence_ref)",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "software only; the figures are the owner's reading of Shop Manager"},
+        "next_action": "deploy W4-CLOSE6; the owner records each cycle as Etsy shows it",
+        "evidence+": [f"{TAG6}: finance/credits.ads_credit records per cycle the official "
+                      "entitlement (USD), the CAD value Shop Manager displays (beside, never "
+                      "replaced by, this system's labelled conversion), the cycle dates, credit "
+                      "used (Etsy-reported; UNKNOWN when absent, never 0), expired credit, "
+                      "recorded ad spend and the incremental cash beyond the credit; "
+                      "ceilings_changed 0 and the ads SpendLimit is untouched. Dev-proven, "
+                      "awaiting deploy."],
+        "tests+": [AD6 + "test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+                   AD6 + "test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"],
+    },
+})
+C6_BATCH1_PROD = ("F-685",)
+C6_CLOSED: set[str] = set(C6_BATCH1_PROD)
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
@@ -871,6 +953,8 @@ PRODUCTION_CLOSED = {
        for u in BATCH6C},
     **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
        for u in BATCH7},
+    **{u: [DEPLOYED_TESTS6, OA6, f"{EV5}/module_reachability_b931d17.json"]
+       for u in C6_BATCH1_PROD},
 }
 READING = {
     "F-152": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); "
@@ -903,6 +987,7 @@ READING = {
     **{u: 'production serves the funding packet on b931d17; packet tests pass on the deployed tree' for u in BATCH6B},
     **{u: 'seller-identity tests pass on the deployed tree; module reached on b931d17 via launch.plan' for u in BATCH6C},
     **{u: 'deployed b931d17: commerce/search.py and commerce/ranking_readiness.py unchanged since the deploy; the deployed-tree run of test_w4_close5_rows6 passes' for u in BATCH7},
+    **{u: ('deployed b931d17: growth/ads_readiness.py unchanged since the deploy; production raised the recheck OwnerAction #32 (GET /api/owner-actions); the deployed-tree run of the F-685 test passes') for u in C6_BATCH1_PROD},
 }
 
 
@@ -1130,7 +1215,7 @@ def main() -> int:
             "source": "final_master", "id": uid,
             "criterion": str(req.get("full_text") or req.get("title") or uid),
             "evidence_files": files, "health_file": HEALTH, "reading": READING[uid],
-            "tests": FM_EDITS[(sl, uid)]["tests+"], "worker": "W4-CLOSE5 2026-10-20",
+            "tests": FM_EDITS[(sl, uid)]["tests+"], "worker": ("W4-CLOSE6 2026-10-20" if uid in C6_CLOSED else "W4-CLOSE5 2026-10-20"),
             "deployed_commit": DEPLOYED})
     cl_path.write_text(json.dumps(cl, indent=1, ensure_ascii=False) + "\n")
     print(json.dumps({"fm": [u for _s, u in FM_EDITS], "production_closed": list(PRODUCTION_CLOSED),

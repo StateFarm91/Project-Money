@@ -8,9 +8,9 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 434,
+   "PROVEN": 437,
    "OWNER-GATED": 124,
-   "OPEN-DEFECT": 223,
+   "OPEN-DEFECT": 220,
    "DATA-GATED": 94,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
@@ -23,8 +23,8 @@
    "OPEN-DEFECT": 5
   },
   "status_post_launch": {
-   "OPEN-DEFECT": 218,
-   "PROVEN": 57,
+   "OPEN-DEFECT": 215,
+   "PROVEN": 60,
    "OWNER-GATED": 71,
    "DATA-GATED": 65,
    "EXTERNAL-GATED": 9
@@ -18795,20 +18795,21 @@
    "title": "Etsy Ads Eligibility",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No persisted etsy_ads_status, eligible_from/next_check, evidence_source or last_verified_at; ad readiness is only the ad_authority SpendLimit gate."
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "DEPLOYED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/growth/ads_readiness.py::tick; growth/ads_readiness.py::locked_row (MarketplaceCapability row)",
+   "consumer": "growth/ads_readiness.py::_eligibility_gate (listing_readiness); launch/visibility.py etsy_ads; Command Center ads provider",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+    "tests/test_v11_ads_readiness.py::test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+    "tests/test_v11_ads_readiness.py::test_eligibility_evidence_expires_and_is_not_authority"
    ],
-   "next_action": "Add an AdsEligibility table (status, eligible_from, next_check, evidence_source, last_verified_at) with an owner-recorded reading endpoint (like /api/insights/snapshot); never derive ELIGIBLE from a countdown; test.",
-   "mapped_on": "019ebf0",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- deployed; the owner's reading is recorded through F-686's route",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -18819,19 +18820,19 @@
    "title": "Ads Recheck",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No recheck cadence; no rule preventing a countdown from setting ELIGIBLE (nothing to set)."
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/growth/ads_readiness.py::tick; src/brambleloop/app/main.py::api_ads_eligibility (growth/ads_readiness.py::record_evidence)",
+   "consumer": "OwnerAction etsy_ads_eligibility_evidence (closed SATISFIED by the recorded reading); growth/ads_readiness.py::_eligibility_gate",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible",
+    "tests/test_w4_close6_ads.py::test_f686_the_owner_reading_completes_the_recheck_through_the_route"
    ],
-   "next_action": "Add ads.eligibility_recheck cadence that, at next_check, creates an owner-read request (no Etsy Ads API endpoint is authorised) and only an evidence reading changes status; test countdown-zero leaves status unchanged.",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6 (POST /api/ads/eligibility); then the owner records the reading OwnerAction #32 asks for",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18873,19 +18874,19 @@
    "title": "Ads Credit Accounting",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No record of Etsy Plus ads-credit entitlement (USD 5/cycle), local CAD display, cycle dates, consumed/expired credit or incremental cash spend; Etsy Plus appear"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/credits.py::ads_credit; finance/credits.py::record_ads_credit_cycle; src/brambleloop/app/main.py::api_ads_credit",
+   "consumer": "finance/credits.py::wallet -> finance/spend_report.py::governance (dashboard spend governance)",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+    "tests/test_w4_close6_ads.py::test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"
    ],
-   "next_action": "Add AdsCreditCycle rows (official_entitlement_usd, displayed_cad, cycle_start/end, consumed, expired, owner_cash_spend) and keep them separate from SpendLimit cash; test that credit never counts as owner cash.",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6; the owner records each cycle as Etsy shows it",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,

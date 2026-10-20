@@ -5,8 +5,8 @@
  "generated_by": "research/final_build/w4/prelaunch_scope.py (do not edit by hand)",
  "board": {
   "file": "research/final_build/w4/COMPLETION_BOARD_FINAL.json",
-  "generated_at": "2026-10-20T11:15:42Z",
-  "branch_head": "27fb1d40"
+  "generated_at": "2026-10-20T11:24:00Z",
+  "branch_head": "ee244a15"
  },
  "rule": "For every Build 2 and Final Master row whose board class is not `verified_complete` (and not\n`not_applicable`), this classifies the row's EXISTING acceptance criterion (the registry text,\nquoted verbatim) as:",
  "c_patterns": [
@@ -40,9 +40,9 @@
   "\\bwithout the owner'?s PC\\b"
  ],
  "counts": {
-  "total_not_verified": 619,
+  "total_not_verified": 618,
   "by_class": {
-   "A": 546,
+   "A": 545,
    "C": 40,
    "B": 33
   },
@@ -53,7 +53,7 @@
     "B": 5
    },
    "final_master": {
-    "A": 449,
+    "A": 448,
     "C": 19,
     "B": 27
    },
@@ -81,12 +81,12 @@
    },
    "ops_runtime_governance": {
     "C": 13,
-    "A": 185,
+    "A": 187,
     "B": 23
    },
    "store_product": {
     "C": 14,
-    "A": 195,
+    "A": 192,
     "B": 3
    }
   },
@@ -102,7 +102,7 @@
     "B": 19
    },
    "post_launch": {
-    "A": 345,
+    "A": 344,
     "C": 16,
     "B": 8
    }
@@ -279,9 +279,6 @@
    "A F-614 [blocked_owner] Etsy Plus Credit Wallet",
    "A F-615 [blocked_owner] Free-Credit-First Rule",
    "A F-664 [blocked_engineering] Ask Brambleloop",
-   "A F-685 [blocked_engineering] Etsy Ads Eligibility",
-   "A F-686 [blocked_engineering] Ads Recheck",
-   "A F-688 [blocked_engineering] Ads Credit Accounting",
    "A F-744 [blocked_engineering] Model Evidence Ledger",
    "A F-766 [blocked_external] Project Tips from Failure Modes",
    "A F-767 [blocked_owner] Tutorial Linkage",
@@ -518,7 +515,9 @@
    "A F-680 [blocked_engineering] Visual Evidence Panel",
    "A F-681 [blocked_engineering] Finance Workspace",
    "A F-683 [blocked_external] Financial Drilldown",
+   "A F-686 [implemented_unverified] Ads Recheck",
    "A F-687 [blocked_owner] Pre-Eligibility Preparation",
+   "A F-688 [implemented_unverified] Ads Credit Accounting",
    "A F-691 [blocked_external] 90-Day Goal",
    "A F-692 [blocked_external] Constraint Routing",
    "A F-710 [blocked_engineering] Outcome-Based Model Routing",
@@ -8289,28 +8288,13 @@
   },
   {
    "source": "final_master",
-   "id": "F-685",
-   "scope": "post_launch",
-   "title": "Etsy Ads Eligibility",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
-   "verifiability": "A",
-   "criterion_quote": null,
-   "matched": null,
-   "basis": "no production or live-operations requirement in the criterion text",
-   "criterion": "Etsy Ads Eligibility - persist etsy_ads_status, eligible_from/next_check, evidence_source and last_verified_at. Current 2026-09-25 owner evidence says 9 days remain; do not hard-code a derived date as authoritative."
-  },
-  {
-   "source": "final_master",
    "id": "F-686",
    "scope": "post_launch",
    "title": "Ads Recheck",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,
@@ -8337,10 +8321,10 @@
    "id": "F-688",
    "scope": "post_launch",
    "title": "Ads Credit Accounting",
-   "board_class": "blocked_engineering",
-   "blocked_by": "engineering",
-   "root": "engineering_open",
-   "domain": "store_product",
+   "board_class": "implemented_unverified",
+   "blocked_by": "engineering: release + deploy",
+   "root": "release_undeployed_code",
+   "domain": "ops_runtime_governance",
    "verifiability": "A",
    "criterion_quote": null,
    "matched": null,

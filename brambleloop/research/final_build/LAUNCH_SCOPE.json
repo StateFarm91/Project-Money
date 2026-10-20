@@ -31,10 +31,10 @@
     },
     "b931d17": {
      "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
-     "rows": 39
+     "rows": 40
     }
    },
-   "rows_on_base": 489,
+   "rows_on_base": 488,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",

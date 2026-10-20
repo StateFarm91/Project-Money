@@ -4104,6 +4104,85 @@ async def api_order_attribution(request: Request,
         if first else None)})
 
 
+@app.post("/api/ads/eligibility")
+async def api_ads_eligibility(request: Request,
+                              authorization: str = Header(default="")) -> JSONResponse:
+    """F-685/F-686 (W4-CLOSE6): record the owner's reading of Etsy's Ads eligibility message.
+
+    The hourly `marketing.ads_readiness` recheck raises an owner action ("record the current
+    eligibility message and timestamp") when the stored countdown is due or the evidence is
+    stale, because the Etsy API has no Ads-eligibility endpoint. Until this route there was no
+    way to record that reading, so the action could never be satisfied. Body: {"status":
+    WAITING | ELIGIBLE | INELIGIBLE, "evidence": what was read and where, "verified_at": ISO
+    time of the reading (within 24 h), "eligible_from": ISO date, required for WAITING}.
+    `growth.ads_readiness.record_evidence` validates it; a countdown never becomes ELIGIBLE, and
+    recording ELIGIBLE authorises no spend. Operator credential required.
+    """
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from datetime import datetime as _dt
+
+    from ..growth import ads_readiness
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        verified = _dt.fromisoformat(str(body.get("verified_at") or ""))
+        due = (_dt.fromisoformat(str(body["eligible_from"]))
+               if body.get("eligible_from") else None)
+        snap = ads_readiness.record_evidence(
+            db, status=str(body.get("status") or ""),
+            evidence_source=str(body.get("evidence") or ""), verified_at=verified,
+            eligible_from=due)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    Registry(db).audit("orchestrator", "ads.eligibility_recorded",
+                       detail={"status": snap["etsy_ads_status"],
+                               "verified_at": snap["last_verified_at"]})
+    return JSONResponse(snap)
+
+
+@app.post("/api/finance/ads-credit")
+async def api_ads_credit(request: Request,
+                         authorization: str = Header(default="")) -> JSONResponse:
+    """F-688 (W4-CLOSE6): record one Etsy Plus Ads-credit cycle as Etsy states it.
+
+    Body: {"cycle_start", "cycle_end" (ISO dates), "entitlement_usd", "displayed_cad" (the
+    value Shop Manager shows), "used_displayed_cad" (optional; absent is UNKNOWN), "evidence"}.
+    Kept apart from owner cash by `finance.credits.ads_credit`; it changes no ceiling.
+    Operator credential required.
+    """
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..finance import credits
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+    try:
+        got = credits.record_ads_credit_cycle(
+            db, cycle_start=str(body.get("cycle_start") or ""),
+            cycle_end=str(body.get("cycle_end") or ""),
+            entitlement_usd=float(body.get("entitlement_usd") or 0),
+            displayed_cad=float(body.get("displayed_cad") or 0),
+            used_displayed_cad=(None if body.get("used_displayed_cad") is None
+                                else float(body["used_displayed_cad"])),
+            evidence_ref=str(body.get("evidence") or ""))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    Registry(db).audit("orchestrator", "finance.ads_credit_recorded", detail=got)
+    return JSONResponse({**got, "ads_credit": credits.ads_credit(db)})
+
+
 @app.post("/api/attribution/stats")
 async def api_attribution_stats(request: Request,
                                 authorization: str = Header(default="")) -> JSONResponse:
