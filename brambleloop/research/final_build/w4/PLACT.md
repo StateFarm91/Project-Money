@@ -4,6 +4,8 @@ Branch `claude/w4-PLACT`, from `origin/claude/w4-INTEG2` @ 9c3812b. Implements t
 2026-10-13 decisions, recorded as **D-W4-PL-3** (`DECISION_LOG.md:1920`). This file holds no
 private content and no key material. Environment variables are named, never valued.
 
+> **Superseded in part by D-W4-PL-VENICE (owner ruling 2026-10-20; W4-VENICE, `VENICE.md`):** Private Laura's provider is Venice AI. The transport switch `BRAMBLELOOP_PRIVATE_PROVIDER` is OFF by default and must be `venice`, with `VENICE_API_KEY` in Railway. The status endpoint now lists 6 prerequisites. The current owner activation steps are VENICE.md §6.
+
 **Honest status.** The code and tests are done on this branch. Nothing was deployed, and no
 production variable was changed. Nothing was spent: every model call in the tests is a stubbed
 `_send`. Production (1b21e81) still runs the earlier PRIVLAURA code, which bills `laura` and has

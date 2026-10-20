@@ -35,7 +35,9 @@ from datetime import datetime, timezone
 
 REPLY_GATED = ("Laura's private replies are off until the owner enables them: the private key "
                "(BRAMBLELOOP_PRIVATE_MEMORY_KEY), the register switch "
-               "(BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1) and a spend authorisation "
+               "(BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1), the private provider "
+               "(BRAMBLELOOP_PRIVATE_PROVIDER=venice with VENICE_API_KEY) and a spend "
+               "authorisation "
                "(BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD, default CA$0, at most the laura_private "
                "CA$0.50/day), on a deployed release. Until then your words are stored "
                "encrypted and no reply is generated (D-W4-PL-1, pending owner "
@@ -163,9 +165,21 @@ def prerequisites(db, *, env=None, boot: dict | None = None) -> list[dict]:
                    f"{laura_register.AGENT} ceiling CA${laura_register.agent_ceiling_cad():.2f})")},
         {"id": "laura_private_agent", "met": _agent_present(db),
          "label": f"billing agent {laura_register.AGENT} registered with its own daily ceiling"},
+        # W4-VENICE (owner ruling D-W4-PL-VENICE): Venice is the Private Laura provider. Met
+        # only with Venice selected AND its key present (names only; never the value).
+        {"id": "private_provider_venice",
+         "met": bool(e.get("provider") == "venice" and e["provider_configured"]),
+         "label": (f"private provider Venice selected ({n['provider_switch']}=venice) and "
+                   f"its key configured (VENICE_API_KEY); model {_venice_model()}")},
         {"id": "current_release_deployed", "met": rel["met"],
          "label": f"current release deployed ({rel['detail']})"},
     ]
+
+
+def _venice_model() -> str:
+    from ...gateway import venice
+
+    return venice.model() or f"{venice.MODEL} (not eligible: refused)"
 
 
 def _enablement(db=None) -> dict:
@@ -181,6 +195,7 @@ def _enablement(db=None) -> dict:
     return {"key_configured": key, "register_switch": e["register_switch"],
             "spend_authorised_cad_per_day": e["spend_authorised_cad_per_day"],
             "provider_configured": e["provider_configured"],
+            "provider": e.get("provider"),
             "laura_private_agent": agent,
             "current_release_deployed": release,
             "enabled": bool(key and e["register_switch"]

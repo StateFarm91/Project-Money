@@ -18,8 +18,11 @@ from brambleloop.gateway.model_gateway import ModelResponse
 
 REPLY = "PRIV-SENTINEL-REPLY-0001"
 DUMMY_KEY = "test-dummy-not-a-key"
+# W4-VENICE: the private provider switch is OFF by default; these suites exercise the reply
+# path over the stubbed Anthropic transport, so they select it explicitly (an owner choice).
+# test_w4_venice drives the same path over a stubbed Venice transport.
 ENABLE = {laura_register.REGISTER_SWITCH_ENV: "1", laura_register.DAILY_AUTH_ENV: "0.40",
-          "ANTHROPIC_API_KEY": DUMMY_KEY}
+          "ANTHROPIC_API_KEY": DUMMY_KEY, "BRAMBLELOOP_PRIVATE_PROVIDER": "anthropic"}
 
 
 class Stub:
