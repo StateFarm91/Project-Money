@@ -270,7 +270,7 @@ function privateCard(status) {
     const out = await guardedAction({ title: "Open the private context",
       lines: ["Owner-only, encrypted, never shown to customers, the store, departments or Ask Company.",
         "Needs a fresh re-authentication; closes on sign-out or after 30 minutes.",
-        st.reply_register === "ENABLED" ? "Laura replies in her private register (never sexually explicit)." : "Laura's private replies are off until you enable them."],
+        st.reply_register === "ENABLED" ? "Laura replies in her private adult register (owner ruling 2026-10-20; hard limits always hold)." : "Laura's private replies are off until you enable them."],
       confirmLabel: "Open", requiresStepUp: true, run: () => api.privateOpen(), success: "Private context open." });
     if (out) { try { show(await api.privateView()); } catch (e) { toast(e.message, "bad"); } }
   });
