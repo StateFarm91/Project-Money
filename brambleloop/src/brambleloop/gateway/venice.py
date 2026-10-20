@@ -17,14 +17,16 @@ citations are in research/final_build/w4/VENICE.md):
   clauses -- is the only system prompt the model sees.
 * `enable_web_search` is sent "off" and web scraping/citations false: private text must
   never become a search query to a third party.
-* The pinned model `zai-org-glm-5-2` is a reasoning model whose DEFAULT reasoning effort is
-  "max"; reasoning tokens bill as output. `reasoning_effort: "none"` (a documented option for
-  this model) and `disable_thinking: true` keep a conversational reply a conversational reply,
-  and `max_completion_tokens` caps visible plus reasoning output.
-* Privacy class of the pinned model (GET /api/v1/models): `"private"` -- "Zero data retention,
-  contract-enforced ... not retained after the request completes" (docs.venice.ai/overview/
-  privacy). Models marked `"anonymized"` (proxied Claude/GPT/Gemini...) let the upstream
-  provider see the prompt; they are REFUSED here (`PRIVATE_MODELS`).
+* The approved default `venice-uncensored-1-2` (owner ruling 2026-10-20) is not a reasoning
+  model and gets no reasoning parameters. `zai-org-glm-5-2` (still eligible, selectable by the
+  owner) is a reasoning model whose DEFAULT effort is "max"; for it `reasoning_effort: "none"`
+  and `disable_thinking: true` are sent. `max_completion_tokens` caps visible plus reasoning
+  output either way.
+* Eligibility (`eligible`): Venice-hosted AND Private class ("Zero data retention,
+  contract-enforced ... not retained after the request completes", docs.venice.ai/overview/
+  privacy) AND a pinned price row. Anonymized models (the upstream provider sees the prompt)
+  and unknown classifications are REFUSED; a live Venice reading that contradicts the pinned
+  verified row fails closed.
 * Errors (docs.venice.ai/api-reference/error-codes): 401 AUTHENTICATION_FAILED*, 402
   INSUFFICIENT_BALANCE / API_KEY_*_SPEND_LIMIT_EXCEEDED, 403 UNAUTHORIZED /
   API_ACCESS_DISABLED, 400 INVALID_* / TOO_MANY_TOKENS, 404 MODEL_NOT_FOUND, 422
@@ -56,22 +58,90 @@ KEY_ENV = "VENICE_API_KEY"                                 # Railway variable NA
 PROVIDER_ENV = "BRAMBLELOOP_PRIVATE_PROVIDER"              # "venice" selects this transport
 PROVIDER_VALUE = "venice"
 
-# The pinned model (owner approval required before activation; ADD-PLV-08).
-MODEL = "zai-org-glm-5-2"
+# The pinned default model. FINAL OWNER RULING 2026-10-20 (D-W4-PL-VENICE-ADULT, item A):
+# `venice-uncensored-1-2` is approved as the preferred Private Laura model at the existing
+# CA$0.50/day cap, SUBJECT TO verification that it is available in the API, Venice-hosted,
+# Private class and covered by Venice's zero-retention commitment. Verification is the pinned
+# verified row below (GET /api/v1/models, 2026-10-20) and, once the owner-enabled credential
+# check has run, the live metadata it recorded (`gateway.credentials`): a live reading that
+# contradicts the row, or a model with no verified row, FAILS CLOSED (`eligible`).
+MODEL = "venice-uncensored-1-2"
+#: The owner may select another ELIGIBLE model by name (e.g. revert to GLM 5.2); an ineligible
+#: or unknown name is refused, never substituted.
+MODEL_ENV = "BRAMBLELOOP_PRIVATE_MODEL"
 
 # USD per million tokens (input, output), from GET https://api.venice.ai/api/v1/models
 # (`model_spec.pricing.{input,output}.usd`) and docs.venice.ai/overview/pricing, read
 # 2026-10-20. An assumption about a price this company does not control, labelled as one on
-# every ledger row (`price_basis: assumed`). Only models whose Venice privacy class is
-# "private" (zero data retention) are listed: an unlisted model is unpriced and refused.
+# every ledger row (`price_basis: assumed`). A model with no row is unpriced and refused.
 PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "zai-org-glm-5-2": (1.40, 4.40),
+    "venice-uncensored-1-2": (0.20, 0.90),
+    "venice-uncensored-role-play": (0.50, 2.00),
 }
 PRICES_READ = "2026-10-20 (GET api.venice.ai/api/v1/models?type=text; docs.venice.ai/overview/pricing)"
-#: Context window (tokens) Venice publishes for the pinned model (`availableContextTokens`).
-CONTEXT_TOKENS: dict[str, int] = {"zai-org-glm-5-2": 1_000_000}
-#: Venice privacy class per model, as published by GET /api/v1/models (`model_spec.privacy`).
-PRIVATE_MODELS = frozenset({"zai-org-glm-5-2"})
+#: Context window and max completion (tokens) Venice publishes, 2026-10-20.
+CONTEXT_TOKENS: dict[str, int] = {"zai-org-glm-5-2": 1_000_000,
+                                  "venice-uncensored-1-2": 128_000,
+                                  "venice-uncensored-role-play": 128_000}
+MAX_COMPLETION_TOKENS: dict[str, int] = {"zai-org-glm-5-2": 131_072,
+                                         "venice-uncensored-1-2": 8_192,
+                                         "venice-uncensored-role-play": 4_096}
+
+# ELIGIBILITY RULE (owner ruling item B): Venice-hosted AND Private class AND a pinned price row.
+# Verified rows: Venice's own GET /api/v1/models (`owned_by: venice.ai`, `model_spec.privacy`,
+# `model_spec.offline`), read 2026-10-20 15:50Z. "private" = "Zero data retention,
+# contract-enforced" (docs.venice.ai/overview/privacy). Anonymized models (the upstream
+# provider sees the prompt) and any model that sends text to another inference provider are
+# refused unless separately approved; a model with no verified row is UNKNOWN and refused.
+VERIFIED_MODELS: dict[str, dict] = {
+    "zai-org-glm-5-2": {"privacy": "private", "hosted_by": "venice.ai", "offline": False,
+                        "verified": "2026-10-20"},
+    "venice-uncensored-1-2": {"privacy": "private", "hosted_by": "venice.ai", "offline": False,
+                              "verified": "2026-10-20"},
+    "venice-uncensored-role-play": {"privacy": "private", "hosted_by": "venice.ai",
+                                    "offline": False, "verified": "2026-10-20"},
+}
+#: Separately approved exceptions to the rule (none).
+SEPARATELY_APPROVED: frozenset = frozenset()
+#: Reasoning models: reasoning parameters are sent only to these.
+REASONING_MODELS = frozenset({"zai-org-glm-5-2"})
+
+
+def eligible(model: str, live: dict | None = None) -> tuple[bool, str]:
+    """(eligible?, why). Fails closed on anything unverified.
+
+    `live` is Venice's own metadata for this model as last recorded by the owner-enabled
+    credential check ({"privacy", "offline", "present"}), or None when no live reading exists.
+    """
+    if model in SEPARATELY_APPROVED:
+        return True, "separately approved"
+    row = VERIFIED_MODELS.get(model)
+    if row is None:
+        return False, "UNKNOWN classification: no verified Venice row"
+    if row.get("privacy") != "private" or row.get("hosted_by") != "venice.ai":
+        return False, f"not Venice-hosted Private class ({row.get('privacy')})"
+    if model not in PRICES_USD_PER_MTOK:
+        return False, "no pinned price row"
+    if live is not None:
+        if not live.get("present", False):
+            return False, "not listed by Venice's API now"
+        if live.get("privacy") != "private":
+            return False, f"Venice now classifies it {live.get('privacy')!r}"
+        if live.get("offline"):
+            return False, "Venice reports it offline"
+    return True, "verified Venice-hosted Private class with a pinned price"
+
+
+#: Back-compatible name: every model the rule admits on its pinned rows.
+PRIVATE_MODELS = frozenset(m for m in VERIFIED_MODELS if eligible(m)[0])
+
+
+def model(env=None) -> str:
+    """The approved default, or the owner's eligible choice from MODEL_ENV; "" if ineligible."""
+    env = os.environ if env is None else env
+    v = str(env.get(MODEL_ENV) or "").strip() or MODEL
+    return v if eligible(v)[0] else ""
 
 TIMEOUT_SECONDS = 60.0
 # Venice tokenisers are not the one `chars/4` was measured on; a pessimistic chars/3 keeps the
@@ -207,9 +277,10 @@ class VeniceProvider:
     def __post_init__(self) -> None:
         from .anthropic import USD_TO_CAD, BudgetExceeded
 
-        if self.model not in PRIVATE_MODELS:
-            raise BudgetExceeded(f"{self.model!r} is not a Venice zero-retention (private) "
-                                 f"model on file; refused")
+        ok, why = eligible(self.model)
+        if not ok:
+            raise BudgetExceeded(f"{self.model!r} is not eligible for Private Laura ({why}); "
+                                 f"refused")
         in_usd, out_usd = PRICES_USD_PER_MTOK[self.model]
         self.cost_per_1k_input_cad = round(in_usd / 1000 * USD_TO_CAD, 8)
         self.cost_per_1k_output_cad = round(out_usd / 1000 * USD_TO_CAD, 8)
@@ -220,21 +291,19 @@ class VeniceProvider:
 
     def payload(self, system: str, user: str, *, max_tokens: int) -> bytes:
         """The exact request body: pinned model, our system prompt ONLY, one user message."""
+        reasoning = self.model in REASONING_MODELS
+        vp = {"include_venice_system_prompt": False, "enable_web_search": "off",
+              "enable_web_scraping": False, "enable_web_citations": False}
+        if reasoning:
+            vp.update(disable_thinking=True, strip_thinking_response=True)
         return json.dumps({
             "model": self.model,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}],
             "max_completion_tokens": int(max_tokens),
-            "reasoning_effort": "none",
+            **({"reasoning_effort": "none"} if reasoning else {}),
             "stream": False,
-            "venice_parameters": {
-                "include_venice_system_prompt": False,
-                "disable_thinking": True,
-                "strip_thinking_response": True,
-                "enable_web_search": "off",
-                "enable_web_scraping": False,
-                "enable_web_citations": False,
-            },
+            "venice_parameters": vp,
         }).encode()
 
     @staticmethod

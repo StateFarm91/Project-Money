@@ -179,7 +179,7 @@ def prerequisites(db, *, env=None, boot: dict | None = None) -> list[dict]:
 def _venice_model() -> str:
     from ...gateway import venice
 
-    return venice.MODEL
+    return venice.model() or f"{venice.MODEL} (not eligible: refused)"
 
 
 def _enablement(db=None) -> dict:

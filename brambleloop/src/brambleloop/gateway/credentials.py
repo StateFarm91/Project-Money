@@ -86,6 +86,9 @@ PROVIDERS: dict[str, dict] = {
                "console": "venice.ai > Settings > API (keys) / API credits"},
 }
 VENICE_RATE_LIMITS_URL = "https://api.venice.ai/api/v1/api_keys/rate_limits"
+# Public model list (documented; no key is sent): the live privacy class / availability of the
+# Private Laura models, so the reply path can fail closed if Venice reclassifies one.
+VENICE_MODELS_URL = "https://api.venice.ai/api/v1/models?type=text"
 #: The cost of this check is not documented by Venice: UNKNOWN, never 0 (worker rules).
 VENICE_CHECK_COST_BASIS = ("UNKNOWN: Venice does not document whether GET /api_keys/rate_limits "
                            "is billed; it performs no inference. Owner-enabled only.")
@@ -309,6 +312,7 @@ def check_venice(env, http=None) -> dict:
                access_permitted=permitted,
                why=f"authenticated; balance about US${total:.2f} (USD {usd:g}, DIEM {diem:g}, "
                    f"bundled {bundled:g}); one reply is at most about US${need:.4f}")
+    out["models"] = _venice_models(http)
     if permitted is False:
         out.update(status=PERMISSION, why="authenticated, but Venice reports API access is "
                                           "not permitted for this key (accessPermitted=false)")
@@ -317,6 +321,35 @@ def check_venice(env, http=None) -> dict:
                    why=f"authenticated, but the balance (about US${total:.4f}) is less than "
                        f"one Private Laura reply (about US${need:.4f})")
     return out
+
+
+def _venice_models(http) -> dict:
+    """Venice's live metadata for each pinned Private Laura model ({privacy, offline, present}),
+    from the public GET /models (no Authorization header). {} if it could not be read."""
+    from . import venice
+
+    status, text = http("GET", VENICE_MODELS_URL, {"accept": "application/json"}, None, 20.0)
+    if status != 200:
+        return {}
+    try:
+        rows = {m.get("id"): m for m in (json.loads(text).get("data") or [])}
+    except (ValueError, TypeError, AttributeError):
+        return {}
+    out = {}
+    for mid in venice.VERIFIED_MODELS:
+        m = rows.get(mid)
+        spec = (m or {}).get("model_spec") or {}
+        out[mid] = {"present": m is not None, "privacy": spec.get("privacy"),
+                    "offline": bool(spec.get("offline")), "owned_by": (m or {}).get("owned_by")}
+    return out
+
+
+def venice_model_reading(db, model: str) -> dict | None:
+    """The latest recorded live reading for `model`, or None if none was recorded."""
+    rows = _previous(db, "venice", 1)
+    if not rows:
+        return None
+    return (rows[0].get("models") or {}).get(model)
 
 
 def _venice_selected(env) -> bool:
