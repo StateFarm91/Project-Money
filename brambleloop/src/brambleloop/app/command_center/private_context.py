@@ -42,9 +42,11 @@ REPLY_GATED = ("Laura's private replies are off until the owner enables them: th
                "CA$0.50/day), on a deployed release. Until then your words are stored "
                "encrypted and no reply is generated (D-W4-PL-1, pending owner "
                "acknowledgement).")
-REPLY_ENABLED = ("Laura replies in her private register: warm, affectionate, romantic and "
-                 "playful, never sexually explicit (the provider's usage policy is the outer "
-                 "limit). Replies are stored encrypted with your words.")
+REPLY_ENABLED = ("Laura replies in her private adult register (owner ruling 2026-10-20): "
+                 "affectionate, romantic and flirtatious, including explicit adult dialogue "
+                 "and consensual roleplay; hard limits always hold (never minors, real "
+                 "people or anything unlawful) and Venice's Terms are the outer limit. "
+                 "Replies are stored encrypted with your words.")
 #: How much private context feeds one reply (latest facts, most recent turns).
 CONTEXT_FACTS = 20
 CONTEXT_TURNS = 12
