@@ -1429,18 +1429,22 @@
   "uid": "F-793",
   "launch_class": "MATURE",
   "launch_class_reason": "permission clause; enforceable part is not over-blocking standard technique",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
   "producer": "src/brambleloop/cir/specification.py (two-tier identifying match: plain rectangles are not matches)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/gates/certificate.py::certify (calls specification.refuse_a_benchmark_in_our_clothes)",
   "protected_effect": null,
   "tests": [
    "tests/test_specification.py::test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
-   "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive"
+   "tests/test_specification.py::test_no_genuine_brambleloop_design_is_a_false_positive",
+   "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-CLOSE5 on deployed b931d17: the two-tier identifying match lets standard construction through (a plain rectangle of a benchmark's sleeve width is not a match; no genuine Brambleloop design is a false positive) and refuses a benchmark's identifying piece; cir/specification.py is reached on b931d17 via certification; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -1448,9 +1452,9 @@
    "detail": "remaining work is software"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none -- reached at runtime through certification",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-794",
@@ -3785,33 +3789,38 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "spend authority and ceilings",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "ceilings enforced and observed in production; provider credit exhaustion is owner action; the 'bounded experiment + max spend prepared first' packet is per-module, not a standard record (see F-877)",
-  "producer": "src/brambleloop/finance/spend_policy.py; gateway/model_gateway.py; ops/funding.py; build2/executor.py model_provider gate",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/funding_packet.py::credit_packet; src/brambleloop/ops/funding.py",
   "durable_state": "cost records; SpendLimit",
-  "consumer": "gateway calls refuse beyond ceiling",
+  "consumer": "GET /api/funding/packets; the owner's 'add credit' action carries the packet (ops/funding.note)",
   "protected_effect": "no provider call beyond owner ceiling",
   "tests": [
    "tests/test_spend_governance.py",
    "tests/test_cert_spend_hosts.py::test_the_research_judge_refuses_with_no_cap_before_any_request",
-   "tests/test_funding.py"
+   "tests/test_funding.py",
+   "tests/test_w4_funding.py::test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+   "tests/test_w4_funding.py::test_the_owner_funding_action_carries_the_prepared_packet",
+   "tests/test_w4_funding.py::test_an_empty_ledger_is_unmeasured_never_zero",
+   "tests/test_w4_funding.py::test_the_packets_route_is_registered"
   ],
   "evidence": [
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json: model_spend_within_its_ceiling (CA$76.40 of CA$100), every agent has a ceiling (fcb982d)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_funding_packets_20261020T0612Z.json -- production b931d17 serves the model-credit packet for anthropic: the bounded experiment (30-day spend by purpose), max spend (CA$100 monthly ceiling, spent CA$64.72, headroom CA$35.28, enforced before every call), the measured run rate and outage evidence, approves_itself false; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
    "#86 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "model_provider",
-   "detail": "provider/vision credit is owner funding"
+   "kind": "none",
+   "key": null,
+   "detail": "model_provider OPEN in production b931d17; funding itself stays the owner's act (setting credit), which the packet prepares"
   },
   "defect": null,
-  "next_action": "Prepare a funding packet (experiment, provider, max spend) before requesting image_vision/model credit",
+  "next_action": "none -- W4-FUNDING built it; production serves the packet on b931d17",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-872",
@@ -4012,22 +4021,27 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "owner needs a truthful launch packet",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "the deployed owner packet carries no tests/audit evidence (recorded_suite UNKNOWN in the image); fixed on claude/w4-FMGATE (launch/packet.py release-record citation + CC builder passes the image's release/ root), not yet released",
-  "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/packet.py::build",
   "durable_state": "audit_log; operating readings",
-  "consumer": "app/main.py dashboard",
+  "consumer": "src/brambleloop/app/command_center/launch_packet.py (GET /api/cc/launch/packet, owner session); scripts/launch_packet.py",
   "protected_effect": null,
   "tests": [
    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
+   "tests/test_fb4_launch.py::test_launch_packet_on_a_fresh_shadow_db_with_launch0_certified_is_honest",
+   "tests/test_fb4_launch.py::test_launch_packet_script_writes_json_and_markdown",
+   "tests/test_w4_packetrel.py::test_record_only_commit_cites_its_release_record_by_tree_digest",
+   "tests/test_w4_packetrel.py::test_a_tampered_or_ineligible_record_is_fail_with_its_problems"
   ],
   "evidence": [
    "launch/rollback.py not in fcb982d",
    "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
    "w4-PACKETREL: launch/packet.py now cites the candidate's own release record (release/RELEASE_<sha>.json, bound by exact SHA or by the exact deployable-tree digest with the record SHA an ancestor, and checked by ops.release_record.check_record; UNKNOWN when none is bound, FAIL when the checks fail). It no longer quotes the stale RUN_6f9a2f7 file. The CC route passes the repo root when release/ ships in the image. research/final_build/w4/evidence_PACKETREL/launch_packet_7421ef621558_20261011T001734Z.{json,md}: for 7421ef6, recorded_suite is PASS via RELEASE_3967f405... (binding tree_digest+ancestor, run 20261010T062725Z-14513, 7813 passing, 0 failing suites, tree clean). Test: tests/test_w4_packetrel.py. The packet verdict is still UNKNOWN (no product state on the scratch DB)",
    "w4-RELEVIDENCE on 7421ef6: research/final_build/w4/evidence_RELEASE_7421ef6/launch_packet_7421ef621558_20261011T001157Z.{json,md}: scripts/launch_packet.py run on candidate 7421ef6 against a fresh scratch SQLite DB in SHADOW (offline). Verdict UNKNOWN: all 7 Launch-0 products UNKNOWN (no stored release on the scratch DB), phase shadow (env and recorded agree), owner queue read (8 owner actions), readiness FAIL. recorded_suite is UNKNOWN: the packet quotes RUN_6f9a2f7_full_suite.json and does not read release/RELEASE_3967f405....json, so it does not cite the candidate's suite record. Part (b) has run and is committed; part (a) WIRING REQUEST not verified here; requirement not proven",
-   "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)"
+   "w4-FMGATE on 0417f35: the packet is reached from live roots on 0417f35 (reachability: launch/packet.py via app/command_center/launch_packet.py) and is served in production: GET /api/launch/packet and /api/cc/launch/packet answer 401 (operator/owner-gated) where an unknown path under the same prefixes answers 404. But the deployed packet's tests/audit section is UNKNOWN by construction: 0417f35's CC builder passes repo_root=None when research/ is absent (the image ships src/ and release/ only), and its packet.py quotes research RUN_*_full_suite.json. Reproduced offline on 0417f35 code: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_0417f35_image_mode.json (recorded_suite UNKNOWN). The PACKETREL fix (merged on this branch) cites the candidate's own release record: research/final_build/w4/evidence_FMGATE_0417f35/launch_packet_fmgate_image_mode.json (recorded_suite PASS, RELEASE_5dfd1ac, tree_digest+ancestor, 7877 passing)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_CLOSE5/launch_packet_b931d17a738d_20261020T053641Z.json -- generated by the deployed tree's scripts/launch_packet.py (clean worktree of b931d17, scratch DB, shadow): candidate SHA, recorded_suite PASS bound to release/RELEASE_324927f1... by tree digest + ancestor, the closure summary, per-product visual/parity, listing, policy, search, rollback and economics sections, owner queue, spend limits, rollback path and activation steps; verdict UNKNOWN on a scratch DB, as it must be"
   ],
   "build2_rows": [
    "#54 OWNER-GATED",
@@ -4039,9 +4053,9 @@
    "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "integrator: full suite + release record + deploy of the successor carrying the PACKETREL packet fix; then read /api/cc/launch/packet recorded_suite with the owner credential and commit it",
+  "next_action": "none in code -- reading /api/cc/launch/packet with the owner credential in production remains a confirmation the owner can make",
   "confidence": "MEDIUM",
-  "searched": " | w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35"
+  "searched": "w4-FMLEDGER close | w4-PACKETREL | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-879",

@@ -2011,32 +2011,39 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "recovery evidence must survive container replacement",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Continuity exports are retained in Postgres (core/continuity.retain) and restore proofs audited, and certification evidence is committed under research/b2_resume/evidence; the off-site copy is gated on owner-supplied storage, and no rule/test forbids an audit/recovery artefact existing only in scratch.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/core/continuity.py::retain",
   "durable_state": "continuity export rows in Postgres; audit_log ops.continuity",
   "consumer": "src/brambleloop/runtime/release.py::handle_continuity",
   "protected_effect": "restore evidence survives container loss (same database only until offsite exists)",
   "tests": [
    "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
-   "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping"
+   "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping",
+   "tests/test_w4_close5_rows.py::test_f152_every_scratch_site_is_classified",
+   "tests/test_w4_close5_rows.py::test_f152_each_classified_home_really_writes_or_hands_over_the_evidence",
+   "tests/test_w4_close5_rows.py::test_f152_continuity_evidence_outlives_its_scratch_directory",
+   "tests/test_w4_close5_rows.py::test_f152_offsite_evidence_outlives_its_scratch_directory"
   ],
   "evidence": [
    "BUILD_STATE.md ~l.4831 continuity proved in production",
-   "research/b2_resume/evidence/*.log committed"
+   "research/b2_resume/evidence/*.log committed",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_offsite_20261020T0416Z.json -- last_archive ok, encrypted, uploaded off-provider, read back, decrypted and restored; the restore proof is an audit_log row and the archive bytes are continuity_exports rows, neither in scratch",
+   "w4-CLOSE5 on deployed b931d17: rule test -- every function in src/ that creates a scratch directory (core.workspace.work_dir, TemporaryDirectory, mkdtemp; 31 sites) is classified with where its evidence becomes durable (audit row / DB row / caller that audits / copy of DB state / CLI output path outside scratch / recomputed reading), and each durable home is checked to contain the write",
+   "w4-CLOSE5 on deployed b931d17: behavioural -- the continuity proof and the offsite archive are read and restored from the database / remote store after their scratch directory is deleted; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#51 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "offsite_storage",
-   "detail": "an off-site bucket/credentials only the owner can provision"
+   "kind": "none",
+   "key": null,
+   "detail": "offsite_storage OPEN in production b931d17 (/api/build gates, research/final_build/w4/evidence_BOARD/prod_api_build_20261020T0416Z.json); the off-provider copy exists"
   },
   "defect": null,
-  "next_action": "Owner: provide off-site storage (offsite_storage gate). Now: add a test that every handler writing recovery/audit evidence writes it to the DB or ArtifactStore, not only to a workspace dir.",
+  "next_action": "none -- every scratch site is classified with its durable home (tests/test_w4_close5_rows.py SCRATCH); a new site fails the test until classified",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-153",

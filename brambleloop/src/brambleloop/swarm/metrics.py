@@ -146,6 +146,20 @@ def parallelism(runner_state: dict | None) -> dict:
     }
 
 
+def _parked_why(entry: dict) -> str:
+    """Why a job type is parked, for either kind of suspension (#34): a suspended paid loop
+    says why; an unchanged poll in backoff is described by its backoff."""
+    why = entry.get("why")
+    if why:
+        return str(why)
+    if entry.get("until"):
+        factor = entry.get("factor")
+        return (f"backing off until {entry['until']}"
+                + (f" (x{factor} its cadence)" if factor else "")
+                + "; an unchanged poll waits rather than repeating itself")
+    return f"parked ({entry.get('kind') or 'unknown kind'})"
+
+
 def agents_view(db, *, now: datetime | None = None) -> dict:
     """F-487: per agent -- running job, pending, parked job types, last completion, spend."""
     from sqlalchemy import func, select
@@ -183,6 +197,15 @@ def agents_view(db, *, now: datetime | None = None) -> dict:
             p["deferred" if run_after and _aware(run_after) > now else "ready"] += 1
         last = dict(s.execute(select(Job.agent, func.max(Job.finished_at)).where(
             Job.status == JobStatus.DONE).group_by(Job.agent)).all())
+        # F-487 "output/evidence": the agent's newest finished job, as a pointer to its
+        # durable output (the job row's outputs and the audit rows that cite it).
+        last_job: dict[str, dict] = {}
+        for jid, agent, jt, fin in s.execute(
+                select(Job.id, Job.agent, Job.job_type, Job.finished_at)
+                .where(Job.status == JobStatus.DONE)
+                .order_by(Job.finished_at.desc(), Job.id.desc())).all():
+            if agent not in last_job:
+                last_job[agent] = {"job": f"jobs:{jid}", "job_type": jt}
     rows = []
     for name, enabled, types in agents:
         p = pend.get(name, {"ready": 0, "deferred": 0})
@@ -191,8 +214,11 @@ def agents_view(db, *, now: datetime | None = None) -> dict:
             "agent": name, "enabled": bool(enabled),
             "running_job": running.get(name),
             "pending_ready": p["ready"], "pending_deferred": p["deferred"],
-            "parked_job_types": {t: parked[t]["why"] for t in types if t in parked},
+            # CLOSE5: a backoff entry carries `until`/`factor`, not `why`; indexing ["why"]
+            # raised KeyError and served GET /api/departments as a 500 in production b931d17.
+            "parked_job_types": {t: _parked_why(parked[t]) for t in types if t in parked},
             "last_completion": lf.isoformat() if lf else None,
+            "last_output": last_job.get(name),
             "month_spend_cad": (None if spend is None else
                                 round(float((spend.get(name) or {}).get("cad") or 0.0), 6)),
             "idle": bool(enabled) and name not in running and p["ready"] == 0,

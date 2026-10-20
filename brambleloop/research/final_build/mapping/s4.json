@@ -240,27 +240,33 @@
   "uid": "F-240",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0 addendum: seller identity truthfulness / marketplace compliance",
-  "maturity": "MISSING",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "nothing models public shop identity vs legal/payout/tax identity, nor checks that differences are Etsy-permitted",
-  "producer": null,
+  "missing_part": null,
+  "producer": "src/brambleloop/brand/seller_identity.py::check_identity; brand/seller_identity.py::compare",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/brand/storefront.py::check_storefront (launch.plan -> ranking_readiness.shop_quality); launch/readiness.py seller_identity item",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_storefront_fb4.py::test_legal_identity_is_unknown_and_never_invented",
+   "tests/test_storefront_fb4.py::test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+   "tests/test_storefront_fb4.py::test_the_storefront_check_refuses_a_stale_identity"
+  ],
   "evidence": [
-   "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only"
+   "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only",
+   "w4-CLOSE5 on deployed b931d17: the mapping's 'nothing models public vs legal identity' is stale: brand/seller_identity.py (FB-4) keeps the public and legal presentations side by side; every legal value is UNKNOWN until owner-confirmed at KYC and is never invented; a difference is PERMITTED only when it cites an Etsy rule actually on file in gates.policy_knowledge, otherwise IDENTITY_DIFFERENCE_UNSOURCED / IDENTITY_RULE_NOT_ON_FILE; a storefront whose shop name drifted from the record is IDENTITY_STALE; reached on b931d17 via launch.plan; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
+   "w4-CLOSE5 on deployed b931d17: module_reachability regenerated on the deployed tree (research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json, 697 modules, 604 reached, none lost vs 0417f35) -- the module is reached from a live root"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_shop",
-   "detail": "legal/payout/tax identity is entered by the account holder at Etsy KYC; the software record of the approved public identity and the permitted-difference rule can be built now"
+   "kind": "none",
+   "key": null,
+   "detail": "the rule is enforced in code; the account holder's KYC entry of the legal values is an owner readiness item (seller_identity), not a gap in this row"
   },
   "defect": null,
-  "next_action": "Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied to a policy_knowledge reading of Etsy's rule) and a check in storefront.check_storefront that refuses an un-sourced difference; owner confirms legal identity at KYC.",
+  "next_action": "none in code -- the legal values stay UNKNOWN until the owner confirms them at Etsy KYC; readiness blocks until then",
   "confidence": "MEDIUM",
-  "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/"
+  "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/ | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-241",
@@ -1647,35 +1653,38 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0 addendum: order/customer truth (first-sale attribution)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no owner/Stats-export route to attribute organic, Etsy Ads or owned/direct (sources.attribute is only called by finance/reconcile for offsite_ads fee evidence); first sales will stay 'unknown' unless evidence arrives that way",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/orders_ingest.py::ingest -> finance/sources.py::record_first_sale, attribute",
   "durable_state": "orders.acquisition_source, orders.detail.attribution, operating_readings commerce.first_sale",
-  "consumer": "finance/sources.py::table; growth/loops/order_readings via SOURCE_TO_LOOP (unknown has no loop)",
+  "consumer": "finance/sources.py::table; growth/loops/order_readings via SOURCE_TO_LOOP (unknown has no loop); POST /api/orders/attribution (operator) -> sources.attribute + record_first_sale",
   "protected_effect": "ingest writes acquisition_source 'unknown'; a known source needs evidence; the first sale is recorded once with source, evidence and 'possibility, not scale'",
   "tests": [
    "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
    "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
-   "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused"
+   "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused",
+   "tests/test_w4_fmclose_etsy.py::test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows",
+   "tests/test_money_truth.py::test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket"
   ],
   "evidence": [
    "research/final_build/waves/fb1_D.json F-283 DONE",
    "codex_reconciliation CB2-O06: unknown-as-organic half fixed; loop downward correction remains",
-   "commerce.orders_ingest cadence; orders_ingest.py not in fcb982d"
+   "commerce.orders_ingest cadence; orders_ingest.py not in fcb982d",
+   "w4-CLOSE5 on deployed b931d17: POST /api/orders/attribution (app/main.py, deployed) requires the operator credential and evidence, and refreshes the first-sale record; the table always shows etsy_organic, etsy_ads, offsite_ads, owned_direct and unattributed, and the first-sale record carries 'One sale proves possibility, not scale'; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#11 OWNER-GATED",
    "#237 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "real orders are read only after the owner grants the transactions_r scope; the attribution route is buildable now"
+   "kind": "none",
+   "key": null,
+   "detail": "transactions_r OPEN in production b931d17; the criterion is the honest recording rule, which needs no sale to verify"
   },
   "defect": null,
-  "next_action": "Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed in main.CUSTOMER_DATA_ROUTES; test that it refuses without evidence and refreshes the first-sale record.",
+  "next_action": "none -- W4-FMCLOSE built the evidence route (deployed in b931d17); the first real sale is data, not a step",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-284",
@@ -2160,31 +2169,41 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); safe publication / controlled phase change",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Publication refuses in shadow (165 production refusals) and graduation is an owner request; rollback is rehearsed per listing (post-production). The transition itself is an env var (BRAMBLELOOP_PHASE) with no recorded owner-approved transition record binding the readiness verdict and rollback proof, and no staging step.",
-  "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish (phase refusal); src/brambleloop/launch/rollback.py::rehearse",
-  "durable_state": "AuditLog store.publish_refused; launch.assessed rollback_rehearsed",
-  "consumer": "src/brambleloop/launch/readiness.py::assess (phase requirement, GRADUATION owner request)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/phase.py::record_transition; src/brambleloop/core/phase.py::effective",
+  "durable_state": "audit_log owner.phase.transition (sealed, hash-chained)",
+  "consumer": "src/brambleloop/runtime/worker.py::protected_phase (re-resolved at every publish / activate / ad-spend effect boundary: runtime/pipeline.py _revalidate_publish_effect, runtime/growth_ops.py handle_ads_campaign)",
   "protected_effect": "nothing is published unless the phase allows it",
   "tests": [
    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-   "tests/test_cert_commerce.py::test_store_publish_refuses_in_shadow_before_touching_etsy_storage_or_hashes"
+   "tests/test_cert_commerce.py::test_store_publish_refuses_in_shadow_before_touching_etsy_storage_or_hashes",
+   "tests/test_fb4_launch.py::test_env_alone_saying_limited_production_runs_as_shadow_with_an_incident",
+   "tests/test_fb4_launch.py::test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are_audited",
+   "tests/test_fb4_launch.py::test_a_forged_or_edited_transition_row_is_not_authority",
+   "tests/test_fb4_launch.py::test_store_publish_refuses_when_env_says_production_but_nothing_is_recorded",
+   "tests/test_rc1_auth.py::test_A1_owner_rollback_recorded_after_boot_stops_store_activate",
+   "tests/test_w3_k4_launch_verdict.py::test_F300_rollback_to_shadow_never_requires_readiness",
+   "tests/test_w4_close5_rows.py::test_f299_ad_spend_follows_the_recorded_owner_transition_not_the_environment",
+   "tests/test_w4_close5_rows.py::test_f299_the_staging_step_cannot_be_skipped_and_needs_the_owner"
   ],
   "evidence": [
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)",
+   "w4-CLOSE5 on deployed b931d17: research/final_build/w4/evidence_BOARD/prod_api_verify_20261020T0416Z.json phase_is_shadow ok -- effective_phase shadow, BRAMBLELOOP_PHASE shadow, recorded_phase shadow, agree true; publication_was_actually_attempted_and_refused (186 refusals); no_paid_advertising (ad_spend_cad 0.0)",
+   "w4-CLOSE5 on deployed b931d17: the mapping's 'add a PhaseTransition record' is stale -- core/phase.py record_transition/resolve/effective and app/phase_api.py are in the deployed tree; deployed-tree run research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json"
   ],
   "build2_rows": [
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_shop",
-   "detail": "the phase change is the owner's decision"
+   "kind": "none",
+   "key": null,
+   "detail": "the mechanism is complete; moving up is the owner's own sealed transition (POST /api/owner/phase/transition), an action, not a gate on this row"
   },
   "defect": null,
-  "next_action": "Add a PhaseTransition record (from/to, owner approval ref, readiness snapshot id, rollback proof id) required by store.publish outside shadow, with staging as a distinct phase; tests.",
+  "next_action": "none -- PhaseTransition exists (core/phase.py, W3/rc1-AUTH): owner credential, one step at a time (shadow -> staging -> limited_production -> production), readiness + rollback evidence refs resolved to real rows, readiness verdict sealed at transition time, rollback down with a reason",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17 | w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-300",

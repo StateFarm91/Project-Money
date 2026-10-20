@@ -1,0 +1,539 @@
+{
+    "ok": false,
+    "checks": [
+        {
+            "check": "phase_is_shadow",
+            "ok": true,
+            "evidence": {
+                "effective_phase": "shadow",
+                "BRAMBLELOOP_PHASE": "shadow",
+                "recorded_phase": "shadow",
+                "agree": true,
+                "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+            }
+        },
+        {
+            "check": "nothing_published",
+            "ok": true,
+            "evidence": {
+                "store.published": 0,
+                "store.publish_incomplete": 0,
+                "store.publish_refused": 186,
+                "exercise_drafts_created": 0,
+                "exercise_drafts_left_on_etsy": [],
+                "listings_with_etsy_id": 0,
+                "draft_create_intents": 0,
+                "draft_create_intents_by_state": {}
+            }
+        },
+        {
+            "check": "publication_was_actually_attempted_and_refused",
+            "ok": true,
+            "evidence": {
+                "refusals": 186
+            }
+        },
+        {
+            "check": "no_paid_advertising",
+            "ok": true,
+            "evidence": {
+                "ad_spend_cad": 0.0
+            }
+        },
+        {
+            "check": "no_revenue_claimed",
+            "ok": true,
+            "evidence": {
+                "revenue_cad": 0.0,
+                "ledger_entries": 0
+            }
+        },
+        {
+            "check": "model_spend_within_its_ceiling",
+            "ok": true,
+            "evidence": {
+                "providers": [
+                    "anthropic"
+                ],
+                "spent_this_month_cad": 64.715931,
+                "monthly_ceiling_cad": 100.0
+            }
+        },
+        {
+            "check": "every_agent_has_a_cost_ceiling",
+            "ok": true,
+            "evidence": {
+                "agents": 30,
+                "without_ceiling": [],
+                "declared_no_spend": [
+                    "coo",
+                    "learn"
+                ],
+                "misconfigured": [],
+                "no_spend_agents_that_spent_today": [],
+                "zero_ceiling_means": "a permission of CA$0: gateway.anthropic.check_budget refuses any call with a positive estimate before it is made. Declared in agents.registry.DEFAULT_AGENTS; raising it is an owner decision",
+                "spent_today_against_ceiling": [
+                    {
+                        "agent": "ads",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "asset_truth",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "cfo",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "coo",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.0,
+                        "share": null
+                    },
+                    {
+                        "agent": "cost_optimiser",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "creative_critic",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "creative_director",
+                        "spent_today_cad": 2.341127,
+                        "daily_ceiling_cad": 28.0,
+                        "share": 0.0836
+                    },
+                    {
+                        "agent": "crochet_engineer",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 4.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "evaluator",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "experiment_designer",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "experiment_steward",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "failure_miner",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "growth",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 2.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "laura",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.5,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "laura_private",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.5,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "learn",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.0,
+                        "share": null
+                    },
+                    {
+                        "agent": "lesson_router",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "listing",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 2.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "market_radar",
+                        "spent_today_cad": 0.618084,
+                        "daily_ceiling_cad": 4.0,
+                        "share": 0.1545
+                    },
+                    {
+                        "agent": "orchestrator",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 3.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "policy",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "pricing",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "prompt_tool_challenger",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "publishing",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 2.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "quality_director",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "reliability_engineer",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "store_operator",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "support",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 2.0,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "swarm_steward",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 0.25,
+                        "share": 0.0
+                    },
+                    {
+                        "agent": "validator",
+                        "spent_today_cad": 0.0,
+                        "daily_ceiling_cad": 1.0,
+                        "share": 0.0
+                    }
+                ],
+                "over_their_ceiling_today": [],
+                "this_check_measures": "that a ceiling exists, not that it was enforced. The row above it says what was actually spent"
+            }
+        },
+        {
+            "check": "spend_limits_not_breached",
+            "ok": true,
+            "evidence": {
+                "paused_scopes": [],
+                "scopes_configured": 0,
+                "what_this_cannot_see": "a scope nobody configured. With none configured this check passes by absence: the live money controls are the monthly model ceiling above and the per-agent daily ceilings beside it"
+            }
+        },
+        {
+            "check": "state_is_in_a_durable_database",
+            "ok": true,
+            "evidence": {
+                "engine": "postgresql",
+                "certified_versions": 27,
+                "audit_records": 57943
+            }
+        },
+        {
+            "check": "worker_is_alive",
+            "ok": true,
+            "evidence": {
+                "last_tick": "2026-10-20T04:16:42.697506+00:00",
+                "restarts_in_this_process": 0,
+                "container_starts_24h": {
+                    "window_hours": 24,
+                    "since": "2026-10-19T04:16:44.540955+00:00",
+                    "starts": 2,
+                    "restarts_on_a_commit_already_seen": 0,
+                    "distinct_commits": 2,
+                    "why": "a start on a commit an earlier start already used is the container being replaced without a deploy, which is the case a restart count exists for. A start on a new commit is a deploy"
+                },
+                "starting": false,
+                "started_at": "2026-10-20T03:48:42.556947+00:00"
+            }
+        },
+        {
+            "check": "scheduler_has_ticked",
+            "ok": true,
+            "evidence": {
+                "last_tick": "2026-10-20T04:16:21.454346+00:00",
+                "starting": false
+            }
+        },
+        {
+            "check": "no_unexpected_dead_letters_in_24h",
+            "ok": false,
+            "evidence": {
+                "recent": [
+                    "intel.gallery_analysis"
+                ],
+                "recent_by_type": [
+                    {
+                        "job_type": "intel.gallery_analysis",
+                        "count": 1,
+                        "last_at": "2026-10-20T04:05:50.968988+00:00",
+                        "last_error": "TimeoutError: The read operation timed out"
+                    }
+                ],
+                "recent_total": 1,
+                "historical_total": 1,
+                "historical_types": [
+                    "intel.gallery_analysis"
+                ],
+                "expected_publish_refusals": 186,
+                "expected_stand_asides": 0,
+                "what_counts_as_expected": "shadow mode refusing to publish, and a job standing aside for the build that can run it. Both are refusals working; neither is a death to explain"
+            }
+        },
+        {
+            "check": "no_satisfied_owner_action_presented",
+            "ok": true,
+            "evidence": {
+                "presented_cards": 43,
+                "presented_but_satisfied": [],
+                "external_presented_as_owner_request": [],
+                "withheld_because_satisfied": [
+                    {
+                        "owner_action_id": 22,
+                        "gate": "transactions_r",
+                        "requirement_key": "reauthorise_transactions_r",
+                        "action": "Re-authorise the Etsy app: Command Center GET /api/etsy/oauth/start -> Allow all scopes incl. transactions_r"
+                    }
+                ],
+                "source": "one queue: executor gate state merged with OwnerAction rows by requirement_key (build2.executor.approval_inbox)"
+            }
+        }
+    ],
+    "readbacks": {
+        "estimate_drift": {
+            "status": "DEGRADED",
+            "as_of": "2026-10-20T04:16:45+00:00",
+            "basis": "measured",
+            "items": [
+                {
+                    "purpose": "construction_reading",
+                    "calls": 120,
+                    "estimated_cad": 30.18114,
+                    "recorded_cad": 15.806297,
+                    "ratio": 0.5237,
+                    "under_estimated": false,
+                    "detail": "outside tolerance",
+                    "status": "DEGRADED"
+                },
+                {
+                    "purpose": "creative.concept_field@2",
+                    "calls": 733,
+                    "estimated_cad": 36.049029,
+                    "recorded_cad": 21.350645,
+                    "ratio": 0.5923,
+                    "under_estimated": false,
+                    "detail": "outside tolerance",
+                    "status": "DEGRADED"
+                },
+                {
+                    "purpose": "gallery_observation",
+                    "calls": 128,
+                    "estimated_cad": 30.527775,
+                    "recorded_cad": 12.484647,
+                    "ratio": 0.409,
+                    "under_estimated": false,
+                    "detail": "outside tolerance",
+                    "status": "DEGRADED"
+                },
+                {
+                    "purpose": "model.probe",
+                    "calls": 38,
+                    "estimated_cad": 0.003117,
+                    "recorded_cad": 0.001824,
+                    "ratio": 0.5852,
+                    "under_estimated": false,
+                    "detail": "outside tolerance",
+                    "status": "DEGRADED"
+                },
+                {
+                    "purpose": "search_grid_tournament",
+                    "calls": 84,
+                    "estimated_cad": 21.528336,
+                    "recorded_cad": 12.968925,
+                    "ratio": 0.6024,
+                    "under_estimated": false,
+                    "detail": "outside tolerance",
+                    "status": "DEGRADED"
+                }
+            ],
+            "sources": [
+                "finance.spend_report.estimate_drift",
+                "cost_entries"
+            ],
+            "provider": "finance.spend_report.estimate_drift",
+            "reason": "creative.concept_field@2: 733 calls estimated CA$36.0490 and recorded CA$21.3506 (modelled; ratio 0.5923), outside \u00b125%; construction_reading: 120 calls estimated CA$30.1811 and recorded CA$15.8063 (modelled; ratio 0.5237), outside \u00b125%; search_grid_tournament: 84 calls estimated CA$21.5283 and recorded CA$12.9689 (unknown; ratio 0.6024), outside \u00b125%; gallery_observation: 128 calls estimated CA$30.5278 and recorded CA$12.4846 (modelled; ratio 0.409), outside \u00b125%; model.probe: 38 calls estimated CA$0.0031 and recorded CA$0.0018 (modelled; ratio 0.5852), outside \u00b125%",
+            "label": "estimated vs actual (recorded per-call cost) model spend, this month",
+            "state": "degraded",
+            "degraded": true,
+            "why": "creative.concept_field@2: 733 calls estimated CA$36.0490 and recorded CA$21.3506 (modelled; ratio 0.5923), outside \u00b125%; construction_reading: 120 calls estimated CA$30.1811 and recorded CA$15.8063 (modelled; ratio 0.5237), outside \u00b125%; search_grid_tournament: 84 calls estimated CA$21.5283 and recorded CA$12.9689 (unknown; ratio 0.6024), outside \u00b125%; gallery_observation: 128 calls estimated CA$30.5278 and recorded CA$12.4846 (modelled; ratio 0.409), outside \u00b125%; model.probe: 38 calls estimated CA$0.0031 and recorded CA$0.0018 (modelled; ratio 0.5852), outside \u00b125%",
+            "token_priced_calls": 1157,
+            "purposes_outside_tolerance": [
+                "construction_reading",
+                "creative.concept_field@2",
+                "gallery_observation",
+                "model.probe",
+                "search_grid_tournament"
+            ],
+            "purposes_too_few_calls_to_judge": [
+                "asset_inspection",
+                "creative.concept_field@3",
+                "laura.ceo_briefing@3",
+                "topic_filing",
+                "vision.probe"
+            ],
+            "calls_with_no_reservation_share": 0.0069,
+            "tolerance": 0.25,
+            "settlement_against_provider_billing": "OWNER-GATED",
+            "settlement_why": "OWNER-GATED: settling recorded model spend against the provider's own billing needs provider usage-API (admin) access, which only the owner can grant; until then 'actual' means the recorded per-call cost, not the invoice"
+        },
+        "smoke_matrix": {
+            "verdict": "PASS",
+            "as_of": "2026-10-20T04:16:45.307382+00:00",
+            "checks": [
+                {
+                    "check": "probe_ran:model.probe",
+                    "verdict": "PASS",
+                    "why": "model.probe ran 1570 s ago",
+                    "evidence": {
+                        "cadence": "model_probe",
+                        "period_s": 21600,
+                        "allowed_age_s": 45000,
+                        "last_at": "2026-10-20T03:50:35.729094+00:00",
+                        "age_s": 1570,
+                        "provider_answered_ok": true,
+                        "provider_reason": null
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "probe_ran:vision.probe",
+                    "verdict": "PASS",
+                    "why": "vision.probe ran 1580 s ago",
+                    "evidence": {
+                        "cadence": "capability_probes",
+                        "period_s": 21600,
+                        "allowed_age_s": 45000,
+                        "last_at": "2026-10-20T03:50:25.525475+00:00",
+                        "age_s": 1580,
+                        "provider_answered_ok": true,
+                        "provider_reason": null
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "probe_ran:etsy.probe",
+                    "verdict": "PASS",
+                    "why": "etsy.probe ran 15014 s ago",
+                    "evidence": {
+                        "cadence": "etsy_probe",
+                        "period_s": 21600,
+                        "allowed_age_s": 45000,
+                        "last_at": "2026-10-20T00:06:31.193529+00:00",
+                        "age_s": 15014,
+                        "provider_answered_ok": true,
+                        "provider_reason": null
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "continuity_restore_proven",
+                    "verdict": "PASS",
+                    "why": "an export was restored into an empty database and hashed identically",
+                    "evidence": {
+                        "last_verified_at": "2026-10-20T00:01:05.481633+00:00",
+                        "last_failed_at": null,
+                        "allowed_age_s": 174600
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "cadence_coverage",
+                    "verdict": "PASS",
+                    "why": "100/100 cadences fresh",
+                    "evidence": {
+                        "reason": "100/100 cadences fresh",
+                        "fresh": 100,
+                        "stale_count": 0,
+                        "stale": [],
+                        "not_yet_judged": 14,
+                        "target": 0.95
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "queue_round_trip",
+                    "verdict": "PASS",
+                    "why": "jobs are enqueued, claimed and completed within the hour",
+                    "evidence": {
+                        "done_in_last_hour": 76,
+                        "oldest_due_pending_wait_s": null,
+                        "max_wait_s": 3600
+                    },
+                    "requirement": "F-171"
+                },
+                {
+                    "check": "search_intelligence_captured",
+                    "verdict": "PASS",
+                    "why": "intel.serp_capture completed 14313 s ago",
+                    "evidence": {
+                        "job_type": "intel.serp_capture",
+                        "last_done_at": "2026-10-20T00:18:12.128962+00:00",
+                        "age_s": 14313,
+                        "allowed_age_s": 174600
+                    },
+                    "requirement": "F-171"
+                }
+            ],
+            "failing": [],
+            "unknown": [],
+            "rule": "FAIL if any check fails; UNKNOWN if none fails and any cannot be judged yet; PASS only when every check passes. Read from rows the runtime wrote, never from configuration"
+        }
+    }
+}
