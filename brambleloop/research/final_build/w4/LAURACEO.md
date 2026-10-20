@@ -144,7 +144,7 @@ Assumes a routine day of 20 chat turns, 4 executive questions, 2 tick orderings 
 
 ## §4 Tests (offline: stub transport, no network, no key)
 
-`tests/test_w4_laura_ceo.py`: **12/12 pass**.
+`tests/test_w4_laura_ceo.py`: **13/13 pass** (adds `test_validation_matches_the_same_figure_but_never_a_new_one`: 0.50 = 0.5, a clock time read from a timestamp, list markers; a new figure is withheld without echoing it).
 
 | ADD-LCEO-07 step | Test |
 |---|---|

@@ -131,6 +131,20 @@ def test_step2_status_is_grounded_and_an_invented_figure_is_withheld():
     assert r3["status"] == ceo_chat.WITHHELD and "human" in r3["answer"]
 
 
+def test_validation_matches_the_same_figure_but_never_a_new_one():
+    vals = {"evidence": "E1 | 2026-10-20T03:49:00+00:00 | cost_entries | Laura's daily budget "
+                        "CA$0.50; 1,204 jobs", "unknowns": "", "memory": "", "history": "",
+            "proposals": "", "today": "2026-10-20", "identity": ""}
+    ok, why = ceo_chat.validate({"reply": "Budget is CA$0.5 a day; 1204 jobs ran by 03:49.\n"
+                                          "1. keep going", "citations": ["E1", "E9", "x"]},
+                                question="status?", vals=vals, n_facts=1, n_props=0)
+    assert ok and ok["citations"] == [1], (ok, why)
+    bad, why = ceo_chat.validate({"reply": "We earned CA$0.75 from 1205 jobs."},
+                                 question="status?", vals=vals, n_facts=1, n_props=0)
+    assert bad is None and "2 figure(s)" in why, why
+    assert "0.75" not in why and "1205" not in why
+
+
 # ---- 3. a genuine priority ---------------------------------------------------------------
 
 def test_step3_executive_reasoning_uses_the_stronger_tier_and_names_a_real_priority():

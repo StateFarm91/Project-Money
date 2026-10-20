@@ -10110,6 +10110,6 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
   - an owner report with costs goes to the timeline and memory each 6 h window.
 - Per-unit cost attribution (`laura_cost_events`, `GET /api/cc/laura/costs`).
 - `POST /api/cc/laura/converse`; the CC Laura view uses it.
-- Tests: `tests/test_w4_laura_ceo.py` 12/12.
+- Tests: `tests/test_w4_laura_ceo.py` 13/13.
 
 **Not done.** ADD-LCEO-07 needs the production run in `research/final_build/w4/LAURACEO.md` §5, after deploy and owner approval. Until then it is open, not PASS.

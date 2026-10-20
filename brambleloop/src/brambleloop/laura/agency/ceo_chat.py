@@ -203,8 +203,25 @@ def values(question: str, *, ident: dict, hist: list[dict], mem: list[dict], fac
 # ---- deterministic validation (wins over the model) ----------------------------------------
 
 
+def _norm(n: str) -> str:
+    """'1,234' -> '1234'; '0.50' -> '0.5'; '12.00' -> '12' (same figure, same key)."""
+    n = n.replace(",", "")
+    if "." in n and ":" not in n:
+        n = n.rstrip("0").rstrip(".") or "0"
+    return n
+
+
 def _numbers(text: str) -> set[str]:
-    return {n.replace(",", "") for n in _NUM.findall(str(text or ""))}
+    return {_norm(n) for n in _NUM.findall(str(text or ""))}
+
+
+def _known(n: str, allowed: set[str]) -> bool:
+    """A figure is known when it appears as such, or (a clock time like 03:49 read from a
+    timestamp 03:49:00) when every part of it does."""
+    if n in allowed:
+        return True
+    parts = n.split(":")
+    return len(parts) > 1 and all(p in allowed for p in parts)
 
 
 def validate(data: dict | None, *, question: str, vals: dict, n_facts: int,
@@ -223,8 +240,9 @@ def validate(data: dict | None, *, question: str, vals: dict, n_facts: int,
     for k in ("evidence", "unknowns", "memory", "history", "proposals", "today", "identity"):
         allowed |= _numbers(vals.get(k, ""))
     allowed |= _numbers(question)
+    allowed |= {p for n in list(allowed) for p in n.split(":")}
     stated = _numbers(_LIST_MARK.sub(" ", reply))
-    extra = sorted(n for n in stated if n not in allowed)
+    extra = sorted(n for n in stated if not _known(n, allowed))
     if extra:
         # The unverified figures are not echoed back to the owner: they are the problem.
         return None, (f"it stated {len(extra)} figure(s) I could not find in the records or "
