@@ -1,13 +1,15 @@
-# INTEG3 (2026-10-19): release candidate 8de23ad on top of production 1b21e81
+# INTEG3 (2026-10-19/20): candidate e66d931 on top of production 1b21e81 -- NOT release-eligible (1 suite)
 
 Integrator: W-INTEG3. Worktree `.claude/worktrees/W4-INTEG3`, branch `claude/w4-INTEG3`, created from
 `origin/claude/w4-INTEG2` 9c3812b. Production: 1b21e81 (= a25a377 + release record), SHADOW.
 No deploy, no production write, no spend. Production contact: none (local Postgres only).
 
-**Candidate: `8de23add98ad368ceaa344b901fa6fea04c52f35`, branch `claude/final-candidate-8de23ad`.**
+**Candidate: `e66d9318b37e9095a839020d99003215e3796a85`, branch `claude/final-candidate-e66d931`.
+Full suite: 8644 passing, 1 suite failing (test_w3_visual_commercial_slowloop, §7). Guard: REFUSE.**
 Superseded freezes (do not deploy): `claude/final-candidate-5f18d11` (BRANDRULE arrived after it,
-§2) and `claude/final-candidate-cd7e7dc` (PRODREADY's final head 407089e changed
-`seo/strategy.py`, a code change, so a refreeze was required).
+§2), `claude/final-candidate-cd7e7dc` (PRODREADY's final head 407089e changed
+`seo/strategy.py`), `claude/final-candidate-8de23ad` (5 suites failed, §7).
+The visual branches VISAUTO, FIDELITY and WRAPTEST are not in this candidate.
 
 ## 1. Merges (in order, one implementation per defect)
 
@@ -107,6 +109,36 @@ Bisected over the merge commits:
 | test_final_closure_matrix | BOARD (88e91da) | BOARD's 1b21e81 closure remap also re-mapped post-launch F-486; `aggregate.launch_scope` assumes every remap row was launch-critical, so F-486 read "moved out by the launch-critical re-map wave" with an 18-character reason | `aggregate.CLOSURE_ONLY_REMAPS = {"1b21e81"}`: a closure remap records the mapping commit but is not a launch-class move. LAUNCH_SCOPE.json regenerated; only F-486 changes (back to INTEG2's). closure_matrix.json unchanged. |
 | test_provider_accounts (2 tests) | INTEG3 FX (c8c4abc) | the reconciliation pins were the 0.715 arithmetic | pinned to the 1.4154 reference, each derived from `core.fx` in the test: 14 CAD = US$9.8912, difference 0.1888, runway 342 renders (was 10.01 / 0.07 / 338). |
 | test_w3_visual_commercial_slowloop (3 tests) | PRODREADY (5b16704) | **Not fixed.** Disclosed-render contract 3 (owner D-W4-VISROLE-LEGIBILITY: 58 px lettering) shrinks the product zone to 95 % of its height for every frame. The free hero challenger `disclosed_finished_render_close` now beats the incumbent by 0.0185 proxy points (0.8272 vs 0.8087); `hero.PROXY_MARGIN` is 0.02. Before contract 3 the margin was 0.0215 (0.8425 vs 0.8210). The gate is behaving correctly; the test's fixture premise ("a free challenger promotes on proxy") no longer holds for any Launch-0 class (probed all 11 builders: only coasters_tabletop runs challengers; hexagon_coasters 0.0185, placemat_pair 0.0). | Not weakened, not tuned: lowering the margin or retuning `hero_gap_ratio` to pass a test is a product decision. Needs the visual R&D owner: re-design the free challengers for contract 3, or restate the test premise with an owner decision. |
+
+## 8. Full suite on e66d931, guard, rollback, security
+
+- **Full suite** run 20261019T215024Z-3001 on e66d931 (same settings; 7912 s): **8644 tests
+  passing, 1 suite failing (test_w3_visual_commercial_slowloop, 3 tests, the unfixed row
+  above), 0 tmp leak.** The four fixed suites pass. Record `failed`, not release-eligible.
+- **`python3 ops/deploy_guard.py record`:** `ok: false`, "no release-eligible local suite run
+  record for e66d9318b37e". No release record was written or committed.
+- **`DRY_RUN=1 sh ops/deploy.sh --deployed 1b21e81…`:** **REFUSE** ("no tracked release record
+  names the deployable tree digest of e66d9318b37e (171d8f22…)"). Nothing pushed.
+- **Rollback rehearsal (dry run only).**
+  - `--rollback-to 1b21e81 --reason "INTEG3 rollback rehearsal" --deployed 1b21e81`: REFUSE,
+    "rollback target 1b21e81c6d1b is not in the tracked deployed history". Expected: the guard
+    reads DEPLOYED_HISTORY at the deployed commit, and 1b21e81's own history predates its deploy
+    (recorded later in INTEG2 9c3812b). Rolling production back to itself is not a rollback.
+  - The meaningful rehearsal, as if the candidate were deployed: `--rollback-to 1b21e81
+    --reason "INTEG3 rollback rehearsal" --deployed e66d931`: **ALLOW** (rollback commit 6333133
+    built locally, nothing pushed). `deploy_guard.py rehearse-rollback --candidate HEAD
+    --deployed 1b21e81`: **ALLOW**.
+- **Security:** independent review of 1b21e81..5f18d11 by a fresh session
+  (`claude/w4-SECREVIEW-5f18d11` @ 457e02e, copied here as `INDEPENDENT_SECREVIEW_5f18d11.md`):
+  **NO BLOCKER**; 1 MEDIUM (M1: synchronous DB work on the public webhook's event loop, 2-3
+  transactions on one hot row per refusal: wrap in a threadpool, merge the transactions), 3 LOW
+  (L1 int4 counter overflow; L2 refused reading text still persisted via `failed[].why`; L3
+  `current_release_deployed` displayed but not enforced), 2 INFO. Not fixed in this candidate.
+  The 5f18d11..e66d931 src delta (not independently reviewed) is `decision_index.json` (data),
+  `seo/strategy.py` (SEO phrase lists) and `improve/bootstrap.py` (incumbent registration):
+  no endpoint, auth, spend, schema or dependency change.
+- **Migration:** two additive tables created at boot (§6); no column change, no data change;
+  rollback-safe.
 
 The board was not regenerated after the bootstrap fix (it was regenerated once, as asked);
 rows naming `improve/bootstrap.py` will read as changed-since-deploy on the next regeneration.
