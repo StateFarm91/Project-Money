@@ -749,7 +749,7 @@ def test_static_isolation_is_unchanged():
                                  "brambleloop.app.command_center.private_context")
     src = ROOT / "src" / "brambleloop"
     for rel in ("gateway/laura_unified.py", "laura/agency/boundary.py",
-                "laura/agency/ceo_chat.py"):
+                "laura/agency/ceo_chat.py", "laura/agency/venice_context.py"):
         text = (src / rel).read_text()
         assert ".reveal(" not in text and "laura.private import" not in text, rel
         assert "private.store" not in text and "from ..laura.private" not in text, rel
@@ -938,6 +938,151 @@ def test_no_summary_or_compaction_feeds_a_business_call():
         text = (ROOT / "src/brambleloop" / rel).read_text()
         assert "private.store" not in text and "unified_view" not in text and \
             "laura_private_entries" not in text, rel
+
+
+# ---------------------------------------------------------------- the restricted feed (D-W4-LAURA-UNIFIED-FEED)
+
+PII = ("jane.doe@example.com", "+1 (416) 555-0199", "M5V 2T6", "4111 1111 1111 1111",
+       "DE89370400440532013000", "sk-live-STANDIN0123456789abcdef", "3141592653",
+       "12 Maple Street")
+
+
+def _seed_feed_db():
+    from brambleloop.core.models import Customer, Order, OwnerAction, Product
+    from brambleloop.laura.core.models import LauraPriority, ensure_tables as core_tables
+
+    db = _db()
+    core_tables(db)
+    with db.session() as s_:
+        s_.add(Product(slug="harbour-shawl", title="Harbour Shawl", status="certified"))
+        s_.add(Product(slug="tide-cowl", title="Tide Cowl", status="concept"))
+        c = Customer(customer_ref="buyer-" + PII[0], detail={
+            "email": PII[0], "phone": PII[1], "postal": PII[2], "card": PII[3],
+            "iban": PII[4], "address": PII[7]})
+        s_.add(c)
+        s_.flush()
+        s_.add(Order(customer_id=c.id, external_ref="etsy-receipt-" + PII[6],
+                     product_slug="harbour-shawl", revenue_cad=12.0))
+        s_.add(OwnerAction(requirement_key="test:pii-card",
+                           action=f"Reply to {PII[0]} about receipt {PII[6]}",
+                           reason="buyer message", minutes=2, consequence_of_delay="x"))
+        s_.add(LauraPriority(key="k1", rule="r", department="visual",
+                             title=f"rotate key {PII[5]}", status="open"))
+    return db
+
+
+def test_feed_is_allowlisted_validated_fail_closed_and_audited_without_values():
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    PC.remember(db, sid, "PRIV-LABEL-FEED", S_NOTE)
+    pack = VC.build(db)
+    body = json.loads(pack["text"])
+    assert body["format"] == VC.FORMAT and set(body["fields"]) <= set(VC.FIELD_NAMES)
+    assert body["fields"]["products_by_status"] == {"certified": 1, "concept": 1}
+    assert body["fields"]["model_ceiling_month_cad"] == 100.0
+    assert body["fields"]["revenue_total_cad"] is None              # UNKNOWN, never 0
+    # Seeded customer PII, payment data, keys and private-memory text never appear.
+    for bad in PII + (S_NOTE, "PRIV-LABEL-FEED", "harbour-shawl", "Harbour Shawl"):
+        assert bad not in pack["text"], bad
+    # A validator hit fails closed: the whole field is dropped, recorded by NAME only.
+    dropped = {d["name"]: d["why"] for d in pack["dropped"]}
+    assert "owner_decision_titles" in dropped and "laura_priorities" in dropped, dropped
+    assert not any(b in json.dumps(pack["dropped"]) for b in PII)
+    assert pack["bytes"] <= VC.MAX_PACK_BYTES
+    for f in VC.FIELDS:                                   # every field fully declared
+        assert f.source and f.max_size > 0 and f.sensitivity in VC.CLASSES
+    # Validators directly: each deny shape refuses; aggregates must be numbers.
+    title = VC.FIELDS[[f.name for f in VC.FIELDS].index("owner_decision_titles")]
+    for bad in PII:
+        try:
+            VC.validate(title, [f"check {bad}"])
+            raise AssertionError(f"validator passed {bad}")
+        except VC.FieldRefused:
+            pass
+    n = VC.FIELDS[[f.name for f in VC.FIELDS].index("open_owner_decisions")]
+    for bad in ("3", -1, float("nan"), True):
+        try:
+            VC.validate(n, bad)
+            raise AssertionError(f"aggregate accepted {bad!r}")
+        except VC.FieldRefused:
+            pass
+    # A field outside the allowlist cannot be emitted.
+    rogue = VC.Field("customer_emails", "list_str", "customers", lambda d: [PII[0]], 5,
+                     VC.DECISION_TITLE)
+    p2 = VC.build(db, fields=VC.FIELDS + (rogue,))
+    assert "customer_emails" not in p2["text"] and PII[0] not in p2["text"]
+    assert {"name": "customer_emails", "why": "not_allowlisted"} in p2["dropped"]
+
+
+def test_feed_switch_off_sends_nothing_and_preview_equals_the_payload():
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    mock = Venice(replies=[R[0], R[1]])
+    with unified(mock):                                      # switch OFF (default)
+        a = _turn(db, sid, EVERYDAY_TURN)
+    assert VC.FORMAT not in mock.user(0) and a["reply"]["feed"] is None
+    assert [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION] == []
+    with unified(mock, **{U.BUSINESS_TO_VENICE_ENV: "1"}):
+        prev = VC.preview(db)
+        b = _turn(db, sid, "Tell me something nice")
+    assert prev["enabled"] is True and prev["payload"] in mock.user(1)   # preview == payload
+    assert b["reply"]["feed"]["sha256"] == prev["sha256"]
+    (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
+    assert row.detail["sha256"] == prev["sha256"] and row.detail["fields"] == [
+        f["name"] for f in prev["fields"]]
+    assert set(row.detail) == {"sha256", "fields", "counts", "bytes", "dropped", "format"}
+    texts = [f["value"] for f in prev["fields"] if isinstance(f["value"], str)]
+    assert texts and not [t for t in texts if t in json.dumps(row.detail)], row.detail
+    assert row.detail["counts"] == {f["name"]: (len(f["value"]) if isinstance(
+        f["value"], (list, dict)) else 0 if f["value"] is None else 1) for f in prev["fields"]}
+    for bad in PII:
+        assert bad not in mock.user(1) and bad not in json.dumps(row.detail)
+    # The owner's preview over HTTP is owner-only and no-store.
+    c, csrf = H.session()
+    r = H.post(c, csrf, "/api/cc/laura/unified/feed-preview", {})
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    assert {f["name"] for f in r.json()["allowlist"]} == set(VC.FIELD_NAMES)
+    assert H.client().post("/api/cc/laura/unified/feed-preview",
+                           json={}).status_code in (401, 403)
+
+
+# ---------------------------------------------------------------- residual risks revisited
+
+
+def test_short_private_text_is_matched_exactly_and_the_guard_reads_the_whole_store():
+    assert U.leak_check("Have Design make banners, darling", ["darling"])[0]["how"] == \
+        "short_exact"
+    assert U.leak_check("What did the company do today?", ["hi", "ok", "today"]) != [] \
+        and U.leak_check("What did the company do?", ["hi", "ok"]) == []
+    db = _db()
+    sid = _open(db)
+    p = PC._principal(db, sid)
+    for i in range(505):
+        store.record_turn(db, p, "owner", f"PRIV-SENTINEL-OLD-{i:04d} our old words",
+                          label="private")
+    texts = PC._private_texts(db, p)
+    assert "PRIV-SENTINEL-OLD-0000 our old words" in texts and len(texts) >= 505
+
+
+def test_structured_requests_carry_only_allowlisted_parameters():
+    params = U.extract_params(
+        "How were Etsy sales and traffic overnight for the Harbour Shawl? priority 12",
+        product_slugs={"harbour-shawl": "Harbour Shawl"})
+    assert params["metrics"] == ["sales", "traffic"] and params["date_range"] == "overnight"
+    assert params["products"] == ["harbour-shawl"] and params["priority_id"] == 12
+    req = U.render_structured("business.ask", params)
+    assert req == ("What did the company do overnight? Focus on metrics: sales, traffic; "
+                   "products: harbour-shawl; priority 12.")
+    d = U.extract_params("I hate that banner. Have Design make three more.")
+    assert U.render_structured("business.delegate", d) == "Have Design make 3 more banners."
+    # A delegation with no allowlisted object is never sent automatically: it is offered.
+    vague = "Have Design do something about the vibe my sister mentioned."
+    plan = U.plan_brief({"tool": "business.delegate", "brief": ""}, U.classify(vague), vague)
+    assert plan["send"] == "" and plan["offer"]["text"] == vague
 
 
 if __name__ == "__main__":

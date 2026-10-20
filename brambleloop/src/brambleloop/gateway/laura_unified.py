@@ -71,7 +71,9 @@ def enabled(env=None) -> bool:
 
 
 def business_to_venice(env=None) -> bool:
-    """The owner's SEPARATE approval of company data flowing to Venice (exactly "1")."""
+    """The owner's SEPARATE activation of the restricted, allowlisted company-context feed to
+    Venice (`laura.agency.venice_context`; exactly "1"). Business exchanges' free text never
+    goes to Venice either way."""
     env = os.environ if env is None else env
     return str(env.get(BUSINESS_TO_VENICE_ENV) or "").strip() == "1"
 

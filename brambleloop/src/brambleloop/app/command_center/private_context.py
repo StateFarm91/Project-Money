@@ -391,10 +391,11 @@ def unified_status(db, session_public_id: str) -> dict:
     return {"unified": laura_unified.mode() or "off",
             "business_to_venice": b2v,
             "business_to_venice_label": (
-                f"{laura_unified.BUSINESS_TO_VENICE_ENV}=1: business briefs and validated "
-                "answers enter Venice's context" if b2v else
-                f"{laura_unified.BUSINESS_TO_VENICE_ENV} off: Venice sees a content-free "
-                "placeholder for business exchanges"),
+                f"{laura_unified.BUSINESS_TO_VENICE_ENV}=1: Venice receives the restricted, "
+                "allowlisted company-context feed (preview it below); business exchanges stay "
+                "a placeholder" if b2v else
+                f"{laura_unified.BUSINESS_TO_VENICE_ENV} off: Venice receives no company "
+                "context; business exchanges are a content-free placeholder"),
             "configured": base["configured"], "open": base["open"],
             "requires": base["requires"],
             "venice_replies": base["reply_register"],

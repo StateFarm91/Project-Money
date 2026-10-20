@@ -1,3 +1,11 @@
+> **2026-10-20 (later) — W4-LAURAONE revision: restricted Venice feed and structured requests (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner review (D-W4-LAURA-UNIFIED-FEED): Unified Laura is the preferred candidate.
+> - **Feed.** `laura/agency/venice_context.py` sends Venice an allowlisted, validated, size-capped company-context pack, only with `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE=1`. Every send is audited by hash, names and counts, and the owner can preview it.
+> - **Structured requests.** Business tools now get code-rendered structured requests. Free text, including the owner's own words, crosses only on her explicit tap; step-up is required unless it is clean business wording.
+> - **Residual risks revisited.** The guard reads the whole store and matches short texts exactly. Marking an exchange private redacts the derived business records.
+> - **Tests.** `tests/test_w4_laura_unified.py` 26/26.
+> - **Not done.** ADD-LCONT-11 is OPEN; ADD-LCONT-12 and -13 were added. Owner decisions OA-LCONT-1..4 are in LAURAONE.md §10.
+
 > **2026-10-20 — W4-LAURAONE: one Laura, one thread (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
 > Owner requirement "LAURA CONVERSATIONAL CONTINUITY" plus its clarification (D-W4-LAURA-UNIFIED; spec/13 ADD-LCONT-01..11).
 > - **What exists.** Behind `BRAMBLELOOP_LAURA_UNIFIED=venice`, the CC Laura view is one thread. Every turn, on any topic, is kept in the encrypted private store with a sealed label.

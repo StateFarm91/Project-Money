@@ -26,8 +26,9 @@ function crossingRow(x, refresh) {
       title: "Share with the business side",
       lines: ["Exactly this text crosses, and nothing else:", `“${x.text}”`,
         x.origin === "laura_draft" ? "Laura drafted this request; it is shown word for word." : "Quoted from what you wrote.",
+        x.requires_stepup ? "Not plain business, or it overlaps our private conversation: re-authenticate to share." : "Your own business words: one tap shares exactly this.",
         "Recorded as a boundary crossing holding this text only."],
-      confirmLabel: "Share", requiresStepUp: true,
+      confirmLabel: "Share", requiresStepUp: !!x.requires_stepup,
       run: () => api.lauraUnifiedCrossing(x.id, true), success: "Shared with the business side." });
     if (out) refresh();
   });
@@ -51,6 +52,25 @@ function turnRow(t, refresh, selected) {
       t.excluded ? h("span", { class: "muted small" }, " · excluded from context") : null),
     h("p", { class: "row-detail" }, t.text || ""),
     h("p", { class: "muted small" }, t.at ? utcStamp(t.at) : ""));
+}
+
+// D-W4-LAURA-UNIFIED-FEED: exactly which allowlisted company-context fields Venice would get.
+function feedPreview() {
+  const box = h("div", { class: "stack" });
+  const btn = h("button", { class: "btn", type: "button" }, "Preview the company context Laura's conversation model would see");
+  btn.addEventListener("click", async () => {
+    try {
+      const p = ((await api.lauraUnifiedFeedPreview()) || {}).data || {};
+      clear(box);
+      box.append(h("p", { class: "muted small" }, `${p.enabled ? "ON" : "OFF (nothing is sent)"} · ${p.switch || ""} · ${p.bytes || 0} of ${p.max_bytes || 0} bytes · sha256 ${String(p.sha256 || "").slice(0, 12)}…`),
+        h("ul", { class: "rows" }, (p.fields || []).map((f) => h("li", { class: "row" },
+          h("p", { class: "row-title" }, `${f.name} (${f.sensitivity})`),
+          h("p", { class: "row-detail" }, JSON.stringify(f.value)),
+          h("p", { class: "muted small" }, `source: ${f.source}`)))),
+        (p.dropped || []).length ? h("p", { class: "callout callout-warn" }, `Dropped (failed a check; never sent): ${(p.dropped || []).map((d) => d.name).join(", ")}`) : null);
+    } catch (e) { toast(e.message, "bad"); }
+  });
+  return h("details", { class: "laura-feed" }, h("summary", null, "Company context feed"), btn, box);
 }
 
 export function unifiedCard(status) {
@@ -104,6 +124,7 @@ export function unifiedCard(status) {
     h("p", { class: "muted small" }, st.business_to_venice_label || ""),
     st.prerequisites ? h("p", { class: "muted small" }, `Activation prerequisites: ${st.prerequisites.filter((p) => p.met).length} of ${st.prerequisites.length} met.`) : null,
     prereqList(st.prerequisites),
+    feedPreview(),
     st.configured ? openBtn : h("p", { class: "callout callout-warn" }, "The encrypted store has no key here, so the conversation cannot open."),
     body);
 }

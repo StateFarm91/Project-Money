@@ -2387,3 +2387,24 @@ The owner's commit fcb2bcd (the four register strings) was merged into `claude/w
   - ADD-PLV-07 passes in production.
 - **L1b** (documentary verification of Venice Terms §10.9(c)) remains NOT VERIFIED. The owner accepts it on
   attestation.
+
+## D-W4-LAURA-UNIFIED-FEED — Restricted business-context feed to Venice; structured requests first (owner review 2026-10-20; DESIGN OWNER-APPROVED, ACTIVATION PENDING)
+
+- **Owner rulings (relayed by the coordinator, summarised):**
+  - Unified Laura is the preferred candidate.
+  - Venice may receive a restricted, allowlisted, structured feed of company context:
+    - status, product progress, department activity, operational decisions;
+    - non-sensitive financial aggregates only.
+  - It must never receive credentials, customer PII, payment details, protected personal records, or anything outside the declared scope.
+  - Business tool calls are structured requests by default.
+  - Free text, including the owner's own words, crosses only on her explicit approval of the exact text. Step-up is required for anything not classified business.
+  - The leak guard stays as defence in depth.
+- **Implemented on `claude/w4-LAURAONE`:**
+  - `laura/agency/venice_context.py`: a code-defined schema with declared read functions, deny-pattern validators that fail closed, a 3,000-byte cap, an audit row holding the hash, names and counts but no values, and an owner preview equal to the payload.
+  - `gateway/laura_unified.extract_params` and `render_structured`.
+  - One-tap or step-up offers, with an overlap upgrade.
+  - The guard covers the whole store and matches short texts exactly.
+  - Marking an exchange private redacts the derived business records.
+  - Thread calls write no business memory.
+- **Withdrawn:** the earlier free-form "business exchanges to Venice" design behind the same switch.
+- **Status.** The design is owner-approved. Activation of `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE` is a separate owner decision (OA-LCONT-2), and it stays OFF. Nothing is deployed. ADD-LCONT-11 is OPEN.

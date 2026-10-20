@@ -135,6 +135,7 @@ export const ENDPOINTS = {
   lauraUnifiedTurn: () => `${API_BASE}/laura/unified/turn`,
   lauraUnifiedCrossing: () => `${API_BASE}/laura/unified/crossing`,
   lauraUnifiedControl: () => `${API_BASE}/laura/unified/control`,
+  lauraUnifiedFeedPreview: () => `${API_BASE}/laura/unified/feed-preview`,
 };
 
 export class ApiError extends Error {
@@ -373,5 +374,6 @@ export const api = {
   lauraUnifiedTurn: (text, keepPrivate) => post(ENDPOINTS.lauraUnifiedTurn(), { text, private: !!keepPrivate }),
   lauraUnifiedCrossing: (id, approve) => post(ENDPOINTS.lauraUnifiedCrossing(), { id, approve: !!approve }),
   lauraUnifiedControl: (action, ids) => post(ENDPOINTS.lauraUnifiedControl(), { action, ids }),
+  lauraUnifiedFeedPreview: () => post(ENDPOINTS.lauraUnifiedFeedPreview(), {}),
   lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),
 };
