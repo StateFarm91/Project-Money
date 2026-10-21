@@ -48,6 +48,13 @@ PAGES: dict[str, dict[str, Any]] = {
                       "values": "identity_verified: bool (Etsy shows verification complete); "
                                 "tax_position: the GST/HST position chosen, as stated "
                                 "(non-empty); decided_on: ISO date the position was chosen"},
+    # LAUNCHPREP E2: whether Policy settings shows an editable delivery text box for this
+    # digital-only shop. A dated `false` is the evidence that lets a blank policy_shipping read
+    # not applicable (`intel.etsy_surfaces`); `true` keeps the check as it is.
+    "delivery_policy": {"owner_action": None, "max_age_days": 90,
+                        "values": "editable_delivery_box: bool (true if Policy settings shows a "
+                                  "delivery/shipping text box you can type in; false if only "
+                                  "Etsy's fixed 'Instant downloads' policy is shown)"},
     "options": {"owner_action": None, "max_age_days": 30,
                 "values": "controls: {control_key: value as shown}; labels: every control "
                           "label on the page"},
@@ -121,6 +128,8 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
                                    and "reply_window_hours" in values):
         raise ObservationRefused("values.notifications_inbox (text) and "
                                  "values.reply_window_hours are required")
+    if page == "delivery_policy" and not isinstance(values.get("editable_delivery_box"), bool):
+        raise ObservationRefused("values.editable_delivery_box must be true or false")
     if page == "legal_and_tax":
         if not isinstance(values.get("identity_verified"), bool):
             raise ObservationRefused("values.identity_verified must be true or false")

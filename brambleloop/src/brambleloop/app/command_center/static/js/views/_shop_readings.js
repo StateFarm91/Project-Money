@@ -53,9 +53,31 @@ function legalForm(reload) {
     field("How you read it", statement), btn);
 }
 
-export function shopReadingsCard(rerender) {
+// LAUNCHPREP E2: whether Policy settings has an editable delivery text box for this
+// digital-only shop. "No box" is what lets a blank delivery policy read not applicable.
+function deliveryForm(reload) {
+  const box = h("select", { id: "sr-delivery-box" },
+    h("option", { value: "" }, "Choose…"),
+    h("option", { value: "false" }, "No box: only Etsy's fixed 'Instant downloads' policy"),
+    h("option", { value: "true" }, "There is a delivery text box I can type in"));
+  const statement = h("input", { id: "sr-delivery-statement", type: "text", maxLength: 500, placeholder: "e.g. Shop Manager > Settings > Policy settings, read on my phone" });
+  const btn = h("button", { class: "btn btn-primary", type: "button", onclick: async () => {
+    if (!box.value || !statement.value.trim()) { toast("Fill in both fields.", "bad"); return; }
+    const r = await guardedAction({ title: "Record the Delivery policy reading?",
+      lines: ["Saved as your dated, audited reading. Nothing is written to Etsy."],
+      confirmLabel: "Record", requiresStepUp: true,
+      run: () => api.recordShopObservation({ page: "delivery_policy", observed_at: new Date().toISOString(), complete: true,
+        values: { editable_delivery_box: box.value === "true" }, statement: statement.value.trim() }),
+      success: "Delivery policy reading recorded." });
+    if (r) reload();
+  } }, "Record Delivery policy reading");
+  return h("div", { class: "stack" }, h("h3", { class: "section-title" }, "Delivery policy"),
+    field("What Policy settings shows", box), field("How you read it", statement), btn);
+}
+
+export function shopReadingsCard(rerender, { labelId = "completion-shop-readings" } = {}) {
   const reload = rerender || (() => {});
-  return card({ title: "Shop Manager readings", labelId: "completion-shop-readings",
-    subtitle: "Two first-sale items only you can read. Step-up required; the server checks every value." },
-    messagesForm(reload), legalForm(reload));
+  return card({ title: "Shop Manager readings", labelId,
+    subtitle: "First-sale items only you can read on Etsy. Step-up required; the server checks every value." },
+    messagesForm(reload), legalForm(reload), deliveryForm(reload));
 }

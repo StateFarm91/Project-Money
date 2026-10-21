@@ -124,6 +124,19 @@ SETTINGS: tuple[Setting, ...] = (
     Setting("currency_location", "Currency CAD and location Canada",
             (("getShop", "currency_code"), ("getShop", "shop_location_country_iso")), False,
             where="Settings > Info & Appearance"),
+    # LAUNCHPREP E7: the three policy fields getShop returns, read-only, so the owner and the
+    # company can see what each holds (presence and a short excerpt) without opening Etsy.
+    Setting("policy_shipping", "Delivery policy (getShop policy_shipping)",
+            (("getShop", "policy_shipping"),), False,
+            where="Settings > Policy settings. A digital-only shop may show only Etsy's fixed "
+            "'Instant downloads' policy and no text box"),
+    Setting("policy_payment", "Payment policy (getShop policy_payment)",
+            (("getShop", "policy_payment"),), False, where="Settings > Policy settings"),
+    Setting("policy_additional", "Additional policies (getShop policy_additional)",
+            (("getShop", "policy_additional"),), False,
+            where="Settings > Policy settings. Read-only here: the company never writes it "
+            "(updateShop sends it only for EU shops); its content is checked for "
+            "contradictions by policy_consistency"),
     Setting("payout_details", "Payout bank account and tax details", (), True,
             ("store:OA-B",), where="Finances > Payment settings (not in the API)"),
     Setting("two_factor", "Two-factor authentication on", (), True, ("store:OA-B",),
@@ -376,6 +389,27 @@ def _confirmations(db) -> dict[str, dict]:
             d = dict(row.detail or {})
             out.setdefault(d.get("setting"), dict(d, by=row.actor, id=row.id))
     return out
+
+
+def confirmations(db) -> dict[str, dict]:
+    """The newest owner confirmation per setting (`store.owner_confirmed`)."""
+    return _confirmations(db)
+
+
+def fresh_confirmation(db, key: str, *, now: datetime | None = None) -> dict | None:
+    """The owner's confirmation of `key` if it is at most OWNER_MAX_AGE_DAYS old, else None."""
+    now = now or datetime.now(timezone.utc)
+    conf = _confirmations(db).get(key)
+    if not conf:
+        return None
+    try:
+        at = datetime.fromisoformat(str(conf["confirmed_at"]))
+    except (KeyError, ValueError):
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    age = _age_days(at, now)
+    return conf if age is not None and 0 <= age <= OWNER_MAX_AGE_DAYS else None
 
 
 # ---- status ----------------------------------------------------------------------------
