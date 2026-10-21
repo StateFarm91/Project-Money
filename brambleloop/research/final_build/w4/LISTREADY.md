@@ -513,3 +513,24 @@ All suites pass, after the two fixes noted under the table. Counts:
 Both suites were re-run after the fix: test_vacuity 8/8, test_cost_governance_wave2 39/39.
 
 **Not run:** test_cert_wiring (still on hold) and any full suite.
+
+## 11. Delta review of b9137b5 (NO BLOCKER): fixes and recorded INFO items
+
+The review is `INDEPENDENT_SECREVIEW_LISTREADY_b9137b5.md` on `claude/w4-SECREVIEW-LISTREADY-b9137b5`. It closes F1 and F2.
+
+| # | fix | test |
+|---|---|---|
+| N1 MEDIUM | **One definition of "current release":** `ops.artefacts.newest_release` / `newest_certified`, the highest certified version (semver), failing closed. **Used by:** `teardown.enforce.current_release` (it feeds `for_publish` via `standards_gate`), `_targeted_rebuild`, `inventory.chain_evidence`, and the display readers (`cc readers`, `ask`, `benchmark_matrix`, `teardown.lab`). **Removed at the source:** `gate.certify` refuses a *new* certification of a version older than a certified one, audited as `gate.certify_older_than_newest`; re-certifying an existing version is still allowed. `approvals.py` keeps id order because it is a list of releases, not a "current" pick. | `test_n1_*` in `test_w4_listready` (5). Each uses an out-of-order state (1.1.0 certified, then 1.0.0): current release, targeted rebuild, chain evidence, the display readers, and the refused older certification |
+| N2 LOW | Activation requires the `image_vision` gate to be open, and the card shows why when it is not. A release is `done` only when a batch call was reserved for it; otherwise it goes back to `pending`, with the reason. If every release finishes at CA$0, the batch closes as **`unused`** (not completed), and it can be re-activated within its original expiry. A `queued` release whose batch build ended before the review is requeued (attempt key `:2`, …). The owner can tap **Resume** (step-up) to run pending releases again under the same caps. The card shows "releases reviewed N of M". | `test_n2_*` in `test_w4_launch_review` (4); `test_w4_launch_review_card` (reason cases now include the vision gate and `unused`) |
+| N3 LOW | Each `ops.sentinel` run raises an owner P2, `listing.superseded_live:<slug>@<version>`, for every **live** listing of a release older than the newest certified one. It is non-halting, so the newest release is unaffected. Its remediation path is the owner's: update the listing in place or deactivate it. It is restated, never duplicated, and resolved when no such listing remains. | `test_n3_a_live_listing_of_a_superseded_release_raises_an_owner_visible_p2` |
+
+**INFO items, recorded and left unchanged as instructed.**
+
+| # | what the review found | why it stands |
+|---|---|---|
+| N4 | A batch run is a full `assets.build`: it re-renders the frames and re-queues the downstream chain. | The scope check fails closed if the bytes change. |
+| N5 | While the batch is open, batch spend counts against `quality_director`'s agent-day, so that agent's non-batch calls (still at CA$1.00) are refused for the rest of that UTC day. | This is correct; it starves other work only for the day of the batch. |
+| N6 | `assets.launch_review` was added to `quality_director`'s allowed job types, `JOB_CLASS`, `OWNER_ONE_SHOTS` and `JOB_BANDS`. | The ceiling itself is unchanged. |
+| N7 | `grant_in` trusts any `assets.build` job whose inputs carry `launch_review_batch`. | No route accepts arbitrary job inputs, and the caps still bind. |
+| N8 | `GET /api/cc/launch-review` writes: it creates the tables and may close the batch with an audit row. `activate` checks and then inserts, with no unique constraint. | The nonce and step-up make a double insert impractical, and the caps hold even if one happened. |
+| N9 | The F8 write-path tests match call sites by method name in the AST, so an aliased or `getattr` call would not be listed. | The runtime `_authorise_write` boundary is the real control. |
