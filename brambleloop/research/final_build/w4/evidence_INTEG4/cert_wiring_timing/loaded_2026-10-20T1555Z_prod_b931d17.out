@@ -1,0 +1,46 @@
+OK   test_every_target_is_scheduled_handled_and_permitted_statically
+OK   test_each_target_was_enqueued_by_its_cadence_and_executed_to_done
+OK   test_no_job_in_the_drain_died_except_by_deliberate_refusal
+OK   test_scheduler_tick_calls_priority_for_and_bands_every_cadence_job
+OK   test_follow_on_work_is_enqueued_at_its_band_too
+OK   test_swarm_handlers_reach_their_runtime_functions
+OK   test_weekly_cycle_calls_retirement_review_autopsy_memory_and_director
+OK   test_retrospective_reaches_cells_and_reports_the_new_sections
+OK   test_listing_draft_actually_runs_the_disclosure_check
+OK   test_growth_experiments_calls_launch_pack_for_every_drafted_listing
+OK   test_mjs_scan_consults_the_adaptive_interval_before_any_request
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_record_order_writes_the_bought_version
+/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   test_api_paths_reach_radar_memory_and_the_stress_test
+OK   test_radar_memory_is_read_by_some_agent_at_runtime
+      registry status of the 17 wiring rows: {41: 'partial', 42: 'covered', 81: 'covered', 85: 'covered', 91: 'covered', 100: 'covered', 144: 'covered', 174: 'covered', 175: 'covered', 176: 'covered', 186: 'covered', 187: 'covered', 192: 'covered', 241: 'partial', 265: 'partial', 270: 'partial', 313: 'covered'}
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+16/16 passed in 964s
+== HANDLER TIMES (type, n, total s, max s)
+   assets.build                                    13    295.8    43.0
+   visual.rnd.cycle                                 1    189.1   189.1
+   listing.seo                                     13    136.6    20.3
+   store.publish                                   14     99.8    15.9
+   ops.maturity_disagreements                       1     82.7    82.7
+   launch.plan                                     13     72.0     8.4
+   launch.readiness                                 1     29.7    29.7
+   culture.sweep                                    1     11.4    11.4
+   ops.health                                       2      5.2     4.6
+   laura.executive_tick                             1      3.2     3.2
+   creative.candidates_file                         1      2.6     2.6
+   gate.certify                                    12      2.1     0.5
+   gate.lanes                                      12      2.0     0.3
+   marketing.schedule                              13      2.0     0.4
+   ads.adjust                                       1      1.5     1.5
+   seo.cycle                                        1      1.3     1.3
+   growth.distribution                              1      1.1     1.1
+   ops.continuity                                   1      0.9     0.9
+   improve.weekly                                   1      0.6     0.6
+   learn.scan                                       1      0.4     0.4
+   improve.nightly                                  1      0.3     0.3
+   store.live_drift                                 1      0.3     0.3
+   swarm.review                                     1      0.3     0.3
+   commerce.readings                                1      0.2     0.2
+   chain.rebuild                                    1      0.2     0.2
