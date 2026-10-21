@@ -290,6 +290,17 @@ def test_store_cards_close_on_the_reading_and_duplicates_are_merged():
     assert "announcement (C5)" in {it["id"]: it["action"] for it in SR.owner_actions({})}["OA-C"]
 
 
+def test_oa_f_is_not_merged_into_a_target_card_that_is_already_done():
+    """Final review R3: the FAQ and cancellations stay asked while unevidenced."""
+    from brambleloop.store_foundation import store_readiness as SR
+
+    db = _db()
+    _card(db, "store:OA-F")
+    _card(db, "etsy_surface:policy_settings_paste", done=True)
+    out = SR.sync_owner_actions(db, {})
+    assert "store:OA-F" in _open(db) and "store:OA-F" not in out["closed"]
+
+
 def test_a_blank_or_stale_reading_closes_no_store_card():
     from brambleloop.store_foundation import store_readiness as SR
 

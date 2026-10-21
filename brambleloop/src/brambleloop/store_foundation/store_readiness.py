@@ -477,7 +477,10 @@ def sync_owner_actions(db, drift: dict | None = None) -> dict:
                     _nonblank(shop, f) for f in _SHOWN_DONE_BY[oid]):
                 why_closed = ("the live getShop reading shows "
                               + " and ".join(_SHOWN_DONE_BY[oid]) + " set")
-            elif oid in _MERGED_INTO and _MERGED_INTO[oid] in all_keys:
+            elif oid in _MERGED_INTO and _MERGED_INTO[oid] in open_rows:
+                # Final review R3: merged only into an *open* card. A done target (closed on
+                # its getShop checks) does not evidence the FAQ or cancellations, so OA-F
+                # stays visible until those are evidenced.
                 why_closed = f"merged into {_MERGED_INTO[oid]} (the same ask, asked once)"
             if why_closed:
                 row = open_rows.get(own)
