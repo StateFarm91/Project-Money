@@ -872,6 +872,31 @@ def test_n3_a_live_listing_of_a_superseded_release_raises_an_owner_visible_p2():
     assert RR.superseded_live_listings(db)["resolved"] == [sig]
 
 
+def test_r4_etsy_state_surfaces_a_superseded_live_listing_our_row_does_not_show():
+    """Final review R4: the census says Etsy shows the listing active although our row is a
+    draft; Etsy's state is what makes it live."""
+    from brambleloop.core.models import Listing
+    from brambleloop.runtime import etsy_ops
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
+    _pv(db, "hex", "1.1.0", {"rows": 14}, "b" * 64)
+    with db.session() as s:
+        s.add(Listing(product_slug="hex", version="1.0.0", title="t", description="",
+                      tags=[], price_cad=5.0, state="draft", etsy_listing_id="777"))
+    assert RR.superseded_live_listings(db)["opened"] == []         # nothing live yet
+    etsy_ops.store_reading(db, etsy_ops.CENSUS_READING, {"observed_at": 0, "estate": [
+        {"listing_id": "777", "state": "active", "ours": True, "slug": "hex",
+         "version": "1.0.0", "should_auto_renew": True}]})
+    out = RR.superseded_live_listings(db)
+    assert out["opened"] == ["listing.superseded_live:hex@1.0.0"]
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(
+            Incident.signature == "listing.superseded_live:hex@1.0.0"))
+        assert inc.detail["source"].startswith("etsy listing census")
+        assert inc.detail["should_auto_renew"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

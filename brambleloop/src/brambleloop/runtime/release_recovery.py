@@ -307,14 +307,37 @@ def superseded_live_listings(db) -> dict:
     from ..ops.artefacts import newest_release
 
     opened, held, resolved = [], [], []
+    # Final review R4: "live" is what Etsy shows, not only our row. The latest listing census
+    # (getListingsByShop per state) marks a listing of ours active even when the local row
+    # says otherwise; both sources are read and merged per slug@version.
+    candidates: dict[tuple[str, str], dict] = {}
+    try:
+        from .etsy_ops import CENSUS_READING, latest_reading
+
+        census = latest_reading(db, CENSUS_READING) or {}
+        for r in census.get("estate") or []:
+            if r.get("ours") and r.get("state") == "active" and r.get("slug") \
+                    and r.get("version"):
+                candidates.setdefault((r["slug"], r["version"]), {
+                    "etsy_listing_id": r.get("listing_id"), "listing_id": None,
+                    "source": "etsy listing census (state active)",
+                    "should_auto_renew": r.get("should_auto_renew")})
+    except Exception:  # noqa: BLE001 - an unreadable census adds nothing; the rows still do
+        pass
     with db.session() as s:
-        live = list(s.scalars(select(Listing).where(Listing.state == "active")))
+        for row in s.scalars(select(Listing).where(Listing.state == "active")):
+            candidates.setdefault((row.product_slug, row.version), {
+                "etsy_listing_id": row.etsy_listing_id, "listing_id": row.id,
+                "source": "local listing row (state active)"})
         holding = set()
-        for row in live:
-            product = s.scalar(select(Product).where(Product.slug == row.product_slug))
+        for (slug, version), info in sorted(candidates.items()):
+            product = s.scalar(select(Product).where(Product.slug == slug))
             newest = newest_release(s, product.id) if product is not None else None
-            if newest is None or newest.version == row.version:
+            if newest is None or newest.version == version:
                 continue
+            row = type("Live", (), {"product_slug": slug, "version": version,
+                                    "id": info["listing_id"],
+                                    "etsy_listing_id": info["etsy_listing_id"]})
             sig = f"{SUPERSEDED_LIVE}{row.product_slug}@{row.version}"
             holding.add(sig)
             _, new = lifecycle.open_or_restate(
@@ -325,7 +348,8 @@ def superseded_live_listings(db) -> dict:
                          f"listing to {newest.version}, or deactivate it"),
                 detail={"listing_id": row.id, "etsy_listing_id": row.etsy_listing_id,
                         "live_version": row.version, "newest": newest.version,
-                        "needs_owner_path": True})
+                        "source": info["source"],
+                        "should_auto_renew": info.get("should_auto_renew")})
             (opened if new else held).append(sig)
         from ..core.models import Incident
 
