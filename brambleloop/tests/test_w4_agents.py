@@ -283,7 +283,9 @@ def test_section_proposals_only_for_populated_categories():
     sec = next(r for r in rev["surfaces"] if r["surface"] == "sections")
     public = [s["name"] for s in navigation.public_nav(db)]
     assert all(t in public for t in sec["missing"]) and "Home" not in sec["missing"]
-    for name in [s["name"] for s in navigation.hidden(db)]:
+    hidden = [s["name"] for s in navigation.hidden(db)]
+    assert hidden, "Launch-0 leaves planned categories (Wearables, Gifts) unpopulated"
+    for name in hidden:
         assert director.validate_change(db, {"operation": "createShopSection",
                                              "title": name})
     # A draft that claims something untrue is never proposed.
