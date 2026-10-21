@@ -1,0 +1,22 @@
+{
+  "_note": "Body for POST /api/physical-test (app/main.py:4860; queued job physical.record, runtime/release.py:2894). Operator credential required (default-deny route gate). Every <...> is a measurement the tester takes; nothing here may be filled from the pattern or the twin. Send only after production has drafted or certified hexagon-coaster-set@1.2.0 (it has never been drafted there; the LISTREADY release seeds it). Otherwise _load_examined_cir refuses the sample.",
+  "slug": "hexagon-coaster-set",
+  "version": "1.2.0",
+  "scope": "full_make",
+  "content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+  "tester_ref": "<the ref returned by POST /api/tester/agreement for this tester; never 'owner'>",
+  "grams_by_color": {
+    "cream": "<grams of cream used for ALL FOUR coasters (start weight minus end weight)>",
+    "wine": "<grams of wine used for ALL FOUR coasters>"
+  },
+  "ball_band_grams": "<grams per ball, from the label (both colours must be the same yarn line: only one band is accepted)>",
+  "ball_band_metres": "<metres per ball, from the label>",
+  "hook_mm": "<hook actually used, mm>",
+  "measured_width_cm": "<across the points, cm, unstretched: the mean of the four coasters>",
+  "measured_height_cm": "<across the flats, cm, unstretched: the mean of the four coasters>",
+  "measured_around_cm": "<perimeter, cm: the mean of the four coasters>",
+  "hours": "<total hours for all four, including weaving in ends>",
+  "instructions_followed": "<true only if the tester followed the US or UK PDF exactly>",
+  "notes": "<terms used (US/UK); swatch: sts and rounds per 10 cm; each coaster's three measurements; yarn brand and fibre; every place the tester guessed, re-read or ripped back, by round number>",
+  "_pass_rule": "passed = yardage factor (measured metres / twin metres, cream 22.6 + wine 6.2 = 28.8 m) between 0.4 and 2.5, no ERROR finding, and every reported dimension within 12% of the twin (width 9.7 cm, flats 8.4 cm, perimeter 29.0 cm). Making fewer than four coasters gives a factor near 0.25 and does not pass."
+}

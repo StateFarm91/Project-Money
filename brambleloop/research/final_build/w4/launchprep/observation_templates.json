@@ -1,0 +1,28 @@
+{
+  "_note": "Bodies for POST /api/etsy/shop-observation (commerce/shop_observations.py). The pages 'messages' and 'legal_and_tax' exist only from FIRSTSALE2 onward: production b931d17 does not have them and will answer 400 'unknown page'. Send after the listings release is deployed. The route needs the operator credential (Authorization: Bearer <BRAMBLELOOP_OPS_TOKEN>); there is no Command Center card for it yet (finding E5). Replace every <...>; do not send a placeholder. observed_at must be the moment you read the Etsy page (UTC, ISO 8601), not a guess. There is no 'about' page in this intake: About is recorded with the Command Center Store tab > Live shop settings > About > Confirm (store.owner_confirmed).",
+  "messages": {
+    "page": "messages",
+    "observed_at": "<YYYY-MM-DDTHH:MM:SSZ when you looked>",
+    "complete": true,
+    "values": {
+      "notifications_inbox": "<the address Etsy sends message notifications to, as shown>",
+      "reply_window_hours": 48
+    },
+    "statement": "<one sentence: what the Etsy email-notification setting shows, e.g. 'New message notifications are on and go to the address above; I will reply within 48 hours.'>"
+  },
+  "legal_and_tax": {
+    "page": "legal_and_tax",
+    "observed_at": "<YYYY-MM-DDTHH:MM:SSZ when you looked>",
+    "complete": true,
+    "values": {
+      "identity_verified": "<true only if Etsy shows identity verification complete; otherwise false>",
+      "tax_position": "<the GST/HST position you chose, in your words, e.g. 'small supplier, not registered; no GST/HST number given to Etsy'>",
+      "decided_on": "<YYYY-MM-DD>"
+    },
+    "statement": "<one sentence: what Shop Manager shows for identity verification and tax information>"
+  },
+  "_closes": {
+    "messages": "owner action etsy_surface:messages_watch, when notifications_inbox is non-empty and reply_window_hours > 0 (SATISFIED['messages']); first-sale surface 'messages' then reads FRESH for 30 days",
+    "legal_and_tax": "owner action etsy_surface:legal_and_tax_setup, when identity_verified is true and tax_position and decided_on are non-empty (SATISFIED['legal_and_tax']); first-sale surface 'legal_and_tax' then reads FRESH for 90 days"
+  }
+}
