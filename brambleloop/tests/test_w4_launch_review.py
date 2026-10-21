@@ -67,7 +67,7 @@ def _frames(db, per_release=6):
 
 def _activated(db, **kw):
     _frames(db, **kw)
-    return LR.activate(db, by="owner", stepped_up=True, now=T0)
+    return LR.open_batch(db, by="owner", stepped_up=True, now=T0)
 
 
 def _release_frames(db, release):
@@ -101,17 +101,17 @@ def test_activation_needs_step_up_runs_once_and_fixes_the_owners_numbers():
     db = _db()
     _frames(db)
     try:
-        LR.activate(db, by="owner", stepped_up=False, now=T0)
+        LR.open_batch(db, by="owner", stepped_up=False, now=T0)
         raise AssertionError("activated without step-up")
     except LR.LaunchReviewRefused:
         pass
-    st = LR.activate(db, by="owner", stepped_up=True, now=T0)
+    st = LR.open_batch(db, by="owner", stepped_up=True, now=T0)
     assert st["status"] == LR.OPEN and st["frames"] == 60
     assert st["total_cap_cad"] == 7.07 and st["daily_cap_cad"] == 8.00
     assert st["decision_ref"] == "D-W4-LAUNCH-VISION-BATCH" and st["agent"] == "quality_director"
     assert st["expires_at"] == (T0 + timedelta(days=14)).isoformat()
     try:
-        LR.activate(db, by="owner", stepped_up=True, now=T0)
+        LR.open_batch(db, by="owner", stepped_up=True, now=T0)
         raise AssertionError("activated twice")
     except LR.LaunchReviewRefused:
         pass
@@ -123,7 +123,7 @@ def test_activation_refuses_until_every_launch0_release_has_stored_frames():
         s.add(ListingAsset(product_slug="cloudline-baby-blanket", version="1.2.0", position=1,
                            asset_class="x", role="hero", sha256="c" * 64))
     try:
-        LR.activate(db, by="owner", stepped_up=True, now=T0)
+        LR.open_batch(db, by="owner", stepped_up=True, now=T0)
         raise AssertionError("activated on a partial scope")
     except LR.LaunchReviewRefused as exc:
         assert "market-basket-small@1.2.0" in str(exc)
@@ -406,7 +406,7 @@ def test_n2_activation_is_refused_while_the_vision_gate_is_closed():
     _frames(db)
     LR.vision_open = lambda db: False
     try:
-        LR.activate(db, by="owner", stepped_up=True, now=T0)
+        LR.open_batch(db, by="owner", stepped_up=True, now=T0)
         raise AssertionError("activated with the vision gate closed")
     except LR.LaunchReviewRefused as exc:
         assert "image_vision" in str(exc)
@@ -436,10 +436,10 @@ def test_n2_a_batch_that_spent_nothing_is_unused_and_can_be_reactivated_in_its_e
     LR.run(db, lambda inputs, key: None)                   # marks them interrupted
     st = LR.state(db, now=T0)
     assert st["status"] == LR.UNUSED and st["committed_cad"] == 0
-    again = LR.activate(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
+    again = LR.open_batch(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
     assert again["status"] == LR.OPEN and again["expires_at"] == first["expires_at"]
     try:
-        LR.activate(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
+        LR.open_batch(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
         raise AssertionError("an open batch was activated again")
     except LR.LaunchReviewRefused:
         pass

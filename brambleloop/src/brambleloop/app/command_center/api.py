@@ -664,7 +664,7 @@ def make_router(db) -> APIRouter:
         auth.require_stepup(db, request, "launch_review.activate")
         pid = auth.current_public_id(request)
         try:
-            out = await run_in_threadpool(lambda: launch_review.activate(
+            out = await run_in_threadpool(lambda: launch_review.open_batch(
                 db, by=actor(request), stepped_up=True))
         except launch_review.LaunchReviewRefused as exc:
             raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",

@@ -169,7 +169,7 @@ def max_calls(frames: list[dict]) -> int:
 
 # ---- activation ------------------------------------------------------------------------------
 
-def activate(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> dict:
+def open_batch(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> dict:
     """The owner's activation, behind the owner session and step-up. One batch, once."""
     from sqlalchemy import select
 
