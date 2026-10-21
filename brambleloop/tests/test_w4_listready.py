@@ -767,6 +767,111 @@ def test_one_releases_failure_does_not_stall_recovery_of_the_others():
     assert nxt["seeded"] and nxt["seeded"] != first and first[0] in nxt["already_seeded"]
 
 
+# ---- delta review N1: every "current release" reader, out of order --------------------------
+
+def _out_of_order(db, slug=None):
+    """1.1.0 certified first, 1.0.0 inserted after it (the reachable out-of-order state)."""
+    cir = _launch0_cir().to_dict()
+    slug = slug or cir["slug"]
+    _pv(db, slug, "1.1.0", dict(cir, slug=slug, version="1.1.0"), "b" * 64)
+    _pv(db, slug, "1.0.0", dict(cir, slug=slug, version="1.0.0"), "a" * 64)
+    return slug
+
+
+def test_n1_teardown_current_release_is_the_highest_version():
+    from brambleloop.teardown import enforce
+
+    db = _db()
+    slug = _out_of_order(db)
+    assert enforce.current_release(db, slug)["version"] == "1.1.0"
+
+
+def test_n1_a_targeted_rebuild_targets_the_newest_release():
+    from brambleloop.runtime.release import handle_chain_rebuild
+
+    db = _db()
+    slug = _out_of_order(db)
+    key = P.pdf_key(slug, "1.1.0", "US")
+    _record_from(db, slug, "1.1.0", key=key, inputs={f"cir:{slug}": P.fingerprint({"x": 1})})
+    job = JobQueue(db).enqueue("listing", "chain.rebuild",
+                               {"product_slug": slug, "artefacts": [f"pdf:{key}"],
+                                "reason": "test"}, idempotency_key="n1-rebuild")
+    handle_chain_rebuild(_ctx(db, job))
+    with db.session() as s:
+        builds = [j.inputs for j in s.scalars(select(Job).where(
+            Job.job_type.in_(("assets.build", "gate.certify"))))]
+    assert builds, "the targeted rebuild enqueued nothing"
+    for inputs in builds:
+        version = inputs.get("version") or (inputs.get("cir") or {}).get("version")
+        assert version == "1.1.0", inputs
+
+
+def test_n1_inventory_chain_evidence_reports_the_newest_release():
+    from brambleloop.products import inventory
+
+    db = _db()
+    slug = _out_of_order(db)
+    try:
+        out = inventory.chain_evidence(db, slug)
+    except Exception as exc:  # noqa: BLE001 - only the release selection is under test
+        raise AssertionError(f"chain_evidence raised {type(exc).__name__}: {exc}")
+    assert out["release"]["version"] == "1.1.0", out["release"]
+
+
+def test_n1_the_display_readers_use_the_same_newest_release():
+    from brambleloop.ops.artefacts import newest_certified
+
+    db = _db()
+    slug = _out_of_order(db)
+    with db.session() as s:
+        assert newest_certified(s, slug).version == "1.1.0"
+    src = ROOT / "src" / "brambleloop"
+    for rel in ("app/command_center/readers.py", "app/command_center/ask.py",
+                "seasonal/benchmark_matrix.py", "teardown/lab.py", "teardown/enforce.py",
+                "products/inventory.py", "runtime/release.py"):
+        assert "newest_release(" in (src / rel).read_text(), rel
+
+
+def test_n1_an_older_version_is_never_newly_certified_after_a_newer_one():
+    db = _db()
+    cir = _launch0_cir()                                    # hexagon-coaster-set@1.2.0
+    _pv(db, cir.slug, "1.3.0", dict(cir.to_dict(), version="1.3.0"), "e" * 64)
+    out = _certify(db, _certify_job(db, cir, "older"))
+    assert out["granted"] is False and out["refused"] == "older_than_newest", out
+    assert "gate.certify_older_than_newest" in _actions(db, f"{cir.slug}@{cir.version}")
+    with db.session() as s:
+        assert {v for (v,) in s.execute(select(PatternVersion.version).join(Product).where(
+            Product.slug == cir.slug))} == {"1.3.0"}
+
+
+# ---- delta review N3: a live listing of a superseded release is owner-visible ---------------
+
+def test_n3_a_live_listing_of_a_superseded_release_raises_an_owner_visible_p2():
+    from brambleloop.core.models import Listing
+    from brambleloop.ops import incident_lifecycle as IL
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
+    with db.session() as s:
+        s.add(Listing(product_slug="hex", version="1.0.0", title="t", description="",
+                      tags=[], price_cad=5.0, state="active", etsy_listing_id="123"))
+    assert RR.superseded_live_listings(db)["opened"] == []      # 1.0.0 is the newest
+    _pv(db, "hex", "1.1.0", {"rows": 14}, "b" * 64)
+    out = RR.superseded_live_listings(db)
+    sig = "listing.superseded_live:hex@1.0.0"
+    assert out["opened"] == [sig]
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == sig))
+        assert inc.severity == "P2" and inc.halts_publication is False
+        row = IL._row(inc)
+        assert row["remediation_owner"] == "owner" and row["needs_owner_path"] is False
+    assert IncidentTracker(db).publication_halted("hex") is False   # 1.1.0 unaffected
+    assert RR.superseded_live_listings(db)["held"] == [sig]         # restated, not doubled
+    with db.session() as s:
+        s.scalar(select(Listing)).state = "withdrawn"
+    assert RR.superseded_live_listings(db)["resolved"] == [sig]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

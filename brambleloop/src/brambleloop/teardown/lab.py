@@ -212,8 +212,9 @@ def measured_self_scores(db, slug: str) -> dict:
 
     with db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
-                      .order_by(desc(PatternVersion.id))) if product is not None else None
+        from ..ops.artefacts import newest_release  # N1: newest by version
+
+        pv = newest_release(s, product.id) if product is not None else None
         if pv is None:
             return {}
         cert = dict(pv.certificate or {})
@@ -478,8 +479,9 @@ def _evidenced_beyond_certificate(db, slug: str) -> list[str]:
 
     with db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
-                      .order_by(PatternVersion.id.desc())) if product is not None else None
+        from ..ops.artefacts import newest_release  # N1: newest by version
+
+        pv = newest_release(s, product.id) if product is not None else None
         if pv is None:
             return []
         # C-80 (Codex P05): this version's artefacts, not every version the slug ever had.
@@ -510,9 +512,9 @@ def product_qa(db, slug: str, *, product_class: str = "") -> dict:
         product = s.scalar(select(Product).where(Product.slug == slug))
         if product is None:
             raise LabRefused(f"{slug!r} is not a Brambleloop product")
-        version = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id, PatternVersion.certified == True)  # noqa: E712
-            .order_by(desc(PatternVersion.id)))
+        from ..ops.artefacts import newest_release  # N1: newest by version
+
+        version = newest_release(s, product.id)
         certificate = dict(version.certificate or {}) if version is not None else None
         category = (product_class
                     or str(((version.cir_json or {}) if version is not None else {})

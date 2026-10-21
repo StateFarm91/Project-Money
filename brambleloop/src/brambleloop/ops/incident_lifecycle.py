@@ -166,6 +166,11 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "health": ("ops.health sweep", "resolves itself when the signal reads healthy again"),
     "stale-artefact": ("ops.sentinel + rebuild graph",
                        "rebuild enqueued by the sentinel; resolves when upstreams match"),
+    # W4-LISTREADY (delta review N3): a live listing of a superseded release.
+    "listing.superseded_live": ("owner", "update the live listing to the newest certified "
+                                         "release, or deactivate it; ops.sentinel resolves "
+                                         "this when no live listing of an older release "
+                                         "remains"),
     # W4-OWNER: a stale reading is refreshed by the company -- a build session re-reads the
     # search-engine excerpt of the official page into gates.policy_knowledge (dated, basis
     # declared), as the 2026-09-26 readings were. Software must not spoof a browser past

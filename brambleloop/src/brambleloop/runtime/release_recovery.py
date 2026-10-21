@@ -284,3 +284,55 @@ def duplicate_certification(db, job, cir) -> str:
                     f"{later.job_id} after this job was queued")
     except Exception:  # noqa: BLE001 - unreadable is not a duplicate: certify as before
         return ""
+
+
+# ---- delta review N3: a live listing of a superseded release ---------------------------------
+
+SUPERSEDED_LIVE = "listing.superseded_live:"
+
+
+def superseded_live_listings(db) -> dict:
+    """Raise (and restate) one owner-visible P2 per live listing whose release is not the
+    product's newest certified release; resolve it when that stops holding.
+
+    Since R1 an older release's artefacts read `superseded` and raise no halt, which is right
+    for drafts -- publication refuses a superseded release -- but a listing already *live* on
+    Etsy keeps selling the old release and auto-renews. Nothing here changes the listing: the
+    owner decides (update it to the newest release, or deactivate it). Never halting: the
+    newest release's own publication is unaffected (product independence)."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing, Product
+    from ..ops import incident_lifecycle as lifecycle
+    from ..ops.artefacts import newest_release
+
+    opened, held, resolved = [], [], []
+    with db.session() as s:
+        live = list(s.scalars(select(Listing).where(Listing.state == "active")))
+        holding = set()
+        for row in live:
+            product = s.scalar(select(Product).where(Product.slug == row.product_slug))
+            newest = newest_release(s, product.id) if product is not None else None
+            if newest is None or newest.version == row.version:
+                continue
+            sig = f"{SUPERSEDED_LIVE}{row.product_slug}@{row.version}"
+            holding.add(sig)
+            _, new = lifecycle.open_or_restate(
+                s, signature=sig, severity="P2", product_slug=None, halts_publication=False,
+                summary=(f"{row.product_slug}@{row.version} is live on Etsy, but the newest "
+                         f"certified release is {newest.version}: buyers get the older "
+                         f"pattern and Etsy may auto-renew it. Owner decision: update the "
+                         f"listing to {newest.version}, or deactivate it"),
+                detail={"listing_id": row.id, "etsy_listing_id": row.etsy_listing_id,
+                        "live_version": row.version, "newest": newest.version,
+                        "needs_owner_path": True})
+            (opened if new else held).append(sig)
+        from ..core.models import Incident
+
+        stale = [i.signature for i in s.scalars(select(Incident).where(
+            Incident.signature.like(f"{SUPERSEDED_LIVE}%"), Incident.resolved.is_(False)))
+            if i.signature not in holding]
+        if stale:
+            resolved = lifecycle.resolve_signatures(
+                s, stale, resolution="no live listing of a superseded release remains")
+    return {"opened": opened, "held": held, "resolved": resolved}

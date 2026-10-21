@@ -550,6 +550,33 @@ def newest_version(versions) -> str | None:
     return max(zip(keys, vs))[1]
 
 
+def newest_release(session, product_id: int):
+    """W4-LISTREADY (delta review N1): the product's newest certified PatternVersion by
+    *version* (`newest_version`), or None when it has none or its versions cannot be ordered
+    (fail closed). The one definition of "current release" every reader uses."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion
+
+    rows = list(session.scalars(select(PatternVersion).where(
+        PatternVersion.product_id == product_id,
+        PatternVersion.certified == True)))  # noqa: E712
+    newest = newest_version([r.version for r in rows]) if rows else None
+    if newest is None:
+        return None
+    return max((r for r in rows if r.version == newest), key=lambda r: r.id)
+
+
+def newest_certified(session, slug: str):
+    """`newest_release` for a product slug, or None."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+
+    product = session.scalar(select(Product).where(Product.slug == slug))
+    return None if product is None else newest_release(session, product.id)
+
+
 def built_from_version(row_key: str, slug: str, inputs: dict, current) -> str | None:
     """W4-LISTREADY (R1): the certified release an artefact was built from, or None.
 

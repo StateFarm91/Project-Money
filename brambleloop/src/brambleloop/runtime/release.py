@@ -4608,9 +4608,8 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
 
     with ctx.db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
-                       .order_by(desc(PatternVersion.id)).limit(1))
-              if product is not None else None)
+        # W4-LISTREADY (N1): the rebuild targets the newest release by version.
+        pv = provenance.newest_release(s, product.id) if product is not None else None
         version = pv.version if pv is not None else ""
         release = pv.release_hash or "" if pv is not None else ""
         cir_json = dict(pv.cir_json) if pv is not None else None
@@ -6687,6 +6686,14 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                                                        expected=expected)
         gate = provenance.graduation(session, current=current, expected=expected)
 
+    # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
+    from . import release_recovery
+
+    try:
+        superseded_live = release_recovery.superseded_live_listings(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - recorded; never fails the sentinel
+        superseded_live = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
     detail = {
         "checked": report["checked"], "fresh": report["fresh"],
         "stale": report["stale"], "unproven": report["unproven"],
@@ -6699,6 +6706,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "publication_blocked": report["publication_blocked"],
         "rebuild": report["rebuild"],
         "may_enforce_unproven": gate["may_enforce_unproven"],
+        "superseded_live": superseded_live,
     }
     ctx.audit("ops.sentinel", detail=detail)
 

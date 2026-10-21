@@ -906,7 +906,18 @@ def handle_certify(ctx: JobContext) -> dict:
     # queue a certify for the same slug@version. Whichever runs second finds the identical
     # release already certified after it was queued and stops, so it is certified once. The
     # halt check above is unchanged and always runs first.
-    from .release_recovery import duplicate_certification
+    from .release_recovery import duplicate_certification, newer_certified
+
+    # W4-LISTREADY (delta review N1): an older version is never newly certified after a newer
+    # one -- that is the out-of-order state every "current release" reader has to survive.
+    # A version already certified may still be re-certified (a document refresh).
+    newer = newer_certified(ctx.db, cir.slug, cir.version)
+    if newer and not _stored_release_hash(ctx, cir):
+        ctx.audit("gate.certify_older_than_newest", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"newer_certified": newer})
+        return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
+                "refused": "older_than_newest", "reasons": [
+                    f"{cir.slug}@{cir.version} is older than the certified {newer}"]}
 
     duplicate = duplicate_certification(ctx.db, ctx.job, cir)
     if duplicate:
