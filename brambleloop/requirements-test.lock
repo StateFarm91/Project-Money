@@ -1,0 +1,17 @@
+# Test-only dependencies (delta review N-10, 2026-10-21). starlette's TestClient needs httpx,
+# which the production lock does not carry (the service never imports it). Install AFTER the
+# production lock, for running the suites only:
+#   pip install --require-hashes -r requirements.lock
+#   pip install --require-hashes --no-deps -r requirements-test.lock
+# Versions are those of the venv the focused suites ran on; hashes are every sha256 PyPI
+# publishes for that exact version (read 2026-10-21 from pypi.org/pypi/<name>/<ver>/json).
+# anyio, h11 and idna come from requirements.lock.
+certifi==2026.10.18 \
+    --hash=sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62 \
+    --hash=sha256:b9995d97b64d0431a5af837d8ca8cd6238104d1f319f04bd93ea43124d6c861e
+httpcore==1.0.9 \
+    --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55 \
+    --hash=sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8
+httpx==0.28.1 \
+    --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad \
+    --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc

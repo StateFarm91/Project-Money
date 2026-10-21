@@ -160,6 +160,12 @@ ALLOCATION: dict[str, float] = {
     # Optional Laura phrasing (lane F): CA$1.00 of a CA$100 month. Past it the Command Center
     # shows the deterministic sentence, which is complete on its own.
     "laura.business_phrase@1": 0.01,
+    # W4-LAURACEO (ADD-LCEO-06): Business Laura's routine conversation targets CA$10-15 a
+    # month. These are stops inside her unchanged CA$0.50/day permission and the CA$100 month:
+    # chat CA$8, executive reasoning CA$5, the tick's priority ordering CA$2 (CA$15 together).
+    "laura.converse@1": 0.08,
+    "laura.executive@1": 0.05,
+    "laura.exec_rank@1": 0.02,
 }
 
 # The same stop, per department. Empty on purpose and enforced anyway: the mechanism exists so

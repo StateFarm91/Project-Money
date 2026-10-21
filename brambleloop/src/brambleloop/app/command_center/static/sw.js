@@ -6,7 +6,8 @@
 // security data and are current truth only at the moment they are served (F-898). API
 // requests are not intercepted at all; they go straight to the network. Non-GET requests are
 // never intercepted. Cross-origin requests are never intercepted.
-const VERSION = "cc-shell-v21";
+// INTEG6-prep: LISTREADY (v21) and LAURAONE (v20) shells merged, so a new version.
+const VERSION = "cc-shell-v22";
 const SHELL = [
   "./",
   "index.html",
@@ -38,6 +39,7 @@ const SHELL = [
   "js/views/home.js",
   "js/views/images.js",
   "js/views/laura.js",
+  "js/views/laura_unified.js",
   "js/views/insights.js",
   "js/views/learn.js",
   "js/views/money.js",

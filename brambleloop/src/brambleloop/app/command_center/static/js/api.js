@@ -119,6 +119,8 @@ export const ENDPOINTS = {
   laura: () => `${API_BASE}/laura`,
   lauraConversation: (limit = 20) => `${API_BASE}/laura/conversation${q({ limit })}`,
   lauraAsk: () => `${API_BASE}/laura/ask`,
+  lauraConverse: () => `${API_BASE}/laura/converse`,
+  lauraCosts: () => `${API_BASE}/laura/costs`,
   lauraFollowOn: () => `${API_BASE}/laura/follow-on`,
   lauraPortrait: () => `${API_BASE}/laura/portrait`,
   lauraPresence: () => `${API_BASE}/laura/presence`,
@@ -130,6 +132,13 @@ export const ENDPOINTS = {
   privateRemember: () => `${API_BASE}/private/remember`,
   privateTurn: () => `${API_BASE}/private/turn`,
   privateForget: () => `${API_BASE}/private/forget`,
+  // W4-LAURAONE: the one Laura thread (owner switch BRAMBLELOOP_LAURA_UNIFIED=venice).
+  lauraUnifiedStatus: () => `${API_BASE}/laura/unified/status`,
+  lauraUnifiedView: () => `${API_BASE}/laura/unified/view`,
+  lauraUnifiedTurn: () => `${API_BASE}/laura/unified/turn`,
+  lauraUnifiedCrossing: () => `${API_BASE}/laura/unified/crossing`,
+  lauraUnifiedControl: () => `${API_BASE}/laura/unified/control`,
+  lauraUnifiedFeedPreview: () => `${API_BASE}/laura/unified/feed-preview`,
 };
 
 export class ApiError extends Error {
@@ -351,6 +360,9 @@ export const api = {
   laura: () => get(ENDPOINTS.laura()),
   lauraConversation: (limit) => get(ENDPOINTS.lauraConversation(limit)),
   lauraAsk: (question) => post(ENDPOINTS.lauraAsk(), { question }),
+  // W4-LAURACEO: Laura's model-backed conversation (lauraAsk is her evidence tool).
+  lauraConverse: (question) => post(ENDPOINTS.lauraConverse(), { question }),
+  lauraCosts: () => get(ENDPOINTS.lauraCosts()),
   lauraPresence: () => get(ENDPOINTS.lauraPresence()),
   lauraVoiceSpec: () => get(ENDPOINTS.lauraVoiceSpec()),
   // Owner-private context: status is non-content; every content call is a POST, so nothing
@@ -362,5 +374,13 @@ export const api = {
   privateRemember: (key, text) => post(ENDPOINTS.privateRemember(), { key, text }),
   privateTurn: (text) => post(ENDPOINTS.privateTurn(), { text }),
   privateForget: (id) => post(ENDPOINTS.privateForget(), { id }),
+  // W4-LAURAONE: one thread. Status is non-content (GET); every content call is a POST.
+  lauraUnifiedStatus: () => get(ENDPOINTS.lauraUnifiedStatus()),
+  lauraUnifiedView: () => post(ENDPOINTS.lauraUnifiedView(), {}),
+  lauraUnifiedTurn: (text, keepPrivate) => post(ENDPOINTS.lauraUnifiedTurn(), { text, private: !!keepPrivate }),
+  // Delta review N-3: an approval needing re-authentication carries it in this request.
+  lauraUnifiedCrossing: (id, approve, creds) => post(ENDPOINTS.lauraUnifiedCrossing(), { id, approve: !!approve, ...(creds || {}) }),
+  lauraUnifiedControl: (action, ids) => post(ENDPOINTS.lauraUnifiedControl(), { action, ids }),
+  lauraUnifiedFeedPreview: () => post(ENDPOINTS.lauraUnifiedFeedPreview(), {}),
   lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),
 };

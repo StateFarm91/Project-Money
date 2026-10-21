@@ -1155,6 +1155,49 @@ def make_router(db) -> APIRouter:
         # Phase 1 delivers text; a richer mode requested degrades with its reason (D-FB-16).
         return ok({**turn, "delivery": presence.negotiate(modes)})
 
+    # W4-LAURACEO (ADD-LCEO-01/02/03/06): Business Laura's real conversation. The model
+    # writes the reply over the deterministic evidence tools (`/laura/ask` stays as the
+    # evidence tool); unavailable -> said plainly, never a template. Business register only.
+    @router.post("/laura/converse")
+    async def laura_converse(request: Request):
+        from ...laura.agency import ceo_chat, presence
+
+        body = await body_of(request)
+        question = body.get("question")
+        if not isinstance(question, str):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "question must be a string")
+        modes = body.get("modes")
+        modes = [str(m) for m in modes][:3] if isinstance(modes, list) else None
+        from ...gateway import laura_unified
+
+        if laura_unified.enabled():
+            # W4-LAURAONE: with the one thread switched on, this split route is closed so no
+            # second, disconnected conversation grows beside it (ADD-LCONT-01).
+            raise auth.refuse(db, request, 409, "UNIFIED_THREAD",
+                              "the unified Laura thread is on; use /api/cc/laura/unified/turn")
+        pid = auth.current_public_id(request)
+        from ...gateway import laura_converse as lc
+
+        if not lc.ceo_model_enabled():
+            # Integration review S-1: with BRAMBLELOOP_LAURA_CEO_MODEL off, the deterministic
+            # evidence-tool answer (the pre-LAURACEO behaviour) and no model call.
+            from ...laura.agency import talk
+
+            turn = await run_in_threadpool(
+                lambda: talk.converse(db, question, session_public_id=pid))
+            return ok({**turn, "delivery": presence.negotiate(modes),
+                       "model": {"source": "not_called",
+                                 "reason": f"{lc.CEO_MODEL_ENV} is off"}})
+        turn = await run_in_threadpool(
+            lambda: ceo_chat.converse(db, question, session_public_id=pid))
+        return ok({**turn, "delivery": presence.negotiate(modes)})
+
+    @router.get("/laura/costs")
+    def laura_costs(request: Request, days: int = 30):
+        from ...laura.agency import costs
+
+        return ok(costs.summary(db, days=max(1, min(int(days or 30), 92))))
+
     @router.post("/laura/follow-on")
     async def laura_follow_on(request: Request):
         from ...laura.agency import followon
@@ -1327,6 +1370,64 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         return _private(request, lambda pid: private_context.forget(
             db, pid, body.get("id")))
+
+    # ---- W4-LAURAONE: one Laura, one thread (D-W4-LAURA-UNIFIED; ADD-LCONT-01..10) ----------
+    # Owner session + CSRF + nonce (gate) + the private grant opened with a fresh step-up
+    # (/private/open). Approving a boundary crossing needs a fresh step-up of its own. Every
+    # content route is POST and `no-store`; status is non-content. Off by default.
+
+    @router.get("/laura/unified/status")
+    def laura_unified_status(request: Request):
+        return ok(private_context.unified_status(db, auth.current_public_id(request)))
+
+    @router.post("/laura/unified/view")
+    def laura_unified_view(request: Request):
+        return _private(request, lambda pid: private_context.unified_view(db, pid))
+
+    @router.post("/laura/unified/turn")
+    async def laura_unified_turn(request: Request):
+        body = await body_of(request)
+        text = body.get("text")
+        if not isinstance(text, str):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "text must be a string")
+        force = body.get("private") is True
+        return await run_in_threadpool(lambda: _private(
+            request, lambda pid: private_context.unified_turn(db, pid, text,
+                                                              force_private=force)))
+
+    @router.post("/laura/unified/crossing")
+    async def laura_unified_crossing(request: Request):
+        body = await body_of(request)
+        approve = body.get("approve") is True
+        pid = auth.current_public_id(request)
+        # Delta review N-3: an approval that needs step-up carries the owner's passphrase (and
+        # TOTP) in THIS request and is verified for THIS action only; no session-wide window
+        # counts. A wrong credential counts as a failed step-up.
+        verified = False
+        if approve and (body.get("passphrase") is not None or body.get("totp") is not None):
+            verified = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
+                                               body.get("totp"), db=db)
+            if not verified:
+                revoked = auth.failed_stepup(db, pid)
+                raise auth.refuse(db, request, 401, "BAD_CREDENTIALS",
+                                  "re-authentication for this approval not accepted"
+                                  + ("; session revoked" if revoked else ""),
+                                  kind="stepup", session_public_id=pid)
+        return await run_in_threadpool(lambda: _private(
+            request, lambda pid_: private_context.unified_crossing(
+                db, pid_, body.get("id"), approve=approve, verified_for_action=verified)))
+
+    @router.post("/laura/unified/feed-preview")
+    def laura_unified_feed_preview(request: Request):
+        """Exactly which allowlisted company-context fields Venice would receive (no-store).
+        Integration review S-3: needs the live private grant, like the thread."""
+        return _private(request, lambda pid: private_context.unified_feed_preview(db, pid))
+
+    @router.post("/laura/unified/control")
+    async def laura_unified_control(request: Request):
+        body = await body_of(request)
+        return _private(request, lambda pid: private_context.unified_control(
+            db, pid, body.get("action"), body.get("ids")))
 
     return router
 
