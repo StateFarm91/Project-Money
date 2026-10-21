@@ -1,0 +1,83 @@
+# W4-INTEG6-prep 2026-10-21T04:41:14Z: local throwaway PostgreSQL cluster 16/integ5 (port 5433), not production
+PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
+Code: b931d17 (production), 1580053 (first-sale release; src identical to b997efd), b9137b55 (LISTREADY = listings release base), b8572334 (INTEG6-prep). All git-archived.
+## Part 1. full lazy surface (pg_schema_boot_full.py), database i6a
+### b931d17
+reset tables: 138 create_all changes: [] | modules that failed to import: 0 []
+### 1580053
+boot tables: 143 create_all changes: [] | modules that failed to import: 0 []
+### LISTREADY
+boot tables: 145 create_all changes: [] | modules that failed to import: 0 []
+### INTEG6-prep
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+### INTEG6-prep(second)
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+### rollback-LISTREADY
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+### rollback-1580053
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+### rollback-b931d17
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+### diff b931d17 -> 1580053
+added tables: ['controlled_experiment_runs', 'experiment_authorizations', 'image_candidates', 'image_production_runs', 'laura_outfits']
+removed tables: []
+changed existing tables: none
+### diff 1580053 -> LISTREADY
+added tables: ['launch_review_batches', 'launch_review_calls']
+removed tables: []
+changed existing tables: none
+### diff LISTREADY -> INTEG6-prep
+added tables: ['laura_boundary_crossings', 'laura_cost_events']
+removed tables: []
+changed existing tables: none
+### second prep boot
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback to LISTREADY
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback to 1580053
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback to b931d17
+added tables: []
+removed tables: []
+changed existing tables: none
+## Part 2. plain create_all (pg_schema_boot.py), database i6b
+### b931d17
+reset tables: 131 create_all changes: []
+### 1580053
+boot tables: 136 create_all changes: []
+### LISTREADY
+boot tables: 136 create_all changes: []
+### INTEG6-prep
+boot tables: 136 create_all changes: []
+### second
+boot tables: 136 create_all changes: []
+### rollback-1580053
+boot tables: 136 create_all changes: []
+### rollback-b931d17
+boot tables: 136 create_all changes: []
+### diff 1580053 -> LISTREADY
+added tables: []
+removed tables: []
+changed existing tables: none
+### diff LISTREADY -> INTEG6-prep
+added tables: []
+removed tables: []
+changed existing tables: none
+### second
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback 1580053
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback b931d17
+added tables: []
+removed tables: []
+changed existing tables: none
