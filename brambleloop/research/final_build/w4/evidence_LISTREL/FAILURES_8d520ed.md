@@ -9,3 +9,15 @@ failing 4, `release_eligible: false`.
 | `test_w4_close5_rows3::test_f542...` | **false positive.** The F-542 scanner matches any `.activate(` call. LISTREADY's `POST /launch-review/activate` calls `launch_review.activate(db, ...)`, which starts the owner's image-review batch and makes no Etsy write | rename the batch function (for example `launch_review.open_batch`) and its callers. Do **not** add it to DRAFT_ONLY (it is not an Etsy write), and do not narrow the scanner |
 | `test_w4_board::test_a_closure_needs_evidence_read_from_the_deployed_commit` | F-498 is listed as `closed_on_production_evidence`. Its closure names `tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe`, which FIRSTSALE2/LISTREADY renamed to `..._every_surface_without_a_reading`, with a changed assertion, because every surface now has a collector. The board's own rule no longer accepts the closure | regenerate the board with its generator (`completion_board_final.py`), so F-498 drops from closed-on-production to what the ledgers prove. It returns after this release is deployed and read back. Do not rename the test back, and do not edit BOARD_CLOSURES by hand |
 | `test_cert_wiring` (5 checks) | `_drain`'s 1200 s limit: "queue did not drain: 293 jobs in 1240s". The other 4 cert_wiring failures (agent_quality, retirement_review and radar.memory never reached; row 144 claimed covered) follow from the incomplete drain. This is the same limit b997efd hit (221 jobs in 1203 s); LISTREADY adds jobs, and ran under JOBS=3 contention | **coordinator decision; the limit is not raised by the integrator.** Options: re-run cert_wiring alone on a quiet machine, or root-cause the drain cost |
+
+## d69a3ec (re-freeze): run 20261021T113758Z-21624
+
+- **Full suite.** 680 suites, 12848 s: TOTAL PASSING 9104, 1 suite failing (`test_cert_wiring`). Fixes 1-3
+  hold: decision_index, close5_rows3 and board all pass.
+- **cert_wiring in the suite.** "queue did not drain: 267 jobs in 1237s". The other 3 cert_wiring
+  failures follow from the incomplete drain: persist_catalogue_audit not reached, radar.memory not
+  called, row 144.
+- **cert_wiring alone, quiet machine.** Load ~1 and no other suite (`cert_wiring_alone_d69a3ec.log`),
+  wall 1580 s: still **"queue did not drain: 276 jobs in 1200s"**, 12/16. So it is not CPU contention:
+  the drain is too slow for its own 1200 s limit on this tree. The limit was not raised; this goes to
+  the owner, as the coordinator directed.
