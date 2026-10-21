@@ -28,7 +28,9 @@ ACTION = "etsy.shop_observation"
 # verification and the tax position (KYC), and where buyer messages reach -- are accepted only
 # from the owner's Command Center session with step-up (`POST /api/cc/etsy/shop-observation`),
 # never from the shared operator credential.
-OWNER_ATTESTED_PAGES = frozenset({"messages", "legal_and_tax"})
+# Final review R1: `delivery_policy` too -- it lets a blank delivery policy read not
+# applicable, so it is the owner's attestation, never the shared operator token's.
+OWNER_ATTESTED_PAGES = frozenset({"messages", "legal_and_tax", "delivery_policy"})
 
 PAGES: dict[str, dict[str, Any]] = {
     "policy_violations": {"owner_action": "policy_violations_check", "max_age_days": 7,

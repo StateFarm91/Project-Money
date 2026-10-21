@@ -85,7 +85,10 @@ def _readings(page):
 
 def test_the_operator_credential_cannot_attest_kyc_tax_or_the_inbox():
     c = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
-    for body in (LEGAL, MESSAGES):
+    delivery = {"page": "delivery_policy", "observed_at": LEGAL["observed_at"],
+                "complete": True, "statement": "Policy settings",
+                "values": {"editable_delivery_box": False}}
+    for body in (LEGAL, MESSAGES, delivery):              # R1: delivery_policy included
         r = c.post("/api/etsy/shop-observation", json=body,
                    headers={"authorization": f"Bearer {OPS}"})
         assert r.status_code == 403 and r.json()["code"] == "OWNER_SESSION_REQUIRED", r.text
