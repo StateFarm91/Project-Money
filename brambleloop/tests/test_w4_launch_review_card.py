@@ -82,6 +82,7 @@ console.log(JSON.stringify(out));
         p.write_text(harness)
         got = json.loads(subprocess.run([node, str(p)], capture_output=True, text=True,
                                         check=True, timeout=60).stdout)
+    assert cases and len(got) == len(cases), got
     for (st, stepped, want), reason in zip(cases, got):
         if want == "":
             assert reason == "", (st, stepped, reason)

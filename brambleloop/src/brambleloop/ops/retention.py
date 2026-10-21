@@ -120,6 +120,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                "improve.cells.learning_health counts the retrospective "
                                "window (default 7 days)"),
     "verify.completed": ("latest", "command_center.overview reads the newest self-check"),
+    # W4-LISTREADY (review F5): `runtime.release_recovery.duplicate_certification` reads only
+    # the `gate.certified` rows written after a still-queued certify job was created (minutes
+    # to hours), and `halted_releases` compares a release's newest certify outcome with its
+    # newest halt. Pruning older rows removes the older halt first, so the worst case is a
+    # release that is not retried -- never one certified twice.
+    "gate.certified": ("windowed", "release_recovery reads rows newer than a queued certify "
+                                   "job and each release's newest outcome"),
     # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as
     # the newest row only (assurance, owner_queue, command_center.tabs, launch.visibility,
     # core.phase readiness evidence), so pruning older rows changes nothing they show.

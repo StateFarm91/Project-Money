@@ -406,3 +406,87 @@ All 28 suites passed (rc=0, 0 FAIL). Counts:
 | sentinel, chain, gates | test_artefacts 23, test_rebuild_graph 10, test_cert_publish_gates 18, test_cert_rebuild_chain 10, test_shadow 10 |
 
 **Not run, on the coordinator's instruction:** test_product_run, test_acceptance_gates and test_cert_wiring. test_product_run's run-1 failure is fixed in d45e033 and is still to be re-run.
+
+## 10. Independent review of d45e033 (BLOCKER): what was fixed (a46ac23)
+
+The review is `INDEPENDENT_SECREVIEW_LISTREADY.md` on `claude/w4-SECREVIEW-LISTREADY`.
+
+**Every new regression test reproduces the review's scenario.** I ran the new tests against the pre-fix source (9a4f99d)
+and every one of them fails there. The exceptions, by design:
+- F6 and F8 add coverage of behaviour that was already correct;
+- the product-independence tests confirm behaviour that was already correct.
+
+| # | fix | test (`test_w4_listready` unless named) | fails before |
+|---|---|---|---|
+| F1 BLOCKER | `built_from_version` links only an explicit versioned key (`slug@version`) to a certified release. Unversioned or ambiguous artefacts, including all marketing copy, are judged against the current release, so copy written from an older release is **STALE** and halting. R4 lets its rebuild run while publication still refuses. | `test_live_marketing_copy_written_from_an_older_release_is_stale_not_superseded` (the review's appendix A: stale, halted, outstanding, rebuild flag; re-recorded from 1.1.0 it is FRESH and the incident clears); `test_no_unversioned_artefact_is_ever_superseded` | yes |
+| F2 HIGH | "Newest" is the highest **certified version** (`ops.artefacts.newest_version`: integer tuples, `1.10.0 > 1.9.0`), never the last-inserted row. This applies in `current_from_db`, the F-115 lookup, `superseded_release`, `retry_halted` and `seed_launch0`. Versions that cannot be ordered fail closed: nothing reads superseded, and publication refuses. | `test_newest_is_the_highest_certified_version_not_the_last_row` (inserted out of order: 1.1.0, then 1.0.0, the review's appendix B); `test_versions_that_cannot_be_ordered_supersede_nothing_and_refuse_publication` | yes |
+| F3 MEDIUM | `retry_halted` skips the retry, recording `certify.retry_skipped`, when: the recorded CIR is not the code's current design for that slug@version (`design_moved`), or a newer certified release exists (`superseded_by_newer`). `seed_launch0` does not seed a release older than a certified one. | `test_f3_a_halted_release_whose_design_moved_is_not_retried`; `test_f2_f3_a_halted_release_with_a_newer_certified_release_is_not_retried` | yes |
+| F5 LOW | No retry is queued while a `gate.certify` for the same slug@version is pending or running. A certify job whose identical release (same CIR, same document version) was certified by another job after it was queued stops with `gate.certify_duplicate`, so the release is certified once. The Gate E halt check is unchanged and runs first. | `test_f5_no_retry_while_a_certify_for_the_same_release_is_in_flight`; `test_f5_a_retry_and_a_normal_certify_certify_the_release_once` (1 `gate.certified`, no `gate.recertified`, 1 PatternVersion) | yes |
+| F4 LOW | `outstanding_only_marketing` also requires no unreviewed platform-policy change (#39). The marketing rebuild exception never waives a non-staleness reason. | `test_f4_the_marketing_rebuild_exception_never_waives_an_unreviewed_policy_change` | yes |
+| F6 LOW | A behavioural test of the `chain.rebuild` comparison: an unchanged design stored as JSON is not redrafted; the same design one row short is. `test_etsy_surfaces`'s edited assertion now checks `orders_ingest.gate(db)`'s own answer (missing `transactions_r`: "Only the owner … browser … reauthorise_transactions_r"), not source text. | `test_f6_chain_rebuild_redrafts_a_changed_design_and_not_an_unchanged_one`; `test_etsy_surfaces` 53/53 | coverage |
+| F7 LOW | The `messages` and `legal_and_tax` readings are the owner's own attestation. `POST /api/etsy/shop-observation` (operator credential) refuses them with 403 `OWNER_SESSION_REQUIRED`. They are accepted at `POST /api/cc/etsy/shop-observation` behind the owner session and step-up, with `recorded_by` set to the signed-in owner and not taken from the body. A future `decided_on` is refused. | `test_w4_owner_observations` 3/3; `test_k8_shop_cx` 17/17 | yes |
+| F8 INFO | Every Etsy write is enumerated and gated (below). | `test_f8_every_etsy_write_is_authorised_at_the_client_boundary`; `test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for_publish` | audit |
+
+**F7 and the owner's existing flow.** I kept the operator route for the non-attesting pages: shared access, apps, policy
+violations and options (covered by `test_k8_shop_cx`). The owner works from a phone, so the Completion tab has a new
+**Shop Manager readings** card. It records both readings through the step-up route; the code is in `views/_shop_readings.js`
+and the offline shell is now v21. Tests: `test_w4_launch_review_card` (now 7) and `test_v11_pwa_browser` 219/0.
+
+### Every Etsy write path (owner directive)
+
+**At the client.** `EtsyClient` has seven mutating methods: `create_draft`, `_upload_image` / `upload_image`,
+`_attach_file` / `attach_file`, `set_listing_property`, `update_listing`, `delete_listing` and `activate`.
+- Each public writer checks `_authorise_write`. That means either the owner's sealed, content-bound grant re-verified
+  against the live phase, or the draft-only shadow lane in a non-publishing phase.
+- The private writers are reached only through writers that check.
+- `activate` additionally needs the phase, the grant and a per-call launch authorisation.
+- `update_listing` refuses `price` and `state`.
+
+**Call sites.** Every call site of those methods across `src/`, with any receiver:
+
+| call site | gate |
+|---|---|
+| `runtime/pipeline._publish_and_read_back` (create, images, files, properties) | reached only from `_publish_guarded` and then `handle_store_publish`, after `_release_gates` → `release_gates.for_publish` |
+| `runtime/pipeline.handle_store_activate` (state → active, the fee) | after `_release_gates` → `for_publish`, plus the launch authorisation |
+| `integrations/etsy.publish` | the client's own composite; the grant is verified first |
+| `integrations/etsy_probe`, `integrations/etsy_exercise` | the write-path exercise draft: shadow lane only, never a release, activation asserted refused, deleted |
+| `commerce/listing_rollback.execute` | owner-grant restore of an existing listing's fields; publishing phase only; no caller in `src` today |
+
+`for_publish` runs these checks:
+- `superseded_release` (the current-version check);
+- staleness and Gate E halts;
+- the platform policy (#39);
+- the listing set (Product Truth, image truth);
+- search;
+- standards;
+- originality;
+- `eligibility.product_publication` (Launch-0 first-customer scope);
+- the plan price.
+
+**No other write path exists.** There is no renewal write: listings are created with Etsy's own renewal setting, and
+`renewal_decision` is advice only. There is no inventory write and no price write. A new write site fails the F8 test until
+it is classified.
+
+**Gaps found: none.** One observation: `listing_rollback.execute` checks the owner grant and phase but not `for_publish`. It
+restores a listing's own previous field values and has no caller, so it is recorded here rather than changed. Wiring it to
+any caller should add `for_publish`.
+
+### Product independence (owner directive)
+
+A failure in one product stops only that product:
+- A customer-defect P1 on product A halts A, and product B still certifies.
+- A stale artefact on A blocks A's publication only; B's staleness is clear.
+- Below the company-wide threshold (2 of 4 products stale), nothing spreads.
+- One Launch-0 release's dead draft does not stall the seeding of the next.
+
+Tests: `test_a_failure_in_one_product_does_not_stop_an_unrelated_compliant_product` and
+`test_one_releases_failure_does_not_stall_recovery_of_the_others`.
+
+**What still reaches every product.** Only the designed company-wide safety gates, all unchanged:
+- `systemic-halt:publication`: an integrity failure, or one failure family on 3 or more products and 50% or more of the
+  catalogue;
+- an unreviewed platform-policy change (#39);
+- the SHADOW phase.
+
+R1 and F1 mean stale-artefact incidents now count only genuine staleness, so the systemic halt trips only on real
+widespread staleness.
