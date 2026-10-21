@@ -822,6 +822,9 @@ def make_router(db) -> APIRouter:
         from ...store_foundation import shop_sync
 
         body = await body_of(request)
+        # Final review R2: a confirmation is evidence (the banner check and the payout
+        # requirement close on it), so it needs the owner's step-up.
+        auth.require_stepup(db, request, "store.settings.confirm")
         try:
             out = await run_in_threadpool(
                 lambda: shop_sync.confirm(db, key, actor=actor(request),

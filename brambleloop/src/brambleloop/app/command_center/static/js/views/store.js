@@ -77,7 +77,8 @@ function settingsCard(st, stale, rerender) {
       kids.push(h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
         const lines = [r.prefilled_statement || "", ...evidenceLines(r.evidence), `Where: ${r.where}`];
         const done = await guardedAction({ title: `Confirm: ${r.label}?`, lines,
-          confirmLabel: "Confirm", run: () => api.confirmStoreSetting(r.key, r.prefilled_statement || ""),
+          confirmLabel: "Confirm", requiresStepUp: true,
+          run: () => api.confirmStoreSetting(r.key, r.prefilled_statement || ""),
           success: "Recorded as OWNER-CONFIRMED." });
         if (done) rerender();
       } }, r.state === "OWNER-CONFIRMED" ? "Re-confirm" : "Confirm"));
