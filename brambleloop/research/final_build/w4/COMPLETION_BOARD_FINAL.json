@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-10-20T12:00:32Z",
- "branch_head": "17bc373e",
+ "generated_at": "2026-10-21T11:36:12Z",
+ "branch_head": "e2617e54",
  "production": {
   "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
   "known": true,
@@ -97,32 +97,32 @@
  "headline": {
   "build2": {
    "total": 320,
-   "verified_complete": 101,
-   "implemented_unverified": 128,
-   "in_progress": 0,
-   "blocked_engineering": 3,
+   "verified_complete": 98,
+   "implemented_unverified": 131,
+   "in_progress": 1,
+   "blocked_engineering": 2,
    "blocked_owner": 36,
    "blocked_external": 49,
    "not_applicable": 3
   },
   "final_master_launch_critical": {
    "total": 490,
-   "verified_complete": 328,
-   "implemented_unverified": 49,
-   "in_progress": 5,
-   "blocked_engineering": 37,
-   "blocked_owner": 42,
-   "blocked_external": 29,
+   "verified_complete": 314,
+   "implemented_unverified": 63,
+   "in_progress": 9,
+   "blocked_engineering": 30,
+   "blocked_owner": 44,
+   "blocked_external": 30,
    "not_applicable": 0
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 377,
-   "implemented_unverified": 57,
-   "in_progress": 9,
-   "blocked_engineering": 250,
-   "blocked_owner": 127,
-   "blocked_external": 90,
+   "verified_complete": 360,
+   "implemented_unverified": 74,
+   "in_progress": 26,
+   "blocked_engineering": 230,
+   "blocked_owner": 129,
+   "blocked_external": 91,
    "not_applicable": 7
   },
   "tracked_requirements": {
@@ -137,8 +137,8 @@
   },
   "recount": {
    "build2": {
-    "production_verified": 101,
-    "dev_proven_not_deployed": 123,
+    "production_verified": 98,
+    "dev_proven_not_deployed": 126,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 2,
@@ -147,42 +147,42 @@
     "live_customer_C": 23,
     "not_applicable": 3,
     "total": 320,
-    "unfinished": 216,
+    "unfinished": 219,
     "post_launch_empirical": 54,
-    "executable_engineering": 125,
+    "executable_engineering": 128,
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 377,
-    "dev_proven_not_deployed": 54,
+    "production_verified": 360,
+    "dev_proven_not_deployed": 71,
     "implemented_unverified": 1,
-    "in_progress": 9,
-    "engineering_blocked": 246,
-    "owner_blocked": 121,
-    "external_blocked": 81,
+    "in_progress": 26,
+    "engineering_blocked": 226,
+    "owner_blocked": 123,
+    "external_blocked": 82,
     "live_customer_C": 21,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 533,
+    "unfinished": 550,
     "post_launch_empirical": 67,
-    "executable_engineering": 310,
-    "owner_or_external_non_empirical": 156
+    "executable_engineering": 324,
+    "owner_or_external_non_empirical": 159
    },
    "final_master_launch_critical": {
-    "production_verified": 328,
-    "dev_proven_not_deployed": 46,
+    "production_verified": 314,
+    "dev_proven_not_deployed": 60,
     "implemented_unverified": 1,
-    "in_progress": 5,
-    "engineering_blocked": 37,
-    "owner_blocked": 40,
-    "external_blocked": 28,
+    "in_progress": 9,
+    "engineering_blocked": 30,
+    "owner_blocked": 42,
+    "external_blocked": 29,
     "live_customer_C": 5,
     "not_applicable": 0,
     "total": 490,
-    "unfinished": 162,
+    "unfinished": 176,
     "post_launch_empirical": 8,
-    "executable_engineering": 89,
-    "owner_or_external_non_empirical": 65
+    "executable_engineering": 100,
+    "owner_or_external_non_empirical": 68
    },
    "categories": [
     "production_verified",
@@ -235,14 +235,11 @@
    "F-433",
    "F-473",
    "F-491",
-   "F-498",
    "F-504",
    "F-535",
    "F-558",
    "F-570",
    "F-574",
-   "F-586",
-   "F-591",
    "F-605",
    "F-619",
    "F-651",
@@ -274,13 +271,13 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 184,
-   "build2": 128,
-   "fm_launch_critical": 48,
-   "fm_post_launch": 8,
+   "rows": 204,
+   "build2": 131,
+   "fm_launch_critical": 62,
+   "fm_post_launch": 11,
    "tracked": 0,
    "classes": {
-    "implemented_unverified": 184
+    "implemented_unverified": 204
    },
    "owner_actions": [],
    "ids": [
@@ -292,6 +289,7 @@
     "B2#36",
     "B2#38",
     "B2#40",
+    "B2#44",
     "B2#57",
     "B2#58",
     "B2#60",
@@ -357,6 +355,7 @@
     "B2#160",
     "B2#161",
     "B2#162",
+    "B2#164",
     "B2#170",
     "B2#171",
     "B2#172",
@@ -401,6 +400,7 @@
     "B2#286",
     "B2#289",
     "B2#297",
+    "B2#299",
     "B2#302",
     "B2#304",
     "B2#306",
@@ -415,24 +415,33 @@
     "F-004",
     "F-006",
     "F-048",
+    "F-071",
     "F-074",
     "F-078",
     "F-084",
+    "F-086",
     "F-087",
     "F-090",
     "F-098",
     "F-102",
     "F-111",
+    "F-115",
+    "F-119",
     "F-141",
     "F-142",
     "F-143",
+    "F-161",
+    "F-162",
+    "F-168",
     "F-171",
     "F-172",
+    "F-175",
     "F-179",
     "F-182",
     "F-185",
     "F-192",
     "F-193",
+    "F-195",
     "F-202",
     "F-212",
     "F-244",
@@ -452,12 +461,17 @@
     "F-477",
     "F-480",
     "F-487",
+    "F-498",
     "F-501",
     "F-512",
+    "F-514@v0.16",
     "F-541",
     "F-542",
+    "F-586",
+    "F-591",
     "F-593",
     "F-655",
+    "F-663",
     "F-702",
     "F-718",
     "F-721",
@@ -467,7 +481,10 @@
     "F-874",
     "F-882",
     "F-883",
-    "F-925"
+    "F-898",
+    "F-925",
+    "F-928",
+    "F-929"
    ],
    "estimate": {
     "figure": "one release cycle",
@@ -658,52 +675,6 @@
    }
   },
   {
-   "root": "gate_open_reverify",
-   "title": "Gate now OPEN in production: unparked, re-verify",
-   "rows": 27,
-   "build2": 0,
-   "fm_launch_critical": 21,
-   "fm_post_launch": 6,
-   "tracked": 0,
-   "classes": {
-    "blocked_engineering": 27
-   },
-   "owner_actions": [],
-   "ids": [
-    "F-005",
-    "F-007",
-    "F-009",
-    "F-010",
-    "F-027",
-    "F-031",
-    "F-040",
-    "F-041",
-    "F-100",
-    "F-226",
-    "F-243",
-    "F-247",
-    "F-252",
-    "F-273",
-    "F-396",
-    "F-437",
-    "F-507",
-    "F-515@v0.16",
-    "F-538",
-    "F-540",
-    "F-575",
-    "F-590",
-    "F-594",
-    "F-595",
-    "F-628",
-    "F-747",
-    "F-872"
-   ],
-   "estimate": {
-    "figure": "one engineering pass over the unparked rows",
-    "basis": "gates read OPEN at the board's production GET; each row's own tests/evidence decide"
-   }
-  },
-  {
    "root": "image_provider_capability",
    "title": "Image/vision provider capability",
    "rows": 24,
@@ -712,8 +683,7 @@
    "fm_post_launch": 3,
    "tracked": 0,
    "classes": {
-    "blocked_external": 23,
-    "in_progress": 1
+    "blocked_external": 24
    },
    "owner_actions": [],
    "ids": [
@@ -743,6 +713,49 @@
     "F-858"
    ],
    "estimate": null
+  },
+  {
+   "root": "gate_open_reverify",
+   "title": "Gate now OPEN in production: unparked, re-verify",
+   "rows": 24,
+   "build2": 0,
+   "fm_launch_critical": 18,
+   "fm_post_launch": 6,
+   "tracked": 0,
+   "classes": {
+    "blocked_engineering": 24
+   },
+   "owner_actions": [],
+   "ids": [
+    "F-005",
+    "F-007",
+    "F-009",
+    "F-027",
+    "F-031",
+    "F-041",
+    "F-100",
+    "F-226",
+    "F-243",
+    "F-247",
+    "F-252",
+    "F-253",
+    "F-278",
+    "F-396",
+    "F-437",
+    "F-507",
+    "F-515@v0.16",
+    "F-540",
+    "F-575",
+    "F-590",
+    "F-594",
+    "F-595",
+    "F-628",
+    "F-747"
+   ],
+   "estimate": {
+    "figure": "one engineering pass over the unparked rows",
+    "basis": "gates read OPEN at the board's production GET; each row's own tests/evidence decide"
+   }
   },
   {
    "root": "etsy_no_api_or_403",
@@ -788,7 +801,8 @@
    "fm_post_launch": 2,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 15
+    "blocked_engineering": 14,
+    "in_progress": 1
    },
    "owner_actions": [],
    "ids": [
@@ -1030,8 +1044,8 @@
    "fm_post_launch": 209,
    "tracked": 0,
    "classes": {
-    "blocked_engineering": 211,
-    "in_progress": 4
+    "in_progress": 21,
+    "blocked_engineering": 194
    },
    "owner_actions": [],
    "ids": [
@@ -1550,33 +1564,43 @@
    "estimate": null
   },
   {
-   "root": "model_credits",
-   "title": "Model / vision provider credit",
+   "root": "oauth_transactions_r",
+   "title": "Etsy OAuth missing transactions_r",
    "rows": 3,
    "build2": 0,
-   "fm_launch_critical": 2,
-   "fm_post_launch": 1,
+   "fm_launch_critical": 3,
+   "fm_post_launch": 0,
    "tracked": 0,
    "classes": {
-    "blocked_owner": 1,
+    "in_progress": 3
+   },
+   "owner_actions": [],
+   "ids": [
+    "F-273",
+    "F-538",
+    "F-872"
+   ],
+   "estimate": null
+  },
+  {
+   "root": "etsy_credential_403",
+   "title": "Etsy API credential refused (HTTP 403)",
+   "rows": 2,
+   "build2": 0,
+   "fm_launch_critical": 2,
+   "fm_post_launch": 0,
+   "tracked": 0,
+   "classes": {
     "in_progress": 2
    },
-   "owner_actions": [
-    {
-     "id": "model_provider_fallback",
-     "action": "a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100)",
-     "max_cost_cad": null,
-     "minutes": null
-    }
-   ],
+   "owner_actions": [],
    "ids": [
-    "F-097",
-    "F-253",
-    "F-278"
+    "F-010",
+    "F-040"
    ],
    "estimate": {
-    "figure": "already OPEN for model_provider/image_vision in production",
-    "basis": "gates read at the board's production GET"
+    "figure": "owner minutes, then 1 daily cadence",
+    "basis": "listing.taxonomy_refresh cadence 24 h (runtime/worker.py); etsy.probe 6-hourly"
    }
   },
   {
@@ -1588,9 +1612,16 @@
    "fm_post_launch": 0,
    "tracked": 0,
    "classes": {
-    "in_progress": 2
+    "blocked_owner": 2
    },
-   "owner_actions": [],
+   "owner_actions": [
+    {
+     "id": "visual_paid_generation",
+     "action": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample ph",
+     "max_cost_cad": null,
+     "minutes": null
+    }
+   ],
    "ids": [
     "F-030",
     "F-254"
@@ -1639,6 +1670,33 @@
    "estimate": {
     "figure": "owner ~5 min, then the gate's own reading",
     "basis": "minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised"
+   }
+  },
+  {
+   "root": "model_credits",
+   "title": "Model / vision provider credit",
+   "rows": 1,
+   "build2": 0,
+   "fm_launch_critical": 0,
+   "fm_post_launch": 1,
+   "tracked": 0,
+   "classes": {
+    "blocked_owner": 1
+   },
+   "owner_actions": [
+    {
+     "id": "model_provider_fallback",
+     "action": "a second funded judgement/vision provider must exist before a drill can run (owner-approved spend, F-100)",
+     "max_cost_cad": null,
+     "minutes": null
+    }
+   ],
+   "ids": [
+    "F-097"
+   ],
+   "estimate": {
+    "figure": "already OPEN for model_provider/image_vision in production",
+    "basis": "gates read at the board's production GET"
    }
   },
   {
@@ -1704,9 +1762,9 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 184,
-   "unblocks_fm_launch_critical": 48,
-   "unblocks_build2": 128,
+   "unblocks_rows": 204,
+   "unblocks_fm_launch_critical": 62,
+   "unblocks_build2": 131,
    "who": "engineering",
    "estimate": {
     "figure": "one release cycle",
@@ -1717,8 +1775,8 @@
    "step": 3,
    "root": "gate_open_reverify",
    "title": "Gate now OPEN in production: unparked, re-verify",
-   "unblocks_rows": 27,
-   "unblocks_fm_launch_critical": 21,
+   "unblocks_rows": 24,
+   "unblocks_fm_launch_critical": 18,
    "unblocks_build2": 0,
    "who": "engineering",
    "estimate": {
@@ -1728,6 +1786,19 @@
   },
   {
    "step": 4,
+   "root": "etsy_credential_403",
+   "title": "Etsy API credential refused (HTTP 403)",
+   "unblocks_rows": 2,
+   "unblocks_fm_launch_critical": 2,
+   "unblocks_build2": 0,
+   "who": "engineering",
+   "estimate": {
+    "figure": "owner minutes, then 1 daily cadence",
+    "basis": "listing.taxonomy_refresh cadence 24 h (runtime/worker.py); etsy.probe 6-hourly"
+   }
+  },
+  {
+   "step": 5,
    "root": "launch0_cap_CAP1",
    "title": "Launch-0 catalogue cap (CAP-1)",
    "unblocks_rows": 1,
@@ -1740,7 +1811,17 @@
    }
   },
   {
-   "step": 5,
+   "step": 6,
+   "root": "oauth_transactions_r",
+   "title": "Etsy OAuth missing transactions_r",
+   "unblocks_rows": 3,
+   "unblocks_fm_launch_critical": 3,
+   "unblocks_build2": 0,
+   "who": "engineering",
+   "estimate": null
+  },
+  {
+   "step": 7,
    "root": "live_listings",
    "title": "No live listings (go-live not authorised)",
    "unblocks_rows": 38,
@@ -1753,7 +1834,7 @@
    }
   },
   {
-   "step": 6,
+   "step": 8,
    "root": "real_customers",
    "title": "No real customers / market outcomes yet",
    "unblocks_rows": 93,
@@ -1767,65 +1848,217 @@
   }
  ],
  "active_worker_branches": {
-  "claude/w4-CLOSE6": {
-   "head": "01b1c8cf",
-   "last_commit": "2026-10-20T11:42:19+00:00",
+  "claude/w4-AGENTAUDIT": {
+   "head": "3546be82",
+   "last_commit": "2026-10-21T02:39:02+00:00",
    "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-AGENTS": {
+   "head": "b5226f77",
+   "last_commit": "2026-10-21T08:20:13+00:00",
+   "commits_ahead": 7,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-BRANDRULE": {
+   "head": "eac52bbd",
+   "last_commit": "2026-10-20T13:26:55+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-CLOSE6": {
+   "head": "ff788bd9",
+   "last_commit": "2026-10-20T14:02:54+00:00",
+   "commits_ahead": 10,
    "fm": [
+    "F-040",
+    "F-144",
     "F-145",
+    "F-273",
+    "F-515",
+    "F-538",
+    "F-662",
+    "F-664",
+    "F-666",
     "F-685",
     "F-686",
     "F-688",
-    "F-867"
+    "F-834",
+    "F-846",
+    "F-867",
+    "F-872"
+   ],
+   "b2": [
+    11
+   ]
+  },
+  "claude/w4-FMBATCH1": {
+   "head": "024897cc",
+   "last_commit": "2026-10-21T04:52:45+00:00",
+   "commits_ahead": 4,
+   "fm": [
+    "F-010",
+    "F-381",
+    "F-405",
+    "F-408",
+    "F-411",
+    "F-419",
+    "F-420",
+    "F-426",
+    "F-432",
+    "F-435",
+    "F-444",
+    "F-449"
    ],
    "b2": []
   },
-  "claude/w4-HANDOFF": {
-   "head": "179ece97",
-   "last_commit": "2026-10-20T10:54:09+00:00",
+  "claude/w4-INTEG4": {
+   "head": "1eaf0f44",
+   "last_commit": "2026-10-21T04:45:39+00:00",
+   "commits_ahead": 6,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-INTEG5": {
+   "head": "a3ac2460",
+   "last_commit": "2026-10-20T22:18:29+00:00",
+   "commits_ahead": 44,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-INTEG6-prep": {
+   "head": "73e1580d",
+   "last_commit": "2026-10-21T04:54:00+00:00",
+   "commits_ahead": 44,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-LAUNCHPREP": {
+   "head": "22fe73db",
+   "last_commit": "2026-10-21T02:39:27+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-LAURACEO": {
+   "head": "a3eec7b3",
+   "last_commit": "2026-10-20T14:06:46+00:00",
    "commits_ahead": 8,
    "fm": [],
    "b2": []
   },
-  "claude/w4-SECREVIEW-324927f": {
-   "head": "615a1fb7",
-   "last_commit": "2026-10-20T00:24:43+00:00",
-   "commits_ahead": 1,
+  "claude/w4-LAURAONE": {
+   "head": "2c29b425",
+   "last_commit": "2026-10-21T05:14:23+00:00",
+   "commits_ahead": 41,
    "fm": [],
    "b2": []
   },
-  "claude/w4-SECREVIEW-5f18d11": {
-   "head": "457e02e8",
-   "last_commit": "2026-10-19T16:26:19+00:00",
-   "commits_ahead": 1,
+  "claude/w4-LAURAONE-freeze": {
+   "head": "2c29b425",
+   "last_commit": "2026-10-21T05:14:23+00:00",
+   "commits_ahead": 41,
    "fm": [],
    "b2": []
   },
-  "claude/w4-SECREVIEW-7f6dbe8": {
-   "head": "15cf7254",
-   "last_commit": "2026-10-20T11:01:43+00:00",
+  "claude/w4-LISTREL": {
+   "head": "37b08a25",
+   "last_commit": "2026-10-21T11:35:09+00:00",
    "commits_ahead": 2,
    "fm": [],
    "b2": []
   },
-  "claude/w4-VISGATE": {
-   "head": "3915ca2f",
-   "last_commit": "2026-10-19T15:07:51+00:00",
+  "claude/w4-SECREVIEW-17bc373": {
+   "head": "5be3fbc1",
+   "last_commit": "2026-10-20T12:13:03+00:00",
    "commits_ahead": 2,
-   "fm": [
-    "F-030",
-    "F-221",
-    "F-232",
-    "F-253",
-    "F-254",
-    "F-278"
-   ],
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-6b25eb0": {
+   "head": "7d6e98c6",
+   "last_commit": "2026-10-20T12:38:43+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LAURAONE": {
+   "head": "003ffd88",
+   "last_commit": "2026-10-20T18:58:40+00:00",
+   "commits_ahead": 30,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LAURAONE-c13e20d": {
+   "head": "d5d75221",
+   "last_commit": "2026-10-20T22:05:54+00:00",
+   "commits_ahead": 38,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LAURAONE-f87e430": {
+   "head": "95693b10",
+   "last_commit": "2026-10-21T04:45:27+00:00",
+   "commits_ahead": 41,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LISTREADY": {
+   "head": "61325294",
+   "last_commit": "2026-10-21T00:56:51+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LISTREADY-8d520ed": {
+   "head": "61d10e7d",
+   "last_commit": "2026-10-21T08:36:40+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-LISTREADY-b9137b5": {
+   "head": "abf8fe98",
+   "last_commit": "2026-10-21T04:53:13+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-b997efd": {
+   "head": "84deb4bc",
+   "last_commit": "2026-10-20T16:24:34+00:00",
+   "commits_ahead": 1,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-SECREVIEW-bcce679": {
+   "head": "9d108221",
+   "last_commit": "2026-10-20T22:33:11+00:00",
+   "commits_ahead": 44,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-VENICE": {
+   "head": "d5acb11a",
+   "last_commit": "2026-10-20T15:56:49+00:00",
+   "commits_ahead": 8,
+   "fm": [],
+   "b2": []
+  },
+  "claude/w4-VENICE-adult-wip": {
+   "head": "3cf3c8bb",
+   "last_commit": "2026-10-20T18:46:18+00:00",
+   "commits_ahead": 17,
+   "fm": [],
    "b2": []
   },
   "claude/w4-VISNEXT2": {
-   "head": "e37a3738",
-   "last_commit": "2026-10-20T11:00:38+00:00",
-   "commits_ahead": 2,
+   "head": "5d165069",
+   "last_commit": "2026-10-20T12:28:20+00:00",
+   "commits_ahead": 5,
    "fm": [],
    "b2": []
   }
@@ -2100,10 +2333,10 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "gate transactions_r has opened; the remaining work is no longer parked",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (commerce)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "gate transactions_r has opened; the remaining work is no longer parked",
     "verifiability": "C",
     "c_quote": "Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell.",
@@ -2825,11 +3058,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -3026,7 +3262,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "parked on owner gate insights_access",
     "cls": "blocked_owner",
     "root": "insights_paste",
@@ -5420,11 +5656,14 @@
      "teardown/pipeline.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -5502,7 +5741,7 @@
      "teardown/pipeline.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "parked on owner gate benchmark_purchases",
     "cls": "blocked_owner",
     "root": "benchmark_purchases",
@@ -7357,7 +7596,7 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "parked on owner gate owned_surfaces",
     "cls": "blocked_owner",
     "root": "owned_surfaces",
@@ -8473,11 +8712,14 @@
      "seasonal/benchmark_matrix.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger PROVEN, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -8856,7 +9098,7 @@
      "teardown/lab.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "parked on owner gate benchmark_purchases",
     "cls": "blocked_owner",
     "root": "benchmark_purchases",
@@ -9136,13 +9378,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Add a weekly handler (runtime/worker cadence) storing a taxonomy/properties snapshot digest and opening a blocking incident on change that re-queues listing.seo for affected listings",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate etsy_api is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "etsy_credential_403",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "Taxonomy node/properties are read only on demand by the Etsy exercise probe (never run successfully per research/ETSY_TRANSPORT.md); no periodic schema re-check or diff",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -9514,13 +9756,19 @@
     "code_exists": true,
     "deployed": false,
     "remaining": "owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual lane certifies LIFESTYLE through the supplement path",
-    "cls": "in_progress",
+    "cls": "blocked_owner",
     "root": "visual_paid_generation",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-VISGATE",
+    "blocked_by": "owner: paid image calls",
+    "responsible": "owner",
+    "owner_action": {
+     "id": "visual_paid_generation",
+     "action": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample ph",
+     "max_cost_cad": null,
+     "minutes": null
+    },
     "missing_evidence": "LIFESTYLE frames for the Launch-0 listings (owner VB-1 P2 paid composites or physical sample photographs); CONTENTS is certified on every renderable Launch-0 release",
     "verifiability": "A",
-    "recount": "in_progress",
+    "recount": "owner_blocked",
     "empirical": false
    },
    {
@@ -9751,13 +9999,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only drafts",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate etsy_shop is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "etsy_credential_403",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "Checks draft storefront text (about, policies, sections, icon/banner briefs) not the actual Etsy shop icon/About state",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -10445,11 +10693,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -10816,11 +11067,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -11407,11 +11661,14 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -11486,11 +11743,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -11856,7 +12116,7 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add ops/incident_lifecycle.aggregate(prefix) used by ops.health for dead-letter backlogs by job_type (one incident, count, sample ids).",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -11960,13 +12220,13 @@
     "code_exists": true,
     "deployed": false,
     "remaining": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (app)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two checks",
     "verifiability": "B",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -12303,11 +12563,14 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -12320,11 +12583,14 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -12422,11 +12688,14 @@
      "ops/incident_lifecycle.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -12545,11 +12814,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -12930,11 +13202,14 @@
      "ops/incident_lifecycle.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -13400,13 +13675,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Apply photoreal.judge/gate to owned_photography frames as a separate floor (keep inspect physical checks), and require it in parity LIFESTYLE_QUALITY",
-    "cls": "in_progress",
+    "cls": "blocked_external",
     "root": "image_provider_capability",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-VISGATE",
+    "blocked_by": "external: image provider capability",
+    "responsible": "image provider capability",
     "missing_evidence": "model frames use photoreal.CHECKS (believable-photograph standard); product-first (flat) frames are gated on inspect.REALISM_CHECKS (physical plausibility) mapped into parity LIFESTYLE_QUALITY, not the photoreal believable-photograph checks",
     "verifiability": "A",
-    "recount": "in_progress",
+    "recount": "external_blocked",
     "empirical": false
    },
    {
@@ -14068,13 +14343,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "owner gate image_vision: Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain",
-    "cls": "in_progress",
-    "root": "model_credits",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-VISGATE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate image_vision is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "Gates exist and refuse in production (listing_photography requirement read from owned_photography.coverage; asset-truth blocks), but no frame has yet cleared all floors (listable 0 of 10) and the model-bearing path is externally blocked; th",
     "verifiability": "A",
-    "recount": "in_progress",
+    "recount": "engineering_blocked",
     "empirical": false
    },
    {
@@ -14089,13 +14364,19 @@
     "code_exists": true,
     "deployed": false,
     "remaining": "owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual lane certifies LIFESTYLE through the supplement path",
-    "cls": "in_progress",
+    "cls": "blocked_owner",
     "root": "visual_paid_generation",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-VISGATE",
+    "blocked_by": "owner: paid image calls",
+    "responsible": "owner",
+    "owner_action": {
+     "id": "visual_paid_generation",
+     "action": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample ph",
+     "max_cost_cad": null,
+     "minutes": null
+    },
     "missing_evidence": "LIFESTYLE frames for the Launch-0 listings (owner VB-1 P2 paid composites or physical sample photographs); CONTENTS is certified on every renderable Launch-0 release",
     "verifiability": "A",
-    "recount": "in_progress",
+    "recount": "owner_blocked",
     "empirical": false
    },
    {
@@ -14540,13 +14821,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "oauth_transactions_r",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust, but Order.offsite_ad_attributed is never set by order ingest, so attributed fee",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -14652,13 +14933,13 @@
     "code_exists": true,
     "deployed": false,
     "remaining": "Owner: fund the vision provider account (image_vision gate). Software: none beyond keeping candidates per product >=2 at the tournament.",
-    "cls": "in_progress",
-    "root": "model_credits",
-    "blocked_by": "in progress",
-    "responsible": "claude/w4-VISGATE",
+    "cls": "blocked_engineering",
+    "root": "gate_open_reverify",
+    "blocked_by": "engineering: gate image_vision is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
+    "responsible": "next engineering lane",
     "missing_evidence": "The blinded search-grid tournament renders our heroes among competitors at grid scale (weekly creative.grid_tournament) and an unjudged grid blocks publish; the judgement itself needs a funded vision provider.",
     "verifiability": "A",
-    "recount": "in_progress",
+    "recount": "engineering_blocked",
     "empirical": false
    },
    {
@@ -16726,13 +17007,13 @@
     "code_exists": true,
     "deployed": false,
     "remaining": "add a code-deploy rollback runbook check: record previous Railway deployment id at each deploy and a rehearsal that redeploys it to a staging environment",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "release_not_deployed",
-    "blocked_by": "engineering: deploy successor + 24h unattended window",
-    "responsible": "integrator (release)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "deployed: 0417f35 runs unattended in production since 2026-10-11T13:59:48Z; the 24h off-device proof on it has not yet read PROVEN (unmet only on dead letters fixed by 843af70/4b55f22). Earlier mapping note: lane claim qualifier: (code). Re",
     "verifiability": "B",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17257,13 +17538,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (gateway)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "only model-analysis reuse exists (content-fingerprint cache); no search of BUILD_STATE/DECISION_LOG/experiments/lessons before external research",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17316,13 +17597,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no cross-checking of consequential findings against independent sources",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17388,13 +17669,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no runtime applicability evaluation",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17531,13 +17812,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "only benchmark purchase selection carries a stop reason; no general research task spec",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17550,13 +17831,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no general check that research changed confidence; benchmark picks must name the unknown they answer",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17681,13 +17962,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no reconciliation/unresolved state for conflicting sources",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17821,13 +18102,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (gateway)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "dedup exists for model analysis (cache), listing-test questions (memory reopens only on named context change) and benchmark refresh; no research question registry",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -17891,13 +18172,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no machine-usable research conclusion schema; learning observations lack confidence/alternatives/applicability/next test",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -18082,13 +18363,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (build2)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "escalation exists for gated requirements (owner cards with smallest action), not for research questions",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -18177,13 +18458,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-det",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-FMBATCH1",
     "missing_evidence": "no research metrics (none can exist without F-401)",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -18705,7 +18986,7 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add an evidence index route (/api/evidence?subject=) over provenance, lessons and intel memory so build agents can discover prior evidence before dispatch",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -18963,7 +19244,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add critical-path movement (F-465) and listable-product count to the dashboard header",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -19182,25 +19463,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "closed_on_production_evidence": {
-     "evidence_files": [
-      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
-      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
-     ],
-     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
-     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
-     "tests": [
-      "tests/test_w4_etsysurf.py::test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
-      "tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
-      "tests/test_w4_etsysurf.py::test_the_requirement_is_part_of_readiness_and_never_blocks_on_build"
-     ],
-     "worker": "W4-CLOSE5 2026-10-20"
-    },
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -19569,7 +19839,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Record the launch-critical list (research/final_build closure matrix) as a versioned constant read by launch/readiness.assess and test that adding a blocker requires a DECISION_LOG entry",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -19686,11 +19956,14 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -20287,13 +20560,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/payouts with ledger entries per receipt, keeping unknown fee behaviour explicit",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "oauth_transactions_r",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "books compute P&L from observed ledger entries daily and ingested sales carry modelled fees; no reader for Etsy payment-account ledger/payouts, taxes or ad/subscription charges exists, and receipts are not yet readable (transactions_r)",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -20451,7 +20724,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add a weekly etsy.openapi_watch cadence that fetches the OpenAPI document (public), runs verify_absence and document_fingerprint, and opens an incident on change",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -21175,7 +21448,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "owner gate payout: drift monitor built; owner completes Etsy Payments onboarding",
     "cls": "blocked_owner",
     "root": "etsy_shop_settings",
@@ -21248,7 +21521,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Sync etsy_surfaces.owner_queue() actions (apps, shared_access, subscription, policy_violations, webhooks, developer_portal) into OwnerAction from launch.readiness, and store a dated app inventory row for the first-party app (scopes, purpose, revocation path).",
     "cls": "blocked_owner",
     "root": "etsy_shop_settings",
@@ -21313,7 +21586,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Sync the shared_access owner action into OwnerAction via launch.readiness and require a dated statement to close it; re-open after any account recovery event.",
     "cls": "blocked_owner",
     "root": "etsy_shop_settings",
@@ -21384,24 +21657,14 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "closed_on_production_evidence": {
-     "evidence_files": [
-      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
-      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
-     ],
-     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
-     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
-     "tests": [
-      "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
-      "tests/test_w4_etsysurf.py::test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list"
-     ],
-     "worker": "W4-CLOSE5 2026-10-20"
-    },
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -21441,7 +21704,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Surface Evidence(UNKNOWN) entries in coverage()['unknowns'] so the partners question reaches readiness; add a test that a new image/fulfilment provider registered in the gateway re-opens the partners review; record the owner's reading as a policy snapshot when available.",
     "cls": "blocked_owner",
     "root": "etsy_shop_settings",
@@ -21489,7 +21752,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Store ShopReceipt.receipt_type on each Order in orders_ingest and alert if any non-Etsy.com channel appears.",
     "cls": "blocked_engineering",
     "root": "gate_open_reverify",
@@ -21510,24 +21773,14 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger POST-LAUNCH, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "closed_on_production_evidence": {
-     "evidence_files": [
-      "research/final_build/w4/evidence_CLOSE5/deployed_tree_tests_b931d17.json",
-      "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
-     ],
-     "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
-     "reading": "row tests pass on the deployed tree; producer module reached on b931d17",
-     "tests": [
-      "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
-      "tests/test_w4_fmclose_etsy.py::test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident"
-     ],
-     "worker": "W4-CLOSE5 2026-10-20"
-    },
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -21577,7 +21830,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "owner gate etsy_api: readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains",
     "cls": "blocked_engineering",
     "root": "gate_open_reverify",
@@ -21695,7 +21948,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add a quarterly cadence that fetches Etsy's public OpenAPI document, compares document_fingerprint and verify_absence to the recorded registry, and opens an owner review task on change.",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -21716,7 +21969,7 @@
      "intel/etsy_surfaces.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Expose etsy_surfaces.coverage()/work_plan() via an API route and the dashboard so surface coverage is visible at runtime; build collectors per F-553/F-585.",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -22643,13 +22896,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "Only a raw audit-log table (last 15 AuditLog rows: time, actor, action, artifact) -- the tool-call-level stream the requirement says to replace; no causal, human-readable cross-department narrative.",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -22662,11 +22915,14 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -22679,13 +22935,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Build /api/ask routing a question to a fixed set of deterministic answerers (what changed: timeline; why profit moved: finance.books delta; what blocks launch: launch.readiness; agents: swarm; spend: spend_report) with cited evidence; optional LLM phrasing under gateway budget; test each intent.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "No command/search bar, no natural-language question endpoint over company state.",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -22725,13 +22981,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "Build /api/brief?since=<ts> composing jobs completed, products/status transitions, owned/model photography attempts, mjs findings, CostEntry sums, LedgerEntry sales, incidents and open owner actions; render on Studio home; test with seeded rows.",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "No 'while you were away' brief; ingredients exist separately (learning-changes block, /api/nightly improvement sweep, spend_report, incidents) but nothing aggregates autonomous hours, products advanced/rejected, image candidates, Etsy findi",
     "verifiability": "B",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -23394,7 +23650,7 @@
      "launch/readiness.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "cls": "not_applicable",
     "root": "not_applicable",
     "recount": "not_applicable",
@@ -24743,7 +24999,7 @@
      "teardown/enforce.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Add a tips field to the CIR release (keyed to row ranges) fed from recurring support themes/PhysicalTest notes and render it inline in publish/pdf.py",
     "cls": "blocked_external",
     "root": "real_customers",
@@ -25350,7 +25606,7 @@
      "teardown/enforce.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "none pre-launch",
     "cls": "blocked_owner",
     "root": "benchmark_purchases",
@@ -25811,7 +26067,7 @@
      "ops/artefacts.py"
     ],
     "code_exists": true,
-    "deployed": true,
+    "deployed": false,
     "remaining": "Register LessonSpec artefacts with ops/artefacts once they exist",
     "cls": "blocked_engineering",
     "root": "engineering_open",
@@ -26123,13 +26379,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (build2)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a production_producer and failure_test receipt, a suite receipt whose head/run matc",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -26332,13 +26588,13 @@
     "code_exists": null,
     "deployed": null,
     "remaining": "integrator: the producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction; accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_FMGATE.json (same basis as F-843/F-845/F-847)",
-    "cls": "blocked_engineering",
+    "cls": "in_progress",
     "root": "engineering_open",
-    "blocked_by": "engineering",
-    "responsible": "next engineering lane (unknown)",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": null,
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -26865,13 +27121,13 @@
     "code_exists": true,
     "deployed": true,
     "remaining": "Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence",
-    "cls": "blocked_engineering",
-    "root": "gate_open_reverify",
-    "blocked_by": "engineering: gate transactions_r is OPEN in production (20261020T0540Z); the row is unparked and must be re-verified, not assumed done",
-    "responsible": "next engineering lane",
+    "cls": "in_progress",
+    "root": "oauth_transactions_r",
+    "blocked_by": "in progress",
+    "responsible": "claude/w4-CLOSE6",
     "missing_evidence": "the gate checks stored grant scope AND a recorded etsy.probe; readback of a real receipt after reauthorisation not yet possible",
     "verifiability": "A",
-    "recount": "engineering_blocked",
+    "recount": "in_progress",
     "empirical": false
    },
    {
@@ -27426,11 +27682,14 @@
      "app/command_center/readers.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -28009,10 +28268,12 @@
      "app/command_center/ask.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
     "audit": {
      "verdict": "PASS",
      "basis": "answers grounded in gate records with sources; UNKNOWN rather than invented; /api/cc/ask is authenticated",
@@ -28020,7 +28281,8 @@
      "downgrade_reason": null,
      "reclosed": null
     },
-    "recount": "production_verified",
+    "verifiability": "B",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
@@ -28034,11 +28296,14 @@
      "autonomy/orchestrator.py"
     ],
     "code_exists": true,
-    "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "deployed": false,
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
