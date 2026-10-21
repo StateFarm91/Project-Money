@@ -120,18 +120,79 @@ def test_an_older_release_artefact_is_superseded_not_stale_and_raises_no_halt():
     assert out["fresh"] == 0
 
 
-def test_an_unversioned_marketing_asset_is_matched_to_the_release_it_was_built_from():
+def test_live_marketing_copy_written_from_an_older_release_is_stale_not_superseded():
+    """Review F1 (BLOCKER): the review's reproduction. Marketing copy is the product's live
+    copy; written from 1.0.0 and left after 1.1.0 it is STALE and halting, never superseded,
+    and the rebuild that cures it may run (R4) while publication still refuses."""
+    from brambleloop.ops import rebuild_graph
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12, "yards": 100}, "a" * 64)
+    key = P.marketing_key("hex", "pin", "Hex: 100 yards")
+    _record_from(db, "hex", "1.0.0", cls="marketing_asset", key=key)
+    _pv(db, "hex", "1.1.0", {"rows": 14, "yards": 140}, "b" * 64)
+    out = _sentinel(db)
+    assert [v["state"] for v in out["verdicts"]] == [P.STALE], out["verdicts"]
+    assert out["publication_blocked"] == ["hex"]
+    assert IncidentTracker(db).publication_halted("hex") is True
+    with db.session() as s:
+        gate = rebuild_graph.publication_gate(s, slug="hex")
+    assert gate["may_publish"] is False and gate["outstanding"] == [f"marketing_asset:{key}"]
+    st = G.staleness(db, slug="hex")
+    assert st["blocks"] is True and st["outstanding_only_marketing"] is True
+    # the rebuild re-records the copy from the newest release: fresh, and the halt clears
+    _record_from(db, "hex", "1.1.0", cls="marketing_asset", key=key)
+    out = _sentinel(db)
+    assert [v["state"] for v in out["verdicts"]] == [P.FRESH]
+    assert out["incidents_cleared"] == [f"stale-artefact:marketing_asset:{key}"]
+    assert IncidentTracker(db).publication_halted("hex") is False
+
+
+def test_no_unversioned_artefact_is_ever_superseded():
     db = _db()
     _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
-    _record_from(db, "hex", "1.0.0", cls="marketing_asset", key=P.marketing_key("hex", "pin", "t"))
+    for cls, key in (("marketing_asset", P.marketing_key("hex", "email", "x")),
+                     ("pdf", "hex.pdf"), ("certificate", "hex@unknown-version")):
+        _record_from(db, "hex", "1.0.0", cls=cls, key=key)
     _pv(db, "hex", "1.1.0", {"rows": 14}, "b" * 64)
     out = _sentinel(db)
-    assert [v["state"] for v in out["verdicts"]] == [P.SUPERSEDED]
-    # a marketing asset whose design matches no certified release is still judged stale
-    _record_from(db, "hex", "1.1.0", cls="marketing_asset", key=P.marketing_key("hex", "pin", "u"),
-                 inputs={"cir:hex": P.fingerprint({"rows": 99})})
-    out = _sentinel(db)
-    assert out["stale"] == 1 and out["publication_blocked"] == ["hex"]
+    assert {v["state"] for v in out["verdicts"]} == {P.STALE}, out["verdicts"]
+
+
+def test_newest_is_the_highest_certified_version_not_the_last_row():
+    """Review F2: an out-of-order certification (an older release certified after a newer
+    one) must not make the real newest release superseded or let the older one publish."""
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    _pv(db, "hex", "1.1.0", {"rows": 14}, "b" * 64)
+    _record_from(db, "hex", "1.1.0")
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)              # inserted last
+    _record_from(db, "hex", "1.0.0")
+    with db.session() as s:
+        cur = P.current_from_db(s)
+    assert cur.latest_version["hex"] == "1.1.0"
+    states = {v["artefact_key"]: v["state"] for v in _sentinel(db)["verdicts"]}
+    assert states == {"hex@1.1.0#pdf-us": P.FRESH, "hex@1.0.0#pdf-us": P.SUPERSEDED}
+    assert G.superseded_release(db, slug="hex", version="1.1.0")["superseded"] is False
+    old = G.superseded_release(db, slug="hex", version="1.0.0")
+    assert old["superseded"] is True and old["newest"] == "1.1.0"
+    # 1.10.0 is newer than 1.9.0 (not a string comparison)
+    assert P.newest_version(["1.9.0", "1.10.0"]) == "1.10.0"
+
+
+def test_versions_that_cannot_be_ordered_supersede_nothing_and_refuse_publication():
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
+    _record_from(db, "hex", "1.0.0")
+    _pv(db, "hex", "draft-b", {"rows": 14}, "b" * 64)
+    assert P.newest_version(["1.0.0", "draft-b"]) is None
+    assert P.SUPERSEDED not in {v["state"] for v in _sentinel(db)["verdicts"]}
+    for v in ("1.0.0", "draft-b"):
+        assert G.superseded_release(db, slug="hex", version=v)["superseded"] is True
 
 
 def test_genuinely_stale_artefacts_of_the_current_release_still_raise_halting_p1s():
@@ -253,6 +314,16 @@ def _launch0_cir(slug="hexagon-coaster-set"):
     raise KeyError(slug)
 
 
+def _certify(db, job):
+    """Run one gate.certify job as the worker does: the handler, then the job marked done."""
+    from brambleloop.core.models import JobStatus
+
+    out = pipeline.handle_certify(_ctx(db, job))
+    with db.session() as s:
+        s.get(Job, job.id).status = JobStatus.DONE
+    return out
+
+
 def _certify_job(db, cir, key):
     return JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
                                 idempotency_key=key)
@@ -272,7 +343,7 @@ def test_a_halted_certification_is_never_retried_while_the_halt_holds_and_once_a
     for i in range(3):                       # Gate E: a customer-defect P1, unchanged
         tracker.report(DefectReport(cir.slug, "1.0.0", "coaster", 4, f"c{i}", "row 4"))
     job = _certify_job(db, cir, "certify-first")
-    out = pipeline.handle_certify(_ctx(db, job))
+    out = _certify(db, (job))
     assert out.get("halted_by_incident") is True
     assert _actions(db, rel) == ["gate.halted"]
 
@@ -292,7 +363,7 @@ def test_a_halted_certification_is_never_retried_while_the_halt_holds_and_once_a
         retry = s.scalar(select(Job).where(Job.idempotency_key.like("certify-after-halt:%")))
         first = s.scalar(select(Job).where(Job.idempotency_key == "certify-first"))
         assert retry.inputs == first.inputs                   # the halted CIR, nothing guessed
-    out = pipeline.handle_certify(_ctx(db, retry))
+    out = _certify(db, (retry))
     assert out["granted"] is True
     assert _actions(db, rel)[:2] == ["gate.halted", "gate.certified"]
     assert RR.halted_releases(db) == []                  # decided: the episode is over
@@ -309,7 +380,7 @@ def test_a_retry_that_is_halted_again_opens_a_new_episode():
     tracker = IncidentTracker(db)
     for i in range(3):
         tracker.report(DefectReport(cir.slug, "1.0.0", "coaster", 4, f"c{i}", "row 4"))
-    pipeline.handle_certify(_ctx(db, _certify_job(db, cir, "first")))
+    _certify(db, (_certify_job(db, cir, "first")))
     first = RR.halted_releases(db)[0]["halt_audit_id"]
     with db.session() as s:
         ids = [i.id for i in s.scalars(select(Incident).where(Incident.resolved.is_(False)))]
@@ -321,7 +392,7 @@ def test_a_retry_that_is_halted_again_opens_a_new_episode():
         tracker.report(DefectReport(cir.slug, "1.0.0", "coaster", 5, f"d{i}", "row 5"))
     with db.session() as s:
         retry = s.scalar(select(Job).where(Job.idempotency_key.like("certify-after-halt:%")))
-    assert pipeline.handle_certify(_ctx(db, retry)).get("halted_by_incident") is True
+    assert _certify(db, (retry)).get("halted_by_incident") is True
     second = RR.halted_releases(db)[0]["halt_audit_id"]
     assert second > first
     assert RR.retry_halted(holder)["still_halted"]
@@ -378,7 +449,7 @@ def test_production_deadlock_reproduced_then_cleared_with_every_gate_unchanged()
     # b931d17's sentinel and escalation
     _sentinel(db, old_logic=True)
     assert _systemic(db)["systemic"] is True
-    halted = pipeline.handle_certify(_ctx(db, _certify_job(db, cir, f"certify:{cir.slug}")))
+    halted = _certify(db, (_certify_job(db, cir, f"certify:{cir.slug}")))
     assert halted.get("halted_by_incident") is True
 
     # the fixed sentinel: the halt clears for the reason it was wrong, nothing else
@@ -393,7 +464,7 @@ def test_production_deadlock_reproduced_then_cleared_with_every_gate_unchanged()
     assert out["recovery"]["halted_certifications"]["retried"] == [rel]
     with db.session() as s:
         retry = s.scalar(select(Job).where(Job.idempotency_key.like("certify-after-halt:%")))
-    granted = pipeline.handle_certify(_ctx(db, retry))
+    granted = _certify(db, (retry))
     assert granted["granted"] is True
     assert "gate.certified" in _actions(db, rel)
 
@@ -404,6 +475,296 @@ def test_production_deadlock_reproduced_then_cleared_with_every_gate_unchanged()
     out = handle_chain_rebuild(_ctx(db, JobQueue(db).enqueue(
         "listing", "chain.rebuild", {}, idempotency_key="hourly-2")))
     assert out["recovery"]["halted_certifications"]["retried"] == []
+
+
+# ---- review of d45e033: F3, F4, F5, F6, F8 ---------------------------------------------------
+
+def _halted(db, cir, key="first"):
+    tracker = IncidentTracker(db)
+    for i in range(3):
+        tracker.report(DefectReport(cir.slug, "1.0.0", "coaster", 4, f"{key}{i}", "row 4"))
+    assert _certify(db, _certify_job(db, cir, key)).get("halted_by_incident") is True
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(Incident.resolved.is_(False))):
+            tracker.resolve(inc.id, "fixed")
+
+
+def _holder(db, key):
+    return _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key=key))
+
+
+def test_f3_a_halted_release_whose_design_moved_is_not_retried():
+    db = _db()
+    cir = _launch0_cir()
+    moved = cir.to_dict()
+    moved["title"] = moved["title"] + " (older draft)"            # the recorded CIR is stale
+    from brambleloop.cir.model import CIR
+    _halted_cir = CIR.from_dict(moved)
+    tracker = IncidentTracker(db)
+    for i in range(3):
+        tracker.report(DefectReport(cir.slug, "1.0.0", "coaster", 4, f"m{i}", "row 4"))
+    assert _certify(db, _certify_job(db, _halted_cir, "moved")).get("halted_by_incident")
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(Incident.resolved.is_(False))):
+            tracker.resolve(inc.id, "fixed")
+    r = RR.retry_halted(_holder(db, "f3"))
+    rel = f"{cir.slug}@{cir.version}"
+    assert r["retried"] == [] and r["skipped"][rel].startswith("design_moved"), r
+    with db.session() as s:
+        assert s.scalar(select(AuditLog).where(AuditLog.action == "certify.retry_skipped"))
+
+
+def test_f2_f3_a_halted_release_with_a_newer_certified_release_is_not_retried():
+    db = _db()
+    cir = _launch0_cir()                                          # hexagon-coaster-set@1.2.0
+    _halted(db, cir)
+    _pv(db, cir.slug, "1.3.0", dict(cir.to_dict(), version="1.3.0"), "e" * 64)
+    r = RR.retry_halted(_holder(db, "f2"))
+    rel = f"{cir.slug}@{cir.version}"
+    assert r["retried"] == [] and r["skipped"][rel] == "superseded_by_newer: ['1.3.0'] certified"
+    # and R5 does not seed a Launch-0 release older than a certified one
+    out = RR.seed_launch0(_holder(db, "f2-seed"), limit=20)
+    assert rel not in out["seeded"] and any(x.startswith(rel) for x in out["certified"])
+
+
+def test_f5_no_retry_while_a_certify_for_the_same_release_is_in_flight():
+    db = _db()
+    cir = _launch0_cir()
+    _halted(db, cir)
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                         idempotency_key="certify:normal-chain")      # pending, normal path
+    r = RR.retry_halted(_holder(db, "f5"))
+    rel = f"{cir.slug}@{cir.version}"
+    assert r["retried"] == [] and r["skipped"][rel].startswith("certify_in_flight"), r
+
+
+def test_f5_a_retry_and_a_normal_certify_certify_the_release_once():
+    db = _db()
+    cir = _launch0_cir()
+    _halted(db, cir)
+    RR.retry_halted(_holder(db, "f5b"))
+    normal = JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                                  idempotency_key="certify:normal-chain-2")
+    with db.session() as s:
+        retry = s.scalar(select(Job).where(Job.idempotency_key.like("certify-after-halt:%")))
+    assert _certify(db, retry)["granted"] is True
+    second = _certify(db, normal)
+    assert second.get("duplicate") is True
+    rel = f"{cir.slug}@{cir.version}"
+    acts = _actions(db, rel)
+    assert acts.count("gate.certified") == 1 and "gate.recertified" not in acts
+    assert "gate.certify_duplicate" in acts
+    with db.session() as s:
+        assert len(list(s.scalars(select(PatternVersion).join(Product).where(
+            Product.slug == cir.slug, PatternVersion.version == cir.version)))) == 1
+
+
+def test_f4_the_marketing_rebuild_exception_never_waives_an_unreviewed_policy_change():
+    from brambleloop.core.models import PolicySnapshot
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    _pv(db, "hex", "1.0.0", {"rows": 12}, "a" * 64)
+    key = P.marketing_key("hex", "pin", "t")
+    _record_from(db, "hex", "1.0.0", cls="marketing_asset", key=key,
+                 inputs={"cir:hex": P.fingerprint({"rows": 11})})
+    _sentinel(db)
+    assert G.staleness(db, slug="hex")["outstanding_only_marketing"] is True
+    with db.session() as s:
+        s.add(PolicySnapshot(source="seller_policy", material_change=True,
+                             affects=["publishing"], digest="d" * 64, checked_on="2026-10-21"))
+    st = G.staleness(db, slug="hex")
+    assert st["policy_changes_unreviewed"] == ["seller_policy"]
+    assert st["outstanding_only_marketing"] is False and st["blocks"] is True
+
+
+def test_f6_chain_rebuild_redrafts_a_changed_design_and_not_an_unchanged_one():
+    import json
+
+    from brambleloop.gates.certificate import DOC_VERSION
+    from brambleloop.runtime.pipeline import _engineered_cir
+    from brambleloop.runtime.release import handle_chain_rebuild
+
+    def run(stored: dict, key: str):
+        db = _db()
+        cir = _engineered_cir("hexagon-coaster-set")
+        with db.session() as s:
+            s.add(Product(slug=cir.slug, title=cir.title, status="certified"))
+            s.flush()
+            s.add(PatternVersion(product_id=s.scalar(select(Product.id)), version=cir.version,
+                                 cir_json=stored, release_hash="r" * 64, certified=True,
+                                 certificate={"doc_version": DOC_VERSION}))
+        job = JobQueue(db).enqueue("listing", "chain.rebuild", {"slugs": [cir.slug]},
+                                   idempotency_key=key)
+        return handle_chain_rebuild(_ctx(db, job))["redrafted"]
+
+    cir = _engineered_cir("hexagon-coaster-set")
+    as_stored = json.loads(json.dumps(cir.to_dict(), default=str))   # what the DB holds
+    assert run(as_stored, "same") == []                               # unchanged: no redraft
+    changed = json.loads(json.dumps(cir.to_dict(), default=str))
+    changed["components"][0]["rows"] = changed["components"][0]["rows"][:-1]   # one row less
+    assert run(changed, "moved") == [f"{cir.slug}@{cir.version} design"]
+
+
+def _etsy_mutating_methods():
+    """EtsyClient methods that send POST/PUT/PATCH/DELETE (read from the client's own AST)."""
+    import ast
+
+    path = ROOT / "src" / "brambleloop" / "integrations" / "etsy.py"
+    tree = ast.parse(path.read_text())
+    out = {}
+    for cls in [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "EtsyClient"]:
+        methods = {f.name: f for f in cls.body if isinstance(f, ast.FunctionDef)}
+        for name, fn in methods.items():
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "_call" and node.args
+                        and isinstance(node.args[0], ast.Constant)
+                        and node.args[0].value in ("POST", "PUT", "PATCH", "DELETE")):
+                    out[name] = ast.get_source_segment(path.read_text(), fn)
+        return out, {n: ast.get_source_segment(path.read_text(), f) for n, f in methods.items()}
+    raise AssertionError("EtsyClient not found")
+
+
+def test_f8_every_etsy_write_is_authorised_at_the_client_boundary():
+    """Owner directive / review F8 (1 of 2): every EtsyClient method that writes to Etsy
+    checks authority at the effect boundary itself -- a verified owner grant, or the
+    draft-only shadow lane in a non-publishing phase (`_authorise_write`) -- and activation
+    (the only state change to live, and the fee) also needs the phase, the grant and a
+    per-call launch authorisation. A private writer is reached only through a public one
+    that checks."""
+    mutating, methods = _etsy_mutating_methods()
+    assert set(mutating) >= {"create_draft", "update_listing", "delete_listing", "activate",
+                             "set_listing_property", "_upload_image", "_attach_file"}, mutating
+    for name, body in mutating.items():
+        if name.startswith("_"):
+            callers = [n for n, b in methods.items() if n != name and f"self.{name}(" in b]
+            assert callers, name
+            for c in callers:
+                assert "_authorise_write(" in methods[c] or c == "publish", (name, c)
+        elif name == "activate":
+            assert "launch_authorisation" in body and "_grant_refusal" in body or \
+                "_authorise_write(" in body, body[:200]
+        else:
+            assert "_authorise_write(" in body, name
+    # publish (the composite) verifies the owner grant itself before any write
+    assert "_grant_refusal(" in methods["publish"] or "_authorise_write(" in methods["publish"]
+    # price and state never travel through update_listing
+    assert "PRICE_IS_ELSEWHERE" in methods["update_listing"]
+    assert '"state" in fields' in methods["update_listing"]
+
+
+def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for_publish():
+    """Owner directive / review F8 (2 of 2): every call site of an Etsy write method, by any
+    receiver, is enumerated. A release reaches Etsy only through `store.publish` (create,
+    images, files, properties) and `store.activate` (state -> active), both of which run
+    `_release_gates` -> `release_gates.for_publish` (Product Truth, the current-version guard,
+    the listing set, search, standards, policy (#39), staleness) before the write; the client
+    then needs the owner's sealed grant. There is no renewal, inventory or price write path:
+    `update_listing` refuses price and state. Any new write site fails this test until it is
+    classified here."""
+    import ast
+
+    mutating, _ = _etsy_mutating_methods()
+    public = {m.lstrip("_") for m in mutating} | {"upload_image", "attach_file", "publish"}
+    src_root = ROOT / "src" / "brambleloop"
+    allowed = {
+        ("runtime/pipeline.py", "_publish_and_read_back"):
+            "store.publish, after _release_gates (for_publish); owner grant at the client",
+        ("runtime/pipeline.py", "handle_store_activate"):
+            "store.activate, after _release_gates (for_publish); launch authorisation",
+        ("integrations/etsy.py", "publish"): "the client's composite; grant verified first",
+        ("integrations/etsy_exercise.py", "create_draft"):
+            "write-path exercise draft: shadow lane only, never a release, deleted",
+        ("integrations/etsy_probe.py", "*"):
+            "write-path probe's exercise listing: shadow lane only, activation asserted refused",
+        ("commerce/listing_rollback.py", "execute"):
+            "owner-grant rollback of an existing listing's fields; no caller in src",
+    }
+    found = set()
+    for path in src_root.rglob("*.py"):
+        rel = str(path.relative_to(src_root))
+        text = path.read_text()
+        tree = ast.parse(text)
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(fn):
+                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in public):
+                    continue
+                recv = ast.get_source_segment(text, node.func.value) or ""
+                if node.func.attr == "publish" and "bus" in recv:
+                    continue                       # the learning bus, not Etsy
+                if node.func.attr == "activate" and "launch_review" in recv:
+                    continue                       # the owner's review batch, not Etsy
+                if rel == "integrations/etsy.py" and fn.name in mutating:
+                    continue                       # the client's own internals
+                found.add((rel, fn.name))
+    unknown = sorted(f for f in found if f not in allowed and (f[0], "*") not in allowed)
+    assert not unknown, f"unclassified Etsy write call sites: {unknown}"
+    assert ("runtime/pipeline.py", "_publish_and_read_back") in found
+    assert ("runtime/pipeline.py", "handle_store_activate") in found
+    pipe = (src_root / "runtime" / "pipeline.py").read_text()
+    tree = ast.parse(pipe)
+    fns = {n.name: ast.get_source_segment(pipe, n) for n in ast.walk(tree)
+           if isinstance(n, ast.FunctionDef)}
+    assert "for_publish(" in fns["_release_gates"]
+    for handler in ("handle_store_publish", "handle_store_activate"):
+        assert "_release_gates(" in fns[handler], handler
+    # _publish_and_read_back is reached only from store.publish's guarded path
+    callers = [n for n, b in fns.items() if n != "_publish_and_read_back"
+               and "_publish_and_read_back(" in b]
+    assert callers == ["_publish_guarded"], callers
+    assert [n for n, b in fns.items() if n != "_publish_guarded"
+            and "_publish_guarded(" in b] == ["handle_store_publish"]
+    rel_gates = (src_root / "publish" / "release_gates.py").read_text()
+    fp = rel_gates[rel_gates.index("def for_publish("):rel_gates.index("def our_competitive_reading")]
+    for gate in ("superseded_release(", "staleness(", "listing_set(", "search_gate(",
+                 "standards_gate(", "eligibility.product_publication(", "originality_gate("):
+        assert gate in fp, gate
+
+
+# ---- product independence (owner directive) ------------------------------------------------
+
+def test_a_failure_in_one_product_does_not_stop_an_unrelated_compliant_product():
+    """A customer-defect P1 or a stale artefact on product A halts A only: B's certification
+    proceeds and B's staleness is clear. Only the designed company-wide safety gate (an
+    integrity failure, or one failure family on >= 3 products and >= 50% of the catalogue)
+    reaches every product, and below that threshold B is untouched."""
+    from brambleloop.publish import release_gates as G
+
+    db = _db()
+    b = _launch0_cir("hexagon-coaster-set")
+    tracker = IncidentTracker(db)
+    for i in range(3):                                            # A: a real pattern defect
+        tracker.report(DefectReport("cloudline-baby-blanket", "1.2.0", "blanket", 4,
+                                    f"a{i}", "row 4"))
+    assert tracker.publication_halted("cloudline-baby-blanket") is True
+    assert tracker.publication_halted(b.slug) is False
+    assert _certify(db, _certify_job(db, b, "b-cert"))["granted"] is True
+
+    # a stale artefact on A, and on one more product: 2 of 4 -> below the systemic threshold
+    for slug in ("pa", "pb", "pc", "pd"):
+        _pv(db, slug, "1.0.0", {"s": slug}, "1" * 64)
+    for slug in ("pa", "pb"):
+        _record_from(db, slug, "1.0.0", inputs={f"cir:{slug}": P.fingerprint({"x": 1})})
+    _sentinel(db)
+    assert _systemic(db)["systemic"] is False
+    assert G.staleness(db, slug="pc")["blocks"] is False
+    assert G.staleness(db, slug="pa")["blocks"] is True
+
+
+def test_one_releases_failure_does_not_stall_recovery_of_the_others():
+    db = _db()
+    holder = _holder(db, "ind-seed")
+    first = RR.seed_launch0(holder)["seeded"]
+    from brambleloop.core.models import JobStatus
+    with db.session() as s:                                       # its draft died
+        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft")):
+            j.status = JobStatus.DEAD
+    nxt = RR.seed_launch0(_holder(db, "ind-seed-2"))
+    assert nxt["seeded"] and nxt["seeded"] != first and first[0] in nxt["already_seeded"]
 
 
 if __name__ == "__main__":

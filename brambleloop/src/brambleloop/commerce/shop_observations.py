@@ -24,6 +24,12 @@ ACTION = "etsy.shop_observation"
 
 #: The pages this intake accepts, the owner action a complete reading evidences, and how
 #: old a reading may be before it is stale.
+# W4-LISTREADY (review F7): pages whose reading is the owner's own attestation -- identity
+# verification and the tax position (KYC), and where buyer messages reach -- are accepted only
+# from the owner's Command Center session with step-up (`POST /api/cc/etsy/shop-observation`),
+# never from the shared operator credential.
+OWNER_ATTESTED_PAGES = frozenset({"messages", "legal_and_tax"})
+
 PAGES: dict[str, dict[str, Any]] = {
     "policy_violations": {"owner_action": "policy_violations_check", "max_age_days": 7,
                           "values": "items: list of {source_text, listing_id?, kind, "
@@ -120,9 +126,12 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
             raise ObservationRefused("values.identity_verified must be true or false")
         if values.get("decided_on"):
             try:
-                datetime.fromisoformat(str(values["decided_on"]))
+                decided = datetime.fromisoformat(str(values["decided_on"]))
             except ValueError as e:
                 raise ObservationRefused("values.decided_on must be an ISO date") from e
+            # W4-LISTREADY (review F7): a decision cannot be dated after the reading of it.
+            if (decided if decided.tzinfo else decided.replace(tzinfo=timezone.utc)) > now:
+                raise ObservationRefused("values.decided_on is in the future")
     detail = {"page": page, "observed_at": when.isoformat(), "complete": complete,
               "values": values, "statement": str(statement)[:500]}
     with db.session() as s:

@@ -614,6 +614,30 @@ def make_router(db) -> APIRouter:
                     detail={"action": "experiments.run", **out})
         return ok(out)
 
+    # ---- the owner's dated Shop Manager readings (W4-LISTREADY, review F7) -----------------
+    # Owner session + step-up. The owner-attested pages (messages, legal_and_tax) are accepted
+    # only here; `recorded_by` is the authenticated owner, not a claim in the body.
+
+    @router.post("/etsy/shop-observation")
+    async def shop_observation_owner(request: Request):
+        from ...commerce import shop_observations
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "etsy.shop_observation")
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: shop_observations.record(
+                db, page=str(body.get("page") or "")[:40], observed_at=body.get("observed_at"),
+                complete=body.get("complete"), values=body.get("values"),
+                statement=str(body.get("statement") or ""), recorded_by=actor(request)))
+        except shop_observations.ObservationRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "etsy.shop_observation",
+                            "page": str(body.get("page") or "")[:40]})
+        return ok(out)
+
     # ---- the owner's Launch-0 image-review batch (W4-LISTREADY, D-W4-LAUNCH-VISION-BATCH) ----
     # Owner session for both; step-up to activate. Activation fixes the frame scope from the
     # stored Launch-0 frames, then enqueues the one batch run. Nothing else raises a ceiling.

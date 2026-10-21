@@ -67,13 +67,94 @@ def retry_key(slug: str, version: str, halt_audit_id: int) -> str:
     return f"{RETRY_PREFIX}:{slug}:{version}:{halt_audit_id}"
 
 
+def _certified_versions(db, slug: str) -> list[str]:
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        return [v for (v,) in s.execute(
+            select(PatternVersion.version).join(Product,
+                                                PatternVersion.product_id == Product.id)
+            .where(Product.slug == slug, PatternVersion.certified == True))]  # noqa: E712
+
+
+def newer_certified(db, slug: str, version: str) -> list[str]:
+    """Certified versions of `slug` above `version` (review F2); unorderable ones count as
+    newer, so an older release is never re-certified past a release nobody can place."""
+    from ..ops.artefacts import version_key
+
+    mine = version_key(version)
+    out = []
+    for v in _certified_versions(db, slug):
+        k = version_key(v)
+        if v != version and (mine is None or k is None or k > mine):
+            out.append(v)
+    return sorted(out)
+
+
+def design_check(slug: str, version: str, recorded: dict) -> str:
+    """"" when the recorded CIR is still exactly the design the code defines for this
+    slug@version (review F3), else why not."""
+    import json
+
+    from ..cir.model import CIR
+    from .pipeline import _engineered_cir
+
+    try:
+        code = _engineered_cir(slug)
+    except Exception as exc:  # noqa: BLE001 - a design that no longer builds is not retried
+        return f"the code's design for {slug} does not build ({type(exc).__name__})"
+    if code is None:
+        return f"the code defines no design for {slug}"
+    if code.version != version:
+        return (f"the code's design for {slug} is now {code.version}, not {version}; the "
+                f"halted release is not re-certified")
+    try:
+        rec = CIR.from_dict(recorded)
+    except Exception as exc:  # noqa: BLE001 - an unreadable record is not certified
+        return f"the recorded CIR is unreadable ({type(exc).__name__})"
+    normal = json.loads(json.dumps(code.to_dict(), default=str))
+    if rec.fingerprint != code.fingerprint or normal != json.loads(json.dumps(recorded,
+                                                                              default=str)):
+        return (f"the design moved during the halt: the recorded CIR for {slug}@{version} is "
+                f"not the code's current design; it is not re-certified")
+    return ""
+
+
+def certify_in_flight(db, slug: str, version: str, *, except_key: str | None = None) -> list[int]:
+    """Unfinished `gate.certify` jobs for exactly this slug@version (review F5)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    out = []
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(
+                Job.job_type == "gate.certify",
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+            cir = (j.inputs or {}).get("cir") or {}
+            if except_key and j.idempotency_key == except_key:
+                continue
+            if cir.get("slug") == slug and cir.get("version") == version:
+                out.append(j.id)
+    return out
+
+
 def retry_halted(ctx) -> dict:
-    """R3: re-enqueue each halted certification once its halt has cleared, once per episode."""
+    """R3: re-enqueue each halted certification once its halt has cleared, once per episode.
+
+    Not retried, with the reason recorded (`skipped`), when (review F2, F3, F5):
+    a newer release of the slug is certified; the recorded CIR is no longer the design the
+    code defines for that slug@version; or a `gate.certify` for it is already queued or
+    running."""
     from ..core.models import Job
     from ..gates.incidents import IncidentTracker
 
     tracker = IncidentTracker(ctx.db)
+    me = getattr(getattr(ctx, "job", None), "id", None)
     retried, still_halted, unreadable, already = [], [], [], []
+    skipped: dict[str, str] = {}
     for r in halted_releases(ctx.db):
         if tracker.publication_halted(r["slug"]):
             still_halted.append(r["artifact"])
@@ -86,12 +167,26 @@ def retry_halted(ctx) -> dict:
         if not inputs or not isinstance(inputs.get("cir"), dict):
             unreadable.append(r["artifact"])       # no CIR on record: nothing is guessed
             continue
-        job = ctx.enqueue("quality_director", "gate.certify", inputs,
-                          idempotency_key=retry_key(r["slug"], r["version"],
-                                                    r["halt_audit_id"]))
+        newer = newer_certified(ctx.db, r["slug"], r["version"])
+        if newer:
+            skipped[r["artifact"]] = f"superseded_by_newer: {newer} certified"
+            continue
+        moved = design_check(r["slug"], r["version"], inputs["cir"])
+        if moved:
+            skipped[r["artifact"]] = f"design_moved: {moved}"
+            continue
+        key = retry_key(r["slug"], r["version"], r["halt_audit_id"])
+        flying = [j for j in certify_in_flight(ctx.db, r["slug"], r["version"], except_key=key)
+                  if j != me]
+        if flying:
+            skipped[r["artifact"]] = f"certify_in_flight: job(s) {flying}"
+            continue
+        job = ctx.enqueue("quality_director", "gate.certify", inputs, idempotency_key=key)
         (retried if job is not None else already).append(r["artifact"])
+    if skipped:
+        ctx.audit("certify.retry_skipped", detail={"skipped": skipped})
     return {"retried": retried, "still_halted": still_halted,
-            "already_retried": already, "no_cir_on_record": unreadable}
+            "already_retried": already, "no_cir_on_record": unreadable, "skipped": skipped}
 
 
 def launch0_releases() -> list:
@@ -136,6 +231,9 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
         if (cir.slug, cir.version) in certified:
             present.append(rel)
             continue
+        if newer_certified(ctx.db, cir.slug, cir.version):
+            present.append(f"{rel} (a newer release is certified; not seeded)")
+            continue
         if len(seeded) >= limit:
             pending.append(rel)
             continue
@@ -145,3 +243,44 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
         (seeded if job is not None else already).append(rel)
     return {"seeded": seeded, "certified": present, "already_seeded": already,
             "pending": pending}
+
+
+def duplicate_certification(db, job, cir) -> str:
+    """Review F5: why this `gate.certify` job would only repeat a certification that landed
+    after it was queued, or "". Identical content (the stored release's CIR and document
+    version equal this job's) certified by another job since this one was created: running it
+    again would only re-certify the same release. Anything else -- different content, an older
+    certification, unreadable state -- is not a duplicate, and the job runs as before."""
+    import json
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, PatternVersion, Product
+    from ..gates.certificate import DOC_VERSION
+
+    created = getattr(job, "created_at", None)
+    if created is None:
+        return ""
+    try:
+        with db.session() as s:
+            pv = s.scalar(select(PatternVersion).join(
+                Product, PatternVersion.product_id == Product.id).where(
+                Product.slug == cir.slug, PatternVersion.version == cir.version,
+                PatternVersion.certified == True))  # noqa: E712
+            if pv is None:
+                return ""
+            if (pv.certificate or {}).get("doc_version") != DOC_VERSION:
+                return ""
+            if pv.cir_json != json.loads(json.dumps(cir.to_dict(), default=str)):
+                return ""
+            later = s.scalar(select(AuditLog).where(
+                AuditLog.action == "gate.certified",
+                AuditLog.artifact == f"{cir.slug}@{cir.version}",
+                AuditLog.at > created,
+                AuditLog.job_id != getattr(job, "id", None)).order_by(AuditLog.id.desc()))
+            if later is None:
+                return ""
+            return (f"{cir.slug}@{cir.version} was certified with identical content by job "
+                    f"{later.job_id} after this job was queued")
+    except Exception:  # noqa: BLE001 - unreadable is not a duplicate: certify as before
+        return ""

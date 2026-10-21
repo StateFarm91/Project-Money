@@ -902,6 +902,19 @@ def handle_certify(ctx: JobContext) -> dict:
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
                 "halted_by_incident": True}
 
+    # W4-LISTREADY (review F5): a halted certification's retry and the normal chain can each
+    # queue a certify for the same slug@version. Whichever runs second finds the identical
+    # release already certified after it was queued and stops, so it is certified once. The
+    # halt check above is unchanged and always runs first.
+    from .release_recovery import duplicate_certification
+
+    duplicate = duplicate_certification(ctx.db, ctx.job, cir)
+    if duplicate:
+        ctx.audit("gate.certify_duplicate", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"why": duplicate})
+        return {"artifact": f"{cir.slug}@{cir.version}", "granted": True,
+                "duplicate": True, "why": duplicate}
+
     hero = Asset(
         asset_id=f"{cir.slug}-hero",
         asset_class=AssetClass.DIGITAL_TWIN_RENDER,

@@ -529,13 +529,35 @@ class Fingerprints(dict):
         self.latest_version: dict[str, str] = dict(latest_version or {})
 
 
+def version_key(version: str) -> tuple[int, ...] | None:
+    """A release version as a comparable tuple (`1.10.0` > `1.9.0`), or None when it is not a
+    dotted run of integers. W4-LISTREADY (review F2): "newest" is the highest *version*, never
+    the row inserted last -- an out-of-order certification must not reorder releases."""
+    parts = str(version or "").split(".")
+    if not parts or not all(p.isdigit() for p in parts):
+        return None
+    return tuple(int(p) for p in parts)
+
+
+def newest_version(versions) -> str | None:
+    """The highest of these release versions, or None when any of them cannot be ordered
+    (fail closed: a caller that cannot tell which release is newest classifies nothing as
+    superseded, and the publication guard refuses)."""
+    vs = [str(v) for v in versions]
+    keys = [version_key(v) for v in vs]
+    if not vs or any(k is None for k in keys):
+        return None
+    return max(zip(keys, vs))[1]
+
+
 def built_from_version(row_key: str, slug: str, inputs: dict, current) -> str | None:
     """W4-LISTREADY (R1): the certified release an artefact was built from, or None.
 
-    A versioned key (`slug@version...`) names it. An unversioned key (a marketing asset) is
-    matched by its recorded design fingerprint: exactly one certified version of the slug must
-    hold that `cir:` fingerprint (and the same `release:` hash when one is recorded), or the
-    answer is None and the artefact is judged against the newest release, as before.
+    Only an explicit, recorded link counts: a versioned key (`slug@version...`) naming a
+    certified release of this slug. An unversioned key -- a marketing asset, which is the
+    product's live copy whatever release it was written from -- is never linked to an older
+    release by fingerprint (review F1): it returns None and is judged against the newest
+    release, so copy written from a release the product has moved past is STALE.
     """
     by_version = getattr(current, "by_version", None) or {}
     versions = by_version.get(slug) or {}
@@ -544,13 +566,7 @@ def built_from_version(row_key: str, slug: str, inputs: dict, current) -> str | 
     m = _VERSIONED_KEY.match(row_key or "")
     if m is not None and m.group("slug") == slug:
         return m.group("version") if m.group("version") in versions else None
-    cir_ref, rel_ref = f"cir:{slug}", f"release:{slug}"
-    if cir_ref not in (inputs or {}):
-        return None
-    hits = [v for v, fps in versions.items()
-            if fps.get(cir_ref) == inputs[cir_ref]
-            and (rel_ref not in inputs or fps.get(rel_ref) == inputs[rel_ref])]
-    return hits[0] if len(hits) == 1 else None
+    return None
 
 
 def check(db, *, current: dict[str, str],
@@ -637,13 +653,15 @@ def _superseded_lookup(db):
 
     from ..core.models import PatternVersion, Product
 
-    latest: dict[str, str] = {}
-    newest_id: dict[str, int] = {}
+    by_slug: dict[str, list[str]] = {}
     for slug, vid, version in db.execute(
             select(Product.slug, PatternVersion.id, PatternVersion.version)
-            .join(PatternVersion, PatternVersion.product_id == Product.id)):
-        if vid > newest_id.get(slug, -1):
-            newest_id[slug], latest[slug] = vid, version
+            .join(PatternVersion, PatternVersion.product_id == Product.id)
+            .where(PatternVersion.certified == True)):  # noqa: E712
+        by_slug.setdefault(slug, []).append(version)
+    # Review F2: newest by version, not by row id; an unorderable slug retires nothing.
+    latest = {slug: v for slug, vs in by_slug.items()
+              if (v := newest_version(vs)) is not None}
     try:
         from ..products.launch0 import LEGACY_DUPLICATES
         retired = set(LEGACY_DUPLICATES)
@@ -916,23 +934,30 @@ def current_from_db(db) -> dict[str, str]:
 
     current = Fingerprints({"chain:release": fingerprint(CHAIN_VERSION)})
     for product in db.scalars(select(Product)):
-        latest = None
-        for version in db.scalars(select(PatternVersion)
-                                  .where(PatternVersion.product_id == product.id)):
-            if latest is None or version.id > latest.id:
-                latest = version
+        rows = list(db.scalars(select(PatternVersion)
+                               .where(PatternVersion.product_id == product.id)))
+        for version in rows:
             # R1: every release's own fingerprints, so an artefact is judged against the
             # release it was built from (the same values `design_inputs` records).
             own = {f"cir:{product.slug}": fingerprint(version.cir_json)}
             if version.release_hash:
                 own[f"release:{product.slug}"] = version.release_hash[:16]
             current.by_version.setdefault(product.slug, {})[version.version] = own
-        if latest is None:
+        if not rows:
             continue
+        # Review F2: the newest release is the highest certified *version*. When the versions
+        # cannot be ordered, the last-inserted row is used for the fingerprints (the old
+        # meaning) and no release is recorded as newest, so nothing reads superseded.
+        certified = [r for r in rows if r.certified]
+        newest = newest_version([r.version for r in certified]) if certified else None
+        if newest is not None:
+            latest = next(r for r in certified if r.version == newest)
+            current.latest_version[product.slug] = newest
+        else:
+            latest = max(rows, key=lambda r: r.id)
         current[f"cir:{product.slug}"] = fingerprint(latest.cir_json)
         if latest.release_hash:
             current[f"release:{product.slug}"] = latest.release_hash[:16]
-        current.latest_version[product.slug] = latest.version
     return current
 
 

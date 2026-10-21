@@ -6,6 +6,7 @@ import { card, statusPill, freshness, sourcesList, statTile, itemRow, basisNote,
 import { relTime, utcStamp, UNKNOWN_TEXT, formatMoney } from "../format.js";
 import { sectionsOf, pageMeta } from "./_shared.js";
 import { launchReviewCard } from "./_launch_review.js";
+import { shopReadingsCard } from "./_shop_readings.js";
 
 const ORDER = ["BLOCKED", "RUNNING", "REVIEW", "QUEUED", "UNKNOWN", "MERGED", "DONE", "ABANDONED"];
 const when = (iso) => (iso ? `${relTime(iso)} (${utcStamp(iso)})` : UNKNOWN_TEXT);
@@ -198,6 +199,7 @@ export async function render({ rerender } = {}) {
     packetCard(pk),
     firstSaleCard(fs),
     launchReviewCard(lr, rerender),
+    shopReadingsCard(rerender),
     card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),
       sourcesList(env.sources)));

@@ -542,8 +542,17 @@ def test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task(
     assert es.SURFACES["orders"].owner_action is None
     assert es.SURFACES["orders"].collector == "orders_ingest"
     assert orders_ingest.OWNER_ACTION_KEY == "reauthorise_transactions_r"
-    src = __import__("inspect").getsource(orders_ingest.gate)
-    assert "Only the owner" in src and "browser" in src and "OWNER_ACTION_KEY" in src
+    # Review F6 (W4-LISTREADY): asserted on the gate's own answer, not on its source text.
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    g = orders_ingest.gate(db)                  # no stored grant, so transactions_r is missing
+    assert g["open"] is False
+    scope_gap = [m for m in g["missing"] if m.startswith(f"{orders_ingest.SCOPE}:")]
+    assert scope_gap, g["missing"]
+    assert "Only the owner" in scope_gap[0] and "browser" in scope_gap[0]
+    assert "reauthorise_transactions_r" in scope_gap[0]
     assert "reauthorise_transactions_r" not in {a.key for a in es.owner_queue(
         first_sale_only=True)}, (
         "a sale can complete without this; what it blocks is everything after the sale, and "

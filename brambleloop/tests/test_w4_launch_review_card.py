@@ -92,7 +92,7 @@ console.log(JSON.stringify(out));
 def test_the_card_ships_in_the_offline_shell():
     sw = (STATIC / "sw.js").read_text()
     assert '"js/views/_launch_review.js"' in sw
-    assert 'const VERSION = "cc-shell-v20";' in sw
+    assert re.search(r'const VERSION = "cc-shell-v(\d+)";', sw) and int(re.search(r'cc-shell-v(\d+)', sw).group(1)) >= 20
 
 
 def test_the_state_route_tells_the_card_whether_the_frames_are_built():
@@ -101,6 +101,23 @@ def test_the_state_route_tells_the_card_whether_the_frames_are_built():
                    api_py.index('@router.post("/launch-review/activate")')]
     assert 'out["frames_ready"]' in route and 'out["missing_releases"]' in route
     assert "launch_review.frame_scope(db)" in route
+
+
+def test_the_owner_readings_card_posts_through_the_owner_route_with_step_up():
+    """Review F7: the owner records the Messages and Legal and tax readings from the phone."""
+    js = (STATIC / "js" / "views" / "completion.js").read_text()
+    assert 'import { shopReadingsCard } from "./_shop_readings.js";' in js
+    assert "shopReadingsCard(rerender)" in js
+    api = (STATIC / "js" / "api.js").read_text()
+    assert 'shopObservation: () => `${API_BASE}/etsy/shop-observation`' in api
+    assert "recordShopObservation: (body) => post(ENDPOINTS.shopObservation(), body)" in api
+    card = (STATIC / "js" / "views" / "_shop_readings.js").read_text()
+    assert card.count("requiresStepUp: true") == 2
+    assert 'page: "messages"' in card and 'page: "legal_and_tax"' in card
+    for bad in ("fetch(", "innerHTML", "method:", "X-CSRF-Token", "localStorage",
+                "/api/etsy/shop-observation"):
+        assert bad not in card, bad
+    assert '"js/views/_shop_readings.js"' in (STATIC / "sw.js").read_text()
 
 
 if __name__ == "__main__":
