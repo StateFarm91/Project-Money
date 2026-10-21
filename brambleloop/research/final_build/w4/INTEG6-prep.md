@@ -138,4 +138,45 @@ The private store has no schema change. The `xing` row kind is ignored by older 
 
 ## 5. Focused suites (venv-integ4, through testslot.sh; no full suite)
 
-(results below)
+Tree: b857233. **50/53 suite files pass. 3 fail, all with the same cause, and that cause is in
+LISTREADY, not Laura.**
+
+**Failing:** one test in each of these suites:
+- `test_w4_pl_leak`: test_reply_text_never_reaches_business_tables_logs_paid_calls_or_cache;
+- `test_w4_venice`: 18/19;
+- `test_w4_laura_unified`: 52/53.
+
+**Error:** each one fails with `sqlite3.OperationalError: no such table: launch_review_batches` in
+`core/continuity.export`, called from `_rows_of`.
+
+**Cause.**
+1. LISTREADY's `gateway/anthropic.check_budget_cad` imports `finance.launch_review` on every
+   reservation. That import registers `launch_review_batches` and `launch_review_calls` on
+   `Base.metadata`.
+2. Those tables are created only lazily (`launch_review.ensure_tables`); `Database.create_all` does
+   not import the module.
+3. `continuity.export`, the backup path, walks every `Base` table. In any process that has made a
+   model reservation, but has never touched a launch-review batch, the export raises.
+
+**Reproduced on LISTREADY b9137b5 alone:** `test_w4_pl_leak` 1/2, the same error. LISTREADY's focused
+set did not include these suites.
+
+**Production impact if shipped as is:** after the first model call in a process, a continuity export
+(backup) fails until a launch-review batch has been created.
+
+**Suggested root fix, for the LISTREADY owner:** register the module in `Database.create_all`, as
+INTEG3 did for the REL2 tables: `from ..finance import launch_review  # noqa: F401`. The tables are
+then created at boot, and the migration stays additive (+2 tables at boot instead of lazily). Not
+applied here: it belongs to the listings release and its review.
+
+**All other suites pass:**
+- **Laura:** laura_ceo 14/14, plact, pl_auth, pl_boundary, pl_budget, pl_continuity, pl_reply,
+  priv_*, laura_cc_*, voice_spec.
+- **Listings:** launch_review, launch_review_card, listready, firstsale2_surfaces,
+  owner_observations, etsy_surfaces, etsysurf, integ4_shipped_records, k12_model_photography.
+- **Freeze-2 adaptations:** close5_vision_timeout, fluxapi.
+- **PWA:** pwa_static, ccpacket, ccux, ownerhome, cc_company.
+- **Spend and security:** cert_spend_hosts (with the S-6 allowlist), credhealth, integ3_secfixes,
+  integ4_secfixes, integ4_deliverable_routes, decision_index.
+- **Required set:** vacuity, launch, cost_governance_wave2, search_hero_publish,
+  cert_listing_frames, v11_autonomy_timeline.
