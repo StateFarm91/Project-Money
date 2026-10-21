@@ -2221,3 +2221,19 @@ is never PASS. Do not publish, leave SHADOW mode or incur Etsy fees.
   ceiling is CA$1.00.
 - **Gates:** unchanged. A refused or failed review leaves the frame unreviewed (UNKNOWN). A bill-unknown review is never resent:
   each release is reviewed once, with a single attempt.
+
+### D-W4-STOREFRONT-E3 — `policy_additional` is not a readiness check for a Canadian shop (2026-10-21)
+
+**Commission:** the owner's coordinator commissioned W-LAUNCHPREP's storefront findings for the first sale (LAUNCHPREP.md
+§B4, E1–E7), relayed to W-LISTREADY on 2026-10-21. E3 reads: "`policy_additional_unset` must not be a readiness check for a
+Canadian shop. Add the field's content to the policy-consistency check instead."
+
+**Decision.** "Only EU shops may set `policy_additional`" is a restriction on *our* `updateShop` write (Etsy Open API). That
+refusal is kept in `commerce/shop_package` and `integrations/etsy_constraints`. Etsy itself holds a value for this Canadian
+shop, so "must be blank" is not a fact about the shop's readiness.
+
+- The check is removed from `intel.etsy_surfaces.SHOP_CHECKS` and from `policy_settings_paste`'s closures.
+- The field's **content** is still checked: `commerce.policy_consistency` runs every contradiction pattern on it (licence,
+  returns, shipping, mailing-list facts).
+- Nothing is deleted from the shop.
+- One existing test that asserted the old rule was rewritten to assert the new one; it is named in its own comment.
