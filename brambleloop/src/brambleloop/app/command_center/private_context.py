@@ -431,7 +431,10 @@ def unified_view(db, session_public_id: str, *, limit: int = UNIFIED_VIEW_TURNS)
                                "sensitive": bool(x.sensitive),
                                "origin": x.origin, "requires_stepup": bool(x.stepup),
                                "text": x.value.reveal(),
-                               "question": laura_unified.crossing_question(x.value.reveal())}
+                               "kind": x.offer_kind or "personal",
+                               "question": laura_unified.crossing_question(
+                                   x.value.reveal(), kind=x.offer_kind or "personal",
+                                   stepup=bool(x.stepup))}
                               for x in store.crossings(db, p)],
                 "notes": len(store.facts(db, p))}
     return _call(run)
@@ -487,6 +490,13 @@ def _venice_context(db, principal, owner_turn_id: str, *, with_feed: bool = Fals
     return facts, turns[-CONTEXT_TURNS:], pack
 
 
+#: Reply-path refusals decided BEFORE any request is sent (nothing reached Venice).
+PRE_CALL_CODES = frozenset({
+    "REGISTER_OFF", "SPEND_UNAUTHORISED", "SPEND_CEILING", "BUDGET", "NO_PROVIDER",
+    "PROVIDER_DOWN", "JOB_SCOPE", "REFUSED", "RELEASE_UNPROVEN", "PROVIDER_NOT_SELECTED",
+    "MODEL_NOT_ALLOWED", "REGISTER_NEEDS_VENICE", "UNIFIED_NEEDS_VENICE"})
+
+
 def _venice_selected() -> bool:
     from ...gateway import laura_register, venice
 
@@ -525,13 +535,17 @@ def _unified_venice(db, principal, owner_turn_id: str, text: str, label: str) ->
                 "why": laura_register.REASONS["UNIFIED_NEEDS_VENICE"]}
     facts, turns, pack = _venice_context(db, principal, owner_turn_id, with_feed=True)
     user = laura_register.render_user(facts=facts, turns=turns, message=text)
-    if pack is not None:
-        venice_context.record_sent(db, pack)      # hash, names, counts -- never a value
     try:
         out = laura_register.reply(db, system=laura_register.PROMPT.system, user=user)
     except laura_register.ReplyUnavailable as exc:
+        # Delta review N-4: the audit row says "sent" only when the request actually left
+        # (a provider-side failure after sending), never for a pre-call refusal.
+        if pack is not None and exc.code not in PRE_CALL_CODES:
+            venice_context.record_sent(db, pack, outcome=exc.code)
         return {"reply": None, "reply_status": "UNAVAILABLE", "reason": exc.code,
                 "why": exc.reason}
+    if pack is not None:
+        venice_context.record_sent(db, pack, outcome="REPLIED")
     # Security review L-6: a Venice-authored reply is conversation, whatever the owner turn's
     # label -- it was written with private context in view -- so it is never "business".
     rid = store.record_turn(db, principal, "laura", out["text"], reply_to=owner_turn_id,
@@ -556,12 +570,17 @@ def _request_crossing(db, principal, source_turn_id: str, offer: dict,
     overlaps = bool(laura_unified.leak_check(offer["text"], _private_texts(db, principal),
                                              allowed=boundary.approved_texts(db)))
     stepup = bool(offer["stepup"]) or overlaps
+    kind = offer.get("kind") or "personal"
+    if overlaps and kind == "business":
+        kind = "personal"          # it overlaps our private conversation: say so honestly
     xid = store.request_crossing(db, principal, source_turn_id, offer["text"],
-                                 sensitive=sensitive, origin=offer["origin"], stepup=stepup)
+                                 sensitive=sensitive, origin=offer["origin"], stepup=stepup,
+                                 kind=kind)
     return {"id": xid, "status": "pending", "sensitive": bool(sensitive),
-            "text": offer["text"], "origin": offer["origin"],
+            "text": offer["text"], "origin": offer["origin"], "kind": kind,
             "requires_stepup": stepup, "overlaps_private": overlaps,
-            "question": laura_unified.crossing_question(offer["text"])}
+            "question": laura_unified.crossing_question(offer["text"], kind=kind,
+                                                         stepup=stepup)}
 
 
 def _allowed_for(db, brief: str) -> list[str]:
@@ -576,7 +595,7 @@ def _allowed_for(db, brief: str) -> list[str]:
 
 
 def _unified_business(db, principal, owner_turn_id: str, brief: str,
-                      *, provider_factory=None) -> dict:
+                      *, provider_factory=None, structured: bool = False) -> dict:
     """Business Laura answers `brief` -- a code-rendered structured request, or text the owner
     explicitly approved -- or nothing is sent. Defence in depth: the leak guard checks the
     brief and then the exact outbound request against the whole private store."""
@@ -586,12 +605,18 @@ def _unified_business(db, principal, owner_turn_id: str, brief: str,
 
     private_texts = _private_texts(db, principal)
     allowed = _allowed_for(db, brief)
-    if laura_unified.leak_check(brief, private_texts, allowed=allowed):
+    # Delta review N-6: a code-rendered structured request holds no conversation text by
+    # construction, so a short private phrase ("this week") must not block it; the full guard
+    # still runs on everything else the request carries (history, approved free text).
+    if laura_unified.leak_check(brief, private_texts, allowed=allowed,
+                                short_exact=not structured):
         return {"reply": None, "reply_status": "REFUSED", "reason": "LEAK_GUARD",
                 "why": laura_unified.GUARD_REFUSED}
 
+    out_allowed = allowed + ([brief] if structured else [])
+
     def outbound(task, system, user):
-        hits = laura_unified.leak_check(user, private_texts, allowed=allowed)
+        hits = laura_unified.leak_check(user, private_texts, allowed=out_allowed)
         return laura_unified.GUARD_REFUSED if hits else ""
 
     res = ceo_chat.converse(db, brief, session_public_id=UNIFIED_BUSINESS_SESSION,
@@ -648,7 +673,7 @@ def unified_turn(db, session_public_id: str, text: str, *, force_private: bool =
                                 "held": plan["held"]}}
         if plan["send"]:
             out.update(_unified_business(db, p, tid, plan["send"],
-                                         provider_factory=provider_factory))
+                                         provider_factory=provider_factory, structured=True))
             out["brief_origin"] = "structured"
         else:
             out.update(_unified_venice(db, p, tid, text_, label))
@@ -666,28 +691,8 @@ def _aware_dt(v):
     return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
 
 
-def _stepup_counts(db, session_public_id: str, created_at, stepup_issued_at) -> bool:
-    """Security review L-1: a step-up counts for an approval only if it was performed AFTER
-    the crossing was offered, and it is not the window every login opens (a login sets
-    `stepup_until = created_at + window`, so its issue time equals the session's creation)."""
-    from ...laura.private import access
-
-    issued = _aware_dt(stepup_issued_at)
-    if issued is None:
-        return False
-    offered = _aware_dt(created_at)
-    if offered is None or issued <= offered:
-        return False
-    try:
-        row = access._owner_session(db, session_public_id)
-    except Exception:  # noqa: BLE001 - unverifiable is "not stepped up"
-        return False
-    login = _aware_dt(getattr(row, "created_at", None))
-    return login is not None and issued > login
-
-
 def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: bool,
-                     stepup_issued_at=None, provider_factory=None) -> dict:
+                     verified_for_action: bool = False, provider_factory=None) -> dict:
     """The owner's answer to "Can I share this with the business side?". Approving needs a
     fresh step-up performed after the offer (not the login window) unless the text is the
     owner's own business-classified words that passed the screen (one explicit tap). The
@@ -706,8 +711,10 @@ def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: b
         cur = next((x for x in store.crossings(db, p) if x.record_id == xid), None)
         if cur is None:
             raise PrivateUnavailable(404, "CROSSING_NOT_FOUND", "CrossingNotFound")
-        if approve and cur.stepup and not _stepup_counts(db, session_public_id,
-                                                         cur.created_at, stepup_issued_at):
+        # Delta review N-3: a step-up approval is verified FOR THIS ACTION -- the owner's
+        # passphrase (and TOTP) are re-checked inside this very approval request -- so no
+        # earlier or unrelated step-up window can approve it, and it cannot be reused.
+        if approve and cur.stepup and not verified_for_action:
             raise PrivateUnavailable(403, "STEP_UP_REQUIRED", "StepUpRequired")
         if approve and len(cur.value.reveal().strip()) > boundary.MAX_TEXT:
             raise PrivateUnavailable(400, "PRIVATE_INPUT_REFUSED", "CrossingTooLong")
@@ -716,15 +723,28 @@ def unified_crossing(db, session_public_id: str, crossing_id: str, *, approve: b
             return {"id": rec.record_id, "status": "declined", "crossed": False}
         text_ = rec.value.reveal()
         crossed = boundary.record(db, text_, session_public_id=session_public_id)
+        # Delta review N-5: seal the link to the crossed row IMMEDIATELY, so a failure later
+        # in this request can never leave crossed text that delete/mark-private cannot find.
+        store.annotate_crossing(db, p, xid, crossed_ref=crossed["id"])
         atid = store.record_turn(db, p, "owner", UNIFIED_APPROVAL_TEXT, label="business")
+        store.annotate_crossing(db, p, xid, approval_turn=atid)
         out = {"id": rec.record_id, "status": "approved", "crossed": True,
                "crossing_record": crossed["id"], "approval_turn": atid}
         out.update(_unified_business(db, p, atid, text_, provider_factory=provider_factory))
-        refs = {"crossed_ref": crossed["id"], "approval_turn": atid}
         if (out.get("reply") or {}).get("business_turn_id"):
-            refs["business_ref"] = out["reply"]["business_turn_id"]
-        store.annotate_crossing(db, p, xid, **refs)
+            store.annotate_crossing(db, p, xid, business_ref=out["reply"]["business_turn_id"])
         return out
+    return _call(run)
+
+
+def unified_feed_preview(db, session_public_id: str) -> dict:
+    """The company-context feed preview (integration review S-3): owner-private like the
+    thread itself -- a live private grant (opened with step-up) is required."""
+    from ...laura.agency import venice_context
+
+    def run():
+        _principal(db, session_public_id)
+        return venice_context.preview(db)
     return _call(run)
 
 

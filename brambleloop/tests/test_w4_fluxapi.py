@@ -335,12 +335,18 @@ def test_a_503_poll_with_a_status_body_is_read_not_retried_blind():
         raise urllib.error.HTTPError("u", 503, "x", {}, _Resp(b'{"status": "Error"}'))
 
     import urllib.request
-    saved = urllib.request.urlopen
+
+    from brambleloop.gateway import venice as _V
+
+    class _Opener:                      # delta review N-9: keyed BFL calls use this opener
+        open = staticmethod(boom)
+    saved = urllib.request.urlopen, _V.no_redirect_opener
     urllib.request.urlopen = boom
+    _V.no_redirect_opener = lambda: _Opener()
     try:
         body = I._get("https://api.bfl.ai/v1/get_result?id=1", {}, label="t", timeout=1)
     finally:
-        urllib.request.urlopen = saved
+        urllib.request.urlopen, _V.no_redirect_opener = saved
     assert body == {"status": "Error"}
 
 

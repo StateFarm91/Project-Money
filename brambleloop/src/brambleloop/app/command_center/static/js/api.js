@@ -372,7 +372,8 @@ export const api = {
   lauraUnifiedStatus: () => get(ENDPOINTS.lauraUnifiedStatus()),
   lauraUnifiedView: () => post(ENDPOINTS.lauraUnifiedView(), {}),
   lauraUnifiedTurn: (text, keepPrivate) => post(ENDPOINTS.lauraUnifiedTurn(), { text, private: !!keepPrivate }),
-  lauraUnifiedCrossing: (id, approve) => post(ENDPOINTS.lauraUnifiedCrossing(), { id, approve: !!approve }),
+  // Delta review N-3: an approval needing re-authentication carries it in this request.
+  lauraUnifiedCrossing: (id, approve, creds) => post(ENDPOINTS.lauraUnifiedCrossing(), { id, approve: !!approve, ...(creds || {}) }),
   lauraUnifiedControl: (action, ids) => post(ENDPOINTS.lauraUnifiedControl(), { action, ids }),
   lauraUnifiedFeedPreview: () => post(ENDPOINTS.lauraUnifiedFeedPreview(), {}),
   lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),

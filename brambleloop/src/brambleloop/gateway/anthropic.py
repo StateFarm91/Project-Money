@@ -803,7 +803,11 @@ class AnthropicProvider:
 
         started = time.time()
         try:
-            with urllib.request.urlopen(
+            # Delta review N-9: the keyed request never follows a redirect (the x-api-key
+            # header would be re-sent to the new location); a 3xx comes back as HTTPError.
+            from .venice import no_redirect_opener
+
+            with no_redirect_opener().open(
                     request, timeout=timeout or self.timeout_seconds) as response:
                 body = json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something

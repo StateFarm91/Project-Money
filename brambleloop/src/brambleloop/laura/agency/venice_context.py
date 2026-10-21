@@ -69,13 +69,18 @@ def read_open_owner_decisions(db):
     from ...app.command_center import approvals
 
     box = approvals.inbox(db)
+    if box.get("status") != "OK":
+        return None                    # delta review N-7: unreadable is UNKNOWN, never 0
     return int(box.get("open") or len(box.get("cards") or []))
 
 
 def read_owner_decision_titles(db):
     from ...app.command_center import approvals
 
-    return [str(c.get("title") or "") for c in (approvals.inbox(db).get("cards") or [])[:5]]
+    box = approvals.inbox(db)
+    if box.get("status") != "OK":
+        return None                    # delta review N-7: unreadable is UNKNOWN, never []
+    return [str(c.get("title") or "") for c in (box.get("cards") or [])[:5]]
 
 
 def read_products_by_status(db):
@@ -371,8 +376,9 @@ def preview(db) -> dict:
                            "kind": f.kind, "max_size": f.max_size} for f in FIELDS]}
 
 
-def record_sent(db, pack: dict) -> None:
-    """The audit row for one pack actually sent: hash, names, counts -- never a value."""
+def record_sent(db, pack: dict, *, outcome: str = "REPLIED") -> None:
+    """The audit row for one pack actually sent (the request left; `outcome` is the reply's
+    fixed status code): hash, names, counts -- never a value."""
     from ...core.models import AuditLog
 
     with db.session() as s:
@@ -380,4 +386,4 @@ def record_sent(db, pack: dict) -> None:
                        detail={"sha256": pack["sha256"], "fields": list(pack["fields"]),
                                "counts": dict(pack["counts"]), "bytes": int(pack["bytes"]),
                                "dropped": [d["name"] for d in pack["dropped"]],
-                               "format": FORMAT}))
+                               "format": FORMAT, "outcome": str(outcome)[:40]}))

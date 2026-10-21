@@ -73,6 +73,7 @@ def redact(db, *, turn_ids=(), crossing_ids=()) -> dict:
             if row is None or row.approved_text == REDACTED:
                 continue
             row.approved_text = REDACTED
+            row.text_sha256 = ""      # delta review N-8: a bare hash would confirm a guess
             n_x += 1
     return {"business_turns": n_t, "crossings": n_x}
 

@@ -40,6 +40,7 @@ class Stub:
     def __init__(self, answers=None, *, model: str = MODEL, fail=None,
                  tokens=(120, 30)):
         self.calls: list[dict] = []
+        self.wires: list[dict] = []          # the raw Venice request bodies
         self.answers = list(answers or [])
         self.model = model
         self.fail = fail
@@ -49,6 +50,7 @@ class Stub:
         """Stands in for `VeniceProvider._post`: records the request (Anthropic-shaped view),
         answers with Venice's documented chat-completion JSON."""
         wire = json.loads(body.decode("utf-8"))
+        self.wires.append(wire)
         msgs = wire["messages"]
         self.calls.append({"model": wire["model"], "max_tokens": wire["max_completion_tokens"],
                            "system": msgs[0]["content"],
@@ -82,7 +84,12 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
         laura_register.release_proven = lambda env=None, boot=None: {
             "met": bool(release_proven), "detail": "test harness stand-in for the boot guard",
             "commit_short": "test"}
+    refused: list = []
+
     def _refuse(self, *a, **kw):
+        # Integration review S-5: the reply path sanitises any exception into PROVIDER_ERROR,
+        # so the attempt is ALSO recorded and the context fails the test on exit.
+        refused.append(type(self).__name__)
         raise AssertionError("a model request was made where none may be")
     gw.AnthropicProvider._send = _refuse              # the private register never goes here
     if stub is not None:
@@ -100,6 +107,8 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
     finally:
         gw.AnthropicProvider._send = orig
         _venice.VeniceProvider._post = orig_post
+        if refused:
+            raise AssertionError(f"a refused model transport was called: {refused}")
         laura_register.release_proven = orig_release
         for k, v in saved.items():
             if v is None:

@@ -40,6 +40,8 @@ LABELS = ("business", "private", "everyday", "mixed")
 #: A crossing request's lifecycle (sealed; kind "xing").
 CROSSING_STATUS = ("pending", "approved", "declined")
 CROSSING_ORIGINS = ("owner_quote", "laura_draft")
+#: What an offered text is, for honest approval wording (fixed vocabulary, sealed).
+CROSSING_KINDS = ("business", "mixed", "draft", "personal")
 #: Non-content references sealed with a turn or a crossing request (ids of business rows).
 REF_KEYS = ("business_ref", "crossed_ref", "approval_turn")
 MAX_TEXT = 16_384
@@ -204,7 +206,8 @@ def _record(e: PrivateEntry, p: dict) -> PrivateRecord:
                          label=p.get("label"), excluded=bool(p.get("excluded")),
                          sensitive=bool(p.get("sensitive")), status=p.get("status"),
                          refs={k: p[k] for k in REF_KEYS if p.get(k) is not None},
-                         stepup=bool(p.get("stepup", True)), origin=p.get("origin"))
+                         stepup=bool(p.get("stepup", True)), origin=p.get("origin"),
+                         offer_kind=p.get("kind"))
 
 
 @_guarded("read")
@@ -406,7 +409,7 @@ def set_turn_flags(db, principal, record_id: str, *, label: str | None = None,
 @_guarded("xing")
 def request_crossing(db, principal, source_turn_id: str, text: str, *,
                      sensitive: bool = False, origin: str = "owner_quote",
-                     stepup: bool = True) -> str:
+                     stepup: bool = True, kind: str = "personal") -> str:
     """Seal a proposal to share `text` with the business side; nothing crosses until
     `resolve_crossing(approve=True)`. `origin` "owner_quote": quoted VERBATIM from the owner
     turn it cites. "laura_draft": a brief Laura drafted while answering that owner turn,
@@ -422,7 +425,8 @@ def request_crossing(db, principal, source_turn_id: str, text: str, *,
     ensure_tables(db)
     x = _new_entry(keys, grant, "xing", "interaction", "xing")
     _seal(keys, x, {"text": text, "source": entry.record_id, "status": "pending",
-                    "sensitive": bool(sensitive), "origin": origin, "stepup": bool(stepup)})
+                    "sensitive": bool(sensitive), "origin": origin, "stepup": bool(stepup),
+                    "kind": kind if kind in CROSSING_KINDS else "personal"})
     with db.session() as s:
         s.add(x)
     record_access(db, "xing", "ok", "requested", principal)

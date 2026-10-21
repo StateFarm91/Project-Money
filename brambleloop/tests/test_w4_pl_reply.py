@@ -56,7 +56,10 @@ def test_owner_turn_gets_a_laura_reply_recorded_with_provenance():
     assert out["reply"]["text"] == PL.REPLY and out["reply"]["role"] == "laura", out
     assert len(stub.calls) == 1
     req = stub.calls[0]
-    assert set(req) == {"model", "max_tokens", "system", "messages"}, set(req)   # no tools
+    wire = stub.wires[0]          # delta review N-11: the REAL wire, not the harness's view
+    assert "tools" not in wire and "tool_choice" not in wire and wire["stream"] is False
+    assert [m["role"] for m in wire["messages"]] == ["system", "user"]
+    assert wire["venice_parameters"]["include_venice_system_prompt"] is False
     assert req["model"] == PL.MODEL and req["max_tokens"] <= 400
     # Provenance: one laura turn answering exactly this owner turn, naming its model.
     p = private_context._principal(DB, sid)

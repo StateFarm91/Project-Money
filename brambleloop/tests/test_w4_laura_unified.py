@@ -462,7 +462,7 @@ def test_marking_private_afterwards_redacts_the_derived_business_records():
     with unified(Venice(replies=[R[0]])):
         a = _turn(db, sid, "What did the shop sell overnight?", biz)
         m = _turn(db, sid, MIX_TURN, biz)
-        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True, stepup_issued_at=_fresh(),
+        x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True, verified_for_action=True,
                                 provider_factory=biz.factory)
     assert x["crossed"] and len(_rows(db, LauraTurn)) == 2
     out = _control(db, sid, "mark_private", [a["id"], m["id"]])
@@ -471,7 +471,7 @@ def test_marking_private_afterwards_redacts_the_derived_business_records():
         assert row.question == boundary.REDACTED and row.answer == boundary.REDACTED
         assert row.facts == [] and row.proposals == []
     (cr,) = _rows(db, LauraBoundaryCrossing)
-    assert cr.approved_text == boundary.REDACTED and len(cr.text_sha256) == 64
+    assert cr.approved_text == boundary.REDACTED and cr.text_sha256 == ""   # N-8
     assert MIX_QUOTE not in PL.table_dump(db)[0]
     assert boundary.approved_texts(db) == []                         # no longer allowed
 
@@ -506,7 +506,7 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
         except PC.PrivateUnavailable as exc:
             assert (exc.status, exc.code) == (403, "STEP_UP_REQUIRED")
         assert biz.seen == [] and _rows(db, LauraBoundaryCrossing) == []
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, verified_for_action=True,
                                 provider_factory=biz.factory)
     assert a["status"] == "approved" and a["crossed"] is True, a
     assert a["reply"]["text"] == BIZ_ANSWER and len(biz.seen) == 1
@@ -519,7 +519,7 @@ def test_a_mixed_turn_crosses_only_the_exact_text_and_only_with_approval_and_ste
     # A request is resolved once; nothing re-crosses.
     with unified(Venice()):
         try:
-            PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
+            PC.unified_crossing(db, sid, x["id"], approve=True, verified_for_action=True,
                                 provider_factory=biz.factory)
             raise AssertionError("a crossing was approved twice")
         except PC.PrivateUnavailable as exc:
@@ -542,9 +542,8 @@ def test_crossing_approval_over_http_needs_a_fresh_step_up():
         assert r.status_code == 403 and r.json().get("code", r.text).count("STEP_UP") or \
             "STEP_UP_REQUIRED" in r.text, r.text
         assert boundary.count(H.DB) == 0
-        assert H.post(c, csrf, "/api/cc/auth/step-up",
-                      {"passphrase": H.PASS}).status_code == 200
-        ok = H.post(c, csrf, "/api/cc/laura/unified/crossing", {"id": xid, "approve": True})
+        ok = H.post(c, csrf, "/api/cc/laura/unified/crossing",
+                    {"id": xid, "approve": True, "passphrase": H.PASS})
     assert ok.status_code == 200, ok.text
     body = ok.json()
     assert body["crossed"] is True
@@ -737,7 +736,8 @@ def test_private_adult_and_mixed_turns_never_reach_business_tables_logs_or_paylo
     assert len(biz.seen) == 1 and STRUCT_BIZ in biz.blob()          # positive control
     assert not _leaks(biz.blob()), _leaks(biz.blob())                # outbound business payload
     params = "\n".join(sql)
-    assert "laura.co" in params or "laura.ex" in params             # positive control
+    bpurposes = {c.purpose for c in _rows(H.DB, CostEntry) if c.agent == "laura"}
+    assert bpurposes and all(p in params for p in bpurposes), bpurposes   # positive control
     assert LR.PURPOSE in params
     assert not _leaks(params), _leaks(params)                        # every SQL parameter
     assert not _leaks(log.getvalue()), "logging"
@@ -839,7 +839,7 @@ def test_a_brief_venice_drafts_is_shown_to_the_owner_and_never_sent_unapproved()
             raise AssertionError("a Venice draft crossed without step-up")
         except PC.PrivateUnavailable as exc:
             assert exc.code == "STEP_UP_REQUIRED"
-        a = PC.unified_crossing(db, sid, x["id"], approve=True, stepup_issued_at=_fresh(),
+        a = PC.unified_crossing(db, sid, x["id"], approve=True, verified_for_action=True,
                                 provider_factory=biz.factory)
     assert a["crossed"] and len(biz.seen) == 1 and draft in biz.seen[0][2]
     assert private not in biz.blob() and "darling" not in biz.blob()
@@ -1051,16 +1051,20 @@ def test_feed_switch_off_sends_nothing_and_preview_equals_the_payload():
     (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
     assert row.detail["sha256"] == prev["sha256"] and row.detail["fields"] == [
         f["name"] for f in prev["fields"]]
-    assert set(row.detail) == {"sha256", "fields", "counts", "bytes", "dropped", "format"}
+    assert set(row.detail) == {"sha256", "fields", "counts", "bytes", "dropped", "format",
+                               "outcome"}
     texts = [f["value"] for f in prev["fields"] if isinstance(f["value"], str)]
     assert texts and not [t for t in texts if t in json.dumps(row.detail)], row.detail
     assert row.detail["counts"] == {f["name"]: (len(f["value"]) if isinstance(
         f["value"], (list, dict)) else 0 if f["value"] is None else 1) for f in prev["fields"]}
     for bad in PII:
         assert bad not in mock.user(1) and bad not in json.dumps(row.detail)
-    # The owner's preview over HTTP is owner-only and no-store.
+    # The owner's preview over HTTP is owner-only (with the private grant, S-3) and no-store.
     c, csrf = H.session()
-    r = H.post(c, csrf, "/api/cc/laura/unified/feed-preview", {})
+    assert H.post(c, csrf, "/api/cc/auth/step-up", {"passphrase": H.PASS}).status_code == 200
+    with unified(None):
+        assert H.post(c, csrf, "/api/cc/private/open", {}).status_code == 200
+        r = H.post(c, csrf, "/api/cc/laura/unified/feed-preview", {})
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
     assert {f["name"] for f in r.json()["allowlist"]} == set(VC.FIELD_NAMES)
     assert H.client().post("/api/cc/laura/unified/feed-preview",
@@ -1337,48 +1341,41 @@ def test_review_m2_the_bearer_key_is_never_forwarded_on_a_redirect():
             assert exc.code == 302
 
 
-def test_review_l1_approval_needs_a_step_up_performed_after_the_offer():
-    from datetime import datetime, timedelta, timezone
-
+def test_review_l1_n3_approval_is_verified_for_this_exact_action():
+    """L-1 + delta review N-3: no session-wide step-up window approves a crossing -- not the
+    login's, not the one that opened the conversation, not a fresh one performed for anything
+    else. Only the owner's credentials inside THIS approval request do, once."""
     db = _db()
     sid = _open(db)
     biz = Biz()
     with unified(Venice(replies=[R[0]])):
         m = _turn(db, sid, MIX_TURN, biz)
-        xid = m["crossing"]["id"]
-        before = datetime.now(timezone.utc) - timedelta(minutes=1)  # the step-up that opened
-        for issued in (None, before):
-            try:
-                PC.unified_crossing(db, sid, xid, approve=True, stepup_issued_at=issued,
-                                    provider_factory=biz.factory)
-                raise AssertionError(f"approved with step-up issued {issued}")
-            except PC.PrivateUnavailable as exc:
-                assert exc.code == "STEP_UP_REQUIRED"
+        try:
+            PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True,
+                                provider_factory=biz.factory)
+            raise AssertionError("approved without per-action verification")
+        except PC.PrivateUnavailable as exc:
+            assert exc.code == "STEP_UP_REQUIRED"
         assert biz.seen == []
-    # Over HTTP: the step-up that opened the conversation does not approve a later offer.
     c, csrf = H.session()
     assert H.post(c, csrf, "/api/cc/auth/step-up", {"passphrase": H.PASS}).status_code == 200
     with unified(Venice(replies=[R[1]])):
         assert H.post(c, csrf, "/api/cc/private/open", {}).status_code == 200
+        before_n = boundary.count(H.DB)
         t = H.post(c, csrf, "/api/cc/laura/unified/turn", {"text": MIX_TURN + " (L-1)"})
         x2 = t.json()["crossing"]["id"]
-        r = H.post(c, csrf, "/api/cc/laura/unified/crossing", {"id": x2, "approve": True})
-        assert r.status_code == 403 and "STEP_UP_REQUIRED" in r.text, r.text
+        # A FRESH step-up performed after the offer, for something else, does not approve it.
         assert H.post(c, csrf, "/api/cc/auth/step-up",
                       {"passphrase": H.PASS}).status_code == 200
         r = H.post(c, csrf, "/api/cc/laura/unified/crossing", {"id": x2, "approve": True})
+        assert r.status_code == 403 and "STEP_UP_REQUIRED" in r.text, r.text
+        bad = H.post(c, csrf, "/api/cc/laura/unified/crossing",
+                     {"id": x2, "approve": True, "passphrase": "wrong passphrase here"})
+        assert bad.status_code == 401, bad.text
+        assert boundary.count(H.DB) == before_n
+        r = H.post(c, csrf, "/api/cc/laura/unified/crossing",
+                   {"id": x2, "approve": True, "passphrase": H.PASS})
     assert r.status_code == 200 and r.json()["crossed"] is True, r.text
-    # The login window alone never counts.
-    login = H.client()
-    lr = login.post("/api/cc/auth/login", json={"passphrase": H.PASS})
-    lsid = lr.json()["session"]["session_id"] if "session" in lr.json() else None
-    assert lsid
-    from brambleloop.app.command_center.models import OwnerSession
-
-    with H.DB.session() as s_:
-        row = s_.scalar(select(OwnerSession).where(OwnerSession.public_id == lsid))
-        created = row.created_at
-    assert PC._stepup_counts(H.DB, lsid, "2000-01-01T00:00:00+00:00", created) is False
 
 
 def test_review_l2_a_crossing_resolves_exactly_once_under_a_race():
@@ -1420,7 +1417,7 @@ def test_review_l3_an_over_long_crossing_is_never_left_half_approved():
     xid = ST.request_crossing(db, p, out["id"], long_biz, origin="owner_quote")
     with unified(Venice()):
         try:
-            PC.unified_crossing(db, sid, xid, approve=True, stepup_issued_at=_fresh())
+            PC.unified_crossing(db, sid, xid, approve=True, verified_for_action=True)
             raise AssertionError("an over-long crossing was approved")
         except PC.PrivateUnavailable as exc:
             assert exc.status == 400
@@ -1451,7 +1448,7 @@ def test_review_l5_delete_cascades_to_derived_records():
     with unified(Venice(replies=[R[0]])):
         m = _turn(db, sid, MIX_TURN, biz)
         x = PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True,
-                                stepup_issued_at=_fresh(), provider_factory=biz.factory)
+                                verified_for_action=True, provider_factory=biz.factory)
     gone = {m["id"], m["reply"]["id"], m["crossing"]["id"], x["approval_turn"],
             x["reply"]["id"]}
     out = _control(db, sid, "forget", [m["id"]])
@@ -1572,6 +1569,156 @@ def test_review_s4_venice_card_only_when_selected_and_names_the_effective_model(
     msg = CR.owner_action("venice", CR.PERMISSION, env)
     assert "zai-org-glm-5-2" in msg and V.MODEL not in msg, msg
     assert V.MODEL in CR.owner_action("venice", CR.PERMISSION, {})
+
+
+
+def test_review_mixed_and_personal_offers_use_honest_wording():
+    db = _db()
+    sid = _open(db)
+    with unified(Venice(replies=[R[0], R[1]],
+                        route=lambda u: {"tool": "business.ask", "brief": ""})):
+        m = _turn(db, sid, MIX_TURN)
+        b = _turn(db, sid, "How many listings are live in the shop?")
+    assert m["crossing"]["kind"] == "mixed" and "partly personal" in m["crossing"]["question"]
+    assert "re-authentication" in m["crossing"]["question"]
+    assert b["crossing"]["kind"] == "business" and "only business" in b["crossing"]["question"]
+    assert "One tap" in b["crossing"]["question"]
+    kinds = {x["id"]: x["kind"] for x in _view(db, sid)["crossings"]}       # sealed, durable
+    assert kinds == {m["crossing"]["id"]: "mixed", b["crossing"]["id"]: "business"}
+
+
+def test_review_n4_feed_audit_row_only_when_the_request_left():
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    with unified(None, **{U.BUSINESS_TO_VENICE_ENV: "1", LR.DAILY_AUTH_ENV: "0.000001"}):
+        out = _turn(db, sid, EVERYDAY_TURN)                  # refused before the call
+    assert out["reason"] == "SPEND_CEILING"
+    assert [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION] == []
+    with unified(Venice(replies=[R[0]]), **{U.BUSINESS_TO_VENICE_ENV: "1"}):
+        _turn(db, sid, "Tell me something nice")
+    (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
+    assert row.detail["outcome"] == "REPLIED"
+
+
+def test_review_n5_the_crossed_row_link_is_sealed_before_the_business_call():
+    db = _db()
+    sid = _open(db)
+    with unified(Venice(replies=[R[0]])):
+        m = _turn(db, sid, MIX_TURN)
+
+        def boom(*a, **k):
+            raise RuntimeError("crash between record and business call")
+        orig = PC._unified_business
+        PC._unified_business = boom
+        try:
+            try:
+                PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True,
+                                    verified_for_action=True)
+            except PC.PrivateUnavailable:
+                pass
+        finally:
+            PC._unified_business = orig
+    assert len(_rows(db, LauraBoundaryCrossing)) == 1
+    out = _control(db, sid, "forget", [m["id"]])           # delete still finds and redacts it
+    assert out["redacted"]["crossings"] == 1, out
+    assert MIX_QUOTE not in PL.table_dump(db)[0]
+
+
+def test_review_n6_a_short_private_phrase_does_not_block_a_structured_request():
+    db = _db()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(replies=[R[0]],
+                        route=lambda u: ({"tool": "business.ask", "brief": ""}
+                                         if "shop" in _newest(u) else
+                                         {"tool": "none", "brief": ""}))):
+        _turn(db, sid, "this week")                           # a short private turn
+        out = _turn(db, sid, BUSINESS_TURN, biz)               # "What did the company do this week?"
+    assert out["reply_status"] == "REPLIED", (out["reply_status"], out.get("reason"))
+    assert len(biz.seen) == 1
+    # ... while short private text is still caught in free text the owner might tap.
+    assert U.leak_check("send this week to the shop", ["this week"])
+
+
+def test_review_n7_unreadable_inbox_is_unknown_never_zero():
+    from brambleloop.app.command_center import approvals
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _db()
+    orig = approvals.inbox
+    approvals.inbox = lambda db_: {"status": "UNKNOWN", "cards": [], "open": 0}
+    try:
+        assert VC.read_open_owner_decisions(db) is None
+        assert VC.read_owner_decision_titles(db) is None
+        assert json.loads(VC.build(db)["text"])["fields"]["open_owner_decisions"] is None
+    finally:
+        approvals.inbox = orig
+
+
+def test_review_n8_redaction_clears_the_text_hash_too():
+    db = _db()
+    sid = _open(db)
+    with unified(Venice(replies=[R[0]])):
+        m = _turn(db, sid, MIX_TURN)
+        PC.unified_crossing(db, sid, m["crossing"]["id"], approve=True,
+                            verified_for_action=True, provider_factory=Biz().factory)
+    _control(db, sid, "mark_private", [m["id"]])
+    (row,) = _rows(db, LauraBoundaryCrossing)
+    import hashlib
+    assert row.text_sha256 == "" and hashlib.sha256(MIX_QUOTE.encode()).hexdigest() not in \
+        PL.table_dump(db)[0]
+
+
+def test_review_s3_feed_preview_needs_the_private_grant():
+    c, csrf = H.session()                                     # owner, no private grant
+    with unified(None):
+        r = H.post(c, csrf, "/api/cc/laura/unified/feed-preview", {})
+    assert r.status_code == 403, r.text
+
+
+def test_review_s5_harness_fails_when_a_refused_transport_is_called():
+    from brambleloop.gateway import anthropic as gw
+
+    try:
+        with PL.enabled(None):
+            try:
+                gw.AnthropicProvider._send(object(), b"{}", "k")
+            except AssertionError:
+                pass                                          # swallowed, as the path would
+        raise AssertionError("the harness did not fail on a refused transport call")
+    except AssertionError as exc:
+        assert "refused model transport was called" in str(exc), exc
+
+
+def test_review_n11_real_http_reads_more_than_2000_bytes():
+    import http.server
+    import threading
+
+    from brambleloop.gateway import credentials as CR
+
+    body = _models_body("private").encode()
+    assert len(body) > 9000
+    with _loopback_network():
+        class S(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.HTTPServer(("127.0.0.1", 0), S)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            st, text = CR._http("GET", f"http://127.0.0.1:{srv.server_address[1]}/m", {},
+                                None, 5.0)
+        finally:
+            srv.shutdown()
+    assert st == 200 and len(text) == len(body)              # the old code returned 2,000
+    assert json.loads(text)["data"][0]["id"] == V.MODEL
 
 
 if __name__ == "__main__":

@@ -5,8 +5,8 @@
 // business tool; anything from our private conversation crosses to the business side only
 // after the owner approves the exact text shown, with a fresh step-up.
 import { h, clear } from "../dom.js";
-import { api } from "../api.js";
-import { card, statusPill, toast, guardedAction } from "../components.js";
+import { api, authState } from "../api.js";
+import { card, statusPill, toast, guardedAction, confirmDialog } from "../components.js";
 import { utcStamp } from "../format.js";
 
 const LABEL_TEXT = { business: "Business", private: "Private", everyday: "Everyday", mixed: "Mixed" };
@@ -22,15 +22,18 @@ function crossingRow(x, refresh) {
   const yes = h("button", { class: "btn btn-primary", type: "button" }, "Share exactly this…");
   const no = h("button", { class: "btn", type: "button" }, "Keep it private");
   yes.addEventListener("click", async () => {
-    const out = await guardedAction({
+    // Delta review N-3: re-authentication (when needed) is verified inside THIS approval.
+    const r = await confirmDialog({
       title: "Share with the business side",
-      lines: ["Exactly this text crosses, and nothing else:", `“${x.text}”`,
-        x.origin === "laura_draft" ? "Laura drafted this request; it is shown word for word." : "Quoted from what you wrote.",
-        x.requires_stepup ? "Not plain business, or it overlaps our private conversation: re-authenticate to share." : "Check this is only business: one tap shares exactly this.",
+      lines: [x.question || "", x.origin === "laura_draft" ? "Laura drafted this request; it is shown word for word." : "Quoted from what you wrote.",
         "Recorded as a boundary crossing holding this text only."],
-      confirmLabel: "Share", requiresStepUp: !!x.requires_stepup,
-      run: () => api.lauraUnifiedCrossing(x.id, true), success: "Shared with the business side." });
-    if (out) refresh();
+      confirmLabel: "Share", stepUp: !!x.requires_stepup, totpRequired: authState().totpRequired });
+    if (!r.confirmed) { toast("Cancelled. Nothing was shared.", "info"); return; }
+    try {
+      await api.lauraUnifiedCrossing(x.id, true, x.requires_stepup ? { passphrase: r.passphrase, totp: r.totp } : null);
+      toast("Shared with the business side.", "info");
+      refresh();
+    } catch (e) { toast(`${e.message || "Refused"}${e.code ? ` (${e.code})` : ""}`, "bad"); }
   });
   no.addEventListener("click", async () => {
     try { await api.lauraUnifiedCrossing(x.id, false); toast("Kept private. Nothing was shared.", "info"); refresh(); }

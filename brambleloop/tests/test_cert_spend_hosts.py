@@ -57,6 +57,34 @@ def test_every_file_addressing_a_paid_provider_is_declared():
     assert found <= set(DECLARED), f"undeclared paid-provider callers: {sorted(found - set(DECLARED))}"
 
 
+# Integration review S-6 (carrying I16's open fix forward): the whole-file declarations of the
+# two free-check / transport modules are narrowed to an exact per-URL allowlist, so a new
+# billable endpoint added to either file fails here instead of passing under the declaration.
+URL_ALLOWLIST = {
+    "brambleloop/gateway/credentials.py": {
+        "https://api.bfl.ai/v1/credits",
+        "https://api.anthropic.com/v1/messages/count_tokens",
+        "https://api.venice.ai/api/v1/api_keys/rate_limits",
+        "https://api.venice.ai/api/v1/models?type=text",
+    },
+    "brambleloop/gateway/venice.py": {
+        "https://api.venice.ai/api/v1",
+        "https://api.venice.ai/api/v1/models",
+    },
+}
+_URL = re.compile(r"https?://(?:api\.venice\.ai|api\.anthropic\.com|api\.bfl\.ai)"
+                  r"[^\s\"'`;),]*")
+
+
+def test_free_check_and_transport_modules_address_only_their_allowlisted_urls():
+    assert len(URL_ALLOWLIST) == 2
+    for rel, allowed in URL_ALLOWLIST.items():
+        text = (SRC / rel).read_text(encoding="utf-8")
+        found = {u.rstrip(".") for u in _URL.findall(text)}
+        assert found, rel
+        assert found <= allowed, (rel, sorted(found - allowed))
+
+
 def test_the_scan_would_see_a_new_one():
     assert PAID_HOSTS.search('urllib.request.Request("https://api.openai.com/v1/images")')
 

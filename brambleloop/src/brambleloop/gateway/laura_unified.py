@@ -179,7 +179,7 @@ def _strip_allowed(candidate: str, allowed: list[str]) -> tuple[str, str]:
 
 
 def leak_check(candidate: str, private_texts: list[str], *,
-               allowed: list[str] | None = None) -> list[dict]:
+               allowed: list[str] | None = None, short_exact: bool = True) -> list[dict]:
     """Every way `candidate` carries private-thread text, as non-content hit descriptors
     `{index, how}` (index into `private_texts`); `how` is substring | normalised | shingle |
     overlap | short_exact. Empty list = clean.
@@ -213,7 +213,7 @@ def leak_check(candidate: str, private_texts: list[str], *,
                 if len(toks) >= OVERLAP_MIN_TOKENS and \
                         len(toks & ctoks) / len(toks) >= OVERLAP_RATIO:
                     how = "overlap"
-        if not how and np_ and (len(np_.split()) < MIN_NORMALISED_WORDS
+        if short_exact and not how and np_ and (len(np_.split()) < MIN_NORMALISED_WORDS
                                 and len(np_) < MIN_SUBSTRING_CHARS):
             # Short private text: an EXACT whole-phrase match (normalised), when it carries
             # at least one content token (4+ characters, not a stop word) -- "hi" or "ok" do
@@ -229,12 +229,25 @@ def leak_check(candidate: str, private_texts: list[str], *,
 # Owner-facing wording (fixed; carries no content of its own).
 
 
-def crossing_question(text: str) -> str:
-    """Laura's in-thread question. Shows the EXACT text that would cross."""
-    return ("Part of this is for the business side, and it sits in our private conversation. "
-            "Can I share this with the business side? Exactly this text would cross, and "
-            "nothing else:\n“" + text + "”\nApprove it (with a fresh step-up) or keep "
-            "it private. Until you choose, nothing is sent.")
+def crossing_question(text: str, *, kind: str = "personal", stepup: bool = True) -> str:
+    """Laura's in-thread question. Shows the EXACT text that would cross, and says honestly
+    what it is (owner directive 2026-10-21: no misleading approval text for mixed messages).
+
+    kind: "business" (her own words, classified business), "mixed" (the business part of a
+    message that is also personal), "draft" (a request Laura drafted), "personal" (anything
+    else, e.g. a delegation from a personal message)."""
+    lead = {
+        "business": "Do you want me to send your exact words to the business side? Check "
+                    "this is only business.",
+        "mixed": "Your message was partly personal. Only the part below would go to the "
+                 "business side; the personal part stays between us.",
+        "draft": "I drafted this request for the business side. It is my wording, not "
+                 "yours, so please check it.",
+    }.get(kind, "This would send words from our private conversation to the business side.")
+    how = ("Approve it with a fresh re-authentication, or keep it private." if stepup else
+           "One tap shares exactly this, or keep it private.")
+    return (lead + " Exactly this text would cross, and nothing else:\n\u201c" + text +
+            "\u201d\n" + how + " Until you choose, nothing is sent.")
 
 
 GUARD_REFUSED = ("I didn't send that to the business side: the brief would have carried words "
@@ -516,12 +529,14 @@ def plan_brief(intent: dict, cls: dict, owner_text: str, *,
         out["held"] = "code_routed"
     offer = None
     if draft and normalise(draft) not in (normalise(owner_text), normalise(out["send"])):
-        offer = {"text": draft, "origin": "laura_draft", "stepup": True}
+        offer = {"text": draft, "origin": "laura_draft", "stepup": True, "kind": "draft"}
     elif label in (BUSINESS, MIXED) and cls["business_text"]:
-        offer = {"text": cls["business_text"], "origin": "owner_quote",
-                 "stepup": not (clean_business and one_tap_business(cls["business_text"]))}
+        tap = clean_business and one_tap_business(cls["business_text"])
+        offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": not tap,
+                 "kind": ("mixed" if label == MIXED else "business" if tap else "personal")}
     elif not out["send"]:
-        offer = {"text": owner_text.strip(), "origin": "owner_quote", "stepup": True}
+        offer = {"text": owner_text.strip(), "origin": "owner_quote", "stepup": True,
+                 "kind": "personal"}
     if offer and len(offer["text"]) > MAX_OFFER_CHARS:
         offer, out["held"] = None, "too_long"
     out["offer"] = offer

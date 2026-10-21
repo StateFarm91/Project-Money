@@ -1331,25 +1331,29 @@ def make_router(db) -> APIRouter:
     async def laura_unified_crossing(request: Request):
         body = await body_of(request)
         approve = body.get("approve") is True
-        # Step-up is required to approve anything not classified business; the owner's own
-        # business words need one explicit tap. The store's sealed flag decides which; the
-        # route only reports whether this session's step-up is fresh.
-        # Security review L-1: what counts is WHEN this session's live step-up was performed
-        # (its window start); the private context accepts only one performed after the offer
-        # and never the window a login opens.
-        until = (getattr(request.state, "cc_session", None) or {}).get("stepup_until")
-        issued = (until - auth.STEPUP_WINDOW) if until is not None and until > auth._now() \
-            else None
+        pid = auth.current_public_id(request)
+        # Delta review N-3: an approval that needs step-up carries the owner's passphrase (and
+        # TOTP) in THIS request and is verified for THIS action only; no session-wide window
+        # counts. A wrong credential counts as a failed step-up.
+        verified = False
+        if approve and (body.get("passphrase") is not None or body.get("totp") is not None):
+            verified = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
+                                               body.get("totp"), db=db)
+            if not verified:
+                revoked = auth.failed_stepup(db, pid)
+                raise auth.refuse(db, request, 401, "BAD_CREDENTIALS",
+                                  "re-authentication for this approval not accepted"
+                                  + ("; session revoked" if revoked else ""),
+                                  kind="stepup", session_public_id=pid)
         return await run_in_threadpool(lambda: _private(
-            request, lambda pid: private_context.unified_crossing(
-                db, pid, body.get("id"), approve=approve, stepup_issued_at=issued)))
+            request, lambda pid_: private_context.unified_crossing(
+                db, pid_, body.get("id"), approve=approve, verified_for_action=verified)))
 
     @router.post("/laura/unified/feed-preview")
     def laura_unified_feed_preview(request: Request):
-        """Exactly which allowlisted company-context fields Venice would receive (no-store)."""
-        from ...laura.agency import venice_context
-
-        return ok(venice_context.preview(db))
+        """Exactly which allowlisted company-context fields Venice would receive (no-store).
+        Integration review S-3: needs the live private grant, like the thread."""
+        return _private(request, lambda pid: private_context.unified_feed_preview(db, pid))
 
     @router.post("/laura/unified/control")
     async def laura_unified_control(request: Request):
