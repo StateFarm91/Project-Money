@@ -382,3 +382,17 @@ Closing is audited (`launch_review.closed`). From then on the effective ceiling 
 | 7 | POST the dated `messages` reading (`notifications_inbox`, `reply_window_hours`) | Etsy has no messaging API | CA$0 | 10 | `messages` stays NO_EVIDENCE; buyer messages go unread |
 | 8 | Physical sample: a tester crochets one Launch-0 product and records gauge and size | Gauge and size claims are UNRESOLVED without a bound sample | yarn plus tester time (UNKNOWN; not approved here) | 10 to arrange | `physical_sample` FAIL; the first-customer gate does not pass |
 | 9 | Accept the listing fees, choose the go-live phase and grant draft publication for the first product(s) | Leaving SHADOW and paying Etsy is the owner's alone; it is also the only way to confirm the upload (B4) | US$0.20 per listing, US$2.00 for 10 (about CA$2.83) | 17 | No listing exists, so there is no first sale |
+
+### Run 2 (2026-10-21, on e08ea56 with the batch; all through testslot with venv-integ4)
+
+All 28 suites passed (rc=0, 0 FAIL). Counts:
+
+| suites | results |
+|---|---|
+| this branch | test_w4_launch_review 13, test_w4_listready 11 (re-runs d45e033's untested seeding and JSON-normalisation changes) |
+| required set | test_vacuity 8, test_launch 28, test_cost_governance_wave2 39, test_search_hero_publish 4, test_cert_listing_frames 6, test_v11_autonomy_timeline 6 |
+| spend | test_spend_policy 24, test_rc1_spend 20, test_w4_spend_paid_discipline 13, test_model_spend_paths 12, test_w3_spend_paid_calls 8, test_w3_spend_gateway_w8 5, test_spend_governance 36, test_w4_plact 8, test_w4_pl_budget 5, test_w4_laura1_budget 4 |
+| routes and security | test_route_auth_default_deny 7, test_customer_data_auth 9, test_w4_controlled_experiments 10, test_w4_integ4_secfixes 12, test_w4_smoke 10 |
+| sentinel, chain, gates | test_artefacts 23, test_rebuild_graph 10, test_cert_publish_gates 18, test_cert_rebuild_chain 10, test_shadow 10 |
+
+**Not run, on the coordinator's instruction:** test_product_run, test_acceptance_gates and test_cert_wiring. test_product_run's run-1 failure is fixed in d45e033 and is still to be re-run.
