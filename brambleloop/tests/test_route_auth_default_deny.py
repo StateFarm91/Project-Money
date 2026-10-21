@@ -154,7 +154,8 @@ def test_the_allow_lists_name_real_routes():
 def _want(path: str) -> int:
     """403 on the owner routers (their established contract), 401 everywhere else."""
     routers = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/",
-               "/api/owner/ledger-mapping")
+               "/api/owner/ledger-mapping",
+               "/api/owner/storefront/")  # W4-AGENTS storefront grant router
     return 403 if path.startswith(routers) else 401
 
 

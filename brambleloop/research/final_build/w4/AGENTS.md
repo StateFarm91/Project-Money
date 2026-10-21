@@ -85,7 +85,42 @@ The autonomy map was regenerated (`python -m brambleloop.autonomy.map --write`).
 - the Laura priority, mission and delegation routes;
 - store cards superseded.
 
-Focused regression runs are in section 5.
+**Focused regression runs** (venv-integ4, through testslot; all pass, 0 failures):
+
+| Suite | Result |
+|---|---|
+| test_vacuity | 8 |
+| test_launch | 28 |
+| test_cost_governance_wave2 | 39 |
+| test_search_hero_publish | 4 |
+| test_cert_listing_frames | 7 |
+| test_v11_autonomy_timeline | pass |
+| test_roles | 35 |
+| test_w3_k11_authority | 19 |
+| test_etsy | 17 |
+| test_w4_store_live_state | 12 |
+| test_w4_gatesb | 10 |
+| test_w4_shopsync | 13 |
+| test_v11_autonomy_orchestrator | 15 |
+| test_v11_wiring | 15 |
+| test_w3_laura_core_executive | 8 |
+| test_w3_laura_core_constitution | 8 |
+| test_w3_laura_core_wiring | 7 |
+| test_w3_laura_cc_delegation | pass |
+| test_w3_laura_cc_followon | pass |
+| test_rc1_auth | pass |
+| test_w4_finhealth | pass |
+| test_route_auth_default_deny | pass |
+| test_w3_k7_owner_queue | pass |
+| test_w4_credhealth | pass |
+| test_w3_decision_index | pass |
+| test_w4_agents | 13 |
+
+**Test changes, none of them weakening:**
+- `test_roles.DECLARED_BUT_UNBUILT` drops `content.draft` and `store.update`, which are now handled.
+- `test_w4_store_live_state`: the "no update_shop method" pin is replaced by a stricter check. No banner or icon write exists, and every shop write sends nothing in shadow, without a grant, or for the title or `policy_additional`.
+- `test_w4_finhealth` lists `storefront_director` as a declared CA$0 no-spend agent.
+- `test_route_auth_default_deny` lists `/api/owner/storefront/` among the 403-contract owner routers.
 
 ## 4. Remaining owner and permission gaps
 
