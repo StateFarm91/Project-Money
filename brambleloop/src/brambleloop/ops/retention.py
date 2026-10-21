@@ -125,6 +125,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # to hours), and `halted_releases` compares a release's newest certify outcome with its
     # newest halt. Pruning older rows removes the older halt first, so the worst case is a
     # release that is not retried -- never one certified twice.
+    # LAUNCHPREP E6: etsy_ops reads the newest shop-sync row only (the snapshot's spacing).
+    "store.shop_sync": ("latest", "etsy_ops._seconds_since_shop_sync reads the newest row"),
     "gate.certified": ("windowed", "release_recovery reads rows newer than a queued certify "
                                    "job and each release's newest outcome"),
     # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as

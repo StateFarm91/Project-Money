@@ -113,8 +113,11 @@ def test_the_owner_readings_card_posts_through_the_owner_route_with_step_up():
     assert 'shopObservation: () => `${API_BASE}/etsy/shop-observation`' in api
     assert "recordShopObservation: (body) => post(ENDPOINTS.shopObservation(), body)" in api
     card = (STATIC / "js" / "views" / "_shop_readings.js").read_text()
-    assert card.count("requiresStepUp: true") == 2
+    assert card.count("requiresStepUp: true") == 3            # messages, legal, delivery
     assert 'page: "messages"' in card and 'page: "legal_and_tax"' in card
+    assert 'page: "delivery_policy"' in card                   # LAUNCHPREP E2/E5
+    store = (STATIC / "js" / "views" / "store.js").read_text()
+    assert 'shopReadingsCard(rerender || (() => {}), { labelId: "store-shop-readings" })' in store
     for bad in ("fetch(", "innerHTML", "method:", "X-CSRF-Token", "localStorage",
                 "/api/etsy/shop-observation"):
         assert bad not in card, bad
